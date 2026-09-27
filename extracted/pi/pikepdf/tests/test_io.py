@@ -3,12 +3,17 @@
 
 from __future__ import annotations
 
+import errno
+import io
 import logging
 import os
 import os.path
 import pathlib
+import stat
 import subprocess
 import sys
+import tempfile
+import threading
 from io import BytesIO, FileIO
 from shutil import copy
 
@@ -16,7 +21,7 @@ import pytest
 
 import pikepdf
 from pikepdf import Pdf, PdfError
-from pikepdf._io import atomic_overwrite
+from pikepdf._io import atomic_overwrite, atomic_write_verified, output_fd
 
 # pylint: disable=redefined-outer-name
 
@@ -55,6 +60,61 @@ def test_overwrite_input(resources, outdir):
     with Pdf.open(outdir / 'sandwich.pdf') as p:
         with pytest.raises(ValueError, match=r'overwrite input file'):
             p.save(outdir / 'sandwich.pdf')
+
+
+def test_overwrite_input_stream_bytesio(resources):
+    bio = BytesIO((resources / 'sandwich.pdf').read_bytes())
+    original = bio.getvalue()
+    with Pdf.open(bio) as p:
+        with pytest.raises(ValueError, match=r'overwrite input file'):
+            p.save(bio)
+        assert bio.getvalue() == original
+        # The Pdf is still readable from its input
+        assert len(p.pages[0].Contents.read_bytes()) > 0
+
+
+def test_overwrite_input_stream_file(resources, tmp_path):
+    copy(resources / 'sandwich.pdf', tmp_path / 'sandwich.pdf')
+    original = (tmp_path / 'sandwich.pdf').read_bytes()
+    with open(tmp_path / 'sandwich.pdf', 'r+b') as f, Pdf.open(f) as p:
+        with pytest.raises(ValueError, match=r'overwrite input file'):
+            p.save(f)
+    assert (tmp_path / 'sandwich.pdf').read_bytes() == original
+
+
+@pytest.mark.parametrize('open_by', ['path', 'stream'])
+def test_overwrite_input_via_other_stream(resources, tmp_path, open_by):
+    """A different stream on the input file is refused too."""
+    path = tmp_path / 'sandwich.pdf'
+    copy(resources / 'sandwich.pdf', path)
+    original = path.read_bytes()
+    with open(path, 'rb') as fin:
+        with Pdf.open(path if open_by == 'path' else fin) as p:
+            with open(path, 'r+b') as fout:
+                with pytest.raises(ValueError, match=r'overwrite input file'):
+                    p.save(fout)
+    assert path.read_bytes() == original
+
+
+def test_overwrite_input_stream_allowed_with_allow_overwriting_input(
+    resources, tmp_path
+):
+    path = tmp_path / 'sandwich.pdf'
+    copy(resources / 'sandwich.pdf', path)
+    with Pdf.open(path, allow_overwriting_input=True) as p:
+        with open(path, 'r+b') as fout:
+            p.save(fout)
+            fout.truncate()
+    with Pdf.open(path) as p:
+        assert len(p.pages) == 1
+
+
+def test_save_to_unrelated_stream_after_opening_stream(resources):
+    bio = BytesIO((resources / 'sandwich.pdf').read_bytes())
+    with Pdf.open(bio) as p:
+        out = BytesIO()
+        p.save(out)
+        assert out.getvalue().startswith(b'%PDF-')
 
 
 def test_fail_only_overwrite_input_check(monkeypatch, resources, outdir):
@@ -316,3 +376,334 @@ def test_newline_handling(resources):
 def test_save_to_dev_null():
     with Pdf.new() as pdf:
         pdf.save(os.devnull)
+    assert not pathlib.Path(os.devnull).is_file()
+
+
+@pytest.mark.skipif(not hasattr(os, 'mkfifo'), reason="needs FIFOs")
+def test_save_to_fifo_writes_into_it(tmp_path):
+    fifo = tmp_path / 'out.pdf'
+    os.mkfifo(fifo)
+    received = []
+    reader = threading.Thread(target=lambda: received.append(fifo.read_bytes()))
+    reader.start()
+    with Pdf.new() as pdf:
+        pdf.save(fifo)
+    reader.join(timeout=10)
+    assert stat.S_ISFIFO(fifo.stat().st_mode)
+    assert received and received[0].startswith(b'%PDF')
+
+
+def _pikepdf_temps(directory):
+    return list(pathlib.Path(directory).glob('.pikepdf.*'))
+
+
+def test_atomic_write_verified_new(tmp_path):
+    dest = tmp_path / 'new.pdf'
+    seen = {}
+
+    def verify(tmp):
+        seen['path'] = tmp
+        seen['exists'] = tmp.exists()
+        seen['content'] = tmp.read_bytes()
+        seen['dest_exists'] = dest.exists()
+
+    with atomic_write_verified(dest, verify) as f:
+        assert f.seekable()
+        f.write(b'hello')
+
+    assert dest.read_bytes() == b'hello'
+    assert seen['path'].parent == tmp_path
+    assert seen['path'].name.startswith('.pikepdf.new.pdf.')
+    assert seen['exists']
+    assert seen['content'] == b'hello'
+    assert not seen['dest_exists']
+    assert _pikepdf_temps(tmp_path) == []
+
+
+def test_atomic_write_verified_existing(tmp_path):
+    dest = tmp_path / 'existing.pdf'
+    dest.write_bytes(b'old')
+    if os.name != 'nt':
+        dest.chmod(0o640)
+    os.utime(dest, (1_000_000, 1_000_000))
+
+    with atomic_write_verified(dest, lambda tmp: None) as f:
+        f.write(b'new')
+
+    assert dest.read_bytes() == b'new'
+    st = dest.stat()
+    assert st.st_mtime > 1_000_000
+    if os.name != 'nt':
+        assert st.st_mode & 0o777 == 0o640
+    assert _pikepdf_temps(tmp_path) == []
+
+
+class VerifyRejected(Exception):
+    pass
+
+
+def _reject(tmp):
+    raise VerifyRejected('bad bytes')
+
+
+def test_atomic_write_verified_reject_new(tmp_path):
+    dest = tmp_path / 'new.pdf'
+    with pytest.raises(VerifyRejected), atomic_write_verified(dest, _reject) as f:
+        f.write(b'unverified')
+    assert not dest.exists()
+    assert _pikepdf_temps(tmp_path) == []
+
+
+def test_atomic_write_verified_reject_existing(tmp_path):
+    dest = tmp_path / 'existing.pdf'
+    dest.write_bytes(b'original')
+    os.utime(dest, (1_000_000, 1_000_000))
+    with pytest.raises(VerifyRejected), atomic_write_verified(dest, _reject) as f:
+        f.write(b'unverified')
+    assert dest.read_bytes() == b'original'
+    assert dest.stat().st_mtime == 1_000_000
+    assert _pikepdf_temps(tmp_path) == []
+
+
+@pytest.mark.parametrize('exists', [False, True])
+def test_atomic_write_verified_body_raises(tmp_path, exists):
+    dest = tmp_path / 'dest.pdf'
+    if exists:
+        dest.write_bytes(b'original')
+        os.utime(dest, (1_000_000, 1_000_000))
+    called = []
+    with (
+        pytest.raises(ValueError, match='oops'),
+        atomic_write_verified(dest, called.append) as f,
+    ):
+        f.write(b'partial')
+        raise ValueError('oops')
+    assert called == []
+    if exists:
+        assert dest.read_bytes() == b'original'
+        assert dest.stat().st_mtime == 1_000_000
+    else:
+        assert not dest.exists()
+    assert _pikepdf_temps(tmp_path) == []
+
+
+def test_atomic_write_verified_keyboard_interrupt(tmp_path):
+    dest = tmp_path / 'dest.pdf'
+    with pytest.raises(KeyboardInterrupt), atomic_write_verified(dest, _reject) as f:
+        f.write(b'partial')
+        raise KeyboardInterrupt
+    assert not dest.exists()
+    assert _pikepdf_temps(tmp_path) == []
+
+
+_UMASK_REPRO = """
+import os, sys
+from pathlib import Path
+from pikepdf._io import atomic_write_verified
+
+os.umask(0o027)
+dest = Path(sys.argv[1])
+with atomic_write_verified(dest, lambda tmp: None) as f:
+    f.write(b'x')
+print(oct(dest.stat().st_mode & 0o777))
+"""
+
+
+@pytest.mark.skipif(os.name == 'nt', reason="POSIX permissions")
+def test_atomic_write_verified_umask(tmp_path):
+    dest = tmp_path / 'umask.pdf'
+    result = subprocess.run(
+        [sys.executable, '-c', _UMASK_REPRO, str(dest)],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    assert result.stdout.strip() == '0o640'
+    assert dest.stat().st_mode & 0o777 == 0o640
+
+
+@pytest.mark.skipif(os.name == 'nt', reason="no /dev/null semantics on Windows")
+def test_atomic_write_verified_devnull():
+    verified = []
+    with atomic_write_verified(pathlib.Path(os.devnull), verified.append) as f:
+        f.write(b'discard me')
+    assert len(verified) == 1
+    assert pathlib.Path(os.devnull).exists()
+    assert not pathlib.Path(os.devnull).is_file()
+
+
+def test_atomic_write_verified_exdev(tmp_path, monkeypatch):
+    dest = tmp_path / 'dest.pdf'
+    dest.write_bytes(b'original')
+    real_replace = os.replace
+    calls = []
+
+    def fake_replace(src, dst, *args, **kwargs):
+        if not calls:
+            calls.append((src, dst))
+            raise OSError(errno.EXDEV, 'Invalid cross-device link')
+        return real_replace(src, dst, *args, **kwargs)
+
+    monkeypatch.setattr(os, 'replace', fake_replace)
+    with atomic_write_verified(dest, lambda tmp: None) as f:
+        f.write(b'verified bytes')
+    assert calls
+    assert dest.read_bytes() == b'verified bytes'
+    assert _pikepdf_temps(tmp_path) == []
+
+
+def test_atomic_write_verified_permission_fallback(tmp_path, monkeypatch):
+    dest = tmp_path / 'dest.pdf'
+    real_open = os.open
+    opened = []
+
+    def fake_open(path, flags, *args, **kwargs):
+        p = pathlib.Path(path)
+        if p.parent == tmp_path and p.name.startswith('.pikepdf.'):
+            raise PermissionError(errno.EACCES, 'denied', str(path))
+        opened.append(p)
+        return real_open(path, flags, *args, **kwargs)
+
+    monkeypatch.setattr(os, 'open', fake_open)
+    seen = []
+    with atomic_write_verified(dest, seen.append) as f:
+        f.write(b'via tempdir')
+    assert dest.read_bytes() == b'via tempdir'
+    assert seen[0].parent == pathlib.Path(tempfile.gettempdir())
+    assert seen[0].name.startswith('.pikepdf.dest.pdf.')
+    assert not seen[0].exists()
+    assert _pikepdf_temps(tmp_path) == []
+
+
+@pytest.mark.skipif(os.name == 'nt', reason="symlinks need privileges on Windows")
+def test_atomic_write_verified_symlink(tmp_path):
+    target = tmp_path / 'target.pdf'
+    target.write_bytes(b'target')
+    link = tmp_path / 'link.pdf'
+    link.symlink_to(target)
+    with atomic_write_verified(link, lambda tmp: None) as f:
+        f.write(b'new')
+    assert not link.is_symlink()
+    assert link.is_file()
+    assert link.read_bytes() == b'new'
+    assert target.read_bytes() == b'target'
+    assert _pikepdf_temps(tmp_path) == []
+
+
+class _SubclassedWriter(io.BufferedWriter):
+    pass
+
+
+@pytest.mark.parametrize(
+    'opener',
+    [
+        lambda p: open(p, 'wb'),
+        lambda p: open(p, 'w+b'),
+        lambda p: open(p, 'ab'),
+        lambda p: open(p, 'wb', buffering=0),
+    ],
+    ids=['wb', 'w+b', 'ab', 'unbuffered'],
+)
+def test_output_fd_plain_files(tmp_path, opener):
+    with opener(tmp_path / 'out.pdf') as f:
+        assert output_fd(f) == f.fileno()
+
+
+def test_output_fd_rejects(tmp_path):
+    path = tmp_path / 'out.pdf'
+    path.write_bytes(b'')
+    assert output_fd(BytesIO()) is None
+    with open(path, 'w') as f:
+        assert output_fd(f) is None  # text stream
+    with open(path, 'rb') as f:
+        assert output_fd(f) is None  # BufferedReader
+    with FileIO(path, 'rb') as f:
+        assert output_fd(f) is None  # not writable
+    with _SubclassedWriter(FileIO(path, 'wb')) as f:
+        assert output_fd(f) is None  # write() may be overridden
+    closed = open(path, 'wb')
+    closed.close()
+    assert output_fd(closed) is None
+
+
+@pytest.mark.skipif(not hasattr(os, 'pipe'), reason="needs pipes")
+def test_output_fd_rejects_pipe():
+    r, w = os.pipe()
+    with open(r, 'rb'), open(w, 'wb') as writer:
+        assert output_fd(writer) is None
+
+
+def test_atomic_overwrite_existing_yields_plain_file(tmp_path):
+    existing = tmp_path / 'existing.pdf'
+    existing.write_bytes(b'existing')
+    with atomic_overwrite(existing) as f:
+        assert output_fd(f) is not None
+
+
+def _reference_bytes(pdf):
+    bio = BytesIO()
+    pdf.save(bio, static_id=True)
+    return bio.getvalue()
+
+
+@pytest.mark.parametrize('mode', ['wb', 'w+b', 'ab'])
+@pytest.mark.parametrize('buffering', [-1, 0])
+def test_save_to_file_object_uses_fd(sandwich, tmp_path, monkeypatch, mode, buffering):
+    import pikepdf._io
+
+    calls = []
+    real_output_fd = pikepdf._io.output_fd
+
+    def spy(stream):
+        fd = real_output_fd(stream)
+        calls.append(fd)
+        return fd
+
+    monkeypatch.setattr(pikepdf._io, 'output_fd', spy)
+    expected = _reference_bytes(sandwich)
+    path = tmp_path / 'out.pdf'
+    if mode == 'ab':
+        path.write_bytes(b'existing')
+    with open(path, mode, buffering=buffering) as f:
+        f.write(b'prefix')  # left in the Python buffer, unflushed
+        sandwich.save(f, static_id=True)
+        assert calls and calls[-1] == f.fileno()
+        start = len(b'existing') if mode == 'ab' else 0
+        assert f.tell() == start + len(b'prefix') + len(expected)
+        f.write(b'suffix')
+    head = b'existing' if mode == 'ab' else b''
+    assert path.read_bytes() == head + b'prefix' + expected + b'suffix'
+
+
+def test_save_to_file_object_mid_file(sandwich, tmp_path):
+    expected = _reference_bytes(sandwich)
+    path = tmp_path / 'out.pdf'
+    path.write_bytes(b'x' * 100)
+    with open(path, 'r+b') as f:
+        f.read(10)  # BufferedRandom has read ahead past the logical position
+        sandwich.save(f, static_id=True)
+        assert f.tell() == 10 + len(expected)
+    data = path.read_bytes()
+    assert data[:10] == b'x' * 10
+    assert data[10 : 10 + len(expected)] == expected
+
+
+@pytest.mark.skipif(sys.platform != 'linux', reason="needs RLIMIT_FSIZE semantics")
+def test_save_to_file_object_write_error(resources, tmp_path):
+    script = f"""
+import errno, resource, signal
+import pikepdf
+signal.signal(signal.SIGXFSZ, signal.SIG_IGN)
+resource.setrlimit(resource.RLIMIT_FSIZE, (1000, 1000))
+with pikepdf.open({str(resources / 'sandwich.pdf')!r}) as pdf:
+    with open({str(tmp_path / 'out.pdf')!r}, 'wb') as f:
+        try:
+            pdf.save(f)
+        except OSError as e:
+            assert e.errno == errno.EFBIG, e
+            print('OK')
+"""
+    result = subprocess.run(
+        [sys.executable, '-c', script], capture_output=True, text=True, check=False
+    )
+    assert result.stdout.strip() == 'OK', result.stderr

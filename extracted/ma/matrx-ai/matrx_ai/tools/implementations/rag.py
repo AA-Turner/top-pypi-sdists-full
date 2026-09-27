@@ -361,5 +361,8 @@ def _citable_blocks_for_hits(hits: list[dict[str, Any]]) -> list[Any] | None:
             "snippets were moved into the passage blocks."
         ),
     )
+    from matrx_ai.config.citations import cap_search_metadata
+
+    cap_search_metadata(payload_meta)
     blocks.append(TextContent(text=json.dumps(payload_meta, ensure_ascii=False, default=str)))
     return blocks

@@ -1,37 +1,32 @@
-import typing
-from typing import Union, cast, Optional
-from collections.abc import Sequence
 import json
+import typing
+from collections.abc import Sequence
+from typing import Optional, TypeGuard, Union, cast
 
-from typing import TypeGuard
-
-
-import httpx
+import httpx2
 import pydantic
 
-from ..request import RequestBase, AsyncRequestBase
-from ..errors import HTTPStatusError, ContentTypeError, ResponseSchemaError, ResponseDecodingError, HeadersMissingError
-
-
+from ..errors import ContentTypeError, HeadersMissingError, HTTPStatusError, ResponseDecodingError, ResponseSchemaError
+from ..request import AsyncRequestBase, RequestBase
 from .parameter import Parameter
 from .root import Root
 
 try:
-    import httpx_auth
+    import httpx2_auth
 except ImportError:
-    httpx_auth = None
+    httpx2_auth = None
 
 if typing.TYPE_CHECKING:
     from .._types import (
-        RequestParameters,
-        RequestData,
-        ResponseHeadersType,
-        ResponseDataType,
         HeaderType,
+        RequestData,
+        RequestParameters,
+        ResponseDataType,
+        ResponseHeadersType,
     )
-    from .schemas import Schema
     from .general import Reference
     from .paths import Response as v20ResponseType
+    from .schemas import Schema
 
 
 def in_body(x: Union["Parameter", "Reference"]) -> TypeGuard["Parameter"]:
@@ -92,31 +87,29 @@ class Request(RequestBase):
             return
 
         if not self.security:
-            if any([{} == i.root for i in security]):
+            if any({} == i.root for i in security):
                 return
             else:
                 options = " or ".join(
-                    sorted(map(lambda x: f"{{{x}}}", [" and ".join(sorted(i.root.keys())) for i in security]))
+                    sorted(f"{{{x}}}" for x in [" and ".join(sorted(i.root.keys())) for i in security])
                 )
                 raise ValueError(f"No security requirement provided (accepts {options})")
 
         for s in security:
             if frozenset(s.root.keys()) - frozenset(self.security.keys()):
                 continue
-            for scheme, _ in s.root.items():
+            for scheme in s.root:
                 value = self.security[scheme]
                 self._prepare_secschemes(scheme, value)
             break
         else:
-            options = " or ".join(
-                sorted(map(lambda x: f"{{{x}}}", [" and ".join(sorted(i.root.keys())) for i in security]))
-            )
+            options = " or ".join(sorted(f"{{{x}}}" for x in [" and ".join(sorted(i.root.keys())) for i in security]))
             raise ValueError(
                 f"No security requirement satisfied (accepts {options} given {{{' and '.join(sorted(self.security.keys()))}}})"
             )
 
     def _prepare_secschemes(self, scheme: str, value: str | Sequence[str]) -> None:
-        if httpx_auth is not None:
+        if httpx2_auth is not None:
             self._prepare_secschemes_extra(scheme, value)
         else:
             self._prepare_secschemes_default(scheme, value)
@@ -127,7 +120,7 @@ class Request(RequestBase):
 
         if ss.type == "basic":
             value = cast(list[str], value)
-            self.req.auth = httpx.BasicAuth(*value)
+            self.req.auth = httpx2.BasicAuth(*value)
 
         value = cast(str, value)
         if ss.type == "apiKey":
@@ -139,26 +132,26 @@ class Request(RequestBase):
                 # apiKey in query header data
                 self.req.headers[ss.name] = value
 
-    def _prepare_secschemes_extra(self, scheme: str, value: str | Sequence[str]) -> None:
+    def _prepare_secschemes_extra(self, scheme: str, value: str | Sequence[str]) -> None:  # pragma: no cover
         assert scheme in self.root.securityDefinitions and self.root.securityDefinitions[scheme] is not None
         ss = self.root.securityDefinitions[scheme].root
 
         if ss.type == "basic":
             value = cast(list[str], value)
-            self.req.auth = httpx_auth.Basic(*value)
+            self.req.auth = httpx2_auth.Basic(*value)
 
         value = cast(str, value)
         if ss.type == "apiKey":
             if ss.in_ == "query":
                 # apiKey in query parameter
-                self.req.auth = httpx_auth.QueryApiKey(value, ss.name)
+                self.req.auth = httpx2_auth.QueryApiKey(value, ss.name)
 
             if ss.in_ == "header":
                 # apiKey in query header data
-                self.req.auth = httpx_auth.HeaderApiKey(value, ss.name)
+                self.req.auth = httpx2_auth.HeaderApiKey(value, ss.name)
 
     def _prepare_parameters(self, provided: Optional["RequestParameters"]):
-        provided = provided or dict()
+        provided = provided or {}
         possible = {_.name: _ for _ in self.operation.parameters + self.root.paths[self.path].parameters}
 
         parameters = {i.name: i.default for i in filter(lambda x: x.default is not None, possible.values())}
@@ -166,9 +159,7 @@ class Request(RequestBase):
 
         available = frozenset(parameters.keys())
         accepted = frozenset(possible.keys())
-        required = frozenset(
-            map(lambda x: x[0], filter(lambda y: y[1].required and y[1].in_ != "body", possible.items()))
-        )
+        required = frozenset(x[0] for x in filter(lambda y: y[1].required and y[1].in_ != "body", possible.items()))
         if available - accepted:
             raise ValueError(f"Parameter {sorted(available - accepted)} unknown (accepted {sorted(accepted)})")
         if required - available:
@@ -244,7 +235,7 @@ class Request(RequestBase):
         self._prepare_parameters(parameters)
         self._prepare_body(data)
 
-    def _process__status_code(self, result: httpx.Response, status_code: str) -> "v20ResponseType":
+    def _process__status_code(self, result: httpx2.Response, status_code: str) -> "v20ResponseType":
         # find the response model in spec we received
         expected_response = None
         if status_code in self.operation.responses:
@@ -263,18 +254,18 @@ class Request(RequestBase):
         return expected_response
 
     def _process__headers(
-        self, result: httpx.Response, headers: dict[str, str], expected_response: "v20ResponseType"
+        self, result: httpx2.Response, headers: dict[str, str], expected_response: "v20ResponseType"
     ) -> "ResponseHeadersType":
-        rheaders = dict()
+        rheaders = {}
         if expected_response.headers:
-            required = dict(map(lambda x: (x[0].lower(), x[1]), expected_response.headers.items()))
+            required = {x[0].lower(): x[1] for x in expected_response.headers.items()}
             """
             Swagger 2.0 does not have optional header - all defined headers are required
             https://github.com/OAI/OpenAPI-Specification/blob/main/versions/2.0.md#header-object
             """
             available = frozenset(result.headers.keys())
             if missing := (required.keys() - available):
-                report: dict[str, "HeaderType"] = {k: required[k] for k in missing}
+                report: dict[str, HeaderType] = {k: required[k] for k in missing}
                 raise HeadersMissingError(self.operation, report, result)
             for name, header in expected_response.headers.items():
                 data = headers.get(name, None)
@@ -282,14 +273,14 @@ class Request(RequestBase):
                     rheaders[name] = header._schema.model(header._decode(data))
         return rheaders
 
-    def _process_stream(self, result: httpx.Response) -> tuple["ResponseHeadersType", Optional["Schema"]]:
+    def _process_stream(self, result: httpx2.Response) -> tuple["ResponseHeadersType", Optional["Schema"]]:
         status_code = str(result.status_code)
         expected_response = self._process__status_code(result, status_code)
         headers = self._process__headers(result, result.headers, expected_response)
         return headers, expected_response.schema_
 
-    def _process_request(self, result: httpx.Response) -> tuple["ResponseHeadersType", Optional["ResponseDataType"]]:
-        rheaders: "ResponseHeadersType"
+    def _process_request(self, result: httpx2.Response) -> tuple["ResponseHeadersType", Optional["ResponseDataType"]]:
+        rheaders: ResponseHeadersType
         # spec enforces these are strings
         status_code = str(result.status_code)
         content_type = result.headers.get("Content-Type", None)

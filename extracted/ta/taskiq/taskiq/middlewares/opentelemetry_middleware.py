@@ -2,11 +2,9 @@ import logging
 from collections.abc import Generator
 from contextlib import AbstractContextManager
 from datetime import datetime, timezone
-from importlib.metadata import version
 from typing import Any, TypeVar
 
 import psutil
-from packaging.version import Version, parse
 
 try:
     import opentelemetry  # noqa: F401
@@ -33,16 +31,6 @@ T = TypeVar("T")
 
 # Taskiq Context key
 CTX_KEY = "__otel_task_span"
-
-# unlike pydantic v2, v1 includes CTX_KEY by default
-# excluding it here
-PYDANTIC_VER = parse(version("pydantic"))
-IS_PYDANTIC1 = Version("2.0") > PYDANTIC_VER
-if IS_PYDANTIC1:
-    if TaskiqMessage.__exclude_fields__:  # type: ignore[attr-defined]
-        TaskiqMessage.__exclude_fields__.update(CTX_KEY)  # type: ignore
-    else:
-        TaskiqMessage.__exclude_fields__ = {CTX_KEY}  # type: ignore
 
 # Taskiq Context attributes
 TASKIQ_CONTEXT_ATTRIBUTES = [
@@ -115,8 +103,8 @@ def attach_context(
 
     if ctx_dict is None:
         ctx_dict = {}
-        # use object.__setattr__ directly
-        # to skip pydantic v1 setattr
+        # use object.__setattr__ directly since CTX_KEY is not a declared model field,
+        # and pydantic forbids setting undeclared attributes
         object.__setattr__(message, CTX_KEY, ctx_dict)
 
     ctx_dict[(message.task_id, is_publish)] = (span, activation, token)
@@ -312,40 +300,6 @@ class OpenTelemetryMiddleware(TaskiqMiddleware):
         )
         return message
 
-    def post_save(  # pylint: disable=R6301
-        self,
-        message: TaskiqMessage,
-        result: TaskiqResult[T],
-    ) -> None:
-        """
-        This function closes span from `pre_execute`.
-
-        :param message: received message.
-        :param result: result of the execution.
-        """
-        logger.debug("post_execute task_id=%s", message.task_id)
-
-        # retrieve and finish the Span
-        ctx = retrieve_context(message)
-
-        if ctx is None:
-            logger.warning("no existing span found for task_id=%s", message.task_id)
-            return
-
-        span, activation, token = ctx
-
-        if span.is_recording():
-            span.set_attribute(_TASK_TAG_KEY, _TASK_EXECUTE)
-            set_attributes_from_context(span, message.labels)
-            span.set_attribute(_TASK_NAME_KEY, message.task_name)
-
-        activation.__exit__(None, None, None)
-        detach_context(message)
-        # if the process sending the task is not instrumented
-        # there's no incoming context and no token to detach
-        if token is not None:
-            context_api.detach(token)  # type: ignore[arg-type]
-
     def on_error(
         self,
         message: TaskiqMessage,
@@ -399,6 +353,8 @@ class OpenTelemetryMiddleware(TaskiqMiddleware):
         :param message: received message.
         :param result: result of the execution.
         """
+        logger.debug("post_execute task_id=%s", message.task_id)
+
         if result.is_err:
             retry_on_error = message.labels.get("retry_on_error")
             if isinstance(retry_on_error, str):
@@ -441,3 +397,24 @@ class OpenTelemetryMiddleware(TaskiqMiddleware):
             -1,
             attributes={"task_name": message.task_name},
         )
+
+        # retrieve and finish the Span
+        ctx = retrieve_context(message)
+
+        if ctx is None:
+            logger.warning("no existing span found for task_id=%s", message.task_id)
+            return
+
+        span, activation, token = ctx
+
+        if span.is_recording():
+            span.set_attribute(_TASK_TAG_KEY, _TASK_EXECUTE)
+            set_attributes_from_context(span, message.labels)
+            span.set_attribute(_TASK_NAME_KEY, message.task_name)
+
+        activation.__exit__(None, None, None)
+        detach_context(message)
+        # if the process sending the task is not instrumented
+        # there's no incoming context and no token to detach
+        if token is not None:
+            context_api.detach(token)  # type: ignore[arg-type]

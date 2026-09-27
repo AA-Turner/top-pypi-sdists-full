@@ -203,7 +203,7 @@ async def content_save(
         origin_client=request.origin_client,
         capture_method="own_browser" if request.origin_client == "extension" else "residential",
         keep=request.keep,
-        visibility="personal",
+        visibility="internal",
         attach_to=request.attach_to,
     )
     if landing is None:

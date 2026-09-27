@@ -115,13 +115,17 @@ async def test_blocking_mapping_is_refused_and_recorded(monkeypatch, records) ->
     assert records and records[0]["mandate_key"] == "x.y"
 
 
-async def test_workflow_holder_refusal_is_recorded(monkeypatch, records) -> None:
+async def test_workflow_holder_without_a_host_runner_refusal_is_recorded(
+    monkeypatch, records
+) -> None:
+    # A workflow Holder RUNS when the host offers a runner
+    # (test_hold_code_call_workflow_holder.py); with none it refuses, recorded.
     _install(
         monkeypatch,
         mandates.MandateResolution(source=None, holder_type="workflow", workflow_id="w"),
     )
 
-    with pytest.raises(mandates.MandateResolutionUnavailable):
+    with pytest.raises(mandates.MandateResolutionUnavailable, match="no workflow runner"):
         await mandates.hold_code_call("x.y", consumer="t")
     assert len(records) == 1
 
@@ -175,3 +179,91 @@ async def test_finish_runs_the_post_run_check(monkeypatch, records) -> None:
     await held.finish('{"ok": true}')
 
     assert completed == [('{"ok": true}', "holder-model", {"body": "b"})]
+
+
+# ── Typed parts in the Holder's authored history (audit gap #13, 2026-09-26) ──
+# The turn flattener kept only ``type == "text"`` parts, so a Holder whose
+# authored example carried decision questions or a speech script handed the
+# code site an EMPTY turn and nothing said so.
+
+_QUESTIONS = {
+    "type": "decision_questions",
+    "questions": [
+        {
+            "name": "is_refund_request",
+            "type": "noul",
+            "instructions": "Is the customer asking for their money back?",
+        },
+        {
+            "name": "urgency",
+            "type": "choice",
+            "instructions": "How urgent is the reply?",
+            "criteria": {"low": "within a week", "high": "today"},
+        },
+    ],
+}
+_SCRIPT = {
+    "type": "speech_script",
+    "turns": [
+        {"speaker": "Host", "text": "Welcome back to the show."},
+        {"speaker": "Guest", "text": "Glad to be here.", "direction": "warmly"},
+    ],
+}
+
+
+def _agent_with_messages(messages: list[dict[str, Any]]) -> _Agent:
+    agent = _Agent({})
+    agent.config.messages = messages
+    return agent
+
+
+async def test_decision_and_speech_parts_are_carried_as_honest_text(monkeypatch, records) -> None:
+    agent = _agent_with_messages(
+        [
+            {
+                "role": "user",
+                "content": [{"type": "text", "text": "Order #4411: I want a refund."}, _QUESTIONS],
+            },
+            {
+                "role": "assistant",
+                "content": [
+                    {
+                        "type": "decision_answers",
+                        "model": "gpt-5",
+                        "method": "verbalized",
+                        "answers": {"is_refund_request": {"answer": True, "probability": 0.97}},
+                    }
+                ],
+            },
+            {"role": "user", "content": [_SCRIPT]},
+        ]
+    )
+    _install(monkeypatch, mandates.MandateResolution(source=_Source(agent)))
+
+    held = await mandates.hold_code_call("x.y", consumer="t")
+
+    first, answer, script = (t["content"] for t in held.turns)
+    assert first.startswith("Order #4411: I want a refund.")
+    assert "is_refund_request" in first and "urgency" in first and "high: today" in first
+    assert '"is_refund_request"' in answer and "0.97" in answer
+    assert script == "Host: Welcome back to the show.\nGuest (warmly): Glad to be here."
+    assert records == []
+
+
+async def test_a_part_that_cannot_ride_a_text_turn_is_refused_by_name(monkeypatch, records) -> None:
+    agent = _agent_with_messages(
+        [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": "Match this style."},
+                    {"type": "media", "kind": "image", "file_id": "f-1", "role": "style"},
+                ],
+            }
+        ]
+    )
+    _install(monkeypatch, mandates.MandateResolution(source=_Source(agent)))
+
+    with pytest.raises(mandates.MandateResolutionUnavailable, match=r"media \(image\)"):
+        await mandates.hold_code_call("x.y", consumer="t")
+    assert records and "media (image)" in records[0]["reason"]

@@ -41,6 +41,10 @@ from xhtml2pdf.w3c import cssSpecial
 
 log = logging.getLogger("xhtml2pdf")
 
+#: The pseudo-class each argument of :has() is anchored to: the element the
+#: :has() qualifies, while it is matched.
+HAS_ANCHOR = "-pdf-has-anchor"
+
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # ~ Definitions
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -86,6 +90,10 @@ class CSSSelectorAbstract:
 
     @abstractmethod
     def addPseudoFunction(self, name, value):
+        raise NotImplementedError
+
+    @abstractmethod
+    def addLogicalPseudo(self, name, selectors, nth=None):
         raise NotImplementedError
 
 
@@ -235,23 +243,18 @@ class CSSBuilderAbstract:
 class CSSParseError(Exception):
     src: str = ""
     ctxsrc: str = ""
-    fullsrc: bytes | str = ""
-    inline: bool = False
     srcCtxIdx: int | None = None
-    srcFullIdx: int | None = None
-    ctxsrcFullIdx: int | None = None
 
     def __init__(self, msg, src, ctxsrc=None) -> None:
         super().__init__(msg)
         self.src = src
         self.ctxsrc = ctxsrc or src
         if self.ctxsrc:
-            self.srcCtxIdx = self.ctxsrc.find(self.src)
-            if self.srcCtxIdx < 0:
-                del self.srcCtxIdx
+            index = self.ctxsrc.find(self.src)
+            self.srcCtxIdx = index if index >= 0 else None
 
     def __str__(self) -> str:
-        if self.ctxsrc and self.srcCtxIdx:
+        if self.ctxsrc and self.srcCtxIdx is not None:
             return (
                 super().__str__()
                 + ":: ("
@@ -261,20 +264,6 @@ class CSSParseError(Exception):
                 + ")"
             )
         return super().__str__() + ":: " + repr(self.src[:40])
-
-    def setFullCSSSource(self, fullsrc, *, inline=False):
-        self.fullsrc = fullsrc
-        if isinstance(self.fullsrc, bytes):
-            self.fullsrc = str(self.fullsrc, "utf-8")
-        if inline:
-            self.inline = inline
-        if self.fullsrc:
-            self.srcFullIdx = self.fullsrc.find(self.src)
-            if self.srcFullIdx < 0:
-                del self.srcFullIdx
-            self.ctxsrcFullIdx = self.fullsrc.find(self.ctxsrc)
-            if self.ctxsrcFullIdx < 0:
-                del self.ctxsrcFullIdx
 
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -341,7 +330,15 @@ class CSSParser:
 
     ParseError = CSSParseError
 
-    AttributeOperators: ClassVar[list[str]] = ["=", "~=", "|=", "&=", "^=", "!=", "<>"]
+    # Selectors 3. "&=", "!=" and "<>" used to be accepted here too, and then
+    # raised RuntimeError when matched, since nothing implements them.
+    AttributeOperators: ClassVar[list[str]] = ["=", "~=", "|=", "^=", "$=", "*="]
+    #: Functional pseudo-classes whose argument is a list of selectors
+    #: (Selectors 4) rather than a value. nth-child and nth-last-child take
+    #: one only after "of".
+    SelectorListPseudos: ClassVar[frozenset[str]] = frozenset(
+        {"not", "is", "where", "has", "nth-child", "nth-last-child"}
+    )
     SelectorQualifiers: ClassVar[tuple[str, ...]] = ("#", ".", "[", ":")
     SelectorCombiners: ClassVar[list[str]] = ["+", ">", "~"]
     ExpressionOperators: ClassVar[tuple[str, ...]] = ("/", "+", ",")
@@ -356,7 +353,9 @@ class CSSParser:
 
     _reflags = re.IGNORECASE | re.MULTILINE | re.UNICODE
     i_hex = "[0-9a-fA-F]"
-    i_nonascii = "[\200-\377]"
+    # Any character past ASCII, as CSS 2.1 defines nonascii. This was
+    # [\200-\377], Latin-1 only, so "宋体" was no string at all.
+    i_nonascii = "[^\x00-\x7f]"
     # Both the digit count and the trailing space are pinned down rather than
     # left for the engine to try every way round. `{1,6}` next to a literal
     # class that also accepts hex digits, and a `\s?` next to a class that also
@@ -382,12 +381,6 @@ class CSSParser:
     i_ident = f"((?:{i_nmstart})(?:{i_nmchar})*)"
     re_ident = re.compile(i_ident, _reflags)
     # Caution: treats all characters above 0x7f as legal for an identifier.
-    i_unicodeid = r"([^\u0000-\u007f]+)"
-    re_unicodeid = re.compile(i_unicodeid, _reflags)
-    i_unicodestr1 = r"(\'[^\u0000-\u007f]+\')"
-    i_unicodestr2 = r"(\"[^\u0000-\u007f]+\")"
-    i_unicodestr = regex_or(i_unicodestr1, i_unicodestr2)
-    re_unicodestr = re.compile(i_unicodestr, _reflags)
     i_element_name = rf"((?:{i_ident[1:-1]})|\*)"
     re_element_name = re.compile(i_element_name, _reflags)
     i_namespace_selector = rf"((?:{i_ident[1:-1]})|\*|)\|(?!=)"
@@ -428,7 +421,12 @@ class CSSParser:
     re_functionterm = re.compile(i_functionterm, _reflags)
     i_unicoderange1 = rf"(?:U\+{i_hex}{{1,6}}-{i_hex}{{1,6}})"
     i_unicoderange2 = r"(?:U\+\?{1,6}|{h}(\?{0,5}|{h}(\?{0,4}|{h}(\?{0,3}|{h}(\?{0,2}|{h}(\??|{h}))))))"
-    i_unicoderange = i_unicoderange1  # '(%s|%s)' % (i_unicoderange1, i_unicoderange2)
+    # In a group of its own: _getMatchResult returns group 1, and without it
+    # every unicode-range -- in each @font-face Google Fonts serves -- raised
+    # IndexError and took the document down.
+    i_unicoderange = (
+        f"({i_unicoderange1})"  # '(%s|%s)' % (i_unicoderange1, i_unicoderange2)
+    )
     re_unicoderange = re.compile(i_unicoderange, _reflags)
 
     # i_comment = '(?:\/\*[^*]*\*+([^/*][^*]*\*+)*\/)|(?://.*)'
@@ -481,11 +479,7 @@ class CSSParser:
             # XXX Some simple preprocessing
             src = cssSpecial.cleanupCSS(src)
 
-            try:
-                src, stylesheet = self._parseStylesheet(src)
-            except self.ParseError as err:
-                err.setFullCSSSource(src)
-                raise
+            src, stylesheet = self._parseStylesheet(src)
         finally:
             self.cssBuilder.endStylesheet()
         return stylesheet
@@ -497,12 +491,7 @@ class CSSParser:
         """
         self.cssBuilder.beginInline()
         try:
-            try:
-                src, properties = self._parseDeclarationGroup(src.strip(), braces=False)
-            except self.ParseError as err:
-                err.setFullCSSSource(src, inline=True)
-                raise
-
+            src, properties = self._parseDeclarationGroup(src.strip(), braces=False)
             result = self.cssBuilder.inline(properties)
         finally:
             self.cssBuilder.endInline()
@@ -522,16 +511,11 @@ class CSSParser:
         self.cssBuilder.beginInline()
         try:
             properties = []
-            try:
-                for property_name, src in kwAttributes.items():
-                    src, single_property = self._parseDeclarationProperty(
-                        src.strip(), property_name
-                    )
-                    properties.append(single_property)
-
-            except self.ParseError as err:
-                err.setFullCSSSource(src, inline=True)
-                raise
+            for property_name, src in kwAttributes.items():
+                src, single_property = self._parseDeclarationProperty(
+                    src.strip(), property_name
+                )
+                properties.append(single_property)
 
             result = self.cssBuilder.inline(properties)
         finally:
@@ -580,6 +564,107 @@ class CSSParser:
             return ""
         return src[end + 1 :].lstrip()
 
+    @staticmethod
+    def _skipBlock(src):
+        """
+        Return the source after the {} block that the first "{" in src opens,
+        nested blocks included, or "" if that block never closes. A brace in
+        a quoted string, as in content: "}", does not count.
+        """
+        start = src.find("{")
+        if start < 0:
+            return ""
+        depth = 0
+        quote = None
+        i = start
+        while i < len(src):
+            char = src[i]
+            if quote:
+                if char == "\\":
+                    i += 1
+                elif char == quote:
+                    quote = None
+            elif char in {'"', "'"}:
+                quote = char
+            elif char == "{":
+                depth += 1
+            elif char == "}":
+                depth -= 1
+                if depth == 0:
+                    return src[i + 1 :].lstrip()
+            i += 1
+        return ""
+
+    @staticmethod
+    def _findAtTopLevel(src, stops):
+        """
+        Index of the first character of stops in src that is outside any
+        quoted string and any (), [] or {} block, or -1. A "{" in stops stops
+        the search where it would otherwise open a block; a closing bracket
+        with no block open is only a stop.
+        """
+        depth = 0
+        quote = None
+        i = 0
+        while i < len(src):
+            char = src[i]
+            if quote:
+                if char == "\\":
+                    i += 1
+                elif char == quote:
+                    quote = None
+            elif char in {'"', "'"}:
+                quote = char
+            elif depth == 0 and char in stops:
+                return i
+            elif char in "([{":
+                depth += 1
+            elif char in ")]}" and depth:
+                depth -= 1
+            i += 1
+        return -1
+
+    def _skipAtRule(self, src):
+        """
+        Return the source after the at-rule src starts with: up to its ";",
+        or through its {} block, whichever comes first (CSS Syntax 3, "consume
+        an at-rule"). A "}" that closes an enclosing block ends it too, and is
+        left for that block.
+        """
+        end = self._findAtTopLevel(src, {";", "{", "}"})
+        if end < 0:
+            return ""
+        if src[end] == ";":
+            return src[end + 1 :].lstrip()
+        if src[end] == "{":
+            return self._skipBlock(src[end:])
+        return src[end:]
+
+    def _skipDeclaration(self, src):
+        """
+        Return the source from the ";" or "}" that ends the declaration src
+        starts with (CSS Syntax 3, "consume a list of declarations").
+        """
+        end = self._findAtTopLevel(src, {";", "}"})
+        return src[end:] if end >= 0 else ""
+
+    def _parseAtKeywordOrSkip(self, src, stylesheetElements):
+        """Parse one at-rule, or drop it if it is malformed."""
+        try:
+            rest, atResults = self._parseAtKeyword(src)
+        except self.ParseError as exc:
+            log.warning("Ignoring CSS at-rule that could not be parsed: %s", exc)
+            return self._skipAtRule(src)
+        if atResults is not None and atResults is not NotImplemented:
+            stylesheetElements.extend(atResults)
+        return rest
+
+    def _skipInvalidAtRule(self, msg, src, ctxsrc):
+        """Drop the at-rule ctxsrc starts with, which msg says is malformed."""
+        error = self.ParseError(msg, src, ctxsrc)
+        log.warning("Ignoring CSS at-rule that could not be parsed: %s", error)
+        return self._skipAtRule(ctxsrc)
+
     def _parseRulesetOrSkip(self, src, stylesheetElements):
         """Parse one ruleset, or drop it if its selector is malformed."""
         try:
@@ -621,9 +706,16 @@ class CSSParser:
         while src:  # due to ending with ]*
             if src.startswith("@"):
                 # @media, @page, @font-face
-                src, atResults = self._parseAtKeyword(src)
-                if atResults is not None and atResults != NotImplemented:
-                    stylesheetElements.extend(atResults)
+                src = self._parseAtKeywordOrSkip(src, stylesheetElements)
+            elif src.startswith("}"):
+                # No block is open at top level, so this "}" joins the prelude
+                # of the next rule, which is dropped together with its block
+                # (CSS Syntax 3, "consume a qualified rule").
+                # _skipMalformedRuleset hands a leading "}" back unconsumed for
+                # an enclosing block to close; here nothing would ever
+                # consume it.
+                log.warning("Ignoring CSS rule after an unmatched '}': %.40r", src)
+                src = self._skipBlock(src[1:])
             else:
                 # ruleset
                 src = self._parseRulesetOrSkip(src, stylesheetElements)
@@ -652,12 +744,13 @@ class CSSParser:
     def _parseAtCharset(self, src):
         """[ CHARSET_SYM S* STRING S* ';' ]?."""
         if isAtRuleIdent(src, "charset"):
+            ctxsrc = src
             src = stripAtRuleIdent(src)
             charset, src = self._getString(src)
             src = src.lstrip()
             if src[:1] != ";":
                 msg = "@charset expected a terminating ';'"
-                raise self.ParseError(msg, src, self.ctxsrc)
+                return self._skipInvalidAtRule(msg, src, ctxsrc)
             src = src[1:].lstrip()
 
             self.cssBuilder.atCharset(charset)
@@ -673,7 +766,9 @@ class CSSParser:
             import_, src = self._getStringOrURI(src)
             if import_ is None:
                 msg = "Import expecting string or url"
-                raise self.ParseError(msg, src, ctxsrc)
+                src = self._skipInvalidAtRule(msg, src, ctxsrc)
+                src = self._parseSCDOCDC(src)
+                continue
 
             mediums = []
             medium, src = self._getIdent(src.lstrip())
@@ -691,7 +786,9 @@ class CSSParser:
 
             if src[:1] != ";":
                 msg = "@import expected a terminating ';'"
-                raise self.ParseError(msg, src, ctxsrc)
+                src = self._skipInvalidAtRule(msg, src, ctxsrc)
+                src = self._parseSCDOCDC(src)
+                continue
             src = src[1:].lstrip()
 
             stylesheet = self.cssBuilder.atImport(import_, mediums, self)
@@ -717,18 +814,20 @@ class CSSParser:
                 nsPrefix, src = self._getIdent(src)
                 if nsPrefix is None:
                     msg = "@namespace expected an identifier or a URI"
-                    raise self.ParseError(msg, src, ctxsrc)
-                namespace, src = self._getStringOrURI(src.lstrip())
-                if namespace is None:
+                else:
+                    namespace, src = self._getStringOrURI(src.lstrip())
                     msg = "@namespace expected a URI"
-                    raise self.ParseError(msg, src, ctxsrc)
             else:
                 nsPrefix = None
 
             src = src.lstrip()
-            if src[:1] != ";":
+            if namespace is not None and src[:1] != ";":
                 msg = "@namespace expected a terminating ';'"
-                raise self.ParseError(msg, src, ctxsrc)
+                namespace = None
+            if namespace is None:
+                src = self._skipInvalidAtRule(msg, src, ctxsrc)
+                src = self._parseSCDOCDC(src)
+                continue
             src = src[1:].lstrip()
 
             self.cssBuilder.atNamespace(nsPrefix, namespace)
@@ -745,9 +844,11 @@ class CSSParser:
             src, result = self._parseAtPage(src)
         elif isAtRuleIdent(src, "font-face"):
             src, result = self._parseAtFontFace(src)
-        # XXX added @import, was missing!
         elif isAtRuleIdent(src, "import"):
-            src, result = self._parseAtImports(src)
+            # CSS 2.1 6.3: an @import after any rule other than @charset or
+            # another @import is ignored.
+            log.warning("Ignoring @import after the first rule: %.40r", src)
+            src, result = self._skipAtRule(src), None
         elif isAtRuleIdent(src, "frame"):
             src, result = self._parseAtFrame(src)
         elif src.startswith("@"):
@@ -777,10 +878,10 @@ class CSSParser:
                 pattern = re.compile(r".*?[{]", re.DOTALL)
 
                 match = re.match(pattern, src)
-                src = src[match.end() - 1 :]
+                src = src[match.end() - 1 :] if match else ""
                 break
             mediums.append(medium)
-            src = src[1:].lstrip() if src[0] == "," else src.lstrip()
+            src = src[1:].lstrip() if src[:1] == "," else src.lstrip()
 
         if not src.startswith("{"):
             msg = "Ruleset opening '{' not found"
@@ -797,17 +898,15 @@ class CSSParser:
         while src and not src.startswith("}"):
             if src.startswith("@"):
                 # @media, @page, @font-face
-                src, atResults = self._parseAtKeyword(src)
-                if atResults is not None:
-                    stylesheetElements.extend(atResults)
+                src = self._parseAtKeywordOrSkip(src, stylesheetElements)
             else:
                 # ruleset
                 src = self._parseRulesetOrSkip(src, stylesheetElements)
             src = src.lstrip()
 
-        if not src.startswith("}"):
-            msg = "Ruleset closing '}' not found"
-            raise self.ParseError(msg, src, ctxsrc)
+        # The loop stops at the closing "}" or at the end of the stylesheet,
+        # which closes any block still open (CSS Syntax 3), as it already did
+        # for @page. Raising there used to cost the whole document.
         src = src[1:].lstrip()
 
         result = self.cssBuilder.atMedia(mediums, stylesheetElements)
@@ -862,9 +961,7 @@ class CSSParser:
         while src and not src.startswith("}"):
             if src.startswith("@"):
                 # @media, @page, @font-face
-                src, atResults = self._parseAtKeyword(src)
-                if atResults is not None:
-                    stylesheetElements.extend(atResults)
+                src = self._parseAtKeywordOrSkip(src, stylesheetElements)
             else:
                 src, nproperties = self._parseDeclarationGroup(
                     src.lstrip(), braces=False
@@ -958,33 +1055,10 @@ class CSSParser:
         src, result = self.cssBuilder.atIdent(atIdent, self, src)
 
         if result is NotImplemented:
-            # An at-rule consists of everything up to and including the next semicolon (;)
-            # or the next block, whichever comes first
-
-            semiIdx = src.find(";")
-            if semiIdx < 0:
-                semiIdx = None
-            blockIdx = src[:semiIdx].find("{")
-            if blockIdx < 0:
-                blockIdx = None
-
-            if semiIdx is not None and semiIdx < blockIdx:
-                src = src[semiIdx + 1 :].lstrip()
-            elif blockIdx is None:
-                # consume the rest of the content since we didn't find a block or a semicolon
-                src = src[-1:-1]
-            elif blockIdx is not None:
-                # expecting a block...
-                src = src[blockIdx:]
-                try:
-                    # try to parse it as a declarations block
-                    src, declarations = self._parseDeclarationGroup(src)
-                except self.ParseError:
-                    # try to parse it as a stylesheet block
-                    src, stylesheet = self._parseStylesheet(src)
-            else:
-                msg = "Unable to ignore @-rule block"
-                raise self.ParserError(msg, src, ctxsrc)
+            # Nothing here uses the rule (@keyframes, @supports, @layer, ...),
+            # so skip it whole. Parsing its block as a stylesheet used to read
+            # the block's own "}" as a stray top-level one.
+            src = self._skipAtRule(src)
 
         return src.lstrip(), result
 
@@ -1125,13 +1199,24 @@ class CSSParser:
         else:
             attr_value = None
 
+        # Selectors 4: [attr=value i] compares ignoring case, "s" with it.
+        # Space before the "]" is allowed too; it used to drop the rule.
+        src = src.lstrip()
+        flag = None
+        if op:
+            flag, rest = self._getIdent(src)
+            if flag is not None and flag.lower() in {"i", "s"}:
+                flag, src = flag.lower(), rest.lstrip()
+            else:
+                flag = None
+
         if not src.startswith("]"):
             msg = "Selector Attribute closing ']' not found"
             raise self.ParseError(msg, src, ctxsrc)
         src = src[1:]
 
         if op:
-            selector.addAttributeOperation(attrName, op, attr_value)
+            selector.addAttributeOperation(attrName, op, attr_value, flag)
         else:
             selector.addAttribute(attrName)
         return src, selector
@@ -1152,6 +1237,33 @@ class CSSParser:
         if not name:
             msg = "Selector Pseudo identifier not found"
             raise self.ParseError(msg, src, ctxsrc)
+        name = name.lower()
+
+        if src.startswith("(") and name in self.SelectorListPseudos:
+            end = self._findAtTopLevel(src[1:], {")"})
+            if end < 0:
+                msg = "Selector Pseudo Function closing ')' not found"
+                raise self.ParseError(msg, src, ctxsrc)
+            argument, rest = src[1 : end + 1], src[end + 2 :]
+            nth = None
+            if name in {"nth-child", "nth-last-child"}:
+                # "An+B of S" counts only the siblings S selects. Without the
+                # "of" it is the plain form, read below as before.
+                of = re.search(r"\s+of\s+", argument, re.IGNORECASE)
+                if of is not None:
+                    nth, argument = argument[: of.start()], argument[of.end() :]
+            if name not in {"nth-child", "nth-last-child"} or nth is not None:
+                if name == "has":
+                    selectors = self._parseRelativeSelectors(argument, ctxsrc)
+                else:
+                    # :is() and :where() take a forgiving list: an argument
+                    # that cannot be parsed is dropped, the rest still apply.
+                    forgiving = name in {"is", "where"}
+                    selectors = self._parseSelectorArguments(
+                        argument, ctxsrc, forgiving=forgiving
+                    )
+                selector.addLogicalPseudo(name, selectors, nth)
+                return rest, selector
 
         if src.startswith("("):
             # function
@@ -1167,6 +1279,53 @@ class CSSParser:
 
         return src, selector
 
+    def _parseSelectorArguments(self, src, ctxsrc, *, forgiving=False):
+        """The comma separated selectors of :not(), :is() and the like."""
+        selectors = []
+        while True:
+            end = self._findAtTopLevel(src, {","})
+            part = (src if end < 0 else src[:end]).strip()
+            try:
+                selectors.append(self._parseWholeSelector(part, ctxsrc))
+            except self.ParseError:
+                if not forgiving:
+                    raise
+            if end < 0:
+                return selectors
+            src = src[end + 1 :]
+
+    def _parseWholeSelector(self, src, ctxsrc):
+        """One selector that must use up all of src."""
+        rest, selector = self._parseSelector(src) if src else (src, None)
+        if selector is None or rest.strip():
+            msg = "Invalid selector in a selector list"
+            raise self.ParseError(msg, src, ctxsrc)
+        return selector
+
+    def _parseRelativeSelectors(self, src, ctxsrc):
+        """
+        The arguments of :has(), each relative to the element it qualifies:
+        "> img", "+ p", "~ p", or "img" for a descendant. Each is read as
+        ":-pdf-has-anchor > img" and so on, and that pseudo-class is the
+        element while :has() is matched. It is not :scope: an author's
+        :scope inside :has() is still the root, as in a browser.
+        """
+        anchored = []
+        while True:
+            end = self._findAtTopLevel(src, {","})
+            part = (src if end < 0 else src[:end]).strip()
+            if not part:
+                msg = "Empty argument in :has()"
+                raise self.ParseError(msg, src, ctxsrc)
+            combinator = part[0] if part[0] in ">+~" else ""
+            anchored.append(
+                f":{HAS_ANCHOR} {combinator} {part[len(combinator):].lstrip()}"
+            )
+            if end < 0:
+                break
+            src = src[end + 1 :]
+        return self._parseSelectorArguments(", ".join(anchored), ctxsrc)
+
     # ~ declaration and expression parsing ~~~~~~~~~~~~~~~
 
     def _parseDeclarationGroup(self, src, *, braces=True):
@@ -1177,29 +1336,37 @@ class CSSParser:
             msg = "Declaration group opening '{' not found"
             raise self.ParseError(msg, src, ctxsrc)
 
+        # A declaration list ends at its "}" or at the end of the source. Without
+        # braces -- the body of @page -- an at-rule ends it too.
+        ends = {"", "}"} if braces else {"", "}", "@"}
         properties = []
         src = src.lstrip()
-        while src[:1] not in {"", ",", "{", "}", "[", "]", "(", ")", "@"}:  # XXX @?
-            src, single_property = self._parseDeclaration(src)
-
-            # XXX Workaround for styles like "*font: smaller"
-            if src.startswith("*"):
-                src = "-nothing-" + src[1:]
-                continue
-
-            if single_property is None:
-                src = src[1:].lstrip()
-                break
-            properties.append(single_property)
+        while src[:1] not in ends:
             if src.startswith(";"):
+                # An empty declaration, as in "color: red;;" or "{;".
                 src = src[1:].lstrip()
-            else:
-                break
+                continue
+            start = src
+            try:
+                src, single_property = self._parseDeclaration(src)
+            except self.ParseError:
+                single_property = None
+            if single_property is None or src[:1] not in ends | {";"}:
+                # CSS Syntax 3: an invalid declaration is dropped, up to the
+                # ";" that ends it, and the rest of the block still applies.
+                # This used to drop the whole rule, or with an inline style
+                # raise out of the document.
+                log.warning(
+                    "Ignoring CSS declaration that could not be parsed: %.40r", start
+                )
+                src = self._skipDeclaration(start).lstrip()
+                if src.startswith(";"):
+                    src = src[1:].lstrip()
+                continue
+            properties.append(single_property)
 
         if braces:
-            if not src.startswith("}"):
-                msg = "Declaration group closing '}' not found"
-                raise self.ParseError(msg, src, ctxsrc)
+            # The end of the stylesheet closes the block, as for @media.
             src = src[1:]
 
         return src.lstrip(), properties
@@ -1298,7 +1465,7 @@ class CSSParser:
         result, src = self._getMatchResult(self.re_functionterm, src)
         if result is not None:
             src, params = self._parseExpression(src, return_list=True)
-            if src[0] != ")":
+            if src[:1] != ")":
                 msg = "Terminal function expression expected closing ')'"
                 raise self.ParseError(msg, src, ctxsrc)
             src = src[1:].lstrip()
@@ -1321,16 +1488,6 @@ class CSSParser:
             if nsPrefix is not None:
                 result = self.cssBuilder.resolveNamespacePrefix(nsPrefix, result)
             term = self.cssBuilder.termIdent(result)
-            return src.lstrip(), term
-
-        result, src = self._getMatchResult(self.re_unicodeid, src)
-        if result is not None:
-            term = self.cssBuilder.termIdent(result)
-            return src.lstrip(), term
-
-        result, src = self._getMatchResult(self.re_unicodestr, src)
-        if result is not None:
-            term = self.cssBuilder.termString(result)
             return src.lstrip(), term
 
         return self.cssBuilder.termUnknown(src)

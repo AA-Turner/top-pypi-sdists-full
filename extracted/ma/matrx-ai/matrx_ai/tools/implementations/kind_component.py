@@ -251,6 +251,14 @@ async def kindcomp_get_context(args: dict[str, Any], ctx: ToolContext) -> ToolRe
         else:
             incidents = []
 
+        from matrx_ai.tools.implementations.kind_shared import bound_kind_bodies
+
+        schema_out, example_out, bodies_note = bound_kind_bodies(
+            kd.emitted_json_schema,
+            canonical.data if canonical else None,
+            ctx=ctx,
+            tool_name="kindcomp_get_context",
+        )
         from matrx_ai.tools.kinds.kind_authoring import (
             KindComponentSummary,
             KindDefinitionSummary,
@@ -266,8 +274,8 @@ async def kindcomp_get_context(args: dict[str, Any], ctx: ToolContext) -> ToolRe
             success=True,
             output=KindComponentContext(
                 kind=KindDefinitionSummary(**kind_summary(kd)),
-                json_schema=kd.emitted_json_schema,
-                canonical_example=canonical.data if canonical else None,
+                json_schema=schema_out,
+                canonical_example=example_out,
                 canonical_example_status=canonical.validation_status if canonical else None,
                 examples=[KindExampleSummary(**example_summary(e)) for e in example_rows],
                 components=[KindComponentSummary(**component_summary(c)) for c in comp_rows],
@@ -290,7 +298,11 @@ async def kindcomp_get_context(args: dict[str, Any], ctx: ToolContext) -> ToolRe
                     component_count=len(comp_rows),
                     open_incident_types=len(incidents) if is_editor else None,
                 ),
+                note=bodies_note,
             ),
+            # Bodies bounded above; 50 deduped incidents with 300-char stacks
+            # and the fixed contracts (~11K) stay well under the soft cap.
+            output_self_capped=True,
         )
     except Exception as e:
         return ToolResult(

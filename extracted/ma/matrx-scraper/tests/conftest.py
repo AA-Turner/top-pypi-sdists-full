@@ -46,6 +46,41 @@ def reset_matrx_settings(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 @pytest.fixture(autouse=True)
+def _isolate_the_process_environment():
+    """Code under test may WRITE ``os.environ`` (the cloud-browser worker runtime sets
+    ``PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers``, ``TZ`` and ``DISPLAY`` — right in its own
+    container, a leak in a test process). After a worker test ran, every later real-Chromium test
+    looked for its browser under /opt/pw-browsers and failed: five user-agent tests were green
+    alone and red in the full run. Every test starts from the environment the session had."""
+    import os
+
+    saved = dict(os.environ)
+    yield
+    if dict(os.environ) != saved:
+        os.environ.clear()
+        os.environ.update(saved)
+        import time
+
+        if hasattr(time, "tzset"):
+            time.tzset()
+
+
+@pytest.fixture(autouse=True)
+def _isolate_the_extension_registry():
+    """``configure_ext(...)`` writes a PROCESS-WIDE registry (the host's seams: cache, browser
+    pool, the Source landing hook …). A test that registers one used to leave it behind, so a
+    later test passed or failed by ORDER — alone, ``test_page_capture`` raised
+    SourceLandingNotConfigured; after a test that wired a hook it passed. Every test starts from
+    the registry as the session had it and leaves it that way."""
+    from matrx_scraper import _ext
+
+    saved = dict(_ext._registry)
+    yield
+    _ext._registry.clear()
+    _ext._registry.update(saved)
+
+
+@pytest.fixture(autouse=True)
 def _reset_shared_host_throttles() -> None:
     """Per-host backoff is PROCESS-WIDE by design (one 429 slows every lane).
 

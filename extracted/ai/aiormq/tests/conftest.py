@@ -1,13 +1,8 @@
 import asyncio
-import atexit
 import gc
 import logging
 import os
-import socket
 import tracemalloc
-from contextlib import suppress
-from time import sleep
-from typing import Any, Callable, Generator
 
 import pamqp
 import pytest
@@ -16,117 +11,10 @@ from yarl import URL
 
 from aiormq import Connection
 
-from .docker_client import (
-    ContainerInfo,
-    DockerClient,
-    DockerHostInfo,
-    DockerNotAvailableError,
-    check_docker_available,
-)
-
-# Cached docker host info from pytest_configure
-_docker_host_info: DockerHostInfo | None = None
-
-# Global registry for atexit cleanup
-_docker_client: DockerClient | None = None
-_docker_containers: set[str] = set()
-
-
-def _atexit_kill_containers() -> None:
-    """Kill all containers on exit (handles crashes/interrupts)."""
-    if _docker_client is None:
-        return
-    for container_id in _docker_containers:
-        with suppress(Exception):
-            _docker_client.kill(container_id)
-        with suppress(Exception):
-            _docker_client.remove(container_id)
-    _docker_containers.clear()
-
-
-atexit.register(_atexit_kill_containers)
-
 
 def cert_path(*args):
     return os.path.join(
         os.path.abspath(os.path.dirname(__file__)), "certs", *args,
-    )
-
-
-def pytest_configure(config: pytest.Config) -> None:
-    """Check Docker availability before running tests."""
-    global _docker_host_info
-    if os.environ.get("AMQP_URL"):
-        return
-    try:
-        _docker_host_info = check_docker_available()
-    except DockerNotAvailableError as e:
-        raise pytest.UsageError(str(e)) from e
-
-
-@pytest.fixture(scope="session")
-def docker() -> Generator[Callable[..., ContainerInfo], Any, Any]:
-    global _docker_client
-    _docker_client = DockerClient(_docker_host_info)
-
-    def docker_run(
-        image: str, ports: list[str],
-        environment: dict[str, str] | None = None,
-    ) -> ContainerInfo:
-        info = _docker_client.run(image, ports, environment=environment)
-        _docker_containers.add(info.id)
-        return info
-
-    try:
-        yield docker_run
-    finally:
-        for container_id in list(_docker_containers):
-            with suppress(Exception):
-                _docker_client.kill(container_id)
-            with suppress(Exception):
-                _docker_client.remove(container_id)
-            _docker_containers.discard(container_id)
-
-
-@pytest.fixture(scope="session")
-def rabbitmq_container(docker) -> ContainerInfo:
-    amqp_url = os.environ.get("AMQP_URL")
-    if amqp_url:
-        url = URL(amqp_url)
-        return ContainerInfo(
-            id="ci-service",
-            ports={
-                "5672/tcp": url.port or 5672,
-                "5671/tcp": 5671,
-                "15672/tcp": 15672,
-                "15671/tcp": 15671,
-            },
-            host=url.host or "localhost",
-        )
-    info = docker(
-        "mosquito/aiormq-rabbitmq",
-        ["5672/tcp", "5671/tcp", "15672/tcp", "15671/tcp"],
-    )
-    # Readiness probe - wait for RabbitMQ to be ready
-    while True:
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-            try:
-                sock.connect((info.host, info.ports["5672/tcp"]))
-                sock.send(b"AMQP\x00\x00\x09\x01")
-                data = sock.recv(4)
-                if len(data) == 4:
-                    return info
-            except ConnectionError:
-                pass
-        sleep(0.3)
-
-
-@pytest.fixture(scope="session")
-def amqp_direct_url(rabbitmq_container: ContainerInfo) -> URL:
-    return URL.build(
-        scheme="amqp", user="guest", password="guest", path="//",
-        host=rabbitmq_container.host,
-        port=rabbitmq_container.ports["5672/tcp"],
     )
 
 
@@ -229,7 +117,8 @@ def memory_tracer():
 
 @pytest.fixture()
 async def proxy(tcp_proxy, localhost, amqp_url: URL):
-    port = amqp_url.port or 5672 if amqp_url.scheme == "amqp" else 5671
+    default_port = 5672 if amqp_url.scheme == "amqp" else 5671
+    port = amqp_url.port or default_port
     async with tcp_proxy(amqp_url.host, port) as proxy:
         yield proxy
 

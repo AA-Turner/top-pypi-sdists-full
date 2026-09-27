@@ -30,8 +30,10 @@ Dependencies:
 """
 from __future__ import annotations
 
+import contextvars
 import copy
 import itertools
+import re
 from abc import abstractmethod
 from operator import itemgetter
 from pathlib import Path
@@ -303,6 +305,80 @@ class CSSCascadeStrategy:
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 
+#: an+b, the argument of :nth-child() and its relatives. CSS Selectors 3 6.6.5.
+_NTH_PATTERN = re.compile(r"^(?:([+-]?\d*)n)?\s*([+-]?\s*\d+)?$")
+
+
+def _flatten_params(params) -> str:
+    """
+    The argument of a functional pseudo-class, as one string.
+
+    The parser hands it over already broken into terms, and how it breaks it
+    depends on the spelling: "odd" arrives as ("odd",), "2n+1" as
+    (("2", "n"), "+", "1"), "-n + 3" as ("-n", "+", "3"). Reassembling and
+    matching one pattern is steadier than reading each of those shapes.
+    """
+    parts = []
+    for param in params:
+        if isinstance(param, tuple | list):
+            parts.append(_flatten_params(param))
+        else:
+            parts.append(str(param))
+    return "".join(parts).replace(" ", "").lower()
+
+
+def _parse_nth(params) -> tuple[int, int] | None:
+    """Turn an an+b argument into (a, b), or None if it is not one."""
+    text = _flatten_params(params)
+    if text == "odd":
+        return (2, 1)
+    if text == "even":
+        return (2, 0)
+
+    match = _NTH_PATTERN.match(text)
+    if not match or not text:
+        return None
+    coefficient, constant = match.groups()
+    if coefficient is None:
+        # A plain number: b on its own, matching one position.
+        return (0, int(constant)) if constant else None
+    if coefficient in {"", "+"}:
+        a = 1
+    elif coefficient == "-":
+        a = -1
+    else:
+        a = int(coefficient)
+    return (a, int(constant) if constant else 0)
+
+
+def _matches_nth(index: int, a: int, b: int) -> bool:
+    """Whether a 1-based position satisfies an+b for some whole n >= 0."""
+    if a == 0:
+        return index == b
+    offset = index - b
+    return offset % a == 0 and offset // a >= 0
+
+
+#: The element a :has() is being matched for, which the anchor its arguments
+#: are read against (cssParser.HAS_ANCHOR) matches. Unset, it matches nothing.
+_scope: contextvars.ContextVar = contextvars.ContextVar("css_scope", default=None)
+
+#: Pseudo-elements. A selector that names one never matches here -- nothing
+#: generates ::before or lays out ::first-line -- but it counts as an element
+#: in specificity, where a pseudo-class counts as a class.
+PSEUDO_ELEMENTS = frozenset(
+    {
+        "before",
+        "after",
+        "first-line",
+        "first-letter",
+        "marker",
+        "placeholder",
+        "selection",
+    }
+)
+
+
 #: Hands out a source-order number to each selector as it is built. Parsing
 #: runs in document order, and the user agent stylesheet is parsed before the
 #: document's own, so a later number means later in the cascade.
@@ -378,7 +454,11 @@ class CSSSelectorBase:
         return self._specificity
 
     def _calcSpecificity(self):
-        """From http://www.w3.org/TR/CSS21/cascade.html#specificity."""
+        """
+        Selectors 4, 17: ids, then classes, attributes and pseudo-classes,
+        then types and pseudo-elements. A pseudo-class used to count as a
+        type, so p:first-child lost to .x p, which it ties.
+        """
         hashCount = 0
         qualifierCount = 0
         elementCount = int(self.name != "*")
@@ -387,8 +467,16 @@ class CSSSelectorBase:
                 hashCount += 1
             elif qualifier.isClass() or qualifier.isAttr():
                 qualifierCount += 1
+            elif isinstance(qualifier, CSSSelectorLogicalQualifier):
+                h, q, e = qualifier.specificity()
+                hashCount += h
+                qualifierCount += q
+                elementCount += e
             elif qualifier.isPseudo():
-                elementCount += 1
+                if qualifier.name in PSEUDO_ELEMENTS:
+                    elementCount += 1
+                else:
+                    qualifierCount += 1
             elif qualifier.isCombiner():
                 i, h, q, e = qualifier.selector.specificity()
                 hashCount += h
@@ -403,7 +491,12 @@ class CSSSelectorBase:
         # with  CSSDOMElementInterface.matchesNode(self, (namespace, tagName)) replacement:
         if self.fullName[1] not in {"*", element.domElement.tagName}:
             return False
-        if (
+        if self.nsPrefix == "":  # noqa: PLC1901 -- None, no prefix, is not this
+            # "|p": an element in no namespace (CSS Namespaces 3). This used
+            # to be read as any namespace, the same as "*|p".
+            if element.domElement.namespaceURI:
+                return False
+        elif (
             self.fullName[0] not in {None, "", "*"}
             and self.fullName[0] != element.domElement.namespaceURI
         ):
@@ -461,14 +554,25 @@ class CSSMutableSelector(CSSSelectorBase, cssParser.CSSSelectorAbstract):
     def addAttribute(self, attrName):
         self._addQualifier(CSSSelectorAttributeQualifier(attrName))
 
-    def addAttributeOperation(self, attrName, op, attr_value):
-        self._addQualifier(CSSSelectorAttributeQualifier(attrName, op, attr_value))
+    def addAttributeOperation(self, attrName, op, attr_value, flag=None):
+        self._addQualifier(
+            CSSSelectorAttributeQualifier(attrName, op, attr_value, flag=flag)
+        )
 
     def addPseudo(self, name):
         self._addQualifier(CSSSelectorPseudoQualifier(name))
 
     def addPseudoFunction(self, name, params):
         self._addQualifier(CSSSelectorPseudoQualifier(name, params))
+
+    def addLogicalPseudo(self, name, selectors, nth=None):
+        if nth is not None:
+            parsed = _parse_nth((nth,))
+            if parsed is None:
+                msg = f"Invalid An+B in :{name}()"
+                raise cssParser.CSSParseError(msg, nth)
+            nth = parsed
+        self._addQualifier(CSSSelectorLogicalQualifier(name, selectors, nth))
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -588,47 +692,126 @@ class CSSSelectorClassQualifier(CSSSelectorQualifierBase):
         return self.classId < other.classId
 
 
+#: HTML 4.2.6 ("case-sensitivity of selectors"): on an HTML element, these
+#: attributes' values are matched ignoring ASCII case unless the selector says
+#: "s", so [type=text] selects <input type="TEXT"> as in a browser.
+HTML_CASE_INSENSITIVE_ATTRIBUTES = frozenset(
+    [
+        "accept",
+        "accept-charset",
+        "align",
+        "alink",
+        "axis",
+        "bgcolor",
+        "charset",
+        "checked",
+        "clear",
+        "codetype",
+        "color",
+        "compact",
+        "declare",
+        "defer",
+        "dir",
+        "direction",
+        "disabled",
+        "enctype",
+        "face",
+        "frame",
+        "hreflang",
+        "http-equiv",
+        "lang",
+        "language",
+        "link",
+        "media",
+        "method",
+        "multiple",
+        "nohref",
+        "noresize",
+        "noshade",
+        "nowrap",
+        "readonly",
+        "rel",
+        "rev",
+        "rules",
+        "scope",
+        "scrolling",
+        "selected",
+        "shape",
+        "target",
+        "text",
+        "type",
+        "valign",
+        "valuetype",
+        "vlink",
+    ]
+)
+#: The namespace html5lib puts HTML elements in; SVG and MathML are elsewhere.
+XHTML_NAMESPACE = "http://www.w3.org/1999/xhtml"
+
+
 class CSSSelectorAttributeQualifier(CSSSelectorQualifierBase):
     name, op, value = None, None, NotImplemented
+    #: "i" to compare ignoring case, as [type=text i]; "s" or None with it.
+    flag = None
 
-    def __init__(self, attrName, op=None, attr_value=NotImplemented) -> None:
+    def __init__(
+        self, attrName, op=None, attr_value=NotImplemented, *, flag=None
+    ) -> None:
         self.name = attrName
         if op is not self.op:
             self.op = op
         if attr_value is not self.value:
             self.value = attr_value
+        self.flag = flag
 
     @staticmethod
     def isAttr():
         return True
 
     def __hash__(self):
-        return hash((self.name, self.op, self.value))
+        return hash((self.name, self.op, self.value, self.flag))
 
     def asString(self):
         if self.value is NotImplemented:
             return f"[{self.name}]"
-        return f"[{self.name}{self.op}{self.value}]"
+        flag = f" {self.flag}" if self.flag else ""
+        return f"[{self.name}{self.op}{self.value}{flag}]"
 
     def matches(self, element):
         if self.op is None:
             return element.getAttr(self.name, NotImplemented) != NotImplemented
+        value = element.getAttr(self.name, None)
+        if value is None:
+            return False
+        expected = self.value
+        if self._ignoresCase(element):
+            value, expected = value.casefold(), expected.casefold()
         if self.op == "=":
-            return self.value == element.getAttr(self.name, NotImplemented)
+            return value == expected
         if self.op == "~=":
-            # return self.value in element.getAttr(self.name, '').split()
-            attr_value = element.domElement.attributes.get(self.name)
-            if attr_value is not None:
-                return self.value in attr_value.value.split()
-            return False
+            return expected in value.split()
         if self.op == "|=":
-            # return self.value in element.getAttr(self.name, '').split('-')
-            attr_value = element.domElement.attributes.get(self.name)
-            if attr_value is not None:
-                return self.value in attr_value.value.split("-")
-            return False
+            # The value or a prefix of it up to a "-": "en" matches "en-GB",
+            # but "GB" does not. This used to match any "-" separated part.
+            return value == expected or value.startswith(expected + "-")
+        # Selectors 3: an empty value matches nothing for these three.
+        if self.op == "^=":
+            return bool(expected) and value.startswith(expected)
+        if self.op == "$=":
+            return bool(expected) and value.endswith(expected)
+        if self.op == "*=":
+            return bool(expected) and expected in value
         msg = f"Unknown operator {self.op!r} for {self!r}"
         raise RuntimeError(msg)
+
+    def _ignoresCase(self, element):
+        if self.flag is not None:
+            return self.flag == "i"
+        return (
+            isinstance(self.name, str)
+            and self.name.lower() in HTML_CASE_INSENSITIVE_ATTRIBUTES
+            and element.domElement.namespaceURI in {None, XHTML_NAMESPACE}
+        )
 
 
 class CSSSelectorPseudoQualifier(CSSSelectorQualifierBase):
@@ -644,12 +827,128 @@ class CSSSelectorPseudoQualifier(CSSSelectorQualifierBase):
         return hash((self.name, self.params))
 
     def asString(self):
-        if self.params:
+        if not self.params:
             return f":{self.name}"
-        return f":{self.name}({self.params})"
+        return f":{self.name}({_flatten_params(self.params)})"
 
     def matches(self, element):
         return element.inPseudoState(self.name, self.params)
+
+
+class CSSSelectorLogicalQualifier(CSSSelectorQualifierBase):
+    """
+    A pseudo-class whose argument is a list of selectors (Selectors 4):
+    :not(), :is(), :where(), :has(), and :nth-child() or :nth-last-child()
+    with "An+B of S", for which nth is (A, B). Before, their argument was
+    read as a value, failed, and took the whole rule with it.
+    """
+
+    def __init__(self, name, selectors, nth=None) -> None:
+        self.name = name
+        self.selectors = tuple(selectors)
+        self.nth = nth
+
+    @staticmethod
+    def isPseudo():
+        return True
+
+    def __hash__(self):
+        return hash((self.name, self.selectors, self.nth))
+
+    def asImmutable(self):
+        return type(self)(
+            self.name, [selector.asImmutable() for selector in self.selectors], self.nth
+        )
+
+    def asString(self):
+        arguments = ", ".join(selector.asString() for selector in self.selectors)
+        if self.nth is not None:
+            a, b = self.nth
+            arguments = f"{a}n{b:+d} of {arguments}"
+        return f":{self.name}({arguments})"
+
+    def specificity(self):
+        """
+        That of the most specific argument, and none at all for :where().
+        :nth-child(An+B of S) is a pseudo-class besides.
+        """
+        if self.name == "where" or not self.selectors:
+            best = (0, 0, 0)
+        else:
+            best = max(selector.specificity()[1:] for selector in self.selectors)
+        if self.name == "has":
+            # Each argument was read as ":-pdf-has-anchor > ...", and that
+            # pseudo-class is not the author's.
+            best = (best[0], best[1] - 1, best[2])
+        if self.nth is not None:
+            best = (best[0], best[1] + 1, best[2])
+        return best
+
+    def matches(self, element):
+        if self.name == "not":
+            return not any(selector.matches(element) for selector in self.selectors)
+        if self.name in {"is", "where"}:
+            return any(selector.matches(element) for selector in self.selectors)
+        if self.name == "has":
+            return self._hasMatch(element)
+        if self.nth is not None:
+            return self._nthMatch(element)
+        return False
+
+    @staticmethod
+    def _anchor(selector):
+        """The combinator next to the anchor of a :has() argument: " ", ">", "+" or "~"."""
+        op = " "
+        while True:
+            links = [
+                q
+                for q in selector.qualifiers
+                if isinstance(q, CSSSelectorCombinationQualifier)
+            ]
+            if not links:
+                return op
+            op, selector = links[0].op, links[0].selector
+
+    def _hasMatch(self, element):
+        # Only the element's descendants can match "img" or "> img", and only
+        # its following siblings and their descendants "+ p" or "~ p".
+        # Gathering both for every element made a long table quadratic.
+        anchors = {self._anchor(selector) for selector in self.selectors}
+        node = element.domElement
+        candidates = []
+        if anchors & {" ", ">"}:
+            candidates.extend(node.getElementsByTagName("*"))
+        if anchors & {"+", "~"}:
+            sibling = node.nextSibling
+            while sibling is not None:
+                if sibling.nodeType == sibling.ELEMENT_NODE:
+                    candidates.append(sibling)
+                    candidates.extend(sibling.getElementsByTagName("*"))
+                sibling = sibling.nextSibling
+        token = _scope.set(node)
+        try:
+            wrap = type(element)
+            return any(
+                selector.matches(wrap(candidate))
+                for candidate in candidates
+                for selector in self.selectors
+            )
+        finally:
+            _scope.reset(token)
+
+    def _nthMatch(self, element):
+        if not any(selector.matches(element) for selector in self.selectors):
+            return False
+        wrap = type(element)
+        counted = [
+            sibling
+            for sibling in element._siblingElements(same_type=False)
+            if any(selector.matches(wrap(sibling)) for selector in self.selectors)
+        ]
+        index = counted.index(element.domElement) + 1
+        if self.name == "nth-last-child":
+            index = len(counted) - index + 1
+        return _matches_nth(index, *self.nth)
 
 
 class CSSSelectorCombinationQualifier(CSSSelectorQualifierBase):
@@ -1071,6 +1370,11 @@ class CSSBuilder(cssParser.CSSBuilderAbstract):
     def resolveNamespacePrefix(self, nsPrefix, name):
         if nsPrefix == "*":
             return (nsPrefix, "*", name)
+        if nsPrefix and nsPrefix not in self.namespaces:
+            # CSS Namespaces 3: a prefix no @namespace declared makes the
+            # selector invalid, and with it the rule.
+            msg = f"Undeclared namespace prefix {nsPrefix!r}"
+            raise cssParser.CSSParseError(msg, name)
         xmlns = self.namespaces.get(nsPrefix, None)
         xmlns = self._xmlnsGetSynonym(xmlns)
         return (nsPrefix, xmlns, name)

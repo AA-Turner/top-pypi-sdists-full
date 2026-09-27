@@ -119,9 +119,18 @@ class DbScopedResult(KindModel):
     maturity="placeholder",
 )
 class SqlToolResult(KindModel):
-    #: `query`.
+    #: `query` — one page + the tool's own size-cap state (present only when
+    #: the page was bounded): `total` is the fetched pre-cap row count,
+    #: `next_offset` the exact offset for the next page, `truncated_cells` the
+    #: cells cut to the per-cell ceiling.
     rows: list[dict] | None = None
     count: int | None = None
+    total: int | None = None
+    truncated: bool | None = None
+    truncation_notice: str | None = None
+    next_offset: int | None = None
+    more_may_exist: bool | None = None
+    truncated_cells: list[dict] | None = None
     #: `schema` — the all-schemas / one-schema listing.
     schemas: dict | None = None
     schema_count: int | None = None

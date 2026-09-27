@@ -18,7 +18,6 @@ from html.parser import HTMLParser
 from pathlib import Path
 from urllib.parse import quote, urlencode, urljoin
 
-from abx_plugins.plugins.archivewebpage import replay_preview as archivewebpage_replay
 from django.contrib.staticfiles import finders
 from django.core.handlers.asgi import ASGIRequest
 from django.http import Http404, HttpResponse, HttpResponseNotModified, StreamingHttpResponse
@@ -30,8 +29,10 @@ from django.views import static
 
 from archivebox.config.common import get_config
 from archivebox.misc.logging_util import printable_filesize
+from archivebox.plugins.discovery import render_plugin_full_response
 
 _HASHES_CACHE: dict[Path, tuple[float, dict[str, str]]] = {}
+FAVICON_CACHE_CONTROL = "public, max-age=31536000, s-maxage=31536000, immutable"
 IMG_SRC_ATTR_RE = re.compile(r'(<img\b[^>]*?\s(?:src|data-src)=["\'])([^"\']+)(["\'])', re.IGNORECASE)
 TRANSFORMED_HTML_PREVIEW_STYLE = """<style id="archivebox-static-html-preview-style">
 html {
@@ -939,6 +940,15 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
         raise Http404(_("“%(path)s” does not exist") % {"path": fullpath})
 
     statobj = fullpath.stat()
+    # Captured site icons are intentionally shareable even for private snapshots.
+    # Only raw icon responses qualify, not generated previews or directory pages.
+    favicon_cache_control = (
+        FAVICON_CACHE_CONTROL
+        if fullpath.stem.lower() == "favicon"
+        and fullpath.suffix.lower() in {".ico", ".svg", ".png", ".jpg", ".jpeg", ".gif", ".webp", ".avif"}
+        and not request.GET.get("preview")
+        else None
+    )
     document_root = Path(document_root) if document_root else None
     rel_path = path
     etag = None
@@ -954,7 +964,7 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
             if etag in inm_list or etag.strip('"') in [i.strip('"') for i in inm_list]:
                 not_modified = HttpResponseNotModified()
                 not_modified.headers["ETag"] = etag
-                not_modified.headers["Cache-Control"] = f"{cache_policy}, max-age=31536000, immutable"
+                not_modified.headers["Cache-Control"] = favicon_cache_control or f"{cache_policy}, max-age=31536000, immutable"
                 not_modified.headers["Last-Modified"] = http_date(statobj.st_mtime)
                 return _apply_archive_replay_headers(
                     not_modified,
@@ -965,6 +975,13 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
                 )
 
     content_type, encoding = mimetypes.guess_type(str(fullpath))
+    # Captured favicons retain the conventional .ico filename even when a site
+    # returns SVG. Browsers cannot decode SVG served as image/x-icon.
+    if fullpath.suffix.lower() == ".ico":
+        with fullpath.open("rb") as icon_file:
+            icon_head = icon_file.read(4096)
+        if re.search(rb"<svg(?:\s|>)", icon_head):
+            content_type = "image/svg+xml"
     preserve_plain_text = fullpath.suffix.lower() in {".log", ".sh", ".jsonl"}
     if preserve_plain_text:
         content_type = "text/plain"
@@ -988,15 +1005,13 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
     preview_as_image_html = (
         bool(request.GET.get("preview")) and content_type.startswith("image/") and not content_type.startswith("image/svg+xml")
     )
-    preview_as_archivewebpage_html = bool(request.GET.get("preview")) and archivewebpage_replay.is_replay_target(fullpath.name)
-
     # Respect the If-Modified-Since header for non-markdown responses.
     if not content_type.startswith(("text/plain", "text/html")) and not static.was_modified_since(
         request.META.get("HTTP_IF_MODIFIED_SINCE"),
         statobj.st_mtime,
     ):
         not_modified = HttpResponseNotModified()
-        not_modified.headers["Cache-Control"] = f"{cache_policy}, max-age=60, stale-while-revalidate=300"
+        not_modified.headers["Cache-Control"] = favicon_cache_control or f"{cache_policy}, max-age=60, stale-while-revalidate=300"
         return _apply_archive_replay_headers(
             not_modified,
             fullpath=fullpath,
@@ -1022,7 +1037,7 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
                     config=config,
                 )
         except (OSError, UnicodeDecodeError, ValueError):
-            preview_as_text_html = False
+            pass
 
     if preview_as_image_html:
         try:
@@ -1042,16 +1057,16 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
                 config=config,
             )
         except (OSError, ValueError):
-            preview_as_image_html = False
+            pass
 
-    if preview_as_archivewebpage_html:
+    if request.GET.get("preview"):
         try:
             raw_query = request.GET.copy()
             raw_query.pop("preview", None)
             raw_output_path = request.path
             if raw_query:
                 raw_output_path = f"{raw_output_path}?{raw_query.urlencode()}"
-            body, preview_content_type, headers = archivewebpage_replay.render_preview_response(
+            plugin_replay = render_plugin_full_response(
                 fullpath.name,
                 raw_output_path,
                 wacz_path=fullpath,
@@ -1063,18 +1078,20 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
                 ),
                 content_encoding=encoding or "",
             )
-            response = HttpResponse(body, content_type=preview_content_type)
-            for key, value in headers.items():
-                response.headers[key] = value
-            return _apply_archive_replay_headers(
-                response,
-                fullpath=fullpath,
-                content_type=preview_content_type,
-                is_archive_replay=is_archive_replay,
-                config=config,
-            )
+            if plugin_replay is not None:
+                body, replay_content_type, headers = plugin_replay
+                response = HttpResponse(body, content_type=replay_content_type)
+                for key, value in headers.items():
+                    response.headers[key] = value
+                return _apply_archive_replay_headers(
+                    response,
+                    fullpath=fullpath,
+                    content_type=replay_content_type,
+                    is_archive_replay=is_archive_replay,
+                    config=config,
+                )
         except (OSError, RuntimeError, ValueError):
-            preview_as_archivewebpage_html = False
+            pass
 
     # Heuristic fix: some archived HTML outputs are stored with HTML-escaped markup
     # or markdown sources. If so, render sensibly.
@@ -1146,6 +1163,8 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
         response.headers["Content-Disposition"] = f'inline; filename="{fullpath.name}"'
     if content_type.startswith("image/"):
         response.headers["Cache-Control"] = f"{cache_policy}, max-age=604800, immutable"
+    if favicon_cache_control:
+        response.headers["Cache-Control"] = favicon_cache_control
 
     # handle byte-range requests by serving chunk of file
     if stat.S_ISREG(statobj.st_mode):

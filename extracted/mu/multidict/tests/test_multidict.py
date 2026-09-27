@@ -4,11 +4,12 @@ import contextlib
 import gc
 import operator
 import platform
+import subprocess
 import sys
 import threading
 import time
 import weakref
-from collections import deque
+from collections import Counter, deque
 from collections.abc import Callable, Iterable, Iterator, KeysView, Mapping
 from concurrent.futures import ThreadPoolExecutor
 from types import ModuleType
@@ -28,6 +29,7 @@ from multidict import (
 
 _T = TypeVar("_T")
 IS_PYPY = platform.python_implementation() == "PyPy"
+_C_MODULE = "multidict._multidict"
 
 
 def chained_callable(
@@ -1414,6 +1416,108 @@ class TestCIMultiDict(BaseMultiDictTest):
         d = cls([("KEY", "one")])
         assert d.items().isdisjoint(arg) == expected
 
+    def test_ascii_identity_matches_str_lower(
+        self, cls: type[CIMultiDict[str]]
+    ) -> None:
+        """Every ASCII code point must fold exactly the way ``str.lower()``
+        folds it, including the ones that are not letters.  The paddings
+        span the shapes the C extension's scan distinguishes: shorter than
+        one eight-byte step, exactly one step, and lengths that leave a
+        remainder, with the code point before, on and after each boundary
+        so that the overlapping final word is covered from both sides."""
+        paddings = (
+            (0, 0),  # 1, below one step
+            (3, 3),  # 7, below one step
+            (0, 7),  # 8, exactly one step
+            (0, 11),  # 12, remainder, first byte
+            (7, 4),  # 12, remainder, last byte of the first word
+            (8, 3),  # 12, remainder, first byte only the last word covers
+            (11, 0),  # 12, remainder, last byte
+            (0, 18),  # 19, two steps plus a remainder
+            (9, 9),  # 19, inside the second word
+            (18, 0),  # 19, last byte
+        )
+        keys = [
+            "x" * before + chr(code) + "y" * after
+            for code in range(128)
+            for before, after in paddings
+        ]
+        d = cls([(k, k) for k in keys])
+
+        grouped: dict[str, list[str]] = {}
+        for k in keys:
+            grouped.setdefault(k.lower(), []).append(k)
+
+        for identity, matches in grouped.items():
+            assert d.getall(identity) == matches
+            assert d.getall(identity.upper()) == matches
+
+    def test_lower_case_ascii_key(self, cls: type[CIMultiDict[str]]) -> None:
+        d = cls([("content-type", "text/html")])
+
+        assert d["content-type"] == "text/html"
+        assert d["Content-Type"] == "text/html"
+        assert d["CONTENT-TYPE"] == "text/html"
+
+    def test_mixed_case_ascii_key_keeps_its_spelling(
+        self,
+        cls: type[CIMultiDict[str]],
+        case_insensitive_str_class: type[istr],
+    ) -> None:
+        d = cls([("Content-Type", "text/html")])
+
+        assert d["content-type"] == "text/html"
+        (key,) = d.keys()
+        assert str(key) == "Content-Type"
+        assert type(key) is case_insensitive_str_class
+
+    def test_empty_str_key(self, cls: type[CIMultiDict[str]]) -> None:
+        d = cls([("", "value")])
+
+        assert d[""] == "value"
+        assert list(d.keys()) == [""]
+
+    def test_non_ascii_key(self, cls: type[CIMultiDict[str]]) -> None:
+        d = cls([("Ä", "1"), ("X-Ärger", "2")])
+
+        assert d["ä"] == "1"
+        assert d["x-ärger"] == "2"
+
+    def test_folding_that_does_not_preserve_length_or_plane(
+        self, cls: type[CIMultiDict[str]]
+    ) -> None:
+        """``İ`` lowers to two code points and the Adlam capital is non-BMP,
+        so neither key may be folded as if it were a byte string."""
+        d = cls([("İ", "1"), ("\U0001e921", "2")])
+
+        assert d["i\u0307"] == "1"
+        assert d["\U0001e943"] == "2"
+
+    def test_str_subclass_lower_override_is_used(
+        self, cls: type[CIMultiDict[str]]
+    ) -> None:
+        """A ``str`` subclass may override ``lower()``, so the identity of a
+        subclass instance has to come from the override.  This is what keeps
+        the C extension's ASCII fast path gated on an exact ``str``."""
+
+        class ConstantLower(str):
+            def lower(self) -> str:
+                return "x"
+
+        d = cls([(ConstantLower("a"), "1"), (ConstantLower("b"), "2")])
+
+        assert d.getall("x") == ["1", "2"]
+
+    def test_key_outlives_the_multidict(self, cls: type[CIMultiDict[str]]) -> None:
+        key = "content-type"
+        d = cls([(key, "value")])
+
+        keys = list(d.keys())
+        del d
+        gc.collect()
+
+        assert keys == [key]
+
 
 class _ReentrantEq:
     """A value whose __eq__() calls back into `md` mid-comparison.
@@ -2074,25 +2178,18 @@ def test_get_lock_free_thread_safety() -> None:
     """Concurrent get()/getone()/__getitem__ alongside heavy add()/pop()
     churn must not crash.
 
-    Regression test for the free-threaded build: on CPython 3.14+,
+    Regression test for the free-threaded build:
     get()/getone()/__getitem__ (md_get_one() with pret == NULL) are now
     genuinely lock-free, falling back to a critical section only when a
     candidate entry's identity or value can't be safely referenced
-    (PyUnstable_TryIncRef() fails, or the field changed mid-read). On
-    3.13 -- which has no public API for a third-party extension to
-    safely try-incref an object that might concurrently be reaching
-    refcount zero (PyUnstable_TryIncRef()/PyUnstable_EnableTryIncRef()
-    were only added in 3.14) -- it always takes the critical section,
-    same as before this file added any lock-free reading of entry
-    contents. Either way this must not crash: it drives many entry
-    inserts/deletes concurrently with many get() calls to exercise
-    both the lock-free fast path (3.14+) and the locked fallback
-    (3.13, or a 3.14+ TryIncRef failure). Deliberately uses only
-    add()/pop() on the mutating side, not __setitem__: __setitem__'s
-    replace path has a separate, pre-existing, unrelated race that
-    this test is not about and should not trip. This is a
-    C-extension-only concern: the pure-Python implementation has no
-    locking of its own to regress."""
+    (PyUnstable_TryIncRef() fails, or the field changed mid-read). It
+    drives many entry inserts/deletes concurrently with many get() calls
+    to exercise both the lock-free fast path and the locked fallback.
+    Deliberately uses only add()/pop() on the mutating side, not
+    __setitem__: __setitem__'s replace path has a separate,
+    pre-existing, unrelated race that this test is not about and should
+    not trip. This is a C-extension-only concern: the pure-Python
+    implementation has no locking of its own to regress."""
     d: MultiDict[int] = MultiDict((str(i), i) for i in range(500))
 
     def mutator(n: int) -> None:
@@ -2302,21 +2399,57 @@ def test_replace_many_duplicates_releases_all(
     assert all(r() is None for r in refs)
 
 
+@pytest.mark.skipif(IS_PYPY, reason="gc thresholds are not supported on PyPy")
+@pytest.mark.parametrize("method", ["getall", "popall"])
+def test_getall_popall_gc_finalizer_mutates(
+    any_multidict_class: type[MultiDict[int]], method: str
+) -> None:
+    """Building the result list can run a GC (synchronously before 3.12),
+    and a finalizer there that grows the table used to make getall() raise
+    RuntimeError and popall() walk a freed table."""
+    d = any_multidict_class([("k", 0), ("k", 1), ("k", 2), ("x", 0)])
+
+    class Evil:
+        def __del__(self) -> None:
+            for i in range(100):
+                d.add(f"n{i}", i)
+
+    meth = getattr(d, method)
+    keep: list[list[int]] = [[] for _ in range(200)]  # drain list freelist
+    old = gc.get_threshold()
+    gc.disable()
+    e = Evil()
+    e.self = e  # type: ignore[attr-defined]
+    del e
+    gc.set_threshold(1)
+    gc.enable()
+    try:
+        assert meth("k") == [0, 1, 2]
+    finally:
+        gc.set_threshold(*old)
+    gc.collect()
+    assert len(d) == (4 if method == "getall" else 1) + 100
+    del keep
+
+
+@pytest.mark.parametrize("method", ["getall", "popall"])
+def test_getall_popall_many_values_keep_order(
+    any_multidict_class: type[MultiDict[int]], method: str
+) -> None:
+    """Enough values to spill the C impl's collector into several heap
+    blocks, which are chained newest first; the result must still come
+    back in insertion order."""
+    d = any_multidict_class([("k", i) for i in range(1500)])
+    assert getattr(d, method)("k") == list(range(1500))
+
+
 @pytest.mark.c_extension
-@pytest.mark.skipif(
-    hasattr(sys, "_is_gil_enabled") and not sys._is_gil_enabled(),
-    reason=(
-        "hits a separate, pre-existing bug on free-threaded builds "
-        "(stale cached entries/iterator in md_del()/md_pop_all(), "
-        "unrelated to this fix) -- see aio-libs/multidict#1492"
-    ),
-)
-def test_del_pop_vs_update_same_key_gil_build_thread_safety() -> None:
-    """Regression for #1489 (GIL-build __delitem__/pop()/popall()):
-    _md_del_at() now finishes table bookkeeping before any decref, so a
-    __del__-triggered GIL release can't expose a half-deleted entry.
-    Each worker re-sets the key after removing it, so it's always
-    present at join regardless of interleaving."""
+def test_del_pop_vs_update_same_key_thread_safety() -> None:
+    """Regression for #1489 and #1492 (__delitem__/pop()/popall()): a
+    __del__ run mid-walk used to let a concurrent resize free the table
+    md_del() was still iterating. Each worker re-sets the key after
+    removing it, so it's always present at join regardless of
+    interleaving."""
 
     class Evil:
         def __init__(self, n: int) -> None:
@@ -2415,16 +2548,18 @@ def test_version_thread_safety() -> None:
     the same version number twice.
 
     Regression test for a version-counter race: every mutation derives
-    its instance's version from ``state->global_version``, a counter
-    shared by every ``MultiDict``/``CIMultiDict`` instance in the process
-    (it lives on the module state, not the object), so unrelated
-    multidicts can be compared and always disagree. Bumping that shared
+    its instance's version from ``global_version``, a counter shared by
+    every ``MultiDict``/``CIMultiDict`` instance in the process (not the
+    object), so unrelated multidicts can be compared and always
+    disagree. On free-threaded builds each thread now reserves a batch
+    of versions from it, and batches must not overlap. Bumping that shared
     counter used to be a plain ``++`` with no synchronization of its own,
     relying entirely on each instance's own critical section; under a
     free-threaded build, two threads mutating two *different* instances
     could bump it at the same time and step on each other's update,
-    handing out one version number to two objects, or a smaller one to a
-    later mutation than an earlier one already got. This is a
+    handing out one version number to two objects. Only a duplicate
+    signals that race: with per-thread batches a later mutation may get a
+    smaller version than an earlier one on another thread. This is a
     C-extension-only concern: the pure-Python implementation has the
     same shared-counter shape but no locking of its own to regress.
     """
@@ -2506,6 +2641,237 @@ def test_reader_exit_drains_retired_thread_safety() -> None:
         d.clear()
         for f in futures:
             f.result()
+
+    gc.collect()
+    assert all(r() is None for r in refs)
+
+
+@pytest.mark.c_extension
+def test_dealloc_after_clear_drains_retired_thread_safety() -> None:
+    """A multidict dropped right after a clear() that raced reader traffic
+    must still release what the cleared table held. Regression test for
+    aio-libs/multidict#1555.
+
+    md_clear() returned early once md->keys was &empty_htkeys, so a clear()
+    that left its table on md->retired (which the drain does whenever it
+    sees the active-readers gate go nonzero while it holds the list) and
+    was the object's last operation reached deallocation with that table,
+    and the entry references it still owned, never freed: dealloc calls
+    md_clear(), and the reader exits that would otherwise have drained it
+    have all happened by then. Forcing the interleaving needs an
+    artificially widened drain window (see the PR description), so this does
+    not fail on an unfixed build: the last reader's own exit ordinarily
+    drains the table before deallocation. What it does run, many times over,
+    is the shape, so that the drain added at teardown is exercised against a
+    table a reader may still be walking rather than only against an empty
+    list. This is a C-extension-only concern: the pure-Python implementation
+    has no retirement scheme to regress."""
+
+    class Marker:
+        pass
+
+    refs: list[weakref.ReferenceType[Marker]] = []
+
+    def cycle() -> None:
+        d: MultiDict[Marker] = MultiDict()
+        markers = [Marker() for _ in range(50)]
+        refs.extend(weakref.ref(m) for m in markers)
+        for i, m in enumerate(markers):
+            d.add(str(i), m)
+        del markers, i, m
+
+        ready = threading.Event()
+        stop = threading.Event()
+
+        def reader() -> None:
+            for i in range(200):
+                str(i % 50) in d
+            ready.set()
+            while not stop.is_set():
+                for i in range(50):
+                    str(i) in d
+
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            future = executor.submit(reader)
+            try:
+                # clear() must not land before the reader has actually
+                # started, so that the gate is nonzero when the drain checks
+                # it; bounded so a reader that died instead fails the test
+                # here rather than blocking the run.
+                assert ready.wait(60)
+                d.clear()
+            finally:
+                # Whatever clear() did, the reader has to be let go, or
+                # leaving the executor's block waits for it forever.
+                stop.set()
+            future.result()
+
+    # Every local of cycle(), the multidict included, dies on return, so
+    # nothing is left to drain md->retired afterwards.
+    for _ in range(50):
+        cycle()
+
+    gc.collect()
+    assert all(r() is None for r in refs)
+
+
+@pytest.mark.c_extension
+def test_drain_retired_retries_after_pushing_back_thread_safety() -> None:
+    """A clear() racing reader traffic must release what its table held
+    without waiting for another operation on the multidict.
+
+    Regression test for the free-threaded build. A drain that reads the
+    active-readers gate as nonzero pushes the tables it holds back onto
+    md->retired and leaves them to the reader it saw, but that reader can
+    have run its own drain already, between the exchange and the push-back,
+    and found the list empty. Nothing was then scheduled to free those
+    tables, so they sat there until the multidict was next used, and if it
+    was dropped instead, its references were never released.  Rereading the
+    gate after the push-back and retrying is what frees them. Forcing that
+    interleaving needs an artificially widened drain window (see the PR
+    description), so this does not fail on an unfixed build; what it drives,
+    many times over, is the shape, a clear() against continuous lock-free
+    reads followed by teardown with no further operation. This is a
+    C-extension-only concern: the pure-Python implementation has no
+    retirement scheme to regress."""
+
+    class Marker:
+        pass
+
+    refs: list[weakref.ReferenceType[Marker]] = []
+
+    def cycle() -> None:
+        d: MultiDict[Marker] = MultiDict()
+        markers = [Marker() for _ in range(50)]
+        refs.extend(weakref.ref(m) for m in markers)
+        for i, m in enumerate(markers):
+            d.add(str(i), m)
+        del markers, i, m
+
+        ready = threading.Event()
+        stop = threading.Event()
+
+        def reader() -> None:
+            for i in range(200):
+                str(i % 50) in d
+            ready.set()
+            while not stop.is_set():
+                for i in range(50):
+                    str(i) in d
+
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            future = executor.submit(reader)
+            try:
+                # clear() must not land before the reader has started, so
+                # that the gate is nonzero when the drain checks it; bounded
+                # so a reader that died instead fails the test here rather
+                # than blocking the run.
+                assert ready.wait(60)
+                d.clear()
+            finally:
+                # Whatever clear() did, the reader has to be let go, or
+                # leaving the executor's block waits for it forever.
+                stop.set()
+            future.result()
+
+    # Every local of cycle(), the multidict included, dies on return, so
+    # nothing is left to drain md->retired afterwards.
+    for _ in range(50):
+        cycle()
+
+    gc.collect()
+    assert all(r() is None for r in refs)
+
+
+@pytest.mark.c_extension
+def test_get_referents_reports_each_entry_once() -> None:
+    """The collector must be told about every key and value exactly once.
+
+    multidict_tp_traverse() reports the entries of the tables waiting on md->retired
+    as well as those of md->keys, which is only sound because the two never
+    hold the same entry: _md_resize() zeroes the old table's nentries when
+    it hands ownership to the new one, so only md_clear() retires a table
+    with entries left in it. Reporting a reference twice would make the
+    collector believe an object has fewer references than it does, and free
+    it while the multidict still holds it, so this pins the count. Enough
+    entries to have forced several resizes, each with a value of its own."""
+    values = [object() for _ in range(200)]
+    d: MultiDict[object] = MultiDict()
+    for i, value in enumerate(values):
+        d.add(str(i), value)
+
+    counts = Counter(id(referent) for referent in gc.get_referents(d))
+
+    assert [counts[id(value)] for value in values] == [1] * len(values)
+    assert [counts[id(key)] for key in d] == [1] * len(values)
+
+
+@pytest.mark.c_extension
+def test_collect_cycle_through_retired_entries_thread_safety() -> None:
+    """A reference cycle running through a multidict cleared under reader
+    traffic must still be collectable.
+
+    A table the drain leaves on md->retired keeps its entries' references,
+    and multidict_tp_traverse() used to report the entries of md->keys only, so the
+    collector could not see a cycle that ran through one of them: it read
+    the values as reachable from outside and kept the whole cycle alive.
+    This does not fail on an unfixed build, as review pointed out: the last
+    reader's own exit drains the table and releases its entries before the
+    collection runs, so the walk this adds usually has an empty list to go
+    over. Catching a table there instead needs an artificially widened drain
+    window (see the PR description); measured against an ordinary build it
+    happens in roughly 1% of clears, which is too rare to assert on and too
+    machine-dependent to gate CI with. What this drives, many times over, is
+    the shape, a cycle through a multidict cleared against continuous
+    lock-free reads and then dropped, so the walk runs against a table a
+    reader may still be holding. The deterministic half of the pair is
+    test_get_referents_reports_each_entry_once() above, which fails if an
+    entry is ever reported twice. This is a C-extension-only concern: the
+    pure-Python implementation has no retirement scheme, and its containers
+    are traversed by the interpreter itself."""
+
+    class Node:
+        value: object
+
+    refs: list[weakref.ReferenceType[Node]] = []
+
+    def cycle() -> None:
+        node = Node()
+        d: MultiDict[object] = MultiDict()
+        for i in range(50):
+            d.add(str(i), node)
+        node.value = d  # the cycle: node -> d -> entries -> node
+        refs.append(weakref.ref(node))
+        del node
+
+        ready = threading.Event()
+        stop = threading.Event()
+
+        def reader() -> None:
+            for i in range(200):
+                str(i % 50) in d
+            ready.set()
+            while not stop.is_set():
+                for i in range(50):
+                    str(i) in d
+
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            future = executor.submit(reader)
+            try:
+                # clear() must not land before the reader has started, so
+                # that the gate is nonzero when the drain checks it; bounded
+                # so a reader that died instead fails the test here rather
+                # than blocking the run.
+                assert ready.wait(60)
+                d.clear()
+            finally:
+                # Whatever clear() did, the reader has to be let go, or
+                # leaving the executor's block waits for it forever.
+                stop.set()
+            future.result()
+
+    for _ in range(50):
+        cycle()
 
     gc.collect()
     assert all(r() is None for r in refs)
@@ -3032,21 +3398,15 @@ def test_view_direct_instantiation_segfault() -> None:
     This test only applies to the C extension implementation.
     """
     # Test that _ItemsView cannot be instantiated directly
-    with pytest.raises(
-        TypeError, match="cannot create '.*_ItemsView' instances directly"
-    ):
+    with pytest.raises(TypeError, match="cannot create '.*_ItemsView' instances"):
         multidict._ItemsView()  # type: ignore[attr-defined]
 
     # Test that _KeysView cannot be instantiated directly
-    with pytest.raises(
-        TypeError, match="cannot create '.*_KeysView' instances directly"
-    ):
+    with pytest.raises(TypeError, match="cannot create '.*_KeysView' instances"):
         multidict._KeysView()  # type: ignore[attr-defined]
 
     # Test that _ValuesView cannot be instantiated directly
-    with pytest.raises(
-        TypeError, match="cannot create '.*_ValuesView' instances directly"
-    ):
+    with pytest.raises(TypeError, match="cannot create '.*_ValuesView' instances"):
         multidict._ValuesView()  # type: ignore[attr-defined]
 
 
@@ -3092,6 +3452,21 @@ def test_update_from_list_mutated_by_key_lookup() -> None:
 
 
 @pytest.mark.c_extension
+def test_ascii_identity_refcounts_are_balanced() -> None:
+    """An already-lowercase ASCII key is stored as both the entry's key and
+    its identity, so it picks up two references and must give both back."""
+    key = "".join(("content", "-type"))
+    before = sys.getrefcount(key)
+
+    d: multidict.CIMultiDict[str] = multidict.CIMultiDict()
+    d[key] = "value"
+    assert sys.getrefcount(key) - before == 2
+
+    del d[key]
+    assert sys.getrefcount(key) == before
+
+
+@pytest.mark.c_extension
 @pytest.mark.parametrize("cls_name", ("MultiDict", "CIMultiDict"))
 def test_new_without_init_is_valid_empty(cls_name: str) -> None:
     """A container built with ``__new__`` but no ``__init__`` (or a subclass
@@ -3112,6 +3487,12 @@ def test_new_without_init_is_valid_empty(cls_name: str) -> None:
         e = cls.__new__(cls)
         e["A"] = "1"
         assert e["a"] == "1"
+
+    # __init__() on such an object reads the module state that __new__()
+    # stored, rather than looking it up again
+    f = cls.__new__(cls)
+    f.__init__([("b", "2")])
+    assert f["b"] == "2"
 
     # a subclass that forgets to call super().__init__() is also safe
     class Sub(cls):  # type: ignore[valid-type, misc]
@@ -3139,10 +3520,22 @@ def test_iter_direct_instantiation_segfault() -> None:
         ("values", "_valuesiter"),
     ):
         iter_type = type(iter(getattr(md, view_name)()))
-        with pytest.raises(
-            TypeError, match=f"cannot create '.*{iter_name}' instances directly"
-        ):
+        with pytest.raises(TypeError, match=f"cannot create '.*{iter_name}' instances"):
+            iter_type()
+        # 3.10 refuses this in object.__new__'s safety check instead
+        with pytest.raises(TypeError, match=iter_name):
             iter_type.__new__(iter_type)  # type: ignore[call-overload]
+
+
+@pytest.mark.c_extension
+@pytest.mark.parametrize("view_name", ["keys", "items", "values"])
+@pytest.mark.parametrize("iterate", [False, True], ids=["view", "iter"])
+def test_view_and_iter_types_are_final(view_name: str, iterate: bool) -> None:
+    obj = getattr(multidict.MultiDict(), view_name)()
+    if iterate:
+        obj = iter(obj)
+    with pytest.raises(TypeError, match="is not an acceptable base type"):
+        type("Sub", (type(obj),), {})
 
 
 @pytest.mark.c_extension
@@ -3181,6 +3574,105 @@ def test_non_typeerror_exceptions_are_not_swallowed() -> None:
 
     # __eq__ against a non-mapping still works (AttributeError is cleared)
     assert md != [("a", "1")]
+
+
+@pytest.mark.parametrize("method", ("extend", "update", "merge"))
+def test_sizing_argument_does_not_swallow_exceptions(
+    any_multidict_class: type[MutableMultiMapping[str]], method: str
+) -> None:
+    """Estimating the size of the positional argument must not discard a
+    ``MemoryError`` or ``KeyboardInterrupt`` raised by its ``__len__``."""
+
+    class BadLen:
+        def __len__(self) -> int:
+            raise MemoryError("boom")
+
+    md = any_multidict_class()
+    with pytest.raises(MemoryError):
+        getattr(md, method)(BadLen())
+
+
+def test_subclass_construction_does_not_swallow_exceptions(
+    any_multidict_class: type[MutableMultiMapping[str]],
+) -> None:
+    """A subclass runs through ``tp_init()`` rather than the constructor
+    vectorcall, so it sizes its argument and must not discard the error."""
+
+    class BadLen:
+        def __len__(self) -> int:
+            raise MemoryError("boom")
+
+    subclass = type("Sub", (any_multidict_class,), {})
+    with pytest.raises(MemoryError):
+        subclass(BadLen())
+
+
+@pytest.mark.parametrize("method", ("extend", "update", "merge"))
+def test_unusable_length_hint_is_ignored(
+    any_multidict_class: type[MutableMultiMapping[str]], method: str
+) -> None:
+    """A ``__length_hint__`` that is not an integer costs only the
+    preallocation estimate; the argument is still consumed."""
+
+    class BadHint:
+        def __iter__(self) -> Iterator[tuple[str, str]]:
+            return iter([("a", "1")])
+
+        def __length_hint__(self) -> str:
+            return "not an int"
+
+    md = any_multidict_class()
+    getattr(md, method)(BadHint())
+    assert list(md.items()) == [("a", "1")]
+
+
+class _HugeHint:
+    def __init__(self, hint: int) -> None:
+        self.hint = hint
+
+    def __iter__(self) -> Iterator[tuple[str, str]]:
+        return iter([("a", "1")])
+
+    def __length_hint__(self) -> int:
+        return self.hint
+
+
+@pytest.mark.parametrize("method", ("extend", "update", "merge"))
+def test_overflowing_length_hint_is_ignored(
+    any_multidict_class: type[MultiDict[str]], method: str
+) -> None:
+    """A ``__length_hint__`` too large to reserve for without overflowing
+    the size arithmetic is ignored, as ``list.extend()`` ignores it."""
+    md = any_multidict_class([("z", "0")])
+    getattr(md, method)(_HugeHint(sys.maxsize))
+    assert list(md.items()) == [("z", "0"), ("a", "1")]
+
+
+@pytest.mark.c_extension
+@pytest.mark.parametrize("method", ("extend", "update", "merge"))
+def test_overflowing_length_hint_plus_kwargs_is_ignored(method: str) -> None:
+    """The keyword count is added to the hint without wrapping around.
+
+    C extension only: the pure-Python backend hands the argument to
+    ``list()``, which raises :exc:`MemoryError` for such a hint itself."""
+    md: MultiDict[str] = multidict.MultiDict()
+    getattr(md, method)(_HugeHint(sys.maxsize), b="2")
+    assert list(md.items()) == [("a", "1"), ("b", "2")]
+
+
+@pytest.mark.c_extension
+@pytest.mark.parametrize("method", ("extend", "update", "merge"))
+@pytest.mark.parametrize(
+    "hint", (sys.maxsize // 3 - 1, sys.maxsize // 8), ids=("largest", "eighth")
+)
+def test_unallocatable_length_hint_raises_memory_error(method: str, hint: int) -> None:
+    """A hint that survives the overflow check still asks for a table whose
+    byte size cannot be represented, which must fail before any shift or
+    sum past the width of ``size_t``."""
+    md = multidict.MultiDict(z="0")
+    with pytest.raises(MemoryError):
+        getattr(md, method)(_HugeHint(hint))
+    assert list(md.items()) == [("z", "0")]
 
 
 @pytest.mark.parametrize(
@@ -3361,3 +3853,150 @@ def test_items_iter_key_str_reinits(
         next(it)
     assert len(d) == 2
     assert d["b"] == "w"
+
+
+@pytest.mark.c_extension
+def test_multidict_refers_to_its_module() -> None:
+    """Every multidict holds a strong reference to ``multidict._multidict``.
+
+    A multidict caches the module state, which is freed with the module
+    object, and `type_clear()` drops the type's own reference to the module.
+    """
+    md: MultiDict[int] = MultiDict()
+    assert any(ref is md for ref in gc.get_referrers(sys.modules[_C_MODULE]))
+
+
+@pytest.mark.c_extension
+def test_multidict_torn_down_with_its_module() -> None:
+    """The final collection can reach the module and the multidicts at once.
+
+    `md_clear()` reads the module state, so a module freed first left it
+    reading freed memory; that crashed the interpreter on exit rather than
+    raising.
+    """
+    script = """
+import gc
+import sys
+
+import multidict
+from multidict import MultiDict
+
+md = MultiDict((f"k{i}", i) for i in range(64))
+cycle = [md, md.items(), iter(md)]
+cycle.append(cycle)
+for name in [n for n in sys.modules if n.startswith("multidict")]:
+    del sys.modules[name]
+del multidict, MultiDict, md, cycle
+gc.collect()
+"""
+    subprocess.run([sys.executable, "-c", script], check=True, timeout=60)
+
+
+def test_items_iter_kept_tuples_stay_distinct(
+    any_multidict_class: type[MultiDict[str]],
+) -> None:
+    # The C items iterator recycles its tuple once the caller has dropped
+    # it; a tuple the caller still holds must keep its pair.
+    md = any_multidict_class([("a", "1"), ("b", "2"), ("c", "3")])
+    it = iter(md.items())
+    first = next(it)
+    second = next(it)
+    third = next(it)
+    assert first is not second and second is not third
+    assert (first, second, third) == (("a", "1"), ("b", "2"), ("c", "3"))
+    with pytest.raises(StopIteration):
+        next(it)
+    assert list(md.items()) == [("a", "1"), ("b", "2"), ("c", "3")]
+
+
+def test_items_iter_recycled_tuple_hash(
+    any_multidict_class: type[MultiDict[str]],
+) -> None:
+    # A recycled tuple must not keep the hash cached for its old pair.
+    md = any_multidict_class([("a", "1"), ("b", "2")])
+    it = iter(md.items())
+    first = next(it)
+    assert first in {("a", "1")}
+    del first
+    second = next(it)
+    assert hash(second) == hash(("b", "2"))
+    assert second in {("b", "2")}
+
+
+class _CustomStr(str):
+    """Custom str subclass to verify exactness invariant."""
+
+
+def test_str_subclass_overriding_str_dunder_lookup(
+    any_multidict_class: type[MultiDict[int]],
+) -> None:
+    # A key whose __str__() returns a spoofed value must still be looked
+    # up under its underlying unicode string value on both backends.
+    class Token(str):
+        def __str__(self) -> str:
+            return "spoof"
+
+    md = any_multidict_class()
+    token = Token("Token")
+    assert str(token) == "spoof"
+    md[token] = 1
+    assert md["Token"] == 1
+    assert md[token] == 1
+    with pytest.raises(KeyError):
+        _ = md["spoof"]
+
+
+def test_plain_str_subclass_lower_returns_subclass(
+    case_insensitive_multidict_class: type[CIMultiDict[object]],
+) -> None:
+    class SubclassLower(str):
+        def lower(self) -> _CustomStr:
+            return _CustomStr(super().lower())
+
+    key = SubclassLower("AbC_Key")
+    md = case_insensitive_multidict_class()
+
+    md[key] = "val1"
+    assert md[key] == "val1"
+    assert md["abc_key"] == "val1"
+    assert md["ABC_KEY"] == "val1"
+
+    md.add(key, "val2")
+    assert md.getall("abc_key") == ["val1", "val2"]
+
+    res = md.setdefault(key, "val3")
+    assert res == "val1"
+
+    assert key in md
+    assert md.getall(key) == ["val1", "val2"]
+
+    del md[key]
+    assert "abc_key" not in md
+
+
+def test_pure_python_identity_exactness() -> None:
+    # Verify that pure-Python _identity() always returns exact str,
+    # even when keys or lower() results are str subclasses.
+    class SubclassLower(str):
+        def lower(self) -> _CustomStr:
+            return _CustomStr(super().lower())
+
+    class Token(str):
+        def __str__(self) -> str:
+            return "spoof"
+
+    cs: _pure.MultiDict[object] = _pure.MultiDict()
+    ci: _pure.CIMultiDict[object] = _pure.CIMultiDict()
+
+    token = Token("Token")
+    assert str(token) == "spoof"
+    assert type(cs._identity(token)) is str
+    assert cs._identity(token) == "Token"
+
+    custom = _CustomStr("Key")
+    assert type(cs._identity(custom)) is str
+    assert cs._identity(custom) == "Key"
+
+    sub_lower = SubclassLower("AbC")
+    assert type(ci._identity(sub_lower)) is str
+    assert ci._identity(sub_lower) == "abc"

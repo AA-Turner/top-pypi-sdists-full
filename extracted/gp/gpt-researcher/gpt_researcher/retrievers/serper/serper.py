@@ -28,6 +28,7 @@ class SerperSearch():
         self.time_range = time_range or os.getenv("SERPER_TIME_RANGE")
         self.exclude_sites = exclude_sites or self._get_exclude_sites_from_env()
         self.api_key = self.get_api_key()
+        self.api_base = os.getenv("SERPER_API_BASE", "https://google.serper.dev").rstrip("/")
 
     def _get_exclude_sites_from_env(self):
         """
@@ -63,8 +64,11 @@ class SerperSearch():
         print("Searching with query {0}...".format(self.query))
         """Useful for general internet search queries using the Serper API."""
 
-        # Search the query (see https://serper.dev/playground for the format)
-        url = "https://google.serper.dev/search"
+        # Search the query (see https://serper.dev/playground for the format).
+        # The base URL is configurable via SERPER_API_BASE so the retriever can
+        # be pointed at a proxy, a regional endpoint or any Serper-compatible
+        # service without changing code. Defaults to Serper itself.
+        url = f"{self.api_base}/search"
 
         headers = {
             'X-API-KEY': self.api_key,
@@ -112,7 +116,7 @@ class SerperSearch():
             search_results = json.loads(resp.text)
         except Exception:
             return []
-        if search_results is None:
+        if search_results is None or not isinstance(search_results, dict):
             return []
 
         results = search_results.get("organic") or []

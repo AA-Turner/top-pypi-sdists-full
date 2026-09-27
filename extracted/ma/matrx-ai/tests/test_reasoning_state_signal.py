@@ -216,3 +216,44 @@ async def test_openai_reasoning_with_summary_signals_started_stopped():
 async def test_openai_no_reasoning_emits_no_signal():
     em = await _run_openai([_oa_text_delta("just an answer")])
     assert em.reasoning == []
+
+
+# --------------------------------------------------------------------------- #
+# xAI — reasoning is inferred from the ACCUMULATED ``reasoning_content``.
+# --------------------------------------------------------------------------- #
+
+
+async def _run_xai(stream_items) -> _CaptureEmitter:
+    from matrx_ai.config.unified_config import UnifiedResponse
+    from matrx_ai.providers.xai.xai_api import XAIChat
+
+    api = object.__new__(XAIChat)  # skip xai_sdk client construction
+    api.translator = NS(from_xai=lambda _r: UnifiedResponse(messages=[]))
+
+    class _Chat:
+        async def stream(self):
+            for item in stream_items:
+                yield item
+
+    em = _CaptureEmitter()
+    await api._execute_streaming(_Chat(), em, "grok-4.7")
+    return em
+
+
+@pytest.mark.asyncio
+async def test_xai_reasoning_then_many_answer_chunks_is_one_bracket():
+    # grok-4.7, Model Battle 2026-09-26: reasoning_content stays populated for
+    # every later chunk, and each answer chunk used to re-open a bracket —
+    # 119 empty brackets for one decision reply.
+    thought = "The board renders placeholders..."
+    items = [(NS(reasoning_content=thought), NS(content=""))]
+    items += [(NS(reasoning_content=thought), NS(content=piece)) for piece in ['{"answers"', ': {', "}}"]]
+    em = await _run_xai(items)
+    assert em.reasoning == ["started", "stopped"]
+    assert [v for k, v in em.events if k == "chunk"] == ['{"answers"', ": {", "}}"]
+
+
+@pytest.mark.asyncio
+async def test_xai_no_reasoning_emits_no_signal():
+    em = await _run_xai([(NS(reasoning_content=""), NS(content="Hi."))])
+    assert em.reasoning == []

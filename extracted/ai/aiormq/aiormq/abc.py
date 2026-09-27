@@ -37,12 +37,17 @@ class TaskWrapper:
 
     def throw(self, exception: ExceptionType) -> None:
         self._exception = exception
-        self.task.cancel()
+        self.task.cancel(exception)
 
     async def __inner(self) -> Any:
         try:
             return await self.task
         except asyncio.CancelledError as e:
+            if (
+                isinstance(self._exception, BaseException) and
+                self._exception.__cause__ is not None
+            ):
+                raise self._exception
             raise self._exception from e
 
     def __await__(self, *args: Any, **kwargs: Any) -> Any:
@@ -134,6 +139,8 @@ ChannelRType = Tuple[int, Channel.OpenOk]
 CallbackCoro = Coroutine[Any, Any, Any]
 ConsumerCallback = Callable[[DeliveredMessage], CallbackCoro]
 ReturnCallback = Callable[[DeliveredMessage], Any]
+# Called with the Basic.Cancel frame the broker sent for a consumer.
+ConsumerCancelCallback = Callable[[spec.Basic.Cancel], Any]
 
 ArgumentsType = FieldTable
 
@@ -166,6 +173,7 @@ RpcReturnType = Optional[
     Union[
         Basic.CancelOk,
         Basic.ConsumeOk,
+        Basic.GetEmpty,
         Basic.GetOk,
         Basic.QosOk,
         Basic.RecoverOk,
@@ -178,7 +186,7 @@ RpcReturnType = Optional[
         Exchange.DeleteOk,
         Exchange.UnbindOk,
         Queue.BindOk,
-        Queue.DeleteOk,
+        Queue.DeclareOk,
         Queue.DeleteOk,
         Queue.PurgeOk,
         Queue.UnbindOk,
@@ -303,7 +311,12 @@ class AbstractChannel(AbstractBase):
     connection: "AbstractConnection"
     number: int
     on_return_callbacks: Set[ReturnCallback]
-    closing: asyncio.Future
+    on_consumer_cancel_callbacks: Set[ConsumerCancelCallback]
+
+    @property
+    @abstractmethod
+    def closing(self) -> asyncio.Future:
+        raise NotImplementedError
 
     @abstractmethod
     async def open(self) -> spec.Channel.OpenOk:
@@ -544,7 +557,11 @@ class AbstractConnection(AbstractBase):
     channels: Dict[int, Optional[AbstractChannel]]
     write_queue: asyncio.Queue
     url: URL
-    closing: asyncio.Future
+
+    @property
+    @abstractmethod
+    def closing(self) -> asyncio.Future:
+        raise NotImplementedError
 
     @abstractmethod
     def set_close_reason(
@@ -627,6 +644,7 @@ __all__ = (
     "AbstractBase", "AbstractChannel", "AbstractConnection",
     "AbstractFutureStore", "ArgumentsType", "CallbackCoro", "ChannelFrame",
     "ChannelRType", "ConfirmationFrameType", "ConsumerCallback",
+    "ConsumerCancelCallback",
     "CoroutineType", "DeliveredMessage", "DrainResult", "ExceptionType",
     "FieldArray", "FieldTable", "FieldValue", "FrameReceived", "FrameType",
     "GetResultType", "ReturnCallback", "RpcReturnType", "SSLCerts",

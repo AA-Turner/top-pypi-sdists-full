@@ -60,6 +60,12 @@ from matrx_ai.tools.output_caps import cap_json_list
 logger = logging.getLogger(__name__)
 
 MAX_READ_SIZE = 1_048_576  # 1 MB
+#: The most one ``fs_read`` result carries (chars/bytes of file content). Under
+#: the size gate's 50K soft cap with room for the envelope, so the result is
+#: honestly ``output_self_capped``. Production (ops ``tool_result_overflow:fs_read``):
+#: page.html 423,130; content-splitter-v2.ts 76,087; limit=60000 → 53K. A larger
+#: ``limit`` is clamped; ``truncated`` + ``next_offset`` say where to continue.
+FS_READ_MAX_CHARS = 40_000
 MAX_PATCH_SIZE = 5_242_880  # 5 MB hard cap on file size patches will touch
 MAX_LIST_ENTRIES = 500
 # Keep ample headroom for the listing envelope while staying below the universal
@@ -280,7 +286,7 @@ async def fs_read(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     if (binding := get_active_sandbox()) is not None:
         try:
             sandbox_path = _resolve_sandbox_path(binding, parsed.path)
-            read_limit = parsed.limit if parsed.limit > 0 else MAX_READ_SIZE
+            read_limit = min(parsed.limit, FS_READ_MAX_CHARS) if parsed.limit > 0 else FS_READ_MAX_CHARS
             page = await _proxy_fs_read(
                 binding,
                 sandbox_path,
@@ -303,6 +309,7 @@ async def fs_read(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
                 completed_at=time.time(),
                 tool_name="fs_read",
                 call_id=ctx.call_id,
+                output_self_capped=True,
             )
         except SandboxProxyError as exc:
             return _proxy_error(
@@ -322,13 +329,25 @@ async def fs_read(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
             )
 
         size = filepath.stat().st_size
-        read_limit = parsed.limit if parsed.limit > 0 else MAX_READ_SIZE
-        truncated = size > read_limit
+        read_limit = min(parsed.limit, FS_READ_MAX_CHARS) if parsed.limit > 0 else FS_READ_MAX_CHARS
 
-        with open(filepath, errors="replace") as f:
+        with open(filepath, "rb") as f:
             if parsed.offset:
                 f.seek(parsed.offset)
-            content = f.read(read_limit)
+            raw = f.read(read_limit)
+            end = f.tell()
+        # Never split a UTF-8 sequence at the page edge: back off to a boundary
+        # so next_offset (a byte offset) resumes on a whole character.
+        cut = len(raw)
+        while cut > 0 and end < size and (raw[cut - 1] & 0xC0) == 0x80:
+            cut -= 1
+        if cut > 0 and end < size and raw[cut - 1] >= 0xC0:
+            cut -= 1
+        if cut != len(raw):
+            end -= len(raw) - cut
+            raw = raw[:cut]
+        content = raw.decode("utf-8", errors="replace")
+        truncated = end < size
 
         return ToolResult(
             success=True,
@@ -336,12 +355,16 @@ async def fs_read(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
                 content=content,
                 size=size,
                 truncated=truncated,
+                offset=parsed.offset,
+                limit=read_limit,
+                next_offset=end if truncated else None,
                 path=parsed.path,
             ).model_dump(mode="json"),
             started_at=started_at,
             completed_at=time.time(),
             tool_name="fs_read",
             call_id=ctx.call_id,
+            output_self_capped=True,
         )
     except PermissionError as exc:
         return ToolResult(

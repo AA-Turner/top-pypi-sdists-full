@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: esphome-device-builder-frontend
-Version: 0.1.346
+Version: 0.1.347
 Summary: Prebuilt web frontend for the ESPHome Device Builder Dashboard
 Author-email: The ESPHome Authors <esphome@openhomefoundation.org>
 License: Apache-2.0
@@ -61,6 +61,20 @@ The new-issue chooser on this repo only surfaces redirect links — there's no w
 - **🐛 Bugs** → [backend issue tracker](https://github.com/esphome/device-builder/issues). UI bugs go there too so we can triage everything in one place.
 - **💡 Feature ideas** → [ESPHome org discussions](https://github.com/orgs/esphome/discussions) or the [dashboard Discord channel](https://discord.gg/Rf2jWGVjaK) where the new UI is actively discussed and feedback is being collected. Once a request is shaped enough to be actionable a maintainer adds it to the backlog above.
 
+## Contributing — keep it simple
+
+ESPHome is already a lot to take in for someone setting up their first device. The dashboard's job is to make that easier, not to add to it, so we keep the UI small and opinionated. We do not add flags, preferences or toggles to gate behaviour without a very strong justification and sign-off from the maintainers.
+
+What that means for a PR:
+
+- **Expect a PR that adds a flag, preference, toggle, or setting to be rejected unless it was agreed with a maintainer first.** Every switch is one more thing a new user has to understand, one more state the code has to handle, and one more combination nobody tests. If a behaviour is worth having, it is worth having for everyone; pick the one behaviour that serves the most people and ship that.
+- "Off by default so it doesn't affect anyone" is not a reason to add a switch. It hides the feature from the users it was built for and still adds the complexity.
+- Expert mode is not a catch-all home for extra switches. It exists for the few controls that are unsafe or confusing to show a beginner (the version history off switch is the model), not for personal preferences. A PR that reaches for expert mode to justify a new toggle is still unlikely to be accepted.
+- Before adding a setting, ask whether the feature can simply be the default, or whether the UI can work out the right thing from context (device state, platform, what is paired). Most of the time it can.
+- If you think a switch really is unavoidable, make the case in a discussion or on the backlog and get a maintainer's sign-off before writing the code. The discussion is cheap; a PR that gets closed is not.
+
+The same goes for options in dialogs, extra buttons in menus, and "advanced" sections: fewer, clearer choices beat more of them.
+
 ## Contributing — local development
 
 The rest of this README is for developers working on the frontend itself. If you just want to run the dashboard, head over to the [backend repo](https://github.com/esphome/device-builder) and follow its setup.
@@ -113,7 +127,7 @@ python3 -m build --wheel
 
 ## ESPHome Web
 
-This repo also builds **[ESPHome Web](https://web.esphome.io)** — the standalone, backend-free Web Serial tool (connect an ESP or Raspberry Pi Pico W over USB to install firmware, view logs, and provision Wi-Fi via Improv). It's a second build target that shares this repo's `src/` tree — the design system, the esptool-js flash engine (`src/util/web-serial.ts`), and localization — and adds only the app under `src/web/`.
+This repo also builds **[ESPHome Web](https://web.esphome.io)** — the standalone, backend-free Web Serial tool (connect an ESP or Raspberry Pi Pico W over USB to install firmware, view logs, and provision Wi-Fi via Improv). It's a second build target that shares this repo's `src/` tree — the design system, the per-platform flash engines under `src/platforms/` (esptool-js in `src/platforms/esp/esptool.ts`), and localization — and adds only the app under `src/web/`.
 
 ```bash
 pnpm run dev:web    # HMR dev server on http://localhost:5174 (no backend needed)
@@ -226,6 +240,8 @@ These rules apply to all new code in `src/`. Existing files that pre-date them a
 - One `@customElement` per `.ts` file. File name matches element name: `esphome-foo-bar.ts` → `<esphome-foo-bar>`.
 - If a feature grows beyond 2–3 files, give it its own subfolder (see `src/components/settings-dialog/` for the pattern).
 - Create folders proactively when grouping related files makes sense — don't pile everything flat.
+- In-browser flashing and logs code lives in one directory per platform under `src/platforms/` (`esp/`, `nrf52/`, `rp2/`, `rtl87xx/`), with tests mirrored under `test/platforms/`. Each has an `index.ts` for the API both the Device Builder and ESPHome Web use, and a `dashboard.ts` for the Device Builder's install flow; `src/` code outside a platform imports only those two. A flash engine loaded on demand is exported from `index.ts` only as types plus a `load*` function, so it stays out of the main chunk. The one exception is the LibreTiny UF2 parser in the Device Builder, whose RTL8720C flow imports it directly; web.esphome.io loads it on demand. ESPHome Web's own cards and install dialogs for each platform live in `src/web/platforms/<name>/` (imported by file; the entry-file rule is for `src/platforms/`), with tests under `test/web/platforms/`.
+- Each platform beyond ESP that the Device Builder supports in the browser (nRF52, Pico, RTL8720C) exports one `PlatformSupport` descriptor from its `dashboard.ts` (see `src/platforms/platform-support.ts`) and gets one entry in `src/platforms/registry.ts`, the one module outside a platform that imports every `dashboard.ts`. The install dialog, the install-method rows and `applyInstallMethod` read the platform's install flow (steps, copy, buttons, Retry target) from it, and the logs code reads its logs policy (Web Serial and Bluetooth logs, the line release on open, Reset Device), so a new platform needs no edits there. ESP's flows are still built in.
 
 ### TypeScript
 

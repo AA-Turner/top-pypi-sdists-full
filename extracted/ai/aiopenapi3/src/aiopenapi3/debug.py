@@ -1,7 +1,9 @@
-from aiopenapi3.plugin import Document
-import yaml
-from pathlib import Path
 import json
+from pathlib import Path
+
+import yaml
+
+from aiopenapi3.plugin import Document
 
 
 class DescriptionDocumentDumper(Document):
@@ -36,7 +38,7 @@ def log_response(response):
         try:
             if data := request.read():
                 print(json.dumps(json.loads(data.decode()), indent=4))
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             print(e)
 
 

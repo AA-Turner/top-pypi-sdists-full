@@ -118,6 +118,7 @@ pub(crate) fn validation_error_info(validator: &Document, doc: &Document) -> Doc
     info
 }
 
+use crate::argtypes;
 use crate::util::{
     as_i64, bool_field, coll_arg, collation_of, command_error, doc_field, resolve_let_vars,
     write_error,
@@ -201,7 +202,7 @@ fn insert_raw_path(
         return Ok(doc! {
             "ok": 0.0,
             "errmsg": "Write batch sizes must be between 1 and 100000. Got 0 operations.",
-            "code": 4,
+            "code": 16,
             "codeName": "InvalidLength",
         });
     }
@@ -252,8 +253,32 @@ fn insert_raw_path(
 }
 
 /// `insert` — batch document insert.
+/// mongod's empty-batch rule, which `insert` already applied and `update` /
+/// `delete` did not: an absent, non-array or empty write array is
+/// InvalidLength (16), not a no-op success. Both used to answer ok:1 with
+/// `n: 0`, telling the caller a batch it never sent had been applied.
+fn empty_batch(doc: &Document, field: &str) -> Result<(), CommandError> {
+    match doc.get(field) {
+        Some(Bson::Array(a)) if !a.is_empty() => Ok(()),
+        _ => Err(CommandError::new(
+            16,
+            "InvalidLength",
+            "Write batch sizes must be between 1 and 100000. Got 0 operations.",
+        )),
+    }
+}
+
 pub fn insert(doc: &Document, ctx: &mut CommandContext) -> HandlerResult {
     let coll = coll_arg(doc, "insert")?;
+    argtypes::require_bool_field(doc, "ordered", "insert.ordered")?;
+    argtypes::require_object(doc, "writeConcern", "insert.writeConcern")?;
+    // `bypassDocumentValidation` is the bool-OR-number family (`1.5` is valid),
+    // not the strict bool of `ordered` on the same command.
+    argtypes::require_bool_or_number(
+        doc,
+        "bypassDocumentValidation",
+        "insert.bypassDocumentValidation",
+    )?;
     // Take the raw-BSON write side-channel first, releasing the `&mut` borrow
     // before the immutable `storage()` / `db_name` borrows below.
     let raw_docs = ctx.raw_insert_documents.take();
@@ -293,13 +318,16 @@ pub fn insert(doc: &Document, ctx: &mut CommandContext) -> HandlerResult {
     // Decoded path: documents inline in the command body.
     let documents = match doc.get("documents") {
         Some(Bson::Array(a)) if !a.is_empty() => a,
-        // mongod rejects an empty/absent `documents` array with InvalidLength
-        // (4) — drivers gate command-error tests on this exact code/codeName.
+        // mongod rejects an empty/absent `documents` array with InvalidLength,
+        // which is code **16** — this said 4 (NoSuchKey) under a comment
+        // asserting drivers gate on "this exact code/codeName combo". They
+        // gate on the codeName; the code was simply wrong, and `bulkWrite` in
+        // this same crate already answered 16. Probed on mongod 8.2.11.
         _ => {
             return Ok(doc! {
                 "ok": 0.0,
                 "errmsg": "Write batch sizes must be between 1 and 100000. Got 0 operations.",
-                "code": 4,
+                "code": 16,
                 "codeName": "InvalidLength",
             })
         }
@@ -380,8 +408,23 @@ pub fn insert(doc: &Document, ctx: &mut CommandContext) -> HandlerResult {
 /// `delete` — batch delete, one entry per `{q, limit}` spec.
 pub fn delete(doc: &Document, ctx: &mut CommandContext) -> HandlerResult {
     let coll = coll_arg(doc, "delete")?;
+    argtypes::require_bool_field(doc, "ordered", "delete.ordered")?;
+    empty_batch(doc, "deletes")?;
+    for spec in array_field(doc, "deletes").iter() {
+        if let Bson::Document(spec) = spec {
+            argtypes::require_object(spec, "collation", "delete.deletes.collation")?;
+            argtypes::require_hint(spec, "hint")?;
+        }
+    }
     let storage = ctx.storage()?;
     let deletes = array_field(doc, "deletes");
+    // NOTE: an unresolvable `hint` is a PER-STATEMENT writeError, not a
+    // command-level failure. mongod answers `ok: 1` with
+    // `writeErrors: [{index, code: 2}]` and applies the other statements in the
+    // batch; returning `Err` here failed the whole command and reported no
+    // `n`. Probed 8.2.11 (2026-08-31) against a bogus index name on both
+    // `delete` and `update`. Validation therefore lives in the loop below,
+    // beside the other per-statement checks, and not in a pre-pass.
     let ordered = bool_field(doc, "ordered", true);
 
     let mut n = 0_i32;
@@ -390,6 +433,43 @@ pub fn delete(doc: &Document, ctx: &mut CommandContext) -> HandlerResult {
     let let_vars = resolve_let_vars(doc.get("let"));
     for (index, spec) in deletes.iter().enumerate() {
         let Bson::Document(spec) = spec else { continue };
+        argtypes::require_write_statement(spec, "delete")?;
+        // As in `update`: an undefined `$$variable` in the filter is a
+        // per-statement writeError carrying mongod's 17276.
+        {
+            let bound: Vec<String> = match doc.get("let") {
+                Some(Bson::Document(d)) => d.keys().cloned().collect(),
+                _ => Vec::new(),
+            };
+            if let Some(Bson::Document(q)) = spec.get("q") {
+                if let Some((code, msg)) = argtypes::expression_problem_in_filter(q, &bound) {
+                    write_errors.push(Bson::Document(doc! {
+                        "index": index as i32,
+                        "code": code,
+                        "errmsg": msg,
+                    }));
+                    if ordered {
+                        break;
+                    }
+                    continue;
+                }
+            }
+        }
+        // An unresolvable `hint` fails THIS statement, not the batch (see the
+        // note above the loop).
+        if let Err(e) =
+            crate::util::validate_write_hint(storage, &ctx.db_name, &coll, spec.get("hint"))
+        {
+            write_errors.push(Bson::Document(doc! {
+                "index": index as i32,
+                "code": e.code,
+                "errmsg": e.errmsg.clone(),
+            }));
+            if ordered {
+                break;
+            }
+            continue;
+        }
         let filter = doc_field(spec, "q");
         // `collation` is per-delete-statement (inside each `deletes[]` entry).
         let collation = collation_of(spec);
@@ -413,7 +493,7 @@ pub fn delete(doc: &Document, ctx: &mut CommandContext) -> HandlerResult {
             // label and drivers retry the transaction.
             Err(e @ StorageError::WriteConflict) => return Ok(command_error(e).into_reply()),
             Err(e) => {
-                write_errors.push(Bson::Document(write_error(index, e)));
+                write_errors.push(Bson::Document(write_error(index, e, "delete")));
                 if ordered {
                     break;
                 }
@@ -432,6 +512,30 @@ pub fn delete(doc: &Document, ctx: &mut CommandContext) -> HandlerResult {
 /// way mongod's `count` command (and the legacy `cursor.count()`) does.
 pub fn count(doc: &Document, ctx: &mut CommandContext) -> HandlerResult {
     let coll = coll_arg(doc, "count")?;
+    argtypes::require_object(doc, "query", "count.query")?;
+    // Two adjacent numeric slots, two families: `limit` answers BadValue with
+    // its own wording and rejects null, `skip` answers the ordinary numeric
+    // type error and accepts one. Probed on 8.2.11.
+    argtypes::require_count_limit(doc, "limit")?;
+    argtypes::require_number(doc, "skip", "count.skip")?;
+    argtypes::require_hint(doc, "hint")?;
+    // An undefined `$$variable` is a PARSE error (17276), not the storage
+    // layer's generic "unsupported construct" BadValue.
+    {
+        let bound: Vec<String> = match doc.get("let") {
+            Some(Bson::Document(d)) => d.keys().cloned().collect(),
+            _ => Vec::new(),
+        };
+        if let Some(Bson::Document(f)) = doc.get("query") {
+            if let Some((code, msg)) = argtypes::expression_problem_in_filter(f, &bound) {
+                return Err(CommandError::new(
+                    code,
+                    crate::util::error_code_name(code),
+                    msg,
+                ));
+            }
+        }
+    }
     let storage = ctx.storage()?;
     let filter = doc_field(doc, "query");
     let collation = collation_of(doc);
@@ -512,44 +616,19 @@ const PIPELINE_UPDATE_STAGES: [&str; 6] = [
     "$replaceWith",
 ];
 
-/// Update modifiers mongod accepts (`secantus.update._KNOWN_UPDATE_OPS`). A
-/// top-level `$`-key outside this set is an "Unknown modifier" parse error.
-const KNOWN_UPDATE_OPS: [&str; 15] = [
-    "$set",
-    "$setOnInsert",
-    "$unset",
-    "$currentDate",
-    "$inc",
-    "$mul",
-    "$min",
-    "$max",
-    "$push",
-    "$addToSet",
-    "$pull",
-    "$pullAll",
-    "$pop",
-    "$rename",
-    "$bit",
-];
-
 /// Parse-time check of an operator-form update document, mirroring
-/// `secantus.update.validate_update_doc`: `Some(errmsg)` for an unknown modifier
-/// or a mix of operators and replacement fields, else `None` (a pure replacement
-/// or a valid operator update). Surfaces as a `FailedToParse` (9) write error.
-fn unsupported_update_modifier(u: &Document) -> Option<String> {
-    if !u.keys().any(|k| k.starts_with('$')) {
-        return None; // replacement-style update
-    }
-    if !u.keys().all(|k| k.starts_with('$')) {
-        return Some("update document cannot mix operators with replacement fields".to_string());
-    }
-    u.keys()
-        .find(|k| !KNOWN_UPDATE_OPS.contains(&k.as_str()))
-        .map(|k| {
-            format!(
-                "Unknown modifier: {k}. Expected a valid update modifier (e.g. $set, $unset, $inc, ...)"
-            )
-        })
+/// `secantus.update.validate_update_doc`: `Some((code, errmsg))` for an unknown
+/// modifier (9), an empty update path (56), or a path conflict (40), else `None`
+/// (a pure replacement or a valid operator update).
+///
+/// This used to check ONLY the operator names, from a private copy of the
+/// modifier list, and the caller hard-coded code 9. mongod interleaves all three
+/// checks in one document-order walk and the first offender wins -- so a spec
+/// with both an unknown modifier and an empty path answers whichever comes
+/// first. `secantus_core::update::update_spec_error` is that walk, shared with
+/// the engine so the two cannot drift.
+fn update_spec_error(u: &Document) -> Option<(i32, String)> {
+    secantus_core::update::update_spec_error(u)
 }
 
 /// `update` — batch update, one entry per `{q, u, multi?, upsert?}` spec. Ports
@@ -597,9 +676,19 @@ fn ts_update_is_meta_only(u: Option<&Bson>, meta: &str) -> bool {
 }
 
 pub fn update(doc: &Document, ctx: &mut CommandContext) -> HandlerResult {
+    argtypes::require_object(doc, "let", "update.let")?;
+    argtypes::require_bool_field(doc, "ordered", "update.ordered")?;
+    empty_batch(doc, "updates")?;
     let coll = coll_arg(doc, "update")?;
     let storage = ctx.storage()?;
     let updates = array_field(doc, "updates");
+    // NOTE: an unresolvable `hint` is a PER-STATEMENT writeError, not a
+    // command-level failure. mongod answers `ok: 1` with
+    // `writeErrors: [{index, code: 2}]` and applies the other statements in the
+    // batch; returning `Err` here failed the whole command and reported no
+    // `n`. Probed 8.2.11 (2026-08-31) against a bogus index name on both
+    // `delete` and `update`. Validation therefore lives in the loop below,
+    // beside the other per-statement checks, and not in a pre-pass.
     let ordered = bool_field(doc, "ordered", true);
 
     let mut n = 0_i32;
@@ -651,14 +740,55 @@ pub fn update(doc: &Document, ctx: &mut CommandContext) -> HandlerResult {
     for (index, spec) in updates.iter().enumerate() {
         let Bson::Document(spec) = spec else { continue };
 
-        // MongoDB 8.0 added a per-spec `sort`; pre-8.0 (we advertise 7.0) it's a
-        // command-level FailedToParse. Drivers' `*-sort` tests with
-        // `maxServerVersion: "7.99"` assert this.
-        if spec.contains_key("sort") {
+        argtypes::require_write_statement(spec, "update")?;
+        // Strict bool, unlike findAndModify's `upsert`, which takes a bool OR any
+        // number. Adjacent slots, different rules -- probed, not inferred.
+        argtypes::require_bool_field(spec, "multi", "update.updates.multi")?;
+        argtypes::require_object(spec, "collation", "update.updates.collation")?;
+        argtypes::require_array(spec, "arrayFilters", "update.updates.arrayFilters")?;
+        argtypes::require_hint(spec, "hint")?;
+
+        // An unresolvable `hint` fails THIS statement, not the batch (see the
+        // note above the loop).
+        if let Err(e) =
+            crate::util::validate_write_hint(storage, &ctx.db_name, &coll, spec.get("hint"))
+        {
+            write_errors.push(Bson::Document(doc! {
+                "index": index as i32,
+                "code": e.code,
+                "errmsg": e.errmsg.clone(),
+            }));
+            if ordered {
+                break;
+            }
+            continue;
+        }
+
+        // MongoDB 8.0's per-spec `sort`: match in sort order and update the
+        // FIRST one. Probed on 8.2.11 -- `multi: true` is rejected, and an
+        // upsert whose filter matches nothing still upserts. This used to
+        // reject `sort` outright because we advertised 7.0; the driver `*-sort`
+        // tests assert BOTH directions (`maxServerVersion: "7.99"` for the
+        // rejection, `minServerVersion: "8.0"` for the support), so it moved
+        // with the advertised version. Mirrors `_update` in
+        // `src/secantus/commands.py`.
+        let sort_spec = match spec.get("sort") {
+            Some(Bson::Document(d)) => Some(d.clone()),
+            None => None,
+            Some(_) => {
+                return Ok(CommandError::new(
+                    2,
+                    "BadValue",
+                    "BSON field 'update.updates.sort' is the wrong type",
+                )
+                .into_reply());
+            }
+        };
+        if sort_spec.is_some() && bool_field(spec, "multi", false) {
             return Ok(CommandError::new(
                 9,
                 "FailedToParse",
-                "The 'sort' option is not supported on update commands before MongoDB 8.0",
+                "Cannot specify sort with multi=true",
             )
             .into_reply());
         }
@@ -666,9 +796,66 @@ pub fn update(doc: &Document, ctx: &mut CommandContext) -> HandlerResult {
         // `collation` is per-update-statement (inside each `updates[]` entry),
         // not a command-level field — collation-aware filter matching (COLLSCAN).
         let collation = collation_of(spec);
-        let q = doc_field(spec, "q");
+        let mut q = doc_field(spec, "q");
+        if let Some(sort) = &sort_spec {
+            // Resolve WHICH document sorts first, then pin the update to it.
+            // Nothing matched -> leave the filter alone, so an upsert still
+            // upserts.
+            let sorted = ctx.storage().and_then(|st| {
+                st.find_collated(
+                    &ctx.db_name,
+                    &coll,
+                    &q,
+                    Some(sort),
+                    None,
+                    collation.as_ref(),
+                    &Document::new(),
+                )
+                .map_err(|_| CommandError::new(2, "BadValue", "sort resolution failed"))
+            });
+            if let Ok(rows) = sorted {
+                if let Some(first) = rows.first() {
+                    if let Ok(d) = Document::from_reader(&mut first.as_slice()) {
+                        if let Some(id) = d.get("_id") {
+                            q = doc! { "_id": id.clone() };
+                        }
+                    }
+                }
+            }
+        }
         let multi = bool_field(spec, "multi", false);
         let upsert = bool_field(spec, "upsert", false);
+
+        // An undefined `$$variable` in the filter or in a PIPELINE-form `u` is a
+        // per-statement writeError with mongod's 17276, not the storage layer's
+        // generic BadValue — and it is per statement, so an earlier one in the
+        // batch still applies (probed: `n: 1` with the error at `index: 1`).
+        {
+            let bound: Vec<String> = match doc.get("let") {
+                Some(Bson::Document(d)) => d.keys().cloned().collect(),
+                _ => Vec::new(),
+            };
+            let found = match spec.get("q") {
+                Some(Bson::Document(q)) => argtypes::expression_problem_in_filter(q, &bound)
+                    .map(|(c, m)| (c, m, String::new())),
+                _ => None,
+            }
+            .or_else(|| {
+                spec.get("u")
+                    .and_then(|u| argtypes::expression_problem_in_update(u, &bound))
+            });
+            if let Some((code, msg, stage)) = found {
+                write_errors.push(Bson::Document(doc! {
+                    "index": index as i32,
+                    "code": code,
+                    "errmsg": argtypes::wrap_expression_problem(&msg, &stage),
+                }));
+                if ordered {
+                    break;
+                }
+                continue;
+            }
+        }
 
         // Timeseries (mongod 7.0): an update may only modify the metaField, via
         // operator-form modifiers — no replacement / pipeline / non-meta paths.
@@ -692,9 +879,9 @@ pub fn update(doc: &Document, ctx: &mut CommandContext) -> HandlerResult {
         // mongod errors even against an empty / no-match collection, where the
         // apply-time engine would never run. Pipeline-form `u` is validated below.
         if !matches!(spec.get("u"), Some(Bson::Array(_))) {
-            if let Some(errmsg) = unsupported_update_modifier(&doc_field(spec, "u")) {
+            if let Some((code, errmsg)) = update_spec_error(&doc_field(spec, "u")) {
                 write_errors.push(Bson::Document(doc! {
-                    "index": index as i32, "code": 9, "errmsg": errmsg,
+                    "index": index as i32, "code": code, "errmsg": errmsg,
                 }));
                 if ordered {
                     break;
@@ -753,6 +940,22 @@ pub fn update(doc: &Document, ctx: &mut CommandContext) -> HandlerResult {
                 .and_then(Bson::as_array)
                 .map(|a| a.iter().filter_map(|b| b.as_document().cloned()).collect())
                 .unwrap_or_default();
+            // PER-STATEMENT, not command-level: mongod reports this in
+            // `writeErrors` with `ok: 1`, so an unordered batch's other
+            // statements still apply. It used to fail the whole command, which
+            // a driver sees as a different exception class entirely
+            // (`OperationFailure` rather than `WriteError`).
+            if let Some(e) = argtypes::array_filter_identifier_error(&u, &array_filters) {
+                write_errors.push(Bson::Document(doc! {
+                    "index": index as i32,
+                    "code": e.code,
+                    "errmsg": e.errmsg.clone(),
+                }));
+                if ordered {
+                    break;
+                }
+                continue;
+            }
             storage.update_matching_array_filters(
                 &ctx.db_name,
                 &coll,
@@ -786,7 +989,7 @@ pub fn update(doc: &Document, ctx: &mut CommandContext) -> HandlerResult {
             // label and drivers retry the transaction.
             Err(e @ StorageError::WriteConflict) => return Ok(command_error(e).into_reply()),
             Err(e) => {
-                write_errors.push(Bson::Document(write_error(index, e)));
+                write_errors.push(Bson::Document(write_error(index, e, "update")));
                 if ordered {
                     break;
                 }

@@ -84,5 +84,9 @@ def test_to_dict_drops_none_exactly_as_the_other_shapes_do():
 
 def test_the_declared_field_count_the_plan_rests_on():
     """92 declared, 57 ever populated. If either moves, the plan's Phase 1b.2
-    sizing moves with it."""
-    assert len(dataclasses.fields(UnifiedConfig)) == 92
+    sizing moves with it.
+
+    98 since 2026-09-26: speech (performance_direction, speech_speed,
+    turn_pause_ms, language_code), video camera_control, and Deep Research
+    visualization — all twinned in UnifiedConfigModel."""
+    assert len(dataclasses.fields(UnifiedConfig)) == 98

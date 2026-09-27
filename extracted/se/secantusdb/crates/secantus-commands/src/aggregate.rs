@@ -53,6 +53,7 @@
 
 use bson::{doc, Bson, Document};
 
+use crate::argtypes;
 use crate::find::split_docs_into_cursor;
 use crate::util::{
     as_i64, bool_field, collation_of, command_error, decode_docs, decode_docs_minimal, encode_docs,
@@ -63,6 +64,33 @@ use secantus_core::collation::Collation;
 
 /// `aggregate` — run a pipeline and return a cursor over the results.
 pub fn aggregate(doc: &Document, ctx: &mut CommandContext) -> HandlerResult {
+    // `cursor` means "missing or an object" literally: an explicit `cursor: null`
+    // is rejected where an absent one is fine. `let` is the BSON-field family.
+    argtypes::require_cursor_object(doc)?;
+    argtypes::require_object(doc, "let", "aggregate.let")?;
+    argtypes::require_object(doc, "collation", "aggregate.collation")?;
+    argtypes::require_object(doc, "readConcern", "aggregate.readConcern")?;
+    argtypes::require_hint(doc, "hint")?;
+    // The `Field '<name>' should be a boolean value` family, which rejects an
+    // explicit null — not the BSON-field family used two lines up.
+    argtypes::require_bool_value(doc, "allowDiskUse")?;
+    // `pipeline` is checked before it is READ: the read below falls back to an
+    // empty pipeline for a non-array, which silently ran the whole collection
+    // through no stages and answered ok.
+    match doc.get("pipeline") {
+        None | Some(Bson::Array(_)) => {}
+        Some(_) => {
+            return Ok(CommandError::new(
+                14,
+                "TypeMismatch",
+                "A pipeline must be an array of objects",
+            )
+            .into_reply())
+        }
+    }
+    if let Some(bson::Bson::Document(c)) = doc.get("cursor") {
+        argtypes::require_number(c, "batchSize", "cursor.batchSize")?;
+    }
     // `aggregate: <coll>` (string) or `aggregate: 1` (collectionless).
     let coll = match doc.get("aggregate") {
         Some(Bson::String(s)) => Some(s.clone()),
@@ -79,11 +107,50 @@ pub fn aggregate(doc: &Document, ctx: &mut CommandContext) -> HandlerResult {
     if let Err(e) = validate_stage_names(&pipeline) {
         return Ok(e.into_reply());
     }
+    // A missing REQUIRED argument is a parse error too, and mongod names the
+    // stage the same way. Must precede the check below, which only knows about
+    // unknown operator names.
+    if let Err(e) = validate_stage_expr_args(&pipeline) {
+        return Ok(e.into_reply());
+    }
     // A genuinely unknown expression operator inside a `$project` spec is
     // mongod's stage-specific Location31325, not the generic BadValue the
     // engine fallback produces. Parse-time, like the stage-name check.
     if let Err(e) = validate_project_exprs(&pipeline) {
         return Ok(e.into_reply());
+    }
+    // Everywhere the projection parser does NOT own, an unknown operator is
+    // mongod's 168 with that position's envelope -- not the blanket "not
+    // supported by the Rust server", which told the client the server cannot do
+    // `$addFields` when the operator inside it was the problem.
+    if let Err(e) = validate_unknown_exprs(&pipeline) {
+        return Ok(e.into_reply());
+    }
+    // An undefined `$$variable` is a PARSE error for mongod: it fires on an
+    // EMPTY collection, where nothing is ever evaluated, so no amount of engine
+    // work could produce it. Checked here, once, before the pipeline runs.
+    {
+        let bound: Vec<String> = match doc.get("let") {
+            Some(Bson::Document(d)) => d.keys().cloned().collect(),
+            _ => Vec::new(),
+        };
+        if let Some((code, msg, stage)) =
+            argtypes::expression_problem_in_pipeline(&pipeline, &bound)
+        {
+            let errmsg = argtypes::wrap_expression_problem(&msg, &stage);
+            return Ok(
+                CommandError::new(code, crate::util::error_code_name(code), errmsg).into_reply(),
+            );
+        }
+    }
+    // A wrong-TYPED stage spec: name it with mongod's own code rather than
+    // letting the engine's generic `Fallback` surface as BadValue (2). Seven
+    // stages, seven codes -- see `crate::argtypes::stage_spec_error`.
+    if let Some((code, errmsg)) = argtypes::stage_spec_error(&pipeline) {
+        // `error_code_name` knows 9 is FailedToParse; the rest are mongod's
+        // anonymous `Location<n>` codes.
+        let code_name = crate::util::error_code_name(code);
+        return Ok(CommandError::new(code, code_name, errmsg).into_reply());
     }
 
     // Inline `explain: true` on the aggregate command (the legacy flag, distinct
@@ -263,7 +330,7 @@ pub fn aggregate(doc: &Document, ctx: &mut CommandContext) -> HandlerResult {
     // The pipeline result is already decoded `Document`s. Send the `firstBatch`
     // straight to the wire as `Bson` and encode only the cursor remainder for the
     // registry — no encode→decode round-trip on the docs the client gets now.
-    let (first_batch, cursor_id) = split_docs_into_cursor(result, batch_size, &ns, cursors)?;
+    let (first_batch, cursor_id) = split_docs_into_cursor(result, batch_size, &ns, cursors, false)?;
     Ok(doc! {
         "cursor": {
             "firstBatch": first_batch,
@@ -370,6 +437,17 @@ const ATLAS_STAGES: &[&str] = &[
     "$vectorSearch",
 ];
 
+/// mongod's error when a `pipeline` element is not a BSON document. Code 14
+/// (TypeMismatch); libmongoc's `/change_stream/accepts_array` asserts on the
+/// wording verbatim. Probed identical on mongod 6.0.16 and 8.3.4.
+pub const PIPELINE_ELEMENT_MSG: &str = "Each element of the 'pipeline' array must be an object";
+
+/// mongod's error when a stage *is* a document but isn't a single
+/// `{operator: spec}` pair -- both an empty `{}` and a multi-key stage. Note
+/// the trailing period, and that it is Location40323, not the generic 14.
+pub const STAGE_ARITY_MSG: &str =
+    "A pipeline stage specification object must contain exactly one field.";
+
 pub const SEARCH_INDEX_ATLAS_MSG: &str = "Using Atlas Search Database Commands and the \
 $listSearchIndexes aggregation stage requires additional configuration. Please connect to Atlas \
 or an Atlas-compatible deployment to use this feature.";
@@ -435,6 +513,37 @@ fn recognized_stage(name: &str) -> bool {
 /// is skipped, so it is never mislabeled. `first_unknown_expr_operator`
 /// recurses through nested documents/arrays and flags only a truly-unknown
 /// `$`-operator — a recognised-but-deferred operator still defers to Python.
+/// Reject an operator argument document that omits a required field, at PARSE
+/// time and with mongod's stage wrapper.
+///
+/// mongod validates a stage's expressions before reading any document, and
+/// wraps what it finds as `Invalid $addFields :: caused by :: <message>` --
+/// also for `$project` and `$set`. The SAME error inside `$group`, `$match`'s
+/// `$expr` or `$redact` is reported BARE (measured 8.2.11, 2026-09-07), which
+/// is why only these three stages are walked here; the evaluator carries the
+/// same check for every other context and produces the bare form.
+fn validate_stage_expr_args(pipeline: &[Bson]) -> Result<(), CommandError> {
+    const WRAPPED_STAGES: [&str; 3] = ["$addFields", "$project", "$set"];
+    for stage in pipeline {
+        let Some(d) = stage.as_document() else {
+            continue;
+        };
+        for name in WRAPPED_STAGES {
+            let Some(spec) = d.get(name) else { continue };
+            if let Err(f) = secantus_core::expressions::validate_expression_args(spec) {
+                if let Some((code, message)) = f.as_mongo() {
+                    return Err(CommandError::new(
+                        code,
+                        crate::util::error_code_name(code),
+                        format!("Invalid {name} :: caused by :: {message}"),
+                    ));
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
 fn validate_project_exprs(pipeline: &[Bson]) -> Result<(), CommandError> {
     const PROJECTION_ONLY_OPS: [&str; 3] = ["$slice", "$elemMatch", "$meta"];
     for stage in pipeline {
@@ -454,7 +563,12 @@ fn validate_project_exprs(pipeline: &[Bson]) -> Result<(), CommandError> {
                     }
                 }
             }
-            if let Some(op) = secantus_core::expressions::first_unknown_expr_operator(value) {
+            // TOP LEVEL only. This used to recurse, which gave 31325 to a
+            // nested unknown as well -- mongod answers 168 there, because the
+            // projection parser owns only the field's own value and anything
+            // deeper belongs to the generic expression parser. Measured 8.2.11,
+            // 2026-09-17; `validate_unknown_exprs` picks up the nested case.
+            if let Some(op) = secantus_core::expressions::top_level_unknown_expr_operator(value) {
                 return Err(CommandError::new(
                     31325,
                     "Location31325",
@@ -466,13 +580,82 @@ fn validate_project_exprs(pipeline: &[Bson]) -> Result<(), CommandError> {
     Ok(())
 }
 
-fn validate_stage_names(pipeline: &[Bson]) -> Result<(), CommandError> {
+/// An unknown expression operator anywhere the PROJECTION parser does not own,
+/// reported as mongod's `168` with the envelope that position carries.
+///
+/// Runs after [`validate_project_exprs`], which takes the top-level value of a
+/// `$project` field (its own `31325`). Everything else is the generic
+/// expression parser's, and mongod's envelope depends on the stage (probed
+/// 8.2.11, 2026-09-17):
+///
+/// ```text
+/// $project / $addFields / $set   Invalid $<stage> :: caused by :: Unrecognized expression '$x'
+/// $group / $replaceWith / $expr  Unrecognized expression '$x'        -- no envelope at all
+/// ```
+///
+/// Only `$group`'s `_id` is walked. Its other fields are ACCUMULATOR position,
+/// where `$push` / `$topN` / `$count` are valid and are absent from
+/// `KNOWN_EXPR_OPS` precisely because they are not expressions -- walking them
+/// would reject `{$group: {_id: "$g", p: {$push: "$s"}}}`, the plainest valid
+/// pipeline there is. The Python server hit exactly that; see
+/// `aggregate._expression_problem`.
+fn validate_unknown_exprs(pipeline: &[Bson]) -> Result<(), CommandError> {
+    const WRAPPED: [&str; 3] = ["$project", "$addFields", "$set"];
     for stage in pipeline {
         let Some(d) = stage.as_document() else {
             continue;
         };
+
+        for name in WRAPPED {
+            let Some(spec) = d.get(name).and_then(Bson::as_document) else {
+                continue;
+            };
+            for (_field, value) in spec.iter() {
+                if let Some(op) = secantus_core::expressions::first_unknown_expr_operator(value) {
+                    return Err(unknown_expr_error(Some(name), &op));
+                }
+            }
+        }
+
+        // Bare positions: the message goes to the client with no wrapper.
+        let bare = [
+            d.get("$group")
+                .and_then(Bson::as_document)
+                .and_then(|g| g.get("_id")),
+            d.get("$replaceWith"),
+            d.get("$match")
+                .and_then(Bson::as_document)
+                .and_then(|m| m.get("$expr")),
+        ];
+        for value in bare.into_iter().flatten() {
+            if let Some(op) = secantus_core::expressions::first_unknown_expr_operator(value) {
+                return Err(unknown_expr_error(None, &op));
+            }
+        }
+    }
+    Ok(())
+}
+
+/// mongod's unknown-expression error, with `stage`'s envelope when it has one.
+fn unknown_expr_error(stage: Option<&str>, op: &str) -> CommandError {
+    let message = format!("Unrecognized expression '{op}'");
+    let message = match stage {
+        Some(name) => format!("Invalid {name} :: caused by :: {message}"),
+        None => message,
+    };
+    CommandError::new(168, crate::util::error_code_name(168), message)
+}
+
+fn validate_stage_names(pipeline: &[Bson]) -> Result<(), CommandError> {
+    for stage in pipeline {
+        // Both of these used to `continue`, so a malformed element sailed past
+        // validation: `pipeline: [42]` reached execution and surfaced as a bare
+        // internal error, and a two-key stage was silently accepted.
+        let Some(d) = stage.as_document() else {
+            return Err(CommandError::new(14, "TypeMismatch", PIPELINE_ELEMENT_MSG));
+        };
         if d.len() != 1 {
-            continue;
+            return Err(CommandError::new(40323, "Location40323", STAGE_ARITY_MSG));
         }
         let name = stage_name(stage);
         if ATLAS_STAGES.contains(&name) {
@@ -488,6 +671,214 @@ fn validate_stage_names(pipeline: &[Bson]) -> Result<(), CommandError> {
                 "Location40324",
                 format!("Unrecognized pipeline stage name: '{name}'"),
             ));
+        }
+        // Spec-level validation with mongod's own codes. The core engine
+        // signals "cannot do this" with a bare `Err(())`, which the adapter
+        // reports as a generic `BadValue` (2) -- so a MALFORMED spec was
+        // indistinguishable from an unimplemented one, and every case below
+        // answered 2 where mongod has a specific code. Validating the spec here,
+        // before the engine runs, is the same place `$facet` already does it and
+        // avoids widening the engine's error type. All probed against 8.2.11.
+        match name {
+            "$setWindowFields" => validate_set_window_fields(d.get(name))?,
+            "$sample" => validate_sample(d.get(name))?,
+            "$unwind" => validate_unwind(d.get(name))?,
+            "$bucket" => validate_bucket(d.get(name))?,
+            "$densify" => validate_densify(d.get(name))?,
+            "$fill" => validate_fill(d.get(name))?,
+            _ => {}
+        }
+    }
+    Ok(())
+}
+
+/// `$sample`'s `size`: a number, and a positive one.
+fn validate_sample(spec: Option<&Bson>) -> Result<(), CommandError> {
+    let Some(spec) = spec.and_then(Bson::as_document) else {
+        return Ok(());
+    };
+    let Some(size) = spec.get("size") else {
+        return Ok(());
+    };
+    let n = match size {
+        Bson::Int32(v) => f64::from(*v),
+        Bson::Int64(v) => *v as f64,
+        Bson::Double(v) => *v,
+        _ => {
+            return Err(CommandError::new(
+                28746,
+                "Location28746",
+                "size argument to $sample must be a number",
+            ));
+        }
+    };
+    if n < 0.0 {
+        return Err(CommandError::new(
+            28747,
+            "Location28747",
+            "size argument to $sample must be a positive integer",
+        ));
+    }
+    Ok(())
+}
+
+/// `$unwind`'s string form must be a field PATH, i.e. `$`-prefixed.
+fn validate_unwind(spec: Option<&Bson>) -> Result<(), CommandError> {
+    let path = match spec {
+        Some(Bson::String(p)) => p.clone(),
+        Some(Bson::Document(d)) => match d.get_str("path") {
+            Ok(p) => p.to_string(),
+            Err(_) => return Ok(()),
+        },
+        _ => return Ok(()),
+    };
+    // An empty path is "no path specified", which mongod reports before it
+    // objects to the missing `$` prefix (probed 8.2.11).
+    if path.is_empty() {
+        return Err(CommandError::new(
+            28812,
+            "Location28812",
+            "no path specified to $unwind stage",
+        ));
+    }
+    if !path.starts_with('$') {
+        return Err(CommandError::new(
+            28818,
+            "Location28818",
+            format!("path option to $unwind stage should be prefixed with a '$': {path}"),
+        ));
+    }
+    Ok(())
+}
+
+/// `$bucket` needs at least two boundaries to define one bucket.
+fn validate_bucket(spec: Option<&Bson>) -> Result<(), CommandError> {
+    let Some(spec) = spec.and_then(Bson::as_document) else {
+        return Ok(());
+    };
+    if let Some(Bson::Array(b)) = spec.get("boundaries") {
+        if b.len() < 2 {
+            return Err(CommandError::new(
+                40192,
+                "Location40192",
+                format!(
+                    "The $bucket 'boundaries' field must have at least 2 values, \
+                     but found {} value(s).",
+                    b.len()
+                ),
+            ));
+        }
+    }
+    Ok(())
+}
+
+/// `$densify`'s `range.step` must be strictly positive.
+fn validate_densify(spec: Option<&Bson>) -> Result<(), CommandError> {
+    let Some(range) = spec
+        .and_then(Bson::as_document)
+        .and_then(|d| d.get("range"))
+        .and_then(Bson::as_document)
+    else {
+        return Ok(());
+    };
+    let step = match range.get("step") {
+        Some(Bson::Int32(v)) => f64::from(*v),
+        Some(Bson::Int64(v)) => *v as f64,
+        Some(Bson::Double(v)) => *v,
+        Some(_) => f64::NAN,
+        None => return Ok(()),
+    };
+    // NaN spelled out rather than written as `!(step > 0.0)`: that form relies
+    // on NaN comparing false, which clippy rejects as a negated comparison on a
+    // partially-ordered type. A non-numeric `step` lands here as NaN above.
+    if step.is_nan() || step <= 0.0 {
+        return Err(CommandError::new(
+            5733401,
+            "Location5733401",
+            "The step parameter in a range statement must be a strictly positive numeric value",
+        ));
+    }
+    Ok(())
+}
+
+/// `$fill`'s per-field `method`, when given, is `locf` or `linear`.
+fn validate_fill(spec: Option<&Bson>) -> Result<(), CommandError> {
+    let Some(output) = spec
+        .and_then(Bson::as_document)
+        .and_then(|d| d.get("output"))
+        .and_then(Bson::as_document)
+    else {
+        return Ok(());
+    };
+    for (_field, field_spec) in output.iter() {
+        let Some(fs) = field_spec.as_document() else {
+            continue;
+        };
+        if let Some(m) = fs.get("method") {
+            let ok = matches!(m.as_str(), Some("locf") | Some("linear"));
+            if !ok {
+                return Err(CommandError::new(
+                    6050202,
+                    "Location6050202",
+                    "Method must be either locf or linear",
+                ));
+            }
+        }
+    }
+    Ok(())
+}
+
+/// `$setWindowFields`'s own fields. Anything else is REJECTED rather than
+/// ignored: an unknown top-level key used to be accepted silently, so a caller
+/// who misspelled `partitionBy` -- or put `range` at the top level, where it
+/// looks plausible but belongs inside a window -- got a wrong answer instead of
+/// an error. Codes and messages probed against mongod 8.2.11. Mirrors the
+/// Python server's `_SET_WINDOW_FIELDS_KNOWN`.
+const SET_WINDOW_FIELDS_KNOWN: &[&str] = &["partitionBy", "sortBy", "output"];
+
+fn validate_set_window_fields(spec: Option<&Bson>) -> Result<(), CommandError> {
+    let Some(spec) = spec.and_then(Bson::as_document) else {
+        return Ok(()); // shape errors are the engine's to report
+    };
+    if let Some(unknown) = spec
+        .keys()
+        .find(|k| !k.starts_with('$') && !SET_WINDOW_FIELDS_KNOWN.contains(&k.as_str()))
+    {
+        return Err(CommandError::new(
+            40415,
+            "IDLUnknownField",
+            format!("BSON field '$setWindowFields.{unknown}' is an unknown field."),
+        ));
+    }
+    if !spec.contains_key("output") {
+        return Err(CommandError::new(
+            40414,
+            "IDLFailedToParse",
+            "BSON field '$setWindowFields.output' is missing but a required field",
+        ));
+    }
+    // The same silent acceptance one level down: an unknown key inside `window`
+    // was ignored, so a misspelled `documents` widened the window to the whole
+    // partition without saying so.
+    if let Some(output) = spec.get("output").and_then(Bson::as_document) {
+        for (_field, field_spec) in output.iter() {
+            let Some(fs) = field_spec.as_document() else {
+                continue;
+            };
+            let Some(window) = fs.get("window").and_then(Bson::as_document) else {
+                continue;
+            };
+            if window
+                .keys()
+                .any(|k| !matches!(k.as_str(), "documents" | "range" | "unit"))
+            {
+                return Err(CommandError::new(
+                    9,
+                    "FailedToParse",
+                    "'window' field can only contain 'documents' as the only argument \
+                     or 'range' with an optional 'unit' field",
+                ));
+            }
         }
     }
     Ok(())
@@ -520,6 +911,8 @@ fn run_segmented(
     cmd_doc: &Document,
     client_metadata: Option<&Document>,
 ) -> Result<Vec<Document>, CommandError> {
+    // mongod names the namespace in an execution-time aggregate error.
+    let ns = format!("{db}.{}", coll.unwrap_or(""));
     let mut docs = input;
     let mut buffer: Vec<Bson> = Vec::new();
     for stage in pipeline {
@@ -530,24 +923,24 @@ fn run_segmented(
             // only allows it first in a collectionless aggregate; run any buffered
             // stages first so ordering errors still surface in order.
             if !buffer.is_empty() {
-                let _ = core_run(docs, &buffer, vars, collation)?;
+                let _ = core_run(docs, &buffer, vars, collation, Some(&ns))?;
                 buffer.clear();
             }
             let spec = stage.as_document().and_then(|d| d.get(name));
-            docs = documents_stage(spec, vars)?;
+            docs = documents_stage(spec, vars, coll)?;
         } else if is_source_stage(name) {
             // Source stages (e.g. `$currentOp` / `$listLocalSessions`) ignore the
             // input and emit a synthetic row. Run (and discard) any buffered
             // stages first so a malformed earlier stage still errors in order,
             // matching Python; the source stage replaces the docs regardless.
             if !buffer.is_empty() {
-                let _ = core_run(docs, &buffer, vars, collation)?;
+                let _ = core_run(docs, &buffer, vars, collation, Some(&ns))?;
                 buffer.clear();
             }
             docs = apply_source_stage(name, db, coll, cmd_doc, client_metadata);
         } else if is_storage_backed(name) {
             if !buffer.is_empty() {
-                docs = core_run(docs, &buffer, vars, collation)?;
+                docs = core_run(docs, &buffer, vars, collation, Some(&ns))?;
                 buffer.clear();
             }
             let spec = stage.as_document().and_then(|d| d.get(name)).cloned();
@@ -568,7 +961,7 @@ fn run_segmented(
         }
     }
     if !buffer.is_empty() {
-        docs = core_run(docs, &buffer, vars, collation)?;
+        docs = core_run(docs, &buffer, vars, collation, Some(&ns))?;
     }
     Ok(docs)
 }
@@ -576,8 +969,32 @@ fn run_segmented(
 /// `$documents: [<expr>, …]` — evaluate each array element (against an empty
 /// root) into a document. The array itself may be an expression (e.g. a `$$var`)
 /// that resolves to an array of documents.
-fn documents_stage(spec: Option<&Bson>, vars: &Document) -> Result<Vec<Document>, CommandError> {
+fn documents_stage(
+    spec: Option<&Bson>,
+    vars: &Document,
+    coll: Option<&str>,
+) -> Result<Vec<Document>, CommandError> {
     let spec = spec.ok_or_else(|| bad_value("$documents requires an array"))?;
+    // An EMPTY document spec is rejected while the stage is desugared into a
+    // projection, so it answers 51270 even against a collection; every other
+    // argument gets the namespace error below (probed 8.2.11).
+    if matches!(spec, Bson::Document(d) if d.is_empty()) {
+        return Err(CommandError::new(
+            51270,
+            "Location51270",
+            "Invalid empty sub-projection: _tempDocumentsField",
+        ));
+    }
+    // The NAMESPACE check comes before the argument is looked at at all:
+    // `$documents` is only legal in a collection-less aggregate. This ran
+    // happily against a collection and reported an argument error instead.
+    if coll.is_some_and(|c| !c.is_empty()) {
+        return Err(CommandError::new(
+            73,
+            "InvalidNamespace",
+            "'$documents' can only be run with {aggregate: 1}",
+        ));
+    }
     let empty = Document::new();
     let value = secantus_core::expressions::evaluate(&empty, spec, vars)
         .map_err(|_| bad_value("$documents expression not supported"))?;
@@ -603,14 +1020,72 @@ fn core_run(
     stages: &[Bson],
     vars: &Document,
     collation: Option<&Collation>,
+    ns: Option<&str>,
 ) -> Result<Vec<Document>, CommandError> {
-    secantus_core::aggregate::apply_pipeline(docs, stages, vars, collation).map_err(|_| {
+    // Several stages can fail at RUNTIME with an error mongod names but the
+    // engine can only signal as `Fallback` — the input documents are kept for
+    // the naming re-check below, which consumes them. `$redact` was the first;
+    // `$densify` / `$bucket` / `$switch` were measured divergent on 2026-08-31
+    // (the Rust server answered a generic `2 BadValue` for all of them).
+    // The gate is deliberately narrow: `saved` is cloned on the SUCCESS path
+    // too, and `$project` / `$addFields` / `$set` are ubiquitous, so gating on
+    // the stage name alone would copy every input document for most
+    // aggregations. `may_name_runtime_error` scans the pipeline SPEC for the
+    // shapes that can actually fail this way.
+    let nameable = secantus_core::aggregate::may_name_runtime_error(stages);
+    let saved = nameable.then(|| docs.clone());
+    secantus_core::aggregate::apply_pipeline(docs, stages, vars, collation).map_err(|fault| {
+        // The engine can now name the error itself, which is the common case for
+        // a bad ARGUMENT (`{$round: ["$n", 1.5]}`, `{$range: [0, 5, 0]}`,
+        // `{$ln: 0}`, ...). Those used to land in the generic "not supported"
+        // reply below, which told the client the server could not do `$round`
+        // when in fact `$round` is fine and 1.5 is not a precision.
+        if let Some((code, errmsg)) = fault.as_mongo() {
+            // A PARSE error is sent bare here. The projection-style stages get
+            // `Invalid $<stage> :: caused by ::` from `validate_stage_expr_args`
+            // before execution, so anything reaching this point is inside
+            // `$group` / `$expr` / `$redact`, where mongod adds no wrapper.
+            let errmsg = if fault.is_bare() {
+                errmsg.to_string()
+            } else {
+                wrap_pipeline_error(errmsg.to_string(), fault.folded(), ns)
+            };
+            return CommandError::new(code, crate::util::error_code_name(code), errmsg);
+        }
+        if let Some(docs) = saved {
+            if let Some((code, errmsg, folded)) =
+                secantus_core::aggregate::runtime_error(&docs, stages, vars, collation)
+            {
+                // Which of mongod's two prefixes depends on WHEN it failed. A
+                // constant expression is folded at optimization time and says
+                // so; a document-dependent one fails per document under the
+                // executor prefix. This server had no wrapper at all.
+                let errmsg = wrap_pipeline_error(errmsg, folded, ns);
+                return CommandError::new(code, crate::util::error_code_name(code), errmsg);
+            }
+        }
         CommandError::new(
             2,
             "BadValue",
             "aggregation pipeline uses a stage or operator not supported by the Rust server",
         )
     })
+}
+
+/// mongod's two wrappers for an error raised inside a pipeline: a
+/// constant-folded expression fails at optimization time and says so, while a
+/// document-dependent one fails per document under the executor prefix.
+fn wrap_pipeline_error(errmsg: String, folded: bool, ns: Option<&str>) -> String {
+    if folded {
+        return format!("Failed to optimize pipeline :: caused by :: {errmsg}");
+    }
+    match ns {
+        Some(ns) => format!(
+            "Executor error during aggregate command on namespace: \
+             {ns} :: caused by :: {errmsg}"
+        ),
+        None => errmsg,
+    }
 }
 
 fn bad_value(msg: impl Into<String>) -> CommandError {
@@ -913,10 +1388,15 @@ fn apply_facet(
         .and_then(Bson::as_document)
         .filter(|d| !d.is_empty())
         .ok_or_else(|| {
+            // mongod ECHOES the offending spec, which the message omitted.
+            let rendered = spec.map(argtypes::render_stage_value).unwrap_or_default();
             CommandError::new(
                 40169,
                 "Location40169",
-                "the $facet specification must be a non-empty object",
+                format!(
+                    "the $facet specification must be a non-empty object, \
+                     but found: $facet: {rendered}"
+                ),
             )
         })?;
     let mut out = Document::new();
@@ -925,7 +1405,11 @@ fn apply_facet(
             CommandError::new(
                 40170,
                 "Location40170",
-                format!("arguments to $facet must be arrays, {name} is not an array"),
+                // mongod names the TYPE it found rather than restating the rule.
+                format!(
+                    "arguments to $facet must be arrays, {name} is type {}",
+                    secantus_core::query::bson_type_name(sub)
+                ),
             )
         })?;
         for stage in sub_pipeline {
@@ -984,6 +1468,17 @@ fn apply_union_with(
     collation: Option<&Collation>,
 ) -> Result<Vec<Document>, CommandError> {
     let (from, sub_pipeline): (&str, Option<&Vec<Bson>>) = match spec {
+        // An EMPTY collection name is not a namespace. This used to return the
+        // outer documents unchanged -- a wrong ANSWER. mongod renders the
+        // namespace with the collection half empty, so the database name runs
+        // straight into "is" (probed 8.2.11 -- the message really has no space).
+        Some(Bson::String(s)) if s.is_empty() => {
+            return Err(CommandError::new(
+                73,
+                "InvalidNamespace",
+                format!("Namespace {db}is not a valid collection name"),
+            ));
+        }
         Some(Bson::String(s)) => (s.as_str(), None),
         Some(Bson::Document(d)) => {
             let from = d
@@ -1119,17 +1614,34 @@ fn set_field_path(doc: &mut Document, path: &str, value: Bson) {
     }
 }
 
-/// `$lookup` equality with mongod's array-aware semantics (mirrors
-/// `aggregate._lookup_match`): array↔array → any element equal; one side array →
-/// membership; else plain equality. A missing field is `Null`.
+/// `$lookup` equality with mongod's array-aware semantics: array↔array → any
+/// element equal; one side array → membership; else equality. A missing field
+/// is `Null`.
 fn lookup_match(local: Option<&Bson>, foreign: Option<&Bson>) -> bool {
     let local = local.unwrap_or(&Bson::Null);
     let foreign = foreign.unwrap_or(&Bson::Null);
     match (local, foreign) {
-        (Bson::Array(la), Bson::Array(fa)) => la.iter().any(|le| fa.iter().any(|fe| le == fe)),
-        (Bson::Array(la), f) => la.iter().any(|le| le == f),
-        (l, Bson::Array(fa)) => fa.iter().any(|fe| fe == l),
-        (l, f) => l == f,
+        (Bson::Array(la), Bson::Array(fa)) => {
+            la.iter().any(|le| fa.iter().any(|fe| lookup_eq(le, fe)))
+        }
+        (Bson::Array(la), f) => la.iter().any(|le| lookup_eq(le, f)),
+        (l, Bson::Array(fa)) => fa.iter().any(|fe| lookup_eq(l, fe)),
+        (l, f) => lookup_eq(l, f),
+    }
+}
+
+/// One pair under mongod's BSON equality. The derived `Bson ==` is
+/// structural, so `Int32(2)` and `Double(2.0)` differed, and so did
+/// `Decimal128("1.5")` and `Decimal128("1.500")`: a `localField` /
+/// `foreignField` join with no index on the foreign field matched none of
+/// them, where mongod 8.2.11 joins all three (measured 2026-09-19). The
+/// canonical order compares numerics by value and ranks NaN equal to NaN.
+fn lookup_eq(a: &Bson, b: &Bson) -> bool {
+    use secantus_core::order;
+    if order::is_comparable(a) && order::is_comparable(b) {
+        order::cmp(a, b) == std::cmp::Ordering::Equal
+    } else {
+        a == b
     }
 }
 
@@ -1586,6 +2098,15 @@ fn apply_out(
 /// Resolve `$out`'s target. Accepts `"coll"` or `{db, coll}`.
 fn out_target(spec: Option<&Bson>, db: &str) -> Result<(String, String), CommandError> {
     match spec {
+        // An EMPTY collection name is not a namespace. It used to be accepted
+        // and the stage wrote to a nameless collection, reporting success --
+        // a `$out` that silently did nothing. mongod renders the namespace with
+        // the collection half empty, so the database name stands alone (73).
+        Some(Bson::String(c)) if c.is_empty() => Err(CommandError::new(
+            73,
+            "InvalidNamespace",
+            format!("Invalid $out target namespace, {db}"),
+        )),
         Some(Bson::String(c)) => Ok((db.to_string(), c.clone())),
         Some(Bson::Document(d)) => {
             let coll = d
@@ -1646,7 +2167,8 @@ fn apply_merge(
                         // incoming doc bound to `$$new`; the result replaces it
                         // (existing `_id` preserved).
                         let pvars = doc! { "new": Bson::Document(d.clone()) };
-                        let result = core_run(vec![existing.clone()], pipeline, &pvars, None)?;
+                        let result =
+                            core_run(vec![existing.clone()], pipeline, &pvars, None, None)?;
                         let mut newdoc = result.into_iter().next().unwrap_or(existing);
                         newdoc.insert("_id", existing_id);
                         storage
@@ -1731,6 +2253,15 @@ fn merge_spec(
     const VALID_MATCHED: &[&str] = &["merge", "replace", "keepExisting", "fail", "delete"];
     const VALID_NOT_MATCHED: &[&str] = &["insert", "discard", "fail"];
     let (out_db, out_coll, on, when_matched, when_not_matched) = match spec {
+        // Empty target: not a namespace. mongod QUOTES it here and does not in
+        // `$out` -- the two messages really are shaped differently.
+        Some(Bson::String(c)) if c.is_empty() => {
+            return Err(CommandError::new(
+                73,
+                "InvalidNamespace",
+                format!("Invalid $merge target namespace: '{db}'"),
+            ));
+        }
         Some(Bson::String(c)) => (
             db.to_string(),
             c.clone(),
@@ -1999,5 +2530,57 @@ mod current_op_metadata_tests {
         let rows = apply_source_stage("$currentOp", "db", None, &doc! {}, Some(&m));
         assert!(rows[0].get("appName").is_none());
         assert!(rows[0].get_document("clientMetadata").is_ok());
+    }
+}
+
+#[cfg(test)]
+mod malformed_pipeline_tests {
+    use super::*;
+    use bson::doc;
+
+    /// Values probed against real mongod (6.0.16 and 8.3.4 agree): every
+    /// non-document element of `pipeline` is 14 TypeMismatch with one wording.
+    #[test]
+    fn non_document_element_is_type_mismatch() {
+        for bad in [
+            Bson::Int32(42),
+            Bson::String("stage".into()),
+            Bson::Array(vec![Bson::String("nested".into())]),
+            Bson::Null,
+            Bson::Double(3.5),
+            Bson::Boolean(true),
+        ] {
+            let err = validate_stage_names(std::slice::from_ref(&bad))
+                .expect_err(&format!("{bad:?} should be rejected"));
+            assert_eq!(err.code, 14, "{bad:?}");
+            assert_eq!(err.code_name, "TypeMismatch", "{bad:?}");
+            assert_eq!(err.errmsg, PIPELINE_ELEMENT_MSG, "{bad:?}");
+        }
+    }
+
+    /// A document of the wrong arity is a *different* error from the wrong
+    /// type: Location40323, with a trailing period.
+    #[test]
+    fn wrong_arity_stage_is_location_40323() {
+        for bad in [
+            doc! {},
+            doc! {"$match": {}, "$count": "n"},
+            doc! {"$limit": 1, "$count": "n"},
+        ] {
+            let err = validate_stage_names(&[Bson::Document(bad.clone())])
+                .expect_err(&format!("{bad:?} should be rejected"));
+            assert_eq!(err.code, 40323, "{bad:?}");
+            assert_eq!(err.code_name, "Location40323", "{bad:?}");
+            assert_eq!(err.errmsg, STAGE_ARITY_MSG, "{bad:?}");
+        }
+    }
+
+    #[test]
+    fn well_formed_pipeline_still_validates() {
+        validate_stage_names(&[
+            Bson::Document(doc! {"$match": {"x": 1}}),
+            Bson::Document(doc! {"$count": "n"}),
+        ])
+        .expect("a valid pipeline must not be rejected");
     }
 }

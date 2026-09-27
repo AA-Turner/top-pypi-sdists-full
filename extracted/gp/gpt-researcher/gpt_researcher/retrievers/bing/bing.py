@@ -63,7 +63,12 @@ class BingSearch():
             "safeSearch": "Strict"
         }
 
-        resp = requests.get(url, headers=headers, params=params)
+        try:
+            resp = requests.get(url, headers=headers, params=params, timeout=20)
+            resp.raise_for_status()
+        except requests.RequestException as exc:
+            self.logger.error(f"Bing search request failed: {exc}")
+            return []
 
         # Preprocess the results
         if resp is None:
@@ -79,17 +84,25 @@ class BingSearch():
             self.logger.warning(f"No search results found for query: {self.query}")
             return []
 
-        # Normalize the results to match the format of the other search APIs
+        # Normalize the results to match the format of the other search APIs.
+        # Skip non-dict rows (API drift / error stubs) and empty URLs rather
+        # than AttributeError/'NoneType' crashes mid-research.
         search_response = []
+        if not isinstance(results, list):
+            return []
         for result in results:
-            url = result.get("url", "")
+            if not isinstance(result, dict):
+                continue
+            url = result.get("url") or ""
+            if not url:
+                continue
             # skip youtube results
             if "youtube.com" in url:
                 continue
             search_response.append({
-                "title": result.get("name", ""),
+                "title": result.get("name") or "",
                 "href": url,
-                "body": result.get("snippet", ""),
+                "body": result.get("snippet") or "",
             })
 
         return search_response

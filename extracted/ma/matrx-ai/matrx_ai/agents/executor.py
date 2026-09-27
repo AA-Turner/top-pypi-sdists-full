@@ -756,6 +756,18 @@ async def run_agent(
     if _child_conversation_id:
         result.metadata.setdefault("conversation_id", _child_conversation_id)
 
+    # A DECISION TURN'S ANSWER IS A TYPED PART, never recovered from text: the
+    # ``decision_answers`` part the assistant message carries IS the parsed
+    # result every consumer (mandates, workflow steps, MCP) reads.
+    if not execution_failed:
+        from matrx_ai.decisions.result import decision_answers_part
+
+        decision_part = decision_answers_part(getattr(execute_result, "assistant_response", None))
+        if decision_part is not None:
+            result.parsed = decision_part  # type: ignore[assignment]
+            result.metadata.setdefault("output_kind", "decision_answers")
+            return result
+
     if isinstance(json_schema, type) and issubclass(json_schema, BaseModel) and not execution_failed:
         parsed, parse_error = _parse_with_schema(result.output, json_schema, label)
         result.parsed = parsed

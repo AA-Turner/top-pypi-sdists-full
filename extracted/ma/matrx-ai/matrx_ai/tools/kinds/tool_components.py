@@ -77,6 +77,10 @@ class ToolComponentToolGroup(KindModel):
 
     count: int = 0
     tools: list[ToolComponentToolRow] = []
+    #: Grouped mode: EVERY tool name in the group (compact — the rows are
+    #: listed per family with ``prefix=<group>``). Added 2026-09-26: grouped mode
+    #: returned every full row (169,438 chars) and tripped the size gate.
+    names: list[str] | None = None
 
 
 @kind(
@@ -125,6 +129,8 @@ class ToolComponentListing(KindModel):
     total_tools: int | None = None
     group_count: int | None = None
     groups: dict[str, ToolComponentToolGroup] | None = None
+    #: How to get what this listing did not carry (grouped mode names only).
+    note: str | None = None
 
 
 @kind(

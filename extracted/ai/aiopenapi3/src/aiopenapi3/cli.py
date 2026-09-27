@@ -1,22 +1,21 @@
 import argparse
-import datetime
-import sys
-import json
-import itertools
-import typing
-from pstats import SortKey
-import pstats
-import io
-import importlib.util
 import cProfile
-import tracemalloc
+import datetime
+import importlib.util
+import io
+import itertools
+import json
 import linecache
 import logging
+import pstats
+import sys
+import tracemalloc
+from pstats import SortKey
 
+import httpx2
 import jmespath
 import yaml
 import yarl
-import httpx
 
 import aiopenapi3.plugin
 
@@ -25,15 +24,13 @@ logging.basicConfig()
 
 from pathlib import Path
 
-from .openapi import OpenAPI
+import aiopenapi3.loader
+import aiopenapi3.request
+from aiopenapi3.v30.formdata import decode_content_type
 
 from .loader import ChainLoader, RedirectLoader, WebLoader
-import aiopenapi3.loader
-from aiopenapi3.v30.formdata import decode_content_type
 from .log import init
-
-if typing.TYPE_CHECKING:
-    import aiopenapi3.request
+from .openapi import OpenAPI
 
 init()
 
@@ -92,13 +89,13 @@ def tm_display_top(snapshot, key_type="lineno", limit=10):
     )
     top_stats = snapshot.statistics(key_type)
 
-    print("Top %s lines" % limit)
+    print(f"Top {limit} lines")
     for index, stat in enumerate(top_stats[:limit], 1):
         frame = stat.traceback[0]
         print(f"#{index}: {frame.filename}:{frame.lineno}: {stat.size / 1024:.1f} KiB")
         line = linecache.getline(frame.filename, frame.lineno).strip()
         if line:
-            print("    %s" % line)
+            print(f"    {line}")
 
     other = top_stats[limit:]
     if other:
@@ -119,10 +116,8 @@ def pr_display_top(pr):
 def schema_display_stats(api, duration):
     operations = list(
         itertools.chain.from_iterable(
-            map(
-                lambda x: list(filter(lambda x: x, [x.delete, x.get, x.head, x.options, x.patch, x.post, x.put])),
-                api.paths._paths.values(),
-            )
+            list(filter(lambda x: x, [x.delete, x.get, x.head, x.options, x.patch, x.post, x.put]))
+            for x in api.paths._paths.values()
         )
     )
     print(f"…  {duration} (processing time)")
@@ -236,7 +231,7 @@ def main(argv=None):
         if auth:
             api.authenticate(**auth)
 
-        req: "aiopenapi3.request.RequestBase"
+        req: aiopenapi3.request.RequestBase
         if args.method:
             req = api.createRequest((args.operationId, args.method))
         else:
@@ -247,7 +242,7 @@ def main(argv=None):
             req.data.get_type().model_validate(data)
 
         try:
-            headers, ret, response = req.request(parameters=parameters, data=data)
+            _headers, ret, response = req.request(parameters=parameters, data=data)
         except aiopenapi3.errors.ResponseSchemaError as e:
             print(e.response.json())
             print(e.response.headers)
@@ -274,16 +269,16 @@ def main(argv=None):
         loader = loader_prepare(args, session_factory)
 
         try:
-            begin = datetime.datetime.now()
+            begin = datetime.datetime.now(tz=datetime.timezone.utc)
             try:
                 api = OpenAPI.load_file(args.input, yarl.URL(args.input), plugins=plugins, loader=loader)
             except aiopenapi3.errors.ReferenceResolutionError as e0:
                 print(f"{e0} {e0.document} {e0.element}")
                 return
-            end = datetime.datetime.now()
+            end = datetime.datetime.now(tz=datetime.timezone.utc)
             duration = end - begin
-        except ValueError as e:
-            logg.exception(e)
+        except ValueError:
+            logg.exception("error")
         else:
             if args.verbose:
                 schema_display_stats(api, duration)
@@ -311,9 +306,9 @@ def main(argv=None):
     if args.tracemalloc:
         tracemalloc.start()
 
-    def session_factory(*args_, **kwargs) -> httpx.Client:
-        return httpx.Client(
-            *args_, verify=args.disable_ssl_validation is False, timeout=httpx.Timeout(args.timeout), **kwargs
+    def session_factory(*args_, **kwargs) -> httpx2.Client:
+        return httpx2.Client(
+            *args_, verify=args.disable_ssl_validation is False, timeout=httpx2.Timeout(args.timeout), **kwargs
         )
 
     if args.func:

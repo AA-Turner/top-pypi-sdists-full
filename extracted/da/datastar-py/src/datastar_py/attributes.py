@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import collections.abc
+import dataclasses
 import json
+import math
 import re
 from collections.abc import Iterable, Iterator, Mapping
 from itertools import chain
@@ -100,12 +103,177 @@ JSEvent = Literal[
 ]
 
 
+@dataclasses.dataclass(frozen=True)
+class JSExpression:
+    """JavaScript expression."""
+
+    value: str
+
+    def __post_init__(self) -> None:
+        """Reject empty or non-string expression source."""
+        _require_nonblank_string("JSExpression.value", self.value)
+
+
 SignalValue: TypeAlias = (
-    str | int | float | bool | dict[str, "SignalValue"] | list["SignalValue"] | None
+    str
+    | int
+    | float
+    | bool
+    | JSExpression
+    | dict[str, "SignalValue"]
+    | list["SignalValue"]
+    | tuple["SignalValue", ...]
+    | None
 )
 
 
+def _require_nonblank_string(name: str, value: object) -> None:
+    if not isinstance(value, str):
+        raise TypeError(f"{name} must be a string")
+    if not value.strip():
+        raise ValueError(f"{name} must be non-empty")
+
+
+def javascript(value: object) -> str:
+    """Serialize data recursively."""
+    if isinstance(value, JSExpression):
+        return f"({value.value})"
+    if isinstance(value, collections.abc.Mapping):
+        if any(not isinstance(key, str) for key in value):
+            raise TypeError("JavaScript object keys must be strings")
+        # TODO: Revisit when `__proto__` should be special cased
+        return (
+            "{"
+            + ", ".join(f"{javascript(key)}: {javascript(item)}" for key, item in value.items())
+            + "}"
+        )
+    if isinstance(value, list | tuple):
+        return "[" + ", ".join(javascript(item) for item in value) + "]"
+    return json.dumps(value, allow_nan=False)
+
+
+def _as_javascript_expressions(value: object) -> object:
+    """Wrap strings in a nested javascript expressions."""
+    if isinstance(value, collections.abc.Mapping):
+        return {key: _as_javascript_expressions(item) for key, item in value.items()}
+    if isinstance(value, list | tuple):
+        return [_as_javascript_expressions(item) for item in value]
+    if isinstance(value, str):
+        return JSExpression(value)
+    return value
+
+
+def _fetch(method: str, url: str | JSExpression, options: dict[str, object]) -> str:
+    _validate_fetch(url, options)
+    names = {
+        "content_type": "contentType",
+        "selector": "selector",
+        "headers": "headers",
+        "open_when_hidden": "openWhenHidden",
+        "payload": "payload",
+        "retry": "retry",
+        "retry_interval": "retryInterval",
+        "retry_scaler": "retryScaler",
+        "retry_max_wait": "retryMaxWait",
+        "retry_max_count": "retryMaxCount",
+        "request_cancellation": "requestCancellation",
+    }
+    mapped = {
+        names[key]: value for key, value in options.items() if key in names and value is not None
+    }
+    filters = _filters(options.get("include_signals"), options.get("exclude_signals"))
+    if filters:
+        mapped["filterSignals"] = filters
+    return f"@{method}({javascript(url)}{', ' + javascript(mapped) if mapped else ''})"
+
+
+def _validate_fetch(url: str | JSExpression, options: dict[str, object]) -> None:
+    if not isinstance(url, JSExpression):
+        _require_nonblank_string("url", url)
+    _validate_choices(options)
+    _validate_content_options(options)
+    _validate_headers(options["headers"])
+    _validate_retries(options)
+    value = options["open_when_hidden"]
+    if value is not None and not isinstance(value, bool):
+        raise TypeError("open_when_hidden must be a boolean")
+
+
+def _validate_choices(options: dict[str, object]) -> None:
+    for name, choices in (
+        ("content_type", ("json", "form")),
+        ("retry", ("auto", "always", "never", "error")),
+        ("request_cancellation", ("auto", "disabled", "cleanup")),
+    ):
+        value = options[name]
+        if value is None or (name == "request_cancellation" and isinstance(value, JSExpression)):
+            continue
+        if not isinstance(value, str):
+            suffix = " or JSExpression" if name == "request_cancellation" else ""
+            raise TypeError(f"{name} must be a string{suffix}")
+        if value not in choices:
+            raise ValueError(f"{name} must be one of: {', '.join(choices)}")
+
+
+def _validate_content_options(options: dict[str, object]) -> None:
+    selector = options["selector"]
+    if selector is not None:
+        _require_nonblank_string("selector", selector)
+        if options["content_type"] != "form":
+            raise ValueError("selector requires content_type='form'")
+    if options["payload"] is not None and options["content_type"] == "form":
+        raise ValueError("payload requires JSON content_type")
+
+
+def _validate_headers(headers: object) -> None:
+    if headers is None:
+        return
+    if not isinstance(headers, collections.abc.Mapping):
+        raise TypeError("headers must be a mapping")
+    for name, value in headers.items():
+        _require_nonblank_string("header name", name)
+        if not isinstance(value, str | JSExpression):
+            raise TypeError("header values must be strings or JSExpression")
+
+
+def _validate_retries(options: dict[str, object]) -> None:
+    for name in ("retry_interval", "retry_max_wait", "retry_max_count"):
+        value = options[name]
+        if value is None:
+            continue
+        if not isinstance(value, int) or isinstance(value, bool):
+            raise TypeError(f"{name} must be an integer")
+        if value < 0:
+            raise ValueError(f"{name} must be non-negative")
+    value = options["retry_scaler"]
+    if value is None:
+        return
+    if not isinstance(value, int | float) or isinstance(value, bool):
+        raise TypeError("retry_scaler must be a number")
+    try:
+        finite = math.isfinite(value)
+    except OverflowError:
+        finite = False
+    if not finite or value < 0:
+        raise ValueError("retry_scaler must be finite and non-negative")
+
+
+def _filters(include: object, exclude: object) -> dict[str, JSExpression]:
+    for name, value in (("include", include), ("exclude", exclude)):
+        if value is not None and not isinstance(value, str | JSExpression):
+            raise TypeError(f"{name} filter must be a string or JSExpression")
+    return {
+        key: value
+        if isinstance(value, JSExpression)
+        else JSExpression(f"new RegExp({javascript(value)})")
+        for key, value in (("include", include), ("exclude", exclude))
+        if value is not None
+    }
+
+
 class AttributeGenerator:
+    JSExpression = JSExpression
+
     def __init__(self, alias: str = "data-") -> None:
         """A helper which can generate all the Datastar attributes.
 
@@ -128,10 +296,12 @@ class AttributeGenerator:
             rather than literals.
         """
         signals = {**(signals_dict or {}), **signals}
-        val = _js_object(signals) if expressions_ else json.dumps(signals)
+        val = javascript(_as_javascript_expressions(signals) if expressions_ else signals)
         return SignalsAttr(value=val, alias=self._alias)
 
-    def computed(self, computed_dict: Mapping | None = None, /, **computed: str) -> BaseAttr:
+    def computed(
+        self, computed_dict: Mapping[str, str] | None = None, /, **computed: str
+    ) -> BaseAttr:
         """Create signals that are computed based on an expression."""
         computed = {**(computed_dict or {}), **computed}
         first, *rest = (
@@ -150,19 +320,27 @@ class AttributeGenerator:
         """Tell Datastar to ignore data-* attributes on the element."""
         return IgnoreAttr(alias=self._alias)
 
-    def attr(self, attr_dict: Mapping | None = None, /, **attrs: str) -> BaseAttr:
+    def attr(self, attr_dict: Mapping[str, str] | None = None, /, **attrs: str) -> BaseAttr:
         """Set the value of any HTML attributes to expressions, and keep them in sync."""
         attrs = {**(attr_dict or {}), **attrs}
-        return BaseAttr("attr", value=_js_object(attrs), alias=self._alias)
+        return BaseAttr(
+            "attr",
+            value=javascript(_as_javascript_expressions(attrs)),
+            alias=self._alias,
+        )
 
     def bind(self, signal_name: str) -> BaseAttr:
         """Set up two-way data binding between a signal and an element's value."""
         return BindAttr(value=signal_name, alias=self._alias)
 
-    def class_(self, class_dict: Mapping | None = None, /, **classes: str) -> BaseAttr:
+    def class_(self, class_dict: Mapping[str, str] | None = None, /, **classes: str) -> BaseAttr:
         """Add or removes classes to or from an element based on expressions."""
         classes = {**(class_dict or {}), **classes}
-        return BaseAttr("class", value=_js_object(classes), alias=self._alias)
+        return BaseAttr(
+            "class",
+            value=javascript(_as_javascript_expressions(classes)),
+            alias=self._alias,
+        )
 
     def init(self, expression: str) -> InitAttr:
         """Execute an expression when the element is loaded into the DOM."""
@@ -214,10 +392,14 @@ class AttributeGenerator:
         """Show or hides an element based on whether an expression evaluates to true or false."""
         return BaseAttr("show", value=expression, alias=self._alias)
 
-    def style(self, style_dict: Mapping | None = None, /, **styles: str) -> BaseAttr:
+    def style(self, style_dict: Mapping[str, str] | None = None, /, **styles: str) -> BaseAttr:
         """Set the value of inline CSS styles on an element based on an expression, and keeps them in sync."""
         styles = {**(style_dict or {}), **styles}
-        return BaseAttr("style", value=_js_object(styles), alias=self._alias)
+        return BaseAttr(
+            "style",
+            value=javascript(_as_javascript_expressions(styles)),
+            alias=self._alias,
+        )
 
     def text(self, expression: str) -> BaseAttr:
         """Bind the text content of an element to an expression."""
@@ -253,7 +435,7 @@ class AttributeGenerator:
     def preserve_attr(self, attrs: str | Iterable[str]) -> BaseAttr:
         """Preserve the client side state for specified attribute(s) when morphing."""
         value = attrs if isinstance(attrs, str) else " ".join(attrs)
-        return BaseAttr("preserve-attrs", value=value, alias=self._alias)
+        return BaseAttr("preserve-attr", value=value, alias=self._alias)
 
     @property
     def query_string(self) -> QueryStringAttr:
@@ -261,7 +443,7 @@ class AttributeGenerator:
         return QueryStringAttr(alias=self._alias)
 
 
-class BaseAttr(Mapping):
+class BaseAttr(Mapping[str, str | Literal[True]]):
     _attr: str
 
     def __init__(
@@ -346,6 +528,8 @@ class BaseAttr(Mapping):
 
 
 class TimingMod:
+    _mods: dict[str, list[str]]
+
     def debounce(
         self: Self,
         wait: int | str,
@@ -392,6 +576,8 @@ class TimingMod:
 
 
 class DelayMod:
+    _mods: dict[str, list[str]]
+
     def delay(
         self: Self,
         wait: int | str,
@@ -405,10 +591,12 @@ class DelayMod:
 
 
 class ViewtransitionMod:
+    _mods: dict[str, list[str]]
+
     @property
     def viewtransition(self: Self) -> Self:
         """Wrap the expression in document.startViewTransition()."""
-        self._mods["view-transition"] = []
+        self._mods["viewtransition"] = []
         return self
 
 
@@ -719,8 +907,8 @@ def _escape(s: str) -> str:
     )
 
 
-def _filter_dict(include: str | None = None, exclude: str | None = None) -> dict:
-    filter_dict = {}
+def _filter_dict(include: str | None = None, exclude: str | None = None) -> dict[str, str]:
+    filter_dict: dict[str, str] = {}
     if include:
         filter_dict["include"] = include
     if exclude:
@@ -728,16 +916,229 @@ def _filter_dict(include: str | None = None, exclude: str | None = None) -> dict
     return filter_dict
 
 
-def _js_object(obj: dict) -> str:
-    """Create a JS object where the values are expressions rather than strings."""
-    return (
-        "{"
-        + ", ".join(
-            f"{json.dumps(k)}: {_js_object(v) if isinstance(v, dict) else v}"
-            for k, v in obj.items()
-        )
-        + "}"
-    )
-
-
 attribute_generator = AttributeGenerator()
+
+
+class ActionGenerator:
+    """A namespace for generating Datastar action expressions."""
+
+    @staticmethod
+    def get(  # noqa: PLR0913
+        url: str | JSExpression,
+        *,
+        content_type: Literal["json", "form"] | None = None,
+        include_signals: str | JSExpression | None = None,
+        exclude_signals: str | JSExpression | None = None,
+        selector: str | None = None,
+        headers: collections.abc.Mapping[str, str | JSExpression] | None = None,
+        open_when_hidden: bool | None = None,
+        payload: object | None = None,
+        retry: Literal["auto", "always", "never", "error"] | None = None,
+        retry_interval: int | None = None,
+        retry_scaler: float | None = None,
+        retry_max_wait: int | None = None,
+        retry_max_count: int | None = None,
+        request_cancellation: Literal["auto", "disabled", "cleanup"] | JSExpression | None = None,
+    ) -> str:
+        """Build a @get expression; options set to None are omitted."""
+        return _fetch(
+            "get",
+            url,
+            {
+                "content_type": content_type,
+                "include_signals": include_signals,
+                "exclude_signals": exclude_signals,
+                "selector": selector,
+                "headers": headers,
+                "open_when_hidden": open_when_hidden,
+                "payload": payload,
+                "retry": retry,
+                "retry_interval": retry_interval,
+                "retry_scaler": retry_scaler,
+                "retry_max_wait": retry_max_wait,
+                "retry_max_count": retry_max_count,
+                "request_cancellation": request_cancellation,
+            },
+        )
+
+    @staticmethod
+    def post(  # noqa: PLR0913
+        url: str | JSExpression,
+        *,
+        content_type: Literal["json", "form"] | None = None,
+        include_signals: str | JSExpression | None = None,
+        exclude_signals: str | JSExpression | None = None,
+        selector: str | None = None,
+        headers: collections.abc.Mapping[str, str | JSExpression] | None = None,
+        open_when_hidden: bool | None = None,
+        payload: object | None = None,
+        retry: Literal["auto", "always", "never", "error"] | None = None,
+        retry_interval: int | None = None,
+        retry_scaler: float | None = None,
+        retry_max_wait: int | None = None,
+        retry_max_count: int | None = None,
+        request_cancellation: Literal["auto", "disabled", "cleanup"] | JSExpression | None = None,
+    ) -> str:
+        """Build a @post expression; options set to None are omitted."""
+        return _fetch(
+            "post",
+            url,
+            {
+                "content_type": content_type,
+                "include_signals": include_signals,
+                "exclude_signals": exclude_signals,
+                "selector": selector,
+                "headers": headers,
+                "open_when_hidden": open_when_hidden,
+                "payload": payload,
+                "retry": retry,
+                "retry_interval": retry_interval,
+                "retry_scaler": retry_scaler,
+                "retry_max_wait": retry_max_wait,
+                "retry_max_count": retry_max_count,
+                "request_cancellation": request_cancellation,
+            },
+        )
+
+    @staticmethod
+    def put(  # noqa: PLR0913
+        url: str | JSExpression,
+        *,
+        content_type: Literal["json", "form"] | None = None,
+        include_signals: str | JSExpression | None = None,
+        exclude_signals: str | JSExpression | None = None,
+        selector: str | None = None,
+        headers: collections.abc.Mapping[str, str | JSExpression] | None = None,
+        open_when_hidden: bool | None = None,
+        payload: object | None = None,
+        retry: Literal["auto", "always", "never", "error"] | None = None,
+        retry_interval: int | None = None,
+        retry_scaler: float | None = None,
+        retry_max_wait: int | None = None,
+        retry_max_count: int | None = None,
+        request_cancellation: Literal["auto", "disabled", "cleanup"] | JSExpression | None = None,
+    ) -> str:
+        """Build a @put expression; options set to None are omitted."""
+        return _fetch(
+            "put",
+            url,
+            {
+                "content_type": content_type,
+                "include_signals": include_signals,
+                "exclude_signals": exclude_signals,
+                "selector": selector,
+                "headers": headers,
+                "open_when_hidden": open_when_hidden,
+                "payload": payload,
+                "retry": retry,
+                "retry_interval": retry_interval,
+                "retry_scaler": retry_scaler,
+                "retry_max_wait": retry_max_wait,
+                "retry_max_count": retry_max_count,
+                "request_cancellation": request_cancellation,
+            },
+        )
+
+    @staticmethod
+    def patch(  # noqa: PLR0913
+        url: str | JSExpression,
+        *,
+        content_type: Literal["json", "form"] | None = None,
+        include_signals: str | JSExpression | None = None,
+        exclude_signals: str | JSExpression | None = None,
+        selector: str | None = None,
+        headers: collections.abc.Mapping[str, str | JSExpression] | None = None,
+        open_when_hidden: bool | None = None,
+        payload: object | None = None,
+        retry: Literal["auto", "always", "never", "error"] | None = None,
+        retry_interval: int | None = None,
+        retry_scaler: float | None = None,
+        retry_max_wait: int | None = None,
+        retry_max_count: int | None = None,
+        request_cancellation: Literal["auto", "disabled", "cleanup"] | JSExpression | None = None,
+    ) -> str:
+        """Build a @patch expression; options set to None are omitted."""
+        return _fetch(
+            "patch",
+            url,
+            {
+                "content_type": content_type,
+                "include_signals": include_signals,
+                "exclude_signals": exclude_signals,
+                "selector": selector,
+                "headers": headers,
+                "open_when_hidden": open_when_hidden,
+                "payload": payload,
+                "retry": retry,
+                "retry_interval": retry_interval,
+                "retry_scaler": retry_scaler,
+                "retry_max_wait": retry_max_wait,
+                "retry_max_count": retry_max_count,
+                "request_cancellation": request_cancellation,
+            },
+        )
+
+    @staticmethod
+    def delete(  # noqa: PLR0913
+        url: str | JSExpression,
+        *,
+        content_type: Literal["json", "form"] | None = None,
+        include_signals: str | JSExpression | None = None,
+        exclude_signals: str | JSExpression | None = None,
+        selector: str | None = None,
+        headers: collections.abc.Mapping[str, str | JSExpression] | None = None,
+        open_when_hidden: bool | None = None,
+        payload: object | None = None,
+        retry: Literal["auto", "always", "never", "error"] | None = None,
+        retry_interval: int | None = None,
+        retry_scaler: float | None = None,
+        retry_max_wait: int | None = None,
+        retry_max_count: int | None = None,
+        request_cancellation: Literal["auto", "disabled", "cleanup"] | JSExpression | None = None,
+    ) -> str:
+        """Build a @delete expression; options set to None are omitted."""
+        return _fetch(
+            "delete",
+            url,
+            {
+                "content_type": content_type,
+                "include_signals": include_signals,
+                "exclude_signals": exclude_signals,
+                "selector": selector,
+                "headers": headers,
+                "open_when_hidden": open_when_hidden,
+                "payload": payload,
+                "retry": retry,
+                "retry_interval": retry_interval,
+                "retry_scaler": retry_scaler,
+                "retry_max_wait": retry_max_wait,
+                "retry_max_count": retry_max_count,
+                "request_cancellation": request_cancellation,
+            },
+        )
+
+    @staticmethod
+    def peek(expression: JSExpression) -> str:
+        if not isinstance(expression, JSExpression):
+            raise TypeError("expression must be a JSExpression")
+        return f"@peek(() => ({expression.value}))"
+
+    @staticmethod
+    def set_all(
+        value: object,
+        include: str | JSExpression | None = None,
+        exclude: str | JSExpression | None = None,
+    ) -> str:
+        filters = _filters(include, exclude)
+        return f"@setAll({javascript(value)}{', ' + javascript(filters) if filters else ''})"
+
+    @staticmethod
+    def toggle_all(
+        include: str | JSExpression | None = None,
+        exclude: str | JSExpression | None = None,
+    ) -> str:
+        filters = _filters(include, exclude)
+        return f"@toggleAll({javascript(filters) if filters else ''})"
+
+
+action_generator = ActionGenerator()

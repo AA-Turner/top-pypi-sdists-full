@@ -4,21 +4,18 @@ import inspect
 import logging
 import re
 import sys
-from typing import Any, cast, TypeVar
 import typing
+from typing import Annotated, Any, ClassVar, Literal, Optional, TypeGuard, TypeVar, Union, cast
 
-from typing import TypeGuard
-
-from typing import Optional, Union, Annotated, Literal
-from pydantic import BaseModel, Field, RootModel, ConfigDict
 import pydantic
+from pydantic import BaseModel, ConfigDict, Field, RootModel
 
-from .base import ReferenceBase, SchemaBase
 from . import me
-from .pydanticv2 import field_class_to_schema, create_model
+from .base import ReferenceBase, SchemaBase
+from .pydanticv2 import create_model, field_class_to_schema
 
 if typing.TYPE_CHECKING:
-    from ._types import SchemaType, ReferenceType, DiscriminatorType
+    from ._types import DiscriminatorType, ReferenceType, SchemaType
 
 type_format_to_class: dict[str, dict[str | None, type]] = collections.defaultdict(dict)
 
@@ -42,7 +39,6 @@ def generate_type_format_to_class():
     initialize type_format_to_class
     :return: None
     """
-    global type_format_to_class
     for cls, spec in field_class_to_schema:
         if "type" not in spec:
             # FIXME Decimal is anyOf now
@@ -76,6 +72,9 @@ def class_from_schema(s, _type):
     return b
 
 
+import functools
+import operator
+
 import pydantic_core
 
 
@@ -84,9 +83,7 @@ class ConfiguredRootModel(RootModel):
 
 
 def is_basemodel(m) -> bool:
-    if inspect.isclass(m) and issubclass(m, pydantic.BaseModel):
-        return True
-    return False
+    return bool(inspect.isclass(m) and issubclass(m, pydantic.BaseModel))
 
 
 if sys.version_info < (3, 11):
@@ -96,9 +93,7 @@ if sys.version_info < (3, 11):
         if isinstance(m, typing.GenericAlias):
             return False
 
-        if inspect.isclass(m) and issubclass(m, pydantic.BaseModel):
-            return True
-        return False
+        return bool(inspect.isclass(m) and issubclass(m, pydantic.BaseModel))
 
 
 @dataclasses.dataclass
@@ -123,7 +118,7 @@ class _ClassInfo:
 
     @property
     def fields(self):
-        r = list()
+        r = []
         for k, v in self.properties.items():
             r.append((k, (v.annotation, v.default)))
         return dict(r)
@@ -142,7 +137,7 @@ class _ClassInfo:
                 ):
                     continue
 
-                args: dict[str, Any] = dict()
+                args: dict[str, Any] = {}
                 assert schema.required is not None
                 if (v := getattr(f, "default", None)) is not None:
                     args["default"] = v
@@ -180,7 +175,7 @@ class _ClassInfo:
         if _type == "array":
             v = Model.createAnnotation(schema)
             if Model.is_nullable(schema):
-                v = Optional[v]  # type: ignore[assignment]
+                v = Optional[v]  # noqa: UP045 # type: ignore[assignment]
             self.root = v
         elif _type == "object":
             if (
@@ -206,7 +201,7 @@ class _ClassInfo:
                 """
                 v = dict[str, Model.createAnnotation(schema.additionalProperties)]  # type: ignore[misc,index]
                 if Model.is_nullable(schema):
-                    v = Optional[v]  # type: ignore[assignment]
+                    v = Optional[v]  # noqa: UP045 # type: ignore[assignment]
                 self.root = v
             else:
                 assert schema.properties is not None
@@ -219,12 +214,11 @@ class _ClassInfo:
                     if typing.get_origin(r) == Literal:
                         canbenull = False
 
-                    if canbenull:
-                        if getattr(f, "const", None) is None:
-                            """not const"""
-                            if name not in schema.required or Model.is_nullable(f):
-                                """not required - or nullable"""
-                                r = Optional[r]  # type: ignore[assignment]
+                    if canbenull and getattr(f, "const", None) is None:
+                        """not const"""
+                        if name not in schema.required or Model.is_nullable(f):
+                            """not required - or nullable"""
+                            r = Optional[r]  # noqa: UP045 # type: ignore[assignment]
 
                     self.properties[Model.nameof(name)].annotation = r
 
@@ -232,7 +226,6 @@ class _ClassInfo:
             pass
         else:
             raise ValueError()
-        return
 
     def model(self) -> type[BaseModel] | type[None]:
         if self.root:
@@ -251,7 +244,7 @@ class _ClassInfo:
 
     @classmethod
     def collapse(cls, schema: "SchemaType", items: list["_ClassInfo"]) -> type[BaseModel]:
-        r: list[type[BaseModel] | type[None]]
+        r: list[type[BaseModel | None]]
         r = [i.model() for i in items]
         type_name = schema._get_identity("L8")
 
@@ -279,7 +272,7 @@ def _follow(r: "ReferenceType", t: type[_T]) -> TypeGuard[_T]:
 
 
 class Model:  # (BaseModel):
-    ALIASES: dict[str, str] = dict()
+    ALIASES: ClassVar[dict[str, str]] = {}
 
     @classmethod
     def from_schema(
@@ -295,12 +288,12 @@ class Model:  # (BaseModel):
         if discriminators is None:
             discriminators = []
 
-        r: list[_ClassInfo] = list()
+        r: list[_ClassInfo] = []
 
         types: list[str] = list(Model.types(schema))
         multi: bool = len(types) > 1
         for _type in types:
-            args = dict() if multi else None
+            args = {} if multi else None
             """
             for schema with multiple types, the default value needs to be attached to the RootModel
             providing empty args creates a FieldInfo without a default value for the subtypes
@@ -319,9 +312,9 @@ class Model:  # (BaseModel):
         schemanames: list[str],
         discriminators: list["DiscriminatorType"],
         extra: list["SchemaType"] | None,
-        args: dict[str, Any] = None,
+        args: dict[str, Any] | None = None,
     ) -> _ClassInfo:
-        from . import v20, v30, v31
+        from . import v20, v30, v31, v32
 
         type_name = schema._get_identity("L8")  # + f"_{type}"
 
@@ -352,7 +345,7 @@ class Model:  # (BaseModel):
 
             if hasattr(schema, "anyOf") and schema.anyOf:
                 assert all(schema.anyOf)
-                assert isinstance(schema, (v30.Schema, v31.Schema))
+                assert isinstance(schema, (v30.Schema, v31.Schema, v32.Schema))
                 t = tuple(
                     i.get_type(
                         names=schemanames + ([cast(str, i.ref)] if isinstance(i, ReferenceBase) else []),
@@ -370,7 +363,7 @@ class Model:  # (BaseModel):
                     if len(t):
                         classinfo.root = Union[t]
             elif hasattr(schema, "oneOf") and schema.oneOf:
-                assert isinstance(schema, (v30.Schema, v31.Schema))
+                assert isinstance(schema, (v30.Schema, v31.Schema, v32.Schema))
                 t = tuple(
                     i.get_type(
                         names=schemanames + ([cast(str, i.ref)] if isinstance(i, ReferenceBase) else []),
@@ -411,7 +404,7 @@ class Model:  # (BaseModel):
                     def mkx():
                         def get_patternProperties(self_):
                             patterns = typing.get_args(self_.aio3_patternProperty.__annotations__["item"])
-                            r = {k: list() for k in patterns}
+                            r = {k: [] for k in patterns}
                             for name, value in self_.model_extra.items():
                                 for pattern in patterns:
                                     if re.match(pattern, name):
@@ -431,7 +424,7 @@ class Model:  # (BaseModel):
                         def mkx():
                             def validate_patternProperties(self_):
                                 patterns = typing.get_args(self_.aio3_patternProperty.__annotations__["item"])
-                                for name, value in self_.model_extra.items():
+                                for name in self_.model_extra:
                                     for pattern in patterns:
                                         if re.match(pattern, name):
                                             break
@@ -464,9 +457,8 @@ class Model:  # (BaseModel):
         else:
             raise ValueError(_type)
 
-        if _type in ("array", "object"):
-            if schema.enum or getattr(schema, "const", None):
-                raise NotImplementedError("complex enums/const are not supported")
+        if _type in ("array", "object") and (schema.enum or getattr(schema, "const", None)):
+            raise NotImplementedError("complex enums/const are not supported")
 
         classinfo.config = Model.createConfigDict(schema)
 
@@ -533,7 +525,7 @@ class Model:  # (BaseModel):
             Required, can be None: Optional[str]
             Not required, can be None, is … by default: f4: Optional[str] = …
             """
-            r: list[type] = list()
+            r: list[type] = []
             rr: type
             if (v := getattr(schema, "const", None)) is not None:
                 """
@@ -547,37 +539,37 @@ class Model:  # (BaseModel):
                     _names = tuple(filter(lambda x: x, _names))
                 r = [Literal[_names]]  # type: ignore[assignment,list-item]
             else:
-                for _type in Model.types(schema) if not _type else [_type]:
-                    if _type in ("boolean", "integer", "number", "string"):
-                        oneOf = [i for i in getattr(schema, "oneOf", []) if _type in Model.types(i)]
-                        anyOf = [i for i in getattr(schema, "anyOf", []) if _type in Model.types(i)]
-                        allOf = [i for i in getattr(schema, "allOf", []) if _type in Model.types(i)]
+                for _t in Model.types(schema) if not _type else [_type]:
+                    if _t in ("boolean", "integer", "number", "string"):
+                        oneOf = [i for i in getattr(schema, "oneOf", []) if _t in Model.types(i)]
+                        anyOf = [i for i in getattr(schema, "anyOf", []) if _t in Model.types(i)]
+                        allOf = [i for i in getattr(schema, "allOf", []) if _t in Model.types(i)]
 
                         if not (anyOf or oneOf or allOf):
-                            v = class_from_schema(schema, _type)
+                            v = class_from_schema(schema, _t)
                             r.append(v)
                         else:
-                            v = [Model.createAnnotation(i, _type=_type) for i in oneOf]
+                            v = [Model.createAnnotation(i, _type=_t) for i in oneOf]
                             r.extend(v)
-                            v = [Model.createAnnotation(i, _type=_type) for i in anyOf]
+                            v = [Model.createAnnotation(i, _type=_t) for i in anyOf]
                             r.extend(v)
-                            v = [Model.createAnnotation(i, _type=_type) for i in allOf]
+                            v = [Model.createAnnotation(i, _type=_t) for i in allOf]
                             r.extend(v)
-                    elif _type == "array":
+                    elif _t == "array":
                         r.extend(
-                            list(
-                                Model.createAnnotation(i, _type=_type)
+                            [
+                                Model.createAnnotation(i, _type=_t)
                                 for i in getattr(schema, "oneOf", [])
-                                if Model.is_type(i, _type)
-                            )
+                                if Model.is_type(i, _t)
+                            ]
                         )
 
                         r.extend(
-                            list(
-                                Model.createAnnotation(i, _type=_type)
+                            [
+                                Model.createAnnotation(i, _type=_t)
                                 for i in getattr(schema, "anyOf", [])
-                                if Model.is_type(i, _type)
-                            )
+                                if Model.is_type(i, _t)
+                            ]
                         )
 
                         if isinstance(schema.items, list):
@@ -595,12 +587,12 @@ class Model:  # (BaseModel):
                         else:
                             raise TypeError(schema.items)
                         r.append(v)  # type: ignore[arg-type]
-                    elif _type == "object":
+                    elif _t == "object":
                         r.append(schema.get_type(fwdref=fwdref))
-                    elif _type == "null":
+                    elif _t == "null":
                         nullable = True
                     else:
-                        raise ValueError(_type)
+                        raise ValueError(_t)
 
             if len(r) == 1:
                 rr = r[0]
@@ -609,7 +601,7 @@ class Model:  # (BaseModel):
             else:
                 rr = None  # type: ignore[assignment]
             if nullable is True:
-                rr = Optional[rr]  # type: ignore[assignment]
+                rr = Optional[rr]  # noqa: UP045 #type: ignore[assignment]
         elif isinstance(schema, ReferenceBase):
             rr = Model.createAnnotation(schema._target, fwdref=True)
         else:
@@ -618,9 +610,10 @@ class Model:  # (BaseModel):
 
     @staticmethod
     def types(schema: "SchemaType") -> typing.Generator[str, None, None]:
+        nullable = getattr(schema, "nullable", False)
         if isinstance(schema.type, str):
             yield schema.type
-            if getattr(schema, "nullable", False):
+            if nullable:
                 yield "null"
         else:
             typesfilter: set[str] = set()
@@ -630,6 +623,9 @@ class Model:  # (BaseModel):
             elif schema.type is None:
                 values = set(SCHEMA_TYPES)
                 typesfilter = set()
+
+                if nullable:
+                    typesfilter.add("null")
 
                 if (const := getattr(schema, "const", None)) is not None:
                     typesfilter.add(cast(str, TYPES_SCHEMA_MAP.get(type(const))))
@@ -648,26 +644,26 @@ class Model:  # (BaseModel):
                 )
 
                 # allOf - intersection of types
-                allOfs: list["SchemaType"]
-                if allOfs := sum([getattr(schema, "allOf", [])], []):
+                allOfs: list[SchemaType]
+                if allOfs := functools.reduce(operator.iadd, [getattr(schema, "allOf", [])], []):
                     for x in allOfs:
                         allOf &= set(Model.types(x))
 
                 # anyOf - union of types
-                anyOfs: list["SchemaType"]
-                if anyOfs := sum([getattr(schema, "anyOf", [])], []):
+                anyOfs: list[SchemaType]
+                if anyOfs := functools.reduce(operator.iadd, [getattr(schema, "anyOf", [])], []):
                     anyOf = set.union(*[set(Model.types(x)) for x in anyOfs]) if anyOfs else set()
 
                 # oneOf - union of types
-                oneOfs: list["SchemaType"]
-                if oneOfs := sum([getattr(schema, "oneOf", [])], []):
+                oneOfs: list[SchemaType]
+                if oneOfs := functools.reduce(operator.iadd, [getattr(schema, "oneOf", [])], []):
                     oneOf = set.union(*[set(Model.types(x)) for x in oneOfs]) if oneOfs else set()
 
                 if allOfs or anyOfs or oneOfs:
                     tmp = oneOf & allOf & anyOf
                     typesfilter |= tmp
             else:
-                raise StopIteration
+                return
 
             if typesfilter:
                 values = values & typesfilter
@@ -724,7 +720,7 @@ class Model:  # (BaseModel):
     @staticmethod
     def createField(schema: "SchemaType", _type=None, args=None) -> Field:
         if args is None:
-            args = dict(default=getattr(schema, "default", None))
+            args = {"default": getattr(schema, "default", None)}
 
         # """
         # readOnly & writeOnly are Optional default None
@@ -810,10 +806,7 @@ class Model:  # (BaseModel):
         if name.startswith("model_"):
             rename = f"x{name}"
 
-        try:
-            rename = re.sub(r"[#@\.-]", "_", rename)
-        except Exception as e:
-            print(e)
+        rename = re.sub(r"[#@\.-]", "_", rename)
 
         if rename[0] == "_":
             rename = rename.lstrip("_") + "_"

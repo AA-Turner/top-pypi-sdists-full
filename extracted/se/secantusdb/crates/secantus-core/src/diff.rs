@@ -7,14 +7,13 @@
 //! (`expressions::py_eq`); a Decimal128 / exotic value anywhere defers the whole
 //! diff to pure Python.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 use bson::{Bson, Document};
 
 use crate::expressions;
 
-#[derive(Debug)]
-pub struct Fallback;
+pub use crate::fallback::Fallback;
 
 type R<T> = Result<T, Fallback>;
 
@@ -22,6 +21,12 @@ struct Acc {
     updated: Document,
     removed: Vec<Bson>,
     truncated: Vec<Bson>,
+    /// Array paths the UPDATE touched element-wise, mapped to the indices past
+    /// the old end that may be reported (`None` = any, an append knows every
+    /// index it wrote). `None` for the whole field means "no operator update":
+    /// pipeline updates and callers with no spec diff the values instead.
+    /// See this module's docs.
+    elementwise: Option<BTreeMap<String, Option<BTreeSet<i64>>>>,
     disambiguated: Document,
 }
 
@@ -42,7 +47,84 @@ fn record_ambiguous(path: &str, segments: &[Bson], acc: &mut Acc) {
 }
 
 fn eq(a: &Bson, b: &Bson) -> R<bool> {
-    expressions::py_eq(a, b).map_err(|_| Fallback)
+    expressions::py_eq(a, b)
+}
+
+/// Would storing `b` where `a` is leave the document unchanged?
+///
+/// The CHANGE-DETECTION twin of `eq`, and deliberately not the same predicate.
+/// mongod answers the two questions differently:
+///
+/// * EQUALITY calls them the same -- `{$eq: [0.0, -0.0]}` is true, `$cmp` is 0,
+///   and `find({a: -0.0})` matches a stored `0.0`;
+/// * CHANGE detection does not -- `{$set: {a: -0.0}}` over `a: 0.0` writes and
+///   puts the field in a change stream's `updatedFields`, and so does a numeric
+///   TYPE change: `int 1` -> `double 1.0` reports `{a: 1.0}` with
+///   `nModified: 1`.
+///
+/// Both probed against 8.2.11 (2026-09-05). Folding this into `eq` would have
+/// been the tempting one-line fix and would have broken `$eq` and query
+/// matching -- one predicate cannot serve both questions.
+fn same_stored_value(a: &Bson, b: &Bson) -> R<bool> {
+    if !eq(a, b)? {
+        return Ok(false);
+    }
+    Ok(same_encoding(a, b))
+}
+
+/// Do two `eq`-equal values encode to the same BSON? Distinguishes a signed
+/// zero (by bit pattern) and a numeric type change (by variant), recursing so
+/// that either nested in an array or a subdocument counts just the same.
+pub(crate) fn same_encoding(a: &Bson, b: &Bson) -> bool {
+    match (a, b) {
+        (Bson::Double(x), Bson::Double(y)) => x.to_bits() == y.to_bits(),
+        (Bson::Array(x), Bson::Array(y)) => {
+            x.len() == y.len() && x.iter().zip(y.iter()).all(|(p, q)| same_encoding(p, q))
+        }
+        (Bson::Document(x), Bson::Document(y)) => {
+            x.len() == y.len()
+                && x.iter()
+                    .zip(y.iter())
+                    .all(|((k1, v1), (k2, v2))| k1 == k2 && same_encoding(v1, v2))
+        }
+        // Values, not discriminants. This used to be
+        // `discriminant(a) == discriminant(b)`, which is only sound behind
+        // `eq` (it would call `"x"` and `"y"` the same). `doc_changed` calls
+        // this standalone, so it compares properly; `Bson`'s `==` is exact for
+        // every variant the arms above do not already special-case.
+        _ => a == b,
+    }
+}
+
+/// Did an update actually change the STORED BYTES of the document?
+///
+/// The encoding is the whole rule, and each of the two cheaper tests it
+/// replaces got a different case wrong:
+///
+/// * `new != old` alone cannot see a signed zero. `Bson::Double`'s `f64 ==`
+///   calls `-0.0` equal to `0.0`, so `{$set: {a: -0.0}}` over `a: 0.0` skipped
+///   the write and silently kept the old zero (fixed 2026-09-05).
+/// * `new != old` alone also fires on a document that merely CONTAINS a NaN,
+///   because `NaN != NaN`. Nothing was written, yet the document was rewritten
+///   and an oplog entry emitted -- a phantom write and a phantom change-stream
+///   event. `{$unset: {absent: ""}}` on any document holding a NaN reported
+///   `nModified: 1` (measured 8.2.11, 2026-09-06).
+///
+/// The encoding gets both right: a signed zero encodes differently, and two
+/// NaNs with the same bits encode the same.
+///
+/// The encoding is not all of mongod's `nModified` rule, though. mongod also
+/// counts an ARITHMETIC write whose result is a NaN -- `{$inc: {a: 1}}` over
+/// `a: NaN` reports 1 with byte-identical output, while `{$min: {a: 5}}` over
+/// the same document reports 0 because `$min` declined to write. That half is
+/// invisible in the bytes, so it is a separate, narrow check:
+/// `update::arith_wrote_nan`, which the callers apply alongside this one.
+pub fn doc_changed(new: &Document, old: &Document) -> bool {
+    !(new.len() == old.len()
+        && new
+            .iter()
+            .zip(old.iter())
+            .all(|((k1, v1), (k2, v2))| k1 == k2 && same_encoding(v1, v2)))
 }
 
 fn child_path(path: &str, key: &str) -> String {
@@ -83,32 +165,64 @@ fn walk(pre: &Bson, post: &Bson, path: &str, segments: &[Bson], acc: &mut Acc) -
     match (pre, post) {
         (Bson::Document(a), Bson::Document(b)) => walk_docs(a, b, path, segments, acc),
         (Bson::Array(a), Bson::Array(b)) => {
-            if eq(pre, post)? {
+            if same_stored_value(pre, post)? {
                 return Ok(());
             }
-            // Post longer than pre -> wholesale replace (can't encode appends).
-            if b.len() > a.len() {
+            // mongod reports an array by the OPERATION that changed it, not by
+            // diffing the values. Mirrors `_walk` in src/secantus/diff.py.
+            let Some(ew) = acc.elementwise.as_ref() else {
+                // Pipeline update (or no spec): diff the values. This is the one
+                // shape where mongod really does emit `truncatedArrays`.
+                for i in 0..b.len() {
+                    let cp = child_path(path, &i.to_string());
+                    let mut cs = segments.to_vec();
+                    cs.push(Bson::Int32(i as i32));
+                    if i >= a.len() {
+                        acc.updated.insert(cp.clone(), b[i].clone());
+                        record_ambiguous(&cp, &cs, acc);
+                        continue;
+                    }
+                    walk(&a[i], &b[i], &cp, &cs, acc)?;
+                }
+                if b.len() < a.len() {
+                    let mut entry = Document::new();
+                    entry.insert("field".to_string(), Bson::String(path.to_string()));
+                    entry.insert("newSize".to_string(), Bson::Int32(b.len() as i32));
+                    acc.truncated.push(Bson::Document(entry));
+                    record_ambiguous(path, segments, acc);
+                }
+                return Ok(());
+            };
+            let beyond = ew.get(path);
+            if beyond.is_none() || b.len() < a.len() {
+                // Not element-wise, or it shrank: mongod resends the array.
                 acc.updated.insert(path.to_string(), post.clone());
                 record_ambiguous(path, segments, acc);
                 return Ok(());
             }
+            let allowed = beyond.and_then(|v| v.clone());
             for i in 0..b.len() {
                 let cp = child_path(path, &i.to_string());
                 let mut cs = segments.to_vec();
                 cs.push(Bson::Int32(i as i32));
+                if i >= a.len() {
+                    // An append reports every index it wrote; an indexed `$set`
+                    // reports only the one it named.
+                    if let Some(named) = allowed.as_ref() {
+                        if !named.contains(&(i as i64)) {
+                            continue;
+                        }
+                    }
+                    acc.updated.insert(cp.clone(), b[i].clone());
+                    record_ambiguous(&cp, &cs, acc);
+                    continue;
+                }
                 walk(&a[i], &b[i], &cp, &cs, acc)?;
-            }
-            if b.len() < a.len() {
-                let mut entry = Document::new();
-                entry.insert("field".to_string(), Bson::String(path.to_string()));
-                entry.insert("newSize".to_string(), Bson::Int32(b.len() as i32));
-                acc.truncated.push(Bson::Document(entry));
-                record_ambiguous(path, segments, acc);
             }
             Ok(())
         }
         _ => {
-            if !eq(pre, post)? {
+            if !same_stored_value(pre, post)? {
                 acc.updated.insert(path.to_string(), post.clone());
                 record_ambiguous(path, segments, acc);
             }
@@ -117,14 +231,88 @@ fn walk(pre: &Bson, post: &Bson, path: &str, segments: &[Bson], acc: &mut Acc) -
     }
 }
 
+/// Operators whose effect on an array mongod reports element-wise, provided
+/// they are a plain append (`$slice` / `$sort` / `$position` reorder or shrink
+/// the array, and mongod then sends the whole thing).
+const APPEND_OPS: &[&str] = &["$push", "$addToSet"];
+const NON_APPEND_MODIFIERS: &[&str] = &["$slice", "$sort", "$position"];
+/// Operators that write ONE named path. An indexed path under any of them makes
+/// that array element-wise -- checked against mongod 8.2.11.
+const PATH_WRITE_OPS: &[&str] = &[
+    "$set",
+    "$unset",
+    "$inc",
+    "$mul",
+    "$min",
+    "$max",
+    "$currentDate",
+    "$bit",
+];
+
+/// Array paths this update touches in a way mongod reports element-wise.
+/// Mirrors `_elementwise_array_paths` in `src/secantus/diff.py`.
+fn elementwise_array_paths(update: &Document) -> BTreeMap<String, Option<BTreeSet<i64>>> {
+    let mut paths: BTreeMap<String, Option<BTreeSet<i64>>> = BTreeMap::new();
+    for (op, spec) in update.iter() {
+        let Some(spec) = spec.as_document() else {
+            continue;
+        };
+        if APPEND_OPS.contains(&op.as_str()) {
+            for (field, value) in spec.iter() {
+                if let Some(d) = value.as_document() {
+                    if NON_APPEND_MODIFIERS.iter().any(|m| d.contains_key(*m)) {
+                        continue; // reorders or truncates -> whole array
+                    }
+                }
+                paths.insert(field.clone(), None);
+            }
+        } else if PATH_WRITE_OPS.contains(&op.as_str()) {
+            for field in spec.keys() {
+                let parts: Vec<&str> = field.split('.').collect();
+                for (i, part) in parts.iter().enumerate() {
+                    if i == 0 || !part.chars().all(|c| c.is_ascii_digit()) {
+                        continue;
+                    }
+                    let prefix = parts[..i].join(".");
+                    match paths.get(&prefix) {
+                        Some(None) => continue, // an append already allowed any index
+                        _ => {
+                            let entry =
+                                paths.entry(prefix).or_insert_with(|| Some(BTreeSet::new()));
+                            if let Some(set) = entry.as_mut() {
+                                if let Ok(n) = part.parse::<i64>() {
+                                    set.insert(n);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    paths
+}
+
 /// `{updatedFields, removedFields, truncatedArrays}` for `pre` -> `post`.
-/// `Err(Fallback)` => defer to the pure-Python implementation.
+/// `Err(Fallback::Defer)` => defer to the pure-Python implementation.
 pub fn compute_update_description(pre: &Document, post: &Document) -> R<Document> {
+    compute_update_description_for(pre, post, None)
+}
+
+/// As above, told which update produced `post`. `update` is the operator
+/// document; pass `None` for a pipeline update or when the spec is unknown, and
+/// arrays are diffed by value (which is what mongod does for pipelines).
+pub fn compute_update_description_for(
+    pre: &Document,
+    post: &Document,
+    update: Option<&Document>,
+) -> R<Document> {
     let mut acc = Acc {
         updated: Document::new(),
         removed: Vec::new(),
         truncated: Vec::new(),
         disambiguated: Document::new(),
+        elementwise: update.map(elementwise_array_paths),
     };
     walk_docs(pre, post, "", &[], &mut acc)?;
     let mut out = Document::new();
@@ -155,7 +343,8 @@ pub fn compute_update_description(pre: &Document, post: &Document) -> R<Document
 pub fn apply_update_description(mut doc: Document, diff: &Document) -> R<Document> {
     if let Ok(updated) = diff.get_document("updatedFields") {
         for (path, value) in updated {
-            crate::paths::set_path(&mut doc, path.as_str(), value.clone()).map_err(|_| Fallback)?;
+            crate::paths::set_path(&mut doc, path.as_str(), value.clone())
+                .map_err(|_| Fallback::Defer)?;
         }
     }
     if let Ok(removed) = diff.get_array("removedFields") {
@@ -187,7 +376,8 @@ pub fn apply_update_description(mut doc: Document, diff: &Document) -> R<Documen
                 _ => None,
             };
             if let Some(a) = shorter {
-                crate::paths::set_path(&mut doc, field, Bson::Array(a)).map_err(|_| Fallback)?;
+                crate::paths::set_path(&mut doc, field, Bson::Array(a))
+                    .map_err(|_| Fallback::Defer)?;
             }
         }
     }
@@ -201,6 +391,111 @@ mod tests {
 
     fn d(pre: Document, post: Document) -> Document {
         compute_update_description(&pre, &post).expect("should not fall back")
+    }
+
+    /// A document that merely CONTAINS a NaN has not changed. The old guard
+    /// asked `new != old`, and `NaN != NaN`, so an update that touched nothing
+    /// rewrote the document and emitted an oplog entry -- a phantom write.
+    #[test]
+    fn doc_changed_ignores_an_untouched_nan() {
+        assert!(!doc_changed(
+            &doc! {"a": f64::NAN, "b": 1i32},
+            &doc! {"a": f64::NAN, "b": 1i32}
+        ));
+        assert!(!doc_changed(
+            &doc! {"a": {"n": f64::NAN}},
+            &doc! {"a": {"n": f64::NAN}}
+        ));
+        assert!(!doc_changed(
+            &doc! {"a": [f64::NAN]},
+            &doc! {"a": [f64::NAN]}
+        ));
+    }
+
+    /// `same_encoding`'s catch-all used to compare DISCRIMINANTS, which is only
+    /// sound behind `eq`. `doc_changed` calls it standalone now, so an ordinary
+    /// difference must still register.
+    #[test]
+    fn doc_changed_sees_ordinary_differences() {
+        assert!(doc_changed(&doc! {"a": "x"}, &doc! {"a": "y"}));
+        assert!(doc_changed(&doc! {"a": 1i32}, &doc! {"a": 2i32}));
+        assert!(doc_changed(&doc! {"a": 1i32}, &doc! {"b": 1i32}));
+        assert!(doc_changed(&doc! {"a": 1i32}, &doc! {"a": 1i32, "b": 2i32}));
+        assert!(doc_changed(
+            &doc! {"a": [1i32, 2i32]},
+            &doc! {"a": [1i32, 3i32]}
+        ));
+        assert!(doc_changed(
+            &doc! {"a": {"b": "x"}},
+            &doc! {"a": {"b": "y"}}
+        ));
+        assert!(!doc_changed(
+            &doc! {"a": 1i32, "b": "x"},
+            &doc! {"a": 1i32, "b": "x"}
+        ));
+    }
+
+    /// A signed zero is a CHANGE even though `==` calls the documents equal.
+    /// Before this predicate the storage layer's `new != doc` guard skipped the
+    /// write entirely and the caller's `-0.0` was silently never stored.
+    #[test]
+    fn doc_changed_sees_a_signed_zero() {
+        assert!(doc_changed(&doc! {"a": -0.0}, &doc! {"a": 0.0}));
+        assert!(doc_changed(&doc! {"a": 0.0}, &doc! {"a": -0.0}));
+        // Nested at any depth, and inside an array.
+        assert!(doc_changed(
+            &doc! {"a": {"b": -0.0}},
+            &doc! {"a": {"b": 0.0}}
+        ));
+        assert!(doc_changed(
+            &doc! {"a": [1i32, -0.0]},
+            &doc! {"a": [1i32, 0.0]}
+        ));
+        // A second, genuinely-unchanged field must not mask the changed one.
+        assert!(doc_changed(
+            &doc! {"a": -0.0, "b": 1i32},
+            &doc! {"a": 0.0, "b": 1i32}
+        ));
+    }
+
+    /// A numeric TYPE change is a change too -- `Bson`'s variant-aware `==`
+    /// already catches this one, but it is the other half of what mongod
+    /// reports as modified, so pin it.
+    #[test]
+    fn doc_changed_sees_a_numeric_type_change() {
+        assert!(doc_changed(&doc! {"a": 0.0}, &doc! {"a": 0i32}));
+        assert!(doc_changed(&doc! {"a": 1.0}, &doc! {"a": 1i32}));
+        assert!(doc_changed(&doc! {"a": 1i64}, &doc! {"a": 1i32}));
+    }
+
+    /// The negative side: an identical document is not a change, or every
+    /// no-op update would write and report `nModified: 1`.
+    #[test]
+    fn doc_changed_is_false_for_an_identical_document() {
+        assert!(!doc_changed(&doc! {"a": 0.0}, &doc! {"a": 0.0}));
+        assert!(!doc_changed(&doc! {"a": -0.0}, &doc! {"a": -0.0}));
+        assert!(!doc_changed(
+            &doc! {"a": {"b": [1i32, "x"]}},
+            &doc! {"a": {"b": [1i32, "x"]}}
+        ));
+        assert!(!doc_changed(&Document::new(), &Document::new()));
+    }
+
+    /// This used to assert the OPPOSITE, on the reasoning that `!=` reports a
+    /// NaN as a change and the encoding tiebreak "must not quietly reverse
+    /// that", or `{$inc: {a: 1}}` over `a: NaN` -- which mongod counts as
+    /// modified -- would report 0.
+    ///
+    /// The premise was right and the conclusion was wrong. Keeping `!=` bought
+    /// that one case by making EVERY update on a document containing a NaN look
+    /// like a change, including ones that touched nothing at all, which is a
+    /// phantom write and a phantom change-stream event (measured 8.2.11,
+    /// 2026-09-06). The `$inc`-over-NaN case is real but it is a per-OPERATOR
+    /// rule, and it belongs in a per-operator check: `update::arith_wrote_nan`.
+    /// Two rules, each answering the question it can actually answer.
+    #[test]
+    fn doc_changed_does_not_report_an_untouched_nan() {
+        assert!(!doc_changed(&doc! {"a": f64::NAN}, &doc! {"a": f64::NAN}));
     }
 
     #[test]
@@ -223,9 +518,36 @@ mod tests {
     }
 
     #[test]
-    fn numeric_bridge_no_change() {
-        // 1 == 1.0 -> no update emitted.
+    fn a_numeric_type_change_is_a_change() {
+        // This asserted the OPPOSITE, justified by `1 == 1.0 -> no update
+        // emitted` -- Python's equality rule, cited instead of the server's.
+        // mongod reports the change: `{$set: {a: 1.0}}` over a stored `int` 1
+        // answers `updatedFields: {a: 1.0}` with `nModified: 1` and stores a
+        // double. The consumer of a change stream was never told the field's
+        // TYPE had changed (probed 8.2.11, 2026-09-05).
         let out = d(doc! {"a": 1}, doc! {"a": 1.0});
+        assert_eq!(out.get_document("updatedFields").unwrap(), &doc! {"a": 1.0});
+    }
+
+    #[test]
+    fn a_signed_zero_flip_is_a_change() {
+        // Same rule, the other shape it was blind to: `0.0` and `-0.0` are
+        // EQUAL for `$eq` and for query matching, and DIFFERENT for change
+        // detection. Both measured on 8.2.11 (2026-09-05).
+        let out = d(doc! {"a": 0.0}, doc! {"a": -0.0});
+        assert_eq!(
+            out.get_document("updatedFields").unwrap(),
+            &doc! {"a": -0.0}
+        );
+        // ...including nested in an array, which the fast path used to skip.
+        let nested = d(doc! {"a": [0.0]}, doc! {"a": [-0.0]});
+        assert!(!nested.get_document("updatedFields").unwrap().is_empty());
+    }
+
+    #[test]
+    fn an_unchanged_value_is_still_no_change() {
+        // The guard against over-reporting: same value, same type, no entry.
+        let out = d(doc! {"a": 1.0, "b": "x"}, doc! {"a": 1.0, "b": "x"});
         assert!(out.get_document("updatedFields").unwrap().is_empty());
     }
 
@@ -240,13 +562,55 @@ mod tests {
         );
     }
 
+    /// Growth used to wholesale-replace here. Measured against mongod 8.2.11 it
+    /// is reported positionally -- for a pipeline update (no spec) and for a
+    /// `$push` alike. Only a whole-field operator `$set` resends the array.
     #[test]
-    fn array_growth_wholesale() {
+    fn array_growth_reports_appended_indices() {
         let out = d(doc! {"a": [1, 2]}, doc! {"a": [1, 2, 3]});
+        assert_eq!(out.get_document("updatedFields").unwrap(), &doc! {"a.2": 3});
+
+        let pushed = compute_update_description_for(
+            &doc! {"a": [1, 2]},
+            &doc! {"a": [1, 2, 3]},
+            Some(&doc! {"$push": {"a": 3}}),
+        )
+        .unwrap();
         assert_eq!(
-            out.get_document("updatedFields").unwrap(),
+            pushed.get_document("updatedFields").unwrap(),
+            &doc! {"a.2": 3}
+        );
+
+        let whole = compute_update_description_for(
+            &doc! {"a": [1, 2]},
+            &doc! {"a": [1, 2, 3]},
+            Some(&doc! {"$set": {"a": [1, 2, 3]}}),
+        )
+        .unwrap();
+        assert_eq!(
+            whole.get_document("updatedFields").unwrap(),
             &doc! {"a": [1, 2, 3]}
         );
+    }
+
+    /// A shrink by an OPERATOR resends the array; the same shrink with no spec
+    /// (pipeline form) reports a truncation. Both measured on 8.2.11.
+    #[test]
+    fn array_shrink_depends_on_the_operation() {
+        let popped = compute_update_description_for(
+            &doc! {"a": [1, 2, 3]},
+            &doc! {"a": [1, 2]},
+            Some(&doc! {"$pop": {"a": 1}}),
+        )
+        .unwrap();
+        assert_eq!(
+            popped.get_document("updatedFields").unwrap(),
+            &doc! {"a": [1, 2]}
+        );
+        assert!(popped.get_array("truncatedArrays").unwrap().is_empty());
+
+        let pipeline = d(doc! {"a": [1, 2, 3]}, doc! {"a": [1, 2]});
+        assert_eq!(pipeline.get_array("truncatedArrays").unwrap().len(), 1);
     }
 
     /// `apply_update_description` is the exact inverse of `compute`: rolling the

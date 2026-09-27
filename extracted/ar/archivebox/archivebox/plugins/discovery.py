@@ -2,7 +2,9 @@ __package__ = "archivebox.plugins"
 
 from collections.abc import Iterable
 from functools import lru_cache
-from pathlib import Path
+from importlib import import_module
+from pathlib import Path, PurePosixPath
+from types import ModuleType
 from typing import Any, Protocol, TypedDict
 
 from abx_plugins import get_plugins_dir
@@ -66,8 +68,141 @@ def get_plugin_name(plugin: str) -> str:
     """
     parts = plugin.split("_", 1)
     if len(parts) == 2 and parts[0].isdigit():
-        return parts[1]
-    return plugin
+        plugin = parts[1]
+    return get_archive_result_aliases().get(plugin, plugin)
+
+
+@lru_cache(maxsize=1)
+def get_archive_result_aliases() -> dict[str, str]:
+    aliases: dict[str, str] = {}
+    for plugin in get_plugin_catalog().values():
+        for alias in plugin.manifest.get("archive_result_aliases") or []:
+            alias = str(alias or "").strip()
+            if alias:
+                aliases[alias] = plugin.name
+    return aliases
+
+
+def get_archive_result_names(plugin_name: str) -> tuple[str, ...]:
+    """Return the canonical ArchiveResult name and its declared historic aliases."""
+    canonical = get_plugin_name(plugin_name)
+    aliases = get_archive_result_aliases()
+    return tuple(dict.fromkeys((canonical, plugin_name, *(alias for alias, target in aliases.items() if target == canonical))))
+
+
+def plugin_card_is_interactive(plugin_name: str) -> bool:
+    plugin = get_plugin_catalog().get(get_plugin_name(plugin_name))
+    return bool(plugin and plugin.manifest.get("card_interactive"))
+
+
+def get_plugin_output_extension_preference(plugin_name: str) -> tuple[tuple[str, ...], ...] | None:
+    plugin = get_plugin_catalog().get(get_plugin_name(plugin_name))
+    raw_groups = plugin.manifest.get("output_extension_preference") if plugin else None
+    if not isinstance(raw_groups, list):
+        return None
+    groups = []
+    for raw_group in raw_groups:
+        if not isinstance(raw_group, list):
+            continue
+        group = tuple(str(extension).lower() for extension in raw_group if str(extension).startswith("."))
+        if group:
+            groups.append(group)
+    return tuple(groups) or None
+
+
+def get_plugin_default_output_path(plugin_name: str) -> str | None:
+    prefix, separator, base_name = plugin_name.partition("_")
+    archive_result_name = base_name if separator and prefix.isdigit() else plugin_name
+    plugin = get_plugin_catalog().get(get_plugin_name(plugin_name))
+    raw_path = str(plugin.manifest.get("default_output_path") or "").strip() if plugin else ""
+    path = PurePosixPath(raw_path)
+    if not raw_path or raw_path.startswith("/") or ".." in path.parts or len(path.parts) != 1:
+        return None
+    return f"{archive_result_name}/{raw_path}"
+
+
+@lru_cache(maxsize=1)
+def get_snapshot_thumbnail_card_order() -> dict[str, int]:
+    """Return plugin-owned ArchiveResult names eligible for snapshot thumbnails."""
+    ordering: dict[str, int] = {}
+    for plugin in get_plugin_catalog().values():
+        declarations = plugin.manifest.get("snapshot_thumbnail_cards") or []
+        if not isinstance(declarations, list):
+            continue
+        for declaration in declarations:
+            if not isinstance(declaration, dict):
+                continue
+            result_name = str(declaration.get("archive_result_name") or "").strip()
+            order = declaration.get("order")
+            if not result_name or isinstance(order, bool) or not isinstance(order, int):
+                continue
+            ordering[result_name] = order
+    return ordering
+
+
+@lru_cache(maxsize=None)
+def get_snapshot_role_names(role: str) -> tuple[str, ...]:
+    """Return ArchiveResult names for a plugin-owned snapshot presentation role."""
+    manifest_key = f"snapshot_{role}"
+    names = []
+    for plugin in get_plugin_catalog().values():
+        if plugin.manifest.get(manifest_key):
+            names.extend(get_archive_result_names(plugin.name))
+    return tuple(dict.fromkeys(names))
+
+
+def get_snapshot_role_result(results, role: str):
+    """Select the first successful result declared for a presentation role."""
+    results_by_name = {result.plugin: result for result in results if result.status == "succeeded"}
+    return next((results_by_name[name] for name in get_snapshot_role_names(role) if name in results_by_name), None)
+
+
+@lru_cache(maxsize=1)
+def get_plugin_presentation_modules() -> tuple[ModuleType, ...]:
+    """Load optional plugin-owned presentation hooks declared in manifests."""
+    return tuple(module for plugin in get_plugin_catalog().values() if (module := get_plugin_presentation_module(plugin.name)) is not None)
+
+
+@lru_cache(maxsize=None)
+def get_plugin_presentation_module(plugin_name: str) -> ModuleType | None:
+    """Load one plugin's optional presentation hooks module."""
+    plugin = get_plugin_catalog().get(get_plugin_name(plugin_name))
+    module_name = str(plugin.manifest.get("presentation_module") or "").strip() if plugin else ""
+    return import_module(module_name) if module_name else None
+
+
+def plugin_has_custom_full_response(plugin_name: str) -> bool:
+    """Return whether a plugin renders its full template through a response hook."""
+    module = get_plugin_presentation_module(plugin_name)
+    return bool(module and getattr(module, "render_full_response", None))
+
+
+def get_extra_snapshot_output_cards(outputs: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Collect additional cards from plugin-owned presentation hooks."""
+    cards = []
+    for module in get_plugin_presentation_modules():
+        hook = getattr(module, "extra_snapshot_output_cards", None)
+        if hook is not None:
+            cards.extend(hook(outputs) or ())
+    return cards
+
+
+def serve_plugin_replay_asset(path: str, config, response_class):
+    """Give plugin presentation hooks the first chance to serve replay assets."""
+    for module in get_plugin_presentation_modules():
+        hook = getattr(module, "serve_replay_asset_response", None)
+        if hook is not None and (response := hook(path, config, response_class)) is not None:
+            return response
+    return None
+
+
+def render_plugin_full_response(path: str, output_url: str, **kwargs):
+    """Let plugin presentation hooks render a saved output's full template."""
+    for module in get_plugin_presentation_modules():
+        render = getattr(module, "render_full_response", None)
+        if render is not None and (response := render(path, output_url, **kwargs)) is not None:
+            return response
+    return None
 
 
 def get_enabled_plugins(config: ConfigLookup | None = None, **config_kwargs: Any) -> list[str]:
@@ -151,12 +286,10 @@ def get_plugin_template(plugin: str, template_name: str, fallback: bool = True) 
 
     Args:
         plugin: Plugin name (e.g., 'screenshot', '15_singlefile')
-        template_name: One of 'icon', 'card', 'full'
+        template_name: A template slot such as 'icon', 'card', or 'full'.
         fallback: If True, return default template if plugin template not found
     """
     base_name = get_plugin_name(plugin)
-    if base_name in ("yt-dlp", "youtube-dl"):
-        base_name = "ytdlp"
 
     catalog = get_plugin_catalog()
     if base_name in catalog:

@@ -25,7 +25,7 @@ from urllib.parse import urlsplit, urlunsplit
 from pydantic import Field
 from pydantic.fields import PrivateAttr
 
-from ..exceptions import BadRequest
+from ..exceptions import BadRequest, ChimeRingtoneNotSetError
 from ..utils import (
     convert_smart_audio_types,
     convert_smart_types,
@@ -1387,6 +1387,11 @@ class PublicSensor(PublicDeviceModel):
     leak_settings: PublicSensorLeakSettings
     tampering_detected_at: int | None = None
     wireless_connection_state: PublicWirelessConnectionState
+    # Spec-optional: the UP-AirQuality omits it (7.3) or sends ``null`` (7.2).
+    # An absent map advertises no capabilities, so it defaults to an empty one.
+    feature_flags: PublicSensorFeatureFlags = Field(
+        default_factory=PublicSensorFeatureFlags
+    )
     # Firmware-new fields (Protect 7.1.76+): older consoles (e.g. 7.1.69) omit
     # them, so default them rather than require — the wire shape shifts across
     # releases and ``from_unifi_dict`` must not raise on the older shape.
@@ -1396,8 +1401,12 @@ class PublicSensor(PublicDeviceModel):
     )
     arm_profile_ids: list[str] | None = None
     has_custom_sensitivity_when_armed: bool = False
-    # Capability map, present only on newer firmware (older consoles omit it).
-    feature_flags: PublicSensorFeatureFlags | None = None
+
+    @classmethod
+    def unifi_dict_to_dict(cls, data: dict[str, Any]) -> dict[str, Any]:
+        if "featureFlags" in data and data["featureFlags"] is None:
+            data["featureFlags"] = {}
+        return super().unifi_dict_to_dict(data)
 
     @property
     def open_status_changed_at_dt(self) -> datetime | None:
@@ -1429,15 +1438,8 @@ class PublicSensor(PublicDeviceModel):
         """``tampering_detected_at`` as a timezone-aware UTC ``datetime``."""
         return convert_to_datetime(self.tampering_detected_at)
 
-    @property
-    def has_feature_flags(self) -> bool:
-        """Whether a capability map was reported; ``False`` means unavailable, not empty."""
-        return self.feature_flags is not None
-
     def supports(self, capability: SensorFeatureCapability) -> bool:
-        """Whether the sensor advertises ``capability`` (``False`` without a feature map)."""
-        if self.feature_flags is None:
-            return False
+        """Whether the sensor advertises ``capability``."""
         return getattr(self.feature_flags, capability.value, None) is not None
 
     @property
@@ -1786,9 +1788,12 @@ class PublicChime(PublicDeviceModel):
             raise BadRequest(f"Camera {camera_id} is not paired with chime")
         body: list[PublicApiChimeRingSettingRequest] = []
         for rs in self.ring_settings:
+            if not rs.ringtone_id:
+                raise ChimeRingtoneNotSetError(rs.camera_id or "")
             override = rs.camera_id == camera_id
             entry: PublicApiChimeRingSettingRequest = {
                 "cameraId": rs.camera_id or "",
+                "ringtoneId": rs.ringtone_id,
                 "volume": volume
                 if override and volume is not None
                 else (rs.volume or 0),
@@ -1798,8 +1803,6 @@ class PublicChime(PublicDeviceModel):
                     else (rs.repeat_times or 1)
                 ),
             }
-            if rs.ringtone_id is not None:
-                entry["ringtoneId"] = rs.ringtone_id
             body.append(entry)
         return body
 
@@ -2348,9 +2351,8 @@ class PublicNVR(PublicIdentifiedModel):
 
     ``name`` is nullable — the API schema declares it as ``oneOf: [string, null]``.
 
-    ``mac`` is exposed on ``GET /v1/nvrs`` from Protect newer than 7.1 and is
-    ``None`` on older firmware that omits the key (and absent from WS
-    partial-update diffs).
+    ``mac`` is always present on ``GET /v1/nvrs`` from the Protect 7.2 floor;
+    it is absent only from WS partial-update diffs.
 
     ``doorbell_settings`` is ``None`` on older firmware that does not yet
     expose the ``doorbellSettings`` key, and is absent from WS partial-update

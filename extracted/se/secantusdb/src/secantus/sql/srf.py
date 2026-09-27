@@ -39,6 +39,13 @@ _NAMED_SRFS = frozenset(
         "json_array_elements_text",
         "jsonb_object_keys",
         "json_object_keys",
+        # A jsonpath can match MANY values (`$.a[*]`, `$.*.b`, a filter). It was
+        # not registered here, so it evaluated as a scalar and yielded only the
+        # first match — `SELECT count(*) FROM jsonb_path_query('{"a":[1,2,3]}',
+        # '$.a[*]')` answered 1 where PostgreSQL answers 3. Rows silently
+        # missing, not a wrong value.
+        "jsonb_path_query",
+        "json_path_query",
         "regexp_split_to_table",
         "regexp_matches",
         "jsonb_each",
@@ -255,7 +262,14 @@ def from_source(stmt: exp.Select) -> SrfSource | None:
     src = from_node.this
     if isinstance(src, exp.Unnest):
         name, cols = _alias_parts(src.args.get("alias"))
-        return SrfSource(src, bool(src.args.get("offset")), name, cols)
+        # sqlglot hoists an UNNEST's LAST alias column into ``offset`` rather
+        # than leaving it in the alias list, so ``AS t(v, i)`` parses as alias
+        # ``t(v)`` plus offset ``i``. Put it back, or the ordinality column ends
+        # up named "ordinality" and ``SELECT i`` is an unknown column.
+        offset = src.args.get("offset")
+        if isinstance(offset, exp.Expression) and offset.name:
+            cols = [*cols, offset.name]
+        return SrfSource(src, bool(offset), name, cols)
     if isinstance(src, exp.Table) and _is_from_callable(src.this):
         name, cols = _alias_parts(src.args.get("alias"))
         return SrfSource(src.this, bool(src.args.get("ordinality")), name, cols)
@@ -324,6 +338,59 @@ def _tag_for_value(value: Any) -> str:
     return "any"
 
 
+#: Widest value an `integer` holds — a literal above it is `bigint` in
+#: Postgres, which is what decides an `ARRAY[…]` constructor's element type.
+_INT4_MAX = 2**31 - 1
+
+
+def _unnest_values(arr: Any) -> list[Any]:
+    """``unnest(arr)``'s rows.
+
+    Postgres has no nested-array type: ``int[][]`` is ONE array with two
+    dimensions, and ``unnest`` yields its elements in ROW-MAJOR order. Taking
+    only the top level handed the inner lists out as elements, which the int4
+    output coercion then died on with a bare ``invalid literal for int():
+    '{1,2}'`` and no SQLSTATE at all.
+
+    ``unnest`` reaches here by two routes -- the ``exp.Unnest`` node and the
+    Anonymous spelling -- which had separate, identical copies of the old
+    one-level logic; this is the shared one.
+    """
+    from secantus.sql.scalar import flatten_array
+
+    if arr is None:
+        return []
+    if not isinstance(arr, (list, tuple)):
+        return [arr]
+    return flatten_array(arr)
+
+
+def _unnest_elem_tag(arg: Any, values: list[Any]) -> str:
+    """The element type of an `unnest(...)` without a FROM.
+
+    It was `any`, so the elements went out as text: `unnest('{1,2,3}'::int[])`
+    handed a driver `'1'` rather than `1`. A cast names the element type
+    outright; otherwise it comes from the values, where Postgres' own rule for
+    an `ARRAY[…]` of integer literals is `integer` unless one does not fit."""
+    from secantus.sql import typemap
+
+    node = arg
+    while isinstance(node, exp.Paren):
+        node = node.this
+    if isinstance(node, exp.Cast):
+        cast_tag = typemap.type_tag_for_sql(node.to)
+        if cast_tag and typemap.is_array_tag(cast_tag):
+            return typemap.array_element_tag(cast_tag)
+    if not values:
+        return "any"
+    tag = typemap.infer_elem_tag(values)
+    if tag == "int8" and all(
+        v is None or (isinstance(v, int) and -_INT4_MAX - 1 <= v <= _INT4_MAX) for v in values
+    ):
+        return "int4"
+    return tag
+
+
 def _values_and_tag(
     node: exp.Expression, ctx: Any, describe_only: bool = False
 ) -> tuple[list[Any], str]:
@@ -351,28 +418,45 @@ def _values_and_tag(
             ev(node.args.get("start")), ev(node.args.get("end")), ev(node.args.get("step"))
         )
     if isinstance(node, (exp.Unnest, exp.Explode)):
-        arr = ev(node.expressions[0] if node.expressions else node.this)
-        return (
-            list(arr) if isinstance(arr, (list, tuple)) else ([] if arr is None else [arr])
-        ), "any"
+        arg = node.expressions[0] if node.expressions else node.this
+        arr = ev(arg)
+        values = _unnest_values(arr)
+        return values, _unnest_elem_tag(arg, values)
     if isinstance(node, exp.Anonymous):
         name = str(node.this).rsplit(".", 1)[-1].lower()
         args = node.expressions
         val = ev(args[0]) if args else None
         if name in ("unnest",):
-            return (
-                list(val) if isinstance(val, (list, tuple)) else ([] if val is None else [val])
-            ), "any"
+            values = _unnest_values(val)
+            return values, _unnest_elem_tag(args[0] if args else None, values)
         if name == "generate_subscripts":
             n = len(val) if isinstance(val, (list, tuple)) else 0
             return list(range(1, n + 1)), "int4"
+        if name in ("jsonb_path_query", "json_path_query"):
+            from secantus.sql import jsonpath as _jsonpath
+
+            path = ev(args[1]) if len(args) > 1 else None
+            if val is None or path is None:
+                return [], "json"
+            doc = _as_json(val)
+            return _jsonpath.query(doc, str(path)), "json"
         if name in ("jsonb_array_elements", "json_array_elements"):
             return _as_json_list(val), "json"
         if name in ("jsonb_array_elements_text", "json_array_elements_text"):
             return [None if v is None else str(v) for v in _as_json_list(val)], "text"
         if name in ("jsonb_object_keys", "json_object_keys"):
             doc = _as_json(val)
-            return (list(doc.keys()) if isinstance(doc, dict) else []), "text"
+            if not isinstance(doc, dict):
+                return [], "text"
+            keys = list(doc.keys())
+            if name == "jsonb_object_keys":
+                # `jsonb` yields its keys in STORAGE order — shorter first,
+                # then bytewise — while `json` keeps the input's own order and
+                # is right as it is. Both came back in insertion order, so
+                # `jsonb_object_keys('{"c":1,"aa":2,"b":3}')` gave `c, aa, b`
+                # where PG gives `b, c, aa` (probed on 14.13).
+                keys.sort(key=lambda k: (len(str(k)), str(k)))
+            return keys, "text"
         if name == "regexp_split_to_table":
             pattern = ev(args[1]) if len(args) > 1 else ""
             text = "" if val is None else str(val)
@@ -429,15 +513,19 @@ def _values_and_tag(
     raise errors.feature_not_supported(f"unsupported set-returning function: {node.sql()}")
 
 
-def _record_values(node: exp.Expression, ctx: Any) -> tuple[list[tuple[Any, Any]], list[str]]:
-    """Rows and per-column type tags for a record SRF (``jsonb_each`` family) —
-    one ``(key, value)`` tuple per object member, key ``text`` and value ``json``
-    (``jsonb_each``) or ``text`` (``jsonb_each_text``)."""
-    from secantus.sql import scalar
+def record_rows(name: str, value: Any) -> tuple[list[tuple], list[str]]:
+    """Rows and per-column type tags for a record SRF applied to one ARGUMENT
+    VALUE, keyed by function name.
 
-    name = str(node.this).rsplit(".", 1)[-1].lower()
-    arg = node.expressions[0] if node.expressions else None
-    value = scalar.evaluate(arg, _empty_scope, ctx) if arg is not None else None
+    Split out of ``_record_values`` so the SELECT-list expansion in
+    ``engine._run_selectlist_srf`` can share it. That path had its own copy of
+    the expansion which assumed the argument was an ARRAY (it was written for
+    ``_pg_expandarray``), so ``SELECT jsonb_each('{"a":1}'::jsonb)`` -- whose
+    argument is an object -- expanded to zero elements and the statement
+    answered NO ROWS where Postgres answers one. A silently empty result is the
+    worst shape a divergence can take, and one function's expansion rule is the
+    only thing that ever separated these two callers.
+    """
     if name == "_pg_expandarray":
         items_list = list(value) if isinstance(value, (list, tuple)) else []
         return [(v, i) for i, v in enumerate(items_list, start=1)], ["any", "int4"]
@@ -454,6 +542,25 @@ def _record_values(node: exp.Expression, ctx: Any) -> tuple[list[tuple[Any, Any]
     if name in ("jsonb_each_text", "json_each_text"):
         return [(k, _jsonb_to_text(v)) for k, v in items], ["text", "text"]
     return [(k, v) for k, v in items], ["text", "json"]
+
+
+def record_column_names(name: str) -> list[str]:
+    """The default column names of a record SRF's row (``key`` / ``value`` for
+    the ``jsonb_each`` family), used to name a composite's fields and to accept
+    ``(srf(x)).<field>`` in a projection."""
+    return _RECORD_SRF_COLUMNS.get(name, ["key", "value"])
+
+
+def _record_values(node: exp.Expression, ctx: Any) -> tuple[list[tuple[Any, Any]], list[str]]:
+    """Rows and per-column type tags for a record SRF (``jsonb_each`` family) —
+    one ``(key, value)`` tuple per object member, key ``text`` and value ``json``
+    (``jsonb_each``) or ``text`` (``jsonb_each_text``)."""
+    from secantus.sql import scalar
+
+    name = str(node.this).rsplit(".", 1)[-1].lower()
+    arg = node.expressions[0] if node.expressions else None
+    value = scalar.evaluate(arg, _empty_scope, ctx) if arg is not None else None
+    return record_rows(name, value)
 
 
 def _jsonb_to_text(v: Any) -> Any:
@@ -593,6 +700,16 @@ def _generate_series_temporal(start: Any, stop: Any, step: Any) -> tuple[list[An
     """``generate_series(ts_start, ts_stop, interval)`` — walk from ``start`` to
     ``stop`` (inclusive) by ``interval``. The interval carries its own sign; the
     walk direction is taken from whether one step moves forward or backward."""
+    # Postgres resolves DATE bounds to the ``timestamptz`` overload and TIMESTAMP
+    # bounds to the plain ``timestamp`` one, so the two spellings differ in the
+    # row TYPE even when the instants agree. Decided BEFORE the coercion below,
+    # which turns a date into a midnight datetime and erases the distinction.
+    date_only = all(_is_date_only(b) for b in (start, stop))
+    # A date / timestamp LITERAL arrives here as its canonical text rather than
+    # as a Python date, so the temporal overload was rejecting its own
+    # arguments: ``generate_series(DATE '2020-01-01', DATE '2020-01-03',
+    # INTERVAL '1 day')`` answered 42883.
+    start, stop = _coerce_temporal_bound(start), _coerce_temporal_bound(stop)
     if not (_is_temporal(start) and _is_temporal(stop)):
         raise errors.SQLError(
             "42883",
@@ -612,8 +729,30 @@ def _generate_series_temporal(start: Any, stop: Any, step: Any) -> tuple[list[An
         if len(out) > _MAX_SERIES_ROWS:
             raise errors.SQLError("54000", "generate_series produced too many rows")
         cur = intervals.to_date(cur, step, 1)
-    tag = "timestamptz" if start_dt.tzinfo is not None else "timestamp"
+    tag = "timestamptz" if (date_only or start_dt.tzinfo is not None) else "timestamp"
     return out, tag
+
+
+def _is_date_only(v: Any) -> bool:
+    """Whether a bound is a DATE rather than a timestamp — a ``date`` object, or
+    the canonical ``YYYY-MM-DD`` text a date literal arrives as."""
+    if isinstance(v, _dt.datetime):
+        return False
+    if isinstance(v, _dt.date):
+        return True
+    return isinstance(v, str) and bool(re.fullmatch(r"\d{4}-\d{2}-\d{2}", v.strip()))
+
+
+def _coerce_temporal_bound(v: Any) -> Any:
+    """A date / timestamp bound given as text, parsed; anything else unchanged."""
+    if isinstance(v, str):
+        from secantus.sql.datetimes import parse_iso_datetime
+
+        try:
+            return parse_iso_datetime(v)
+        except Exception:  # noqa: BLE001 -- not a temporal literal; leave it be
+            return v
+    return v
 
 
 def _to_datetime(v: Any) -> _dt.datetime:

@@ -39,6 +39,17 @@ from typing import Any
 
 #: Type tags whose values are BSON dates and therefore lose microseconds.
 SUBMS_TAGS = frozenset({"timestamp", "timestamptz"})
+#: ...and the array forms, whose ELEMENTS are BSON dates. Only the write and
+#: whole-document read paths carry these (`carries_subms`); predicates, sorts
+#: and grouping stay scalar-only.
+SUBMS_ARRAY_TAGS = frozenset({"timestamp[]", "timestamptz[]"})
+
+
+def carries_subms(tag: str | None) -> bool:
+    """Whether a column of ``tag`` keeps a sub-millisecond companion on write
+    and merges it on read: a timestamp, or an array of them."""
+    return tag in SUBMS_TAGS or tag in SUBMS_ARRAY_TAGS
+
 
 #: Prefix for the hidden companion field. `__`-prefixed keys are the project's
 #: convention for storage fields that are not table columns.
@@ -56,13 +67,90 @@ def is_companion_field(name: str) -> bool:
     return name.startswith(_PREFIX)
 
 
+#: Keys of the sortable composite an aggregation accumulator carries. A BSON
+#: date cannot hold the remainder, so a pipeline `$min` / `$max` / ordered-push
+#: over a timestamp accumulates ``{__subms_d, __subms_u}`` instead and the
+#: executor merges it back. `__`-prefixed by the same convention as the
+#: companion field, so a real jsonb value cannot be mistaken for one.
+COMPOSITE_DATE = "__subms_d"
+COMPOSITE_US = "__subms_u"
+
+
+def companion_path(field: str) -> str:
+    """`companion_field` for a *pipeline path*: ``b.amt`` -> ``b.__us_amt``.
+
+    The companion sits beside its column inside the same sub-document, so the
+    prefix goes on the LAST segment, not the whole path. Getting this wrong on
+    a join would silently read a missing field and report whole milliseconds.
+    """
+    head, _, last = field.rpartition(".")
+    return f"{head}.{_PREFIX}{last}" if head else f"{_PREFIX}{last}"
+
+
+#: Marker wrapping a composite whose merged value must be rendered as TEXT.
+#: `string_agg(t::text, …)` evaluates its cast INSIDE the pipeline, where the
+#: companion is not in scope, so it stringified the truncated date. The push
+#: carries the composite under this key instead and the executor renders it
+#: after merging.
+COMPOSITE_AS_TEXT = "__subms_text"
+
+
+def composite_text_expr(field: str) -> dict[str, Any]:
+    """`composite_expr` marked so the executor renders it as text on the way
+    out — see `COMPOSITE_AS_TEXT`."""
+    return {COMPOSITE_AS_TEXT: composite_expr(field)}
+
+
+def composite_expr(field: str) -> dict[str, Any]:
+    """A Mongo aggregation expression producing the sortable composite for
+    ``field``, or NULL when the column is NULL so accumulators keep skipping it.
+
+    Ordering works because BSON compares documents field by field in order:
+    date first, then the 0-999 remainder. ``$ifNull`` on the companion is what
+    makes that total -- a whole-millisecond row has no companion, and without
+    the 0 default the two shapes would not be comparable.
+    """
+    return {
+        "$cond": [
+            {"$ifNull": [f"${field}", False]},
+            {
+                COMPOSITE_DATE: f"${field}",
+                COMPOSITE_US: {"$ifNull": [f"${companion_path(field)}", 0]},
+            },
+            None,
+        ]
+    }
+
+
+def unwrap_composite(value: Any) -> Any:
+    """Merge a ``{__subms_d, __subms_u}`` composite back into a datetime.
+
+    Anything else passes through, so this is safe to run over arbitrary result
+    values.
+    """
+    if isinstance(value, dict) and COMPOSITE_DATE in value:
+        return merge(value.get(COMPOSITE_DATE), value.get(COMPOSITE_US))
+    return value
+
+
 def split(value: Any) -> tuple[Any, int]:
     """``(value_as_stored, remainder_microseconds)``.
 
     The stored value is truncated to whole milliseconds — what BSON would do
     anyway — and the remainder is the 0-999 microseconds that would be lost.
     Anything that is not a datetime passes through with remainder 0.
+
+    An ARRAY of timestamps (a list, nested for more dimensions) splits element
+    by element: the remainder is the parallel list, or 0 when every element is
+    a whole millisecond. Each element is a BSON date too, so without this a
+    ``timestamp[]`` column lost every element's microseconds on storage.
     """
+    if isinstance(value, list):
+        parts = [split(v) for v in value]
+        remainders = [r for _, r in parts]
+        if not any(remainders):
+            return value, 0
+        return [v for v, _ in parts], remainders
     if not isinstance(value, _dt.datetime):
         return value, 0
     remainder = value.microsecond % 1000
@@ -76,8 +164,13 @@ def merge(value: Any, remainder: Any) -> Any:
 
     Defensive about the stored remainder: a value that is not an int in 0-999 is
     ignored rather than trusted, so a hand-edited or foreign document cannot
-    produce a nonsensical time.
+    produce a nonsensical time. An array merges element by element against a
+    remainder list of the same length (anything else is ignored).
     """
+    if isinstance(value, list):
+        if not isinstance(remainder, list) or len(remainder) != len(value):
+            return value
+        return [merge(v, r) for v, r in zip(value, remainder, strict=True)]
     if not isinstance(value, _dt.datetime) or not isinstance(remainder, int):
         return value
     if isinstance(remainder, bool) or not 0 < remainder < 1000:
@@ -131,3 +224,122 @@ def has_subms(value: Any) -> bool:
     signal that a comparison against it cannot be answered by the stored date
     alone."""
     return isinstance(value, _dt.datetime) and bool(value.microsecond % 1000)
+
+
+def _companion_cmp(companion: str, op: str, remainder: int) -> dict[str, Any]:
+    """Compare the *companion* against ``remainder``, honouring the invariant
+    that an ABSENT companion means a remainder of zero.
+
+    Mongo's `{f: None}` matches missing-or-null, which is how "remainder is 0"
+    is expressed; `$gt` / `$lt` on a missing field match nothing, so the
+    zero-remainder cases have to be spelled out rather than left to the
+    operator.
+    """
+    if op == "$eq":
+        # Zero remainder: the companion must be absent, not merely <= 0. This is
+        # the false-positive half of the bug — `t = '…123'` matched a row storing
+        # `…123456`, because only the truncated field was compared.
+        return {companion: remainder} if remainder else {companion: None}
+    if op == "$gt":
+        # Nothing is greater than the maximum, and a missing companion (0) is
+        # never greater than a remainder >= 0.
+        return {companion: {"$gt": remainder}}
+    if op == "$gte":
+        if remainder == 0:
+            return {}  # every remainder is >= 0
+        return {companion: {"$gte": remainder}}
+    if op == "$lt":
+        if remainder == 0:
+            return _MATCH_NOTHING  # no remainder is < 0
+        return {"$or": [{companion: {"$lt": remainder}}, {companion: None}]}
+    if op == "$lte":
+        if remainder == 0:
+            return {companion: None}  # only a zero remainder is <= 0
+        return {"$or": [{companion: {"$lte": remainder}}, {companion: None}]}
+    raise ValueError(f"unsupported companion comparison {op!r}")
+
+
+#: A filter that matches no document (Mongo has no literal false).
+_MATCH_NOTHING: dict[str, Any] = {"$nor": [{}]}
+
+
+def composite_cmp_filter(base: str, op: str, value: Any) -> dict[str, Any] | None:
+    """`cmp_filter` for a field holding the accumulator COMPOSITE, not a stored
+    date beside a companion.
+
+    Simpler than `cmp_filter` because the composite always carries its
+    remainder: `composite_expr` defaults it to 0 with `$ifNull`, so none of the
+    "an absent companion means zero" special cases apply and the comparison is
+    a plain two-field lexicographic one.
+
+    Returns None for a non-datetime value, leaving the caller's plain filter.
+    """
+    if not isinstance(value, _dt.datetime):
+        return None
+    date_path = f"{base}.{COMPOSITE_DATE}"
+    us_path = f"{base}.{COMPOSITE_US}"
+    trunc, remainder = split(value)
+    if op == "$eq":
+        return {date_path: trunc, us_path: remainder}
+    if op == "$ne":
+        return {"$nor": [{"$and": [{date_path: trunc}, {us_path: remainder}]}]}
+    if op in ("$gt", "$gte"):
+        return {
+            "$or": [
+                {date_path: {"$gt": trunc}},
+                {"$and": [{date_path: trunc}, {us_path: {op: remainder}}]},
+            ]
+        }
+    if op in ("$lt", "$lte"):
+        return {
+            "$or": [
+                {date_path: {"$lt": trunc}},
+                {"$and": [{date_path: trunc}, {us_path: {op: remainder}}]},
+            ]
+        }
+    return None
+
+
+def cmp_filter(field: str, op: str, value: Any) -> dict[str, Any] | None:
+    """Lower ``field <op> value`` so the sub-millisecond remainder participates.
+
+    Returns ``None`` when the plain filter is already correct — a non-datetime
+    value, or one that lands on a whole millisecond for an operator whose
+    truncated form is exact.
+
+    Comparisons used to see only the truncated field, which was wrong in *both*
+    directions against a stored `…00.123456`: `= '…123456'` matched nothing (a
+    row failing an equality on its own stored value) while `= '…123'` matched
+    it. Ordering compares the millisecond first and the remainder only within
+    the same millisecond, which is what these `$or` shapes say.
+    """
+    if not isinstance(value, _dt.datetime):
+        return None
+    trunc, remainder = split(value)
+    companion = companion_field(field)
+
+    if op == "$eq":
+        return {"$and": [{field: trunc}, _companion_cmp(companion, "$eq", remainder)]}
+    if op == "$ne":
+        # `<>` must still exclude NULL/missing rows, which the caller guards;
+        # here we only negate the positive match.
+        return {"$nor": [{"$and": [{field: trunc}, _companion_cmp(companion, "$eq", remainder)]}]}
+    if op in ("$gt", "$gte"):
+        same_ms = _companion_cmp(companion, op, remainder)
+        return {
+            "$or": [
+                {field: {"$gt": trunc}},
+                {"$and": [{field: trunc}, same_ms]} if same_ms else {field: trunc},
+            ]
+        }
+    if op in ("$lt", "$lte"):
+        same_ms = _companion_cmp(companion, op, remainder)
+        if same_ms == _MATCH_NOTHING:
+            return {field: {"$lt": trunc}}
+        return {
+            "$or": [
+                {field: {"$lt": trunc}},
+                {"$and": [{field: trunc}, same_ms]} if same_ms else {field: trunc},
+            ]
+        }
+    return None

@@ -49,6 +49,29 @@ _VALID_MODES = frozenset({"full", "page", "summary"})
 _DEFAULT_PAGE_CHARS = 4000
 _BATCH_MAX = 20
 
+#: The most characters of object content ONE ``context`` result carries — a
+#: ``get`` of any mode, or a whole ``batch`` summed. Under the size gate's 50K
+#: soft cap with room for the envelope, so the tool's ``output_self_capped``
+#: claim is TRUE. Production (ops ``tool_result_overflow:context``): mode=full
+#: returned 104K-114K bodies whole — inline (``full_document_text``,
+#: ``extraction_rows``) and lazy (``platform_capabilities``, 113,535 chars while
+#: claiming self-capped, so the gate recorded nothing). Past this budget the
+#: read becomes a first page that says how much exists and the exact next call.
+_MAX_RESULT_CHARS = 40_000
+#: A batch sub-read is never squeezed below this; past it the key is deferred
+#: with its own continuation instead of returning a sliver.
+_BATCH_MIN_SUB_CHARS = 2_000
+
+
+def _budget_note(total: int, shown: int, next_offset: int | None, key: str, budget: int) -> str:
+    """The honest sentence for a read cut to the result budget."""
+    return (
+        f"'{key}' is {total:,} chars; this result carries at most {budget:,}, so you "
+        f"are seeing chars 0-{shown:,}. Nothing was dropped: read on with "
+        f"context(action='get', key='{key}', mode='page', offset={next_offset}, "
+        f"chars=<up to {budget}>)."
+    )
+
 _ATTACHED_DOCUMENT_KEY_PREFIX = "attached_document_"
 
 # Fuzzy "did you mean" cutoff. Deliberately NOT a reconciliation threshold —
@@ -380,7 +403,9 @@ async def _known_missing_key_result(
     )
 
 
-async def ctx_get(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
+async def ctx_get(
+    args: dict[str, Any], ctx: ToolContext, *, budget: int = _MAX_RESULT_CHARS
+) -> ToolResult:
     """Retrieve deferred context content by key.
 
     Thin wrapper over ``_ctx_get_body`` that surfaces any key reconciliation to
@@ -389,7 +414,7 @@ async def ctx_get(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     executor uses for arg-shape coercion — see ARG_RECOVERY.md).
     """
     notices: list[str] = []
-    result = await _ctx_get_body(args, ctx, notices)
+    result = await _ctx_get_body(args, ctx, notices, budget=budget)
     if notices and result.success and isinstance(result.output, dict):
         result.output.setdefault("arg_coercion_notice", notices[0])
     return _stamp_context_kind(result)
@@ -436,7 +461,13 @@ def _stamp_context_kind(result: ToolResult) -> ToolResult:
     return result
 
 
-async def _ctx_get_body(args: dict[str, Any], ctx: ToolContext, notices: list[str]) -> ToolResult:
+async def _ctx_get_body(
+    args: dict[str, Any],
+    ctx: ToolContext,
+    notices: list[str],
+    *,
+    budget: int = _MAX_RESULT_CHARS,
+) -> ToolResult:
     """Internal impl for the ``context`` dispatcher's ``get`` action. The
     dispatcher validates the incoming call against ``ContextArgs`` before
     routing here, so this body trusts ``args`` is already shape-checked.
@@ -597,7 +628,9 @@ async def _ctx_get_body(args: dict[str, Any], ctx: ToolContext, notices: list[st
                     ),
                 )
             page_offset = offset if (mode == "page" and offset > 0) else 0
-            page_chars = chars if (mode == "page" and chars > 0) else None
+            # Never unbounded: mode=full asks for the budget, a page is clamped
+            # to it. The resolver's has_more / next_offset carry the rest.
+            page_chars = min(chars, budget) if (mode == "page" and chars > 0) else budget
             slice_ = await materialize(
                 obj.source,
                 mode=mode,
@@ -628,6 +661,12 @@ async def _ctx_get_body(args: dict[str, Any], ctx: ToolContext, notices: list[st
             }
             if slice_.page_range:
                 output["page_range"] = slice_.page_range
+            if mode == "full" and slice_.has_more:
+                output["mode"] = "page"
+                output["fell_back_from"] = "full"
+                output["note"] = _budget_note(
+                    slice_.total_chars, len(slice_.text), slice_.next_offset, key, budget
+                )
             if args.get("mode") == "summary":
                 output["mode"] = "page"
                 output["fell_back_from"] = "summary"
@@ -657,6 +696,31 @@ async def _ctx_get_body(args: dict[str, Any], ctx: ToolContext, notices: list[st
             # character-level and partial slices won't parse, so they pass
             # the validator cleanly.
             raw = obj.content
+            total = len(content_str)
+            if total > budget:
+                # Over the result budget: the first page, announced, with the
+                # exact continuation. A structured value is sliced as its JSON
+                # text (a partial container cannot be native).
+                head = content_str[:budget]
+                return ToolResult(
+                    success=True,
+                    output={
+                        "key": key,
+                        "type": obj.type.value,
+                        "label": obj.label,
+                        "mode": "page",
+                        "fell_back_from": "full",
+                        "content": head,
+                        "offset": 0,
+                        "chars_returned": len(head),
+                        "total_chars": total,
+                        "has_more": True,
+                        "next_offset": len(head),
+                        "note": _budget_note(total, len(head), len(head), key, budget),
+                        **_document_source_continuation(obj),
+                    },
+                    output_self_capped=True,
+                )
             content_value: Any = raw if isinstance(raw, dict | list) else content_str
             return ToolResult(
                 success=True,
@@ -665,9 +729,10 @@ async def _ctx_get_body(args: dict[str, Any], ctx: ToolContext, notices: list[st
                     "type": obj.type.value,
                     "label": obj.label,
                     "content": content_value,
-                    "total_chars": len(content_str),
+                    "total_chars": total,
                     **_document_source_continuation(obj),
                 },
+                output_self_capped=True,
             )
 
         # --- page mode ---
@@ -676,25 +741,30 @@ async def _ctx_get_body(args: dict[str, Any], ctx: ToolContext, notices: list[st
                 offset = 0
             if chars <= 0:
                 chars = _DEFAULT_PAGE_CHARS
+            clamped = chars > budget
+            chars = min(chars, budget)
             slice_content = content_str[offset : offset + chars]
             total = len(content_str)
             has_more = (offset + chars) < total
             next_offset = offset + chars if has_more else None
-            return ToolResult(
-                success=True,
-                output={
-                    "key": key,
-                    "type": obj.type.value,
-                    "label": obj.label,
-                    "content": _slice_value(obj, content_str, slice_content),
-                    "offset": offset,
-                    "chars_returned": len(slice_content),
-                    "total_chars": total,
-                    "has_more": has_more,
-                    "next_offset": next_offset,
-                    **_document_source_continuation(obj),
-                },
-            )
+            page_out: dict[str, Any] = {
+                "key": key,
+                "type": obj.type.value,
+                "label": obj.label,
+                "content": _slice_value(obj, content_str, slice_content),
+                "offset": offset,
+                "chars_returned": len(slice_content),
+                "total_chars": total,
+                "has_more": has_more,
+                "next_offset": next_offset,
+                **_document_source_continuation(obj),
+            }
+            if clamped and has_more:
+                page_out["note"] = (
+                    f"chars was lowered to {budget:,} (the most one context result "
+                    f"carries); continue at offset={next_offset}."
+                )
+            return ToolResult(success=True, output=page_out, output_self_capped=True)
 
         # --- summary mode ---
         # Prefer the configured AI summary agent; otherwise fall back to the
@@ -742,6 +812,7 @@ async def _ctx_get_body(args: dict[str, Any], ctx: ToolContext, notices: list[st
                 )
             if chars <= 0:
                 chars = _DEFAULT_PAGE_CHARS
+            chars = min(chars, budget)
             slice_content = content_str[0:chars]
             total = len(content_str)
             has_more = chars < total
@@ -767,6 +838,7 @@ async def _ctx_get_body(args: dict[str, Any], ctx: ToolContext, notices: list[st
                     ),
                     **_document_source_continuation(obj),
                 },
+                output_self_capped=True,
             )
 
         # unreachable — kept for safety
@@ -891,6 +963,11 @@ async def ctx_batch(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
 
         results: list[dict[str, Any]] = []
         any_failed = False
+        # ONE budget for the whole batch — 20 full reads are 20x the cap
+        # otherwise. Each sub-read gets what is left; once too little is left a
+        # key is DEFERRED with its own exact call, never dropped or squeezed.
+        remaining = _MAX_RESULT_CHARS
+        deferred: list[str] = []
         for i, sub in enumerate(requests):
             if not isinstance(sub, dict):
                 any_failed = True
@@ -908,7 +985,29 @@ async def ctx_batch(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
                     break
                 continue
 
-            sub_result = await ctx_get(sub, ctx)
+            if remaining < _BATCH_MIN_SUB_CHARS:
+                sub_key = str(sub.get("key") or "")
+                deferred.append(sub_key)
+                results.append(
+                    {
+                        "key": sub.get("key"),
+                        "success": True,
+                        "output": {
+                            "key": sub.get("key"),
+                            "chars_returned": 0,
+                            "has_more": True,
+                            "next_offset": 0,
+                            "note": (
+                                f"Not read: this batch already carries its "
+                                f"{_MAX_RESULT_CHARS:,}-char budget. Read it with "
+                                f"context(action='get', key='{sub_key}', mode='page')."
+                            ),
+                        },
+                    }
+                )
+                continue
+
+            sub_result = await ctx_get(sub, ctx, budget=remaining)
             entry: dict[str, Any] = {
                 "key": sub.get("key"),
                 "success": sub_result.success,
@@ -931,6 +1030,7 @@ async def ctx_batch(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
                     else {"error_type": "execution", "message": "ctx_get failed."}
                 )
             results.append(entry)
+            remaining -= len(json.dumps(entry, ensure_ascii=False, default=str))
             if stop_on_error and not sub_result.success:
                 break
 
@@ -993,8 +1093,20 @@ async def ctx_batch(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
                     "count": len(results),
                     "requested": len(requests),
                     "results": results,
+                    **(
+                        {
+                            "note": (
+                                f"{len(deferred)} key(s) were not read because the batch "
+                                f"reached its {_MAX_RESULT_CHARS:,}-char budget: "
+                                f"{', '.join(deferred)}. Read each with action='get'."
+                            )
+                        }
+                        if deferred
+                        else {}
+                    ),
                 },
                 error=top_error,
+                output_self_capped=True,
             )
         )
 

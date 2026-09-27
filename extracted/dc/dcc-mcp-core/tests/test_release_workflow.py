@@ -9,6 +9,18 @@ RELEASE_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "release.yml"
 PYPI_ACTION = "pypa/gh-action-pypi-publish@release/v1"
 GITHUB_RELEASE_ACTION = "softprops/action-gh-release@v3"
 CORE_BACKFILL_EXPRESSION = "github.event_name == 'workflow_dispatch' && inputs.release_tag != ''"
+ASSETS_BACKFILL_GUARD = " && inputs.backfill_assets != true"
+# The default GITHUB_TOKEN is refused on the release-update call that precedes
+# every asset upload, so the release PAT is handed to the action instead.
+GITHUB_RELEASE_TOKEN = "${{ secrets.PERSONAL_ACCESS_TOKEN || github.token }}"
+REUSE_RELEASE_ASSETS_EXPRESSION = (
+    "${{ github.event_name == 'workflow_dispatch' && inputs.release_tag != ''" + ASSETS_BACKFILL_GUARD + " }}"
+)
+# Assets are only ever replaced for the explicit asset backfill. A normal
+# release must overwrite nothing, or the safety-net upload in
+# publish-github-release-assets would delete and re-upload every asset the
+# per-platform jobs just attached.
+OVERWRITE_FILES_EXPRESSION = "${{ github.event_name == 'workflow_dispatch' && inputs.backfill_assets == true }}"
 
 
 def _release_jobs() -> dict:
@@ -25,31 +37,82 @@ def _github_release_steps(jobs: dict) -> list[dict]:
 
 
 def test_release_workflow_preserves_existing_github_release_assets() -> None:
+    """Assets are preserved by default and replaced only for an asset backfill.
+
+    `softprops/action-gh-release@v3` silently skips any same-named asset when
+    `overwrite_files` is false and still exits 0, so an unconditional false
+    turns the opt-in backfill into a no-op that reports success while the
+    release keeps its old bytes. An unconditional true is just as wrong: the
+    safety-net upload would delete and re-upload every asset the per-platform
+    jobs just attached.
+    """
+    # One upload step per asset-producing job: build-binaries,
+    # build-semantic-wheels and build-cli-wheels attach their own artefacts,
+    # and publish-github-release-assets is the safety net.
     steps = _github_release_steps(_release_jobs())
-    assert len(steps) == 3
+    assert len(steps) == 4
     for step in steps:
-        assert step["with"]["overwrite_files"] is False
+        assert step["with"]["overwrite_files"] == OVERWRITE_FILES_EXPRESSION
         assert step["with"]["fail_on_unmatched_files"] is True
+
+
+def test_release_workflow_uploads_assets_with_the_release_token() -> None:
+    """Every Release upload must use the PAT, not the default GITHUB_TOKEN.
+
+    softprops/action-gh-release@v3 starts each upload with
+    PATCH /repos/{owner}/{repo}/releases/{release_id}. When the default token
+    is refused there, the whole asset set is dropped while every build still
+    reports success: v0.20.34 shipped with 0 assets.
+    """
+    steps = _github_release_steps(_release_jobs())
+    assert len(steps) == 4
+    for step in steps:
+        assert step["with"]["token"] == GITHUB_RELEASE_TOKEN
 
 
 def test_release_workflow_manual_backfill_reuses_core_release_assets() -> None:
     build_wheels = _release_jobs()["build-wheels"]
-    assert build_wheels["with"]["reuse-release-assets"] == (
-        "${{ github.event_name == 'workflow_dispatch' && inputs.release_tag != '' }}"
-    )
+    assert build_wheels["with"]["reuse-release-assets"] == REUSE_RELEASE_ASSETS_EXPRESSION
+    assert build_wheels["secrets"] == {"RELEASE_TOKEN": "${{ secrets.PERSONAL_ACCESS_TOKEN }}"}
 
 
 def test_manual_backfill_is_explicitly_core_only() -> None:
     jobs = _release_jobs()
-    for job_id in ("build-admin-ui", "build-binaries", "build-semantic-wheels"):
+    for job_id in ("build-admin-ui", "build-binaries", "build-semantic-wheels", "build-cli-wheels"):
         condition = jobs[job_id]["if"]
-        assert f"!({CORE_BACKFILL_EXPRESSION})" in condition
+        assert f"!({CORE_BACKFILL_EXPRESSION}{ASSETS_BACKFILL_GUARD})" in condition
 
     summary = jobs["publish"]["steps"][0]["run"]
-    assert f'core_backfill="${{{{ {CORE_BACKFILL_EXPRESSION} }}}}"' in summary
+    assert f'core_backfill="${{{{ {CORE_BACKFILL_EXPRESSION}{ASSETS_BACKFILL_GUARD} }}}}"' in summary
     assert 'server" != "skipped"' in summary
     assert 'semantic" != "skipped"' in summary
     assert 'release_assets" != "skipped"' in summary
+
+
+def test_backfill_assets_input_defaults_to_core_only() -> None:
+    """`backfill_assets` is the opt-in that widens a core-only backfill."""
+    workflow = yaml_loads(RELEASE_WORKFLOW.read_text(encoding="utf-8"))
+    backfill_assets = workflow["on"]["workflow_dispatch"]["inputs"]["backfill_assets"]
+    assert backfill_assets["type"] == "boolean"
+    assert backfill_assets["default"] is False
+    assert backfill_assets["required"] is False
+
+
+def test_release_workflow_verifies_the_published_asset_set() -> None:
+    jobs = _release_jobs()
+    verify = jobs["verify-release-assets"]
+
+    assert "always()" in verify["if"]
+    # The legacy core-only PyPI backfill deliberately leaves the existing
+    # Release untouched, so it is the one route without the gate.
+    assert f"!({CORE_BACKFILL_EXPRESSION}{ASSETS_BACKFILL_GUARD})" in verify["if"]
+    assert verify["needs"] == ["release-please", "publish-github-release-assets"]
+    # `publish` aggregates every publication route, so the gate is part of it.
+    assert "verify-release-assets" in jobs["publish"]["needs"]
+    assert 'assets_verified" != "success"' in jobs["publish"]["steps"][0]["run"]
+
+    script = next(step for step in verify["steps"] if "check_release_assets.py" in step.get("run", ""))
+    assert '--version "$RELEASE_VERSION"' in script["run"]
 
 
 def test_release_workflow_publishes_each_pypi_project_in_its_own_job() -> None:
@@ -75,6 +138,15 @@ def test_release_workflow_publishes_each_pypi_project_in_its_own_job() -> None:
             "artifact_pattern": "semantic-wheel-*",
             "artifact_path": "dist-semantic",
             "packages_dir": "dist-semantic",
+        },
+        # The dcc-mcp-cli wrapper wheels are built once for all platforms and
+        # published from a single artefact, hence the non-glob pattern.
+        "publish-cli-pypi": {
+            "needs": ["release-please", "validate-release-version", "build-cli-wheels"],
+            "url": "https://pypi.org/p/dcc-mcp-cli",
+            "artifact_pattern": "cli-wheel-all",
+            "artifact_path": "dist-cli",
+            "packages_dir": "dist-cli",
         },
     }
 
@@ -106,7 +178,7 @@ def test_release_workflow_publishes_each_pypi_project_in_its_own_job() -> None:
             "skip-existing": True,
         }
 
-    assert sum(len(_pypi_steps(job)) for job in jobs.values()) == 3
+    assert sum(len(_pypi_steps(job)) for job in jobs.values()) == 4
 
 
 def test_core_pypi_publish_validates_complete_distribution_set_before_upload() -> None:
@@ -163,14 +235,72 @@ def test_release_workflow_keeps_github_release_safety_net_after_pypi_jobs() -> N
         "publish-core-pypi",
         "publish-server-pypi",
         "publish-semantic-pypi",
+        "publish-cli-pypi",
         "publish-github-release-assets",
+        "verify-release-assets",
     ]
     assert "always()" in summary["if"]
     run = summary["steps"][0]["run"]
     assert "needs.publish-core-pypi.result" in run
     assert "needs.publish-server-pypi.result" in run
     assert "needs.publish-semantic-pypi.result" in run
+    assert "needs.publish-cli-pypi.result" in run
     assert "needs.publish-github-release-assets.result" in run
+    # A new route must also be gated, or it can fail silently.
+    assert 'cli" != "success"' in run
+    assert 'cli" != "skipped"' in run
+
+
+def test_release_workflow_builds_cli_wrapper_wheels_from_the_release_archives() -> None:
+    """The PyPI wrapper wheels are derived from the archives build-binaries uploads.
+
+    Nothing in that job compiles, so it runs once on a single runner and loops
+    over the three platforms. It must depend on ``build-binaries`` (the source
+    of the archives) and stamp each wheel with a platform tag before upload,
+    or pip would resolve a Linux binary onto Windows.
+    """
+    jobs = _release_jobs()
+    build = jobs["build-cli-wheels"]
+
+    assert build["runs-on"] == "ubuntu-latest"
+    assert build["needs"] == ["release-please", "build-binaries"]
+
+    runs = "\n".join(step.get("run", "") for step in build["steps"])
+    assert "scripts/release/build_cli_wrapper_wheel.py" in runs
+    assert "scripts/release/cli_wheel_tags.py retag" in runs
+    assert "scripts/release/cli_wheel_tags.py validate" in runs
+    assert '--platform "$platform"' in runs
+    for platform in ("linux-x86_64", "macos-universal2", "windows-x86_64"):
+        assert platform in runs
+
+    upload = next(step for step in build["steps"] if step.get("uses") == "actions/upload-artifact@v4")
+    assert upload["with"]["name"] == "cli-wheel-all"
+    assert upload["with"]["path"] == "dist-cli/*.whl"
+
+
+def test_release_workflow_gives_every_platform_its_own_wheel_output_directory() -> None:
+    """Each platform must build into a directory no other platform writes to.
+
+    hatchling names every build ``dcc_mcp_cli-<version>-py3-none-any.whl``
+    because the wrapper carries no compiled extension. Looping the three
+    platforms over one output directory therefore overwrites the first wheel
+    with the second, and the build script finds no *new* file and exits 1 with
+    "expected exactly one wrapper wheel, got []" - which in turn skips
+    ``publish-cli-pypi`` and fails every release. The wheel has to be retagged
+    before it joins the shared directory, or the next build overwrites it by
+    name.
+    """
+    build = _release_jobs()["build-cli-wheels"]
+    build_step = next(step for step in build["steps"] if step.get("name") == "Build wrapper wheels")
+    run = build_step["run"]
+
+    assert 'out="$PWD/dist-cli-build/$platform"' in run
+    assert '--out-dir "$out"' in run
+    # Shared-directory builds would silently collide on the second platform.
+    assert '--out-dir "$PWD/dist-cli"' not in run
+    # Retag inside the loop, then move: the tag is what makes the names unique.
+    assert 'cli_wheel_tags.py retag --wheel-dir "$out"' in run
+    assert 'mv "$out"/*.whl "$PWD/dist-cli/"' in run
 
 
 def test_release_workflow_builds_deployable_zips_per_platform() -> None:

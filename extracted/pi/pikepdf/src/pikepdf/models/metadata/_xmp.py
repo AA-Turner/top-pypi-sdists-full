@@ -19,6 +19,7 @@ from pikepdf.models.metadata._constants import (
     XMP_NS_XML,
     XPACKET_BEGIN,
     XPACKET_END,
+    AltList,
     clean,
     load_lxml_namespaces,
     re_xml_illegal_bytes,
@@ -30,6 +31,8 @@ if TYPE_CHECKING:
 
 
 log = logging.getLogger(__name__)
+
+_RDF_ABOUT = f'{{{XMP_NS_RDF}}}about'
 
 
 class NeverRaise(Exception):
@@ -104,6 +107,10 @@ class XmpDocument:
             )
 
         self._strict = not overwrite_invalid_xml
+        #: True if the XMP could not be read as it was and had to be repaired
+        #: or replaced with empty XMP. The repaired XMP is what will be
+        #: written, so the original is not preserved.
+        self.recovered: bool = False
         self._xmp: _ElementTree = self._parse(data, parsers, overwrite_invalid_xml)
 
     def _parse(
@@ -122,7 +129,7 @@ class XmpDocument:
             data = XMP_EMPTY  # on some platforms lxml chokes on empty documents
 
         xmp: _ElementTree | None = None
-        for parser in parsers:
+        for index, parser in enumerate(parsers):
             try:
                 xmp = parser(data)
             except (
@@ -132,8 +139,11 @@ class XmpDocument:
                     e
                 ).startswith("Document is empty"):
                     xmp = _parser_replace_with_empty_xmp()
+                    self.recovered = True
                     break
             else:
+                # Any parser after the first one repairs or replaces the XMP
+                self.recovered = self.recovered or index > 0
                 break
 
         if xmp is not None:
@@ -141,7 +151,8 @@ class XmpDocument:
                 pis = xmp.xpath('/processing-instruction()')
                 for pi in pis:  # type: ignore[union-attr]
                     etree.strip_tags(xmp, pi.tag)  # type: ignore[union-attr]
-                self._repair_namespaces(xmp)
+                if self._repair_namespaces(xmp):
+                    self.recovered = True
                 self._get_rdf_root_from(xmp)
             except (
                 Exception  # pylint: disable=broad-except
@@ -150,14 +161,16 @@ class XmpDocument:
             ) as e:
                 log.warning("Error occurred parsing XMP", exc_info=e)
                 xmp = _parser_replace_with_empty_xmp()
+                self.recovered = True
         else:
             log.warning("Error occurred parsing XMP")
             xmp = _parser_replace_with_empty_xmp()
+            self.recovered = True
 
         return xmp
 
     @classmethod
-    def _repair_namespaces(cls, xmp: _ElementTree) -> None:
+    def _repair_namespaces(cls, xmp: _ElementTree) -> bool:
         """Rebind names that were parsed without their namespace.
 
         When XML is recovered after a parse error, lxml keeps an element or
@@ -167,6 +180,9 @@ class XmpDocument:
         iterated but never looked up, since lookups resolve the prefix to its
         URI, and it cannot be serialized to well-formed XML either. Rebind
         the names we recognize and discard the rest.
+
+        Returns:
+            True if any name was rebound or discarded.
         """
         repaired = dropped = 0
         for element in list(xmp.iter()):
@@ -204,6 +220,7 @@ class XmpDocument:
                 repaired,
                 dropped,
             )
+        return bool(repaired or dropped)
 
     @classmethod
     def _split_literal_name(cls, name: str) -> tuple[str | None, str]:
@@ -277,6 +294,71 @@ class XmpDocument:
         """Get the rdf:RDF root element."""
         return self._get_rdf_root_from(self._xmp)
 
+    def _descriptions(self) -> list[_Element]:
+        """Return the top-level rdf:Description elements.
+
+        XMP (ISO 16684-1, 7.4) lets properties be apportioned among any number
+        of top-level Descriptions, all of which describe the same resource.
+        They are all read, whatever their rdf:about value, including none:
+        Distiller writes rdf:about="uuid:...", and early XMP omitted it.
+        Descriptions nested inside a property are structures, not these.
+        """
+        return self._get_rdf_root().findall('rdf:Description', self.NS)
+
+    @staticmethod
+    def _is_empty_description(desc: _Element) -> bool:
+        """Test if a Description holds no properties, only RDF syntax."""
+        return len(desc) == 0 and all(
+            str(k).startswith('{' + XMP_NS_RDF + '}') for k in desc.keys()
+        )
+
+    def _about_uri(self) -> str:
+        """Return the rdf:about value that all top-level Descriptions share.
+
+        Readers are asked to tolerate a mix of missing, empty and non-empty
+        values as long as the non-empty ones agree, so return that value. If
+        they conflict, no single value is right, so use the empty one.
+        """
+        values = {d.get(_RDF_ABOUT) or '' for d in self._descriptions()} - {''}
+        return values.pop() if len(values) == 1 else ''
+
+    def _normalize_descriptions(self) -> None:
+        """Make the top-level Descriptions valid to write.
+
+        XMP requires every top-level Description to have an rdf:about, all
+        with the same value. Descriptions that hold no properties are removed.
+        """
+        rdf = self._get_rdf_root()
+        about = self._about_uri()
+        for desc in self._descriptions():
+            if self._is_empty_description(desc):
+                rdf.remove(desc)
+            else:
+                desc.set(_RDF_ABOUT, about)
+
+    def _remove_occurrence(
+        self,
+        node: _Element,
+        attrib: str | bytes | None,
+        parent: _Element,
+        *,
+        prune: bool,
+    ) -> None:
+        """Remove one occurrence of a property found by _get_elements.
+
+        If prune, also remove the Description that held it if it is now empty.
+        """
+        if attrib:
+            del node.attrib[attrib]
+            desc = node
+        else:
+            parent.remove(node)
+            desc = parent
+        if prune and self._is_empty_description(desc):
+            rdf = desc.getparent()
+            if rdf is not None:
+                rdf.remove(desc)
+
     def _get_elements(
         self, name: str | QName = ''
     ) -> Iterator[tuple[_Element, str | bytes | None, Any, _Element]]:
@@ -304,7 +386,7 @@ class XmpDocument:
         """
         qname = self.qname(name)
         rdf = self._get_rdf_root()
-        for rdfdesc in rdf.findall('rdf:Description[@rdf:about=""]', self.NS):
+        for rdfdesc in self._descriptions():
             if qname and qname in rdfdesc.keys():
                 yield (rdfdesc, qname, rdfdesc.get(qname), rdf)
             elif not qname:
@@ -324,15 +406,13 @@ class XmpDocument:
         """Gather the sub-elements attached to a node.
 
         Gather rdf:Bag and and rdf:Seq into set and list respectively. For
-        alternate languages values, take the first language only for
-        simplicity.
+        language alternatives, return the default value: the item whose
+        xml:lang is x-default, or the first item if none is.
         """
         items = node.find('rdf:Alt', self.NS)
         if items is not None:
-            try:
-                return items[0].text
-            except IndexError:
-                return ''
+            item = self._alt_default_item(items)
+            return item.text if item is not None else ''
 
         for xmlcontainer, container, insertfn in XMP_CONTAINERS:
             items = node.find(f'rdf:{xmlcontainer}', self.NS)
@@ -343,6 +423,19 @@ class XmpDocument:
                 insertfn(result, item.text)
             return result
         return ''
+
+    def _alt_default_item(self, alt: _Element) -> _Element | None:
+        """Return the item of a language alternative that holds its default.
+
+        XMP specifies the item with xml:lang="x-default" as the default,
+        wherever it appears. Fall back to the first item if there is none.
+        """
+        items = alt.findall('rdf:li', self.NS)
+        lang = f'{{{XMP_NS_XML}}}lang'
+        for item in items:
+            if item.get(lang) == 'x-default':
+                return item
+        return items[0] if items else None
 
     def _get_element_values(self, name: str | QName = '') -> Iterator[Any]:
         yield from (v[2] for v in self._get_elements(name))
@@ -413,6 +506,10 @@ class XmpDocument:
             strict=strict,
             stacklevel=_stacklevel,
         )
+        if isinstance(val, AltList) and len(val) > 1:
+            # A language alternative has one default value, so several values
+            # are joined rather than all being tagged x-default. clean() warns.
+            val = AltList([clean(val)])
 
         if not self._setitem_update(key, val, qkey, rdf_type):
             self._setitem_insert(key, val, rdf_type)
@@ -474,11 +571,14 @@ class XmpDocument:
             True if an existing property was updated, False if the caller
             should insert the property instead.
         """
-        # Locate existing node to replace
-        try:
-            node, attrib, _oldval, _parent = next(self._get_elements(key))
-        except StopIteration:
+        # Locate existing node to replace. A property should occur once, so
+        # remove any other occurrences rather than leave a stale duplicate.
+        occurrences = list(self._get_elements(key))
+        if not occurrences:
             return False
+        node, attrib, _oldval, _parent = occurrences[0]
+        for dup_node, dup_attrib, _dup_val, dup_parent in occurrences[1:]:
+            self._remove_occurrence(dup_node, dup_attrib, dup_parent, prune=False)
 
         is_array = rdf_type is not None or isinstance(val, list | set)
         if attrib:
@@ -492,8 +592,14 @@ class XmpDocument:
             node.set(attrib, clean(val))
             return True
 
+        alt = node.find('rdf:Alt', self.NS)
+        if alt is not None and isinstance(val, AltList) and rdf_type in ('Alt', None):
+            self._setitem_update_alt(alt, val[0])
+            return True
+
         for child in node.findall('*'):
             node.remove(child)
+        node.text = None
         if is_array:
             self._setitem_add_array(node, val, rdf_type)
         elif isinstance(val, str):
@@ -502,21 +608,52 @@ class XmpDocument:
             raise TypeError(f"Setting {key} to {val} with type {type(val)}")
         return True
 
+    def _setitem_update_alt(self, alt: _Element, value: str | None) -> None:
+        """Set the default value of a language alternative.
+
+        Other languages are kept. An item that held the same text as the old
+        default was a copy of it, so it is updated too, as Adobe's XMP
+        toolkit does. The default item is placed first.
+        """
+        from lxml import etree
+        from lxml.etree import QName
+
+        text = clean(value) if value is not None else None
+        if text == '':
+            text = None
+        lang = str(QName(XMP_NS_XML, 'lang'))
+        items = alt.findall('rdf:li', self.NS)
+        default = next((li for li in items if li.get(lang) == 'x-default'), None)
+        if default is None:
+            default = etree.Element(
+                str(QName(XMP_NS_RDF, 'li')), attrib={lang: 'x-default'}
+            )
+        else:
+            old = default.text
+            if old:
+                for item in items:
+                    if item is not default and item.text == old:
+                        item.text = text
+            alt.remove(default)
+        alt.insert(0, default)
+        default.text = text
+
     def _setitem_insert(
         self, key: str | QName, val: Any, rdf_type: str | None = None
     ) -> None:
         from lxml import etree
         from lxml.etree import QName
 
-        rdf = self._get_rdf_root()
-        # Reuse existing rdf:Description element if available, to avoid
-        # creating multiple Description elements with the same rdf:about=""
-        rdfdesc = rdf.find('rdf:Description[@rdf:about=""]', self.NS)
-        if rdfdesc is None:
+        # Reuse an existing Description, so that no Description is added with
+        # an rdf:about value different from the others
+        descriptions = self._descriptions()
+        if descriptions:
+            rdfdesc = descriptions[0]
+        else:
             rdfdesc = etree.SubElement(
-                rdf,
+                self._get_rdf_root(),
                 str(QName(XMP_NS_RDF, 'Description')),
-                attrib={str(QName(XMP_NS_RDF, 'about')): ''},
+                attrib={_RDF_ABOUT: ''},
             )
         if rdf_type is not None or isinstance(val, list | set):
             node = etree.SubElement(rdfdesc, self.qname(key))
@@ -533,28 +670,15 @@ class XmpDocument:
         Returns:
             True if item was found and deleted, False if not found.
         """
-        from lxml.etree import QName
-
         try:
             self.qname(key)
         except ValueError:
             return False
-        try:
-            node, attrib, _oldval, parent = next(self._get_elements(key))
-            if attrib:  # Inline
-                del node.attrib[attrib]
-                if (
-                    len(node.attrib) == 1
-                    and len(node) == 0
-                    and QName(XMP_NS_RDF, 'about') in node.attrib.keys()
-                ):
-                    # The only thing left on this node is rdf:about="", so remove it
-                    parent.remove(node)
-            else:
-                parent.remove(node)
-            return True
-        except StopIteration:
-            return False
+        # Remove every occurrence, in case the packet has duplicates
+        occurrences = list(self._get_elements(key))
+        for node, attrib, _oldval, parent in occurrences:
+            self._remove_occurrence(node, attrib, parent, prune=True)
+        return bool(occurrences)
 
     def __delitem__(self, key: str | QName) -> None:
         """Delete item from XMP metadata."""
@@ -570,6 +694,7 @@ class XmpDocument:
         Returns:
             XML bytes representation of the XMP.
         """
+        self._normalize_descriptions()
         data = BytesIO()
         if xpacket:
             data.write(XPACKET_BEGIN)

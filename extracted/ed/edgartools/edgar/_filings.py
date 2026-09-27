@@ -13,7 +13,6 @@ from os import PathLike
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union, cast
 
-import httpcore
 import httpx
 import numpy as np
 import pandas as pd
@@ -1606,10 +1605,12 @@ class Filing:
         sgml = self.sgml()
         html = sgml.html()
         if not html:
+            # primary_html_document is Optional: it is None when the homepage
+            # lists no primary documents at all (edgartools-vwwl).
             document: Attachment = self.homepage.primary_html_document
-            if document.empty or document.is_binary():
+            if document is None or document.empty or document.is_binary():
                 return None
-            return self.homepage.primary_html_document.download()
+            return document.download()
         if html.endswith("</PDF>"):
             return None
         if html.startswith("<?xml"):
@@ -1629,7 +1630,10 @@ class Filing:
                         rendered = xml_obj.to_html()
                         if rendered:
                             return rendered
-                html = self.homepage.primary_html_document.download()
+                document = self.homepage.primary_html_document
+                if document is None:
+                    return None
+                html = document.download()
         if isinstance(html, bytes):
             try:
                 return html.decode("utf-8")
@@ -1967,10 +1971,12 @@ class Filing:
         """
         Read the filing from the local storage path if it exists.
 
-        If the full submission text (.txt) is unavailable due to a transient SEC
-        error, falls back to constructing a minimal FilingSGML from the filing's
+        If the full submission text (.txt) is empty or cannot be parsed, falls
+        back to constructing a minimal FilingSGML from the filing's
         homepage index page. The fallback provides document attachments with valid
         URLs but without in-memory content or SGML header metadata.
+
+        Network and HTTP errors propagate without caching a fallback result.
         """
         if self._sgml:
             return self._sgml
@@ -2005,10 +2011,9 @@ class Filing:
                 # Don't fall back on permanent errors — propagate them
                 if isinstance(e, (SECIdentityError, FilingNotFoundError, IdentityNotSetError)):
                     raise
-                # Don't fall back on network errors — propagate them so callers
-                # (e.g. xbrl()) can show local-storage-aware error messages
-                if isinstance(e, (httpx.TimeoutException, httpx.ConnectError, httpx.ReadTimeout,
-                                  httpcore.TimeoutException, httpcore.ConnectError, httpcore.NetworkError)):
+                # Propagate network/HTTP failures in both error modes. Caching
+                # a homepage-only SGML here would prevent a later download retry.
+                if is_unreachable(e) or http_status(e) is not None:
                     raise
                 # Transient content errors (empty response, HTML error page) — fall back to homepage
                 log.warning(

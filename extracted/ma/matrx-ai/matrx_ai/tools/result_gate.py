@@ -36,7 +36,20 @@ from matrx_ai.tools.output_overflow import stash_overflow
 from matrx_ai.tools.result_gate_limits import ResultGateLimits, load_result_gate_limits
 from matrx_ai.tools.sections import ResultSection, section_result
 
-GateTier = Literal["canary", "soft_fired", "ceiling_fired"]
+GateTier = Literal[
+    "canary", "soft_fired", "ceiling_fired", "self_cap_exceeded", "blocks_over_cap"
+]
+"""Every tier is RECORDED — an over-cap result that no tier names is a silent overflow.
+
+* ``self_cap_exceeded`` — the tool declared ``output_self_capped`` but its result is
+  over the soft cap with no ``approved_max_chars`` covering it. The claim is honoured
+  (content untouched), and the lie is recorded. Production: ``context`` mode=full on a
+  lazy source returned 113,535 chars on 2026-09-12 while claiming self-capped.
+* ``blocks_over_cap`` — a typed content-block list (``provider_content``) whose text is
+  over the soft cap. Blocks carry references the model needs intact, so the gate never
+  cuts them — but it measures and records them. Production: ``knowledge_search``
+  101,798 chars on 2026-09-01 (citable passages + an unbounded metadata block).
+"""
 ToolKind = Literal["native", "external", "agent", "unknown"]
 
 
@@ -79,6 +92,33 @@ def _console_sink(event: ToolResultGateEvent) -> None:
     if event.tier == "canary":
         return
     owned = event.tool_kind in ("native", "agent")
+    if event.tier in ("self_cap_exceeded", "blocks_over_cap"):
+        why = (
+            "declared output_self_capped but returned more than the soft cap with no "
+            "approved_max_chars covering it"
+            if event.tier == "self_cap_exceeded"
+            else "returned typed content blocks whose text is over the soft cap (blocks "
+            "are never cut by the gate)"
+        )
+        vcprint(
+            data={
+                "tool": event.tool_name,
+                "tool_kind": event.tool_kind,
+                "tier": event.tier,
+                "output_chars": event.output_chars,
+                "soft_cap": event.limit,
+                "conversation_id": event.conversation_id,
+                "call_id": event.call_id,
+            },
+            title=(
+                f"TOOL-RESULT SIZE GATE: {event.tool_name!r} {why}. The model saw the "
+                "whole result. FIX THE TOOL: bound the result itself (or set "
+                "approved_max_chars for a deliberately large one)."
+            ),
+            color="red" if owned else "yellow",
+            verbose=True,
+        )
+        return
     headline = (
         "🚨 TOOL-RESULT SIZE GATE FIRED — A TOOL DID NOT MANAGE ITS OWN OUTPUT"
         if owned
@@ -109,6 +149,35 @@ def _console_sink(event: ToolResultGateEvent) -> None:
 
 
 _SINKS.append(_console_sink)
+
+
+def block_text_chars(content: Any) -> int:
+    """Characters of TEXT a typed content-block list puts in front of the model.
+
+    Counts ``texts`` (else ``text``) on each block (dataclass or dict); media blocks
+    (image/audio/video references) contribute nothing — their bytes are not text.
+    """
+    if content is None:
+        return 0
+    if isinstance(content, str):
+        return len(content)
+    blocks = content if isinstance(content, list | tuple) else [content]
+    total = 0
+    for block in blocks:
+        if isinstance(block, str):
+            total += len(block)
+            continue
+        get = block.get if isinstance(block, dict) else (lambda k, b=block: getattr(b, k, None))
+        # ``texts`` first: a passage block (SearchResultContent) also exposes a
+        # rendered ``text`` property over the same passages — count them once.
+        texts = get("texts")
+        if isinstance(texts, list | tuple):
+            total += sum(len(t) for t in texts if isinstance(t, str))
+            continue
+        text = get("text")
+        if isinstance(text, str):
+            total += len(text)
+    return total
 
 
 def tool_kind_label(tool_type: Any) -> ToolKind:
@@ -149,15 +218,39 @@ def apply_size_gate(
     caps = limits or ResultGateLimits()
     try:
         content = content_dict.get("content")
-        # Media / typed-block results carry references the model needs intact —
-        # never touch a non-string content (image/audio/video blocks are a list).
-        if not isinstance(content, str):
-            return content_dict, False
-        chars = len(content)
         call_id = str(content_dict.get("call_id") or "")
+        is_text = isinstance(content, str)
+        chars = len(content) if is_text else block_text_chars(content)
 
-        # A self-capped tool owns its size — trusted, no soft cap, no canary noise.
+        def _record(tier: GateTier) -> None:
+            _emit(
+                ToolResultGateEvent(
+                    tier=tier,
+                    tool_name=tool_name,
+                    tool_kind=tool_kind,
+                    output_chars=chars,
+                    limit=caps.soft_cap_chars,
+                    conversation_id=conversation_id,
+                    call_id=call_id or None,
+                    user_id=user_id,
+                )
+            )
+
+        # A self-capped tool owns its size — trusted: content untouched, no canary
+        # noise. But the claim is CHECKED: over the soft cap with no
+        # approved_max_chars covering it, the claim was false and is recorded.
         if output_self_capped:
+            approved = content_dict.get("approved_max_chars")
+            covered = isinstance(approved, int) and approved >= chars
+            if chars >= caps.soft_cap_chars and not covered:
+                _record("self_cap_exceeded")
+            return content_dict, False
+
+        # Media / typed-block results carry references the model needs intact —
+        # never cut a non-string content. Measured and recorded, never silent.
+        if not is_text:
+            if chars >= caps.soft_cap_chars:
+                _record("blocks_over_cap")
             return content_dict, False
 
         if chars < caps.soft_cap_chars:

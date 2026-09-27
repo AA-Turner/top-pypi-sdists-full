@@ -1,0 +1,26 @@
+[package]
+name = "secantus-pgplan"
+version = "0.1.0-beta.2"
+edition = "2021"
+description = "PostgreSQL parse trees lowered to MQL for the SecantusDB PostgreSQL server"
+license = "Apache-2.0"
+
+[dependencies]
+# `regexp_replace` -- linear-time, which covers the POSIX-ARE subset any
+# measured client sends.
+regex = "1"
+
+bson = "2"
+chrono = { version = "0.4.45", default-features = false, features = ["std"] }
+# The IANA tz database, for `timestamptz`: PostgreSQL interprets a zone-less
+# literal in the session TimeZone and renders every timestamptz in it, so a
+# named zone like `Europe/Rome` has to resolve to a real offset (with its DST
+# rule) rather than to a guess. Already used by `secantus-core` for the same
+# reason on the MongoDB side.
+chrono-tz = { version = "0.10", default-features = false }
+pg_query = "6"
+secantus-pgcatalog = { path = "../secantus-pgcatalog" }
+# `numeric` arithmetic beyond Decimal128's 34 digits: PostgreSQL's numeric is
+# arbitrary precision, and a sum or product of two wide values has to be exact.
+num-bigint = "0.4"
+num-traits = "0.2"

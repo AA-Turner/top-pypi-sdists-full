@@ -1,6 +1,7 @@
 from matrx_ai.providers.google.google_api import GoogleChat
 from matrx_ai.providers.google.google_image_api import GoogleImageGeneration
 from matrx_ai.providers.google.google_interactions_api import GoogleInteractionsVideoGeneration
+from matrx_ai.providers.google.google_research_agent import GoogleDeepResearchAgent
 from matrx_ai.providers.google.google_video_api import GoogleVideoGeneration
 from matrx_ai.providers.google.specialized import (
     GoogleBackgroundInteractionRuntime,
@@ -19,6 +20,7 @@ __all__ = [
     "GoogleChat",
     "GoogleImageGeneration",
     "GoogleInteractionsVideoGeneration",
+    "GoogleDeepResearchAgent",
     "GoogleVideoGeneration",
     "GoogleBackgroundInteractionRuntime",
     "GoogleEmbeddingPart",

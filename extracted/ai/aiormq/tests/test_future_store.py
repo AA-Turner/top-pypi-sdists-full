@@ -98,3 +98,71 @@ async def test_task_wrapper(event_loop):
 
     with pytest.raises(RuntimeError):
         await wrapped
+
+
+@pytest.mark.parametrize(
+    "reason", [RuntimeError("boom"), RuntimeError, asyncio.CancelledError()],
+    ids=["instance", "class", "cancelled"],
+)
+async def test_task_wrapper_throw_reason(event_loop, reason):
+    # The cancelled task sees the reason in its CancelledError. The
+    # wrapper raises the reason itself.
+    async def work() -> None:
+        await asyncio.sleep(1)
+
+    task = event_loop.create_task(work())
+    wrapped = TaskWrapper(task)
+
+    wrapped.throw(reason)
+
+    with pytest.raises(asyncio.CancelledError) as exc_info:
+        await task
+    assert exc_info.value.args == (reason,)
+
+    expected = reason if isinstance(reason, type) else type(reason)
+    with pytest.raises(expected) as exc_info:
+        await wrapped
+    if not isinstance(reason, type):
+        assert exc_info.value is reason
+
+
+@pytest.mark.parametrize("child", [False, True])
+@pytest.mark.parametrize("outcome", ["reject", "exception", "cancel", "result"])
+async def test_unobserved_future(event_loop, root_store, child, outcome):
+    import gc
+    import weakref
+
+    store = root_store.get_child() if child else root_store
+    contexts = []
+    previous = event_loop.get_exception_handler()
+    event_loop.set_exception_handler(
+        lambda loop, context: contexts.append(context),
+    )
+    try:
+        future = store.create_future()
+        reference = weakref.ref(future)
+        if outcome == "reject":
+            await root_store.reject_all(RuntimeError("closed"))
+        elif outcome == "exception":
+            future.set_exception(RuntimeError("failed"))
+        elif outcome == "cancel":
+            future.cancel()
+        else:
+            future.set_result(None)
+        await asyncio.sleep(0)
+        del future
+        gc.collect()
+        assert not contexts
+        assert reference() is None
+    finally:
+        event_loop.set_exception_handler(previous)
+
+
+async def test_retrieved_exception_still_reaches_waiter(event_loop, root_store):
+    future = root_store.create_future()
+    error = RuntimeError("closed")
+    await root_store.reject_all(error)
+    await asyncio.sleep(0)
+    with pytest.raises(RuntimeError) as caught:
+        await future
+    assert caught.value is error

@@ -61,6 +61,45 @@ class VirtualTable:
         )
 
 
+#: A sequence's on-disk relation shape in PostgreSQL. `SELECT * FROM <seq>`
+#: reads these three columns (probed on 14.13).
+SEQUENCE_RELATION_COLUMNS: ColumnsSpec = [
+    ("last_value", "int8"),
+    ("log_cnt", "int8"),
+    ("is_called", "bool"),
+]
+
+
+def sequence_relation(name: str, db: str, catalog: Catalog) -> VirtualTable | None:
+    """A sequence addressed as a relation, or None if ``name`` is not one.
+
+    PostgreSQL lets a sequence be read from the FROM clause — it is a relation
+    with one row — which is how a client inspects a sequence without calling
+    `currval`. Both stored fields mean exactly what PG's do, so `last_value`
+    and `is_called` are reported verbatim.
+
+    `log_cnt` is the only field not reproduced: it counts how many values PG
+    has pre-logged to WAL (0 on a fresh sequence, 32 after the first `nextval`
+    at the default cache), which is a durability-bookkeeping internal with no
+    counterpart here. It reads 0 rather than an invented 32 — faking the
+    default would be wrong for any other cache setting.
+    """
+    seq = catalog.sequence_relation_state(db, name)
+    if seq is None:
+        return None
+    row = {
+        "last_value": seq.get("last_value"),
+        "log_cnt": 0,
+        "is_called": bool(seq.get("is_called")),
+    }
+    return VirtualTable(
+        schema="public",
+        name=name,
+        columns=SEQUENCE_RELATION_COLUMNS,
+        builder=lambda _db, _session, _storage, _catalog: [dict(row)],
+    )
+
+
 # --------------------------------------------------------------------------- #
 # Row builders
 # --------------------------------------------------------------------------- #
@@ -180,6 +219,7 @@ def _indexes(db: str, storage: Any, catalog: Catalog) -> list[dict[str, Any]]:
                     "table": t.name,
                     "columns": [c.name for c in pk_cols],
                     "partial": False,
+                    "partial_filter": None,
                 }
             )
             oid += 1
@@ -210,6 +250,9 @@ def _indexes(db: str, storage: Any, catalog: Catalog) -> list[dict[str, Any]]:
                         "table": t.name,
                         "columns": [f"({ei.expr_sql.lower()})"],
                         "partial": bool(ix.get("partialFilterExpression")),
+                        # The expression itself, so `indexdef` can render the
+                        # WHERE clause rather than silently dropping it.
+                        "partial_filter": ix.get("partialFilterExpression"),
                     }
                 )
                 oid += 1
@@ -238,6 +281,9 @@ def _indexes(db: str, storage: Any, catalog: Catalog) -> list[dict[str, Any]]:
                     "table": t.name,
                     "columns": [_index_coldef(f, d, field_to_name) for f, d in key.items()],
                     "partial": bool(ix.get("partialFilterExpression")),
+                    # The expression itself, so `indexdef` can render the
+                    # WHERE clause rather than silently dropping it.
+                    "partial_filter": ix.get("partialFilterExpression"),
                 }
             )
             oid += 1
@@ -255,6 +301,7 @@ def _indexes(db: str, storage: Any, catalog: Catalog) -> list[dict[str, Any]]:
                 "table": uq["table"].name,
                 "columns": list(uq["columns"]),
                 "partial": False,
+                "partial_filter": None,
             }
         )
     return out
@@ -284,6 +331,100 @@ def _index_relations(db: str, storage: Any, catalog: Catalog) -> list[dict[str, 
     return [_relation_row(ix) for ix in _indexes(db, storage, catalog)]
 
 
+_PARTIAL_CMP = {"$gt": ">", "$gte": ">=", "$lt": "<", "$lte": "<=", "$ne": "<>"}
+
+
+def _partial_literal(value: Any) -> str | None:
+    """A stored filter value as PostgreSQL renders it inside an index predicate.
+
+    Note the cast on strings: PG prints `(s = 'x'::text)`, not `(s = 'x')`.
+    """
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, (int, float)):
+        return str(value)
+    if isinstance(value, str):
+        escaped = value.replace("'", "''")
+        return f"'{escaped}'::text"
+    return None
+
+
+def _partial_clause(field: str, cond: Any) -> str | None:
+    """One `field: condition` pair as a parenthesised SQL comparison."""
+    if not isinstance(cond, dict):
+        lit = _partial_literal(cond)
+        return f"({field} = {lit})" if lit is not None else None
+    if len(cond) != 1:
+        return None
+    op, value = next(iter(cond.items()))
+    if op == "$ne" and value is None:
+        return f"({field} IS NOT NULL)"
+    sql_op = _PARTIAL_CMP.get(op)
+    if sql_op is None:
+        return None
+    lit = _partial_literal(value)
+    return f"({field} {sql_op} {lit})" if lit is not None else None
+
+
+def _render_partial_predicate(expr: Any) -> str | None:
+    """A stored `partialFilterExpression` back as a SQL predicate, or None.
+
+    Returns None for anything it cannot reproduce EXACTLY -- the caller then
+    omits the WHERE, which is what this did for every partial index before.
+    Rendering an approximation would be worse: `indexdef` is what tools read to
+    recreate an index, and a predicate that is close but wrong builds the wrong
+    index silently.
+
+    Shapes are those our own `CREATE INDEX ... WHERE` produces, verified against
+    PostgreSQL 14's own rendering:
+
+        {b: {$gt: 5}}                      -> (b > 5)
+        {b: 5}                             -> (b = 5)
+        {s: 'x'}                           -> (s = 'x'::text)
+        {b: {$ne: null}}                   -> (b IS NOT NULL)
+        {b: {$gt: 5}, a: {$lt: 2}}         -> ((b > 5) AND (a < 2))
+        {$or: [...]}                       -> ((b > 5) OR (a < 2))
+        {$and: [{b:{$ne:5}}, {b:{$ne:null}}]} -> (b <> 5)
+    """
+    if not isinstance(expr, dict) or not expr:
+        return None
+
+    # `b <> 5` lowers to an $and of "not equal" AND "not null" on one field; PG
+    # renders the original `(b <> 5)`. Recognised before the generic $and path
+    # so the idiom round-trips instead of leaking its desugaring.
+    if set(expr) == {"$and"} and isinstance(expr["$and"], list) and len(expr["$and"]) == 2:
+        first, second = expr["$and"]
+        if isinstance(first, dict) and isinstance(second, dict) and len(first) == len(second) == 1:
+            (f1, c1), (f2, c2) = next(iter(first.items())), next(iter(second.items()))
+            if (
+                f1 == f2
+                and isinstance(c1, dict)
+                and isinstance(c2, dict)
+                and c1.get("$ne") is not None
+                and c2.get("$ne", "missing") is None
+            ):
+                lit = _partial_literal(c1["$ne"])
+                if lit is not None:
+                    return f"({f1} <> {lit})"
+
+    for joiner, key in (("OR", "$or"), ("AND", "$and")):
+        if set(expr) == {key} and isinstance(expr[key], list) and expr[key]:
+            parts = [_render_partial_predicate(sub) for sub in expr[key]]
+            if any(p is None for p in parts):
+                return None
+            return "(" + f" {joiner} ".join(parts) + ")"
+
+    if any(k.startswith("$") for k in expr):
+        return None  # a document-level operator we do not model
+
+    clauses = [_partial_clause(f, c) for f, c in expr.items()]
+    if any(c is None for c in clauses):
+        return None
+    if len(clauses) == 1:
+        return clauses[0]
+    return "(" + " AND ".join(clauses) + ")"
+
+
 def indexdef_for_oid(db: str, storage: Any, catalog: Catalog, oid: int) -> str | None:
     """``pg_get_indexdef(oid)`` — reconstruct the ``CREATE INDEX`` statement for an
     index relation oid, or None when the oid isn't a known index."""
@@ -291,9 +432,14 @@ def indexdef_for_oid(db: str, storage: Any, catalog: Catalog, oid: int) -> str |
         if ix["indexrelid"] == oid:
             unique = "UNIQUE " if ix["unique"] else ""
             cols = ", ".join(ix["columns"])
-            return (
+            base = (
                 f"CREATE {unique}INDEX {ix['relname']} ON public.{ix['table']} USING btree ({cols})"
             )
+            # A partial index's predicate, reversed back to SQL. Without this the
+            # rendered statement claimed a FULL index -- a tool recreating from
+            # `indexdef` built the wrong one.
+            pred = _render_partial_predicate(ix.get("partial_filter"))
+            return f"{base} WHERE {pred}" if pred else base
     return None
 
 
@@ -361,16 +507,29 @@ def _info_columns(db: str, session: Session, storage: Any, catalog: Catalog) -> 
                     "table_name": t.name,
                     "column_name": col.name,
                     "ordinal_position": i,
-                    "data_type": (
-                        "ARRAY"
-                        if typemap.is_array_tag(col.type_tag)
-                        else typemap.SQL_TYPE_NAME.get(col.type_tag, "text")
-                    ),
+                    "data_type": _column_data_type_name(col),
                     "is_nullable": "NO" if not col.nullable else "YES",
                     "column_default": _column_default_text(col),
                 }
             )
     return rows
+
+
+def _column_data_type_name(col: Any) -> str:
+    """``information_schema.columns.data_type`` for a column.
+
+    Prefers the DECLARED type over the storage tag: `varchar` and `char(n)`
+    fold to the `text` tag, so every such column reported ``text`` where
+    PostgreSQL 14 reports ``character varying`` / ``character`` (measured
+    2026-09-19). The column already carried the declared oid for
+    ``pg_attribute.atttypid``; only this render ignored it.
+    """
+    if typemap.is_array_tag(col.type_tag):
+        return "ARRAY"
+    decl = getattr(col, "decl_oid", None)
+    if decl is not None and decl in _DECL_OID_SQL_NAME:
+        return _DECL_OID_SQL_NAME[decl]
+    return typemap.SQL_TYPE_NAME.get(col.type_tag, "text")
 
 
 def _column_default_text(col: Any) -> str | None:
@@ -941,6 +1100,10 @@ def _pg_class(db: str, session: Session, storage: Any, catalog: Catalog) -> list
             "reloptions": None,
             # -1 = "no estimate yet" (PG's initial value; we never analyze).
             "reltuples": -1.0,
+            # 0 pages, PG's initial value for a never-analyzed table. pgjdbc's
+            # getIndexInfo selects this as PAGES; without the column the whole
+            # query errored (`column "relpages" does not exist`).
+            "relpages": 0,
         }
         for t in tables
     ]
@@ -957,6 +1120,9 @@ def _pg_class(db: str, session: Session, storage: Any, catalog: Catalog) -> list
                 "relam": _BTREE_AM_OID,
                 "reloptions": None,
                 "reltuples": -1.0,
+                # A fresh INDEX reports 1 page on PostgreSQL 14, not 0 -- the
+                # metapage exists the moment the index does (measured).
+                "relpages": 1,
             }
         )
     # Views are pg_class rows too (relkind 'v') — SQLAlchemy's get_view_names
@@ -1010,6 +1176,10 @@ def _pg_class(db: str, session: Session, storage: Any, catalog: Catalog) -> list
         )
     for row in rows:
         row.setdefault("reltype", 0)
+        # Views and sequences have no heap of their own; PG reports 0 pages
+        # for them, which is also the right default for any relation kind
+        # this catalog does not track pages for.
+        row.setdefault("relpages", 0)
     return rows
 
 
@@ -1048,7 +1218,7 @@ def function_result_for_oid(db: str, catalog: Catalog, oid: int) -> str | None:
     fn = _function_by_oid(db, catalog, oid)
     if fn is None:
         return None
-    result = _type_name(fn.get("return_tag"))
+    result = _return_type_name(fn)
     return f"SETOF {result}" if fn.get("is_table") else result
 
 
@@ -1081,7 +1251,22 @@ def _pg_attribute(db: str, session: Session, storage: Any, catalog: Catalog) -> 
             if col.domain_type is not None:
                 typoid = domain_oids.get(col.domain_type, 25)
             elif col.enum_type is not None:
-                typoid = enum_oids.get(col.enum_type, 25)
+                # An ARRAY of a user enum reports the ARRAY type's oid, not the
+                # element's — the same rule the composite branch below already
+                # applied. Without it a `test_schema.test_enum[]` column
+                # resolved to the enum itself, so getColumns reported TYPE_NAME
+                # `"test_schema"."test_enum"` and DATA_TYPE as the element type
+                # where PostgreSQL 14 reports `"test_schema"."_test_enum"` and
+                # ARRAY (measured 2026-09-20).
+                minted_enum = enum_oids.get(col.enum_type)
+                if minted_enum is not None:
+                    typoid = (
+                        minted_enum + USER_TYPE_ARRAY_OID_OFFSET
+                        if typemap.is_array_tag(col.type_tag)
+                        else minted_enum
+                    )
+                else:
+                    typoid = 25
             elif getattr(col, "composite_type", None) is not None:
                 # A composite (or composite-array) column reports its type's
                 # minted oid, not generic RECORD/2249 — so getColumns' typname
@@ -1446,16 +1631,131 @@ def _type_name(tag: str | None) -> str:
     return typemap.SQL_TYPE_NAME.get(tag, tag)
 
 
+#: SQL name of a declared-only type oid, for the contexts that render a type
+#: NAME rather than its oid (``pg_get_function_arguments``,
+#: ``information_schema.parameters.data_type``). PostgreSQL 14 renders
+#: ``character varying`` / ``character`` there, not the ``pg_type.typname``
+#: spelling (``varchar`` / ``bpchar``) — measured 2026-09-19.
+_DECL_OID_SQL_NAME = {
+    typemap.VARCHAR_OID: "character varying",
+    typemap.BPCHAR_OID: "character",
+}
+
+
+def _function_argtype_oids(fn: dict) -> list[int]:
+    """``proargtypes`` oids for a stored function — the DECLARED oid where the
+    signature named a type whose identity differs from its storage tag's
+    (``varchar``/``bpchar`` fold to the ``text`` tag), else the tag's own oid."""
+    tags = fn.get("param_types") or []
+    decls = fn.get("param_decl_oids") or []
+    out = []
+    for i, tag in enumerate(tags):
+        decl = decls[i] if i < len(decls) else None
+        out.append(decl if decl is not None else _type_oid(tag))
+    return out
+
+
+def _table_column_oid(col: dict) -> int:
+    """The pg_type oid of a ``RETURNS TABLE`` output column."""
+    decl = col.get("decl_oid")
+    return decl if decl is not None else _type_oid(col.get("type_tag"))
+
+
+def _function_arg_modes(fn: dict) -> list[str]:
+    """Per-parameter ``proargmodes`` codes, defaulting to all-IN.
+
+    A routine stored before modes were recorded has no ``param_modes``; every
+    parameter then reads IN, which is what it would have been anyway.
+    """
+    modes = fn.get("param_modes") or []
+    n = len(fn.get("param_types") or [])
+    if len(modes) < n:
+        modes = list(modes) + ["i"] * (n - len(modes))
+    return [m.lower()[:1] or "i" for m in modes[:n]]
+
+
+def _function_input_argtype_oids(fn: dict) -> list[int]:
+    """``proargtypes`` — INPUT parameters only.
+
+    PostgreSQL's ``proargtypes`` is the function's call signature, so an
+    OUT-only parameter is excluded and appears only in ``proallargtypes``. We
+    listed every parameter there, so ``f3(IN a int, INOUT b varchar, OUT c
+    timestamptz)`` advertised a three-argument signature where PostgreSQL 14
+    records ``23 1043`` (measured 2026-09-20).
+    """
+    oids = _function_argtype_oids(fn)
+    modes = _function_arg_modes(fn)
+    return [o for o, m in zip(oids, modes, strict=False) if m != "o"]
+
+
+def _return_type_oid(fn: dict, user_type_oids: dict[str, int] | None = None) -> int:
+    """``prorettype`` for a stored function — the declared oid where it differs
+    from the storage tag's, else the tag's own.
+
+    A function with OUT parameters and no RETURNS clause takes its return type
+    from those outputs: ONE output reports that parameter's own type, TWO OR
+    MORE report 2249 (``record``). Measured on PostgreSQL 14, 2026-09-20 —
+    before this, `f3(IN a int, INOUT b varchar, OUT c timestamptz)` reported
+    2278 (void), an oid this catalog does not even define.
+    """
+    decl = fn.get("return_decl_oid")
+    if decl is not None:
+        return decl
+    # `RETURNS <composite>` / `RETURNS <table>` — resolved here rather than at
+    # CREATE time because the type's oid needs the catalog.
+    rtn = fn.get("return_type_name")
+    if rtn and user_type_oids:
+        resolved = user_type_oids.get(rtn) or user_type_oids.get(rtn.lower())
+        if resolved is not None:
+            return resolved
+    tag = fn.get("return_tag")
+    if tag is None:
+        # `RETURNS TABLE (...)` takes its return type from the table columns,
+        # by the same one-versus-many rule as OUT parameters.
+        tcols = fn.get("table_columns") or []
+        if tcols:
+            if len(tcols) == 1:
+                return _table_column_oid(tcols[0])
+            return typemap.PG_OID.get("record", 2249)
+        out_oids = [
+            o
+            for o, m in zip(_function_argtype_oids(fn), _function_arg_modes(fn), strict=False)
+            if m in ("o", "b")
+        ]
+        if len(out_oids) == 1:
+            return out_oids[0]
+        if len(out_oids) > 1:
+            return typemap.PG_OID.get("record", 2249)
+    return _type_oid(tag)
+
+
+def _return_type_name(fn: dict) -> str:
+    """The rendered return-type name, preferring the declared type."""
+    decl = fn.get("return_decl_oid")
+    if decl is not None and decl in _DECL_OID_SQL_NAME:
+        return _DECL_OID_SQL_NAME[decl]
+    return _type_name(fn.get("return_tag"))
+
+
+def _param_type_name(fn: dict, i: int) -> str:
+    """The rendered type name of a stored function's i-th parameter, preferring
+    the declared type over the storage tag."""
+    tags = fn.get("param_types") or []
+    decls = fn.get("param_decl_oids") or []
+    decl = decls[i] if i < len(decls) else None
+    if decl is not None and decl in _DECL_OID_SQL_NAME:
+        return _DECL_OID_SQL_NAME[decl]
+    return _type_name(tags[i] if i < len(tags) else None)
+
+
 def _function_signature(fn: dict) -> str:
     """The ``(argname argtype, …)`` argument list for pg_get_function_arguments /
     a CREATE FUNCTION reconstruction."""
     names = fn.get("params") or []
-    types = fn.get("param_types") or []
     parts = []
     for i in range(fn.get("nargs", 0)):
         nm = names[i] if i < len(names) else None
-        tt = types[i] if i < len(types) else None
-        typ = _type_name(tt)
+        typ = _param_type_name(fn, i)
         parts.append(f"{nm} {typ}" if nm else typ)
     return ", ".join(parts)
 
@@ -1506,26 +1806,58 @@ def _pg_proc(db: str, session: Session, storage: Any, catalog: Catalog) -> list[
         }
         for name, oid, rettype, argtypes in _LO_PROCS
     ]
+    proc_schema_oids = _schema_oids(db, catalog)
+    # A function may RETURN a composite type or a table's row type; both are
+    # user types whose oid only the catalog knows.
+    user_type_oids: dict[str, int] = {}
+    user_type_oids.update(_table_rowtype_oids(db, catalog))
+    user_type_oids.update(_composite_oids(db, catalog))
     for fn in _functions(db, catalog):
         key = f"{fn['name']}/{fn['nargs']}"
-        argtypes = " ".join(str(_type_oid(t)) for t in (fn.get("param_types") or []))
+        argtypes = " ".join(str(o) for o in _function_input_argtype_oids(fn))
+        all_modes = _function_arg_modes(fn)
         names = [n for n in (fn.get("params") or []) if n is not None]
+        # `RETURNS TABLE (...)` columns ride the same three arrays as OUT
+        # parameters, with mode `t`.
+        tcols = fn.get("table_columns") or []
+        if tcols:
+            all_modes = list(all_modes) + ["t"] * len(tcols)
+            names = names + [c.get("name") for c in tcols]
+        # proargmodes / proallargtypes are NULL unless some parameter is not a
+        # plain IN — that is PostgreSQL's own rule, and pgjdbc's
+        # getProcedureColumns switches on exactly it.
+        has_non_in = any(m != "i" for m in all_modes)
+        arg_modes = all_modes if has_non_in else None
+        all_argtypes = (
+            _function_argtype_oids(fn) + [_table_column_oid(c) for c in tcols]
+            if has_non_in
+            else None
+        )
+        # A routine created in a user schema is stored dotted
+        # ("hasfunctions.addfunction"), the same convention user types use.
+        # Reporting the dotted string as `proname` under a hardcoded `public`
+        # namespace made it invisible to every client that filters by schema —
+        # pgjdbc's getFunctions / getProcedures both do.
+        bare_name, ns_oid = _split_user_type_name(fn["name"], proc_schema_oids)
         rows.append(
             {
                 "oid": oids[key],
-                "proname": fn["name"],
-                "pronamespace": _NS_OIDS["public"],
+                "proname": bare_name,
+                "pronamespace": ns_oid,
                 "proowner": 10,
                 "prolang": _SQL_LANG_OID,
-                "prorettype": _type_oid(fn.get("return_tag")),
+                "prorettype": _return_type_oid(fn, user_type_oids),
                 "pronargs": fn.get("nargs", 0),
                 "pronargdefaults": 0,
                 "proargtypes": argtypes,
                 "proargnames": names or None,
-                "proargmodes": None,
-                "proallargtypes": None,
+                "proargmodes": arg_modes,
+                "proallargtypes": all_argtypes,
                 "prosrc": fn.get("body"),
-                "prokind": "f",
+                # 'p' for a PROCEDURE. This was hardcoded 'f', so every
+                # procedure was reported as a function and `getProcedures()`
+                # — which filters on prokind = 'p' — returned nothing at all.
+                "prokind": "p" if fn.get("is_procedure") else "f",
                 "proretset": bool(fn.get("is_table")),
                 "provariadic": 0,
             }
@@ -1553,7 +1885,7 @@ def _info_routines(db: str, session: Session, storage: Any, catalog: Catalog) ->
                 "routine_schema": "public",
                 "routine_name": fn["name"],
                 "routine_type": "FUNCTION",
-                "data_type": _type_name(fn.get("return_tag")),
+                "data_type": _return_type_name(fn),
                 "routine_body": "EXTERNAL",
                 "routine_definition": fn.get("body"),
                 "external_language": str(fn.get("language", "sql")).upper(),
@@ -1570,7 +1902,6 @@ def _info_parameters(db: str, session: Session, storage: Any, catalog: Catalog) 
     for fn in _functions(db, catalog):
         specific = _specific_name(fn, oids)
         names = fn.get("params") or []
-        types = fn.get("param_types") or []
         for i in range(fn.get("nargs", 0)):
             rows.append(
                 {
@@ -1580,7 +1911,7 @@ def _info_parameters(db: str, session: Session, storage: Any, catalog: Catalog) 
                     "ordinal_position": i + 1,
                     "parameter_mode": "IN",
                     "parameter_name": names[i] if i < len(names) else None,
-                    "data_type": _type_name(types[i] if i < len(types) else None),
+                    "data_type": _param_type_name(fn, i),
                 }
             )
     return rows
@@ -1854,9 +2185,33 @@ def _role_row(oid: int, name: str, role: dict) -> dict:
     }
 
 
+#: Collations this server can actually apply, with PostgreSQL's own oids for
+#: the three built-ins. `default` follows the database collation (`C` here),
+#: and `C` / `POSIX` / `ucs_basic` are byte order — which is what SecantusDB
+#: does natively. The locale entries are served by `collation.sort_levels`,
+#: a three-level ICU-SHAPED key computed without ICU: see
+#: `sql/ordering.py` and the limits documented there.
+_COLLATIONS: list[tuple[int, str]] = [
+    (100, "default"),
+    (950, "C"),
+    (951, "POSIX"),
+    (12547, "ucs_basic"),
+    (12548, "en_US.UTF-8"),
+    (12549, "en_US"),
+    (12550, "und-x-icu"),
+]
+
+
 def _pg_collation(db: str, session: Session, storage: Any, catalog: Catalog) -> list[dict]:
-    # No non-default collations — present-but-empty.
-    return []
+    """The collations a client can name in a ``COLLATE`` clause.
+
+    This was present-but-EMPTY, so a client enumerating available collations
+    was told there are none — while `ORDER BY … COLLATE "en_US.UTF-8"` was
+    silently accepted and then ignored. Both halves were wrong in the same
+    direction: the server claimed less than it did, then did less than it said.
+    """
+    ns = _NS_OIDS["pg_catalog"]
+    return [{"oid": oid, "collname": name, "collnamespace": ns} for oid, name in _COLLATIONS]
 
 
 _ENUM_OID_BASE = ENUM_TYPE_OID_BASE
@@ -1906,16 +2261,59 @@ def _pg_type(db: str, session: Session, storage: Any, catalog: Catalog) -> list[
             "typtypmod": -1,
             "typnotnull": False,
             "typdefault": None,
-            # Range types report typtype 'r'; everything else is a base type 'b'.
-            "typtype": "r" if tag in typemap._RANGE_TAGS else "b",
+            # Ranges are 'r', multiranges 'm', `record` the pseudo-type 'p';
+            # everything else is a base type 'b'. See typemap.PG_TYPTYPE.
+            "typtype": typemap.PG_TYPTYPE.get(typname, "b"),
             # The paired ``_<type>`` array type's oid — 0 when we don't model
             # one (drivers treat 0 as "no array type"). psycopg's
             # TypeInfo.fetch reads it as array_oid.
             "typarray": typemap._ARRAY_PG_OID.get(tag, 0),
+            "typlen": typemap.PG_TYPLEN.get(typname, -1),
             "typdelim": ",",
         }
         for tag, typname in typemap.PG_TYPENAME.items()
     ]
+    # Declared types with no storage tag of their own (``varchar``, ``bpchar``).
+    # Their tag folds to ``text``, so the tag-keyed comprehension above can't
+    # name them and columns declared that way pointed at an oid with no row.
+    rows.extend(
+        {
+            "oid": oid,
+            "typname": typname,
+            "typcollation": 0,
+            "typnamespace": _NS_OIDS["pg_catalog"],
+            "typbasetype": 0,
+            "typtypmod": -1,
+            "typnotnull": False,
+            "typdefault": None,
+            "typtype": "b",
+            "typarray": array_oid,
+            "typlen": typemap.PG_TYPLEN.get(typname, -1),
+            "typdelim": ",",
+        }
+        for oid, typname, array_oid in typemap.DECLARED_ONLY_TYPES
+    )
+    # Types this server never STORES but a client still resolves by name.
+    # pgjdbc's getMaxNameLength() selects typlen for `name` and treats a
+    # missing row as fatal ("Unable to find name datatype in the system
+    # catalogs"), which took out getClientInfoProperties.
+    rows.extend(
+        {
+            "oid": oid,
+            "typname": typname,
+            "typcollation": 0,
+            "typnamespace": _NS_OIDS["pg_catalog"],
+            "typbasetype": 0,
+            "typtypmod": -1,
+            "typnotnull": False,
+            "typdefault": None,
+            "typtype": "b",
+            "typarray": array_oid,
+            "typlen": typemap.PG_TYPLEN.get(typname, -1),
+            "typdelim": ",",
+        }
+        for oid, typname, array_oid in typemap.CATALOG_ONLY_TYPES
+    )
     # Every table has a composite row type (typtype 'c') like real Postgres —
     # psycopg's ``TypeInfo.fetch(conn, "<table>")`` resolves it (and its
     # ``typarray``) to register the table-row array loader.
@@ -1940,6 +2338,8 @@ def _pg_type(db: str, session: Session, storage: Any, catalog: Catalog) -> list[
                 "typtype": "c",
                 "typrelid": table_oids.get(tname, 0),
                 "typarray": rowtype_oid + _ROWTYPE_ARRAY_OID_OFFSET,
+                # A composite is varlena on PostgreSQL 14 (measured).
+                "typlen": -1,
                 "typdelim": ",",
             }
         )
@@ -1964,6 +2364,10 @@ def _pg_type(db: str, session: Session, storage: Any, catalog: Catalog) -> list[
                 # paths touch oid 0 = INVALID_OID (its own suite pops the
                 # global unknown-oid fallback loader through array_oid).
                 "typarray": oid + USER_TYPE_ARRAY_OID_OFFSET,
+                # An enum is a fixed 4-byte oid reference, NOT varlena --
+                # measured on PostgreSQL 14, and the one user type where the
+                # default -1 would be wrong.
+                "typlen": 4,
             }
         )
     # User-declared range types (typtype 'r') and their auto-created companion
@@ -1988,6 +2392,8 @@ def _pg_type(db: str, session: Session, storage: Any, catalog: Catalog) -> list[
                     "typdefault": None,
                     "typtype": typtype,
                     "typarray": toid + USER_TYPE_ARRAY_OID_OFFSET,
+                    # Ranges and multiranges are varlena (measured).
+                    "typlen": -1,
                 }
             )
     # User-declared domain types (typtype 'd') carry their base type's oid in
@@ -2015,6 +2421,9 @@ def _pg_type(db: str, session: Session, storage: Any, catalog: Catalog) -> list[
                 "typdefault": None if default is None else str(default),
                 "typtype": "d",
                 "typarray": oid + USER_TYPE_ARRAY_OID_OFFSET,
+                # A domain INHERITS its base type's typlen -- `d AS int` is 4,
+                # `d AS text` is -1 (measured on PostgreSQL 14).
+                "typlen": typemap.PG_TYPLEN.get(typemap.PG_TYPENAME.get(base_tag or "", ""), -1),
             }
         )
     # User-declared composite types (typtype 'c') live in the public namespace;
@@ -2044,6 +2453,9 @@ def _pg_type(db: str, session: Session, storage: Any, catalog: Catalog) -> list[
         row.setdefault("typrelid", 0)
         row.setdefault("typarray", 0)
         row.setdefault("typdelim", ",")
+        # -1 = varlena, which is right for every user type except an enum
+        # (a fixed 4-byte oid reference, set explicitly above).
+        row.setdefault("typlen", -1)
         # Scalar / composite / enum rows are not arrays: no element type.
         row.setdefault("typelem", 0)
         # typinput is the type's input function. Drivers do not call it; they
@@ -2071,9 +2483,20 @@ def _pg_type(db: str, session: Session, storage: Any, catalog: Catalog) -> list[
     # type is created, so an earlier-created (lower-oid) element claims the
     # shorter name (``custom`` created before ``_custom`` → ``custom``'s array
     # is ``__custom``, ``_custom``'s array is ``___custom``).
-    taken = {r["typname"] for r in rows}
+    # Collisions are resolved PER NAMESPACE, because that is the scope a
+    # PostgreSQL type name is unique in. A single global set made
+    # `test_schema.test_enum`'s array dodge the unrelated `public._test_enum`
+    # and come out as `__test_enum` where PostgreSQL 14 says `_test_enum`
+    # (measured 2026-09-20) — and compounded, so an array in public whose name
+    # was already taken landed on four underscores instead of two.
+    default_ns = _NS_OIDS["pg_catalog"]
+    taken_by_ns: dict[int, set[str]] = {}
+    for r in rows:
+        taken_by_ns.setdefault(r.get("typnamespace", default_ns), set()).add(r["typname"])
     array_name_by_oid: dict[int, str] = {}
     for row in sorted(rows, key=lambda r: r["oid"]):
+        ns = row.get("typnamespace", default_ns)
+        taken = taken_by_ns.setdefault(ns, set())
         name = f"_{row['typname']}"
         while name in taken:
             name = f"_{name}"
@@ -2094,6 +2517,9 @@ def _pg_type(db: str, session: Session, storage: Any, catalog: Catalog) -> list[
             "typrelid": 0,
             "typarray": 0,
             "typelem": row["oid"],
+            # Every array type is varlena. pgjdbc's TypeInfoCache filters its
+            # array lookup on `typlen = -1`, so this is load-bearing.
+            "typlen": -1,
             "typdelim": ",",
             "typinput": "array_in",
         }
@@ -2314,14 +2740,37 @@ def _pg_constraint(db: str, session: Session, storage: Any, catalog: Catalog) ->
     # is an index, not a constraint), so contype 'u'/'c' rows are absent.
     rows: list[dict] = []
     oid = _PK_CON_OID_BASE
-    # A foreign key's conindid points at the referenced table's PK index —
-    # pgjdbc's getImportedKeys joins ``pkic.oid = con.conindid`` to read the
-    # PK_NAME, so a 0 here silently empties every FK metadata result.
+    # A foreign key's conindid points at the index backing the constraint the
+    # key actually REFERENCES — which is not always the primary key. pgjdbc's
+    # getImportedKeys joins ``pkic.oid = con.conindid`` to read PK_NAME, so a 0
+    # here silently empties every FK metadata result, and the referenced
+    # table's PK is the wrong answer whenever the FK targets a UNIQUE
+    # constraint instead: `REFERENCES pkt(b)` reported `pkt_pk_a` where
+    # PostgreSQL 14 reports `pkt_un_b` (measured 2026-09-20).
     pk_index_by_rel = {
         ix["indrelid"]: ix["indexrelid"]
         for ix in _index_relations(db, storage, catalog)
         if ix["primary"]
     }
+    # (relid, referenced columns) -> the backing index, for PK and UNIQUE
+    # constraints alike. Keyed on the sorted column list because a foreign key
+    # may name the referenced columns in a different order than the constraint
+    # declares them.
+    index_by_rel_cols: dict[tuple[int, tuple[int, ...]], int] = {}
+    for ix in _index_relations(db, storage, catalog):
+        if ix["primary"]:
+            index_by_rel_cols[(ix["indrelid"], tuple(sorted(ix["indkey"])))] = ix["indexrelid"]
+    for uq in _unique_constraints(db, catalog):
+        index_by_rel_cols.setdefault((uq["conrelid"], tuple(sorted(uq["conkey"]))), uq["conindid"])
+
+    def _fk_conindid(fk: dict) -> int:
+        """The index backing the constraint this foreign key references."""
+        cols = tuple(sorted(fk["confkey"] or []))
+        hit = index_by_rel_cols.get((fk["confrelid"], cols))
+        if hit is not None:
+            return hit
+        return pk_index_by_rel.get(fk["confrelid"], 0)
+
     for ix in _index_relations(db, storage, catalog):
         if not ix["primary"]:
             continue
@@ -2348,7 +2797,7 @@ def _pg_constraint(db: str, session: Session, storage: Any, catalog: Catalog) ->
                 "conname": fk["conname"],
                 "conrelid": fk["conrelid"],
                 "confrelid": fk["confrelid"],
-                "conindid": pk_index_by_rel.get(fk["confrelid"], 0),
+                "conindid": _fk_conindid(fk),
                 "contype": "f",
                 "contypid": 0,
                 "condeferrable": fk["fk"].deferrable,
@@ -2735,6 +3184,7 @@ _register(
         ("reloptions", "text"),
         ("reltype", "int4"),
         ("reltuples", "float4"),
+        ("relpages", "int4"),
     ],
     _pg_class,
 )
@@ -2982,7 +3432,10 @@ _register(
         ("proargtypes", "text"),
         ("proargnames", "text[]"),
         ("proargmodes", "text[]"),
-        ("proallargtypes", "text[]"),
+        # oid[], not text[]: pgjdbc's getProcedureColumns casts this array to
+        # Long[], so a text array throws ClassCastException in the driver
+        # before any assertion runs. PostgreSQL 14 declares it `_oid`.
+        ("proallargtypes", "oid[]"),
         ("prosrc", "text"),
         ("prokind", "text"),
         ("proretset", "bool"),
@@ -3039,6 +3492,7 @@ _register(
         ("typrelid", "int4"),
         ("typarray", "int4"),
         ("typelem", "int4"),
+        ("typlen", "int2"),
         ("typdelim", "text"),
         ("typinput", "text"),
     ],

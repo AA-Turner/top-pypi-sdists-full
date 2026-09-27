@@ -451,6 +451,27 @@ def coverage_line(installed: dict, *, tapped: int) -> str:
             "--defaults` to add the recommended registries." % body)
 
 
+def tap_line(*, tapped: int, total: int, items: int) -> str:
+    """``boost_doctor``'s tap census. ``tapped`` is the CONFIGURED count.
+
+    The leading number is what an agent reads as "how many registries can
+    answer me", so it is :func:`builtin.configured_tap_count` — the same
+    number :func:`no_results` and :func:`coverage_line` key their setup
+    sentence on. Counting ``registry.list_taps()`` here instead is what let
+    one session be told ``taps: 1 (1 items available)`` and *healthy* by this
+    tool and *nothing is tapped yet* by the other two, on the machine
+    ``boost mcp`` itself leaves behind: boost's own tap and nothing else.
+
+    ``items`` stays the whole catalog, boost's own tap included, because that
+    is what a search would read. So when ``total`` exceeds ``tapped`` the line
+    says where the extra tap came from — otherwise ``taps: 0`` above
+    ``1 items available`` is a contradiction the agent has to guess at. A
+    machine with no builtin is byte-identical to before.
+    """
+    extra = " + boost's own" if total > tapped else ""
+    return "taps: %d%s (%d items available)" % (tapped, extra, items)
+
+
 def overlap_note(installed_hits: int, total_hits: int) -> str:
     """How much of a search reply this machine already has. ``""`` for no hits.
 
@@ -478,6 +499,60 @@ def overlap_note(installed_hits: int, total_hits: int) -> str:
             % (installed_hits, total_hits))
 
 
+# What an agent is allowed to have read back to it out of its own query.
+#
+# The miss reply is the one an agent hits repeatedly while it rephrases, and
+# `"no skills match %r" % query` made its cost proportional to the query — a
+# 1:1 amplifier on the surface where every other rendering is measured and
+# capped: :data:`READ_LIMIT` for a body it sends, :data:`MAX_LINE_CHARS` for a
+# line it accepts. (``chat.DESC_CHARS`` is the same *shape* of cut and is where
+# this one's word-boundary handling comes from, but it bounds the AI prompt in
+# `core/chat.py` — nothing on this surface, which renders no descriptions.)
+# A 100,000-character query came back whole, once per attempt.
+#
+# 120 is measured against the queries this repo grades itself on: 141 rows
+# across `tests/eval/golden.jsonl` and `golden-natural.jsonl`, longest 87
+# characters. So the cap never fires on a question anyone has actually asked,
+# and the reply stays byte-identical for them — which matters, because the
+# short form is pinned in the functional suite.
+QUERY_ECHO_CHARS = 120
+
+# How many unsearchable terms the ``dropped`` branch names before it counts
+# the rest. Same amplifier by the other road: `dropped` holds words split off
+# the query, so one query with no whitespace is one enormous term, and a
+# pathological query is arbitrarily many of them.
+ECHO_TERMS = 8
+
+
+def echo(text: str, *, limit: int = QUERY_ECHO_CHARS) -> str:
+    """The caller's own text, bounded, ready for ``%r``.
+
+    ``repr`` expands what it cannot print, so a bound applied to the raw text
+    does not bound the reply: whitespace is collapsed (a newline would come
+    back as the two characters ``\n``) and every remaining unprintable
+    character is dropped, because ``str.isprintable`` is the very predicate
+    ``repr`` escapes on and one NUL renders as four characters. What is left
+    can still grow, but only by the constant ``repr`` charges for quoting —
+    each backslash and each embedded quote doubles — so the reply is bounded
+    by the budget rather than by the caller.
+
+    The cut lands on a word boundary when there is one inside the budget and
+    hard otherwise, the way ``chat._describe`` cuts a description; it looks one
+    character past the budget so that a query whose word ends exactly on it
+    keeps that word instead of losing it to the ellipsis. The ellipsis is the
+    notice: unlike :func:`read_reply` there is no second half to fetch, and
+    nothing here is payload the agent will act on.
+    """
+    one = "".join(c for c in " ".join(text.split()) if c.isprintable())
+    if len(one) <= limit:
+        return one
+    # `head` is one over budget so a space sitting *on* the boundary is seen.
+    # No `or` fallback: whitespace is collapsed and stripped above, so `head`
+    # never begins with a space and the kept half is never empty.
+    head = one[:limit + 1]
+    return (head.rsplit(" ", 1)[0] if " " in head else head[:limit]) + " …"
+
+
 def no_results(query: str, *, tapped: int,
                dropped: Sequence[str] = ()) -> str:
     """The reply for a search that returned nothing.
@@ -500,14 +575,20 @@ def no_results(query: str, *, tapped: int,
     what makes the wrong answer worse here than on the CLI. It reports what
     happened and the rule, so a retry is possible. The setup branch still wins:
     an untapped machine could not have matched anything either way.
+
+    Both echoing branches are bounded by :func:`echo` — see
+    :data:`QUERY_ECHO_CHARS` for why the one reply an agent hits repeatedly
+    must not cost it in proportion to what it typed.
     """
     if tapped > 0 and dropped:
+        shown = ", ".join("%r" % echo(t) for t in dropped[:ECHO_TERMS])
+        if len(dropped) > ECHO_TERMS:
+            shown += " and %d more" % (len(dropped) - ECHO_TERMS)
         return ("%s did not reach the index, so nothing was searched — a term "
                 "needs 2 or more ASCII letters or digits. Retry with a "
-                "plain-word description of the task."
-                % ", ".join("%r" % t for t in dropped))
+                "plain-word description of the task." % shown)
     if tapped > 0:
-        return "no skills match %r" % query
+        return "no skills match %r" % echo(query)
     # Addressed to the user via the agent, and naming ONE command. Telling an
     # agent to run `boost mcp --seed` itself would have it re-register the
     # server with every CLI on PATH as a side effect, and would step straight
@@ -661,12 +742,85 @@ def handle_request(req: object, *, version: str,
     return resp
 
 
+# The longest client line the server will read, terminating newline included.
+# Every message a boost tool can legitimately receive is a short string — a
+# search query, a skill name, a host's `initialize` handshake — so 1 MiB is
+# ~1000x the largest real request while still being a cap: without one, a
+# single `readline()` buys whatever the client is willing to send, and the
+# process pays for it before a single guard has run.
+MAX_LINE_CHARS = 1 << 20
+
+
+def read_line(stream, *, limit: int = MAX_LINE_CHARS) -> tuple[str | None, bool]:
+    """Read one newline-delimited line, never buffering more than ``limit``.
+
+    Returns ``(line, over_limit)``. ``line`` keeps its terminator and is
+    ``None`` when there is nothing more to read — end of input, or a stream
+    that stopped being readable. ``over_limit`` is ``True`` for a line longer
+    than ``limit``, which is reported rather than returned: the rest of it is
+    drained so the *next* read starts on a message boundary instead of
+    mid-garbage, and the caller answers once.
+
+    **``ValueError`` is part of the read guard, not an oversight.**
+    ``readline`` on a closed stream raises ``ValueError``, not ``OSError`` —
+    so a host that went away mid-session escaped the old
+    ``except (KeyboardInterrupt, OSError)`` into boost's top-level handler and
+    turned "stdin closed" into exit 70 plus a crash report. It also covers
+    ``UnicodeDecodeError`` on bytes that are not UTF-8, which ends the session
+    cleanly for the same reason rather than resyncing: a text stream's decoder
+    state after that failure is not defined.
+
+    **The drain does not catch ``KeyboardInterrupt``**, though the first read
+    does. Ctrl-C ends the session on every other read path, and swallowing it
+    here would answer ``-32700`` and keep serving — a different meaning for
+    the same key depending on how long the client's line happened to be.
+    """
+    try:
+        chunk = stream.readline(limit + 1)
+    except (KeyboardInterrupt, OSError, ValueError):
+        return None, False
+    if not chunk:                      # end of input
+        return None, False
+    if len(chunk) > limit:
+        # A line that ends inside the over-read is already at a boundary; one
+        # that does not has more of itself still queued, so drain it.
+        while not chunk.endswith("\n"):
+            try:
+                chunk = stream.readline(limit)
+            except (OSError, ValueError):
+                break
+            if not chunk:              # the line never ends: input did
+                break
+        return None, True
+    return chunk, False
+
+
 def serve_stdio(registry: Registry, *, version: str,
                 stdin=None, stdout=None) -> int:
     """Newline-delimited JSON-RPC 2.0 MCP server on stdin/stdout.
 
     ``stdin``/``stdout`` default to the process streams but can be injected
     (e.g. ``io.StringIO``) so the loop is testable end to end.
+
+    **Reading a line is its own failure surface**, and it runs before any of
+    :func:`handle_request`'s shape guards. Two failures here killed the
+    session the same way the shape crashes did — exit 70, a crash report,
+    nothing on stdout, and no answer to anything after it:
+
+    * a line nested deeper than the JSON decoder's recursion budget raises
+      ``RecursionError``, which ``except json.JSONDecodeError`` does not name.
+      Measured with ``boost mcp --stdio``: one 6 MB line of 1,000,000-deep
+      object nesting, rc 70, 0 bytes of stdout, and the ``ping`` on the next
+      line unanswered.
+    * a stdin closed mid-session raises ``ValueError``; see :func:`read_line`.
+
+    The bound and the catch are **both** load-bearing, because the cliff sits
+    well inside any bound worth setting: on CPython 3.13.15 the decoder fails
+    from depth 9,999 — a 59,995-character line, under 6% of the 1 MiB limit;
+    3.14.7, bisected the same way, fails from 116,161. So a bound alone would
+    still let a 60 KB line crash the server, and the catch alone would still
+    let one line cost unbounded memory. Every one of the three is one
+    ``-32700`` and the loop lives.
     """
     stdin = stdin if stdin is not None else sys.stdin
     stdout = stdout if stdout is not None else sys.stdout
@@ -679,12 +833,21 @@ def serve_stdio(registry: Registry, *, version: str,
         except (BrokenPipeError, OSError):
             return False
 
+    def parse_error(detail: str = "") -> dict:
+        # id null per JSON-RPC 2.0 §5 — the same convention handle_request
+        # uses for a message whose id cannot be read.
+        return {"jsonrpc": "2.0", "id": None,
+                "error": {"code": -32700,
+                          "message": "parse error" + (": %s" % detail if detail else "")}}
+
     while True:
-        try:
-            line = stdin.readline()
-        except (KeyboardInterrupt, OSError):
-            return 0
-        if not line:  # EOF
+        line, over_limit = read_line(stdin)
+        if over_limit:
+            if not send(parse_error(
+                    "line exceeds the %d-character limit" % MAX_LINE_CHARS)):
+                return 0
+            continue
+        if line is None:  # EOF, or stdin stopped being readable
             return 0
         line = line.strip()
         if not line:
@@ -692,8 +855,11 @@ def serve_stdio(registry: Registry, *, version: str,
         try:
             req = json.loads(line)
         except json.JSONDecodeError:
-            if not send({"jsonrpc": "2.0", "id": None,
-                         "error": {"code": -32700, "message": "parse error"}}):
+            if not send(parse_error()):
+                return 0
+            continue
+        except RecursionError:
+            if not send(parse_error("JSON nested too deeply to decode")):
                 return 0
             continue
         resp = handle_request(req, version=version, registry=registry)

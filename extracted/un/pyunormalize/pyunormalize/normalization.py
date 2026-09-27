@@ -1,322 +1,85 @@
 """Core functions for Unicode normalization.
 
 This module provides the main functions for applying the four Unicode
-normalization forms: NFC, NFD, NFKC, and NFKD. It relies on data files
-from the Unicode character database (UCD) associated with version 17.0
-of the Unicode Standard. As a result, the module can only fully handle
-the characters defined in version 17.0 and produces results consistent
-with the definitions and rules of that version.
+normalization forms: NFC, NFD, NFKC, and NFKD.
+
+It relies on generated lookup tables built from the Unicode Character
+Database (UCD). To keep module imports lightweight and fast, runtime tables
+are loaded lazily and cached on first use.
 """
 
-from pyunormalize._unicode_data import (
-    _COMPOSITION_EXCLUSIONS,
-    _DECOMP_BY_CHARACTER,
-    _NFC__QC_NO_OR_MAYBE,
-    _NFD__QC_NO,
-    _NFKC_QC_NO_OR_MAYBE,
-    _NFKD_QC_NO,
-    _NON_ZERO_CCC_TABLE as _CCC,
-)
+import importlib
+from functools import cache
 
-# Hangul syllables for modern Korean
-_SB = 0xAC00
-_SL = 0xD7A3
+from pyunormalize._internal import UNICODE_VERSION
 
-# Hangul leading consonants (syllable onsets)
-_LB = 0x1100
-_LL = 0x1112
+__all__ = ("NFC", "NFD", "NFKC", "NFKD", "normalize")
 
-# Hangul vowels (syllable nucleuses)
-_VB = 0x1161
-_VL = 0x1175
 
-# Hangul trailing consonants (syllable codas)
-_TB = 0x11A8
-_TL = 0x11C2
+# --- Table loader ------------------------------------------------------------
 
-# Number of Hangul vowels
-_VCOUNT = 21
+def _load_module(module_name):
+    """Lazily load an internal submodule and verify its Unicode version.
 
-# Number of Hangul trailing consonants,
-# with the additional case of no trailing consonant
-_TCOUNT = 27 + 1
+    Runtime data is loaded lazily to keep imports lightweight. The first
+    normalization call pays the import cost of the required tables; subsequent
+    calls use cached references and avoid repeated imports.
+    """
+    module = importlib.import_module(f"pyunormalize._internal.{module_name}")
 
-# Cache for full decompositions
-_SHARED_FULL_DECOMP_CACHE = {}
+    if module.UNICODE_VERSION != UNICODE_VERSION:
+        raise RuntimeError(
+            f"Unicode version mismatch in {module_name!r} "
+            f"(expected {UNICODE_VERSION!r}, "
+            f"found {module.UNICODE_VERSION!r})."
+        )
 
-# Note: Hangul syllables are excluded from the following three normalization
-# tables, as their compositions and decompositions are handled algorithmically
-# in code.
+    return module
 
-# Dictionary mapping canonical decompositions to their precomposed character
-_COMPOSITE_BY_CDECOMP = {}
 
-# Dictionary mapping characters to their full canonical decomposition
-_FULL_CDECOMP_BY_CHAR = {}
+# --- Data tables (lazy and cached) -------------------------------------------
 
-# Dictionary mapping characters to their full compatibility decomposition
-_FULL_KDECOMP_BY_CHAR = {}
+@cache
+def _ccc():
+    return _load_module("non_zero_ccc_table").NON_ZERO_CCC_TABLE
 
 
-def _compute_full_decompositions(decomp_dict):
-    # Compute the full decomposition for every code point in the provided
-    # dictionary. The process repeatedly decomposes each code point using
-    # the dictionary until no further decomposition is possible, storing
-    # the final sequence of code points. The provided dictionary is updated
-    # in place. The shared cache is used to avoid recomputing common
-    # sub-decompositions, allowing results from canonical decomposition
-    # to be reused immediately for compatibility decomposition.
+@cache
+def _nfd_qc_no():
+    return _load_module("nfd_qc_no").NFD_QC_NO
 
-    for key in decomp_dict:
-        decomposition = [key]
 
-        while decomposition:
-            next_decomp = []
+@cache
+def _nfkd_qc_no():
+    return _load_module("nfkd_qc_no").NFKD_QC_NO
 
-            for k in decomposition:
-                if k in _SHARED_FULL_DECOMP_CACHE:
-                    next_decomp.extend(_SHARED_FULL_DECOMP_CACHE[k])
-                elif k in decomp_dict:
-                    next_decomp.extend(decomp_dict[k])
-                else:
-                    next_decomp.append(k)
 
-            if next_decomp == decomposition:
-                # No further decomposition possible, we reached a stable form
-                break
+@cache
+def _nfc_qc_no_or_maybe():
+    return _load_module("nfc_qc_no_or_maybe").NFC_QC_NO_OR_MAYBE
 
-            decomposition = next_decomp
 
-        # Update dictionary in place
-        decomp_dict[key] = _SHARED_FULL_DECOMP_CACHE[key] = decomposition
+@cache
+def _nfkc_qc_no_or_maybe():
+    return _load_module("nfkc_qc_no_or_maybe").NFKC_QC_NO_OR_MAYBE
 
 
-def _init_normalization_tables():
-    for key, val in _DECOMP_BY_CHARACTER.items():
-        if isinstance(val[0], int):
-            if len(val) == 2 and val[0] not in _CCC:
-                _COMPOSITE_BY_CDECOMP[tuple(val)] = key
+@cache
+def _cdecomp_table():
+    return _load_module("canonical_decomposition").FULL_CDECOMP_BY_CHAR
 
-            _FULL_CDECOMP_BY_CHAR[key] = _FULL_KDECOMP_BY_CHAR[key] = val
 
-        else:
-            _FULL_KDECOMP_BY_CHAR[key] = val[1:]
+@cache
+def _kdecomp_table():
+    return _load_module("compatibility_decomposition").FULL_KDECOMP_BY_CHAR
 
-    # Compute full canonical decompositions first, which populates the cache
-    # with base sequences, a subset of the compatibility sequences
-    _compute_full_decompositions(_FULL_CDECOMP_BY_CHAR)
 
-    # Then compute full compatibility decompositions, leveraging the existing
-    # cache for a performance gain
-    _compute_full_decompositions(_FULL_KDECOMP_BY_CHAR)
+@cache
+def _composition_table():
+    return _load_module("canonical_composition").COMPOSITE_BY_CDECOMP
 
 
-# Initialize normalization tables
-_init_normalization_tables()
-
-
-del _DECOMP_BY_CHARACTER, _SHARED_FULL_DECOMP_CACHE
-
-
-def _quick_check(string, quick_check_set):
-    # Check if the string is already normalized to the target form (NFC, NFD,
-    # NFKC, or NFKD). The normalization form checked is determined by the
-    # specific set of code points provided.
-
-    prev_ccc = 0
-
-    for char in string:
-        cp = ord(char)
-
-        if cp in quick_check_set:
-            return False
-
-        if cp not in _CCC:
-            continue
-
-        if (curr_ccc := _CCC[cp]) < prev_ccc:
-            return False
-
-        prev_ccc = curr_ccc
-
-    return True
-
-
-def _decompose_hangul_syllable(cp):
-    # Decompose a precomposed Hangul syllable into its constituent jamo
-    # characters using the canonical Hangul decomposition algorithm.
-
-    sindex = cp - _SB
-    tindex = sindex % _TCOUNT
-    q = (sindex - tindex) // _TCOUNT
-    V = _VB + (q  % _VCOUNT)
-    L = _LB + (q // _VCOUNT)
-
-    if tindex:
-        return (L, V, _TB - 1 + tindex)  # LVT syllable
-
-    return (L, V)  # LV syllable
-
-
-def _compose_hangul_syllable(cp, next_cp):
-    # This function attempts to compose a sequence of Hangul characters into
-    # a single syllable using the specialized Hangul composition algorithm. It
-    # returns the new syllable's code point on success, or `None` if the pair
-    # of code points does not form a valid Hangul composition. The composition
-    # logic only applies to two specific scenarios: a leading consonant (L)
-    # is combined with a vowel (V), and in this case `cp` is L and `next_cp`
-    # is V; or a precomposed LV syllable is combined with a trailing
-    # consonant (T), and `cp` is then the LV syllable and `next_cp` is T.
-
-    if _LB <= cp <= _LL and _VB <= next_cp <= _VL:
-        # Compose a leading consonant and a vowel into an LV syllable
-        return _SB + (((cp - _LB) * _VCOUNT) + next_cp - _VB) * _TCOUNT
-
-    if (
-        _SB <= cp <= _SL
-        and not (cp - _SB) % _TCOUNT
-        and _TB <= next_cp <= _TL
-    ):
-        # Compose an LV syllable and a trailing consonant into an LVT syllable
-        return cp + next_cp - (_TB - 1)
-
-    # Composition did not take place
-    return None
-
-
-def _reorder(codepoints):
-    # Apply the canonical ordering algorithm to a fully decomposed string,
-    # arranging combining marks with a non-zero combining class value in
-    # a well-defined order. This ensures the uniqueness of normalization forms.
-
-    size = len(codepoints)
-
-    # Outer loop: optimized bubble sort, runs as long as swaps occur
-    while size > 1:
-        swap_pos = 0
-
-        i = 1
-        while i < size:
-
-            curr = codepoints[i]
-
-            # Block check: if the current character is a starter (ccc is 0),
-            # it acts as a blocker, and no reordering can happen across it
-            if curr not in _CCC:
-                i += 2  # optimized skip: jump past the character after `curr`
-                continue
-
-            prev = codepoints[i - 1]
-
-            # Reordering rule: order is correct if the previous character
-            # is a starter or if ccc(prev) is less than or equal to ccc(curr)
-            if prev not in _CCC or _CCC[prev] <= _CCC[curr]:
-                i += 1
-                continue
-
-            # Swap adjacent combining marks to enforce canonical order
-            codepoints[i - 1], codepoints[i] = codepoints[i], codepoints[i - 1]
-
-            swap_pos = i
-            i += 1
-
-        # Shrink the scope of the sort to the position of the last swap
-        size = swap_pos
-
-    return "".join(map(chr, codepoints))
-
-
-def _decompose(string, *, compatibility=False):
-    # Perform full decomposition of the input string. Canonical decomposition
-    # is used for NFC/NFD, and compatibility decomposition for NFKC/NFKD.
-
-    codepoints = []
-    decomp = _FULL_KDECOMP_BY_CHAR if compatibility else _FULL_CDECOMP_BY_CHAR
-
-    for cp in map(ord, string):
-        if cp in decomp:
-            codepoints.extend(decomp[cp])
-        elif _SB <= cp <= _SL:
-            codepoints.extend(_decompose_hangul_syllable(cp))
-        else:
-            codepoints.append(cp)
-
-    return codepoints
-
-
-def _compose(string):
-    # Apply the canonical composition algorithm, transforming the fully
-    # decomposed and canonically ordered string into its most fully composed
-    # but still canonically equivalent sequence.
-
-    codepoints = [*map(ord, string)]
-
-    # Iterate through the code points to find a base character for composition
-    for i, cp in enumerate(codepoints):
-
-        # Skip if consumed (`None`) or if it is a combining mark (not a base)
-        if cp is None or cp in _CCC:
-            continue
-
-        # Flags to control composition rules
-        is_blocked = False
-        last_is_combining = False
-
-        # Try to compose the base character with following combining marks
-        for j, next_cp in enumerate(codepoints[i + 1 :], i + 1):
-            if next_cp in _CCC:
-                # Current character is a combining mark
-                last_is_combining = True
-            else:
-                # A non-combining character blocks further compositions
-                is_blocked = True
-
-            if is_blocked and last_is_combining:
-                # Skip: composition is blocked by intervening characters
-                continue
-
-            prev_cp = codepoints[j - 1]
-
-            # Check if composition is allowed by canonical ordering
-            if (
-                prev_cp is None
-                or prev_cp not in _CCC
-                or _CCC[prev_cp] < _CCC[next_cp]
-            ):
-                pair = (cp, next_cp)
-
-                if pair in _COMPOSITE_BY_CDECOMP:
-                    # Found a precomposed form in the lookup table
-                    precomposed_char = _COMPOSITE_BY_CDECOMP[pair]
-                else:
-                    # Check if the composition pair can be composed using
-                    # the Hangul algorithm
-                    precomposed_char = _compose_hangul_syllable(*pair)
-
-                # Accept only if a valid precomposed character exists
-                # and it is not excluded from composition
-                if (
-                    precomposed_char
-                    and precomposed_char not in _COMPOSITION_EXCLUSIONS
-                ):
-                    codepoints[j] = None  # flag combining mark as consumed
-
-                    # Update base character to the new precomposed one
-                    codepoints[i] = cp = precomposed_char
-
-                    # Reset flags depending on composition state
-                    if is_blocked:
-                        is_blocked = False
-                    else:
-                        last_is_combining = False
-
-                else:
-                    # No valid composition: stop scanning this base
-                    if is_blocked:
-                        break
-
-    return "".join(map(chr, filter(None, codepoints)))
-
+# --- Public API --------------------------------------------------------------
 
 def NFD(string):
     """Return the normalization form D of the input string.
@@ -336,25 +99,21 @@ def NFD(string):
 
     Examples:
         # Decomposing accented characters
-        >>> string = "élève"
-        >>> nfd = NFD(string)
-        >>> nfd
-        'élève'
-        >>> nfd != string  # binary content differs
+        >>> text_latin = "élève"
+        >>> nfd_latin = NFD(text_latin)
+        >>> nfd_latin != text_latin  # binary content differs
         True
-        >>> " ".join([f"{ord(c):04X}" for c in string])
+        >>> " ".join([f"{ord(c):04X}" for c in text_latin])
         '00E9 006C 00E8 0076 0065'
-        >>> " ".join([f"{ord(c):04X}" for c in nfd])
+        >>> " ".join([f"{ord(c):04X}" for c in nfd_latin])
         '0065 0301 006C 0065 0300 0076 0065'
 
         # Decomposing Hangul syllables
-        >>> string = "한국"
-        >>> nfd = NFD(string)
-        >>> nfd
-        '한국'
-        >>> " ".join([f"{ord(c):04X}" for c in string])
+        >>> text_hangul = "한국"
+        >>> nfd_hangul = NFD(text_hangul)
+        >>> " ".join([f"{ord(c):04X}" for c in text_hangul])
         'D55C AD6D'
-        >>> " ".join([f"{ord(c):04X}" for c in nfd])
+        >>> " ".join([f"{ord(c):04X}" for c in nfd_hangul])
         '1112 1161 11AB 1100 116E 11A8'
 
         # Compatibility characters are unaffected
@@ -362,9 +121,57 @@ def NFD(string):
         >>> all(NFD(s) == s for s in strings)
         True
     """
-    if _quick_check(string, _NFD__QC_NO):
+    return string if string.isascii() else _nfd_core(string, _ccc())
+
+
+def NFC(string):
+    """Return the normalization form C of the input string.
+
+    Replaces character sequences with their canonically equivalent composed
+    forms whenever possible, while leaving compatibility characters unaffected.
+
+    The function first checks if the input is already in NFC. If so, it returns
+    the string unchanged to avoid unnecessary processing.
+
+    Args:
+        string (str): The string to be normalized.
+
+    Returns:
+        str: The NFC string.
+
+    Examples:
+        # Composing accented characters
+        >>> text_latin = "e\u0301le\u0300ve"
+        >>> nfc_latin = NFC(text_latin)
+        >>> nfc_latin != text_latin  # binary content differs
+        True
+        >>> " ".join([f"{ord(c):04X}" for c in text_latin])
+        '0065 0301 006C 0065 0300 0076 0065'
+        >>> " ".join([f"{ord(c):04X}" for c in nfc_latin])
+        '00E9 006C 00E8 0076 0065'
+
+        # Composing Hangul syllables
+        >>> text_hangul = "\u1112\u1161\u11AB\u1100\u116E\u11A8"
+        >>> nfc_hangul = NFC(text_hangul)
+        >>> " ".join([f"{ord(c):04X}" for c in text_hangul])
+        '1112 1161 11AB 1100 116E 11A8'
+        >>> " ".join([f"{ord(c):04X}" for c in nfc_hangul])
+        'D55C AD6D'
+
+        # Compatibility characters are unaffected
+        >>> strings = ["ﬃ", "⑴", "²", "ｱｲｳｴｵ"]
+        >>> all(NFC(s) == s for s in strings)
+        True
+    """
+    if string.isascii():
         return string
-    return _reorder(_decompose(string))
+
+    ccc = _ccc()
+
+    if _quick_check(string, _nfc_qc_no_or_maybe(), ccc):
+        return string
+
+    return _compose(_nfd_core(string, ccc), ccc, _composition_table())
 
 
 def NFKD(string):
@@ -392,57 +199,7 @@ def NFKD(string):
         >>> [NFKD(s) for s in ["ﬃ", "⑴", "²", "ｱｲｳｴｵ"]]
         ['ffi', '(1)', '2', 'アイウエオ']
     """
-    if _quick_check(string, _NFKD_QC_NO):
-        return string
-    return _reorder(_decompose(string, compatibility=True))
-
-
-def NFC(string):
-    """Return the normalization form C of the input string.
-
-    Replaces character sequences with their canonically equivalent composed
-    forms whenever possible, while leaving compatibility characters unaffected.
-
-    The function first checks if the input is already in NFC. If so, it returns
-    the string unchanged to avoid unnecessary processing.
-
-    Args:
-        string (str): The string to be normalized.
-
-    Returns:
-        str: The NFC string.
-
-    Examples:
-        # Composing accented characters
-        >>> string = "élève"
-        >>> nfc = NFC(string)
-        >>> nfc
-        'élève'
-        >>> nfc != string  # binary content differs
-        True
-        >>> " ".join([f"{ord(c):04X}" for c in string])
-        '0065 0301 006C 0065 0300 0076 0065'
-        >>> " ".join([f"{ord(c):04X}" for c in nfc])
-        '00E9 006C 00E8 0076 0065'
-
-        # Composing Hangul syllables
-        >>> string = "한국"
-        >>> nfc = NFC(string)
-        >>> nfc
-        '한국'
-        >>> " ".join([f"{ord(c):04X}" for c in string])
-        '1112 1161 11AB 1100 116E 11A8'
-        >>> " ".join([f"{ord(c):04X}" for c in nfc])
-        'D55C AD6D'
-
-        # Compatibility characters are unaffected
-        >>> strings = ["ﬃ", "⑴", "²", "ｱｲｳｴｵ"]
-        >>> all(NFC(s) == s for s in strings)
-        True
-    """
-    if _quick_check(string, _NFC__QC_NO_OR_MAYBE):
-        return string
-    return _compose(NFD(string))
+    return string if string.isascii() else _nfkd_core(string, _ccc())
 
 
 def NFKC(string):
@@ -470,9 +227,15 @@ def NFKC(string):
         >>> [NFKC(s) for s in ["ﬃ", "⑴", "²", "ｱｲｳｴｵ"]]
         ['ffi', '(1)', '2', 'アイウエオ']
     """
-    if _quick_check(string, _NFKC_QC_NO_OR_MAYBE):
+    if string.isascii():
         return string
-    return _compose(NFKD(string))
+
+    ccc = _ccc()
+
+    if _quick_check(string, _nfkc_qc_no_or_maybe(), ccc):
+        return string
+
+    return _compose(_nfkd_core(string, ccc), ccc, _composition_table())
 
 
 # Dictionary for normalization forms dispatch
@@ -506,9 +269,251 @@ def normalize(form, string):
         >>> [hexpoints(normalize(f, string)) for f in forms]
         ['1E9B 0323', '017F 0323 0307', '1E69', '0073 0323 0307']
     """
-    return _NORMALIZATION_FORMS[form](string)
+    try:
+        func = _NORMALIZATION_FORMS[form]
+    except KeyError:
+        raise ValueError(
+            f"Invalid normalization form {form!r} "
+            f"(expected one of: {', '.join(_NORMALIZATION_FORMS)})."
+        ) from None
+
+    return func(string)
+
+
+# --- Hangul constants --------------------------------------------------------
+
+# Hangul syllables for modern Korean
+_SB = 0xAC00
+_SL = 0xD7A3
+
+# Hangul leading consonants (syllable onsets)
+_LB = 0x1100
+_LL = 0x1112
+
+# Hangul vowels (syllable nuclei)
+_VB = 0x1161
+_VL = 0x1175
+
+# Hangul trailing consonants (syllable codas)
+_TB = 0x11A8
+_TL = 0x11C2
+
+# Number of Hangul vowels
+_VCOUNT = 21
+
+# Number of Hangul trailing consonants (27 codas + 1 for no coda)
+_TCOUNT = 27 + 1
+
+
+# --- Internal algorithms -----------------------------------------------------
+
+def _nfd_core(string, ccc):
+    """Perform core canonical decomposition on a non-ASCII string."""
+    if _quick_check(string, _nfd_qc_no(), ccc):
+        return string
+    return _reorder(_decompose(string, _cdecomp_table()), ccc)
+
+
+def _nfkd_core(string, ccc):
+    """Perform core compatibility decomposition on a non-ASCII string."""
+    if _quick_check(string, _nfkd_qc_no(), ccc):
+        return string
+    return _reorder(_decompose(string, _kdecomp_table()), ccc)
+
+
+def _quick_check(string, quick_check_set, ccc_table):
+    """Perform a quick check to verify if a string is already normalized.
+
+    Check if the string is already normalized to the target form (NFC, NFD,
+    NFKC, or NFKD). The normalization form checked is determined by the
+    specific set of code points provided.
+    """
+    prev_ccc = 0
+
+    for char in string:
+        cp = ord(char)
+
+        if cp in quick_check_set:
+            return False
+
+        # A ccc of 0 indicates a starter character, resetting the sequence
+        if (curr_ccc := ccc_table.get(cp, 0)) == 0:
+            prev_ccc = 0
+            continue
+
+        if curr_ccc < prev_ccc:
+            return False
+
+        prev_ccc = curr_ccc
+
+    return True
+
+
+def _decompose_hangul_syllable(cp):
+    """Decompose a Hangul syllable into its constituent jamo code points.
+
+    Decompose a precomposed Hangul syllable into its constituent jamo
+    characters using the canonical Hangul decomposition algorithm.
+    """
+    sindex = cp - _SB
+    tindex = sindex % _TCOUNT
+    q = (sindex - tindex) // _TCOUNT
+    V = _VB + (q  % _VCOUNT)
+    L = _LB + (q // _VCOUNT)
+
+    if tindex:
+        return (L, V, _TB - 1 + tindex)  # LVT syllable
+
+    return (L, V)  # LV syllable
+
+
+def _compose_hangul_syllable(cp, next_cp):
+    """Attempt to compose two Hangul code points into a single syllable.
+
+    This function attempts to compose a sequence of Hangul characters into
+    a single syllable using the specialized Hangul composition algorithm. It
+    returns the new syllable's code point on success, or `None` if the pair
+    of code points does not form a valid Hangul composition. The composition
+    logic only applies to two specific scenarios: a leading consonant (L)
+    is combined with a vowel (V), and in this case `cp` is L and `next_cp`
+    is V; or a precomposed LV syllable is combined with a trailing
+    consonant (T), and `cp` is then the LV syllable and `next_cp` is T.
+    """
+    if _LB <= cp <= _LL and _VB <= next_cp <= _VL:
+        # Compose a leading consonant and a vowel into an LV syllable
+        return _SB + (((cp - _LB) * _VCOUNT) + next_cp - _VB) * _TCOUNT
+
+    if (
+        _SB <= cp <= _SL
+        and (cp - _SB) % _TCOUNT == 0
+        and _TB <= next_cp <= _TL
+    ):
+        # Compose an LV syllable and a trailing consonant into an LVT syllable
+        return cp + next_cp - (_TB - 1)
+
+    # Composition did not take place
+    return None
+
+
+def _reorder(codepoints, ccc_table):
+    """Reorder combining marks in a decomposed string into canonical order.
+
+    Apply the canonical ordering algorithm to a fully decomposed string,
+    arranging combining marks with a non-zero combining class value in
+    a well-defined order. This ensures the uniqueness of normalization forms.
+    """
+    size = len(codepoints)
+
+    # Outer loop: optimized bubble sort, runs as long as swaps occur
+    while size > 1:
+        swap_pos = 0
+
+        i = 1
+        while i < size:
+            curr = codepoints[i]
+
+            # Block check: if the current character is a starter (ccc is 0),
+            # it acts as a blocker, and no reordering can happen across it
+            if curr not in ccc_table:
+                i += 2
+                continue
+
+            prev = codepoints[i - 1]
+
+            # Reordering rule: order is correct if the previous character
+            # is a starter or if ccc(prev) is less than or equal to ccc(curr)
+            if prev not in ccc_table or ccc_table[prev] <= ccc_table[curr]:
+                i += 1
+                continue
+
+            # Swap adjacent combining marks to enforce canonical order
+            codepoints[i - 1], codepoints[i] = codepoints[i], codepoints[i - 1]
+
+            swap_pos = i
+            i += 1
+
+        # Shrink the scope of the sort to the position of the last swap
+        size = swap_pos
+
+    return "".join(map(chr, codepoints))
+
+
+def _decompose(string, decomp):
+    """Decompose a string into canonical or compatibility code points.
+
+    Perform full decomposition of the input string. Canonical decomposition
+    is used for NFC/NFD, and compatibility decomposition for NFKC/NFKD.
+    """
+    codepoints = []
+
+    for cp in map(ord, string):
+        if (mapped := decomp.get(cp)) is not None:
+            codepoints.extend(mapped)
+        elif _SB <= cp <= _SL:
+            codepoints.extend(_decompose_hangul_syllable(cp))
+        else:
+            codepoints.append(cp)
+
+    return codepoints
+
+
+def _compose(string, ccc_table, composite_by_cdecomp):
+    """Combine eligible decomposed code points into precomposed characters.
+
+    Apply the canonical composition algorithm, transforming the fully
+    decomposed and canonically ordered string into its most fully composed
+    but still canonically equivalent sequence.
+    """
+    codepoints = []
+
+    # Most recent starter (a character with CCC 0): it is the candidate
+    # for composition with subsequent code points
+    starter_index = None
+
+    # CCC of the previous retained combining mark: a value of 0 means
+    # that no preceding mark blocks composition with the current starter
+    last_ccc = 0
+
+    # Process the decomposed code points from left to right
+    for cp in map(ord, string):
+        ccc = ccc_table.get(cp, 0)
+
+        # A code point may compose with the current starter only when it is not
+        # blocked by a retained mark of the same or higher CCC
+        if starter_index is not None and (last_ccc == 0 or last_ccc < ccc):
+            starter = codepoints[starter_index]
+            pair = (starter, cp)
+
+            # Look up ordinary canonical compositions first
+            precomposed_char = composite_by_cdecomp.get(pair)
+
+            if precomposed_char is None:
+                # Check if the composition pair can be composed
+                # using the Hangul algorithm
+                precomposed_char = _compose_hangul_syllable(*pair)
+
+            # Replace the starter when the pair has an allowed composite
+            if precomposed_char is not None:
+                codepoints[starter_index] = precomposed_char
+
+                # The current character was consumed, it therefore cannot block
+                # composition with the next character
+                continue
+
+        # No composition took place: retain the current character
+        codepoints.append(cp)
+
+        if ccc == 0:
+            # A starter begins a new combining character sequence
+            starter_index = len(codepoints) - 1
+            last_ccc = 0
+        else:
+            # Retained marks can block later compositions in this sequence
+            last_ccc = ccc
+
+    return "".join(map(chr, codepoints))
 
 
 if __name__ == "__main__":
     import doctest
-    doctest.testmod()
+    doctest.testmod(verbose=True)

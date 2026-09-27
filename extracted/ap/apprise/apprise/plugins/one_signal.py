@@ -38,6 +38,7 @@ from json import dumps
 import requests
 
 from ..common import NotifyImageSize, NotifyType
+from ..exception import AppriseImproperlyConfigured
 from ..locale import gettext_lazy as _
 from ..utils.base64 import decode_b64_dict, encode_b64_dict
 from ..utils.parse import is_email, parse_bool, parse_list, validate_regex
@@ -122,7 +123,7 @@ class NotifyOneSignal(NotifyBase):
             },
             "target_email": {
                 "name": _("Target Email"),
-                "type": "string",
+                "type": "email",
                 "map_to": "targets",
             },
             "target_user": {
@@ -159,6 +160,9 @@ class NotifyOneSignal(NotifyBase):
                 "name": _("Language"),
                 "type": "string",
                 "default": "en",
+            },
+            "lang": {
+                "alias_of": "language",
             },
             "image": {
                 "name": _("Include Image"),
@@ -225,14 +229,14 @@ class NotifyOneSignal(NotifyBase):
         if not self.apikey:
             msg = f"An invalid OneSignal API key ({apikey}) was specified."
             self.logger.warning(msg)
-            raise TypeError(msg)
+            raise AppriseImproperlyConfigured(msg)
 
         # The App ID associated with the account
         self.app = validate_regex(app)
         if not self.app:
             msg = f"An invalid OneSignal Application ID ({app}) was specified."
             self.logger.warning(msg)
-            raise TypeError(msg)
+            raise AppriseImproperlyConfigured(msg)
 
         # Prepare Batch Mode Flag
         self.batch_size = (
@@ -286,7 +290,7 @@ class NotifyOneSignal(NotifyBase):
         if not self.language or len(self.language) != 2:
             msg = f"An invalid OneSignal Language ({language}) was specified."
             self.logger.warning(msg)
-            raise TypeError(msg)
+            raise AppriseImproperlyConfigured(msg)
 
         # Sort our targets
         for target_ in parse_list(targets):
@@ -347,7 +351,7 @@ class NotifyOneSignal(NotifyBase):
                 f"({custom}) are not identified as a dictionary."
             )
             self.logger.warning(msg)
-            raise TypeError(msg)
+            raise AppriseImproperlyConfigured(msg)
 
         # Postback Data
         self.postback_data = {}
@@ -360,7 +364,7 @@ class NotifyOneSignal(NotifyBase):
                 f"({postback}) are not identified as a dictionary."
             )
             self.logger.warning(msg)
-            raise TypeError(msg)
+            raise AppriseImproperlyConfigured(msg)
         return
 
     def send(self, body, title="", notify_type=NotifyType.INFO, **kwargs):
@@ -451,6 +455,15 @@ class NotifyOneSignal(NotifyBase):
             # Create a pointer to our list of targets for specified category
             targets = self.targets[category]
             for index in range(0, len(targets), self.batch_size):
+                # Skip a batch that already went out so a retry does not
+                # deliver it to those recipients twice.  The category is
+                # part of the key because each one is batched separately.
+                if self.is_delivered((category, index)):
+                    # Count an earlier delivery so this retry remains
+                    # successful
+                    sent_count += len(targets[index : index + self.batch_size])
+                    continue
+
                 payload[category] = targets[index : index + self.batch_size]
 
                 # Track our sent count
@@ -498,6 +511,7 @@ class NotifyOneSignal(NotifyBase):
                         )
 
                         has_error = True
+                        continue
 
                     else:
                         self.logger.info("Sent OneSignal notification.")
@@ -510,6 +524,10 @@ class NotifyOneSignal(NotifyBase):
                     self.logger.debug("Socket Exception: %s", e)
 
                     has_error = True
+                    continue
+
+                # Delivered; a retry can safely skip this batch.
+                self.mark_delivered((category, index))
 
         if not sent_count:
             # There is no one to notify; we need to capture this and not
@@ -563,6 +581,14 @@ class NotifyOneSignal(NotifyBase):
             params["decode"] = (
                 "yes" if (self.decode_tpl_args or needs_decoding) else "no"
             )
+
+        if self.subtitle:
+            # Our Subtitle if one was specified
+            params["subtitle"] = self.subtitle
+
+        if self.language != self.template_args["language"]["default"]:
+            # Only present our language if it differs from the default
+            params["language"] = self.language
 
         return "{schema}://{tp_id}{app}@{apikey}/{targets}?{params}".format(
             schema=self.secure_protocol,
@@ -697,7 +723,14 @@ class NotifyOneSignal(NotifyBase):
                 results["qsd"]["subtitle"]
             )
 
-        if "lang" in results["qsd"] and len(results["qsd"]["lang"]):
+        # language= is the argument declared in template_args (and the one
+        # documented); lang= is kept as an alias for backwards compatibility.
+        if "language" in results["qsd"] and len(results["qsd"]["language"]):
+            results["language"] = NotifyOneSignal.unquote(
+                results["qsd"]["language"]
+            )
+
+        elif "lang" in results["qsd"] and len(results["qsd"]["lang"]):
             results["language"] = NotifyOneSignal.unquote(
                 results["qsd"]["lang"]
             )

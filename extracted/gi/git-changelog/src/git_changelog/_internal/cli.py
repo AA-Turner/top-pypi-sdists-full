@@ -68,6 +68,10 @@ DEFAULT_CONFIG_FILES = [
 _DEFAULT_DEBIAN_MARKER_LINE = _MARKER_LINE_PREPEND
 _DEFAULT_DEBIAN_VERSION_REGEX = r"^[\w-]+ \((?:\d+:)?(?P<version>[^-+~)]+)(?!.*UNRELEASED)"
 
+_DEFAULT_RPMBUILD_MARKER_LINE = _MARKER_LINE_PREPEND
+_DEFAULT_RPMBUILD_VERSION_REGEX = r"^\* .* - (?:\d+:)?(?P<version>[^-+~)]+)-"
+
+
 DEFAULT_SETTINGS: dict[str, Any] = {
     "bump": None,
     # YORE: Bump 3: Remove line.
@@ -84,6 +88,7 @@ DEFAULT_SETTINGS: dict[str, Any] = {
     "parse_trailers": False,
     "provider": None,
     "release_notes": False,
+    "latest_version": False,
     "bumped_version": False,
     "repository": ".",
     "sections": None,
@@ -224,6 +229,12 @@ def get_parser() -> argparse.ArgumentParser:
         help="Show bumped version and exit.",
     )
     parser.add_argument(
+        "--latest-version",
+        action="store_true",
+        dest="latest_version",
+        help="Show the latest version in the changelog and exit.",
+    )
+    parser.add_argument(
         "-B",
         "--bump",
         action="store",
@@ -280,7 +291,7 @@ def get_parser() -> argparse.ArgumentParser:
         metavar="REGEX",
         dest="version_regex",
         help="A regular expression to match versions in the existing changelog "
-        "(used to find the latest release) when writing in-place. "
+        "(used to find the latest release) when writing in-place or showing the latest version. "
         "The regular expression must be a Python regex with a `version` named group. "
         f"Default: `{DEFAULT_VERSION_REGEX}`.",
     )
@@ -334,7 +345,7 @@ def get_parser() -> argparse.ArgumentParser:
         "--input",
         metavar="FILE",
         dest="input",
-        help=f"Read from given file when creating release notes. Default: `{DEFAULT_CHANGELOG_FILE}`.",
+        help=f"Read from given file when creating release notes or showing the latest version. Default: `{DEFAULT_CHANGELOG_FILE}`.",
     )
     parser.add_argument(
         "-c",
@@ -370,7 +381,7 @@ def get_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "-t",
         "--template",
-        choices=Templates(("angular", "keepachangelog", "debian")),
+        choices=Templates(("angular", "keepachangelog", "debian", "rpmbuild")),
         metavar="TEMPLATE",
         dest="template",
         help="The Jinja2 template to use. Prefix it with `path:` to specify the path "
@@ -434,8 +445,21 @@ def _latest(lines: list[str], regex: Pattern) -> tuple[str | None, int]:
     for idx, line in enumerate(lines):
         match = regex.search(line)
         if match:
-            return match.groupdict()["version"], idx
+            version = match.groupdict()["version"]
+            if version and version.lower() != "unreleased":
+                return version, idx
     return None, 0
+
+
+def _get_version_regex(version_regex: str | None, template: str) -> str:
+    """Return the configured version regex or the default for the template."""
+    if version_regex is not None:
+        return version_regex
+    if template == "debian":
+        return _DEFAULT_DEBIAN_VERSION_REGEX
+    if template == "rpmbuild":
+        return _DEFAULT_RPMBUILD_VERSION_REGEX
+    return DEFAULT_VERSION_REGEX
 
 
 def _unreleased(versions: list[Version], last_release: str) -> list[Version]:
@@ -705,10 +729,14 @@ def render(  # noqa: PLR0917
             lines = changelog_file.read().splitlines()
 
         # Prepare version regex and marker line.
-        if version_regex is None:
-            version_regex = _DEFAULT_DEBIAN_VERSION_REGEX if template == "debian" else DEFAULT_VERSION_REGEX
+        version_regex = _get_version_regex(version_regex, template)
         if marker_line is None:
-            marker_line = _DEFAULT_DEBIAN_MARKER_LINE if template == "debian" else DEFAULT_MARKER_LINE
+            if template == "debian":
+                marker_line = _DEFAULT_DEBIAN_MARKER_LINE
+            elif template == "rpmbuild":
+                marker_line = _DEFAULT_RPMBUILD_MARKER_LINE
+            else:
+                marker_line = DEFAULT_MARKER_LINE
 
         # Only keep new entries (missing from changelog).
         last_released, last_released_line = _latest(lines, re.compile(version_regex))
@@ -926,6 +954,20 @@ def main(args: list[str] | None = None) -> int:
         An exit code.
     """
     settings = parse_settings(args)
+
+    if settings.pop("latest_version"):
+        version_regex = _get_version_regex(settings["version_regex"], settings["template"])
+        try:
+            lines = Path(settings["input"]).read_text(encoding="utf8").splitlines()
+        except OSError as error:
+            print(f"git-changelog: {error}", file=sys.stderr)
+            return 1
+        latest_version, _ = _latest(lines, re.compile(version_regex))
+        if latest_version is None:
+            print("git-changelog: No version found in the changelog.", file=sys.stderr)
+            return 1
+        print(latest_version)
+        return 0
 
     if settings.pop("release_notes"):
         output_release_notes(

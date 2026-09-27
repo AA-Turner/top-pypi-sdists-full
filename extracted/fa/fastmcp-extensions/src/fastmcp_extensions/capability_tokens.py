@@ -113,7 +113,21 @@ def client_supports_extension(
     except RuntimeError:
         session_supports_extension = False
     else:
-        session_supports_extension = context.client_supports_extension(extension_id)
+        session_supports_extension = False
+        try:
+            session = context.session
+        except RuntimeError:
+            # Sessionless contexts (e.g. `fastmcp inspect`, docs generation)
+            # expose a Context with no underlying session.
+            caps = None
+        else:
+            caps = session.client_capabilities
+        if caps is not None:
+            extensions = caps.extensions
+            if extensions is None:
+                # Legacy clients may carry `extensions` as an extra key.
+                extensions = (caps.model_extra or {}).get("extensions")
+            session_supports_extension = bool(extensions) and extension_id in extensions
     return session_supports_extension or (
         extension_id
         in client_declared_extensions_from_headers(fallback_header=fallback_header)

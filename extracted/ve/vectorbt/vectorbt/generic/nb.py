@@ -37,6 +37,8 @@ from numba.typed import Dict
 from vectorbt import _typing as tp
 from vectorbt.generic.enums import RangeStatus, DrawdownStatus, range_dt, drawdown_dt
 
+_INV_COND_TOL = np.finfo(np.float64).eps * 1e3
+
 
 @njit(cache=True)
 def shuffle_1d_nb(a: tp.Array1d, seed: tp.Optional[int] = None) -> tp.Array1d:
@@ -756,45 +758,105 @@ def rolling_mean_nb(a: tp.Array2d, window: int, minp: tp.Optional[int] = None) -
 
 
 @njit(cache=True)
+def _add_var_nb(
+    val: float,
+    nobs: float,
+    mean: float,
+    m2: float,
+    compensation: float,
+    numerically_unstable: bool,
+) -> tp.Tuple:
+    """Add a value to a rolling variance state."""
+    if np.isnan(val):
+        return nobs, mean, m2, compensation, numerically_unstable
+    prev_m2 = m2
+    nobs += 1
+    prev_mean = mean - compensation
+    y = val - compensation
+    delta = y - mean
+    compensation = delta + mean - y
+    mean += delta / nobs
+    m2 += (val - prev_mean) * (val - mean)
+    if prev_m2 * _INV_COND_TOL > m2:
+        numerically_unstable = True
+    return nobs, mean, m2, compensation, numerically_unstable
+
+
+@njit(cache=True)
+def _remove_var_nb(
+    val: float,
+    nobs: float,
+    mean: float,
+    m2: float,
+    compensation: float,
+    numerically_unstable: bool,
+) -> tp.Tuple:
+    """Remove a value from a rolling variance state."""
+    if np.isnan(val):
+        return nobs, mean, m2, compensation, numerically_unstable
+    prev_m2 = m2
+    nobs -= 1
+    if nobs:
+        prev_mean = mean - compensation
+        y = val - compensation
+        delta = y - mean
+        compensation = delta + mean - y
+        mean -= delta / nobs
+        m2 -= (val - prev_mean) * (val - mean)
+        if prev_m2 * _INV_COND_TOL > m2:
+            numerically_unstable = True
+    else:
+        mean = 0.0
+        m2 = 0.0
+        numerically_unstable = False
+    return nobs, mean, m2, compensation, numerically_unstable
+
+
+@njit(cache=True)
 def rolling_std_1d_nb(a: tp.Array1d, window: int, minp: tp.Optional[int] = None, ddof: int = 0) -> tp.Array1d:
     """Return rolling standard deviation.
 
-    Numba equivalent to `pd.Series(a).rolling(window, min_periods=minp).std(ddof=ddof)`."""
+    Numba equivalent to `pd.Series(a).rolling(window, min_periods=minp).std(ddof=ddof)`.
+
+    Uses pandas' Kahan-compensated Welford algorithm for numerical stability."""
     if minp is None:
         minp = window
     if minp > window:
         raise ValueError("minp must be <= window")
+    minp = max(minp, 1)
     out = np.empty_like(a, dtype=np.float64)
-    cumsum_arr = np.zeros_like(a)
-    cumsum = 0
-    cumsum_sq_arr = np.zeros_like(a)
-    cumsum_sq = 0
-    nancnt_arr = np.zeros_like(a)
-    nancnt = 0
+    mean = 0.0
+    m2 = 0.0
+    nobs = 0.0
+    compensation_add = 0.0
+    compensation_remove = 0.0
+    numerically_unstable = False
     for i in range(a.shape[0]):
-        if np.isnan(a[i]):
-            nancnt = nancnt + 1
-        else:
-            cumsum = cumsum + a[i]
-            cumsum_sq = cumsum_sq + a[i] ** 2
-        nancnt_arr[i] = nancnt
-        cumsum_arr[i] = cumsum
-        cumsum_sq_arr[i] = cumsum_sq
-        if i < window:
-            window_len = i + 1 - nancnt
-            window_cumsum = cumsum
-            window_cumsum_sq = cumsum_sq
-        else:
-            window_len = window - (nancnt - nancnt_arr[i - window])
-            window_cumsum = cumsum - cumsum_arr[i - window]
-            window_cumsum_sq = cumsum_sq - cumsum_sq_arr[i - window]
-        if window_len < minp or window_len == ddof:
-            out[i] = np.nan
-        else:
-            mean = window_cumsum / window_len
-            out[i] = np.sqrt(
-                np.abs(window_cumsum_sq - 2 * window_cumsum * mean + window_len * mean**2) / (window_len - ddof)
+        requires_recompute = i == 0 or window == 0
+        if not requires_recompute:
+            if i >= window:
+                nobs, mean, m2, compensation_remove, numerically_unstable = _remove_var_nb(
+                    a[i - window], nobs, mean, m2, compensation_remove, numerically_unstable
+                )
+            nobs, mean, m2, compensation_add, numerically_unstable = _add_var_nb(
+                a[i], nobs, mean, m2, compensation_add, numerically_unstable
             )
+        if requires_recompute or numerically_unstable:
+            mean = 0.0
+            m2 = 0.0
+            nobs = 0.0
+            compensation_add = 0.0
+            compensation_remove = 0.0
+            start = max(0, i - window + 1)
+            for j in range(start, i + 1):
+                nobs, mean, m2, compensation_add, numerically_unstable = _add_var_nb(
+                    a[j], nobs, mean, m2, compensation_add, numerically_unstable
+                )
+            numerically_unstable = False
+        if nobs >= minp and nobs > ddof:
+            out[i] = np.sqrt(m2 / (nobs - ddof))
+        else:
+            out[i] = np.nan
     return out
 
 
@@ -958,7 +1020,7 @@ def expanding_min_1d_nb(a: tp.Array1d, minp: int = 1) -> tp.Array1d:
 
     Numba equivalent to `pd.Series(a).expanding(min_periods=minp).min()`."""
     out = np.empty_like(a, dtype=np.float64)
-    minv = a[0]
+    minv = np.nan
     cnt = 0
     for i in range(a.shape[0]):
         if np.isnan(minv) or a[i] < minv:
@@ -987,7 +1049,7 @@ def expanding_max_1d_nb(a: tp.Array1d, minp: int = 1) -> tp.Array1d:
 
     Numba equivalent to `pd.Series(a).expanding(min_periods=minp).max()`."""
     out = np.empty_like(a, dtype=np.float64)
-    maxv = a[0]
+    maxv = np.nan
     cnt = 0
     for i in range(a.shape[0]):
         if np.isnan(maxv) or a[i] > maxv:
@@ -1015,13 +1077,13 @@ def expanding_mean_1d_nb(a: tp.Array1d, minp: int = 1) -> tp.Array1d:
     """Return expanding mean.
 
     Numba equivalent to `pd.Series(a).expanding(min_periods=minp).mean()`."""
-    return rolling_mean_1d_nb(a, a.shape[0], minp=minp)
+    return rolling_mean_1d_nb(a, max(a.shape[0], minp), minp=minp)
 
 
 @njit(cache=True)
 def expanding_mean_nb(a: tp.Array2d, minp: int = 1) -> tp.Array2d:
     """2-dim version of `expanding_mean_1d_nb`."""
-    return rolling_mean_nb(a, a.shape[0], minp=minp)
+    return rolling_mean_nb(a, max(a.shape[0], minp), minp=minp)
 
 
 @njit(cache=True)
@@ -1029,13 +1091,13 @@ def expanding_std_1d_nb(a: tp.Array1d, minp: int = 1, ddof: int = 0) -> tp.Array
     """Return expanding standard deviation.
 
     Numba equivalent to `pd.Series(a).expanding(min_periods=minp).std(ddof=ddof)`."""
-    return rolling_std_1d_nb(a, a.shape[0], minp=minp, ddof=ddof)
+    return rolling_std_1d_nb(a, max(a.shape[0], minp), minp=minp, ddof=ddof)
 
 
 @njit(cache=True)
 def expanding_std_nb(a: tp.Array2d, minp: int = 1, ddof: int = 0) -> tp.Array2d:
     """2-dim version of `expanding_std_1d_nb`."""
-    return rolling_std_nb(a, a.shape[0], minp=minp, ddof=ddof)
+    return rolling_std_nb(a, max(a.shape[0], minp), minp=minp, ddof=ddof)
 
 
 # ############# Apply functions ############# #
@@ -1790,8 +1852,8 @@ def get_drawdowns_nb(ts: tp.Array2d) -> tp.RecordArray:
         drawdown_started = False
         peak_idx = -1
         valley_idx = -1
-        peak_val = ts[0, col]
-        valley_val = ts[0, col]
+        peak_val = np.nan
+        valley_val = np.nan
         store_record = False
         status = -1
 

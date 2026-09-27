@@ -39,7 +39,7 @@ static void append_quoted(std::string &out, std::string const &s)
     out += '"';
 }
 
-std::string objecthandle_scalar_value(QPDFObjectHandle h)
+std::string objecthandle_scalar_value(QPDFObjectHandle h, bool explicit_mode)
 {
     std::string out;
     switch (h.getTypeCode()) {
@@ -50,8 +50,9 @@ std::string objecthandle_scalar_value(QPDFObjectHandle h)
     case qpdf_object_type_e::ot_integer:
         return std::to_string(h.getIntValue());
     case qpdf_object_type_e::ot_real:
-        if (get_explicit_conversion_mode()) {
-            // In explicit mode, show as quoted string since pikepdf.Real wraps it
+        if (explicit_mode) {
+            // The caller wraps this in pikepdf.Real(...), which takes the
+            // decimal as a string so that trailing zeros survive
             return "'" + h.getRealValue() + "'";
         }
         // In implicit mode, show as Decimal for backward compatibility
@@ -72,7 +73,7 @@ std::string objecthandle_scalar_value(QPDFObjectHandle h)
     }
 }
 
-std::string objecthandle_pythonic_typename(QPDFObjectHandle h)
+std::string objecthandle_pythonic_typename(QPDFObjectHandle h, bool explicit_mode)
 {
     switch (h.getTypeCode()) {
     case qpdf_object_type_e::ot_name:
@@ -98,11 +99,19 @@ std::string objecthandle_pythonic_typename(QPDFObjectHandle h)
     case qpdf_object_type_e::ot_null:
         return ""; // None is always represented as None
     case qpdf_object_type_e::ot_boolean:
-        return get_explicit_conversion_mode() ? "pikepdf.Boolean" : "";
     case qpdf_object_type_e::ot_integer:
-        return get_explicit_conversion_mode() ? "pikepdf.Integer" : "";
-    case qpdf_object_type_e::ot_real:
-        return get_explicit_conversion_mode() ? "pikepdf.Real" : "";
+    case qpdf_object_type_e::ot_real: {
+        if (!explicit_mode)
+            return "";
+        switch (h.getTypeCode()) {
+        case qpdf_object_type_e::ot_boolean:
+            return "pikepdf.Boolean";
+        case qpdf_object_type_e::ot_integer:
+            return "pikepdf.Integer";
+        default:
+            return "pikepdf.Real";
+        }
+    }
 
     // LCOV_EXCL_START
     default:
@@ -112,13 +121,13 @@ std::string objecthandle_pythonic_typename(QPDFObjectHandle h)
     }
 }
 
-std::string objecthandle_repr_typename_and_value(QPDFObjectHandle h)
+std::string objecthandle_repr_typename_and_value(QPDFObjectHandle h, bool explicit_mode)
 {
-    auto pythonic_typename = objecthandle_pythonic_typename(h);
+    auto pythonic_typename = objecthandle_pythonic_typename(h, explicit_mode);
     if (pythonic_typename.empty()) {
-        return objecthandle_scalar_value(h);
+        return objecthandle_scalar_value(h, explicit_mode);
     }
-    return pythonic_typename + "(" + objecthandle_scalar_value(h) + ")";
+    return pythonic_typename + "(" + objecthandle_scalar_value(h, explicit_mode) + ")";
 }
 
 std::string preview_stream_data(QPDFObjectHandle h, uint recursion_depth)
@@ -163,7 +172,8 @@ static void objecthandle_repr_inner(std::string &out, // accumulates the result
     uint indent_depth,
     uint &object_count,            // shared among recursive calls
     std::set<QPDFObjGen> &visited, // shared among recursive calls
-    bool &pure_expr)               // shared among recursive calls
+    bool &pure_expr,               // shared among recursive calls
+    bool explicit_mode)            // resolved once for the whole repr
 {
     const uint MAX_OBJECT_COUNT = 40;
 
@@ -194,22 +204,25 @@ static void objecthandle_repr_inner(std::string &out, // accumulates the result
 
     switch (h.getTypeCode()) {
     case qpdf_object_type_e::ot_null:
+    case qpdf_object_type_e::ot_name:
+    case qpdf_object_type_e::ot_string:
+        out += objecthandle_scalar_value(h, explicit_mode);
+        break;
     case qpdf_object_type_e::ot_boolean:
     case qpdf_object_type_e::ot_integer:
     case qpdf_object_type_e::ot_real:
-    case qpdf_object_type_e::ot_name:
-    case qpdf_object_type_e::ot_string:
-        out += objecthandle_scalar_value(h);
-        break;
     case qpdf_object_type_e::ot_operator:
-        out += objecthandle_repr_typename_and_value(h);
+        // Named in explicit mode, bare in implicit mode, exactly as the same
+        // value reprs on its own. Without the name a nested real would print as
+        // '42.42', which reads as a PDF string.
+        out += objecthandle_repr_typename_and_value(h, explicit_mode);
         break;
     case qpdf_object_type_e::ot_inlineimage:
         // LCOV_EXCL_START
         // Inline image objects are automatically promoted to higher level objects
         // in parse_content_stream, so objects of this type should not be returned
         // directly.
-        out += objecthandle_pythonic_typename(h) + "(data=<...>)";
+        out += objecthandle_pythonic_typename(h, explicit_mode) + "(data=<...>)";
         break;
     // LCOV_EXCL_STOP
     case qpdf_object_type_e::ot_array: {
@@ -227,7 +240,8 @@ static void objecthandle_repr_inner(std::string &out, // accumulates the result
                 indent_depth,
                 object_count,
                 visited,
-                pure_expr);
+                pure_expr,
+                explicit_mode);
         }
         out += " ]";
         break;
@@ -253,7 +267,8 @@ static void objecthandle_repr_inner(std::string &out, // accumulates the result
                     indent_depth + 1,
                     object_count,
                     visited,
-                    pure_expr);
+                    pure_expr,
+                    explicit_mode);
             }
         }
         out += "\n";
@@ -263,7 +278,7 @@ static void objecthandle_repr_inner(std::string &out, // accumulates the result
     }
     case qpdf_object_type_e::ot_stream:
         pure_expr = false;
-        out += objecthandle_pythonic_typename(h) +
+        out += objecthandle_pythonic_typename(h, explicit_mode) +
                "(owner=<...>, data=" + preview_stream_data(h, recursion_depth) + ", ";
         objecthandle_repr_inner(out,
             h.getDict(),
@@ -271,7 +286,8 @@ static void objecthandle_repr_inner(std::string &out, // accumulates the result
             indent_depth, // Don't indent here to align dict with stream
             object_count,
             visited,
-            pure_expr);
+            pure_expr,
+            explicit_mode);
         out += ")";
         break;
     // LCOV_EXCL_START
@@ -292,21 +308,27 @@ std::string objecthandle_repr(QPDFObjectHandle h)
     if (h.isDestroyed()) {
         return std::string("<Object was inside a closed or deleted pikepdf.Pdf>");
     }
+    // Resolve the conversion mode once for the whole repr, instead of looking
+    // up the registry entry for every scalar element of a container.
+    QpdfLockGuard lock(h.getOwningQPDF());
+    bool explicit_mode = get_explicit_conversion_mode(lock.entry());
+
     if (h.isScalar() || h.isOperator()) {
         // qpdf does not consider Operator a scalar but it is as far we
         // are concerned here
-        return objecthandle_repr_typename_and_value(h);
+        return objecthandle_repr_typename_and_value(h, explicit_mode);
     }
 
     std::set<QPDFObjGen> visited;
     bool pure_expr = true;
     uint object_count = 0;
     std::string inner;
-    objecthandle_repr_inner(inner, h, 0, 0, object_count, visited, pure_expr);
+    objecthandle_repr_inner(
+        inner, h, 0, 0, object_count, visited, pure_expr, explicit_mode);
     std::string output;
 
     if (h.isScalar() || h.isDictionary() || h.isArray()) {
-        output = objecthandle_pythonic_typename(h) + "(" + inner + ")";
+        output = objecthandle_pythonic_typename(h, explicit_mode) + "(" + inner + ")";
     } else {
         output = inner;
         pure_expr = false;

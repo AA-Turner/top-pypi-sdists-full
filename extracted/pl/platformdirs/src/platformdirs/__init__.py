@@ -13,7 +13,7 @@ import os
 import sys
 from typing import TYPE_CHECKING
 
-from .api import PlatformDirsABC
+from .api import PlatformDirsABC, RuntimeDirWarning
 from .version import __version__
 from .version import __version_tuple__ as __version_info__
 
@@ -25,6 +25,8 @@ if sys.platform == "win32":
     from platformdirs.windows import Windows as _Result
 elif sys.platform == "darwin":
     from platformdirs.macos import MacOS as _Result
+elif sys.platform == "ios":
+    from platformdirs.ios import IOS as _Result  # ruff:ignore[constant-imported-as-non-constant]  # a class, PEP 8 acronym
 else:
     from platformdirs.unix import Unix as _Result
 
@@ -995,6 +997,7 @@ __all__ = [
     "AppDirs",
     "PlatformDirs",
     "PlatformDirsABC",
+    "RuntimeDirWarning",
     "__version__",
     "__version_info__",
     "site_applications_dir",

@@ -655,6 +655,7 @@ class UnifiedAIClient:
         "google_chat": "GoogleChat",
         "google_image": "GoogleImageGeneration",
         "google_interactions": "GoogleInteractionsVideoGeneration",
+        "google_research_agent": "GoogleDeepResearchAgent",
         "google_video": "GoogleVideoGeneration",
         "openai_chat": "OpenAIChat",
         "openai_image": "OpenAIImageGeneration",
@@ -850,6 +851,47 @@ class UnifiedAIClient:
         if caps.interaction == "decision" or profile.client_attr == "decision":
             return self._stamp_offering_usage(
                 await self._execute_decision(config, profile, model_name, debug),
+                profile,
+                config,
+            )
+
+        # A provider-managed research AGENT (Google Deep Research / Deep Research
+        # Max) is a model in the agent system exactly like a decision model
+        # (Arman, 2026-09-26: "An agent can be a text model, video, image,
+        # speech, live, decision, and now a research model. It makes no
+        # difference."). Its wire is a long-running background interaction, so
+        # it has its own translator; it runs BEFORE chat preprocessing because
+        # the tool/structured-output/media gates speak a turn contract it does
+        # not. Any other managed-agent family is refused BY NAME, never sent
+        # down a chat or video route that happens to share its wire format.
+        if caps.interaction == "agent":
+            if wire_format != "google_interactions":
+                raise ValueError(
+                    f"Model {model_name!r} is a provider-managed agent on wire "
+                    f"{wire_format!r}; only Google Interactions research agents "
+                    "have an agent-turn translator today."
+                )
+            from matrx_ai.providers.google.google_research_agent import (
+                is_google_research_agent,
+            )
+
+            if not is_google_research_agent(profile.provider_model_id):
+                # The same wire also serves Google's other managed agents
+                # (Antigravity sandbox). The research translator sends a
+                # deep-research agent_config, so anything else is refused here,
+                # by name, instead of being run as a research agent.
+                raise ValueError(
+                    f"Model {model_name!r} is a Google managed agent that is not a "
+                    "Deep Research agent; only Deep Research agents have an "
+                    "agent-turn translator today."
+                )
+            research_client = await self._get_provider_client("google_research_agent")
+            return self._stamp_offering_usage(
+                await self._dispatch_with_billing_net(
+                    lambda: research_client.execute(config, profile, debug),
+                    profile=profile,
+                    provider_client=research_client,
+                ),
                 profile,
                 config,
             )

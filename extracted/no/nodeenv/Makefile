@@ -21,7 +21,7 @@ deploy-pypi:
 update-pypi:
 	$(PYTHON) setup.py register
 
-deploy: contributors deploy-github deploy-pypi
+deploy: contributors ut deploy-github deploy-pypi
 
 clean:
 	@rm -rf nodeenv.egg-info/
@@ -142,7 +142,7 @@ ut: env-dev
 
 coverage: env-dev
 	@. ${DEV_TEST_ENV}/bin/activate && \
-		coverage run -p -m pytest && \
+		coverage run -p -m pytest -m 'not integration' && \
 		coverage report -m && \
 		coverage html
 

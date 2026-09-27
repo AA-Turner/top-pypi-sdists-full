@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import os
 import re
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta, timezone
 from pathlib import Path
 from xml.etree import ElementTree as ET
 
@@ -184,13 +184,19 @@ def test_update_docinfo(vera):
 @pytest.mark.parametrize(
     'filename', list((Path(__file__).parent / 'resources').glob('*.pdf'))
 )
+@pytest.mark.filterwarnings('error::pikepdf.XmpTypeWarning')
 def test_roundtrip(filename):
     try:
         with Pdf.open(filename) as pdf:
             with pdf.open_metadata() as xmp:
                 for k in xmp.keys():
                     if 'Date' not in k:
-                        xmp[k] = 'A'
+                        # Keep the property's container type: a list for
+                        # rdf:Seq, a set for rdf:Bag, a str otherwise.
+                        old = xmp[k]
+                        xmp[k] = (
+                            type(old)(['A']) if isinstance(old, (list, set)) else 'A'
+                        )
             assert '<?xpacket' not in str(xmp)
     except PasswordError:
         return
@@ -254,10 +260,10 @@ def test_python_xmp_validate_change(sandwich, libxmp_meta):
 def test_decode_pdf_date():
     VALS = [
         ('20160220040559', datetime(2016, 2, 20, 4, 5, 59)),
-        ("20180101010101Z00'00'", datetime(2018, 1, 1, 1, 1, 1, tzinfo=timezone.utc)),
-        ("20180101010101Z00'00", datetime(2018, 1, 1, 1, 1, 1, tzinfo=timezone.utc)),
-        ("20180101010101Z", datetime(2018, 1, 1, 1, 1, 1, tzinfo=timezone.utc)),
-        ("20180101010101+0000", datetime(2018, 1, 1, 1, 1, 1, tzinfo=timezone.utc)),
+        ("20180101010101Z00'00'", datetime(2018, 1, 1, 1, 1, 1, tzinfo=UTC)),
+        ("20180101010101Z00'00", datetime(2018, 1, 1, 1, 1, 1, tzinfo=UTC)),
+        ("20180101010101Z", datetime(2018, 1, 1, 1, 1, 1, tzinfo=UTC)),
+        ("20180101010101+0000", datetime(2018, 1, 1, 1, 1, 1, tzinfo=UTC)),
         (
             "20180101010101+0100",
             datetime(2018, 1, 1, 1, 1, 1, tzinfo=timezone(timedelta(hours=1))),
@@ -265,6 +271,56 @@ def test_decode_pdf_date():
     ]
     for s, d in VALS:
         assert decode_pdf_date(s) == d
+
+
+def test_decode_pdf_date_optional_fields():
+    """Every field after the year of a PDF date is optional."""
+    minus8 = timezone(timedelta(hours=-8))
+    VALS = [
+        ('D:2020', datetime(2020, 1, 1)),
+        ('D:202003', datetime(2020, 3, 1)),
+        ('D:2020010112', datetime(2020, 1, 1, 12)),
+        ('D:202001011230', datetime(2020, 1, 1, 12, 30)),
+        ('D:202001011230Z', datetime(2020, 1, 1, 12, 30, tzinfo=UTC)),
+        ("D:20200101120000-08'", datetime(2020, 1, 1, 12, tzinfo=minus8)),
+        ('D:20200101120000-08', datetime(2020, 1, 1, 12, tzinfo=minus8)),
+        ("D:20200101120000-08'00'", datetime(2020, 1, 1, 12, tzinfo=minus8)),
+    ]
+    for s, d in VALS:
+        assert decode_pdf_date(s) == d
+
+
+def test_decode_pdf_date_invalid():
+    for bad in ['D:20201301', 'D:20200132', 'D:2020010125', 'D:20', 'garbage']:
+        with pytest.raises(ValueError):
+            decode_pdf_date(bad)
+
+
+def test_xmp_date_trailing_whitespace_docinfo_from_xmp():
+    assert (
+        DateConverter.docinfo_from_xmp('2020-01-02T03:04:05Z\n')
+        == "D:20200102030405+00'00"
+    )
+
+
+def test_set_property_stored_as_simple_text():
+    """Setting a property that was stored as plain text must replace the text."""
+    xmp = b"""<?xpacket begin="" id="W5M0MpCehiHzreSzNTczkc9d"?>
+<x:xmpmeta xmlns:x="adobe:ns:meta/">
+<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+<rdf:Description rdf:about="uuid:1" xmlns:dc="http://purl.org/dc/elements/1.1/">
+<dc:title>Old</dc:title><dc:creator>Bob</dc:creator>
+</rdf:Description></rdf:RDF></x:xmpmeta><?xpacket end="w"?>"""
+    pdf = pikepdf.new()
+    pdf.Root.Metadata = pdf.make_stream(xmp)
+    with pdf.open_metadata(set_pikepdf_as_editor=False) as meta:
+        meta['dc:title'] = 'New'
+        meta['dc:creator'] = ['Alice']
+    meta = pdf.open_metadata()
+    assert meta['dc:title'] == 'New'
+    assert meta['dc:creator'] == ['Alice']
+    assert b'Old' not in pdf.Root.Metadata.read_bytes()
+    assert str(pdf.docinfo.Title) == 'New'
 
 
 def test_date_docinfo_from_xmp():
@@ -278,12 +334,7 @@ def test_date_docinfo_from_xmp():
 
 
 def test_xmp_date_forms_docinfo_from_xmp():
-    """Every form in XMP Specification Part 1, 8.2.1.2, converts to DocumentInfo.
-
-    ``datetime.fromisoformat`` on Python 3.10 rejects fractions that are not
-    exactly 3 or 6 digits and offsets without a colon, so the converter must
-    not depend on it.
-    """
+    """Every form in XMP Specification Part 1, 8.2.1.2, converts to DocumentInfo."""
     VALS = [
         ('2018-12-04', "D:20181204"),
         ('2018-12-04T03:02Z', "D:20181204030200+00'00"),
@@ -777,7 +828,7 @@ def test_xmp_metadatadate_timezone(sandwich, outpdf):
         with pdf.open_metadata() as m:
             dt = datetime.fromisoformat(m['xmp:MetadataDate'])
             assert dt.tzinfo is not None
-            assert dt.tzinfo == timezone.utc
+            assert dt.tzinfo == UTC
 
 
 def test_modify_not_opened(graph):
@@ -1443,7 +1494,7 @@ class TestXmpPropertyTypes:
 
     def test_datetime_to_date_property(self):
         xmp = XmpDocument()
-        when = datetime(2024, 6, 1, 12, 30, tzinfo=timezone.utc)
+        when = datetime(2024, 6, 1, 12, 30, tzinfo=UTC)
         xmp['xmp:ModifyDate'] = when
         assert xmp['xmp:ModifyDate'] == when.isoformat()
         assert datetime.fromisoformat(xmp['xmp:ModifyDate']) == when
@@ -1457,7 +1508,7 @@ class TestXmpPropertyTypes:
 
     def test_datetime_in_array_property(self):
         xmp = XmpDocument()
-        xmp['dc:date'] = [datetime(2024, 6, 1, tzinfo=timezone.utc)]
+        xmp['dc:date'] = [datetime(2024, 6, 1, tzinfo=UTC)]
         assert xmp['dc:date'] == ['2024-06-01T00:00:00+00:00']
 
     def test_int_to_integer_property(self):
@@ -1515,3 +1566,329 @@ class TestXmpPropertyTypes:
             with pytest.warns(XmpTypeWarning, match='dc:creator'):
                 meta['dc:creator'] = 'A String'
             assert meta['dc:creator'] == ['A String']
+
+
+def _xmp_packet(body: str) -> bytes:
+    return (
+        '<x:xmpmeta xmlns:x="adobe:ns:meta/">'
+        '<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">'
+        f'{body}</rdf:RDF></x:xmpmeta>'
+    ).encode()
+
+
+def _pdf_with_xmp(xmp: bytes) -> Pdf:
+    pdf = pikepdf.new()
+    pdf.add_blank_page()
+    pdf.Root.Metadata = pdf.make_stream(xmp, Type=Name.Metadata, Subtype=Name.XML)
+    return pdf
+
+
+def _alt_items(xmp: XmpDocument, key: str) -> list[tuple[str | None, str | None]]:
+    """Return the (xml:lang, text) of each item of a language alternative."""
+    node = next(xmp._get_elements(key))[0]
+    alt = node.find('rdf:Alt', XmpDocument.NS)
+    lang = '{http://www.w3.org/XML/1998/namespace}lang'
+    return [(li.get(lang), li.text) for li in alt]
+
+
+MULTILINGUAL_TITLE = _xmp_packet(
+    '<rdf:Description rdf:about="" xmlns:dc="http://purl.org/dc/elements/1.1/">'
+    '<dc:title><rdf:Alt>'
+    '<rdf:li xml:lang="en">English title</rdf:li>'
+    '<rdf:li xml:lang="fr">Titre</rdf:li>'
+    '<rdf:li xml:lang="x-default">Default title</rdf:li>'
+    '</rdf:Alt></dc:title>'
+    '<dc:description><rdf:Alt>'
+    '<rdf:li xml:lang="en">English subject</rdf:li>'
+    '<rdf:li xml:lang="x-default">Default subject</rdf:li>'
+    '</rdf:Alt></dc:description>'
+    '</rdf:Description>'
+)
+
+
+class TestLanguageAlternatives:
+    def test_read_x_default_not_first(self):
+        xmp = XmpDocument(MULTILINGUAL_TITLE)
+        assert xmp['dc:title'] == 'Default title'
+        assert xmp['dc:description'] == 'Default subject'
+
+    def test_read_falls_back_to_first_item(self):
+        xmp = XmpDocument(
+            _xmp_packet(
+                '<rdf:Description rdf:about="" '
+                'xmlns:dc="http://purl.org/dc/elements/1.1/">'
+                '<dc:title><rdf:Alt>'
+                '<rdf:li xml:lang="de">Deutsch</rdf:li>'
+                '<rdf:li xml:lang="en">English</rdf:li>'
+                '</rdf:Alt></dc:title></rdf:Description>'
+            )
+        )
+        assert xmp['dc:title'] == 'Deutsch'
+
+    def test_read_empty_alt(self):
+        xmp = XmpDocument(
+            _xmp_packet(
+                '<rdf:Description rdf:about="" '
+                'xmlns:dc="http://purl.org/dc/elements/1.1/">'
+                '<dc:title><rdf:Alt/></dc:title></rdf:Description>'
+            )
+        )
+        assert xmp['dc:title'] == ''
+
+    def test_docinfo_synced_from_x_default(self):
+        pdf = _pdf_with_xmp(MULTILINGUAL_TITLE)
+        with pdf.open_metadata() as m:
+            assert m['dc:title'] == 'Default title'
+        assert pdf.docinfo.Title == 'Default title'
+        assert pdf.docinfo.Subject == 'Default subject'
+
+    def test_write_keeps_other_languages(self):
+        xmp = XmpDocument(MULTILINGUAL_TITLE)
+        xmp['dc:title'] = 'New title'
+        assert xmp['dc:title'] == 'New title'
+        assert _alt_items(xmp, 'dc:title') == [
+            ('x-default', 'New title'),
+            ('en', 'English title'),
+            ('fr', 'Titre'),
+        ]
+
+    def test_write_updates_copy_of_default(self):
+        xmp = XmpDocument(
+            _xmp_packet(
+                '<rdf:Description rdf:about="" '
+                'xmlns:dc="http://purl.org/dc/elements/1.1/">'
+                '<dc:title><rdf:Alt>'
+                '<rdf:li xml:lang="x-default">Same</rdf:li>'
+                '<rdf:li xml:lang="en">Same</rdf:li>'
+                '<rdf:li xml:lang="fr">Autre</rdf:li>'
+                '</rdf:Alt></dc:title></rdf:Description>'
+            )
+        )
+        xmp['dc:title'] = 'Changed'
+        assert _alt_items(xmp, 'dc:title') == [
+            ('x-default', 'Changed'),
+            ('en', 'Changed'),
+            ('fr', 'Autre'),
+        ]
+
+    def test_write_adds_missing_x_default_first(self):
+        xmp = XmpDocument(
+            _xmp_packet(
+                '<rdf:Description rdf:about="" '
+                'xmlns:dc="http://purl.org/dc/elements/1.1/">'
+                '<dc:title><rdf:Alt>'
+                '<rdf:li xml:lang="en">English</rdf:li>'
+                '</rdf:Alt></dc:title></rdf:Description>'
+            )
+        )
+        xmp['dc:title'] = 'Default'
+        assert _alt_items(xmp, 'dc:title') == [
+            ('x-default', 'Default'),
+            ('en', 'English'),
+        ]
+
+    def test_write_subject_through_docinfo(self):
+        pdf = _pdf_with_xmp(MULTILINGUAL_TITLE)
+        with pdf.open_metadata() as m:
+            m['dc:description'] = 'New subject'
+        assert pdf.docinfo.Subject == 'New subject'
+        with pdf.open_metadata() as m:
+            assert _alt_items(m._xmp_doc, 'dc:description') == [
+                ('x-default', 'New subject'),
+                ('en', 'English subject'),
+            ]
+
+    def test_unknown_alt_gets_one_x_default(self):
+        from pikepdf.models.metadata._constants import AltList
+
+        xmp = XmpDocument()
+        with pytest.warns(UserWarning, match='Merging'):
+            xmp['pdf:Unknown'] = AltList(['a', 'b'])
+        assert _alt_items(xmp, 'pdf:Unknown') == [('x-default', 'a; b')]
+
+
+def _descriptions(xmp: XmpDocument) -> list:
+    return xmp._get_rdf_root().findall('rdf:Description', XmpDocument.NS)
+
+
+RDF_ABOUT = '{http://www.w3.org/1999/02/22-rdf-syntax-ns#}about'
+
+DISTILLER_PRODUCER = _xmp_packet(
+    '<rdf:Description rdf:about="uuid:12345678-1234-1234-1234-123456789abc" '
+    'xmlns:pdf="http://ns.adobe.com/pdf/1.3/">'
+    '<pdf:Producer>Acrobat Distiller 9</pdf:Producer>'
+    '</rdf:Description>'
+)
+
+
+class TestAllDescriptions:
+    def test_read_non_empty_about(self):
+        pdf = _pdf_with_xmp(DISTILLER_PRODUCER)
+        with pdf.open_metadata() as m:
+            assert m['pdf:Producer'] == 'Acrobat Distiller 9'
+            assert 'pdf:Producer' in m
+            assert list(m.keys()) == ['{http://ns.adobe.com/pdf/1.3/}Producer']
+        assert pdf.Root.Metadata.read_bytes().count(b'<pdf:Producer') == 1
+
+    def test_read_missing_about(self):
+        xmp = XmpDocument(
+            _xmp_packet(
+                '<rdf:Description xmlns:pdf="http://ns.adobe.com/pdf/1.3/" '
+                'pdf:Keywords="k"><pdf:Producer>P</pdf:Producer></rdf:Description>'
+            )
+        )
+        assert xmp['pdf:Producer'] == 'P'
+        assert xmp['pdf:Keywords'] == 'k'
+
+    def test_delete_non_empty_about(self):
+        xmp = XmpDocument(DISTILLER_PRODUCER)
+        del xmp['pdf:Producer']
+        assert 'pdf:Producer' not in xmp
+        assert _descriptions(xmp) == []
+
+    def test_set_removes_duplicates(self):
+        xmp = XmpDocument(
+            _xmp_packet(
+                '<rdf:Description rdf:about="" '
+                'xmlns:pdf="http://ns.adobe.com/pdf/1.3/" pdf:Producer="A"/>'
+                '<rdf:Description rdf:about="" '
+                'xmlns:pdf="http://ns.adobe.com/pdf/1.3/">'
+                '<pdf:Producer>B</pdf:Producer><pdf:Keywords>k</pdf:Keywords>'
+                '</rdf:Description>'
+            )
+        )
+        xmp['pdf:Producer'] = 'C'
+        assert list(xmp._get_element_values('pdf:Producer')) == ['C']
+        assert xmp['pdf:Keywords'] == 'k'
+        assert xmp.to_bytes().count(b'Producer') == 1
+
+    def test_delete_removes_all_duplicates(self):
+        xmp = XmpDocument(
+            _xmp_packet(
+                '<rdf:Description rdf:about="" '
+                'xmlns:pdf="http://ns.adobe.com/pdf/1.3/" pdf:Producer="A"/>'
+                '<rdf:Description rdf:about="" '
+                'xmlns:pdf="http://ns.adobe.com/pdf/1.3/">'
+                '<pdf:Producer>B</pdf:Producer></rdf:Description>'
+            )
+        )
+        del xmp['pdf:Producer']
+        assert 'pdf:Producer' not in xmp
+        assert _descriptions(xmp) == []
+
+    def test_attribute_to_array_leaves_no_duplicate(self):
+        xmp = XmpDocument(
+            _xmp_packet(
+                '<rdf:Description rdf:about="" '
+                'xmlns:dc="http://purl.org/dc/elements/1.1/" dc:title="Old"/>'
+                '<rdf:Description rdf:about="" '
+                'xmlns:dc="http://purl.org/dc/elements/1.1/">'
+                '<dc:title><rdf:Alt><rdf:li xml:lang="x-default">Old2</rdf:li>'
+                '</rdf:Alt></dc:title></rdf:Description>'
+            )
+        )
+        xmp['dc:title'] = 'New'
+        assert list(xmp._get_element_values('dc:title')) == ['New']
+
+    def test_nested_description_is_not_top_level(self):
+        xmp = XmpDocument(
+            _xmp_packet(
+                '<rdf:Description rdf:about="" '
+                'xmlns:xmpMM="http://ns.adobe.com/xap/1.0/mm/" '
+                'xmlns:stEvt="http://ns.adobe.com/xap/1.0/sType/ResourceEvent#">'
+                '<xmpMM:History><rdf:Seq><rdf:li>'
+                '<rdf:Description stEvt:action="saved"/>'
+                '</rdf:li></rdf:Seq></xmpMM:History></rdf:Description>'
+            )
+        )
+        assert list(xmp) == ['{http://ns.adobe.com/xap/1.0/mm/}History']
+        out = xmp.to_bytes()
+        assert out.count(b'rdf:about') == 1
+
+    def test_insert_into_existing_description(self):
+        xmp = XmpDocument(DISTILLER_PRODUCER)
+        xmp['dc:title'] = 'Title'
+        descs = _descriptions(xmp)
+        assert len(descs) == 1
+        assert descs[0].get(RDF_ABOUT) == 'uuid:12345678-1234-1234-1234-123456789abc'
+
+    def test_normalize_about_mixed(self):
+        xmp = XmpDocument(
+            _xmp_packet(
+                '<rdf:Description rdf:about="uuid:X" '
+                'xmlns:pdf="http://ns.adobe.com/pdf/1.3/" pdf:Producer="P"/>'
+                '<rdf:Description xmlns:xmp="http://ns.adobe.com/xap/1.0/" '
+                'xmp:CreatorTool="T"/>'
+                '<rdf:Description rdf:about="" '
+                'xmlns:dc="http://purl.org/dc/elements/1.1/" dc:format="f"/>'
+            )
+        )
+        reread = XmpDocument(xmp.to_bytes())
+        assert [d.get(RDF_ABOUT) for d in _descriptions(reread)] == ['uuid:X'] * 3
+
+    def test_normalize_about_conflicting(self):
+        xmp = XmpDocument(
+            _xmp_packet(
+                '<rdf:Description rdf:about="uuid:X" '
+                'xmlns:pdf="http://ns.adobe.com/pdf/1.3/" pdf:Producer="P"/>'
+                '<rdf:Description rdf:about="uuid:Y" '
+                'xmlns:xmp="http://ns.adobe.com/xap/1.0/" xmp:CreatorTool="T"/>'
+            )
+        )
+        reread = XmpDocument(xmp.to_bytes())
+        assert [d.get(RDF_ABOUT) for d in _descriptions(reread)] == ['', '']
+
+    def test_normalize_drops_empty_descriptions(self):
+        xmp = XmpDocument(
+            _xmp_packet(
+                '<rdf:Description rdf:about=""/>'
+                '<rdf:Description rdf:about="" '
+                'xmlns:pdf="http://ns.adobe.com/pdf/1.3/" pdf:Producer="P"/>'
+            )
+        )
+        reread = XmpDocument(xmp.to_bytes())
+        assert len(_descriptions(reread)) == 1
+
+
+class TestRecovered:
+    def test_clean(self):
+        assert XmpDocument(DISTILLER_PRODUCER).recovered is False
+        assert XmpDocument().recovered is False
+        assert XmpDocument(b'').recovered is False
+
+    def test_clean_strict(self):
+        xmp = XmpDocument(DISTILLER_PRODUCER, overwrite_invalid_xml=False)
+        assert xmp.recovered is False
+
+    def test_illegal_bytes(self):
+        xmp = XmpDocument(
+            _xmp_packet(
+                '<rdf:Description rdf:about="" '
+                'xmlns:pdf="http://ns.adobe.com/pdf/1.3/">'
+                '<pdf:Producer>a&#0;b</pdf:Producer></rdf:Description>'
+            )
+        )
+        assert xmp.recovered is True
+        assert xmp['pdf:Producer'] == 'ab'
+
+    def test_undeclared_prefix(self):
+        xmp = XmpDocument(
+            _xmp_packet(
+                '<rdf:Description rdf:about="">'
+                '<pdf:Producer>P</pdf:Producer></rdf:Description>'
+            )
+        )
+        assert xmp.recovered is True
+        assert xmp['pdf:Producer'] == 'P'
+
+    def test_garbage_replaced(self):
+        assert XmpDocument(b'not xml at all').recovered is True
+
+    def test_not_xmp_replaced(self):
+        assert XmpDocument(b'<root><child/></root>').recovered is True
+
+    def test_pdf_metadata(self):
+        pdf = _pdf_with_xmp(b'not xml at all')
+        assert pdf.open_metadata().recovered is True
+        pdf = _pdf_with_xmp(DISTILLER_PRODUCER)
+        assert pdf.open_metadata().recovered is False

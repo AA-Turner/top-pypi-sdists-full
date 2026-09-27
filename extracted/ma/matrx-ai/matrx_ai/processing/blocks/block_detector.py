@@ -16,10 +16,9 @@ Detection priority (same as TypeScript):
 
 from __future__ import annotations
 
-from collections.abc import Iterator
-
 import json
 import re
+from collections.abc import Iterator
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -27,6 +26,7 @@ from matrx_graph.content_ir.directives import (
     is_reserved_directive_slug,
     parse_directive_slug,
 )
+from matrx_graph.content_ir.envelope import KIND_KEY
 
 from matrx_ai.processing.blocks.fence_nesting import (
     classify_inner_fence_line,
@@ -34,8 +34,13 @@ from matrx_ai.processing.blocks.fence_nesting import (
     parse_fence_opener,
     trim_fence_line,
 )
+from matrx_ai.processing.blocks.gfm_table_lines import (
+    continues_table,
+    is_gfm_delimiter_row,
+    is_pipe_led_row,
+    opens_table,
+)
 from matrx_ai.processing.blocks.kind_catalog import is_registered_kind
-from matrx_graph.content_ir.envelope import KIND_KEY
 
 # ---------------------------------------------------------------------------
 # Data structures
@@ -878,7 +883,6 @@ def _validate_recipe_streaming(content: str, found_closing: bool) -> dict[str, A
 # ---------------------------------------------------------------------------
 
 _CODE_BLOCK_RE = re.compile(r"^```(\w*)")
-_TABLE_SEP_RE = re.compile(r"^\|[:\s|\-]+\|?$")
 _IMAGE_STD_RE = re.compile(
     r"""^!\[(.*?)\]\((https?://[^\s)]+)(?:\s+(?:"[^"]*"|'[^']*'))?\)"""
 )
@@ -1166,6 +1170,31 @@ def root_kind_declaration(source: str) -> str | None:
     return slug or None
 
 
+def _front_matter_end(source: str) -> int:
+    """Where the front matter opening ``source`` ends (0 when none) -- TS
+    ``frontMatterEnd``: an optional BOM, a first line exactly ``---``/``+++``,
+    through the same fence (YAML also ``...``). A ``{"__kind":...}`` VALUE in
+    front matter is never a kind block (RC-B3r round 3, C1)."""
+    body = 1 if source.startswith("\ufeff") else 0
+    first_break = source.find("\n", body)
+    if first_break < 0:
+        return 0
+    opener = source[body:first_break].rstrip("\r")
+    if opener not in ("---", "+++"):
+        return 0
+    pos = first_break + 1
+    while pos < len(source):
+        nxt = source.find("\n", pos)
+        end = len(source) if nxt < 0 else nxt
+        line = source[pos:end].rstrip("\r")
+        if line == opener or (opener == "---" and line == "..."):
+            return end
+        if nxt < 0:
+            break
+        pos = nxt + 1
+    return 0
+
+
 def _embedded_kind_json_regions(
     source: str, *, exclude_literal_contexts: bool = False
 ) -> list[tuple[int, int, str]]:
@@ -1173,7 +1202,7 @@ def _embedded_kind_json_regions(
     regions: list[tuple[int, int, str]] = []
     excluded = _literal_context_ranges(source) if exclude_literal_contexts else []
     excluded_index = 0
-    start = 0
+    start = _front_matter_end(source)
     while start < len(source):
         while excluded_index < len(excluded) and excluded[excluded_index][1] <= start:
             excluded_index += 1
@@ -1447,20 +1476,28 @@ def _recover_embedded_kind_json_blocks(
 
 
 def detect_table_row(line: str) -> bool:
-    trimmed = normalize_line(line).strip()
-    return trimmed.startswith("|") and "|" in trimmed[1:]
+    return is_pipe_led_row(normalize_line(line))
 
 
 def _is_table_separator(line: str) -> bool:
     trimmed = normalize_line(line).strip()
-    return bool(_TABLE_SEP_RE.match(trimmed))
+    return is_gfm_delimiter_row(trimmed)
+
+
+def detect_table_start(lines: list[str], index: int) -> bool:
+    """A table opens here: a pipe-led row, or a GFM header without edge pipes
+    over its delimiter row (verify-RC-B4 R5-3; twin of the TS ``detectTableStart``)."""
+    return opens_table(lines, index)
 
 
 def extract_table(start_index: int, lines: list[str]) -> ExtractionResult:
     table_lines = [lines[start_index]]
     i = start_index + 1
 
-    while i < len(lines) and detect_table_row(lines[i]):
+    # The delimiter row, then GFM continuation rows (gfm_table_lines).
+    while i < len(lines) and (
+        continues_table(normalize_line(lines[i])) or (i == start_index + 1 and _is_table_separator(lines[i]))
+    ):
         table_lines.append(lines[i])
         i += 1
 
@@ -2036,9 +2073,10 @@ def front_matter_line_count(lines: list[str]) -> int:
     same fence (YAML also ``...``). Nothing inside it is ever a block: an
     ``<artifact>`` in a YAML value must not open a card (RC-B3r R1).
     """
-    if len(lines) < 2 or lines[0] not in ("---", "+++"):
+    # A leading byte-order mark is an encoding mark, not content (C1).
+    opener = lines[0].lstrip("\ufeff") if lines else ""
+    if len(lines) < 2 or opener not in ("---", "+++"):
         return 0
-    opener = lines[0]
     for k in range(1, len(lines)):
         if lines[k] == opener or (opener == "---" and lines[k] == "..."):
             return k + 1
@@ -2272,6 +2310,13 @@ def split_content_into_blocks(md_content: str) -> list[DetectedBlock]:
                 if idx > opener_idx:
                     opener_idx = idx
                     opener_len = len(opener)
+            # Nearest-closer pairing: an opener already closed after it (an
+            # inline `<think>...</think>` span) is not this closer's opener
+            # (TS splitter, RC-B3r round 3, C2).
+            if opener_idx >= 0 and re.search(
+                r"</(?:thinking|think|reasoning)>", current_text[opener_idx + opener_len :]
+            ):
+                opener_idx = -1
             region_text = current_text
             if opener_idx >= 0:
                 prose_before = current_text[:opener_idx]
@@ -2282,8 +2327,9 @@ def split_content_into_blocks(md_content: str) -> list[DetectedBlock]:
                     )
             current_text = ""
 
+            # JS `trim()` also strips U+FEFF (a leading byte-order mark); Python's does not.
             body = "\n".join(
-                x for x in (region_text.strip(), orphan_close["before"]) if x
+                x for x in (region_text.strip().strip("\ufeff").strip(), orphan_close["before"]) if x
             )
             if body:
                 blocks.append(
@@ -2381,7 +2427,7 @@ def split_content_into_blocks(md_content: str) -> list[DetectedBlock]:
             continue
 
         # 5. Table
-        if detect_table_row(line):
+        if detect_table_start(lines, i):
             flush_text()
             extraction = extract_table(i, lines)
             if extraction.metadata.get("isValid") is not False:

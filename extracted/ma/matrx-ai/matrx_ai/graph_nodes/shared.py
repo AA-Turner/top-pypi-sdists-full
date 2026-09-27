@@ -580,6 +580,37 @@ def normalize_completed(completed: CompletedRequest) -> AiExecutionResult:
     if final_response is not None:
         finish_reason = getattr(final_response, "finish_reason", None)
 
+    # A DECISION TURN'S ANSWER IS A PART, NOT TEXT. The assistant message of a
+    # decision agent (native or verbalized) is ONE ``decision_answers`` part
+    # and no text, so every text reader below would report "" and every
+    # workflow step, mandate and MCP caller downstream would see nothing
+    # (2026-09-26: Feedback triage via the shared runner → final_text='',
+    # structured_output=None, content=[]). The part IS the structured output
+    # and the one content instance; final_text is its JSON reading, the same
+    # string ``DecisionAnswersContent.get_output()`` gives every text consumer.
+    from matrx_ai.decisions.result import decision_answers_in
+
+    decision = decision_answers_in(final_response) or decision_answers_in(messages)
+    if decision is not None:
+        import json
+
+        part = decision.to_part()
+        return AiExecutionResult(
+            conversation_id=getattr(request, "conversation_id", "") or "",
+            request_id=getattr(request, "request_id", "") or "",
+            iterations=int(getattr(completed, "iterations", 0) or 0),
+            finish_reason=finish_reason,
+            final_text=final_text or json.dumps(part, ensure_ascii=False),
+            final_message=final_message,
+            messages=messages,
+            usage=usage,
+            duration_ms=duration_ms,
+            tool_calls_made=tool_calls_made,
+            metadata=dict(getattr(completed, "metadata", {}) or {}),
+            structured_output=part,
+            content=[part],
+        )
+
     structured_output = _extract_structured_output(request, final_text)
     return AiExecutionResult(
         conversation_id=getattr(request, "conversation_id", "") or "",

@@ -22,18 +22,36 @@ import os
 import pathlib
 import re
 import shlex
+import shutil
 import subprocess
+import sys
 
 from invoke.context import Context
 from invoke.tasks import task
+
+#: `pty=True` makes invoke allocate a pseudo-terminal, which Windows does not
+#: have: every task using it failed there with "your platform doesn't support
+#: the 'pty' module" (`invoke sync` included, 2026-09-19). Off on Windows only.
+PTY = sys.platform != "win32"
+
 
 _RUST_WORKSPACE_DIR = "crates"
 _RUST_BINDINGS_DIR = "crates/secantus-core-py"
 _RUST_WT_DIR = "crates/secantus-wt"
 _RUST_STORAGE_DIR = "crates/secantus-storage"
 _RUST_ADAPTER_DIR = "crates/secantus-storage-adapter"
+_RUST_PGSERVER_DIR = "crates/secantus-pgserver"
 _RUST_STORAGE_PY_DIR = "crates/secantus-storage-py"
 _RUST_BINARY_DIR = "crates/secantusdb"
+
+# Absolute repo root (this file lives at the repo root). Used by the Windows
+# toolchain probes and the cross-platform WiredTiger build, which need paths
+# that don't depend on the caller's cwd.
+_REPO = pathlib.Path(__file__).resolve().parent
+# The WiredTiger static-lib build the Rust binary/extension link against, built
+# by ``invoke rust-wt-build`` (or on demand by ``rust-binary-build``). Kept under
+# ``build/*/wt-build`` so ``_find_wt_build`` (which globs that) discovers it.
+_RUST_WT_BUILD_DIR = _REPO / "build" / "rust-wt" / "wt-build"
 
 # (No default deselect. The PITR cross-server tests once appeared to be a
 # local-only failure and were deselected; the real cause was a connection-drain
@@ -74,9 +92,122 @@ def _find_wt_build() -> pathlib.Path | None:
     for root in roots:
         d = pathlib.Path(root)
         header = d / "include" / "wiredtiger.h"
-        lib = any((d / f"libwiredtiger{ext}").exists() for ext in (".a", ".dylib", ".so"))
+        # Unix static/shared names plus MSVC's ``wiredtiger.lib`` — the same set
+        # ``secantus-wt``'s build.rs probes, so a Windows WT build is discovered
+        # here too.
+        lib = (
+            any((d / f"libwiredtiger{ext}").exists() for ext in (".a", ".dylib", ".so"))
+            or (d / "wiredtiger.lib").exists()
+        )
         if header.exists() and lib:
             return d
+    return None
+
+
+def _find_vs_install() -> str | None:
+    """Locate the latest Visual Studio install carrying the x64 VC tools (Windows).
+
+    Uses ``vswhere`` (shipped with every VS 2017+ installer) so we find VS
+    wherever it was installed. Returns the installation root, or ``None`` off
+    Windows / when VS with the C++ tools isn't present.
+    """
+    if os.name != "nt":
+        return None
+    pf86 = os.environ.get("PROGRAMFILES(X86)", r"C:\Program Files (x86)")
+    vswhere = pathlib.Path(pf86) / "Microsoft Visual Studio" / "Installer" / "vswhere.exe"
+    if not vswhere.exists():
+        return None
+    out = subprocess.run(
+        [
+            str(vswhere),
+            "-latest",
+            "-products",
+            "*",
+            "-requires",
+            "Microsoft.VisualStudio.Component.VC.Tools.x86.x64",
+            "-property",
+            "installationPath",
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    ).stdout.strip()
+    return out or None
+
+
+_VCVARS_ENV_CACHE: dict[str, str] | None = None
+
+
+def _vcvars_env() -> dict[str, str]:
+    """The environment deltas ``vcvars64.bat`` applies (Windows only).
+
+    Rust's MSVC toolchain locates ``link.exe`` on its own, but bindgen's libclang
+    needs the MSVC + Windows-SDK include dirs, and CMake's Ninja generator needs
+    ``cl.exe`` on ``PATH`` — none of which are present in a plain shell. We invoke
+    ``vcvars64.bat`` once, diff the resulting environment against our own, and
+    return only the keys it added or changed (``PATH`` / ``INCLUDE`` / ``LIB`` /
+    ``LIBPATH`` / ``WindowsSdkDir`` …). Cached: vcvars is slow and invariant for
+    the process. Returns ``{}`` off Windows or when VS isn't found.
+    """
+    global _VCVARS_ENV_CACHE
+    if os.name != "nt":
+        return {}
+    if _VCVARS_ENV_CACHE is not None:
+        return _VCVARS_ENV_CACHE
+    vs = _find_vs_install()
+    vcvars = pathlib.Path(vs) / "VC" / "Auxiliary" / "Build" / "vcvars64.bat" if vs else None
+    if not (vcvars and vcvars.exists()):
+        _VCVARS_ENV_CACHE = {}
+        return _VCVARS_ENV_CACHE
+    # `call vcvars && set` dumps the post-vcvars environment; parse KEY=VALUE.
+    # shell=True (a string, not a list) is deliberate: cmd's quoting rules mangle
+    # the space-laden vcvars path when subprocess builds the command line from a
+    # list, and a leading `call` (not `"`) dodges cmd's strip-the-outer-quotes
+    # rule. No `>nul` redirect — it made cmd exit 1 with no output here; vcvars'
+    # banner lines have no `KEY=VALUE` shape, so they filter out harmlessly.
+    out = subprocess.run(
+        f'call "{vcvars}" && set',
+        capture_output=True,
+        text=True,
+        shell=True,
+        check=False,
+    ).stdout
+    base = {k.upper(): v for k, v in os.environ.items()}
+    delta: dict[str, str] = {}
+    for line in out.splitlines():
+        key, sep, val = line.partition("=")
+        # A real env var name has no spaces; this drops vcvars' banner lines.
+        if sep and key and " " not in key and base.get(key.upper()) != val:
+            delta[key] = val
+    _VCVARS_ENV_CACHE = delta
+    return delta
+
+
+def _libclang_dir() -> str | None:
+    """A directory containing libclang for bindgen, or ``None``.
+
+    Honours ``LIBCLANG_PATH`` first. Otherwise probes, per OS: on Windows a choco
+    LLVM install and the ``libclang`` PyPI wheel bundled in the project venv
+    (``uv pip install libclang`` — no admin needed); on macOS/Linux the Xcode CLT
+    and a common LLVM path.
+    """
+    if os.environ.get("LIBCLANG_PATH"):
+        return os.environ["LIBCLANG_PATH"]
+    if os.name == "nt":
+        candidates = [
+            pathlib.Path(r"C:\Program Files\LLVM\bin"),
+            _REPO / ".venv" / "Lib" / "site-packages" / "clang" / "native",
+        ]
+        for d in candidates:
+            if (d / "libclang.dll").exists():
+                return str(d)
+        return None
+    for cand in (
+        "/Library/Developer/CommandLineTools/usr/lib",  # macOS / Xcode CLT
+        "/usr/lib/llvm-14/lib",  # common Linux
+    ):
+        if pathlib.Path(cand).exists():
+            return cand
     return None
 
 
@@ -94,30 +225,220 @@ def _rust_env() -> dict[str, str]:
     ``WT_BUILD_DIR`` is *not* read by it), so we resolve a complete WT build via
     ``_find_wt_build`` and export those two — which is what makes ``./inv
     rust-*`` build inside a git worktree (it reuses the main checkout's WT).
+
+    On Windows it also folds in the MSVC environment (``_vcvars_env``) so bindgen
+    and CMake's Ninja build find the compiler + SDK headers without the caller
+    opening a Developer Command Prompt.
     """
     env: dict[str, str] = {}
+    if os.name == "nt":
+        env.update(_vcvars_env())
     if not (os.environ.get("SECANTUS_WT_INCLUDE") and os.environ.get("SECANTUS_WT_LIB")):
         wt = _find_wt_build()
         if wt is not None:
             env["SECANTUS_WT_INCLUDE"] = str(wt / "include")
             env["SECANTUS_WT_LIB"] = str(wt)
     if not os.environ.get("LIBCLANG_PATH"):
-        for cand in (
-            "/Library/Developer/CommandLineTools/usr/lib",  # macOS / Xcode CLT
-            "/usr/lib/llvm-14/lib",  # common Linux
-        ):
-            if pathlib.Path(cand).exists():
-                env["LIBCLANG_PATH"] = cand
-                break
+        lc = _libclang_dir()
+        if lc:
+            env["LIBCLANG_PATH"] = lc
     return env
+
+
+def _find_cmake() -> str | None:
+    """A ``cmake`` executable: ``PATH`` first, else the VS-bundled one on Windows."""
+    found = shutil.which("cmake")
+    if found:
+        return found
+    vs = _find_vs_install()
+    if vs:
+        p = pathlib.Path(vs) / "Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/bin/cmake.exe"
+        if p.exists():
+            return str(p)
+    return None
+
+
+def _find_ninja() -> str | None:
+    """A ``ninja`` executable: ``PATH`` first, else the VS-bundled one on Windows."""
+    found = shutil.which("ninja")
+    if found:
+        return found
+    vs = _find_vs_install()
+    if vs:
+        p = pathlib.Path(vs) / "Common7/IDE/CommonExtensions/Microsoft/CMake/Ninja/ninja.exe"
+        if p.exists():
+            return str(p)
+    return None
+
+
+def _find_swig() -> str | None:
+    """A ``swig`` executable, or ``None``. PATH first, else the `swig` PyPI wheel
+    in the project venv.
+
+    Only the storage-engine wheel build needs it (WiredTiger's Python bindings go
+    through SWIG). WiredTiger 7.0's typemaps still reference the Python-2 C API
+    (``PyInt_FromLong`` / ``PyString_InternFromString``), whose Py3 compatibility
+    shims SWIG **removed in 4.3** — so a working build needs SWIG < 4.3, which the
+    `rust` extra pins on Windows (``uv sync --extra rust``).
+    """
+    found = shutil.which("swig")
+    if found:
+        return found
+    cand = _REPO / ".venv" / "Scripts" / "swig.exe"
+    return str(cand) if cand.exists() else None
+
+
+def _storage_engine_build_env() -> dict[str, str]:
+    """Environment for the ``SECANTUS_BUILD_STORAGE_ENGINE=ON`` build (wheel / sync).
+
+    Extends ``_rust_env`` (WiredTiger + libclang, plus the MSVC env on Windows)
+    with the CMake flag that bundles the Rust storage engine, embedded server and
+    ``secantusd-rs`` binary. On Windows it also puts ``swig`` + ``ninja`` on
+    ``PATH``: the inner WiredTiger ExternalProject uses the Ninja generator with
+    ``ENABLE_PYTHON=ON`` (→ SWIG), and both are resolved from the ambient PATH —
+    without ninja there, scikit-build-core falls back to the MSBuild generator and
+    the inner Ninja build can't find the compiler.
+    """
+    env = _rust_env()
+    env["SKBUILD_CMAKE_DEFINE"] = "SECANTUS_BUILD_STORAGE_ENGINE=ON"
+    if os.name == "nt":
+        swig = _find_swig()
+        if not swig:
+            raise SystemExit(
+                "swig not found — the storage-engine build compiles WiredTiger's "
+                "Python bindings with it. Install SWIG < 4.3 (newer SWIG dropped "
+                "the Python-2 compatibility shims WiredTiger 7.0's typemaps rely "
+                "on):\n  uv sync --extra rust   (installs swig<4.3 + libclang)"
+            )
+        ninja = _find_ninja()
+        if not ninja:
+            raise SystemExit(
+                "ninja not found. Install Ninja, or the VS 'C++ CMake tools' component."
+            )
+        # Prepend the tool dirs to the MSVC PATH `_rust_env` already resolved
+        # (falling back to the ambient PATH). de-dup, order-preserving.
+        base_path = env.get("PATH") or os.environ.get("PATH", "")
+        tool_dirs = list(dict.fromkeys(str(pathlib.Path(p).parent) for p in (swig, ninja)))
+        env["PATH"] = os.pathsep.join([*tool_dirs, base_path])
+    return env
+
+
+def _build_wiredtiger(*, force: bool = False) -> pathlib.Path:
+    """Build the vendored WiredTiger static lib the Rust crates link (cross-platform).
+
+    A lean, no-SWIG build (``ENABLE_PYTHON=OFF``) straight from
+    ``vendor/wiredtiger`` into ``_RUST_WT_BUILD_DIR`` — enough for the standalone
+    ``secantusd-rs`` binary, unlike the wheel's ``CMakeLists.txt`` path which also
+    builds WT's Python bindings (and so needs SWIG). CMake writes only to the
+    binary dir, so the submodule stays clean. Idempotent: returns immediately if
+    the lib + generated header already exist (pass ``force=True`` to rebuild).
+
+    On Windows the compile runs under the MSVC environment (via ``_rust_env`` →
+    ``_vcvars_env``) with the VS-bundled CMake/Ninja, so no Developer Command
+    Prompt or admin is required beyond having the C++ tools + Windows SDK.
+    """
+    build_dir = _RUST_WT_BUILD_DIR
+    src = _REPO / "vendor" / "wiredtiger"
+    static_lib = build_dir / ("wiredtiger.lib" if os.name == "nt" else "libwiredtiger.a")
+    header = build_dir / "include" / "wiredtiger.h"
+    if static_lib.exists() and header.exists() and not force:
+        print(f"WiredTiger already built: {static_lib}")
+        return build_dir
+
+    if not (src / "CMakeLists.txt").exists():
+        raise SystemExit(
+            "vendor/wiredtiger is not checked out. Run:\n"
+            "  git submodule update --init --depth 1 vendor/wiredtiger"
+        )
+    cmake = _find_cmake()
+    if not cmake:
+        raise SystemExit(
+            "cmake not found. Install CMake, or on Windows the Visual Studio "
+            "'C++ CMake tools for Windows' component."
+        )
+    ninja = _find_ninja()
+    env = {**os.environ, **_rust_env()}
+    if os.name == "nt" and not env.get("INCLUDE"):
+        raise SystemExit(
+            "MSVC toolchain not found. Install Visual Studio (or Build Tools) with "
+            "the 'Desktop development with C++' workload — it provides the VC "
+            "compiler and the Windows SDK that native linking needs."
+        )
+
+    # Compressor flags mirror CMakeLists.txt's WT_ZLIB_ARG: on non-Windows WT is
+    # built with the builtin zlib + lz4 block-compressor extensions (which
+    # secantus-storage's table configs select), so libz / liblz4 must be present
+    # at build time (CI installs liblz4-dev). Windows omits them, matching the
+    # storage layer's Windows path.
+    if os.name == "nt":
+        zlib_args: list[str] = []
+    else:
+        zlib_args = [
+            "-DENABLE_ZLIB=OFF",
+            "-DHAVE_BUILTIN_EXTENSION_ZLIB=ON",
+            "-DENABLE_LZ4=OFF",
+            "-DHAVE_BUILTIN_EXTENSION_LZ4=ON",
+        ]
+
+    configure = [
+        cmake,
+        "-S",
+        str(src),
+        "-B",
+        str(build_dir),
+        "-DCMAKE_BUILD_TYPE=Release",
+        "-DENABLE_STATIC=ON",
+        "-DENABLE_SHARED=OFF",
+        "-DENABLE_PYTHON=OFF",
+        "-DENABLE_CPPSUITE=OFF",
+        "-DCMAKE_POSITION_INDEPENDENT_CODE=ON",
+        "-DWITH_PIC=ON",
+        "-DHAVE_DIAGNOSTIC=OFF",
+        *zlib_args,
+    ]
+    if ninja:
+        configure += ["-G", "Ninja", f"-DCMAKE_MAKE_PROGRAM={ninja}"]
+    elif os.name == "nt":
+        raise SystemExit("ninja not found. Install Ninja, or the VS 'C++ CMake tools' component.")
+
+    print(f"Configuring WiredTiger -> {build_dir}")
+    subprocess.run(configure, env=env, check=True)
+    print("Building wiredtiger_static ...")
+    subprocess.run(
+        [cmake, "--build", str(build_dir), "--target", "wiredtiger_static"],
+        env=env,
+        check=True,
+    )
+    if not (static_lib.exists() and header.exists()):
+        raise SystemExit(
+            f"WiredTiger build completed but expected outputs are missing:\n"
+            f"  {static_lib}\n  {header}"
+        )
+    print(f"WiredTiger built: {static_lib}")
+    return build_dir
 
 
 @task(name="rust-test")
 def rust_test(c: Context) -> None:
-    """cargo fmt --check, clippy (warnings-as-errors), unit tests (whole workspace)."""
-    c.run(f"cd {_RUST_WORKSPACE_DIR} && cargo fmt --check", pty=True)
-    c.run(f"cd {_RUST_WORKSPACE_DIR} && cargo clippy --all-targets -- -D warnings", pty=True)
-    c.run(f"cd {_RUST_WORKSPACE_DIR} && cargo test", pty=True)
+    """fmt/clippy/test the CLEAN workspace only — NOT the WiredTiger crates.
+
+    "Whole workspace" is exactly what this is not, and reading it that way
+    costs real time. ``crates/Cargo.toml`` **excludes** six crates because they
+    link WiredTiger: ``secantus-wt``, ``secantus-storage``,
+    ``secantus-storage-py``, ``secantus-storage-adapter``,
+    ``secantus-server-py`` and ``secantusdb``. That is the entire storage layer
+    and the shipped binary. Cargo does not warn about an excluded crate, so this
+    task reports success having never compiled them — a storage change can fail
+    to build while this is green.
+
+    For Rust-server work run ``./inv rust-gate`` (CLAUDE.md says so), which adds
+    the WiredTiger-linked crates. To gate one of them by hand, run cargo from
+    its own directory with ``SECANTUS_WT_INCLUDE`` / ``SECANTUS_WT_LIB`` set —
+    see ``_rust_env``.
+    """
+    c.run(f"cd {_RUST_WORKSPACE_DIR} && cargo fmt --check", pty=PTY)
+    c.run(f"cd {_RUST_WORKSPACE_DIR} && cargo clippy --all-targets -- -D warnings", pty=PTY)
+    c.run(f"cd {_RUST_WORKSPACE_DIR} && cargo test", pty=PTY)
 
 
 @task(name="rust-build")
@@ -125,7 +446,7 @@ def rust_build(c: Context) -> None:
     """Build the abi3 wheel for the Rust core into target/wheels/."""
     c.run(
         f"cd {_RUST_BINDINGS_DIR} && uv tool run maturin build --release",
-        pty=True,
+        pty=PTY,
         env={"VIRTUAL_ENV": ""},
     )
 
@@ -145,7 +466,7 @@ def rust_parity(c: Context) -> None:
     """
     c.run(
         f"cd {_RUST_BINDINGS_DIR} && uv tool run maturin build --release --out dist",
-        pty=True,
+        pty=PTY,
     )
     wheels = sorted(glob.glob(f"{_RUST_BINDINGS_DIR}/dist/*.whl"))
     if not wheels:
@@ -163,7 +484,7 @@ def rust_parity(c: Context) -> None:
         "tests/test_rust_aggregate_parity.py "
         "tests/test_rust_group_field_pushdown.py "
         "-o addopts= -p no:cacheprovider -q",
-        pty=True,
+        pty=PTY,
     )
 
 
@@ -177,9 +498,9 @@ def rust_wt_test(c: Context) -> None:
     fills in the conventional values when unset).
     """
     env = _rust_env()
-    c.run(f"cd {_RUST_WT_DIR} && cargo fmt --check", pty=True, env=env)
-    c.run(f"cd {_RUST_WT_DIR} && cargo clippy --all-targets -- -D warnings", pty=True, env=env)
-    c.run(f"cd {_RUST_WT_DIR} && cargo test", pty=True, env=env)
+    c.run(f"cd {_RUST_WT_DIR} && cargo fmt --check", pty=PTY, env=env)
+    c.run(f"cd {_RUST_WT_DIR} && cargo clippy --all-targets -- -D warnings", pty=PTY, env=env)
+    c.run(f"cd {_RUST_WT_DIR} && cargo test", pty=PTY, env=env)
 
 
 @task(name="rust-storage-test")
@@ -190,9 +511,9 @@ def rust_storage_test(c: Context) -> None:
     WiredTiger transitively through secantus-wt).
     """
     env = _rust_env()
-    c.run(f"cd {_RUST_STORAGE_DIR} && cargo fmt --check", pty=True, env=env)
-    c.run(f"cd {_RUST_STORAGE_DIR} && cargo clippy --all-targets -- -D warnings", pty=True, env=env)
-    c.run(f"cd {_RUST_STORAGE_DIR} && cargo test", pty=True, env=env)
+    c.run(f"cd {_RUST_STORAGE_DIR} && cargo fmt --check", pty=PTY, env=env)
+    c.run(f"cd {_RUST_STORAGE_DIR} && cargo clippy --all-targets -- -D warnings", pty=PTY, env=env)
+    c.run(f"cd {_RUST_STORAGE_DIR} && cargo test", pty=PTY, env=env)
 
 
 @task(name="rust-adapter-test")
@@ -204,9 +525,45 @@ def rust_adapter_test(c: Context) -> None:
     changes. Same WiredTiger / libclang prerequisites as ``rust-wt-test``.
     """
     env = _rust_env()
-    c.run(f"cd {_RUST_ADAPTER_DIR} && cargo fmt --check", pty=True, env=env)
-    c.run(f"cd {_RUST_ADAPTER_DIR} && cargo clippy --all-targets -- -D warnings", pty=True, env=env)
-    c.run(f"cd {_RUST_ADAPTER_DIR} && cargo test", pty=True, env=env)
+    c.run(f"cd {_RUST_ADAPTER_DIR} && cargo fmt --check", pty=PTY, env=env)
+    c.run(f"cd {_RUST_ADAPTER_DIR} && cargo clippy --all-targets -- -D warnings", pty=PTY, env=env)
+    c.run(f"cd {_RUST_ADAPTER_DIR} && cargo test", pty=PTY, env=env)
+
+
+@task(name="rust-pgserver-test")
+def rust_pgserver_test(c: Context) -> None:
+    """fmt/clippy/test the secantus-pgserver crate (the PostgreSQL server).
+
+    Excluded from the clean workspace (links WiredTiger through
+    secantus-storage), so the clean-workspace ``rust-test`` NEVER covers it and
+    Cargo does not warn about that. Run this after any change under
+    ``crates/secantus-pgserver``. Same WiredTiger / libclang prerequisites as
+    ``rust-wt-test``.
+
+    The pure-Rust halves (``secantus-pgcatalog`` / ``secantus-pgplan``) ARE in
+    the clean workspace and are covered by ``rust-test``.
+    """
+    env = _rust_env()
+    c.run(f"cd {_RUST_PGSERVER_DIR} && cargo fmt --check", pty=PTY, env=env)
+    c.run(
+        f"cd {_RUST_PGSERVER_DIR} && cargo clippy --all-targets -- -D warnings",
+        pty=PTY,
+        env=env,
+    )
+    c.run(f"cd {_RUST_PGSERVER_DIR} && cargo test", pty=PTY, env=env)
+
+
+@task(name="rust-pgserver-build")
+def rust_pgserver_build(c: Context, release: bool = False) -> None:
+    """Build the standalone ``secantusd-pg`` binary.
+
+    ``tests/test_rust_pgserver_slice.py`` SKIPS unless this has been run — a
+    green pytest run proves nothing about the PostgreSQL server until the binary
+    exists, so check the skip count, not just the exit code.
+    """
+    env = _rust_env()
+    flag = " --release" if release else ""
+    c.run(f"cd {_RUST_PGSERVER_DIR} && cargo build{flag}", pty=PTY, env=env)
 
 
 @task(name="rust-test-one")
@@ -238,7 +595,7 @@ def rust_test_one(
         cmd += f" {shlex.quote(name)}"
     if nocapture:
         cmd += " -- --nocapture"
-    c.run(cmd, pty=True, env=_rust_env())
+    c.run(cmd, pty=PTY, env=_rust_env())
 
 
 @task(name="rust-fmt")
@@ -251,9 +608,9 @@ def rust_fmt(c: Context) -> None:
     prerequisites as ``rust-wt-test`` (auto-filled).
     """
     env = _rust_env()
-    c.run(f"cd {_RUST_WORKSPACE_DIR} && cargo fmt", pty=True, env=env)
+    c.run(f"cd {_RUST_WORKSPACE_DIR} && cargo fmt", pty=PTY, env=env)
     for d in (_RUST_WT_DIR, _RUST_STORAGE_DIR, _RUST_ADAPTER_DIR):
-        c.run(f"cd {d} && cargo fmt", pty=True, env=env)
+        c.run(f"cd {d} && cargo fmt", pty=PTY, env=env)
 
 
 @task(name="rust-storage-py")
@@ -267,7 +624,7 @@ def rust_storage_py(c: Context) -> None:
     """
     c.run(
         f"cd {_RUST_STORAGE_PY_DIR} && uv tool run maturin build --release --out dist",
-        pty=True,
+        pty=PTY,
         env=_rust_env(),
     )
     wheels = sorted(glob.glob(f"{_RUST_STORAGE_PY_DIR}/dist/*.whl"))
@@ -278,25 +635,44 @@ def rust_storage_py(c: Context) -> None:
         f"--with pymongo --with pytest --with {shlex.quote(wheels[-1])} "
         "python -m pytest tests/test_rust_storage_smoke.py "
         "-o addopts= -p no:cacheprovider -q",
-        pty=True,
+        pty=PTY,
     )
+
+
+@task(name="rust-wt-build")
+def rust_wt_build(c: Context, force: bool = False) -> None:
+    """Build the vendored WiredTiger static lib the Rust crates link (cross-platform).
+
+    Runs on Linux, macOS and Windows: a lean ``ENABLE_PYTHON=OFF`` build (no SWIG)
+    from ``vendor/wiredtiger`` into ``build/rust-wt/wt-build``, discovered
+    thereafter by ``_find_wt_build`` / ``_rust_env``. On Windows it uses the
+    VS-bundled CMake + Ninja under the auto-detected MSVC environment — no
+    Developer Command Prompt needed. ``--force`` rebuilds even if already present.
+
+    Prerequisites: a C toolchain (Linux/macOS: cc + CMake + Ninja + liblz4-dev;
+    Windows: Visual Studio 'Desktop development with C++' — VC tools + Windows
+    SDK — which bundles CMake + Ninja). Idempotent; safe to call before every
+    Rust binary/extension build.
+    """
+    _build_wiredtiger(force=force)
 
 
 @task(name="rust-binary-test")
 def rust_binary_test(c: Context) -> None:
     """Build the standalone ``secantusdb`` binary and run its smoke test.
 
-    Builds the WiredTiger-linking bin crate, then launches it from
-    tests/test_rust_binary_smoke.py (ephemeral port, pymongo round-trip,
-    clean SIGTERM exit) in an isolated interpreter. Same WiredTiger /
-    libclang prerequisites as ``rust-wt-test``.
+    Builds WiredTiger if needed (``rust-wt-build``), then the WiredTiger-linking
+    bin crate, then launches it from tests/test_rust_binary_smoke.py (ephemeral
+    port, pymongo round-trip, clean SIGTERM exit) in an isolated interpreter.
+    Same WiredTiger / libclang prerequisites as ``rust-wt-test``.
     """
-    c.run(f"cd {_RUST_BINARY_DIR} && cargo build", pty=True, env=_rust_env())
+    _build_wiredtiger()
+    c.run(f"cd {_RUST_BINARY_DIR} && cargo build", pty=os.name != "nt", env=_rust_env())
     c.run(
         "uv run --no-project --with pymongo --with pytest "
         "python -m pytest tests/test_rust_binary_smoke.py "
         "-o addopts= -p no:cacheprovider -q",
-        pty=True,
+        pty=os.name != "nt",
     )
 
 
@@ -305,13 +681,17 @@ def rust_binary_build(c: Context, release: bool = False) -> None:
     """Build the standalone ``secantusdb`` binary (no smoke test) and print its path.
 
     The fast inner-loop build for the ten non-pymongo driver gauges, which run
-    against the daemon binary. ``--release`` for an optimised build. WiredTiger /
-    libclang prerequisites as ``rust-wt-test`` (auto-filled when unset).
+    against the daemon binary. Builds WiredTiger first if needed
+    (``rust-wt-build``) — which is what makes this work out-of-the-box on Windows.
+    ``--release`` for an optimised build. WiredTiger / libclang prerequisites are
+    auto-filled when unset (see ``_rust_env`` / ``_build_wiredtiger``).
     """
+    _build_wiredtiger()
     flag = " --release" if release else ""
-    c.run(f"cd {_RUST_BINARY_DIR} && cargo build{flag}", pty=True, env=_rust_env())
+    c.run(f"cd {_RUST_BINARY_DIR} && cargo build{flag}", pty=os.name != "nt", env=_rust_env())
     sub = "release" if release else "debug"
-    print(f"binary: {_RUST_BINARY_DIR}/target/{sub}/secantusd-rs")
+    ext = ".exe" if os.name == "nt" else ""
+    print(f"binary: {_RUST_BINARY_DIR}/target/{sub}/secantusd-rs{ext}")
 
 
 @task(name="rust-server-build")
@@ -330,13 +710,35 @@ def rust_server_build(c: Context) -> None:
     website publish) and ``secantus-core`` (making the parity suite skip) for
     anyone who also had the sql / rust / website extras installed. ``--inexact``
     leaves extraneous packages alone so the rebuild is purely additive.
+
+    Cross-platform: the CMake flag is passed via the environment (not an inline
+    ``VAR=val`` shell prefix, which only works in a POSIX shell), and Windows
+    needs swig<4.3 + libclang on top of the MSVC toolchain — see
+    ``_storage_engine_build_env`` and the ``rust`` extra (``uv sync --extra rust``).
     """
     c.run(
-        "SKBUILD_CMAKE_DEFINE=SECANTUS_BUILD_STORAGE_ENGINE=ON "
         "uv sync --inexact --extra dev --extra admin --reinstall-package secantusdb",
-        pty=True,
-        env=_rust_env(),
+        pty=os.name != "nt",
+        env=_storage_engine_build_env(),
     )
+
+
+@task(name="rust-wheel-build")
+def rust_wheel_build(c: Context, out: str = "dist-storage") -> None:
+    """Build the full ``secantus`` wheel with the Rust storage engine bundled.
+
+    The ``SECANTUS_BUILD_STORAGE_ENGINE=ON`` wheel build (cross-platform): the
+    produced wheel ships ``_secantus_storage``, the embedded ``_secantus_server``
+    and the ``secantusd-rs`` binary alongside WiredTiger's Python bindings — the
+    same artifact the ``storage-engine`` CI job builds. Unlike ``rust-server-build``
+    (which installs editable into the project venv), this emits a distributable
+    ``.whl`` into ``--out`` (default ``dist-storage/``).
+
+    Prerequisites as ``rust-server-build``; on Windows: Visual Studio C++ tools +
+    Windows SDK, plus swig<4.3 + libclang (``uv sync --extra rust``).
+    """
+    c.run(f"uv build --wheel --out-dir {out}", pty=os.name != "nt", env=_storage_engine_build_env())
+    print(f"wheel written to {out}/")
 
 
 def _llvm_profdata() -> str:
@@ -351,9 +753,7 @@ def _llvm_profdata() -> str:
     found = which("llvm-profdata")
     if found:
         return found
-    raise SystemExit(
-        "llvm-profdata not found — run: rustup component add llvm-tools-preview"
-    )
+    raise SystemExit("llvm-profdata not found — run: rustup component add llvm-tools-preview")
 
 
 @task(name="rust-pgo-refresh")
@@ -390,7 +790,7 @@ def rust_pgo_refresh(c: Context) -> None:
         c.run(
             "SKBUILD_CMAKE_DEFINE=SECANTUS_BUILD_STORAGE_ENGINE=ON "
             "uv sync --inexact --extra dev --extra admin --reinstall-package secantusdb",
-            pty=True,
+            pty=PTY,
             env=env1,
         )
 
@@ -399,21 +799,18 @@ def rust_pgo_refresh(c: Context) -> None:
         env2["LLVM_PROFILE_FILE"] = str(prof_dir / "pgo-%p-%m.profraw")
         c.run(
             "uv run --no-sync python -m bench.compare_servers --n 10000 --reps 5 --no-mongod",
-            pty=True,
+            pty=PTY,
             env=env2,
         )
 
         raws = glob.glob(str(prof_dir / "*.profraw"))
         if not raws:
-            raise SystemExit(
-                "PGO: no .profraw produced — the instrumented build may not have run."
-            )
+            raise SystemExit("PGO: no .profraw produced — the instrumented build may not have run.")
         merged = prof_dir / "merged.profdata"
         print(f"=== PGO: merging {len(raws)} profraw → sparse profdata ===")
         c.run(
             f"{shlex.quote(profdata_tool)} merge --sparse "
-            f"-o {shlex.quote(str(merged))} "
-            + " ".join(shlex.quote(r) for r in raws)
+            f"-o {shlex.quote(str(merged))} " + " ".join(shlex.quote(r) for r in raws)
         )
         with tarfile.open(committed, "w:gz") as tf:
             tf.add(merged, arcname="_secantus_server.profdata")
@@ -442,7 +839,7 @@ def rust_stress(c: Context, workers: int = 16, iters: int = 5) -> None:
     """
     c.run(
         f"uv run --no-sync python -m bench.wt_stress --workers {int(workers)} --iters {int(iters)}",
-        pty=True,
+        pty=PTY,
         env=_rust_env(),
     )
 
@@ -502,6 +899,11 @@ def rust_gate(c: Context, pytest: bool = True, deselect: str = "") -> None:
     leaf-engine parity suites (``rust-parity``); and — unless ``--no-pytest`` —
     the full Python suite. This is the sequence that must be green before
     committing Rust work; previously assembled by hand every time.
+
+    **Still not covered here**, because each needs its own build: the two PyO3
+    WiredTiger crates (``rust-storage-py``, and the embedded handle built by
+    ``rust-server-build``) and the standalone binary (``rust-binary-test``). If
+    you touched those, run their tasks too — nothing else will.
     """
     steps = 8 if pytest else 7
     # ``==> [k/N] label`` phase markers: drive the Ops Board progress stepper
@@ -514,6 +916,8 @@ def rust_gate(c: Context, pytest: bool = True, deselect: str = "") -> None:
     rust_storage_test(c)
     print(f"==> [4/{steps}] adapter crate", flush=True)
     rust_adapter_test(c)
+    print(f"==> [4b/{steps}] pgserver crate", flush=True)
+    rust_pgserver_test(c)
     print(f"==> [5/{steps}] parity", flush=True)
     rust_parity(c)
     # Python lint + format — the parity suites are Python, but the cargo
@@ -521,15 +925,15 @@ def rust_gate(c: Context, pytest: bool = True, deselect: str = "") -> None:
     # test (e.g. a too-long line) would pass the gate and red CI. Mirror CI's
     # `Lint` / `Format check` steps so it's caught before push.
     print(f"==> [6/{steps}] ruff check", flush=True)
-    c.run("uv run ruff check src tests", pty=True)
+    c.run("uv run ruff check src tests", pty=PTY)
     print(f"==> [7/{steps}] ruff format", flush=True)
-    c.run("uv run ruff format --check src tests", pty=True)
+    c.run("uv run ruff format --check src tests", pty=PTY)
     if pytest:
         print(f"==> [8/{steps}] pytest", flush=True)
         cmd = "uv run --no-sync --extra dev --extra admin python -m pytest -q"
         for nodeid in (d for d in deselect.split(",") if d.strip()):
             cmd += f" --deselect {shlex.quote(nodeid.strip())}"
-        c.run(cmd, pty=True, env=_rust_env())
+        c.run(cmd, pty=PTY, env=_rust_env())
 
 
 @task(
@@ -565,11 +969,11 @@ def rust_ship(
         "':(exclude)vendor' "
         "':(exclude)secantus-data' "
         "':(exclude,glob)docs/validation-report-*-rust-server.md'",
-        pty=True,
+        pty=PTY,
     )
-    c.run(f"git commit -m {shlex.quote(message)}", pty=True)
+    c.run(f"git commit -m {shlex.quote(message)}", pty=PTY)
     if push:
-        c.run("git push origin HEAD:main", pty=True)
+        c.run("git push origin HEAD:main", pty=PTY)
 
 
 # --- Canonical repro + PR-lifecycle tasks ---------------------------------
@@ -595,16 +999,16 @@ def rust_repro(c: Context, script: str, release: bool = True) -> None:
     editor, then ``./inv rust-repro <script>`` — no bespoke ``uv run python …``."""
     sub = "release" if release else "debug"
     flag = " --release" if release else ""
-    c.run(f"cd {_RUST_BINARY_DIR} && cargo build{flag}", pty=True, env=_rust_env())
+    c.run(f"cd {_RUST_BINARY_DIR} && cargo build{flag}", pty=PTY, env=_rust_env())
     binpath = f"{_RUST_BINARY_DIR}/target/{sub}/secantusd-rs"
-    c.run(f"uv run python {shlex.quote(script)} --binary {binpath}", pty=True, env=_rust_env())
+    c.run(f"uv run python {shlex.quote(script)} --binary {binpath}", pty=PTY, env=_rust_env())
 
 
 @task(name="gh-watch", help={"pr": "PR number"})
 def gh_watch(c: Context, pr: str) -> None:
     """Watch a PR's CI checks to completion, then print the final states."""
-    c.run(f"gh pr checks {shlex.quote(str(pr))} --watch --interval 30", pty=True, warn=True)
-    c.run(f"gh pr checks {shlex.quote(str(pr))}", pty=True, warn=True)
+    c.run(f"gh pr checks {shlex.quote(str(pr))} --watch --interval 30", pty=PTY, warn=True)
+    c.run(f"gh pr checks {shlex.quote(str(pr))}", pty=PTY, warn=True)
 
 
 @task(
@@ -615,11 +1019,11 @@ def gh_merge(c: Context, pr: str, sync_branch: str = "rust-tasks") -> None:
     """Squash-merge a PR (keeping the remote branch), then fast-sync the local
     working branch to the new ``origin/main``. Replaces the bespoke
     ``gh pr merge … ; git fetch ; git checkout ; git reset --hard`` sequence."""
-    c.run(f"gh pr merge {shlex.quote(str(pr))} --squash --delete-branch=false", pty=True)
-    c.run("git fetch origin -q", pty=True)
-    c.run(f"git checkout {shlex.quote(sync_branch)}", pty=True, warn=True)
-    c.run("git reset --hard origin/main", pty=True)
-    c.run("git log --oneline -2", pty=True)
+    c.run(f"gh pr merge {shlex.quote(str(pr))} --squash --delete-branch=false", pty=PTY)
+    c.run("git fetch origin -q", pty=PTY)
+    c.run(f"git checkout {shlex.quote(sync_branch)}", pty=PTY, warn=True)
+    c.run("git reset --hard origin/main", pty=PTY)
+    c.run("git log --oneline -2", pty=PTY)
 
 
 @task(
@@ -652,20 +1056,20 @@ def gh_ship(
     sibling test/backlog changes)."""
     title = pathlib.Path(msg_file).read_text().splitlines()[0]
     if paths:
-        c.run(f"git add {paths}", pty=True)
+        c.run(f"git add {paths}", pty=PTY)
     else:
         c.run(
             "git add -A -- . "
             "':(exclude)vendor' "
             "':(exclude)secantus-data' "
             "':(exclude,glob)docs/validation-report-*-rust-server.md'",
-            pty=True,
+            pty=PTY,
         )
-    c.run(f"git commit -F {shlex.quote(msg_file)}", pty=True)
-    c.run(f"git push -u origin {shlex.quote(branch)}", pty=True)
+    c.run(f"git commit -F {shlex.quote(msg_file)}", pty=PTY)
+    c.run(f"git push -u origin {shlex.quote(branch)}", pty=PTY)
     if pathlib.Path(body_file).exists():
         c.run(
             f"gh pr create --base {shlex.quote(base)} --head {shlex.quote(branch)} "
             f"--title {shlex.quote(title)} --body-file {shlex.quote(body_file)}",
-            pty=True,
+            pty=PTY,
         )

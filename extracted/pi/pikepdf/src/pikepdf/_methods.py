@@ -53,7 +53,12 @@ from pikepdf._core import (
     _ObjectMapping,
 )
 from pikepdf._exceptions import PageCopyWarning
-from pikepdf._io import atomic_overwrite, check_different_files, check_stream_is_usable
+from pikepdf._io import (
+    atomic_overwrite,
+    check_different_files,
+    check_stream_is_not_input,
+    check_stream_is_usable,
+)
 from pikepdf.models import Encryption, EncryptionInfo, Outline, Permissions
 from pikepdf.models.metadata import PdfMetadata, decode_pdf_date, encode_pdf_date
 from pikepdf.objects import Array, Dictionary, Name, Object, Stream
@@ -64,7 +69,6 @@ from pikepdf.objects import Array, Dictionary, Name, Object, Stream
 __all__ = []
 
 Numeric = TypeVar('Numeric', int, float, Decimal)
-T = TypeVar('T')
 
 
 def _single_page_pdf(page: Page) -> bytes:
@@ -129,16 +133,23 @@ class Extend_Object:
             del self[k]  # pylint: disable=unsupported-delete-operation
 
     def _type_check_write(self, filter_, decode_parms):
+        # A native Python value (int, str, dict...) cannot be a filter or its
+        # parameters; wrap it in a plain list so the checks below reject it.
         if isinstance(filter_, list):
             filter_ = Array(filter_)
-        filter_ = filter_.wrap_in_array()
+        elif isinstance(filter_, Object):
+            filter_ = filter_.wrap_in_array()
+        else:
+            filter_ = [filter_]
 
         if isinstance(decode_parms, list):
             decode_parms = Array(decode_parms)
         elif decode_parms is None:
             decode_parms = Array([])
-        else:
+        elif isinstance(decode_parms, Object):
             decode_parms = decode_parms.wrap_in_array()
+        else:
+            decode_parms = [decode_parms]
 
         if not all(isinstance(item, Name) for item in filter_):
             raise TypeError(
@@ -182,15 +193,6 @@ class Extend_Object:
 class Extend_Pdf:
     @contextmanager
     def lock(self):
-        """Context manager to hold the per-Pdf lock for compound operations.
-
-        Under free-threaded Python, individual C++ method calls are
-        automatically serialized, but multi-step Python operations (e.g.
-        read-modify-write on the same dictionary) are not atomic.  Wrap
-        such sequences in ``with pdf.lock():`` to prevent interleaving.
-
-        On GIL-enabled builds this is a no-op.
-        """
         self._acquire_lock()
         try:
             yield
@@ -374,7 +376,6 @@ class Extend_Pdf:
         self,
         filename_or_stream: Path | str | BinaryIO | None = None,
         *,
-        static_id: bool = False,
         preserve_pdfa: bool = True,
         min_version: str | tuple[str, int] = "",
         force_version: str | tuple[str, int] = "",
@@ -389,6 +390,7 @@ class Extend_Pdf:
         encryption: Encryption | bool | None = None,
         recompress_flate: bool = False,
         deterministic_id: bool = False,
+        static_id: bool = False,
     ) -> None:
         if not filename_or_stream and getattr(self, '_original_filename', None):
             filename_or_stream = self._original_filename
@@ -413,6 +415,12 @@ class Extend_Pdf:
             if hasattr(filename_or_stream, 'seek'):
                 stream = filename_or_stream
                 check_stream_is_usable(filename_or_stream)
+                if not getattr(self, '_tmp_stream', None):
+                    check_stream_is_not_input(
+                        stream,
+                        getattr(self, '_input_stream', None),
+                        getattr(self, '_original_filename', None),
+                    )
             else:
                 if not isinstance(filename_or_stream, str | bytes | Path):
                     raise TypeError("expected str, bytes or os.PathLike object")
@@ -425,7 +433,6 @@ class Extend_Pdf:
                 stream = stack.enter_context(atomic_overwrite(filename))
             self._save(
                 stream,
-                static_id=static_id,
                 preserve_pdfa=preserve_pdfa,
                 min_version=min_version,
                 force_version=force_version,
@@ -438,9 +445,9 @@ class Extend_Pdf:
                 qdf=qdf,
                 progress=progress,
                 encryption=encryption,
-                samefile_check=getattr(self, '_tmp_stream', None) is None,
                 recompress_flate=recompress_flate,
                 deterministic_id=deterministic_id,
+                static_id=static_id,
             )
 
     def write_qpdf_json(
@@ -482,6 +489,12 @@ class Extend_Pdf:
             if hasattr(filename_or_stream, 'seek'):
                 stream = filename_or_stream
                 check_stream_is_usable(filename_or_stream)
+                if not getattr(self, '_tmp_stream', None):
+                    check_stream_is_not_input(
+                        stream,
+                        getattr(self, '_input_stream', None),
+                        getattr(self, '_original_filename', None),
+                    )
             else:
                 if not isinstance(filename_or_stream, str | bytes | Path):
                     raise TypeError("expected str, bytes or os.PathLike object")
@@ -545,6 +558,7 @@ class Extend_Pdf:
         inherit_page_attributes: bool = True,
         access_mode: AccessMode = AccessMode.default,
         allow_overwriting_input: bool = False,
+        conversion_mode: Literal['implicit', 'explicit'] | None = None,
     ) -> Pdf:
         if isinstance(filename_or_stream, bytes) and filename_or_stream.startswith(
             b'%PDF-'
@@ -603,12 +617,15 @@ class Extend_Pdf:
                 access_mode=access_mode,
                 description=description,
                 closing_stream=closing_stream,
+                conversion_mode=conversion_mode,
             )
         except Exception:
             if stream is not None and closing_stream:
                 stream.close()
             raise
         pdf._tmp_stream = stream if allow_overwriting_input else None
+        # With allow_overwriting_input, the input is a private in-memory copy
+        pdf._input_stream = None if allow_overwriting_input else stream
         pdf._original_filename = original_filename
         return pdf
 

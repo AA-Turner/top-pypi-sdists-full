@@ -7,7 +7,7 @@ import json
 import logging
 import ssl
 from typing import Any
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from paho.mqtt.client import Client, ConnectFlags, DisconnectFlags, PayloadType
@@ -102,6 +102,86 @@ async def test_authentication_failure():
             await hub.connect()
 
         assert "Authentication failed" in str(exc_info.value)
+
+
+@pytest.mark.asyncio
+async def test_connect_cancellation_runs_cleanup() -> None:
+    """Cancelling connection setup cleans up the started Paho client."""
+    hub = Hub("localhost", 1883, None, None, False, installation_id="test123")
+    mocked_client: MagicMock = MagicMock(spec=Client)
+    hub._client = mocked_client
+
+    async def set_installation_id(*, expected_id: str | None) -> None:
+        hub._installation_id = expected_id
+
+    disconnect = AsyncMock()
+    with (
+        patch.object(hub, "_wait_for_connect", new=AsyncMock()),
+        patch.object(hub, "_wait_for_installation_id", side_effect=set_installation_id),
+        patch.object(hub, "_setup_subscriptions", new=AsyncMock(side_effect=asyncio.CancelledError)),
+        patch.object(hub, "disconnect", new=disconnect),
+        pytest.raises(asyncio.CancelledError),
+    ):
+        await hub.connect()
+
+    mocked_client.loop_start.assert_called_once_with()
+    disconnect.assert_awaited_once_with()
+
+
+@pytest.mark.asyncio
+async def test_connect_cleanup_error_preserves_cancellation(caplog: pytest.LogCaptureFixture) -> None:
+    """A cleanup failure does not replace the original cancellation."""
+    hub = Hub("localhost", 1883, None, None, False, installation_id="test123")
+    mocked_client: MagicMock = MagicMock(spec=Client)
+    hub._client = mocked_client
+
+    async def set_installation_id(*, expected_id: str | None) -> None:
+        hub._installation_id = expected_id
+
+    disconnect = AsyncMock(side_effect=RuntimeError("cleanup failed"))
+    with (
+        patch.object(hub, "_wait_for_connect", new=AsyncMock()),
+        patch.object(hub, "_wait_for_installation_id", side_effect=set_installation_id),
+        patch.object(hub, "_setup_subscriptions", new=AsyncMock(side_effect=asyncio.CancelledError)),
+        patch.object(hub, "disconnect", new=disconnect),
+        caplog.at_level(logging.WARNING),
+        pytest.raises(asyncio.CancelledError),
+    ):
+        await hub.connect()
+
+    disconnect.assert_awaited_once_with()
+    assert "cleanup failed" in caplog.text
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("setup_exception", "expected_type", "expected_message"),
+    [
+        (CannotConnectError("broker unavailable"), CannotConnectError, "broker unavailable"),
+        (AuthenticationError("bad credentials"), AuthenticationError, "bad credentials"),
+        (ValueError("invalid setup"), CannotConnectError, "Failed to connect"),
+    ],
+)
+async def test_connect_cleanup_preserves_exception_contract(
+    setup_exception: Exception,
+    expected_type: type[Exception],
+    expected_message: str,
+) -> None:
+    """Normal setup failures retain the public exception contract after cleanup."""
+    hub = Hub("localhost", 1883, None, None, False)
+    mocked_client: MagicMock = MagicMock(spec=Client)
+    hub._client = mocked_client
+    disconnect = AsyncMock()
+
+    with (
+        patch.object(hub, "_wait_for_connect", new=AsyncMock(side_effect=setup_exception)),
+        patch.object(hub, "disconnect", new=disconnect),
+        pytest.raises(expected_type, match=expected_message),
+    ):
+        await hub.connect()
+
+    mocked_client.loop_start.assert_called_once_with()
+    disconnect.assert_awaited_once_with()
 
 
 @pytest.mark.asyncio
@@ -2748,6 +2828,7 @@ def _make_descriptor(**overrides: Any) -> TopicDescriptor:
         "message_type": MetricKind.SENSOR,
         "short_id": "test_metric",
         "name": "Test Metric",
+        "description": "Describes the test metric.",
         "value_type": ValueType.FLOAT,
         "metric_type": MetricType.ELECTRIC_STORAGE_PERCENTAGE,
     }
@@ -2771,7 +2852,8 @@ def _make_metric(
     m = Metric.__new__(Metric)
     m._descriptor = descriptor
     m._short_id = descriptor.short_id
-    m._generic_short_id = descriptor.short_id
+    assert descriptor.name is not None
+    m._name = descriptor.name
     m._unique_id = f"device_0_{descriptor.short_id}"
     m._value = None
     m._available = False
@@ -3089,6 +3171,15 @@ class TestMetricProperties:
         m = _make_metric()
         assert m.metric_kind == MetricKind.SENSOR
 
+    def test_description(self):
+        m = _make_metric()
+        assert m.description == "Describes the test metric."
+
+    def test_generic_metadata_comes_from_descriptor(self):
+        m = _make_metric()
+        assert m.generic_short_id == "test_metric"
+        assert m.generic_name == "Test Metric"
+
     def test_precision(self):
         desc = _make_descriptor(precision=2)
         m = _make_metric(descriptor=desc)
@@ -3338,7 +3429,6 @@ class TestWritableFormulaMetricKeepalive:
         wfm = WritableFormulaMetric.__new__(WritableFormulaMetric)
         wfm._descriptor = desc
         wfm._short_id = desc.short_id
-        wfm._generic_short_id = desc.short_id
         wfm._unique_id = "dev_test_metric"
         wfm._value = None
         wfm._hub = hub
@@ -3371,7 +3461,6 @@ class TestWritableFormulaMetricSet:
         wfm = WritableFormulaMetric.__new__(WritableFormulaMetric)
         wfm._descriptor = desc
         wfm._short_id = desc.short_id
-        wfm._generic_short_id = desc.short_id
         wfm._unique_id = "dev_test_metric"
         wfm._value = 42
         wfm._available = True
@@ -3416,7 +3505,6 @@ class TestFormulaMetricNoneReturn:
         fm = FormulaMetric.__new__(FormulaMetric)
         fm._descriptor = desc
         fm._short_id = desc.short_id
-        fm._generic_short_id = desc.short_id
         fm._unique_id = "dev_test_metric"
         fm._value = None
         fm._available = False

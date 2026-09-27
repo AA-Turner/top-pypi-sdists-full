@@ -17,29 +17,57 @@ jobs:
     runs-on: ubuntu-24.04
     env:
       CIBW_BUILD: "${{ matrix.build }}"
+      QPDF_CACHE_DIR: /host${{ github.workspace }}/.qpdf-cache
     strategy:
       # One wheel target per worker. The x86_64 runners intermittently fail to
-      # spawn a subprocess during the *second* build in a sequence (cp311 after
-      # cp310), dying with "No such file or directory" at the compiler check.
+      # spawn a subprocess during the *second* build in a sequence (cp312 after
+      # cp311), dying with "No such file or directory" at the compiler check.
       # Building a single target per job makes every build the first in its job,
       # which sidesteps the failure. fail-fast: false so one target's flake does
       # not cancel the others. musllinux x86_64 has not shown the failure, so it
       # stays a single (all-targets) job. aarch64 is built in wheels_linux_arm.
+      #
+      # cp315 shares the cp314 job so that cibuildwheel reuses the cp314-abi3
+      # wheel it just built and only tests it on 3.15, instead of compiling a
+      # 3.15-specific wheel. No second compile happens, so the flake above does
+      # not apply. Free-threaded builds cannot use abi3, so cp315t gets its own
+      # job like cp314t.
       fail-fast: false
       matrix:
         include:
-          - { id: cp310-manylinux_x86_64, build: cp310-manylinux_x86_64 }
-          - { id: cp311-manylinux_x86_64, build: cp311-manylinux_x86_64 }
-          - { id: cp312-manylinux_x86_64, build: cp312-manylinux_x86_64 }
-          - { id: cp313-manylinux_x86_64, build: cp313-manylinux_x86_64 }
-          - { id: cp314-manylinux_x86_64, build: cp314-manylinux_x86_64 }
-          - { id: cp314t-manylinux_x86_64, build: cp314t-manylinux_x86_64 }
-          - { id: musllinux_x86_64, build: "*-musllinux_x86_64" }
+          - { id: cp311-manylinux_x86_64, build: cp311-manylinux_x86_64, image: manylinux_x86_64 }
+          - { id: cp312-manylinux_x86_64, build: cp312-manylinux_x86_64, image: manylinux_x86_64 }
+          - { id: cp313-manylinux_x86_64, build: cp313-manylinux_x86_64, image: manylinux_x86_64 }
+          - { id: cp314-manylinux_x86_64, build: "cp314-manylinux_x86_64 cp315-manylinux_x86_64", image: manylinux_x86_64 }
+          - { id: cp314t-manylinux_x86_64, build: cp314t-manylinux_x86_64, image: manylinux_x86_64 }
+          - { id: cp315t-manylinux_x86_64, build: cp315t-manylinux_x86_64, image: manylinux_x86_64 }
+          - { id: musllinux_x86_64, build: "*-musllinux_x86_64", image: musllinux_x86_64 }
     steps:
       - uses: actions/checkout@v6
 
+      # qpdf is compiled inside the cibuildwheel container by
+      # posix-build-wheel-deps.bash. Cache the result per image, so that once
+      # the cache is populated no job compiles qpdf; on a miss every job
+      # compiles it as before and one of them saves it. The container reaches
+      # .qpdf-cache through cibuildwheel's /host mount. The key covers
+      # QPDF_VERSION and the image choice (pyproject.toml), the cibuildwheel pin
+      # that selects the image tag (build.yml), and the build scripts.
+      - name: Restore cached qpdf build
+        id: qpdf-cache
+        uses: actions/cache/restore@v6
+        with:
+          path: .qpdf-cache
+          key: qpdf-${{ matrix.image }}-${{ hashFiles('pyproject.toml', '.github/workflows/build.yml', 'build-scripts/posix-*.bash') }}
+
       - name: Build wheels
-        uses: pypa/cibuildwheel@v4.0.0
+        uses: pypa/cibuildwheel@v4.2.1
+
+      - name: Save qpdf build to cache
+        if: ${{ !cancelled() && steps.qpdf-cache.outputs.cache-hit != 'true' && hashFiles('.qpdf-cache/*.tar.gz') != '' }}
+        uses: actions/cache/save@v6
+        with:
+          path: .qpdf-cache
+          key: ${{ steps.qpdf-cache.outputs.cache-primary-key }}
 
       - name: Audit abi3 wheels
         shell: bash
@@ -64,14 +92,30 @@ jobs:
     runs-on: ubuntu-24.04-arm
     env:
       CIBW_BUILD: "*-${{ matrix.platform }}"
+      QPDF_CACHE_DIR: /host${{ github.workspace }}/.qpdf-cache
     strategy:
       matrix:
         platform: [manylinux_aarch64, musllinux_aarch64]
     steps:
       - uses: actions/checkout@v6
 
+      # See the qpdf cache notes in wheels_linux.
+      - name: Restore cached qpdf build
+        id: qpdf-cache
+        uses: actions/cache/restore@v6
+        with:
+          path: .qpdf-cache
+          key: qpdf-${{ matrix.platform }}-${{ hashFiles('pyproject.toml', '.github/workflows/build.yml', 'build-scripts/posix-*.bash') }}
+
       - name: Build wheels
-        uses: pypa/cibuildwheel@v4.0.0
+        uses: pypa/cibuildwheel@v4.2.1
+
+      - name: Save qpdf build to cache
+        if: ${{ !cancelled() && steps.qpdf-cache.outputs.cache-hit != 'true' && hashFiles('.qpdf-cache/*.tar.gz') != '' }}
+        uses: actions/cache/save@v6
+        with:
+          path: .qpdf-cache
+          key: ${{ steps.qpdf-cache.outputs.cache-primary-key }}
 
       - name: Audit abi3 wheels
         shell: bash
@@ -98,12 +142,10 @@ jobs:
       CIBW_BUILD: "*"
     strategy:
       matrix:
-        # macos-14 is Apple silicon and we configure it to build only arm64 wheels.
-        # See notes in build.rst.
+        # Apple silicon only; Intel macOS wheels are no longer built.
+        # See notes in build_process.md.
         include:
-          - os: macos-15-intel
-            os_arch: macos-x86_64
-          - os: macos-14
+          - os: macos-15
             os_arch: macos-arm64
 
     steps:
@@ -114,7 +156,7 @@ jobs:
           curl -LsSf https://astral.sh/uv/install.sh | sh
 
       - name: Build wheels
-        uses: pypa/cibuildwheel@v4.0.0
+        uses: pypa/cibuildwheel@v4.2.1
 
       - name: Audit abi3 wheels
         shell: bash
@@ -151,11 +193,10 @@ jobs:
       - uses: actions/setup-python@v6
         name: Install Python
         with:
-          python-version: "3.10"
+          python-version: "3.11"
 
-      - name: Install tomli and read environment from pyproject.toml
+      - name: Read environment from pyproject.toml
         run: |
-          python -m pip install tomli
           python build-scripts/environ-from-pyproject.py >> $env:GITHUB_ENV
           dir env:
 
@@ -168,7 +209,7 @@ jobs:
           powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
 
       - name: Build wheels
-        uses: pypa/cibuildwheel@v4.0.0
+        uses: pypa/cibuildwheel@v4.2.1
 
       - name: Audit abi3 wheels
         shell: bash
@@ -195,16 +236,15 @@ jobs:
       - uses: actions/setup-python@v6
         name: Install Python
         with:
-          python-version: "3.10"
+          python-version: "3.11"
 
       - name: Install apt packages
         run: |
           sudo apt-get update
           sudo apt-get install -y cmake jbig2dec lcov libexempi8 poppler-utils
 
-      - name: Install tomli and read environment from pyproject.toml
+      - name: Read environment from pyproject.toml
         run: |
-          python -m pip install tomli
           python build-scripts/environ-from-pyproject.py >> $GITHUB_ENV
 
       - name: Download QPDF
@@ -346,7 +386,10 @@ jobs:
         # to *import* every test module during collection. `hypothesis` is
         # pure-Python so we install it to unblock module imports. The three
         # files that hard-import PIL or lxml at module level get --ignore'd
-        # since no amount of `-m` filtering can prevent their import.
+        # since no amount of `-m` filtering can prevent their import. The
+        # PDF/A tests likewise hard-import the pure-Python [pdfa] extras,
+        # whose jsonschema/referencing deps pull in rpds-py (Rust, no
+        # cp314d wheel); they cover no C extension surface, so skip them.
         run: |
           set -euo pipefail
           python3.14-dbg -m pip install pytest pytest-xdist pytest-timeout hypothesis
@@ -354,6 +397,7 @@ jobs:
             --ignore=tests/test_canvas.py \
             --ignore=tests/test_image_access.py \
             --ignore=tests/test_metadata.py \
+            --ignore-glob='tests/test_pdfa_*' \
             tests/
 
   stage_artifacts:
@@ -390,8 +434,20 @@ jobs:
         run: |
           TAG="v${{ steps.version.outputs.version }}"
 
-          # Delete existing draft release if it exists (ignore errors)
-          gh release delete "$TAG" --yes 2>/dev/null || true
+          # Never touch a release that has already been published. _version.py
+          # keeps the last released version until the next bump, so without this
+          # guard every post-release push to main would delete the published
+          # release (notes, signatures and all) and replace it with a draft.
+          IS_DRAFT=$(gh release view "$TAG" --json isDraft --jq .isDraft 2>/dev/null || echo absent)
+          if [ "$IS_DRAFT" = "false" ]; then
+            echo "Release $TAG is already published; skipping artifact staging."
+            exit 0
+          fi
+
+          # Replace the previous draft, if any
+          if [ "$IS_DRAFT" = "true" ]; then
+            gh release delete "$TAG" --yes
+          fi
 
           # Create new draft release with all artifacts
           gh release create "$TAG" \

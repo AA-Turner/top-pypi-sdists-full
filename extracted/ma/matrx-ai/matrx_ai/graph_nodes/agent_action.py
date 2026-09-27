@@ -52,6 +52,11 @@ from pydantic import BaseModel, ConfigDict, Field, JsonValue, model_validator
 
 from matrx_ai._ext import get_ext, has_ext
 from matrx_ai.capabilities import ClientContext, UserOverrides
+from matrx_ai.graph_nodes.iteration_limit import (
+    AGENT_MAX_ITERATIONS_CEILING,
+    MAX_ITERATIONS_DESCRIPTION,
+    resolve_step_iteration_limit,
+)
 from matrx_ai.graph_nodes.shared import AiExecutionResult, normalize_completed_result
 
 if TYPE_CHECKING:
@@ -399,8 +404,11 @@ class AgentRunCommonInput(BaseModel):
     )
 
     # --- agent loop bounds ---
-    max_iterations: int = Field(
-        default=100, ge=1, le=500, description="Maximum agent reasoning/tool-loop iterations."
+    max_iterations: int | None = Field(
+        default=None,
+        ge=1,
+        le=AGENT_MAX_ITERATIONS_CEILING,
+        description=MAX_ITERATIONS_DESCRIPTION,
     )
     max_retries_per_iteration: int = Field(
         default=2,
@@ -1150,6 +1158,8 @@ async def agent_start(
     # child run.
     resolved = await resolve_step_agent_full(inputs, consumer=f"ai.agent.start:{node_id}")
     assert isinstance(resolved, StepAgent)  # no mandate field -> never a workflow Holder
+    limit = await resolve_step_iteration_limit(ctx, inputs.max_iterations)
+    inputs.max_iterations = limit.value
     request = build_agent_request(
         ctx,
         inputs,
@@ -1175,4 +1185,6 @@ async def agent_start(
     # (code='ai_turn_failed', billed usage in details) instead of a raise.
     # ``step_config`` carries the author's ``allow_empty_structured_output``
     # into the all-zero refusal; nothing else is read from it.
-    return await asyncio.to_thread(normalize_completed_result, completed, step_config=config)
+    return limit.name_on(
+        await asyncio.to_thread(normalize_completed_result, completed, step_config=config)
+    )

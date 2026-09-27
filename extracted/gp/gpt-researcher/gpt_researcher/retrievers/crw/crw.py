@@ -52,7 +52,7 @@ class CRWRetriever:
                 api_key = os.environ["CRW_API_KEY"]
             except KeyError:
                 print(
-                    "CRW API key not found, set to blank. If you need a retriver, please set the CRW_API_KEY environment variable."
+                    "CRW API key not found, set to blank. If you need a retriever, please set the CRW_API_KEY environment variable."
                 )
                 return ""
         return api_key
@@ -108,18 +108,23 @@ class CRWRetriever:
             # Search the query
             results = self._search(self.query, max_results=max_results)
             sources = results.get("data") or []
-            if not sources:
+            if not isinstance(sources, list) or not sources:
                 raise Exception("No results found with fastCRW API search.")
             # Return the results. A source missing "url" is unusable, so skip it
             # rather than raising a KeyError that discards the whole result set.
-            search_response = [
-                {
-                    "href": obj["url"],
-                    "body": obj.get("markdown") or obj.get("description", ""),
-                }
-                for obj in sources
-                if obj.get("url")
-            ]
+            search_response = []
+            for obj in sources:
+                if not isinstance(obj, dict):
+                    continue
+                href = obj.get("url") or ""
+                if not href:
+                    continue
+                search_response.append(
+                    {
+                        "href": href,
+                        "body": obj.get("markdown") or obj.get("description") or "",
+                    }
+                )
         except Exception as e:
             print(f"Error: {e}. Failed fetching sources. Resulting in empty response.")
             search_response = []

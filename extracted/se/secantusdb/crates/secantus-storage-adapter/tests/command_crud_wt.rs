@@ -6,7 +6,7 @@
 mod common;
 
 use bson::{doc, Bson, Document};
-use common::with_wt;
+use common::{dispatch_full, with_wt};
 use secantus_commands::{dispatch, CommandContext};
 
 fn count(c: &mut CommandContext) -> i32 {
@@ -200,9 +200,18 @@ fn insert_bypass_document_validation_skips_validator() {
 #[test]
 fn insert_empty_documents_is_invalid_length() {
     with_wt(|c| {
-        let reply = dispatch(&doc! {"insert": "c", "documents": []}, c);
-        assert_eq!(reply.get_i32("code").unwrap(), 4);
-        assert_eq!(reply.get_str("codeName").unwrap(), "InvalidLength");
+        // `InvalidLength` is code **16**; this asserted 4, which is `NoSuchKey`.
+        // Probed on mongod 8.2.11 — and `bulkWrite` in this same codebase
+        // already answered 16. `update` / `delete` share the rule now too.
+        for cmd in [
+            doc! {"insert": "c", "documents": []},
+            doc! {"update": "c", "updates": []},
+            doc! {"delete": "c", "deletes": []},
+        ] {
+            let reply = dispatch(&cmd, c);
+            assert_eq!(reply.get_i32("code").unwrap(), 16, "{cmd:?}");
+            assert_eq!(reply.get_str("codeName").unwrap(), "InvalidLength");
+        }
     });
 }
 
@@ -513,15 +522,52 @@ fn update_upsert_reports_upserted_id() {
     });
 }
 
+/// MongoDB 8.0's `sort` on an update statement: match in sort order, update the
+/// FIRST one. This test used to assert the option was REJECTED, which was right
+/// while the server advertised 7.0 and wrong the moment it advertised 8.2.11 --
+/// the driver `*-sort` specs assert both directions, gated on the version.
 #[test]
-fn update_sort_option_rejected_pre_8() {
+fn update_sort_updates_the_first_in_sort_order() {
+    with_wt(|c| {
+        for (id, v) in [(1, 3), (2, 1), (3, 2)] {
+            dispatch(&doc! {"insert": "c", "documents": [{"_id": id, "v": v}]}, c);
+        }
+        let reply = dispatch(
+            &doc! {"update": "c", "updates": [
+                {"q": {}, "u": {"$set": {"hit": 1}}, "sort": {"v": 1}}
+            ]},
+            c,
+        );
+        assert_eq!(reply.get_f64("ok").unwrap(), 1.0);
+        assert_eq!(reply.get_i32("n").unwrap(), 1);
+        // `v: 1` sorts _id 2 first, so that is the document that was updated.
+        let found = dispatch(&doc! {"find": "c", "filter": {"hit": 1}}, c);
+        let batch = fb(&found, c);
+        assert_eq!(batch.len(), 1);
+        assert_eq!(
+            batch[0].as_document().unwrap().get_i32("_id").unwrap(),
+            2,
+            "sort asc should pick the lowest v"
+        );
+    });
+}
+
+/// mongod refuses the combination -- probed 8.2.11.
+#[test]
+fn update_sort_with_multi_is_rejected() {
     with_wt(|c| {
         let reply = dispatch(
-            &doc! {"update": "c", "updates": [{"q": {}, "u": {"$set": {"a": 1}}, "sort": {"a": 1}}]},
+            &doc! {"update": "c", "updates": [
+                {"q": {}, "u": {"$set": {"a": 1}}, "multi": true, "sort": {"a": 1}}
+            ]},
             c,
         );
         assert_eq!(reply.get_i32("code").unwrap(), 9);
         assert_eq!(reply.get_str("codeName").unwrap(), "FailedToParse");
+        assert_eq!(
+            reply.get_str("errmsg").unwrap(),
+            "Cannot specify sort with multi=true"
+        );
     });
 }
 
@@ -562,5 +608,147 @@ fn update_valid_pipeline_applies_via_storage() {
         for b in fb(&found, c) {
             assert_eq!(b.as_document().unwrap().get("a"), Some(&Bson::Int32(1)));
         }
+    });
+}
+
+/// `bulkWrite` takes `bypassEmptyTsReplacement`, and still refuses a real
+/// unknown field.
+///
+/// mongod 8.2.11 accepts this on `bulkWrite`, `insert` AND `update` (probed
+/// 2026-09-18). Both servers already took it on `insert` / `update`; only
+/// `bulkWrite` refused, which failed all 17 of the Go driver's
+/// `TestClient_BulkWrite_AddCommandFields` cases -- the driver appends the
+/// field by default on 8.x, so this was a refusal of an ordinary command.
+///
+/// The second half matters as much as the first: the fix widened the
+/// known-field list, and must not have disabled the gate that rejects a
+/// genuinely unknown field.
+#[test]
+fn bulk_write_accepts_bypass_empty_ts_replacement() {
+    with_wt(|c| {
+        c.db_name = "admin".into();
+        for value in [true, false] {
+            let reply = dispatch(
+                &doc! {
+                    "bulkWrite": 1,
+                    "nsInfo": [{"ns": "t.c"}],
+                    "ops": [{"insert": 0, "document": {}}],
+                    "bypassEmptyTsReplacement": value,
+                },
+                c,
+            );
+            assert_eq!(
+                reply.get_f64("ok").unwrap(),
+                1.0,
+                "value={value} -> {reply:?}"
+            );
+        }
+
+        let reply = dispatch(
+            &doc! {
+                "bulkWrite": 1,
+                "nsInfo": [{"ns": "t.c"}],
+                "ops": [{"insert": 0, "document": {}}],
+                "totallyBogusField": true,
+            },
+            c,
+        );
+        assert_eq!(reply.get_i32("code").unwrap(), 40415);
+    });
+}
+
+/// A cursor id is an int64 on the wire, and the TYPE is the whole assertion.
+///
+/// The Python server sent a bare `0` here, which BSON encodes as a 32-bit
+/// integer; the Go driver type-checks it and refused. Rust's `0i64` is already
+/// right, so this test is a TRIPWIRE rather than a fix -- `doc! {"id": 0}`
+/// would compile perfectly well and silently reintroduce the bug.
+#[test]
+fn bulk_write_reply_cursor_id_is_int64() {
+    with_wt(|c| {
+        c.db_name = "admin".into();
+        let reply = dispatch(
+            &doc! {
+                "bulkWrite": 1,
+                "nsInfo": [{"ns": "t.c"}],
+                "ops": [{"insert": 0, "document": {"_id": 1}}],
+            },
+            c,
+        );
+        let id = reply.get_document("cursor").unwrap().get("id").unwrap();
+        assert!(
+            matches!(id, Bson::Int64(0)),
+            "cursor.id must be Int64, got {id:?}"
+        );
+    });
+}
+
+/// `bulkWrite`'s results are a real cursor when they do not fit one batch.
+///
+/// Measured against mongod 8.2.11 (2026-09-18). The boundary is strictly "more
+/// remain" -- an exact fit keeps NO cursor, which is where this differs from
+/// `find` (hence `bounded: true` at the call site).
+#[test]
+fn bulk_write_results_page_through_a_cursor() {
+    with_wt(|c| {
+        c.db_name = "admin".into();
+        let bulk = |c: &mut CommandContext, n: i32, extra: Document| {
+            let ops: Vec<Bson> = (0..n)
+                .map(|i| Bson::Document(doc! {"insert": 0, "document": {"i": i}}))
+                .collect();
+            let mut cmd = doc! {"bulkWrite": 1, "nsInfo": [{"ns": "t.c"}], "ops": ops};
+            for (k, v) in extra {
+                cmd.insert(k, v);
+            }
+            dispatch(&cmd, c)
+        };
+
+        // (label, ops, extra, cursor expected, firstBatch len)
+        let cases: Vec<(&str, i32, Document, bool, usize)> = vec![
+            ("no cursor option", 5, doc! {}, false, 5),
+            (
+                "batchSize under count",
+                5,
+                doc! {"cursor": {"batchSize": 2}},
+                true,
+                2,
+            ),
+            ("batchSize 0", 5, doc! {"cursor": {"batchSize": 0}}, true, 0),
+            ("exact fit", 2, doc! {"cursor": {"batchSize": 2}}, false, 2),
+            (
+                "room to spare",
+                2,
+                doc! {"cursor": {"batchSize": 5}},
+                false,
+                2,
+            ),
+            ("errorsOnly", 5, doc! {"errorsOnly": true}, false, 0),
+        ];
+        for (label, n, extra, want_cursor, want_first) in cases {
+            let reply = bulk(c, n, extra);
+            let cur = reply.get_document("cursor").unwrap();
+            let id = cur.get_i64("id").unwrap();
+            assert_eq!(id != 0, want_cursor, "{label}: id={id}");
+            assert_eq!(
+                cur.get_array("firstBatch").unwrap().len(),
+                want_first,
+                "{label}"
+            );
+        }
+
+        // The remainder pages out through `getMore`, addressed by the command
+        // namespace, and the cursor closes once drained.
+        // `dispatch_full`, not `dispatch`: the batch is handed back out of band
+        // through `ctx.pending_batch` (the real server streams it), so bare
+        // `dispatch` returns the cursor envelope with no `nextBatch` at all --
+        // which reads exactly like an empty cursor if you assert on it.
+        let reply = bulk(c, 5, doc! {"cursor": {"batchSize": 2}});
+        let id = reply.get_document("cursor").unwrap().get_i64("id").unwrap();
+        let more = dispatch_full(&doc! {"getMore": id, "collection": "$cmd.bulkWrite"}, c);
+        let cur = more
+            .get_document("cursor")
+            .unwrap_or_else(|_| panic!("getMore reply: {more:?}"));
+        assert_eq!(cur.get_array("nextBatch").unwrap().len(), 3);
+        assert_eq!(cur.get_i64("id").unwrap(), 0, "drained, so it closes");
     });
 }

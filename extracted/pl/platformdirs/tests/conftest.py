@@ -1,11 +1,15 @@
 from __future__ import annotations
 
+import os
+import stat
 from typing import TYPE_CHECKING, Final, cast
 
 import pytest
 
 if TYPE_CHECKING:
+    from collections.abc import Callable, Iterator
     from pathlib import Path
+    from types import ModuleType
 
     from _pytest.fixtures import SubRequest
     from pytest_mock import MockerFixture
@@ -84,8 +88,53 @@ def _clear_xdg_env(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 @pytest.fixture
-def runtime_temp_dir(tmp_path: Path, mocker: MockerFixture, monkeypatch: pytest.MonkeyPatch) -> Path:
+def runtime_temp_dir(tmp_path: Path, mocker: MockerFixture, monkeypatch: pytest.MonkeyPatch, system_root: Path) -> Path:
     monkeypatch.delenv("XDG_RUNTIME_DIR", raising=False)
-    mocker.patch("os.access", return_value=False)
     mocker.patch("tempfile.tempdir", str(tmp_path))
+    # user_runtime_dir checks fixed system paths such as /run/user/<uid> first, so serve those from system_root.
+    real_lstat: Final = os.lstat
+    mocker.patch(
+        "os.lstat",
+        side_effect=lambda path: real_lstat(
+            system_root / path[1:]
+            if isinstance(path, str) and "/run/user/" in path and not path.startswith(str(tmp_path))
+            else path
+        ),
+    )
     return tmp_path
+
+
+@pytest.fixture
+def system_root(tmp_path: Path) -> Path:
+    return tmp_path / "root"
+
+
+@pytest.fixture
+def _umask() -> Iterator[None]:
+    previous = os.umask(0o022)
+    yield
+    os.umask(previous)
+
+
+@pytest.fixture
+def modes() -> Callable[[Path], dict[str, int]]:
+    def collect(root: Path) -> dict[str, int]:
+        return {path.relative_to(root).as_posix(): stat.S_IMODE(path.stat().st_mode) for path in root.rglob("*")}
+
+    return collect
+
+
+@pytest.fixture(params=[pytest.param(None, id="home-unset"), pytest.param("", id="home-empty")])
+def _unknown_home(
+    request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch, mocker: MockerFixture, pwd: ModuleType
+) -> None:
+    if request.param is None:
+        monkeypatch.delenv("HOME", raising=False)
+    else:
+        monkeypatch.setenv("HOME", request.param)
+    mocker.patch.object(pwd, "getpwuid", side_effect=KeyError("getpwuid(): uid not found"))
+
+
+@pytest.fixture
+def pwd() -> ModuleType:
+    return pytest.importorskip("pwd")

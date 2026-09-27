@@ -25,7 +25,7 @@ from typing_extensions import Self
 
 class PutAgents(BaseModel):
     """
-    Request body for creating or updating agents.
+    Request body for creating or updating agents.  EACH AGENT IS VALIDATED ON ITS OWN. A body is refused only if it is not a list of agents at all; an agent that fails validation is set aside with its errors, and the rest are stored. Validating the list as a whole meant one bad task kept every discovered agent off the Platform (UP-5069). Done in a wrap validator so the request schema, and every client generated from it, is unchanged.
     """ # noqa: E501
     agents: List[Agent] = Field(description="List of agents to create or update.")
     __properties: ClassVar[List[str]] = ["agents"]

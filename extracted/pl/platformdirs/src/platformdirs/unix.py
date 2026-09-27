@@ -6,12 +6,14 @@ import os
 import re
 import stat
 import sys
+import warnings
+from contextlib import suppress
 from pathlib import Path
 from tempfile import gettempdir
 from typing import TYPE_CHECKING, Final, NoReturn
 
-from ._xdg import XDGMixin, _xdg_dir
-from .api import PlatformDirsABC
+from ._xdg import XDGMixin, _expand_user, _xdg_dir
+from .api import PlatformDirsABC, RuntimeDirWarning
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -40,7 +42,7 @@ class _UnixDefaults(PlatformDirsABC):  # ruff:ignore[too-many-public-methods]
     @property
     def user_data_dir(self) -> str:
         """Data directory tied to the user, e.g. ``~/.local/share/$appname/$version`` or ``$XDG_DATA_HOME/$appname/$version``."""
-        return self._append_app_name_and_version(os.path.expanduser("~/.local/share"))  # ruff:ignore[os-path-expanduser]
+        return self._append_app_name_and_version(_expand_user("~/.local/share"), private=True)
 
     @property
     def _site_data_dirs(self) -> list[str]:
@@ -49,7 +51,7 @@ class _UnixDefaults(PlatformDirsABC):  # ruff:ignore[too-many-public-methods]
     @property
     def user_config_dir(self) -> str:
         """Config directory tied to the user, e.g. ``~/.config/$appname/$version`` or ``$XDG_CONFIG_HOME/$appname/$version``."""
-        return self._append_app_name_and_version(os.path.expanduser("~/.config"))  # ruff:ignore[os-path-expanduser]
+        return self._append_app_name_and_version(_expand_user("~/.config"), private=True)
 
     @property
     def _site_config_dirs(self) -> list[str]:
@@ -58,22 +60,22 @@ class _UnixDefaults(PlatformDirsABC):  # ruff:ignore[too-many-public-methods]
     @property
     def user_cache_dir(self) -> str:
         """Cache directory tied to the user, e.g. ``~/.cache/$appname/$version`` or ``$XDG_CACHE_HOME/$appname/$version``."""
-        return self._append_app_name_and_version(os.path.expanduser("~/.cache"))  # ruff:ignore[os-path-expanduser]
+        return self._append_app_name_and_version(_expand_user("~/.cache"), private=True)
 
     @property
     def site_cache_dir(self) -> str:
         """Cache directory shared by users, e.g. ``/var/cache/$appname/$version``."""
-        return self._append_app_name_and_version("/var/cache")
+        return self._append_app_name_and_version("/var/cache", private=False)
 
     @property
     def user_state_dir(self) -> str:
         """State directory tied to the user, e.g. ``~/.local/state/$appname/$version`` or ``$XDG_STATE_HOME/$appname/$version``."""
-        return self._append_app_name_and_version(os.path.expanduser("~/.local/state"))  # ruff:ignore[os-path-expanduser]
+        return self._append_app_name_and_version(_expand_user("~/.local/state"), private=True)
 
     @property
     def site_state_dir(self) -> str:
         """State directory shared by users, e.g. ``/var/lib/$appname/$version``."""
-        return self._append_app_name_and_version("/var/lib")
+        return self._append_app_name_and_version("/var/lib", private=False)
 
     @property
     def user_log_dir(self) -> str:
@@ -81,7 +83,7 @@ class _UnixDefaults(PlatformDirsABC):  # ruff:ignore[too-many-public-methods]
         path = self.user_state_dir
         if self.opinion:
             path = os.path.join(path, "log")  # ruff:ignore[os-path-join]
-            self._optionally_create_directory(path)
+            self._optionally_create_directory(path, private=True)
         return path
 
     @property
@@ -91,7 +93,7 @@ class _UnixDefaults(PlatformDirsABC):  # ruff:ignore[too-many-public-methods]
         Unlike `user_log_dir`, ``opinion`` has no effect since ``/var/log`` is inherently a log directory.
 
         """
-        return self._append_app_name_and_version("/var/log")
+        return self._append_app_name_and_version("/var/log", private=False)
 
     @property
     def user_documents_dir(self) -> str:
@@ -142,12 +144,12 @@ class _UnixDefaults(PlatformDirsABC):  # ruff:ignore[too-many-public-methods]
         if path := _get_user_dirs_folder(key):
             self._optionally_create_media_directory(path)
             return path
-        return os.path.expanduser(default)  # ruff:ignore[os-path-expanduser]
+        return _expand_user(default)
 
     @property
     def user_fonts_dir(self) -> str:
         """Fonts directory tied to the user, e.g. ``~/.local/share/fonts``."""
-        return f"{os.path.expanduser('~/.local/share')}/fonts"  # ruff:ignore[os-path-expanduser]  # API returns str, not Path
+        return f"{_expand_user('~/.local/share')}/fonts"
 
     @property
     def user_preference_dir(self) -> str:
@@ -157,7 +159,7 @@ class _UnixDefaults(PlatformDirsABC):  # ruff:ignore[too-many-public-methods]
     @property
     def user_bin_dir(self) -> str:
         """Bin directory tied to the user, e.g. ``~/.local/bin``."""
-        return os.path.expanduser("~/.local/bin")  # ruff:ignore[os-path-expanduser]
+        return _expand_user("~/.local/bin")
 
     @property
     def site_bin_dir(self) -> str:
@@ -167,7 +169,7 @@ class _UnixDefaults(PlatformDirsABC):  # ruff:ignore[too-many-public-methods]
     @property
     def user_applications_dir(self) -> str:
         """Applications directory tied to the user, e.g. ``~/.local/share/applications``."""
-        return os.path.join(os.path.expanduser("~/.local/share"), "applications")  # ruff:ignore[os-path-expanduser, os-path-join]
+        return f"{_expand_user('~/.local/share')}{os.sep}applications"
 
     @property
     def _site_applications_dirs(self) -> list[str]:
@@ -175,46 +177,30 @@ class _UnixDefaults(PlatformDirsABC):  # ruff:ignore[too-many-public-methods]
 
     @property
     def site_applications_dir(self) -> str:
-        """Applications directory shared by users, e.g. ``/usr/share/applications``."""
+        """Applications directory shared by users, e.g. ``/usr/local/share/applications``."""
         dirs = self._site_applications_dirs
         return os.pathsep.join(dirs) if self.multipath else dirs[0]
 
-    @property
-    def user_runtime_dir(self) -> str:
-        """Runtime directory tied to the user, e.g. ``$XDG_RUNTIME_DIR/$appname/$version``.
-
-        If ``$XDG_RUNTIME_DIR`` is unset, tries the platform default (``/tmp/run/user/$(id -u)`` on OpenBSD,
-        ``/var/run/user/$(id -u)`` on FreeBSD/NetBSD, ``/run/user/$(id -u)`` otherwise). If the default is not writable,
-        falls back to ``runtime-$(id -u)`` in the temporary directory, with mode ``0700`` under ``ensure_exists``.
-
-        :raises PermissionError: if another user owns the temporary fallback directory.
-
-        """
+    def _default_runtime_dir(self) -> str:
         if sys.platform.startswith("openbsd"):
             path = f"/tmp/run/user/{getuid()}"  # ruff:ignore[hardcoded-temp-file]
         elif sys.platform.startswith(("freebsd", "netbsd")):
             path = f"/var/run/user/{getuid()}"
         else:
             path = f"/run/user/{getuid()}"
-        if not os.access(path, os.W_OK):
-            path = self._temp_runtime_dir()
-        return self._append_app_name_and_version(path)
+        return path if os.path.lexists(path) and not _runtime_dir_problem(path) else self._temp_runtime_dir()
 
     def _temp_runtime_dir(self) -> str:
         # Another user can pre-create this predictable name, and XDG requires an owned runtime dir with mode 0700.
-        path = f"{gettempdir()}/runtime-{(uid := getuid())}"
-        if self.ensure_exists:
-            Path(path).mkdir(mode=0o700, exist_ok=True)
-        try:
-            info = Path(path).lstat()
-        except FileNotFoundError:
-            return path
-        if info.st_uid != uid:
-            msg = f"runtime directory {path} is owned by uid {info.st_uid}, not {uid}; set XDG_RUNTIME_DIR instead"
+        path = f"{gettempdir()}/runtime-{getuid()}"
+        with suppress(FileExistsError):
+            self._optionally_create_directory(path, private=True)
+        if problem := _runtime_dir_problem(path, check_mode=False):
+            msg = f"runtime directory {problem}; set XDG_RUNTIME_DIR instead"
             raise PermissionError(msg)
         # Earlier releases created this directory with the default 0755.
-        if self.ensure_exists and stat.S_IMODE(info.st_mode) & 0o077:
-            Path(path).chmod(0o700)
+        if self.ensure_exists:
+            Path(path).chmod(_RUNTIME_DIR_MODE)
         return path
 
     @property
@@ -234,7 +220,7 @@ class _UnixDefaults(PlatformDirsABC):  # ruff:ignore[too-many-public-methods]
             path = "/var/run"
         else:
             path = "/run"
-        return self._append_app_name_and_version(path)
+        return self._append_app_name_and_version(path, private=False)
 
     @property
     def site_data_path(self) -> Path:
@@ -322,9 +308,31 @@ class Unix(XDGMixin, _UnixDefaults):
 
     @property
     def user_runtime_dir(self) -> str:
-        """Runtime directory tied to the user, or site equivalent when root with ``use_site_for_root``."""
-        # XDGMixin.site_runtime_dir reads $XDG_RUNTIME_DIR, which belongs to the user who started the root process.
-        return super(XDGMixin, self).site_runtime_dir if self._use_site else super().user_runtime_dir
+        """Runtime directory tied to the user, e.g. ``$XDG_RUNTIME_DIR/$appname/$version``.
+
+        Accepts ``$XDG_RUNTIME_DIR`` only as a directory, not a symlink, that the user owns with mode ``0700``, as the
+        XDG spec requires, and creates a missing one that way under ``ensure_exists``. When the variable is unset or
+        fails that check, emits one :class:`~platformdirs.RuntimeDirWarning` per cause and falls back to the platform
+        default (``/tmp/run/user/<uid>`` on OpenBSD, ``/var/run/user/<uid>`` on FreeBSD/NetBSD, ``/run/user/<uid>``
+        elsewhere) if it passes the same check, else to ``runtime-<uid>`` in the temporary directory. Root with
+        ``use_site_for_root`` gets the site equivalent.
+
+        :raises PermissionError: if the temporary fallback is a symlink, not a directory, or owned by another user.
+
+        """
+        if self._use_site:
+            # XDGMixin.site_runtime_dir reads $XDG_RUNTIME_DIR, which belongs to the user who started the root process.
+            return super(XDGMixin, self).site_runtime_dir
+        if not (path := _xdg_dir("XDG_RUNTIME_DIR")):
+            reason = "XDG_RUNTIME_DIR is not set"
+        else:
+            with suppress(FileExistsError):
+                self._optionally_create_directory(path, private=True)
+            if not (problem := _runtime_dir_problem(path)):
+                return self._append_app_name_and_version(path, private=True)
+            reason = f"XDG_RUNTIME_DIR {problem}"
+        _warn_once(f"{reason}, falling back to {(fallback := self._default_runtime_dir())}")
+        return self._append_app_name_and_version(fallback, private=True)
 
     @property
     def user_bin_dir(self) -> str:
@@ -374,7 +382,7 @@ def _get_user_dirs_folder(key: str) -> str | None:
     See https://freedesktop.org/wiki/Software/xdg-user-dirs/.
 
     """
-    config_home = _xdg_dir("XDG_CONFIG_HOME") or os.path.expanduser("~/.config")  # ruff:ignore[os-path-expanduser]
+    config_home = _xdg_dir("XDG_CONFIG_HOME") or _expand_user("~/.config")
     user_dirs_config_path = Path(config_home) / "user-dirs.dirs"
     if not user_dirs_config_path.exists():
         return None
@@ -390,7 +398,7 @@ def _get_user_dirs_folder(key: str) -> str | None:
 def _resolve_user_dirs_value(entry: re.Match[str]) -> str | None:
     value = entry["bare"] if entry["quoted"] is None else entry["quoted"]
     if value == "$HOME" or value.startswith("$HOME/"):
-        prefix, value = os.path.expanduser("~"), value.removeprefix("$HOME")  # ruff:ignore[os-path-expanduser]
+        prefix, value = _expand_user("~"), value.removeprefix("$HOME")
     elif value.startswith("/"):
         prefix = ""
     else:
@@ -399,6 +407,35 @@ def _resolve_user_dirs_value(entry: re.Match[str]) -> str | None:
         # xdg-user-dirs-update backslash-escapes $, `, " and \ inside the quotes.
         value = re.sub(r"\\(.)", r"\1", value)
     return prefix + value
+
+
+def _runtime_dir_problem(path: str, *, check_mode: bool = True) -> str | None:
+    """Return why ``path`` fails the checks of Qt's ``checkXdgRuntimeDir``, or ``None`` if it passes or is missing."""
+    try:
+        info = os.lstat(path)
+    except FileNotFoundError:
+        return None
+    except OSError as error:
+        return f"{path} cannot be checked: {error.strerror}"
+    mode = info.st_mode & 0o777
+    checks = (
+        (stat.S_ISLNK(info.st_mode), "is a symlink"),
+        (not stat.S_ISDIR(info.st_mode), "is not a directory"),
+        (info.st_uid != (uid := getuid()), f"is owned by uid {info.st_uid}, not {uid}"),
+        (check_mode and mode != _RUNTIME_DIR_MODE, f"has mode {mode:04o}, not {_RUNTIME_DIR_MODE:04o}"),
+    )
+    return next((f"{path} {problem}" for failed, problem in checks if failed), None)
+
+
+def _warn_once(message: str) -> None:
+    # Each read of user_runtime_dir repeats the check, so a warning per read would flood long-running programs.
+    if message not in _WARNED:
+        _WARNED.add(message)
+        warnings.warn(message, RuntimeDirWarning, stacklevel=3)
+
+
+_WARNED: Final[set[str]] = set()
+_RUNTIME_DIR_MODE: Final = 0o700
 
 
 __all__ = [

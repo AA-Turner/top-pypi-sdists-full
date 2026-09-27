@@ -21,6 +21,7 @@ _EXPORTS: dict[str, tuple[str, str]] = {
     "GoogleChat": (".google", "GoogleChat"),
     "GoogleImageGeneration": (".google", "GoogleImageGeneration"),
     "GoogleInteractionsVideoGeneration": (".google", "GoogleInteractionsVideoGeneration"),
+    "GoogleDeepResearchAgent": (".google", "GoogleDeepResearchAgent"),
     "GoogleProviderConfig": (".google", "GoogleProviderConfig"),
     "GoogleTranslator": (".google", "GoogleTranslator"),
     "GoogleVideoGeneration": (".google", "GoogleVideoGeneration"),

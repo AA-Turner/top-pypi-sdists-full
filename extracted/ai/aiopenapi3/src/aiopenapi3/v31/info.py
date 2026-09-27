@@ -1,4 +1,4 @@
-from pydantic import Field, EmailStr, model_validator
+from pydantic import EmailStr, Field, model_validator
 
 from aiopenapi3.base import ObjectExtended
 
@@ -31,7 +31,7 @@ class License(ObjectExtended):
         """
         A URL to the license used for the API. This MUST be in the form of a URL. The url field is mutually exclusive of the identifier field.
         """
-        assert not all([getattr(self, i, None) is not None for i in ["identifier", "url"]])
+        assert not all(getattr(self, i, None) is not None for i in ["identifier", "url"])
         return self
 
 

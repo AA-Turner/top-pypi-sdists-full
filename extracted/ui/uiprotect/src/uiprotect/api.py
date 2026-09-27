@@ -17,7 +17,7 @@ from http import HTTPStatus, cookies
 from http.cookies import Morsel, SimpleCookie
 from ipaddress import IPv4Address, IPv6Address, ip_address
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Literal, NotRequired, Self, TypedDict, cast
+from typing import TYPE_CHECKING, Any, Literal, Self, TypedDict, cast
 from urllib.parse import SplitResult, quote
 
 import aiofiles
@@ -40,7 +40,6 @@ from .data import (
     NVR,
     ArmProfile,
     Bootstrap,
-    Bridge,
     Camera,
     ChannelQuality,
     DeviceState,
@@ -89,17 +88,14 @@ from .data import (
     Siren,
     SmartDetectAudioType,
     SmartDetectObjectType,
-    SmartDetectTrack,
     Speaker,
     Version,
     VideoMode,
-    Viewer,
     WSAction,
     WSPacket,
     WSSubscriptionMessage,
     create_from_unifi_dict,
 )
-from .data.devices import AiPort, Chime
 from .data.types import (
     AssetFileType,
     IteratorCallback,
@@ -113,6 +109,7 @@ from .data.types import (
 from .exceptions import (
     ArmedModeError,
     BadRequest,
+    ChimeRingtoneNotSetError,
     ClientError,
     GlobalAlarmManagerError,
     NotAuthorized,
@@ -185,7 +182,7 @@ class PublicApiChimeRingSettingRequest(TypedDict):
 
     cameraId: str
     repeatTimes: int
-    ringtoneId: NotRequired[str | None]
+    ringtoneId: str
     volume: int
 
 
@@ -266,6 +263,13 @@ _GLOBAL_ALARM_MANAGER_REASON = "global alarm manager"
 _ARM_ALARM_ARMED_REASON = "arm alarm is armed"
 
 
+def _require_ringtone_ids(arguments: dict[str, Any]) -> None:
+    """Raise ``ChimeRingtoneNotSetError`` for a ring setting without ``ringtoneId``."""
+    for entry in arguments.get("ring_settings") or ():
+        if not entry.get("ringtoneId"):
+            raise ChimeRingtoneNotSetError(entry.get("cameraId", ""))
+
+
 def _log_or_raise(
     label: str, exc: BaseException, *, tolerate_not_authorized: bool = False
 ) -> None:
@@ -293,6 +297,10 @@ NFC_FINGERPRINT_SUPPORT_VERSION = Version("5.1.57")
 # triggered by devices-websocket reconnects. Guards against reconnect storms
 # on flaky networks or controller reboots.
 PUBLIC_RESYNC_MIN_INTERVAL = 10.0
+
+# Backoff (seconds) between retries of a failed reconnect resync. After the
+# last step the resync waits for the next reconnect.
+PUBLIC_RESYNC_RETRY_DELAYS = (10.0, 30.0, 60.0)
 
 # WebSocket heartbeat (seconds) for the public integration WS connections. The
 # UniFi OS nginx reverse proxy closes an idle tunnel after ``proxy_read_timeout
@@ -415,6 +423,15 @@ class BaseApiClient:
     _events_websocket: Websocket | None = None
     _devices_websocket: Websocket | None = None
     _public_resync_task: asyncio.Task[None] | None = None
+    # Trailing resync deferred to the end of the debounce window.
+    _public_resync_timer: asyncio.TimerHandle | None = None
+    # True while ``_cancel_public_resync_task`` runs; reconnects schedule no
+    # resync until it returns.
+    _public_resync_closing: bool = False
+    # Retry of a failed resync, pending on the backoff.
+    _public_resync_retry_timer: asyncio.TimerHandle | None = None
+    # Retries scheduled since the last reconnect or successful resync.
+    _public_resync_retries: int = 0
 
     private_api_path: str = "/proxy/protect/api/"
     public_api_path: str = "/proxy/protect/integration"
@@ -688,6 +705,8 @@ class BaseApiClient:
 
     async def close_public_api_session(self) -> None:
         """Closing and deletes public API client session."""
+        self._cancel_public_resync_timer()
+        self._cancel_public_resync_retry()
         if self._public_api_session is not None:
             await self._public_api_session.close()
             self._public_api_session = None
@@ -700,15 +719,34 @@ class BaseApiClient:
             self._update_task = None
 
     async def _cancel_public_resync_task(self) -> None:
-        # If a subclass tracks queued follow-up resync work, clear it before
-        # cancellation so shutdown cannot re-schedule a new task in a
-        # ``finally`` block.
-        self._public_resync_pending = False
-        if self._public_resync_task is not None:
-            self._public_resync_task.cancel()
-            with contextlib.suppress(asyncio.CancelledError):
-                await self._public_resync_task
-            self._public_resync_task = None
+        # A CONNECTED landing while the cancelled task unwinds would otherwise
+        # queue a follow-up that its ``finally`` starts and nothing tracks.
+        self._public_resync_closing = True
+        try:
+            # If a subclass tracks queued follow-up resync work, clear it before
+            # cancellation so shutdown cannot re-schedule a new task in a
+            # ``finally`` block.
+            self._public_resync_pending = False
+            self._cancel_public_resync_timer()
+            if self._public_resync_task is not None:
+                self._public_resync_task.cancel()
+                with contextlib.suppress(asyncio.CancelledError):
+                    await self._public_resync_task
+                self._public_resync_task = None
+            self._cancel_public_resync_retry()
+        finally:
+            self._public_resync_closing = False
+
+    def _cancel_public_resync_timer(self) -> None:
+        if self._public_resync_timer is not None:
+            self._public_resync_timer.cancel()
+            self._public_resync_timer = None
+
+    def _cancel_public_resync_retry(self) -> None:
+        self._public_resync_retries = 0
+        if self._public_resync_retry_timer is not None:
+            self._public_resync_retry_timer.cancel()
+            self._public_resync_retry_timer = None
 
     async def _cancel_rtsps_refresh_tasks(self) -> None:
         """Cancel and await every pending background RTSPS refresh task."""
@@ -1326,25 +1364,6 @@ class BaseApiClient:
             self._last_token_cookie = None
             self._last_token_cookie_decode = None
 
-    async def clear_all_sessions(self) -> None:
-        """Clears all stored sessions from the config file."""
-        if not self.store_sessions:
-            return
-
-        try:
-            await aos.remove(self.config_file)
-        except FileNotFoundError:
-            # File already gone - either never existed or removed by another process
-            return
-
-        # If we get here, the file was successfully removed (no exception raised)
-        _LOGGER.debug("Cleared all sessions from config file")
-
-        # Clear authentication state only after successful deletion
-        self._is_authenticated = False
-        self._last_token_cookie = None
-        self._last_token_cookie_decode = None
-
     def _get_websocket_url(self) -> URL:
         """Get Websocket URL."""
         return self._ws_url_object
@@ -1366,6 +1385,7 @@ class BaseApiClient:
             devices_websocket.stop()
             await devices_websocket.wait_closed()
             self._devices_websocket = None
+        await self._cancel_public_resync_task()
 
     def _process_ws_message(self, msg: aiohttp.WSMessage) -> None:
         raise NotImplementedError
@@ -1445,6 +1465,7 @@ class ProtectApiClient(BaseApiClient):
     _ws_state_subscriptions: list[Callable[[WebsocketState], None]]
     _events_ws_state_subscriptions: list[Callable[[WebsocketState], None]]
     _devices_ws_state_subscriptions: list[Callable[[WebsocketState], None]]
+    _public_resync_subscriptions: list[Callable[[bool], None]]
     _bootstrap: Bootstrap | None = None
     _public_bootstrap: PublicBootstrap | None = None
     # True after the first time the devices WS transitions to CONNECTED; used
@@ -1462,6 +1483,10 @@ class ProtectApiClient(BaseApiClient):
     # still running; consumed in ``_resync_public_bootstrap`` to run one
     # follow-up refresh.
     _public_resync_pending: bool = False
+    # Set by each ``update_public`` to the labels of the endpoint fetches that
+    # failed transiently (``NvrError``) and were tolerated, leaving their
+    # stores stale.
+    _public_failed_endpoints: frozenset[str] = frozenset()
     _last_update_dt: datetime | None = None
     _connection_host: IPv4Address | IPv6Address | str | None = None
     _override_connection_host: bool = False
@@ -1555,6 +1580,7 @@ class ProtectApiClient(BaseApiClient):
         self._ws_state_subscriptions = []
         self._events_ws_state_subscriptions = []
         self._devices_ws_state_subscriptions = []
+        self._public_resync_subscriptions = []
         self._event_dispatcher = None
         self._device_dispatcher = None
         self.ignore_unadopted = ignore_unadopted
@@ -1740,18 +1766,6 @@ class ProtectApiClient(BaseApiClient):
                 await self._async_set_connection_host_from_bootstrap(bootstrap)
 
             return bootstrap
-
-    async def poll_events(self) -> None:
-        """Poll for events."""
-        now_dt = utc_now()
-        max_event_dt = now_dt - timedelta(hours=1)
-        events = await self.get_events(
-            start=self._last_update_dt or max_event_dt,
-            end=now_dt,
-        )
-        for event in events:
-            self.bootstrap.process_event(event)
-        self._last_update_dt = now_dt
 
     def emit_message(self, msg: WSSubscriptionMessage) -> None:
         """Emit message to all subscriptions."""
@@ -2657,6 +2671,31 @@ class ProtectApiClient(BaseApiClient):
         self._devices_ws_state_subscriptions.append(ws_callback)
         return partial(self._unsubscribe_devices_websocket_state, ws_callback)
 
+    def subscribe_public_resync(
+        self,
+        callback: Callable[[bool], None],
+    ) -> Callable[[], None]:
+        """
+        Subscribe to completion of the devices-websocket reconnect resync.
+
+        ``callback`` receives ``True`` once every bootstrap endpoint has been
+        refetched, or ``False`` if the refresh raised or an endpoint failed
+        transiently and kept its stale data. The RTSPS stream refresh runs
+        unless the cameras fetch failed, is best-effort, and does not affect
+        the result. The first connect fires nothing; every reconnect is covered:
+        one during a running resync queues a follow-up, and one inside
+        :data:`PUBLIC_RESYNC_MIN_INTERVAL` schedules a single trailing resync
+        for when the window ends. A failed resync is retried up to three times,
+        after each step of :data:`PUBLIC_RESYNC_RETRY_DELAYS`, then waits for
+        the next reconnect; ``NotAuthorized`` is never retried, and a reconnect
+        or queued follow-up replaces a pending retry. Each of those fires the
+        callback again.
+
+        Returns a callback that will unsubscribe.
+        """
+        self._public_resync_subscriptions.append(callback)
+        return partial(self._public_resync_subscriptions.remove, callback)
+
     def _unsubscribe_websocket_state(
         self,
         ws_callback: Callable[[WebsocketState], None],
@@ -2742,38 +2781,42 @@ class ProtectApiClient(BaseApiClient):
         # materialised (callers not using the cache) or
         # on the very first connect (the caller is expected to prime the
         # cache via `update_public()` themselves). Flapping websockets are
-        # debounced via :attr:`PUBLIC_RESYNC_MIN_INTERVAL` so a reconnect
-        # storm collapses into a single refresh.
+        # debounced via :attr:`PUBLIC_RESYNC_MIN_INTERVAL`: a reconnect inside
+        # the window is deferred to one trailing refresh at its end, never
+        # dropped, so a reconnect storm collapses into a single refresh.
         if state is WebsocketState.CONNECTED:
             # Re-arm the siren timers from the cached status immediately: the
-            # resync that would refresh it is debounced and may not run at all,
+            # resync that would refresh it may be deferred by the debounce,
             # while the deadlines already in hand stay valid across the gap.
             if self._public_bootstrap is not None:
                 self._reschedule_siren_offs(self._public_bootstrap)
             if not self._devices_ws_has_been_connected:
                 self._devices_ws_has_been_connected = True
             elif self._public_bootstrap is not None:
-                if (
+                # This reconnect's own resync covers the gap a pending retry
+                # would, so the two never both run.
+                self._cancel_public_resync_retry()
+                if self._public_resync_closing:
+                    _LOGGER.debug("Skipping public bootstrap resync while closing")
+                elif (
                     self._public_resync_task is not None
                     and not self._public_resync_task.done()
                 ):
                     self._public_resync_pending = True
-                else:
-                    now = time.monotonic()
-                    if now - self._last_public_resync >= PUBLIC_RESYNC_MIN_INTERVAL:
-                        # Deliberately updated *before* the task runs (not after
-                        # success) so a flapping WS combined with a persistently
-                        # failing NVR cannot spin up a continuous resync storm.
-                        # Trade-off: a single failed attempt suppresses the next
-                        # reconnect within the debounce window.
-                        self._last_public_resync = now
-                        self._public_resync_task = asyncio.create_task(
-                            self._resync_public_bootstrap()
-                        )
+                elif self._public_resync_timer is None:
+                    elapsed = time.monotonic() - self._last_public_resync
+                    if elapsed >= PUBLIC_RESYNC_MIN_INTERVAL:
+                        self._start_public_resync()
                     else:
                         _LOGGER.debug(
-                            "Skipping public bootstrap resync (debounced, last was %.1fs ago)",
-                            now - self._last_public_resync,
+                            "Deferring public bootstrap resync (debounced, last was %.1fs ago)",
+                            elapsed,
+                        )
+                        self._public_resync_timer = (
+                            asyncio.get_running_loop().call_later(
+                                PUBLIC_RESYNC_MIN_INTERVAL - elapsed,
+                                self._run_trailing_public_resync,
+                            )
                         )
                 self._flush_stale_events_on_reconnect()
         else:
@@ -2825,23 +2868,73 @@ class ProtectApiClient(BaseApiClient):
         """Re-sync the public bootstrap cache after a websocket reconnect."""
         try:
             await self.update_public()
+            # Read before the next await, which a later update could overwrite.
+            failed = self._public_failed_endpoints
+            success = not failed
             # A reconnect gap can hide a full camera flap (the disconnect *and*
             # the reconnect both missed), which rotates the ``rtsp_alias``
             # without leaving a visible state transition for the WS-path
             # refresh to catch. Re-fetch every camera's already-populated RTSPS
             # streams in place so synchronous consumers reading
             # ``camera.rtsps_streams`` never see an emptied field — the stale
-            # URLs are kept until the fresh ones overwrite them.
-            await self._refresh_all_cached_rtsps()
-        except Exception:
+            # URLs are kept until the fresh ones overwrite them. Skipped when
+            # the cameras fetch failed: the next successful resync refreshes
+            # them, and during an outage each attempt would log one failure
+            # per camera.
+            if "cameras" not in failed:
+                await self._refresh_all_cached_rtsps()
+        except Exception as err:
             _LOGGER.exception("Failed to resync public bootstrap after reconnect")
+            success = False
+            retry = not isinstance(err, NotAuthorized)
+        else:
+            retry = not success
         finally:
-            if self._public_resync_pending:
+            followed_up = self._public_resync_pending
+            if followed_up:
                 self._public_resync_pending = False
-                self._last_public_resync = time.monotonic()
-                self._public_resync_task = asyncio.create_task(
-                    self._resync_public_bootstrap()
-                )
+                self._start_public_resync()
+        if success:
+            self._public_resync_retries = 0
+        elif retry and not followed_up:
+            self._schedule_public_resync_retry()
+        # Not reached on cancellation, so a closed client never notifies.
+        for sub in self._public_resync_subscriptions.copy():
+            try:
+                sub(success)
+            except Exception:
+                _LOGGER.exception("Exception while running public resync handler")
+
+    def _start_public_resync(self) -> None:
+        # Stamped when the task starts (not after success) so a flapping WS
+        # combined with a persistently failing NVR cannot spin up a continuous
+        # resync storm.
+        self._last_public_resync = time.monotonic()
+        self._public_resync_task = asyncio.create_task(self._resync_public_bootstrap())
+
+    def _run_trailing_public_resync(self) -> None:
+        self._public_resync_timer = None
+        self._start_public_resync()
+
+    def _schedule_public_resync_retry(self) -> None:
+        attempt = self._public_resync_retries
+        if attempt >= len(PUBLIC_RESYNC_RETRY_DELAYS):
+            _LOGGER.warning(
+                "Public bootstrap resync still failing after %d retries; "
+                "waiting for the next reconnect",
+                attempt,
+            )
+            return
+        delay = PUBLIC_RESYNC_RETRY_DELAYS[attempt]
+        self._public_resync_retries = attempt + 1
+        _LOGGER.debug("Retrying public bootstrap resync in %.0fs", delay)
+        self._public_resync_retry_timer = asyncio.get_running_loop().call_later(
+            delay, self._run_public_resync_retry
+        )
+
+    def _run_public_resync_retry(self) -> None:
+        self._public_resync_retry_timer = None
+        self._start_public_resync()
 
     def _schedule_rtsps_refresh(self, camera_id: str) -> None:
         """
@@ -3105,38 +3198,6 @@ class ProtectApiClient(BaseApiClient):
         """
         return cast("list[Sensor]", await self.get_devices(ModelType.SENSOR, Sensor))
 
-    async def get_chimes(self) -> list[Chime]:
-        """
-        Gets the list of chimes straight from the NVR.
-
-        The websocket is connected and running, you likely just want to use `self.bootstrap.chimes`
-        """
-        return cast("list[Chime]", await self.get_devices(ModelType.CHIME, Chime))
-
-    async def get_aiports(self) -> list[AiPort]:
-        """
-        Gets the list of aiports straight from the NVR.
-
-        The websocket is connected and running, you likely just want to use `self.bootstrap.aiports`
-        """
-        return cast("list[AiPort]", await self.get_devices(ModelType.AIPORT, AiPort))
-
-    async def get_viewers(self) -> list[Viewer]:
-        """
-        Gets the list of viewers straight from the NVR.
-
-        The websocket is connected and running, you likely just want to use `self.bootstrap.viewers`
-        """
-        return cast("list[Viewer]", await self.get_devices(ModelType.VIEWPORT, Viewer))
-
-    async def get_bridges(self) -> list[Bridge]:
-        """
-        Gets the list of bridges straight from the NVR.
-
-        The websocket is connected and running, you likely just want to use `self.bootstrap.bridges`
-        """
-        return cast("list[Bridge]", await self.get_devices(ModelType.BRIDGE, Bridge))
-
     async def get_liveviews(self) -> list[Liveview]:
         """
         Gets the list of liveviews straight from the NVR.
@@ -3227,45 +3288,6 @@ class ProtectApiClient(BaseApiClient):
         """
         return cast(
             "Sensor", await self.get_device(ModelType.SENSOR, device_id, Sensor)
-        )
-
-    async def get_chime(self, device_id: str) -> Chime:
-        """
-        Gets a chime straight from the NVR.
-
-        The websocket is connected and running, you likely just want to use `self.bootstrap.chimes[device_id]`
-        """
-        return cast("Chime", await self.get_device(ModelType.CHIME, device_id, Chime))
-
-    async def get_aiport(self, device_id: str) -> AiPort:
-        """
-        Gets a AiPort straight from the NVR.
-
-        The websocket is connected and running, you likely just want to use `self.bootstrap.aiport[device_id]`
-        """
-        return cast(
-            "AiPort", await self.get_device(ModelType.AIPORT, device_id, AiPort)
-        )
-
-    async def get_viewer(self, device_id: str) -> Viewer:
-        """
-        Gets a viewer straight from the NVR.
-
-        The websocket is connected and running, you likely just want to use `self.bootstrap.viewers[device_id]`
-        """
-        return cast(
-            "Viewer",
-            await self.get_device(ModelType.VIEWPORT, device_id, Viewer),
-        )
-
-    async def get_bridge(self, device_id: str) -> Bridge:
-        """
-        Gets a bridge straight from the NVR.
-
-        The websocket is connected and running, you likely just want to use `self.bootstrap.bridges[device_id]`
-        """
-        return cast(
-            "Bridge", await self.get_device(ModelType.BRIDGE, device_id, Bridge)
         )
 
     async def get_liveview(self, device_id: str) -> Liveview:
@@ -3722,12 +3744,6 @@ class ProtectApiClient(BaseApiClient):
         """Gets raw Smart Detect Track for a Smart Detection"""
         return await self.api_request_obj(f"events/{event_id}/smartDetectTrack")
 
-    async def get_event_smart_detect_track(self, event_id: str) -> SmartDetectTrack:
-        """Gets raw Smart Detect Track for a Smart Detection"""
-        data = await self.api_request_obj(f"events/{event_id}/smartDetectTrack")
-
-        return SmartDetectTrack.from_unifi_dict(api=self, **data)
-
     async def update_device(
         self,
         model_type: ModelType,
@@ -3845,53 +3861,9 @@ class ProtectApiClient(BaseApiClient):
         """Plays chime tones on a chime"""
         await self.api_request(f"chimes/{device_id}/play-buzzer", method="post")
 
-    async def set_light_is_led_force_on(
-        self, device_id: str, is_led_force_on: bool
-    ) -> None:
-        """
-        Sets isLedForceOn for light.
-
-        .. deprecated::
-            Use :meth:`update_light_public` instead. This method uses the private API
-            and will be removed in a future version.
-        """
-        await self.api_request(
-            f"lights/{device_id}",
-            method="patch",
-            json={"lightOnSettings": {"isLedForceOn": is_led_force_on}},
-        )
-
     async def clear_tamper_sensor(self, device_id: str) -> None:
         """Clears tamper status for sensor"""
         await self.api_request(f"sensors/{device_id}/clear-tamper-flag", method="post")
-
-    async def _get_versions_from_api(
-        self,
-        url: str,
-        package: str = "unifi-protect",
-    ) -> set[Version]:
-        session = await self.get_session()
-        versions: set[Version] = set()
-
-        try:
-            async with session.get(url) as response:
-                is_package = False
-                for line in (await response.text()).split("\n"):
-                    if line.startswith("Package: "):
-                        is_package = False
-                        if line == f"Package: {package}":
-                            is_package = True
-
-                    if is_package and line.startswith("Version: "):
-                        versions.add(Version(line.split(": ")[-1]))
-        except (
-            TimeoutError,
-            aiohttp.ServerDisconnectedError,
-            client_exceptions.ClientError,
-        ) as err:
-            raise NvrError(f"Error packages from {url}: {err}") from err
-
-        return versions
 
     async def create_api_key(self, name: str) -> str:
         """Create an API key with the given name and return the full API key."""
@@ -3939,60 +3911,11 @@ class ProtectApiClient(BaseApiClient):
         """Get NVR metadata via the Public Integration API."""
         raise NotImplementedError
 
-    async def get_console_mac(self) -> str | None:
-        """
-        Resolve the console/NVR mac via the UniFi-OS ``/api/system`` endpoint.
-
-        The public Protect Integration API only exposes the NVR ``mac`` on
-        Protect newer than 7.1; older firmware omits it (:attr:`PublicNVR.mac`
-        is then ``None``). This helper fills that gap so a :meth:`public_only`
-        client on older firmware can still derive the console's stable,
-        mac-based identity.
-
-        This is a **transitional workaround** for the hybrid/parallel phase in
-        which the private and public paths coexist: identity must stay
-        mac-based to match what the private path already produces, so a feature
-        toggling between the two paths doesn't churn entity ids. The end-state
-        identity is the public API's own primary key (``nvr.id``); this helper
-        is expected to be retired once the private path is dropped and
-        consumers migrate to ``id``.
-
-        ``/api/system`` is an **off-contract UniFi-OS endpoint** (not the
-        public Protect API): unauthenticated, and it returns the mac of the
-        device at the configured Protect host. Returns the mac string (e.g.
-        ``"AABBCCDDEEFF"``, matching the private ``NVR.mac`` format) or
-        ``None`` when the endpoint is unreachable or carries no mac.
-        """
-        # Off-contract UniFi-OS endpoint, the fallback when the bootstraps
-        # carry no NVR mac (older firmware). Unauthenticated; targets the
-        # configured Protect host. Transitional — retire once consumers
-        # migrate to nvr.id.
-        try:
-            data = await self.api_request(
-                url="/system",
-                api_path="/api",
-                require_auth=False,
-                raise_exception=False,
-            )
-        except (NvrError, TimeoutError) as err:
-            # A connection refusal surfaces as ClientError, which _do_request
-            # wraps into NvrError. A timeout (non-routable host / hanging
-            # connection) is not a ClientError and is never wrapped, so catch
-            # TimeoutError too to honour the "None when unreachable" contract.
-            _LOGGER.debug("Failed to resolve console mac from /api/system: %s", err)
-            return None
-
-        if not isinstance(data, dict):
-            return None
-        mac = data.get("mac")
-        return mac if isinstance(mac, str) and mac else None
-
     async def resolve_nvr_mac(self) -> str | None:
         """
         Resolve the NVR mac, normalized, by source priority: the public NVR
         (cached ``_public_bootstrap`` if primed, else a direct ``/v1/nvrs``
-        fetch), then private bootstrap, then the ``/api/system`` console
-        fallback; ``None`` if none resolve.
+        fetch), then private bootstrap; ``None`` if neither resolves.
         """
         if self._public_bootstrap is not None:
             nvr = self._public_bootstrap.nvr
@@ -4004,7 +3927,7 @@ class ProtectApiClient(BaseApiClient):
             except (ClientError, TimeoutError):
                 # The public session carries no ClientTimeout, so a hung
                 # /v1/nvrs raises a bare TimeoutError that is never wrapped
-                # into ClientError; fall through to the private/console tiers.
+                # into ClientError; fall through to the private tier.
                 public_nvr = None
             if public_nvr is not None and public_nvr.mac:
                 return normalize_mac(public_nvr.mac)
@@ -4012,8 +3935,7 @@ class ProtectApiClient(BaseApiClient):
         if self._bootstrap is not None and self._bootstrap.nvr.mac:
             return normalize_mac(self._bootstrap.nvr.mac)
 
-        mac = await self.get_console_mac()
-        return normalize_mac(mac) if mac else None
+        return None
 
     # Public API Methods
 
@@ -4224,7 +4146,9 @@ class ProtectApiClient(BaseApiClient):
         """Get a specific chime using public API."""
         raise NotImplementedError
 
-    @public_patch("/v1/chimes/{chime_id}", item=PublicChime)
+    @public_patch(
+        "/v1/chimes/{chime_id}", item=PublicChime, validate=_require_ringtone_ids
+    )
     async def update_chime_public(
         self,
         chime_id: str,
@@ -5066,11 +4990,11 @@ class ProtectApiClient(BaseApiClient):
         updated in place on subsequent calls. All endpoint fetches run
         concurrently.
 
-        Each endpoint is requested best-effort; endpoints that the NVR
-        doesn't (yet) expose (``BadRequest`` / ``NvrError``) are logged at
-        ``DEBUG`` and ignored, and a partial public bootstrap is returned.
-        If an endpoint fails, its previously cached data is left unchanged
-        (not cleared). All results are classified before any are applied: an
+        Each endpoint is requested best-effort and a partial public bootstrap
+        is returned: an endpoint the NVR doesn't (yet) expose (``BadRequest``)
+        and one that fails transiently (``NvrError``: timeout, 429, 5xx) are
+        both logged at ``DEBUG`` and ignored. If an endpoint fails, its
+        previously cached data is left unchanged (not cleared). All results are classified before any are applied: an
         unexpected exception (e.g. a validation error from a new server
         payload) propagates to the caller with the snapshot left untouched,
         never half-applied.
@@ -5085,13 +5009,6 @@ class ProtectApiClient(BaseApiClient):
         library guarantee, not a caller obligation. To also make the
         prime-then-subscribe ordering moot for the typed callbacks, use
         :meth:`subscribe_devices_and_prime` / :meth:`subscribe_events_and_prime`.
-
-        After priming, ``public_bootstrap.nvr.mac`` carries the NVR mac
-        whenever it is resolvable. On firmware that omits ``mac`` from the
-        public payload it is backfilled from the console fallback and stored
-        in the native UniFi format (uppercase, no separators) — the same
-        format newer firmware already provides — so consumers can read a
-        self-consistent mac regardless of firmware.
 
         Membership changes are announced on the devices websocket: once the
         whole batch has merged, every successful call emits one synthetic
@@ -5203,6 +5120,13 @@ class ProtectApiClient(BaseApiClient):
                     _log_or_raise(
                         label, result, tolerate_not_authorized=label == "ulp-users"
                     )
+            # A missing endpoint (``BadRequest``) is a stable capability gap;
+            # only a transient failure leaves the store stale.
+            self._public_failed_endpoints = frozenset(
+                label
+                for (_, label, _attr), result in zip(endpoints, results, strict=True)
+                if isinstance(result, NvrError)
+            )
 
             # Classification passed: publish the candidate.
             # ``_apply_arm_profiles`` reads ``self._public_bootstrap``, so this
@@ -5230,7 +5154,6 @@ class ProtectApiClient(BaseApiClient):
                 handler(msg)
 
         await self._prime_rtsps_streams(pb, previous_streams)
-        await self._backfill_public_nvr_mac(pb)
         if was_primed:
             self._emit_public_fetch_diffs(pb, diffs, seen)
 
@@ -5309,29 +5232,6 @@ class ProtectApiClient(BaseApiClient):
                 old_obj=None if is_add else obj,
             )
         )
-
-    async def _backfill_public_nvr_mac(self, pb: PublicBootstrap) -> None:
-        """
-        Stamp the NVR mac onto ``pb`` when firmware omits it from the payload.
-
-        Protect newer than 7.1 already carries ``mac`` on ``GET /v1/nvrs`` in
-        native UniFi format (uppercase, no separators), so this is a no-op
-        there. On older firmware the field is ``None``; resolve it via the
-        console fallback and write it in that same native format so the value
-        does not drift across firmware versions.
-        """
-        if pb.nvr is None or pb.nvr.mac:
-            return
-        resolved = await self.resolve_nvr_mac()
-        if not resolved:
-            return
-        # ``pb.nvr`` may have been replaced by a websocket write-through while
-        # awaiting, so re-read it and skip if it now carries a mac.
-        if (nvr := pb.nvr) is not None and not nvr.mac:
-            # resolve_nvr_mac() returns the normalized (lowercase, separator-
-            # stripped) form; the public field natively holds uppercase-no-
-            # separator on newer firmware, so upper() matches that exactly.
-            nvr.mac = resolved.upper()
 
     async def _prime_rtsps_streams(
         self,

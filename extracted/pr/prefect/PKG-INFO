@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: prefect
-Version: 3.8.6
+Version: 3.8.7
 Summary: Workflow orchestration and management.
 Project-URL: Changelog, https://github.com/PrefectHQ/prefect/releases
 Project-URL: Documentation, https://docs.prefect.io
@@ -59,9 +59,9 @@ Requires-Dist: pydantic!=2.11.0,!=2.11.1,!=2.11.2,!=2.11.3,!=2.11.4,<3.0.0,>=2.1
 Requires-Dist: pydantic-core<3.0.0,>=2.12.0
 Requires-Dist: pydantic-extra-types<3.0.0,>=2.8.2
 Requires-Dist: pydantic-settings<3.0.0,>=2.9.1
-Requires-Dist: pydocket>=0.19.0
+Requires-Dist: pydocket>=0.23.1
 Requires-Dist: python-dateutil<3.0.0,>=2.8.2
-Requires-Dist: python-slugify<9.0,>=5.0
+Requires-Dist: python-slugify<9.1,>=9
 Requires-Dist: pytz<2027,>=2021.1
 Requires-Dist: pyyaml<7.0.0,>=5.4.1
 Requires-Dist: readchar<5.0.0,>=4.0.0
@@ -169,6 +169,10 @@ Description-Content-Type: text/markdown
         Deploy workflows
     </a>
     ·
+    <a href="https://www.prefect.io/agents">
+        Agent setup
+    </a>
+    ·
     <a href="https://app.prefect.cloud/?utm_source=oss&utm_medium=oss&utm_campaign=oss_gh_repo&utm_term=none&utm_content=none">
         Prefect Cloud
     </a>
@@ -253,6 +257,10 @@ Additionally you can run your workflow manually from the UI or CLI. You can even
 > - [Integrating with your existing tools](https://docs.prefect.io/integrations/integrations?utm_source=oss&utm_medium=oss&utm_campaign=oss_gh_repo&utm_term=none&utm_content=none)
 > - [Setting up team collaboration features](https://docs.prefect.io/v3/manage/cloud/manage-users/manage-teams#manage-teams?utm_source=oss&utm_medium=oss&utm_campaign=oss_gh_repo&utm_term=none&utm_content=none)
 
+
+## Work with your agent
+
+Use the [agent setup guides](https://www.prefect.io/agents) to connect your agent to Prefect through plugins or MCP and get started with the CLI. An [agent-readable setup index](https://www.prefect.io/agents/llms.txt) provides the guides as plain text.
 
 ## Prefect Cloud
 

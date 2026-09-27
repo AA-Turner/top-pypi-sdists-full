@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 import scipy
 
-from .utils import _check_dataframe, _postprocess_dataframe, remove_na
+from .utils import _check_alternative, _check_dataframe, _postprocess_dataframe, remove_na
 
 __all__ = [
     "mad",
@@ -51,8 +51,7 @@ def mad(a, normalize=True, axis=0):
     dispersion similar to the standard deviation, but is more robust to
     outliers.
 
-    SciPy 1.3 and higher includes a similar function:
-    :py:func:`scipy.stats.median_abs_deviation`.
+    This function is a thin wrapper around :py:func:`scipy.stats.median_abs_deviation`.
 
     Please note that missing values are automatically removed.
 
@@ -81,21 +80,9 @@ def mad(a, normalize=True, axis=0):
 
     >>> mad(w, axis=None)  # Axis = None = over the entire array
     1.1607762457644006
-
-    Compare with Scipy >= 1.3
-
-    >>> from scipy.stats import median_abs_deviation
-    >>> median_abs_deviation(w, scale="normal", axis=None, nan_policy="omit")
-    1.1607762457644006
     """
-    a = np.asarray(a)
-    if axis is None:
-        # Calculate the MAD over the entire array
-        a = np.ravel(a)
-        axis = 0
-    c = scipy.stats.norm.ppf(3 / 4.0) if normalize else 1
-    center = np.apply_over_axes(np.nanmedian, a, axis)
-    return np.nanmedian((np.fabs(a - center)) / c, axis=axis)
+    scale = "normal" if normalize else 1.0
+    return scipy.stats.median_abs_deviation(a, axis=axis, scale=scale, nan_policy="omit")
 
 
 def madmedianrule(a):
@@ -278,11 +265,7 @@ def mwu(x, y, alternative="two-sided", **kwargs):
     x, y = remove_na(x, y, paired=False)
 
     # Check tails
-    assert alternative in [
-        "two-sided",
-        "greater",
-        "less",
-    ], "Alternative must be one of 'two-sided' (default), 'greater' or 'less'."
+    _check_alternative(alternative)
     if "tail" in kwargs:
         raise ValueError(
             "Since Pingouin 0.4.0, the 'tail' argument has been renamed to 'alternative'."
@@ -451,11 +434,7 @@ def wilcoxon(x, y=None, alternative="two-sided", **kwargs):
         x = x[~np.isnan(x)]
 
     # Check tails
-    assert alternative in [
-        "two-sided",
-        "greater",
-        "less",
-    ], "Alternative must be one of 'two-sided' (default), 'greater' or 'less'."
+    _check_alternative(alternative)
     if "tail" in kwargs:
         raise ValueError(
             "Since Pingouin 0.4.0, the 'tail' argument has been renamed to 'alternative'."

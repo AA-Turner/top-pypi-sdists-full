@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: rope
-Version: 1.14.0
+Version: 1.15.0
 Summary: a python refactoring library...
 Author-email: Ali Gholami Rudi <aligrudi@users.sourceforge.net>
 Maintainer-email: Lie Ryan <lieryan.24@proton.me>
@@ -17,13 +17,14 @@ Classifier: License :: OSI Approved :: GNU Lesser General Public License v3 or l
 Classifier: Natural Language :: English
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Software Development
-Requires-Python: >=3.8
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: COPYING
 Requires-Dist: pytoolconfig[global]>=1.2.2
@@ -70,7 +71,7 @@ rope -- the world's most advanced open source Python refactoring library
 
 .. |Codecov badge| image:: https://codecov.io/gh/python-rope/rope/graph/badge.svg?token=pU08MBXFIS
    :target: https://codecov.io/gh/python-rope/rope
-   :alt: Codecov 
+   :alt: Codecov
 
 Overview
 ========

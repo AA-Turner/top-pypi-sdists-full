@@ -111,20 +111,50 @@ def test_over_soft_cap_truncates_stashes_and_alarms(captured_events):
     assert sl.has_more is True
 
 
-def test_self_capped_is_trusted_even_when_huge(captured_events):
+def test_self_capped_is_trusted_but_an_over_cap_claim_is_recorded(captured_events):
+    # The 2026-09-12 silent overflow: `context` mode=full on a lazy source claimed
+    # output_self_capped and returned 113,535 chars. Content stays untouched (the
+    # claim is honoured) but the false claim is RECORDED — never silent.
     body = "z" * (TOOL_RESULT_SOFT_CAP_CHARS + 100_000)
     cd = _content_dict(body)
     out, truncated = apply_size_gate(
         cd,
         output_self_capped=True,  # tool declared it managed itself
-        tool_name="data",
+        tool_name="context",
         tool_kind="native",
         conversation_id="conv-1",
         user_id="user-1",
     )
     assert out["content"] == body  # untouched
     assert truncated is False
-    assert captured_events == []  # no canary, no alarm
+    assert [(e.tier, e.tool_name, e.output_chars) for e in captured_events] == [
+        ("self_cap_exceeded", "context", len(body))
+    ]
+
+
+def test_self_capped_with_covering_approval_is_silent(captured_events):
+    body = "z" * (TOOL_RESULT_SOFT_CAP_CHARS + 10)
+    cd = _content_dict(body)
+    cd["approved_max_chars"] = len(body)
+    out, truncated = apply_size_gate(
+        cd,
+        output_self_capped=True,
+        tool_name="fetch_tool_result",
+        tool_kind="native",
+        conversation_id="c",
+        user_id="u",
+    )
+    assert out["content"] == body and truncated is False
+    assert captured_events == []
+
+
+def test_self_capped_small_result_is_silent(captured_events):
+    cd = _content_dict("q" * (TOOL_RESULT_CANARY_CHARS + 10))
+    apply_size_gate(
+        cd, output_self_capped=True, tool_name="sql", tool_kind="native",
+        conversation_id="c", user_id="u",
+    )
+    assert captured_events == []
 
 
 def test_media_block_list_never_truncated(captured_events):
@@ -143,6 +173,32 @@ def test_media_block_list_never_truncated(captured_events):
     assert out["content"] is blocks
     assert truncated is False
     assert captured_events == []
+
+
+def test_over_cap_text_blocks_are_recorded_never_cut(captured_events):
+    # The 2026-09-01 silent overflow: knowledge_search rode provider_content
+    # (citable passages + a metadata TextContent) at 101,798 chars and the gate
+    # returned early on the non-string content without measuring it.
+    from matrx_ai.config import SearchResultContent, TextContent
+
+    passages = [SearchResultContent(texts=["p" * 2_000], title=f"t{i}") for i in range(10)]
+    meta = TextContent(text="m" * TOOL_RESULT_SOFT_CAP_CHARS)
+    blocks = [*passages, meta]
+    cd = _content_dict("placeholder")
+    cd["content"] = blocks
+    out, truncated = apply_size_gate(
+        cd,
+        output_self_capped=False,
+        tool_name="knowledge_search",
+        tool_kind="native",
+        conversation_id="c",
+        user_id="u",
+    )
+    assert out["content"] is blocks  # typed blocks are never cut
+    assert truncated is False
+    assert [(e.tier, e.output_chars) for e in captured_events] == [
+        ("blocks_over_cap", 20_000 + TOOL_RESULT_SOFT_CAP_CHARS)
+    ]
 
 
 def test_overflow_fails_closed_on_owner_mismatch():

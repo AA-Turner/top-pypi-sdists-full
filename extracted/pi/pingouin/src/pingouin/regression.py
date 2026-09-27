@@ -1,13 +1,12 @@
-import itertools
 import warnings
 
 import numpy as np
 import pandas as pd
 import pandas_flavor as pf
-from scipy.linalg import lstsq, pinvh
+from scipy.linalg import pinvh
 from scipy.stats import norm, t
 
-from .config import options
+from .config import _no_rounding
 from .utils import _flatten_list as _fl
 from .utils import _postprocess_dataframe
 from .utils import remove_na as rm_na
@@ -129,8 +128,8 @@ def linear_regression(
     Notes
     -----
     The :math:`\\beta` coefficients are estimated using an ordinary least
-    squares (OLS) regression, as implemented in the
-    :py:func:`scipy.linalg.lstsq` function. The OLS method minimizes
+    squares (OLS) regression, computed from a singular value decomposition of
+    the design matrix. The OLS method minimizes
     the sum of squared residuals, and leads to a closed-form expression for
     the estimated :math:`\\beta`:
 
@@ -179,9 +178,21 @@ def linear_regression(
     and the R package `relaimpo
     <https://cran.r-project.org/web/packages/relaimpo/relaimpo.pdf>`_.
 
-    Note that Pingouin will automatically remove any duplicate columns
-    from :math:`X`, as well as any column with only one unique value
-    (constant), excluding the intercept.
+    If one or more columns of :math:`X` are a linear combination of the
+    others (e.g. duplicate columns, all-zero columns, or a constant column
+    in addition to the intercept), the design matrix is rank deficient. A
+    warning is raised, singular values below
+    :math:`\\max(n, p) \\cdot \\epsilon \\cdot \\sigma_{\\max}` are treated as zero (the
+    tolerance of :py:func:`numpy.linalg.matrix_rank`), and the minimum-norm
+    solution is returned, as in statsmodels. The coefficients of the collinear
+    columns are then not unique: for example, the effect of a duplicated
+    column is split equally between the two copies, with the same T-value
+    as when the column is only included once. The T-value and p-value of an
+    all-zero column are NaN.
+
+    .. versionchanged:: 0.7.0
+        Duplicate, all-zero and extra constant columns are no longer removed
+        from :math:`X`.
 
     Results have been compared against sklearn, R, statsmodels and JASP.
 
@@ -276,6 +287,7 @@ def linear_regression(
 
     7. Remove missing values
 
+    >>> X, y = X.copy(), y.copy()  # to_numpy() can return a read-only view
     >>> X[4, 1] = np.nan
     >>> y[7] = np.nan
     >>> pg.linear_regression(X, y, remove_na=True, coef_only=True)
@@ -312,83 +324,26 @@ def linear_regression(
     0  Intercept  9.00  2.03  4.42  0.01  0.51    0.39      3.35      14.64
     1         x1  1.04  0.50  2.06  0.11  0.51    0.39     -0.36       2.44
     """
-    # Extract names if X is a Dataframe or Series
-    if isinstance(X, pd.DataFrame):
-        names = X.keys().tolist()
-    elif isinstance(X, pd.Series):
-        names = [X.name]
-    else:
-        names = []
-
-    # Convert input to numpy array
-    X = np.asarray(X)
-    y = np.asarray(y)
-    assert y.ndim == 1, "y must be one-dimensional."
     assert 0 < alpha < 1
-
-    if X.ndim == 1:
-        # Convert to (n_samples, n_features) shape
-        X = X[..., np.newaxis]
-
-    # Check for NaN / Inf
-    if remove_na:
-        X, y = rm_na(X, y[..., np.newaxis], paired=True, axis="rows")
-        y = np.squeeze(y)
-    y_gd = np.isfinite(y).all()
-    X_gd = np.isfinite(X).all()
-    assert y_gd, (
-        "Target (y) contains NaN or Inf. Please remove them manually or use remove_na=True."
-    )
-    assert X_gd, (
-        "Predictors (X) contain NaN or Inf. Please remove them manually or use remove_na=True."
-    )
-
-    # Check that X and y have same length
-    assert y.shape[0] == X.shape[0], "X and y must have same number of samples"
-
-    if not names:
-        names = ["x" + str(i + 1) for i in range(X.shape[1])]
+    X, y, names = _prepare_Xy(X, y, remove_na)
 
     if add_intercept:
         # Add intercept
         X = np.column_stack((np.ones(X.shape[0]), X))
         names.insert(0, "Intercept")
 
-    # FINAL CHECKS BEFORE RUNNING LEAST SQUARES REGRESSION
-    # 1. Let's remove column(s) with only zero, otherwise the regression fails
-    n_nonzero = np.count_nonzero(X, axis=0)
-    idx_zero = np.flatnonzero(n_nonzero == 0)  # Find columns that are only 0
-    if len(idx_zero):
-        X = np.delete(X, idx_zero, 1)
-        names = np.delete(names, idx_zero)
+    # Is there a constant (e.g. the intercept) in the design? Used for the dof and R^2. No column
+    # is removed: all-zero, duplicate or collinear constant columns make the design rank
+    # deficient, which is handled below with a single rank decision.
+    is_const = (np.ptp(X, axis=0) == 0) & (X[0] != 0)
+    constant = int(is_const.any())
 
-    # 2. We also want to make sure that there is no more than one constant
-    # column (= intercept), otherwise the regression fails
-    # This is equivalent, but much faster, to pd.DataFrame(X).nunique()
-    idx_unique = np.where(np.all(X == X[0, :], axis=0))[0]
-    if len(idx_unique) > 1:
-        # We remove all but the first "Intercept" column.
-        X = np.delete(X, idx_unique[1:], 1)
-        names = np.delete(names, idx_unique[1:])
-    # Is there a constant in our predictor matrix? Useful for dof and R^2.
-    constant = 1 if len(idx_unique) > 0 else 0
-
-    # 3. Finally, we want to remove duplicate columns
-    if X.shape[1] > 1:
-        idx_duplicate = []
-        for pair in itertools.combinations(range(X.shape[1]), 2):
-            if np.array_equal(X[:, pair[0]], X[:, pair[1]]):
-                idx_duplicate.append(pair[1])
-        if len(idx_duplicate):
-            X = np.delete(X, idx_duplicate, 1)
-            names = np.delete(names, idx_duplicate)
-
-    # 4. Check that we have enough samples / features
+    # Check that we have enough samples / features
     n, p = X.shape[0], X.shape[1]
     assert n >= 3, "At least three valid samples are required in X."
     assert p >= 1, "X must have at least one valid column."
 
-    # 5. Handle weights
+    # Handle weights
     if weights is not None:
         if relimp:
             raise ValueError("relimp = True is not supported when using weights.")
@@ -400,10 +355,10 @@ def linear_regression(
         # Do not count weights == 0 in dof
         # This gives similar results as R lm() but different from statsmodels
         n = np.count_nonzero(w)
-        # Rescale (whitening)
-        wts = np.diag(np.sqrt(w))
-        Xw = wts @ X
-        yw = wts @ y
+        # Rescale (whitening). Broadcasting avoids building a dense (n, n) diagonal matrix.
+        sw = np.sqrt(w)
+        Xw = X * sw[:, None]
+        yw = y * sw
     else:
         # Set all weights to one, [1, 1, 1, ...]
         w = np.ones(n)
@@ -411,13 +366,10 @@ def linear_regression(
         yw = y
 
     # FIT (WEIGHTED) LEAST SQUARES REGRESSION
-    coef, ss_res, rank, _ = lstsq(Xw, yw, cond=None)
-    ss_res = ss_res[0] if ss_res.shape == (1,) else ss_res
+    coef, unscaled_var, rank = _lstsq(Xw, yw)
     if coef_only:
         return coef
-    calc_ss_res = False
     if rank < Xw.shape[1]:
-        # in this case, ss_res is of shape (0,), i.e., an empty array
         warnings.warn(
             "Design matrix supplied with `X` parameter is rank "
             f"deficient (rank {rank} with {Xw.shape[1]} columns). "
@@ -425,7 +377,6 @@ def linear_regression(
             "are a linear combination of one of more of the "
             "other columns."
         )
-        calc_ss_res = True
 
     # Degrees of freedom
     df_model = rank - constant
@@ -434,9 +385,7 @@ def linear_regression(
     # Calculate predicted values and (weighted) residuals
     pred = Xw @ coef
     resid = yw - pred
-    if calc_ss_res:
-        # In case we did not get ss_res from lstsq due to rank deficiency
-        ss_res = (resid**2).sum()
+    ss_res = (resid**2).sum()
 
     # Calculate total (weighted) sums of squares and R^2
     ss_tot = yw @ yw
@@ -449,11 +398,12 @@ def linear_regression(
 
     # Compute mean squared error, variance and SE
     mse = ss_res / df_resid
-    beta_var = mse * (np.linalg.pinv(Xw.T @ Xw).diagonal())
-    beta_se = np.sqrt(beta_var)
+    beta_se = np.sqrt(mse * unscaled_var)
 
-    # Compute T and p-values
-    T = coef / beta_se
+    # Compute T and p-values. The coefficient and SE of an all-zero column are both zero, which
+    # gives a NaN T-value and p-value.
+    with np.errstate(divide="ignore", invalid="ignore"):
+        T = coef / beta_se
     pval = 2 * t.sf(np.fabs(T), df_resid)
 
     # Compute confidence intervals
@@ -481,17 +431,24 @@ def linear_regression(
 
     # Relative importance
     if relimp:
-        data = pd.concat(
-            [pd.DataFrame(y, columns=["y"]), pd.DataFrame(X, columns=names)], sort=False, axis=1
+        # Relative importance is computed on the correlation matrix, which makes it
+        # invariant to the scale of the predictors. The correlation of a constant
+        # column (e.g. the Intercept) is undefined, so the constant columns are
+        # excluded and re-inserted afterwards.
+        idx_const = np.flatnonzero(np.ptp(X, axis=0) == 0)
+        idx_var = np.flatnonzero(np.ptp(X, axis=0) != 0)
+        S = pd.DataFrame(
+            np.corrcoef(np.column_stack((y, X[:, idx_var])), rowvar=False),
+            columns=["y", *[names[i] for i in idx_var]],
         )
-        if "Intercept" in names:
-            # Intercept is the first column
-            reli = _relimp(data.drop(columns=["Intercept"]).cov(numeric_only=True))
-            reli["names"] = ["Intercept"] + reli["names"]
-            reli["relimp"] = np.insert(reli["relimp"], 0, np.nan)
-            reli["relimp_perc"] = np.insert(reli["relimp_perc"], 0, np.nan)
-        else:
-            reli = _relimp(data.cov(numeric_only=True))
+        reli = _relimp(S)
+        for i in idx_const:
+            # The intercept has no relative importance, and a user-defined constant
+            # column explains no variance in y.
+            fill = np.nan if add_intercept and i == 0 else 0.0
+            reli["names"].insert(i, names[i])
+            reli["relimp"] = np.insert(reli["relimp"], i, fill)
+            reli["relimp_perc"] = np.insert(reli["relimp_perc"], i, fill)
         stats.update(reli)
 
     if as_dataframe:
@@ -513,6 +470,104 @@ def linear_regression(
     return stats
 
 
+def _prepare_Xy(X, y, remove_na=False):
+    """Validate the predictors and target of a regression.
+
+    Returns ``X`` as a (n_samples, n_features) array, ``y`` as a (n_samples,) array and the names
+    of the predictors, which are extracted from ``X`` if it is a DataFrame or a Series.
+    """
+    # Extract names if X is a Dataframe or Series
+    if isinstance(X, pd.DataFrame):
+        names = X.keys().tolist()
+    elif isinstance(X, pd.Series):
+        names = [X.name]
+    else:
+        names = []
+
+    # Convert input to numpy array. X and y are cast to float, e.g. for boolean inputs.
+    X = np.asarray(X, dtype=float)
+    y = np.asarray(y, dtype=float)
+    assert y.ndim == 1, "y must be one-dimensional."
+
+    if X.ndim == 1:
+        # Convert to (n_samples, n_features) shape
+        X = X[..., np.newaxis]
+
+    # Check for NaN / Inf
+    if remove_na:
+        X, y = rm_na(X, y[..., np.newaxis], paired=True, axis="rows")
+        y = np.squeeze(y)
+    assert np.isfinite(y).all(), (
+        "Target (y) contains NaN or Inf. Please remove them manually or use remove_na=True."
+    )
+    assert np.isfinite(X).all(), (
+        "Predictors (X) contain NaN or Inf. Please remove them manually or use remove_na=True."
+    )
+
+    # Check that X and y have same length
+    assert y.shape[0] == X.shape[0], "X and y must have same number of samples"
+
+    if not names:
+        names = ["x" + str(i + 1) for i in range(X.shape[1])]
+    return X, y, names
+
+
+def _lstsq(X, y=None):
+    """Minimum-norm least squares solution and unscaled variance of the coefficients.
+
+    Returns the coefficients of ``y ~ X`` (None if ``y`` is None), the diagonal of the
+    pseudo-inverse of ``X.T @ X`` and the rank of ``X``. The covariance of the coefficients is
+    the diagonal multiplied by the residual variance (linear regression) or, if ``X`` is
+    whitened by the square root of the IRLS weights, it is the covariance itself (logistic
+    regression).
+
+    Inverting ``X.T @ X`` squares the condition number of ``X`` and discards estimable
+    directions when the predictors have different units. Instead, singular values of ``X``
+    below ``max(n, p) * eps * s_max`` are treated as zero (same tolerance as
+    :py:func:`numpy.linalg.matrix_rank`) and the covariance is formed from the others. This
+    single rank decision handles duplicate and collinear columns alike.
+
+    All-zero columns are excluded from the decomposition, and their coefficient and variance are
+    set to exactly zero. Otherwise, the rounding noise of the SVD leaks into these columns and
+    gives a coefficient and a variance of ~1e-17, whose ratio (the T-value) is arbitrary.
+
+    The SVD is computed on the small triangular factor of a QR decomposition of ``X``, which has
+    the same singular values and is much cheaper than an SVD of a tall ``X``. Appending ``y`` to
+    ``X`` before the QR gives ``Q.T @ y`` without forming ``Q``.
+    """
+    n, p = X.shape
+    coef, unscaled_var = np.zeros(p), np.zeros(p)
+    nonzero = X.any(axis=0)
+    if not nonzero.any():
+        return (None if y is None else coef), unscaled_var, 0
+    Xnz = X[:, nonzero] if not nonzero.all() else X
+    A = Xnz if y is None else np.column_stack((Xnz, y))
+    R = np.linalg.qr(A.astype(float, copy=False), mode="r")
+    u, s, vt = np.linalg.svd(R[:, : Xnz.shape[1]], full_matrices=False)
+    rank = int(np.sum(s > max(n, p) * np.finfo(float).eps * s[0]))
+    scaled_vt = vt[:rank] / s[:rank, np.newaxis]
+    unscaled_var[nonzero] = np.sum(scaled_vt**2, axis=0)
+    if y is None:
+        return None, unscaled_var, rank
+    coef[nonzero] = scaled_vt.T @ (u[:, :rank].T @ R[:, -1])
+    return coef, unscaled_var, rank
+
+
+def _duplicate_columns(X):
+    """Indices of the columns of ``X`` that are exact duplicates of an earlier column."""
+    # Duplicate columns have the same weighted sum, up to a rounding error much smaller than
+    # the weighted sum of absolute values. Only the columns whose sums are within that
+    # tolerance need to be compared element-wise.
+    w = np.linspace(1, 2, X.shape[0])
+    fingerprint, tol = w @ X, 1e-8 * (w @ np.abs(X))
+    idx_duplicate = []
+    for j in range(1, X.shape[1]):
+        candidates = np.flatnonzero(np.abs(fingerprint[:j] - fingerprint[j]) <= tol[j])
+        if any(np.array_equal(X[:, i], X[:, j]) for i in candidates):
+            idx_duplicate.append(j)
+    return np.array(idx_duplicate, dtype=int)
+
+
 def _relimp(S):
     """Relative importance of predictors in multiple regression.
 
@@ -523,73 +578,32 @@ def _relimp(S):
     Parameters
     ----------
     S : pd.DataFrame
-        Covariance matrix. The target variable MUST be the FIRST column,
+        Correlation matrix. The target variable MUST be the FIRST column,
         followed by the predictors (excluding the intercept).
     """
     assert isinstance(S, pd.DataFrame)
-    cols = S.columns.tolist()
-
-    # Define indices of columns: .iloc is faster than .loc
-    predictors = cols[1:]
+    predictors = S.columns[1:].tolist()
     npred = len(predictors)
-    target_int = 0
-    predictors_int = np.arange(1, npred + 1)
+    S = S.to_numpy()
+    ss_tot, r, Rxx = S[0, 0], S[1:, 0], S[1:, 1:]
 
-    # Calculate total sum of squares and beta coefficients
-    # Note that the R^2 that we calculate below is always the R^2 of the model
-    # INCLUDING the intercept!
-    ss_tot = S.iat[target_int, target_int]
-    betas = (
-        np.linalg.pinv(S.iloc[predictors_int, predictors_int]) @ S.iloc[predictors_int, target_int]
-    )
-    r2_full = betas @ S.iloc[target_int, predictors_int] / ss_tot
+    # R^2 (including the intercept) of the model fitted on each subset of predictors, where
+    # the subset is encoded as a bitmask: bit j is set if predictor j is in the model.
+    # Each subset is solved only once.
+    masks = np.arange(2**npred)
+    r2 = np.zeros(2**npred)
+    for mask in masks[1:]:
+        idx = np.flatnonzero((mask >> np.arange(npred)) & 1)
+        r2[mask] = r[idx] @ pinvh(Rxx[np.ix_(idx, idx)]) @ r[idx] / ss_tot
+    size = np.array([bin(mask).count("1") for mask in masks])
 
-    # Pre-computed SSreg dictionnary
-    ss_reg_precomp = {}
-
-    # Start looping over predictors
+    # LMG: increase in R^2 when adding predictor j, averaged first over all the subsets of the
+    # other predictors with a given size, and then over the subset sizes.
     all_preds = []
-    for pred in predictors_int:
-        loo = np.setdiff1d(predictors_int, pred)
-        r2_seq_mean = []
-        # Loop over number of predictors
-        for k in np.arange(0, npred - 1):
-            r2_seq = []
-            # Loop over combinations of predictors
-            for p in itertools.combinations(loo, int(k)):
-                p = list(p)
-                p_with = p + [pred]
-
-                # To avoid calculating several times the same values
-                # we use a trick here: we save the first calculation
-                # to a dictionnary where the key is the sorted string
-                # (hence the order does not matter)
-                if str(sorted(p)) in ss_reg_precomp.keys():
-                    ss_reg_without = ss_reg_precomp[str(sorted(p))]
-                else:
-                    S_without = S.iloc[p, target_int]
-                    ss_reg_without = np.linalg.pinv(S.iloc[p, p]) @ S_without @ S_without
-                    ss_reg_precomp[str(sorted(p))] = ss_reg_without
-
-                S_with = S.iloc[p_with, target_int]
-                ss_reg_with = pinvh(S.iloc[p_with, p_with]) @ S_with @ S_with
-                ss_reg_precomp[str(sorted(p_with))] = ss_reg_with
-
-                # Calculate R^2
-                r2_diff = (ss_reg_with - ss_reg_without) / ss_tot
-                # Append the difference
-                r2_seq.append(r2_diff)
-
-            # First averaging
-            r2_seq_mean.append(np.mean(r2_seq))
-
-        # When Sk(r) = S
-        S_without = S.iloc[loo, target_int]
-        ss_reg = np.linalg.pinv(S.iloc[loo, loo]) @ S_without @ S_without
-        r2_without = ss_reg / ss_tot
-        r2_seq = r2_full - r2_without
-        r2_seq_mean.append(r2_seq)
-        all_preds.append(np.mean(r2_seq_mean))
+    for j in range(npred):
+        without = masks[(masks >> j) & 1 == 0]
+        r2_diff = r2[without | (1 << j)] - r2[without]
+        all_preds.append(np.mean([r2_diff[size[without] == k].mean() for k in range(npred)]))
 
     stats_relimp = {
         "names": predictors,
@@ -677,7 +691,13 @@ def logistic_regression(
     the model. Pingouin will automatically add the intercept
     to your predictor(s) matrix, therefore, :math:`X` should not include a
     constant term. Pingouin will remove any constant term (e.g column with only
-    one unique value), or duplicate columns from :math:`X`.
+    one unique value), or duplicate columns from :math:`X`. If ``fit_intercept=False``
+    is passed to scikit-learn, the first non-zero constant column of :math:`X` is kept
+    and acts as the intercept.
+
+    .. versionchanged:: 0.7.0
+        With ``fit_intercept=False``, the first non-zero constant column is no longer
+        removed.
 
     The calculation of the p-values and confidence interval is adapted from a
     `code by Rob Speare
@@ -739,8 +759,8 @@ def logistic_regression(
 
     3. Using NumPy aray and returning only the coefficients
 
-    >>> pg.logistic_regression(X.to_numpy(), y.to_numpy(), coef_only=True, remove_na=True)
-    array([-26.23906892,   7.09826571,  -0.13180626,  -9.71718529])
+    >>> pg.logistic_regression(X.to_numpy(), y.to_numpy(), coef_only=True, remove_na=True).round(2)
+    array([-26.24,   7.1 ,  -0.13,  -9.72])
 
     4. Passing custom parameters to sklearn
 
@@ -841,107 +861,69 @@ def logistic_regression(
     | 6              | 4.96     | 141.4          | 0.99             |
     +----------------+----------+----------------+------------------+
     """
-    # Check that sklearn is installed
-    from pingouin.utils import _is_sklearn_installed
-
-    _is_sklearn_installed(raise_error=True)
     from sklearn.linear_model import LogisticRegression
 
-    # Extract names if X is a Dataframe or Series
-    if isinstance(X, pd.DataFrame):
-        names = X.keys().tolist()
-    elif isinstance(X, pd.Series):
-        names = [X.name]
-    else:
-        names = []
-
-    # Convert to numpy array
-    X = np.asarray(X)
-    y = np.asarray(y)
-    assert y.ndim == 1, "y must be one-dimensional."
     assert 0 < alpha < 1, "alpha must be between 0 and 1."
-
-    # Add axis if only one-dimensional array
-    if X.ndim == 1:
-        X = X[..., np.newaxis]
-
-    # Check for NaN /  Inf
-    if remove_na:
-        X, y = rm_na(X, y[..., np.newaxis], paired=True, axis="rows")
-        y = np.squeeze(y)
-    y_gd = np.isfinite(y).all()
-    X_gd = np.isfinite(X).all()
-    assert y_gd, (
-        "Target (y) contains NaN or Inf. Please remove them manually or use remove_na=True."
-    )
-    assert X_gd, (
-        "Predictors (X) contain NaN or Inf. Please remove them manually or use remove_na=True."
-    )
-
-    # Check that X and y have same length
-    assert y.shape[0] == X.shape[0], "X and y must have same number of samples"
+    X, y, names = _prepare_Xy(X, y, remove_na)
 
     # Check that y is binary
     if np.unique(y).size != 2:
         raise ValueError("Dependent variable must be binary.")
 
-    if not names:
-        names = ["x" + str(i + 1) for i in range(X.shape[1])]
-
-    # We also want to make sure that there is no column
-    # with only one unique value, otherwise the regression fails
-    # This is equivalent, but much faster, to pd.DataFrame(X).nunique()
-    idx_unique = np.where(np.all(X == X[0, :], axis=0))[0]
+    # Remove the constant columns, which are collinear with the intercept, and the duplicate
+    # columns. Unlike linear_regression, scikit-learn does not return the minimum-norm solution
+    # for a rank-deficient design. Without the intercept of scikit-learn, the first non-zero
+    # constant column is kept, since it is then the intercept of the model.
+    idx_unique = np.flatnonzero(np.ptp(X, axis=0) == 0)
+    if not kwargs.get("fit_intercept", True):
+        idx_unique = np.delete(idx_unique, np.flatnonzero(X[0, idx_unique] != 0)[:1])
     if len(idx_unique):
         X = np.delete(X, idx_unique, 1)
         names = np.delete(names, idx_unique).tolist()
 
-    # Finally, we want to remove duplicate columns
-    if X.shape[1] > 1:
-        idx_duplicate = []
-        for pair in itertools.combinations(range(X.shape[1]), 2):
-            if np.array_equal(X[:, pair[0]], X[:, pair[1]]):
-                idx_duplicate.append(pair[1])
-        if len(idx_duplicate):
-            X = np.delete(X, idx_duplicate, 1)
-            names = np.delete(names, idx_duplicate).tolist()
+    idx_duplicate = _duplicate_columns(X)
+    if len(idx_duplicate):
+        X = np.delete(X, idx_duplicate, 1)
+        names = np.delete(names, idx_duplicate).tolist()
 
     # Initialize and fit
     if "solver" not in kwargs:
         # https://stats.stackexchange.com/a/204324/253579
         # Updated in Pingouin > 0.3.6 to be consistent with R
         kwargs["solver"] = "newton-cg"
+        # The default tol=1e-4 of scikit-learn stops before convergence to the maximum
+        # likelihood estimates (e.g. 3rd decimal of the coefficients)
+        kwargs.setdefault("tol", 1e-8)
     if "penalty" not in kwargs and "C" not in kwargs:
-        import sklearn
-
-        _sklearn_v18_plus = tuple(int(x) for x in sklearn.__version__.split(".")[:2]) >= (1, 8)
-        if _sklearn_v18_plus:  # pragma: no branch
-            kwargs["C"] = np.inf  # penalty=None deprecated in sklearn 1.8; C=np.inf is equivalent
-        else:  # pragma: no cover
-            kwargs["penalty"] = None
+        # No regularization. C=np.inf is equivalent to penalty=None, which is deprecated in
+        # sklearn 1.8
+        kwargs["C"] = np.inf
     lom = LogisticRegression(**kwargs)
-    lom.fit(X, y)
+    with warnings.catch_warnings():
+        # sklearn 1.8 maps C=np.inf to penalty=None and then warns that C is ignored
+        warnings.filterwarnings("ignore", message="Setting penalty=None will ignore")
+        lom.fit(X, y)
 
     if lom.get_params()["fit_intercept"]:
         names.insert(0, "Intercept")
         X_design = np.column_stack((np.ones(X.shape[0]), X))
         coef = np.append(lom.intercept_, lom.coef_)
     else:
-        coef = lom.coef_
+        # coef_ has shape (1, n_features)
+        coef = lom.coef_.ravel()
         X_design = X
 
     if coef_only:
         return coef
 
-    # Fisher Information Matrix
-    n, p = X_design.shape
+    # The covariance of the coefficients is the inverse of the Fisher information matrix
+    # X.T @ W @ X, with W = p * (1 - p) = 1 / (2 * (1 + cosh(logit))). It is computed from the
+    # whitened design sqrt(W) @ X to avoid squaring its condition number.
     denom = 2 * (1 + np.cosh(lom.decision_function(X)))
-    denom = np.tile(denom, (p, 1)).T
-    fim = (X_design / denom).T @ X_design
-    crao = np.linalg.pinv(fim)
+    _, var, _ = _lstsq(X_design / np.sqrt(denom)[:, None])
 
     # Standard error and Z-scores
-    se = np.sqrt(np.diag(crao))
+    se = np.sqrt(var)
     z_scores = coef / se
 
     # Two-tailed p-values
@@ -974,20 +956,33 @@ def logistic_regression(
         return stats
 
 
-def _point_estimate(X_val, XM_val, M_val, y_val, idx, n_mediator, mtype="linear", **logreg_kwargs):
-    """Point estimate of indirect effect based on bootstrap sample."""
+def _ols_coef(X, y):
+    """Least squares coefficients of y ~ 1 + X, without the input checks of linear_regression.
+
+    No column is removed from the design matrix, so that the position of each coefficient is
+    fixed across bootstrap samples, even when a covariate is constant in a given sample.
+    """
+    return _lstsq(np.column_stack((np.ones(X.shape[0]), X)), y)[0]
+
+
+def _point_estimate(X_val, XM_val, M_val, y_val, idx, n_mediator, m_binary, **logreg_kwargs):
+    """Point estimate of indirect effect based on bootstrap sample.
+
+    ``m_binary`` is a boolean array indicating, for each mediator, whether it is binary and
+    thus modeled with a logistic regression instead of a linear regression.
+    """
     # Mediator(s) model (M(j) ~ X + covar)
     beta_m = []
     for j in range(n_mediator):
-        if mtype == "linear":
-            beta_m.append(linear_regression(X_val[idx], M_val[idx, j], coef_only=True)[1])
+        if not m_binary[j]:
+            beta_m.append(_ols_coef(X_val[idx], M_val[idx, j])[1])
         else:
             beta_m.append(
                 logistic_regression(X_val[idx], M_val[idx, j], coef_only=True, **logreg_kwargs)[1]
             )
 
     # Full model (Y ~ X + M + covar)
-    beta_y = linear_regression(XM_val[idx], y_val[idx], coef_only=True)[2 : (2 + n_mediator)]
+    beta_y = _ols_coef(XM_val[idx], y_val[idx])[2 : (2 + n_mediator)]
 
     # Point estimate
     return beta_m * beta_y
@@ -1128,7 +1123,8 @@ def mediation_analysis(
 
     A linear regression is used if the mediator variable is continuous and a
     logistic regression if the mediator variable is dichotomous (binary).
-    Multiple parallel mediators are also supported.
+    Multiple parallel mediators are also supported, and the type of regression is chosen
+    separately for each mediator.
 
     This function will only work well if the outcome variable is continuous.
     It does not support binary or ordinal outcome variable. For more
@@ -1191,7 +1187,7 @@ def mediation_analysis(
 
     >>> mediation_analysis(data=df, x="X", m="Mbin", y="Y", seed=42).round(3)
            path   coef     se   pval     CI2.5     CI97.5  sig
-    0  Mbin ~ X -0.021  0.116  0.857    -0.248      0.206   No
+    0  Mbin ~ X -0.021  0.116  0.858    -0.248      0.206   No
     1  Y ~ Mbin -0.135  0.412  0.743    -0.952      0.682   No
     2     Total  0.396  0.111  0.001     0.176      0.617  Yes
     3    Direct  0.396  0.112  0.001     0.174      0.617  Yes
@@ -1212,13 +1208,13 @@ def mediation_analysis(
     >>> mediation_analysis(data=df, x="X", m=["M", "Mbin"], y="Y", seed=42).round(3)
                 path   coef     se   pval     CI2.5     CI97.5  sig
     0          M ~ X  0.561  0.094  0.000     0.374      0.749  Yes
-    1       Mbin ~ X -0.005  0.029  0.859    -0.063      0.052   No
+    1       Mbin ~ X -0.021  0.116  0.858    -0.248      0.206   No
     2          Y ~ M  0.654  0.086  0.000     0.482      0.825  Yes
     3       Y ~ Mbin -0.064  0.328  0.846    -0.715      0.587   No
     4          Total  0.396  0.111  0.001     0.176      0.617  Yes
     5         Direct  0.040  0.110  0.721    -0.179      0.258   No
     6     Indirect M  0.356  0.085  0.000     0.215      0.538  Yes
-    7  Indirect Mbin  0.000  0.010  0.952    -0.017      0.025   No
+    7  Indirect Mbin  0.001  0.041  0.952    -0.071      0.108   No
     """
     # Sanity check
     assert isinstance(x, (str, int)), "y must be a string or int."
@@ -1249,8 +1245,8 @@ def mediation_analysis(
     n = data.shape[0]
     assert n > 5, "DataFrame must have at least 5 samples (rows)."
 
-    # Check if mediator is binary
-    mtype = "logistic" if all(data[m].nunique() == 2) else "linear"
+    # Check which mediator(s) are binary (logistic regression) or continuous (linear regression)
+    m_binary = (data[m].nunique() == 2).to_numpy()
 
     # Check if a dict with kwargs for logistic_regression has been passed
     logreg_kwargs = {} if logreg_kwargs is None else logreg_kwargs
@@ -1268,82 +1264,76 @@ def mediation_analysis(
     M_val = data[m].to_numpy()  # M as target (no covariates)
     y_val = data[y].to_numpy()  # y as target (no covariates)
 
-    # For max precision, make sure rounding is disabled
-    old_options = options.copy()
-    options["round"] = None
+    with _no_rounding():  # For max precision
+        # M(j) ~ X + covar
+        sxm = {}
+        for idx, j in enumerate(m):
+            if not m_binary[idx]:
+                sxm[j] = linear_regression(X_val, M_val[:, idx], alpha=alpha).loc[[1], cols]
+            else:
+                sxm[j] = logistic_regression(
+                    X_val, M_val[:, idx], alpha=alpha, **logreg_kwargs
+                ).loc[[1], cols]
+            sxm[j].at[1, "names"] = "%s ~ X" % j
+        sxm = pd.concat(sxm, ignore_index=True)
 
-    # M(j) ~ X + covar
-    sxm = {}
-    for idx, j in enumerate(m):
-        if mtype == "linear":
-            sxm[j] = linear_regression(X_val, M_val[:, idx], alpha=alpha).loc[[1], cols]
-        else:
-            sxm[j] = logistic_regression(X_val, M_val[:, idx], alpha=alpha, **logreg_kwargs).loc[
-                [1], cols
-            ]
-        sxm[j].at[1, "names"] = "%s ~ X" % j
-    sxm = pd.concat(sxm, ignore_index=True)
+        # Y ~ M + covar
+        smy = linear_regression(data[_fl([m, covar])], y_val, alpha=alpha).loc[1:n_mediator, cols]
+        # Average Total Effects (Y ~ X + covar)
+        sxy = linear_regression(X_val, y_val, alpha=alpha).loc[[1], cols]
+        # Average Direct Effects (Y ~ X + M + covar)
+        direct = linear_regression(XM_val, y_val, alpha=alpha).loc[[1], cols]
 
-    # Y ~ M + covar
-    smy = linear_regression(data[_fl([m, covar])], y_val, alpha=alpha).loc[1:n_mediator, cols]
-    # Average Total Effects (Y ~ X + covar)
-    sxy = linear_regression(X_val, y_val, alpha=alpha).loc[[1], cols]
-    # Average Direct Effects (Y ~ X + M + covar)
-    direct = linear_regression(XM_val, y_val, alpha=alpha).loc[[1], cols]
+        # Rename paths
+        smy["names"] = smy["names"].apply(lambda x: "Y ~ %s" % x)
+        direct.at[1, "names"] = "Direct"
+        sxy.at[1, "names"] = "Total"
 
-    # Rename paths
-    smy["names"] = smy["names"].apply(lambda x: "Y ~ %s" % x)
-    direct.at[1, "names"] = "Direct"
-    sxy.at[1, "names"] = "Total"
+        # Concatenate and create sig column
+        stats = pd.concat((sxm, smy, sxy, direct), ignore_index=True)
+        stats["sig"] = np.where(stats["pval"] < alpha, "Yes", "No")
 
-    # Concatenate and create sig column
-    stats = pd.concat((sxm, smy, sxy, direct), ignore_index=True)
-    stats["sig"] = np.where(stats["pval"] < alpha, "Yes", "No")
+        # Bootstrap confidence intervals
+        rng = np.random.RandomState(seed)
+        idx = rng.choice(np.arange(n), replace=True, size=(n_boot, n))
+        ab_estimates = np.zeros(shape=(n_boot, n_mediator))
+        for i in range(n_boot):
+            ab_estimates[i, :] = _point_estimate(
+                X_val, XM_val, M_val, y_val, idx[i, :], n_mediator, m_binary, **logreg_kwargs
+            )
 
-    # Bootstrap confidence intervals
-    rng = np.random.RandomState(seed)
-    idx = rng.choice(np.arange(n), replace=True, size=(n_boot, n))
-    ab_estimates = np.zeros(shape=(n_boot, n_mediator))
-    for i in range(n_boot):
-        ab_estimates[i, :] = _point_estimate(
-            X_val, XM_val, M_val, y_val, idx[i, :], n_mediator, mtype, **logreg_kwargs
+        ab = _point_estimate(
+            X_val, XM_val, M_val, y_val, np.arange(n), n_mediator, m_binary, **logreg_kwargs
         )
+        indirect = {
+            "names": m,
+            "coef": ab,
+            "se": ab_estimates.std(ddof=1, axis=0),
+            "pval": [],
+            ll_name: [],
+            ul_name: [],
+            "sig": [],
+        }
 
-    ab = _point_estimate(
-        X_val, XM_val, M_val, y_val, np.arange(n), n_mediator, mtype, **logreg_kwargs
-    )
-    indirect = {
-        "names": m,
-        "coef": ab,
-        "se": ab_estimates.std(ddof=1, axis=0),
-        "pval": [],
-        ll_name: [],
-        ul_name: [],
-        "sig": [],
-    }
+        for j in range(n_mediator):
+            ci_j = _bias_corrected_ci(ab_estimates[:, j], indirect["coef"][j], alpha=alpha)
+            indirect[ll_name].append(min(ci_j))
+            indirect[ul_name].append(max(ci_j))
+            # Bootstrapped p-value of indirect effect
+            # Note that this is less accurate than a permutation test because the
+            # bootstrap distribution is not conditioned on a true null hypothesis.
+            # For more details see Hayes and Rockwood 2017
+            indirect["pval"].append(_pval_from_bootci(ab_estimates[:, j], indirect["coef"][j]))
+            indirect["sig"].append("Yes" if indirect["pval"][j] < alpha else "No")
 
-    for j in range(n_mediator):
-        ci_j = _bias_corrected_ci(ab_estimates[:, j], indirect["coef"][j], alpha=alpha)
-        indirect[ll_name].append(min(ci_j))
-        indirect[ul_name].append(max(ci_j))
-        # Bootstrapped p-value of indirect effect
-        # Note that this is less accurate than a permutation test because the
-        # bootstrap distribution is not conditioned on a true null hypothesis.
-        # For more details see Hayes and Rockwood 2017
-        indirect["pval"].append(_pval_from_bootci(ab_estimates[:, j], indirect["coef"][j]))
-        indirect["sig"].append("Yes" if indirect["pval"][j] < alpha else "No")
-
-    # Create output dataframe
-    indirect = pd.DataFrame.from_dict(indirect)
-    if n_mediator == 1:
-        indirect["names"] = "Indirect"
-    else:
-        indirect["names"] = indirect["names"].apply(lambda x: "Indirect %s" % x)
-    stats = pd.concat([stats, indirect], axis=0, ignore_index=True, sort=False)
-    stats = stats.rename(columns={"names": "path"})
-
-    # Restore options
-    options.update(old_options)
+        # Create output dataframe
+        indirect = pd.DataFrame.from_dict(indirect)
+        if n_mediator == 1:
+            indirect["names"] = "Indirect"
+        else:
+            indirect["names"] = indirect["names"].apply(lambda x: "Indirect %s" % x)
+        stats = pd.concat([stats, indirect], axis=0, ignore_index=True, sort=False)
+        stats = stats.rename(columns={"names": "path"})
 
     if return_dist:
         return _postprocess_dataframe(stats), np.squeeze(ab_estimates)

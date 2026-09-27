@@ -71,6 +71,12 @@ typedef struct{
     c_float sing_tol;
     c_float refactor_tol;
     c_float time_limit;
+
+    // Linear weight for soft constraints, 0 gives a pure quadratic penalty
+    c_float w_soft;
+
+    // Equality-reduction policy: DAQP_EQ_REDUCTION_{OFF,AUTO,ON}
+    int eq_reduction;
 }DAQPSettings;
 
 
@@ -96,6 +102,9 @@ typedef struct{
 
     int nodecount;
     int itercount;
+
+    int* root_WS; // Working set of the latest root relaxation (warm starts the next solve)
+    int n_root_WS;
 }DAQPBnB;
 
 typedef struct{
@@ -146,6 +155,7 @@ typedef struct{
     int m_r; // Reduced number of constraints
     int installed; // Whether the reduced problem is currently in the workspace
     int expanded; // Whether the reduced solution has already been expanded
+    int working_set_valid; // Whether WS/L/D describe the reduced active set
 
     int* eq_ids; // The neq eliminated, followed by the nign ignored, equalities
     int* drop_ids; // Constraints that are implied by the equalities
@@ -229,21 +239,8 @@ typedef struct{
     int  n_prox; // Number of directions that needed regularization
 
 
-    // Soft constraint
+    // Largest violation of a soft constraint in the returned solution
     c_float soft_slack;
-#ifdef SOFT_WEIGHTS
-    // The softened objective is given by
-    //    min  0.5 x'*H*x + f'x + 0.5 su'su + 0.5 sl'sl,
-    // and the softened constraints are given by (similarly for simple bounds)
-    //    lbA-rho_ls*sl <= A*x <= ubA+rho_us*su,
-    // with the bounds sl >= d_ls, su >= d_us.
-    // The bounds are assumed to include the contribution from d_ls/d_us,
-    // since the slacks start active at their bounds.
-    c_float *d_ls;
-    c_float *d_us;
-    c_float *rho_ls;
-    c_float *rho_us;
-#endif
 
     // Settings
     DAQPSettings* settings;
@@ -261,6 +258,25 @@ typedef struct{
     void *timer;
     // M*u from the latest feasibility scan (length m-ms); NULL disables batching
     c_float *Mu;
+
+    /* Penalties of the soft constraints, in the scale of the original problem:
+     * the objective gains w*s + s^2/(2*rho) per violated side, so w is the
+     * linear (L1) weight and rho the *reciprocal* quadratic (L2) one (see the
+     * documentation on soft constraints). A zero entry selects settings->w_soft
+     * and settings->rho_soft, which is what every soft constraint uses when
+     * DAQP_NO_SOFT_WEIGHTS is set.
+     *
+     * The arrays are NULL until daqp_allocate_soft_weights is called, so a
+     * solve with uniform weights neither spends the memory nor reads them, and
+     * they are last in the workspace to preserve the offsets of the fields
+     * above and keep the layout common to builds with and without support.
+     */
+    c_float *rho_ls; // Reciprocal quadratic weight (default settings->rho_soft)
+    c_float *rho_us;
+    c_float *w_ls; // Linear weight (default settings->w_soft)
+    c_float *w_us;
+
+    int state;
 }DAQPWorkspace;
 
 #define DAQP_IS_HIERARCHICAL(work) \

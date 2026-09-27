@@ -20,6 +20,10 @@ class TavilySearch:
     Tavily API Retriever
     """
 
+    # Tavily's search() never sets include_raw_content, so results are always
+    # links plus a snippet -- the page still has to be scraped.
+    requires_scraping = True
+
     def __init__(self, query, headers=None, topic="general", query_domains=None):
         """
         Initializes the TavilySearch object.
@@ -52,7 +56,7 @@ class TavilySearch:
                 api_key = os.environ["TAVILY_API_KEY"]
             except KeyError:
                 print(
-                    "Tavily API key not found, set to blank. If you need a retriver, please set the TAVILY_API_KEY environment variable."
+                    "Tavily API key not found, set to blank. If you need a retriever, please set the TAVILY_API_KEY environment variable."
                 )
                 return ""
         return api_key
@@ -128,8 +132,12 @@ class TavilySearch:
                 topic=self.topic,
                 include_domains=include_domains,
             )
+            # API/proxy glitches can yield a list or scalar JSON body; only dict
+            # responses have a top-level "results" key we understand.
+            if not isinstance(results, dict):
+                raise Exception("No results found with Tavily API search.")
             sources = results.get("results", [])
-            if not sources:
+            if not isinstance(sources, list) or not sources:
                 raise Exception("No results found with Tavily API search.")
             # Return the results. Guard each source against missing/None
             # fields so a single malformed hit does not drop the whole page.

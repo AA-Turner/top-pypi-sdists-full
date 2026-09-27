@@ -40,6 +40,7 @@ import yaml
 
 from apprise import Apprise, AppriseAsset, AppriseConfig, ConfigFormat
 from apprise.config import ConfigBase
+from apprise.exception import AppriseImproperlyConfigured
 from apprise.plugins.email import NotifyEmail
 from apprise.utils.time import zoneinfo
 
@@ -87,11 +88,11 @@ def test_config_base():
     """
 
     # invalid types throw exceptions
-    with pytest.raises(TypeError):
+    with pytest.raises(AppriseImproperlyConfigured):
         ConfigBase(**{"format": "invalid"})
 
     # Config format types are not the same as ConfigBase ones
-    with pytest.raises(TypeError):
+    with pytest.raises(AppriseImproperlyConfigured):
         ConfigBase(**{"format": "markdown"})
 
     cb = ConfigBase(**{"format": "yaml"})
@@ -107,8 +108,8 @@ def test_config_base():
     # read is not supported in the base object; only the children
     assert cb.read() is None
 
-    # There are no servers loaded on a freshly created object
-    assert len(cb.servers()) == 0
+    # There are no services loaded on a freshly created object
+    assert len(cb.services()) == 0
 
     # Unsupported URLs are not parsed
     assert ConfigBase.parse_url(url="invalid://") is None
@@ -186,6 +187,34 @@ def test_config_base_detect_config_format():
 
     # Just a whole lot of blank lines...
     assert ConfigBase.detect_config_format("\n\n\n") is ConfigFormat.TEXT
+
+    # A tag group assignment carries tags instead of a URL, but it is still
+    # TEXT format; detection must not stop at the first one it encounters
+    assert (
+        ConfigBase.detect_config_format("""
+    # A group lets one name stand for several others
+    family=me,wife,kids
+    me=mailto://userb:pass@gmail.com
+    """)
+        is ConfigFormat.TEXT
+    )
+
+    # A group assignment that carries a priority prefixed tag
+    assert (
+        ConfigBase.detect_config_format("""
+    1:alerts,me=ntfy://ntfy.sh/chris-phone
+    """)
+        is ConfigFormat.TEXT
+    )
+
+    # A colon in the key still identifies YAML when no URL or tag list
+    # follows it
+    assert (
+        ConfigBase.detect_config_format("""
+    version: 1
+    """)
+        is ConfigFormat.YAML
+    )
 
     # Invalid Config
     assert ConfigBase.detect_config_format("3") is None
@@ -1296,7 +1325,7 @@ include:
     assert "http://localhost/apprise/cfg03" in config
 
 
-def test_config_base_config_parse_yaml_includes(
+def test_config_base_yaml_includes(
     requests_remote_config: Mock,
 ) -> None:
     """
@@ -1325,13 +1354,13 @@ def test_config_base_config_parse_yaml_includes(
     )
 
     # Force a fresh parse and get the loaded plugin
-    servers = ac.servers()
+    services = ac.services()
 
     # the following will return
-    assert len(servers) == 3
+    assert len(services) == 3
 
     # representation for NotifyBase subclasses.
-    urls = {n.url() for n in servers}
+    urls = {n.url() for n in services}
 
     # The *exact* URL string may include extra params depending on defaults,
     # so we check using containment instead of strict equality.
@@ -1709,10 +1738,10 @@ urls:
 
     ac = AppriseConfig(paths=str(cfg))
     # Force a fresh parse and get the loaded plugin
-    servers = ac.servers()
-    assert len(servers) == 1
+    services = ac.services()
+    assert len(services) == 1
 
-    plugin = servers[0]
+    plugin = services[0]
     asset = plugin.asset
 
     # tz was accepted and normalised
@@ -1723,6 +1752,76 @@ urls:
     assert asset.secure_logging is True
     # None -> ""
     assert asset.app_id == ""
+
+
+def test_yaml_asset_language(tmpdir):
+    """A YAML asset may set the language Apprise presents strings in."""
+
+    def language_for(content):
+        """Load ``content`` and return the language of its asset."""
+        cfg = tmpdir.join("asset-lang.yml")
+        cfg.write(content)
+        services = AppriseConfig(paths=str(cfg)).services()
+        assert len(services) == 1
+        return services[0].asset.language
+
+    # Accepted, and stored in its normalized form
+    assert (
+        language_for(
+            """
+version: 1
+asset:
+  language: "  ES-mx  "
+urls:
+  - json://localhost
+"""
+        )
+        == "es_MX"
+    )
+
+    # lang is accepted as well
+    assert (
+        language_for(
+            """
+version: 1
+asset:
+  lang: fr
+urls:
+  - json://localhost
+"""
+        )
+        == "fr"
+    )
+
+    # language wins when both are present
+    assert (
+        language_for(
+            """
+version: 1
+asset:
+  lang: fr
+  language: de
+urls:
+  - json://localhost
+"""
+        )
+        == "de"
+    )
+
+    # Anything we can not work with is ignored, leaving the system language
+    for value in ('"garbage"', "null", "[ a, b ]", "42"):
+        assert (
+            language_for(
+                f"""
+version: 1
+asset:
+  lang: {value}
+urls:
+  - json://localhost
+"""
+            )
+            is None
+        )
 
 
 def test_yaml_asset_timezone_invalid_and_precedence(tmpdir):
@@ -1747,10 +1846,10 @@ urls:
 
     base_asset = AppriseAsset(timezone="UTC")
     ac = AppriseConfig(paths=str(cfg))
-    servers = ac.servers(asset=base_asset)
-    assert len(servers) == 1
+    services = ac.services(asset=base_asset)
+    assert len(services) == 1
 
-    tzinfo = servers[0].asset.tzinfo
+    tzinfo = services[0].asset.tzinfo
 
     # The key assertion: 'tz' MUST NOT have been applied
     assert getattr(tzinfo, "key", "").lower() != "europe/london"
@@ -1790,10 +1889,10 @@ urls:
 
     base_asset = AppriseAsset(timezone="UTC")
     ac = AppriseConfig(paths=str(cfg))
-    servers = ac.servers(asset=base_asset)
-    assert len(servers) == 1
+    services = ac.services(asset=base_asset)
+    assert len(services) == 1
 
-    tzinfo = servers[0].asset.tzinfo
+    tzinfo = services[0].asset.tzinfo
 
     # 1) Did not “accidentally” become a valid IANA from elsewhere.
     assert getattr(tzinfo, "key", "").lower() != "europe/london"
@@ -1805,7 +1904,7 @@ urls:
     assert isinstance(tzinfo.tzname(dt), str)
 
 
-def test_config_base_parse_yaml_file05_tags_alias_dict_form(tmpdir):
+def test_config_base_yaml_tag_alias_dict(tmpdir):
     """
     API: ConfigBase.parse_yaml_file (#5)
 
@@ -1832,10 +1931,10 @@ def test_config_base_parse_yaml_file05_tags_alias_dict_form(tmpdir):
     assert len(ac) == 1
 
     # All entries should load
-    assert len(ac.servers()) == 3
+    assert len(ac.services()) == 3
 
     a = Apprise()
-    assert a.add(servers=ac) is True
+    assert a.add(services=ac) is True
     assert len(a) == 3
 
     # Verify tag matching works
@@ -1847,7 +1946,7 @@ def test_config_base_parse_yaml_file05_tags_alias_dict_form(tmpdir):
     assert sum(1 for _ in a.find("test1, test3")) == 2
 
 
-def test_config_base_parse_yaml_file06_tags_alias_list_form(tmpdir):
+def test_config_base_yaml_tag_alias_list(tmpdir):
     """
     API: ConfigBase.parse_yaml_file (#6)
 
@@ -1874,10 +1973,10 @@ def test_config_base_parse_yaml_file06_tags_alias_list_form(tmpdir):
     assert len(ac) == 1
 
     # First URL expands to 2, second expands to 1
-    assert len(ac.servers()) == 3
+    assert len(ac.services()) == 3
 
     a = Apprise()
-    assert a.add(servers=ac) is True
+    assert a.add(services=ac) is True
     assert len(a) == 3
 
     # Verify tag matching works across expanded entries
@@ -1887,7 +1986,7 @@ def test_config_base_parse_yaml_file06_tags_alias_list_form(tmpdir):
     assert sum(1 for _ in a.find("test1, test2")) == 2
 
 
-def test_config_base_parse_yaml_file07_tag_priority_over_tags(tmpdir):
+def test_config_base_yaml_tag_priority(tmpdir):
     """
     API: ConfigBase.parse_yaml_file (#7)
 
@@ -1908,10 +2007,10 @@ def test_config_base_parse_yaml_file07_tag_priority_over_tags(tmpdir):
     assert len(ac) == 1
 
     # Entry should load successfully
-    assert len(ac.servers()) == 1
+    assert len(ac.services()) == 1
 
     a = Apprise()
-    assert a.add(servers=ac) is True
+    assert a.add(services=ac) is True
     assert len(a) == 1
 
     # Tag priority check
@@ -2487,6 +2586,28 @@ urls:
     assert result[0].verify_certificate is True
 
 
+def test_yaml_reapply_preserves_tags_and_asset():
+    """The final YAML pass must not undo values assembled by ConfigBase.
+
+    Both spellings of tags are normalized into one set and combined with the
+    global tags. The asset is supplied by the caller and cannot be replaced by
+    a same-named YAML option.
+    """
+    asset = AppriseAsset()
+    result, _ = ConfigBase.config_parse_yaml(
+        "tag: global\n"
+        "urls:\n"
+        "  - json://localhost/:\n"
+        "      tags: local\n"
+        "      asset: untrusted-value\n",
+        asset=asset,
+    )
+
+    assert len(result) == 1
+    assert result[0].tags == {"global", "local"}
+    assert result[0].asset is asset
+
+
 def test_yaml_priority_all_urlbase_globals_via_plugin_details():
     """
     API: ConfigBase - YAML priority verified dynamically for every
@@ -2568,3 +2689,75 @@ def test_yaml_priority_all_urlbase_globals_via_plugin_details():
                 name, yaml_val, qsd_val, actual, attr_name
             )
         )
+
+
+def test_yaml_url_token_map_to():
+    """ConfigBase maps named URL parts used as YAML keys."""
+    result, _ = ConfigBase.config_parse_yaml("""
+urls:
+  - discord://1234567890/abcdefghijklmnopqrstuvwxyz/:
+      - tag: test1
+        botname: App 1
+        avatar_url: https://localhost/app1.png
+      - tag: test2
+        botname: App 2
+        avatar_url: https://localhost/app2.png
+""")
+
+    assert len(result) == 2
+    assert result[0].user == "App 1"
+    assert result[0].avatar_url == "https://localhost/app1.png"
+    assert result[1].user == "App 2"
+    assert result[1].avatar_url == "https://localhost/app2.png"
+
+    # The sibling (non-indented) form works the same way
+    result, _ = ConfigBase.config_parse_yaml("""
+urls:
+  - discord://1234567890/abcdefghijklmnopqrstuvwxyz/:
+    botname: App 3
+""")
+
+    assert len(result) == 1
+    assert result[0].user == "App 3"
+
+    # A YAML key that is neither an argument nor a URL token is left alone
+    tokens = ConfigBase._special_token_handler(
+        "discord", {"botname": "App 4", "not-a-token": "ignored"}
+    )
+    assert tokens["user"] == "App 4"
+    assert "botname" not in tokens
+    assert tokens["not-a-token"] == "ignored"
+
+
+def test_yaml_token_alias_chains():
+    """ConfigBase follows YAML aliases to constructor arguments."""
+    # sogs `key` -> `user` (URL token) -> `public_key` (constructor arg)
+    tokens = ConfigBase._special_token_handler("sogs", {"key": "abc"})
+    assert tokens == {"public_key": "abc"}
+
+    # The URL token name itself resolves to the same place
+    tokens = ConfigBase._special_token_handler("sogs", {"user": "abc"})
+    assert tokens == {"public_key": "abc"}
+
+    # ringcentral `from_phone` (URL token) -> `source` (constructor arg)
+    tokens = ConfigBase._special_token_handler(
+        "ringc", {"from_phone": "+15551234567"}
+    )
+    assert tokens == {"source": "+15551234567"}
+
+
+def test_yaml_token_multi_alias():
+    """ConfigBase skips shortcuts that represent several URL values."""
+    tokens = ConfigBase._special_token_handler(
+        "slack", {"token": "T1JJ3T3L2/A1BRTD4JD/TIiajkdnlazkcOXrIdevi7FQ"}
+    )
+    assert tokens == {}
+
+    # The same key in a real configuration does not break the parse
+    result, _ = ConfigBase.config_parse_yaml("""
+urls:
+  - slack://T1JJ3T3L2/A1BRTD4JD/TIiajkdnlazkcOXrIdevi7FQ/#general:
+      token: ignored
+""")
+
+    assert len(result) == 1

@@ -20,16 +20,21 @@ Run explicitly with `pytest -m differential`.
 
 from __future__ import annotations
 
+import contextlib
+import os
+import re
 import shutil
 import socket
 import subprocess
+import sys
 import tempfile
 import time
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterator, Mapping
+from datetime import datetime
 from pathlib import Path
 
 import pytest
-from bson import Decimal128, Int64, ObjectId
+from bson import Binary, Code, Decimal128, Int64, MaxKey, MinKey, ObjectId, Timestamp
 from pymongo import MongoClient
 from pymongo.database import Database
 
@@ -41,26 +46,100 @@ MONGOD = shutil.which("mongod")
 requires_mongod = pytest.mark.skipif(MONGOD is None, reason="no mongod on PATH")
 
 
+# Whether this gate can say anything at all on the server it found.
+#
+# Every expectation here is an EXACT match against mongod, and mongod's error
+# surface moves between majors, so the gate is only meaningful on the series the
+# codebase is probed against. Off that series it skips rather than reporting
+# version differences as SecantusDB divergences.
+#
+# The target was 6.0.16 until 2026-08-29 and is now 8.2.1. What moved, for
+# anyone reading an older comment or a 6.0 server:
+#
+#   * negative cursor sizing   51024 Location51024 -> 2 BadValue
+#   * expected-type lists      '[bool, long, int, decimal, double']  (closing
+#                              quote INSIDE the bracket, a real 6.0 quirk)
+#                              -> properly quoted, and REORDERED PER FIELD
+#   * update failures          bare message -> "Plan executor error during
+#                              update :: caused by :: " (execution-time only)
+#   * aggregate failures       bare message -> "Executor error during aggregate
+#                              command on namespace: <ns> :: caused by :: "
+#                              (execution-time only -- a parse error stays bare)
+#   * null-valued arguments    rejected (10065) -> treated as ABSENT
+#   * IDL-parsed surfaces      $lookup and distinct moved to IDL parsing:
+#                              hand-written 9 -> 40414 / 40415 / 14, and the
+#                              field is named '$lookup.as' / the struct is
+#                              'distinctCommandRequest'
+#   * IDL code names           Location40414/40415 -> IDLFailedToParse /
+#                              IDLUnknownField
+#
+# WHY THE WHOLE FILE, NOT A LIST OF KNOWN-VARIANT CASES. That was tried first.
+# It needs updating by whoever adds a case, and they cannot see the problem: a
+# dev box on another series sees only false failures. In one afternoon three
+# PRs added cases that failed on the wrong series. Gating the file is
+# self-maintaining: a new case needs no thought, and the gate can never claim a
+# divergence it cannot actually judge.
+#
+# The cost is real: on another series this file provides no coverage. That is
+# the honest answer -- across majors an exact-match gate has no expectation to
+# assert. Within the major it runs, so drift shows up as a failure.
+#
+# THIS FILE NOW RUNS IN CI. The Linux lanes install `mongodb-org-server` from
+# the 8.2 apt repo, so `@requires_mongod` no longer skips there. Until then the
+# reasoning above ended "CI installs mongosh and database-tools but NOT mongod,
+# so this file skips there entirely" -- which was true, and meant the one gate
+# that compares this project against the real server lived only on whichever
+# dev box happened to run it. The suite's `addopts` excludes `perf` / `online`
+# / `slow` but not `differential`, so it needs no separate step.
+# Gate on the MAJOR only. mongod's error surface is stable within a major, so a
+# mismatch on 8.0 or 8.4 is far more likely to be a real SecantusDB divergence
+# than version drift -- and a loud failure is more useful there than a silent
+# skip, which is what a (major, minor) gate gave. The exact server every value
+# here was probed against is recorded below; if a future 8.x does move one of
+# these surfaces, this gate is what will tell you, and the fix is to re-probe
+# rather than to widen the skip.
+PROBED_MONGOD_MAJOR = 8
+#: The exact server the expectations were taken from. Informational -- the gate
+#: compares the major above -- but it is the version to reproduce against.
+PROBED_MONGOD_VERSION = "8.2.1"
+#: Also verified green, 2026-08-30: 8.2.11, which is what
+#: ``brew install mongodb/brew/mongodb-community@8.2`` installs and what is now
+#: linked as this box's default ``mongod``. It needed `_sort_type_lists` below --
+#: three cases differed only in the ORDER of an expected-type list. Anything in
+#: the 8.2 range should pass; if a new patch release fails, re-probe the case
+#: rather than widening the skip.
+VERIFIED_ALSO = ("8.2.11",)
+
+
 def _free_port() -> int:
     with socket.socket() as s:
         s.bind(("127.0.0.1", 0))
         return int(s.getsockname()[1])
 
 
-@pytest.fixture(scope="module")
-def mongod_uri() -> Iterator[str]:
-    """A throwaway standalone mongod. Module-scoped: startup dominates runtime."""
-    if MONGOD is None:
-        pytest.skip("no mongod on PATH")
+def _start_mongod(env: Mapping[str, str] | None = None) -> tuple[subprocess.Popen, str, str]:
+    """Spawn a throwaway standalone mongod; return ``(proc, uri, dbpath)``.
+
+    Shared by the module fixture below and by the per-zone local-time cases at
+    the end of this file, which need identical readiness handling but a
+    DIFFERENT process environment. The caller owns the teardown.
+    """
     tmp = tempfile.mkdtemp(prefix="differential-mongod-")
     port = _free_port()
     proc = subprocess.Popen(
         [MONGOD, "--port", str(port), "--dbpath", tmp, "--quiet"],
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
+        env=None if env is None else dict(env),
     )
     uri = f"mongodb://127.0.0.1:{port}/"
-    try:
+    # Everything from here to the `return` runs under `_reap_on_failure`: the
+    # caller only gets a `finally` to clean up with once it HOLDS the handle, so
+    # any exit before the return -- the skip below, the race guard's raise, a
+    # KeyboardInterrupt -- would otherwise leave a live mongod and its dbpath
+    # behind. `pytest.skip` raises `Skipped`, which is a `BaseException` and not
+    # an `Exception`, so the guard has to catch the wider one.
+    with _reap_on_failure(proc, tmp):
         deadline = time.monotonic() + 30
         while time.monotonic() < deadline:
             try:
@@ -70,6 +149,50 @@ def mongod_uri() -> Iterator[str]:
                 time.sleep(0.25)
         else:
             pytest.skip("mongod did not become ready")
+        _assert_owns_port(proc, port)
+    return proc, uri, tmp
+
+
+@contextlib.contextmanager
+def _reap_on_failure(proc: subprocess.Popen, dbpath: str) -> Iterator[None]:
+    """Terminate `proc` and drop `dbpath` if the body doesn't complete."""
+    try:
+        yield
+    except BaseException:
+        proc.terminate()
+        with contextlib.suppress(Exception):
+            proc.wait(timeout=30)
+        shutil.rmtree(dbpath, ignore_errors=True)
+        raise
+
+
+def _assert_owns_port(proc: subprocess.Popen, port: int) -> None:
+    # A ping that succeeds is NOT proof it reached the mongod spawned above.
+    # `_free_port()` closes its probe socket before this child binds, so
+    # under `-n auto` another worker can take the port; ours then exits
+    # "address already in use" while the ping lands on THEIRS. This gate
+    # would go on measuring a server it does not own -- and, being a
+    # differential gate, would report agreement it never actually tested.
+    # A child that lost the race is long gone by the time a ping succeeds,
+    # so its exit is the reliable tell. Fail loudly rather than measure the
+    # wrong server. (The same race broke `pg-oracle` on 2026-09-09; the
+    # `secantusd-pg` harness fixed it properly by binding :0 and reading the
+    # port back, which mongod gives us no way to do.)
+    if proc.poll() is not None:
+        raise RuntimeError(
+            f"mongod on port {port} exited during startup; the ping that "
+            "succeeded reached a DIFFERENT server, so this gate would have "
+            "compared against a mongod it does not own"
+        )
+
+
+@pytest.fixture(scope="module")
+def mongod_uri() -> Iterator[str]:
+    """A throwaway standalone mongod. Module-scoped: startup dominates runtime."""
+    if MONGOD is None:
+        pytest.skip("no mongod on PATH")
+    proc, uri, tmp = _start_mongod()
+    try:
         yield uri
     finally:
         proc.terminate()
@@ -78,10 +201,44 @@ def mongod_uri() -> Iterator[str]:
 
 
 @pytest.fixture(scope="module")
+def mongod_version(mongod_uri: str) -> tuple[int, int]:
+    """``(major, minor)`` of the mongod this gate actually spawned.
+
+    Read from the running server rather than ``mongod --version`` so it
+    describes the process under test, not whatever else is on PATH.
+    """
+    client = MongoClient(mongod_uri, serverSelectionTimeoutMS=10000)
+    try:
+        version_array = client.admin.command("buildInfo")["versionArray"]
+    finally:
+        client.close()
+    return int(version_array[0]), int(version_array[1])
+
+
+@pytest.fixture(scope="module")
 def secantus_uri(tmp_path_factory: pytest.TempPathFactory) -> Iterator[str]:
     path: Path = tmp_path_factory.mktemp("differential-secantus")
     with SecantusDBServer(port=0, storage_path=str(path)) as srv:
         yield srv.uri
+
+
+# mongod renders a wrong-type error's expected-type list in an arbitrary order:
+# `[long, int, double, bool, decimal]` on 8.2.11 versus
+# `[int, decimal, long, bool, double]` on 8.2.1, for the same field. The order is
+# stable per build (checked across separate processes) but changes between patch
+# releases, so pinning it pins a build rather than a behaviour -- 8.2.11, the
+# version `brew install mongodb-community@8.2` gives, failed three cases against
+# expectations probed from 8.2.1. It is a SET; compare it as one. Everything
+# else about the message, including the type NAMES, is still asserted exactly.
+_TYPE_LIST = re.compile(r"(expected types \\?')\[([^\]]*)\]")
+
+
+def _sort_type_lists(rendered: str) -> str:
+    def repl(m: re.Match) -> str:
+        items = sorted(part.strip() for part in m.group(2).split(",") if part.strip())
+        return f"{m.group(1)}[{', '.join(items)}]"
+
+    return _TYPE_LIST.sub(repl, rendered)
 
 
 def _run(uri: str, db_name: str, seed: list[dict], op: Callable[[Database], object]) -> str:
@@ -98,7 +255,7 @@ def _run(uri: str, db_name: str, seed: list[dict], op: Callable[[Database], obje
         if seed:
             db.c.insert_many([dict(d) for d in seed])
         try:
-            return repr(op(db))
+            return _sort_type_lists(repr(op(db)))
         except Exception as exc:  # noqa: BLE001 - the error IS the result
             return f"ERROR code={getattr(exc, 'code', None)}"
     finally:
@@ -148,6 +305,123 @@ def _err(db: Database, flt: dict, update: dict) -> str:
         return f"{exc.code}: {exc.details.get('errmsg')}"
 
 
+def _agg_err(db: Database, pipeline: list) -> str:
+    """`(code, errmsg)` of a failed aggregation, as a comparable string.
+
+    mongod wraps a *runtime* aggregation error in
+    ``PlanExecutor error during aggregation :: caused by :: <msg>`` (and a
+    constant-folded one in ``Failed to optimize pipeline :: caused by ::``).
+    These cases strip the wrapper on both sides so they assert the code and the
+    message rather than the prefix.
+
+    Do not read that as "the prefix is unreachable" — ``AGGERR_CASES`` below
+    asserts the FULL message, wrapper included, for the stages that carry it.
+    What is still deferred is modelling mongod's constant folding in general;
+    ``$switch``, where folding changes the answer and not just the text, is
+    handled (see ``aggregate._fold_constant_switches``).
+    """
+    from pymongo.errors import OperationFailure
+
+    try:
+        return f"ok:{len(list(db.c.aggregate(pipeline)))}"
+    except OperationFailure as exc:
+        msg = str(exc.details.get("errmsg", ""))
+        for wrapper in (
+            "PlanExecutor error during aggregation :: caused by :: ",
+            "Failed to optimize pipeline :: caused by :: ",
+        ):
+            if msg.startswith(wrapper):
+                msg = msg[len(wrapper) :]
+        return f"{exc.code}: {msg}"
+
+
+# The 2026-09-06 read-path sweep's corpus, trimmed to the values that actually
+# separated the servers from mongod: NaN, the infinities, a Decimal128, a
+# BinData pair whose length and bytes disagree about order, and the BSON types
+# `$type` accepted as aliases but could never match.
+READPATH = [
+    {"_id": 1, "x": 0},
+    {"_id": 2, "x": 5},
+    {"_id": 3, "x": Int64(5)},
+    {"_id": 4, "x": Decimal128("5")},
+    {"_id": 5, "x": 5.5},
+    {"_id": 6, "x": float("nan")},
+    {"_id": 7, "x": float("inf")},
+    {"_id": 8, "x": float("-inf")},
+    {"_id": 9, "x": None},
+    {"_id": 10},
+    {"_id": 11, "x": [5]},
+]
+
+READPATH_TYPES = [
+    {"_id": 1, "x": Code("f")},
+    {"_id": 2, "x": MinKey()},
+    {"_id": 3, "x": MaxKey()},
+    {"_id": 4, "x": Timestamp(1, 1)},
+    {"_id": 5, "x": 5},
+    {"_id": 6, "x": "s"},
+]
+
+READPATH_BINARY = [
+    {"_id": 1, "x": Binary(b"")},
+    {"_id": 2, "x": Binary(b"\x02")},
+    {"_id": 3, "x": Binary(b"\x01\x02")},
+    {"_id": 4, "x": Binary(b"\x01")},
+]
+
+
+def _ids(db, filt):
+    return sorted(d["_id"] for d in db.c.find(filt))
+
+
+def _sorted_ids(db, spec):
+    """Every sort carries an `_id` tiebreak: mongod's order among EQUAL keys is
+    storage order, not a rule (three insertion orders gave three answers when
+    probed 8.2.11, 2026-09-06), so a tie sequence must never be asserted."""
+    return [d["_id"] for d in db.c.find({}).sort([*spec, ("_id", 1)])]
+
+
+READPATH_CASES: list[tuple[str, list[dict], Callable[[Database], object]]] = [
+    # A NaN range bound: mongod's order calls NaN equal to NaN, so an INCLUSIVE
+    # bound matches it and a strict one does not. Both servers answered nothing
+    # for all four.
+    ("nan-gte-matches-nan", READPATH, lambda db: _ids(db, {"x": {"$gte": float("nan")}})),
+    ("nan-lte-matches-nan", READPATH, lambda db: _ids(db, {"x": {"$lte": float("nan")}})),
+    ("nan-gt-matches-nothing", READPATH, lambda db: _ids(db, {"x": {"$gt": float("nan")}})),
+    ("nan-lt-matches-nothing", READPATH, lambda db: _ids(db, {"x": {"$lt": float("nan")}})),
+    ("nan-eq-still-reaches-it", READPATH, lambda db: _ids(db, {"x": float("nan")})),
+    # ...and an ordinary bound must not pick the NaN up.
+    ("nan-not-in-gte-5", READPATH, lambda db: _ids(db, {"x": {"$gte": 5}})),
+    ("nan-not-in-lte-5", READPATH, lambda db: _ids(db, {"x": {"$lte": 5}})),
+    # Decimal128 against the infinities: the numeric bridge bailed on any
+    # non-finite operand, leaving `float > Decimal128` to raise and be swallowed.
+    ("dec-gt-picks-up-inf", READPATH, lambda db: _ids(db, {"x": {"$gt": Decimal128("5")}})),
+    ("dec-lt-picks-up-neg-inf", READPATH, lambda db: _ids(db, {"x": {"$lt": Decimal128("5")}})),
+    ("lt-inf-picks-up-dec", READPATH, lambda db: _ids(db, {"x": {"$lt": float("inf")}})),
+    ("gt-neg-inf-picks-up-dec", READPATH, lambda db: _ids(db, {"x": {"$gt": float("-inf")}})),
+    # `$all` bridges the numeric types, as `$eq` does.
+    ("all-bridges-decimal", READPATH, lambda db: _ids(db, {"x": {"$all": [5]}})),
+    # NaN's place in the sort order: below every other number.
+    ("nan-sorts-below-numbers", READPATH, lambda db: _sorted_ids(db, [("x", 1)])),
+    ("nan-sorts-below-numbers-desc", READPATH, lambda db: _sorted_ids(db, [("x", -1)])),
+    # BinData: length first, then bytes.
+    ("bindata-sorts-by-length", READPATH_BINARY, lambda db: _sorted_ids(db, [("x", 1)])),
+    # `$type` aliases the Rust table accepted but never matched.
+    ("type-javascript", READPATH_TYPES, lambda db: _ids(db, {"x": {"$type": "javascript"}})),
+    ("type-minkey", READPATH_TYPES, lambda db: _ids(db, {"x": {"$type": "minKey"}})),
+    ("type-maxkey", READPATH_TYPES, lambda db: _ids(db, {"x": {"$type": "maxKey"}})),
+    ("type-timestamp", READPATH_TYPES, lambda db: _ids(db, {"x": {"$type": "timestamp"}})),
+    ("type-code-13", READPATH_TYPES, lambda db: _ids(db, {"x": {"$type": 13}})),
+    ("type-code-minus-1", READPATH_TYPES, lambda db: _ids(db, {"x": {"$type": -1}})),
+    ("type-code-127", READPATH_TYPES, lambda db: _ids(db, {"x": {"$type": 127}})),
+    # ...and the neighbouring behaviour that was already right, so the fix
+    # cannot over-reach.
+    ("type-int-unchanged", READPATH_TYPES, lambda db: _ids(db, {"x": {"$type": "int"}})),
+    ("type-string-unchanged", READPATH_TYPES, lambda db: _ids(db, {"x": {"$type": "string"}})),
+    ("type-number-includes-nan", READPATH, lambda db: _ids(db, {"x": {"$type": "number"}})),
+]
+
+
 QUERY_CASES: list[tuple[str, list[dict], Callable[[Database], object]]] = [
     ("eq-numeric-unifies-types", NUMS, lambda db: sorted(d["_id"] for d in db.c.find({"x": 5}))),
     ("eq-true-is-not-one", NUMS, lambda db: sorted(d["_id"] for d in db.c.find({"x": 1}))),
@@ -170,6 +444,156 @@ QUERY_CASES: list[tuple[str, list[dict], Callable[[Database], object]]] = [
         lambda db: [
             str(d["a"]) for d in db.c.aggregate([{"$group": {"_id": None, "a": {"$avg": "$x"}}}])
         ],
+    ),
+    # A field path that doesn't resolve is MISSING, not null: mongod omits the
+    # key. We emitted `z: null` on every document — an extra key mongod never
+    # sends, so a client testing `"z" in doc` saw the opposite of the truth.
+    (
+        "project-missing-path-omits-the-key",
+        [{"_id": 1, "n": {"k": 1}}, {"_id": 2, "n": {}}, {"_id": 3}],
+        lambda db: list(db.c.aggregate([{"$project": {"z": "$nope"}}, {"$sort": {"_id": 1}}])),
+    ),
+    (
+        "project-missing-nested-path-omits-the-key",
+        [{"_id": 1, "n": {"k": 1}}, {"_id": 2, "n": {}}, {"_id": 3}],
+        lambda db: list(db.c.aggregate([{"$project": {"z": "$n.k"}}, {"$sort": {"_id": 1}}])),
+    ),
+    (
+        "addfields-missing-path-omits-the-key",
+        [{"_id": 1, "a": 1}, {"_id": 2}],
+        lambda db: list(db.c.aggregate([{"$addFields": {"z": "$nope"}}, {"$sort": {"_id": 1}}])),
+    ),
+    (
+        "document-literal-drops-missing-member",
+        [{"_id": 1, "a": 1}],
+        lambda db: list(db.c.aggregate([{"$project": {"z": {"w": "$nope"}}}])),
+    ),
+    # ...but a missing path is still *null* as an operator argument, which is a
+    # different rule and was already right. Pinned so the fix above can't
+    # over-reach into operator arguments.
+    (
+        "missing-path-is-null-as-an-operator-argument",
+        [{"_id": 1, "a": 1}],
+        lambda db: list(db.c.aggregate([{"$project": {"z": {"$add": ["$nope", 1]}}}])),
+    ),
+    # $bucket emits a bucket only when something landed in it — boundary
+    # buckets and `default` alike. An unused default surfaced as a bare
+    # `{_id: "other"}` with no `count`.
+    # A `$meta` projection does NOT make the projection inclusion-mode — mongod
+    # treats it as a value re-shaper, like $slice. We forced a $meta-only spec
+    # into "inclusion of no fields", so asking for a metadata field silently
+    # discarded the caller's entire document.
+    (
+        "meta-projection-keeps-the-whole-document",
+        [{"_id": 1, "a": 1, "b": 2}],
+        lambda db: list(db.c.find({}, {"m": {"$meta": "indexKey"}})),
+    ),
+    (
+        "meta-projection-honours-id-exclusion",
+        [{"_id": 1, "a": 1, "b": 2}],
+        lambda db: list(db.c.find({}, {"_id": 0, "m": {"$meta": "indexKey"}})),
+    ),
+    (
+        "meta-alongside-an-inclusion-field",
+        [{"_id": 1, "a": 1, "b": 2}],
+        lambda db: list(db.c.find({}, {"a": 1, "m": {"$meta": "indexKey"}})),
+    ),
+    (
+        "meta-alongside-an-exclusion-field",
+        [{"_id": 1, "a": 1, "b": 2}],
+        lambda db: list(db.c.find({}, {"b": 0, "m": {"$meta": "indexKey"}})),
+    ),
+    # $stdDev* counts only int/long/double/decimal. bool, null, string, array
+    # and document values are silently skipped, and mongod ALWAYS emits the
+    # field — `null` when the group held no numeric value. Summing every value
+    # raised a bare TypeError that escaped as "internal server error" (code 1),
+    # and an all-non-numeric group omitted the key entirely.
+    (
+        "stddev-non-numeric-is-skipped-not-fatal",
+        [{"_id": 1, "a": 5}, {"_id": 2, "a": "x"}, {"_id": 3, "a": 7}],
+        lambda db: list(db.c.aggregate([{"$group": {"_id": None, "s": {"$stdDevPop": "$a"}}}])),
+    ),
+    (
+        "stddev-no-numeric-value-is-null-not-absent",
+        [{"_id": 1, "a": "x"}, {"_id": 2, "a": "y"}],
+        lambda db: list(db.c.aggregate([{"$group": {"_id": None, "s": {"$stdDevPop": "$a"}}}])),
+    ),
+    (
+        "stddev-missing-field-is-null-not-absent",
+        [{"_id": 1, "b": 1}],
+        lambda db: list(db.c.aggregate([{"$group": {"_id": None, "s": {"$stdDevPop": "$a"}}}])),
+    ),
+    (
+        "stddev-bool-is-not-numeric",
+        [{"_id": 1, "a": True}, {"_id": 2, "a": False}],
+        lambda db: list(db.c.aggregate([{"$group": {"_id": None, "s": {"$stdDevPop": "$a"}}}])),
+    ),
+    (
+        "stddev-decimal-answers-a-double",
+        [{"_id": 1, "a": Decimal128("5")}, {"_id": 2, "a": Decimal128("7")}],
+        lambda db: list(db.c.aggregate([{"$group": {"_id": None, "s": {"$stdDevPop": "$a"}}}])),
+    ),
+    (
+        "stddev-samp-single-value-is-null",
+        [{"_id": 1, "a": 5}],
+        lambda db: list(db.c.aggregate([{"$group": {"_id": None, "s": {"$stdDevSamp": "$a"}}}])),
+    ),
+    # $densify: a doc whose field is null/missing does not participate — mongod
+    # emits it unchanged (nulls sort first) and densifies the rest. Sorting the
+    # raw list raised a bare TypeError that escaped as "internal server error"
+    # (code 1) — a crash where mongod answers.
+    (
+        "densify-null-field-passes-through",
+        [{"_id": 1, "a": 1}, {"_id": 2, "a": None}, {"_id": 3, "a": 5}],
+        lambda db: [
+            (d.get("_id"), d.get("a"))
+            for d in db.c.aggregate(
+                [{"$densify": {"field": "a", "range": {"step": 1, "bounds": "full"}}}]
+            )
+        ],
+    ),
+    (
+        "densify-missing-field-passes-through",
+        [{"_id": 1, "a": 1}, {"_id": 2, "x": 9}, {"_id": 3, "a": 5}],
+        lambda db: [
+            (d.get("_id"), d.get("a"))
+            for d in db.c.aggregate(
+                [{"$densify": {"field": "a", "range": {"step": 1, "bounds": "full"}}}]
+            )
+        ],
+    ),
+    (
+        "densify-non-numeric-field-is-rejected",
+        [{"_id": 1, "a": 1}, {"_id": 2, "a": "s"}],
+        lambda db: _agg_err(
+            db, [{"$densify": {"field": "a", "range": {"step": 1, "bounds": "full"}}}]
+        ),
+    ),
+    (
+        "densify-all-null-emits-them-unchanged",
+        [{"_id": 1, "a": None}, {"_id": 2, "a": None}],
+        lambda db: [
+            (d.get("_id"), d.get("a"))
+            for d in db.c.aggregate(
+                [{"$densify": {"field": "a", "range": {"step": 1, "bounds": "full"}}}]
+            )
+        ],
+    ),
+    (
+        "bucket-omits-the-empty-default",
+        [{"_id": 1, "a": 5}, {"_id": 2, "a": 6}],
+        lambda db: list(
+            db.c.aggregate(
+                [{"$bucket": {"groupBy": "$a", "boundaries": [0, 4, 8], "default": "other"}}]
+            )
+        ),
+    ),
+    (
+        "bucket-omits-an-empty-middle-bucket",
+        [{"_id": 1, "a": 1}, {"_id": 2, "a": 7}],
+        lambda db: list(
+            db.c.aggregate([{"$bucket": {"groupBy": "$a", "boundaries": [0, 2, 4, 8]}}])
+        ),
     ),
     (
         "arrayelemat-out-of-range-is-missing",
@@ -368,15 +792,2783 @@ UPDATE_CASES: list[tuple[str, list[dict], Callable[[Database], object]]] = [
     ),
 ]
 
-ALL_CASES = [("query", c) for c in QUERY_CASES] + [("update", c) for c in UPDATE_CASES]
+
+def _fam(db: Database, **body: object) -> str:
+    """A ``findAndModify`` reply as a comparable string.
+
+    The RAW command, not pymongo's ``find_one_and_*`` wrappers: half of what
+    diverged in this sweep was the reply SHAPE -- ``lastErrorObject``'s keys,
+    the order of the fields in an upserted document -- which the wrappers hide.
+    An upsert-generated ``ObjectId`` differs per server by construction, so it
+    is replaced with a marker rather than compared.
+    """
+    from pymongo.errors import OperationFailure
+
+    cmd: dict = {"findAndModify": "c"}
+    cmd.update(body)
+    try:
+        reply = dict(db.command(cmd))
+    except OperationFailure as exc:
+        d = exc.details or {}
+        return f"{d.get('code')}/{_stable_code_name(d)}: {d.get('errmsg')!r}"
+    out = {k: reply[k] for k in ("lastErrorObject", "value") if k in reply}
+    leo = out.get("lastErrorObject")
+    if isinstance(leo, dict) and isinstance(leo.get("upserted"), ObjectId):
+        out["lastErrorObject"] = {**leo, "upserted": "<oid>"}
+    val = out.get("value")
+    if isinstance(val, dict) and isinstance(val.get("_id"), ObjectId):
+        # Rebuilt rather than updated in place so KEY ORDER is preserved --
+        # mongod leads an upserted document with ``_id`` and we did not.
+        out["value"] = {"_id": "<oid>", **{k: v for k, v in val.items() if k != "_id"}}
+    return repr(out)
+
+
+def _upsert_key_shape(db: Database, **body: object) -> str:
+    """An upserted document's key shape, minus what mongod versions disagree on.
+
+    ``_id`` leads on every version -- that is the bug this pins (we appended it
+    LAST) -- and the fields the UPDATE added are in field-name order on every
+    version too. What differs: 6.0.16 sorts the fields seeded from the query's
+    equalities, while the newer server on the Windows runner keeps the query's
+    own order. So the leading ``_id`` and the sorted key set are asserted, and
+    the seeded group's internal order is not.
+    """
+    reply = db.command({"findAndModify": "c", **body})
+    keys = list(reply["value"])
+    return f"first={keys[0]} rest={sorted(keys[1:])}"
+
+
+def _stable_code_name(details: Mapping) -> str:
+    """``codeName``, or a marker when mongod's name for the code is not stable.
+
+    This gate runs against *whatever* ``mongod`` is on PATH, and the lanes do
+    not agree: the dev box has 6.0.16, the Windows runner image ships a newer
+    server. mongod's NAMED codes (2 BadValue, 9 FailedToParse, 14 TypeMismatch,
+    28, 40, 66 …) are stable across those versions, but the high numeric ones
+    are exactly the codes that had no symbolic name in 6.0 -- which renders
+    them as the fallback ``Location<N>`` -- and acquired one later. 40415 is
+    ``Location40415`` on 6.0.16 and ``IDLUnknownField`` on the newer server,
+    with the same code and the same message.
+
+    So the *code* and the *message* are asserted, and the name is asserted only
+    where it means something. Found by CI: the case passed on macOS and Linux
+    and failed on `test-windows`, which was a real version difference and not a
+    flake.
+    """
+    code = details.get("code")
+    name = details.get("codeName")
+    if isinstance(code, int) and code >= 10000:
+        return "<version-dependent>"
+    return str(name)
+
+
+def _reply_keys(reply: Mapping) -> list[str]:
+    """A reply's field names, minus the cluster-time gossip.
+
+    SecantusDB advertises a replica set, so it attaches ``$clusterTime`` /
+    ``operationTime`` to every reply; the standalone ``mongod`` this gate
+    spawns does not. That difference is deliberate and is not what these
+    cases are about -- the ORDER of the real fields is.
+    """
+    return [k for k in reply if k not in ("$clusterTime", "operationTime")]
+
+
+FAM_SEED = [{"_id": 1, "n": 5, "s": "a", "arr": [1, 2, 3], "sub": {"k": 1}}]
+
+# ``findAndModify`` option combinations. A 49-shape probe against mongod
+# 6.0.16 found 14 divergences here, two of them silent wrong data: an empty
+# update document left every field in place (mongod reduces the document to
+# its ``_id``), and an upsert whose query used a dotted path stored a literal
+# key with a dot in it. The rest were arguments accepted and ignored, or error
+# codes flattened to 14 TypeMismatch on the way out.
+FAM_CASES: list[tuple[str, list[dict], Callable[[Database], object]]] = [
+    ("empty-update-is-a-replacement", FAM_SEED, lambda db: _fam(db, query={"_id": 1}, update={})),
+    (
+        "empty-update-leaves-only-the-id",
+        FAM_SEED,
+        lambda db: (
+            (db.command({"findAndModify": "c", "query": {"_id": 1}, "update": {}}))
+            and list(db.c.find())
+        ),
+    ),
+    (
+        "empty-pipeline-is-a-no-op",
+        FAM_SEED,
+        lambda db: (
+            (db.command({"findAndModify": "c", "query": {"_id": 1}, "update": []}))
+            and list(db.c.find())
+        ),
+    ),
+    # ``_id`` FIRST is the part that was broken (we appended it last) and the
+    # part every mongod agrees on. The relative order of the query-seeded
+    # fields is NOT asserted: 6.0.16 sorts them, and the newer server on the
+    # Windows runner keeps the query's own order -- probed on both. We ship
+    # 6.0's form, as this file does for every other 6.0-vs-newer split, and
+    # `tests/test_update_replacement_and_paths.py` pins it against our server.
+    (
+        "upsert-leads-with-id",
+        [],
+        lambda db: _upsert_key_shape(
+            db, query={"b": 1, "a": 2}, update={"$set": {"y": 3}}, upsert=True, new=True
+        ),
+    ),
+    (
+        "upsert-nests-a-dotted-query",
+        [],
+        lambda db: _fam(db, query={"sub.k": 77}, update={"$set": {"y": 1}}, upsert=True, new=True),
+    ),
+    (
+        "upsert-nests-a-deep-dotted-query",
+        [],
+        lambda db: _fam(db, query={"a.b.c": 5}, update={"$set": {"y": 1}}, upsert=True, new=True),
+    ),
+    (
+        "upsert-merges-dotted-query-and-update",
+        [],
+        lambda db: _fam(db, query={"a.b": 5}, update={"$set": {"a.c": 1}}, upsert=True, new=True),
+    ),
+    (
+        "upsert-orders-setoninsert-with-set",
+        [],
+        lambda db: _fam(
+            db,
+            query={"_id": 42},
+            update={"$setOnInsert": {"z": 1}, "$set": {"y": 2}},
+            upsert=True,
+            new=True,
+        ),
+    ),
+    ("unknown-top-level-field", FAM_SEED, lambda db: _fam(db, query={"_id": 1}, update={}, zz=1)),
+    (
+        "new-wrong-type",
+        FAM_SEED,
+        lambda db: _fam(db, query={"_id": 1}, update={"$set": {"n": 1}}, new="yes"),
+    ),
+    (
+        "new-numeric-zero-is-false",
+        FAM_SEED,
+        lambda db: _fam(db, query={"_id": 1}, update={"$set": {"n": 9}}, new=0),
+    ),
+    (
+        "new-numeric-one-is-true",
+        FAM_SEED,
+        lambda db: _fam(db, query={"_id": 1}, update={"$set": {"n": 9}}, new=1),
+    ),
+    (
+        "remove-wrong-type",
+        FAM_SEED,
+        lambda db: _fam(db, query={"_id": 1}, remove="yes"),
+    ),
+    (
+        "arrayfilters-not-an-array",
+        FAM_SEED,
+        lambda db: _fam(db, query={"_id": 1}, update={"$set": {"n": 1}}, arrayFilters={"e": 1}),
+    ),
+    (
+        "arrayfilters-element-not-a-document",
+        FAM_SEED,
+        lambda db: _fam(db, query={"_id": 1}, update={"$set": {"n": 1}}, arrayFilters=[5]),
+    ),
+    (
+        "arrayfilters-null",
+        FAM_SEED,
+        lambda db: _fam(db, query={"_id": 1}, update={"$set": {"n": 1}}, arrayFilters=None),
+    ),
+    (
+        "arrayfilters-unused-identifier",
+        FAM_SEED,
+        lambda db: _fam(
+            db, query={"_id": 1}, update={"$set": {"n": 1}}, arrayFilters=[{"e": {"$gt": 1}}]
+        ),
+    ),
+    (
+        "arrayfilters-identifier-with-no-filter",
+        FAM_SEED,
+        lambda db: _fam(db, query={"_id": 1}, update={"$set": {"arr.$[e]": 1}}),
+    ),
+    (
+        "hint-wrong-type",
+        FAM_SEED,
+        lambda db: _fam(db, query={"_id": 1}, update={"$set": {"n": 1}}, hint=5),
+    ),
+    # The error CODES, which all collapsed to 14 TypeMismatch on the way out of
+    # findAndModify -- the `update` command had the mapping, this one did not.
+    (
+        "unknown-modifier-code",
+        FAM_SEED,
+        lambda db: _fam(db, query={"_id": 1}, update={"$nope": {"n": 1}}),
+    ),
+    (
+        "operator-mixed-with-replacement-field",
+        FAM_SEED,
+        lambda db: _fam(db, query={"_id": 1}, update={"$set": {"n": 1}, "z": 2}),
+    ),
+    (
+        "immutable-id-code-and-wrapper",
+        FAM_SEED,
+        lambda db: _fam(db, query={"_id": 1}, update={"$set": {"_id": 9}}),
+    ),
+    (
+        "path-conflict-code",
+        FAM_SEED,
+        lambda db: _fam(db, query={"_id": 1}, update={"$set": {"a": 2}, "$inc": {"a.b": 1}}),
+    ),
+    (
+        "inc-type-error-is-wrapped",
+        [{"_id": 1, "n": "x"}],
+        lambda db: _fam(db, query={"_id": 1}, update={"$inc": {"n": 1}}),
+    ),
+    # PathNotViable: creating through a scalar. This SILENTLY did nothing --
+    # the update reported success and wrote no change.
+    (
+        "create-through-a-scalar",
+        FAM_SEED,
+        lambda db: _fam(db, query={"_id": 1}, update={"$set": {"n.x": 1}}),
+    ),
+    (
+        "create-through-a-nested-scalar",
+        [{"_id": 1, "a": {"b": 7}}],
+        lambda db: _fam(db, query={"_id": 1}, update={"$set": {"a.b.c": 1}}),
+    ),
+    (
+        "create-through-an-array-by-name",
+        [{"_id": 1, "a": [1]}],
+        lambda db: _fam(db, query={"_id": 1}, update={"$set": {"a.x": 9}}),
+    ),
+    (
+        "create-through-an-array-element",
+        [{"_id": 1, "a": [1]}],
+        lambda db: _fam(db, query={"_id": 1}, update={"$set": {"a.0.x": 9}}),
+    ),
+    (
+        "unset-through-a-scalar-is-allowed",
+        FAM_SEED,
+        lambda db: _fam(db, query={"_id": 1}, update={"$unset": {"n.x": ""}}, new=True),
+    ),
+    (
+        "out-of-range-index-pads",
+        [{"_id": 1, "a": [1]}],
+        lambda db: _fam(db, query={"_id": 1}, update={"$set": {"a.4": 9}}, new=True),
+    ),
+]
+
+# The same two silent-wrong-data rules through the plain ``update`` command,
+# which shares the code path -- plus its reply's field order, which puts
+# ``upserted`` / ``writeErrors`` BEFORE ``nModified``.
+UPDATE_CMD_CASES: list[tuple[str, list[dict], Callable[[Database], object]]] = [
+    (
+        "cmd-empty-update-is-a-replacement",
+        [{"_id": 1, "n": 5, "s": "a"}],
+        lambda db: (
+            {
+                k: v
+                for k, v in db.command(
+                    {"update": "c", "updates": [{"q": {"_id": 1}, "u": {}}]}
+                ).items()
+                if k not in ("$clusterTime", "operationTime")
+            },
+            list(db.c.find()),
+        ),
+    ),
+    (
+        "cmd-upsert-nests-a-dotted-query",
+        [],
+        lambda db: (
+            db.command(
+                {
+                    "update": "c",
+                    "updates": [{"q": {"sub.k": 77}, "u": {"$set": {"y": 1}}, "upsert": True}],
+                }
+            )
+            and [{k: v for k, v in d.items() if k != "_id"} for d in db.c.find()]
+        ),
+    ),
+    # ``_id`` leads, and the update-added fields are in field-name order, on
+    # every mongod. The seeded group's internal order is version-dependent --
+    # see `_upsert_key_shape`.
+    (
+        "cmd-upserted-field-order",
+        [],
+        lambda db: (
+            db.command(
+                {
+                    "update": "c",
+                    "updates": [
+                        {"q": {"n": 1, "m": 2}, "u": {"$set": {"z": 3, "a": 4}}, "upsert": True}
+                    ],
+                }
+            )
+            and [(list(d)[0], sorted(list(d)[1:3]), list(d)[3:]) for d in db.c.find()]
+        ),
+    ),
+    (
+        "cmd-reply-field-order-with-write-errors",
+        [{"_id": 1, "n": 5}],
+        lambda db: _reply_keys(
+            db.command({"update": "c", "updates": [{"q": {"_id": 1}, "u": {"$nope": {"n": 1}}}]})
+        ),
+    ),
+    (
+        "cmd-unknown-modifier-message",
+        [{"_id": 1, "n": 5}],
+        lambda db: db.command(
+            {"update": "c", "updates": [{"q": {"_id": 1}, "u": {"$nope": {"n": 1}}}]}
+        )["writeErrors"][0],
+    ),
+    (
+        "cmd-path-not-viable",
+        [{"_id": 1, "n": 5}],
+        lambda db: db.command(
+            {"update": "c", "updates": [{"q": {"_id": 1}, "u": {"$set": {"n.x": 1}}}]}
+        )["writeErrors"][0],
+    ),
+]
+
+
+def _cursor_cmd(db: Database, cmd: dict) -> str:
+    """A cursor-command reply, with the parts that cannot be compared removed.
+
+    Cursor ids differ per server by construction, so an id is rendered as its
+    BSON type plus whether it is zero (open vs exhausted) -- which is what
+    drivers actually assert -- and an id echoed back inside an error message or
+    a ``killCursors`` list is replaced with a marker.
+    """
+    from pymongo.errors import OperationFailure
+
+    try:
+        reply = dict(db.command(cmd))
+    except OperationFailure as exc:
+        d = exc.details or {}
+        msg = str(d.get("errmsg", ""))
+        # "cursor id 12345 not found" -- the number is per-server.
+        msg = re.sub(r"cursor id \d+", "cursor id <id>", msg)
+        return f"{d.get('code')}/{_stable_code_name(d)}: {msg!r}"
+    out = {}
+    for k, v in reply.items():
+        if k in ("$clusterTime", "operationTime"):
+            continue
+        if k == "cursor" and isinstance(v, dict):
+            v = {
+                ck: (f"{type(cv).__name__}/{'zero' if cv == 0 else 'open'}" if ck == "id" else cv)
+                for ck, cv in v.items()
+            }
+        elif k.startswith("cursors") and isinstance(v, list):
+            v = ["<id>" for _ in v]
+        out[k] = v
+    return repr(out)
+
+
+CURSOR_SEED = [{"_id": i} for i in range(1, 11)]
+
+
+def _with_cursor(cmd_fn):
+    """Open a cursor with batchSize 2, then run ``cmd_fn(cursor_id)``."""
+
+    def op(db: Database) -> str:
+        cid = db.command({"find": "c", "batchSize": 2})["cursor"]["id"]
+        return _cursor_cmd(db, cmd_fn(cid))
+
+    return op
+
+
+# Cursor / getMore / killCursors. 51 shapes probed, 22 diverged -- FOUR of them
+# crash-class, where a malformed argument reached a bare ``int()`` and the
+# exception escaped as "internal server error" (code 1). Most of the rest were
+# arguments accepted and ignored, or ``CursorNotFound`` (43) answered for what
+# mongod reports as a parse error before it looks a cursor up.
+CURSOR_CASES: list[tuple[str, list[dict], Callable[[Database], object]]] = [
+    # The crashes.
+    (
+        "getmore-id-string",
+        CURSOR_SEED,
+        lambda db: _cursor_cmd(db, {"getMore": "x", "collection": "c"}),
+    ),
+    (
+        "getmore-batchsize-string",
+        CURSOR_SEED,
+        _with_cursor(lambda cid: {"getMore": cid, "collection": "c", "batchSize": "x"}),
+    ),
+    (
+        "killcursors-not-an-array",
+        CURSOR_SEED,
+        lambda db: _cursor_cmd(db, {"killCursors": "c", "cursors": 5}),
+    ),
+    (
+        "killcursors-element-not-a-long",
+        CURSOR_SEED,
+        lambda db: _cursor_cmd(db, {"killCursors": "c", "cursors": ["x"]}),
+    ),
+    # Negative sizing values.
+    (
+        "find-batchsize-negative",
+        CURSOR_SEED,
+        lambda db: _cursor_cmd(db, {"find": "c", "batchSize": -3}),
+    ),
+    ("find-limit-negative", CURSOR_SEED, lambda db: _cursor_cmd(db, {"find": "c", "limit": -3})),
+    ("find-skip-negative", CURSOR_SEED, lambda db: _cursor_cmd(db, {"find": "c", "skip": -3})),
+    (
+        "getmore-batchsize-negative",
+        CURSOR_SEED,
+        _with_cursor(lambda cid: {"getMore": cid, "collection": "c", "batchSize": -1}),
+    ),
+    (
+        "agg-cursor-batchsize-negative",
+        CURSOR_SEED,
+        lambda db: _cursor_cmd(db, {"aggregate": "c", "pipeline": [], "cursor": {"batchSize": -1}}),
+    ),
+    # Accepted numeric shapes -- the range check must not narrow the types.
+    (
+        "find-batchsize-fractional",
+        CURSOR_SEED,
+        lambda db: _cursor_cmd(db, {"find": "c", "batchSize": 2.5}),
+    ),
+    (
+        "find-batchsize-decimal",
+        CURSOR_SEED,
+        lambda db: _cursor_cmd(db, {"find": "c", "batchSize": Decimal128("3")}),
+    ),
+    (
+        "find-batchsize-null",
+        CURSOR_SEED,
+        lambda db: _cursor_cmd(db, {"find": "c", "batchSize": None}),
+    ),
+    ("find-batchsize-zero", CURSOR_SEED, lambda db: _cursor_cmd(db, {"find": "c", "batchSize": 0})),
+    # getMore's required / typed fields.
+    (
+        "getmore-id-int32",
+        CURSOR_SEED,
+        lambda db: _cursor_cmd(db, {"getMore": 5, "collection": "c"}),
+    ),
+    ("getmore-no-collection", CURSOR_SEED, _with_cursor(lambda cid: {"getMore": cid})),
+    (
+        "getmore-collection-not-a-string",
+        CURSOR_SEED,
+        _with_cursor(lambda cid: {"getMore": cid, "collection": 5}),
+    ),
+    (
+        "getmore-unknown-field",
+        CURSOR_SEED,
+        _with_cursor(lambda cid: {"getMore": cid, "collection": "c", "zz": 1}),
+    ),
+    (
+        "getmore-maxtimems-non-awaitdata",
+        CURSOR_SEED,
+        _with_cursor(lambda cid: {"getMore": cid, "collection": "c", "maxTimeMS": 10}),
+    ),
+    (
+        "getmore-normal",
+        CURSOR_SEED,
+        _with_cursor(lambda cid: {"getMore": cid, "collection": "c", "batchSize": 3}),
+    ),
+    # killCursors.
+    (
+        "killcursors-missing-cursors",
+        CURSOR_SEED,
+        lambda db: _cursor_cmd(db, {"killCursors": "c"}),
+    ),
+    (
+        "killcursors-null-cursors",
+        CURSOR_SEED,
+        lambda db: _cursor_cmd(db, {"killCursors": "c", "cursors": None}),
+    ),
+    (
+        "killcursors-null-element",
+        CURSOR_SEED,
+        lambda db: _cursor_cmd(db, {"killCursors": "c", "cursors": [None]}),
+    ),
+    (
+        "killcursors-unknown-field",
+        CURSOR_SEED,
+        lambda db: _cursor_cmd(db, {"killCursors": "c", "cursors": [], "zz": 1}),
+    ),
+    (
+        "killcursors-empty",
+        CURSOR_SEED,
+        lambda db: _cursor_cmd(db, {"killCursors": "c", "cursors": []}),
+    ),
+    (
+        "killcursors-shape",
+        CURSOR_SEED,
+        _with_cursor(lambda cid: {"killCursors": "c", "cursors": [cid]}),
+    ),
+    # aggregate's cursor spec.
+    (
+        "agg-cursor-missing",
+        CURSOR_SEED,
+        lambda db: _cursor_cmd(db, {"aggregate": "c", "pipeline": []}),
+    ),
+    (
+        "agg-cursor-unknown-key",
+        CURSOR_SEED,
+        lambda db: _cursor_cmd(db, {"aggregate": "c", "pipeline": [], "cursor": {"zz": 1}}),
+    ),
+    (
+        "agg-cursor-batchsize-zero",
+        CURSOR_SEED,
+        lambda db: _cursor_cmd(db, {"aggregate": "c", "pipeline": [], "cursor": {"batchSize": 0}}),
+    ),
+    # awaitData without tailable.
+    (
+        "awaitdata-without-tailable",
+        CURSOR_SEED,
+        lambda db: _cursor_cmd(db, {"find": "c", "awaitData": True}),
+    ),
+]
+
+
+def _write_hint(db: Database, cmd: dict) -> str:
+    """A write command's reply plus the surviving documents.
+
+    The point is the DOCUMENTS: `delete` / `update` used to ignore an
+    unresolvable hint and perform the write, where mongod refuses the
+    statement. The writeError's message carries mongod's planner dump, which we
+    do not reproduce (see tasks/backlog.md), so only its index and code are
+    compared -- the behaviour, not the prose.
+    """
+    reply = dict(db.command(cmd))
+    out = {k: v for k, v in reply.items() if k in ("n", "nModified")}
+    out["writeErrors"] = [
+        {"index": w.get("index"), "code": w.get("code")} for w in reply.get("writeErrors", [])
+    ]
+    out["docs"] = sorted(d["_id"] for d in db.c.find())
+    return repr(out)
+
+
+def _read_hint(db: Database, cmd: dict) -> str:
+    """A read command's outcome under a hint: the VALUES, or the error code.
+
+    Companion to `_write_hint`. mongod renders its whole query plan in the
+    errmsg for an unresolvable hint and we name the hint instead (see
+    tasks/backlog.md), so the code is compared and the prose is not.
+    """
+    from pymongo.errors import OperationFailure
+
+    try:
+        reply = dict(db.command(cmd))
+    except OperationFailure as exc:
+        d = exc.details or {}
+        return f"error {d.get('code')}/{_stable_code_name(d)}"
+    if "values" in reply:
+        return repr(sorted(reply["values"], key=repr))
+    return repr([d.get("_id") for d in reply.get("cursor", {}).get("firstBatch", [])])
+
+
+HINT_SEED = [{"_id": i, "a": i} for i in range(1, 6)]
+
+
+def _with_index(op):
+    """Create `a_1` before running `op` -- these cases need a resolvable hint
+    to exist so an UNresolvable one is the only variable."""
+
+    def wrapped(db: Database) -> object:
+        db.c.create_index([("a", 1)], name="a_1")
+        return op(db)
+
+    return wrapped
+
+
+# Hint honouring and explain's error handling. The find that matters here is a
+# WRITE that should not have happened: `delete` / `update` ignored their
+# per-statement `hint` and performed the write where mongod refuses the
+# statement.
+HINT_CASES: list[tuple[str, list[dict], Callable[[Database], object]]] = [
+    (
+        "delete-unresolvable-hint-does-not-delete",
+        HINT_SEED,
+        _with_index(
+            lambda db: _write_hint(
+                db, {"delete": "c", "deletes": [{"q": {}, "limit": 1, "hint": "nope"}]}
+            )
+        ),
+    ),
+    (
+        "update-unresolvable-hint-does-not-update",
+        HINT_SEED,
+        _with_index(
+            lambda db: _write_hint(
+                db,
+                {"update": "c", "updates": [{"q": {}, "u": {"$set": {"z": 1}}, "hint": "nope"}]},
+            )
+        ),
+    ),
+    (
+        "delete-resolvable-hint-still-deletes",
+        HINT_SEED,
+        _with_index(
+            lambda db: _write_hint(
+                db, {"delete": "c", "deletes": [{"q": {}, "limit": 1, "hint": "a_1"}]}
+            )
+        ),
+    ),
+    (
+        "unordered-batch-continues-past-a-bad-hint",
+        HINT_SEED,
+        _with_index(
+            lambda db: _write_hint(
+                db,
+                {
+                    "delete": "c",
+                    "ordered": False,
+                    "deletes": [
+                        {"q": {"_id": 1}, "limit": 1, "hint": "nope"},
+                        {"q": {"_id": 2}, "limit": 1},
+                    ],
+                },
+            )
+        ),
+    ),
+    # `$natural` is a DOCUMENT-only hint; the string is a BadValue on every
+    # command that takes one. We accepted the string as a documented
+    # convenience, so `pymongo`'s `.hint("$natural")` scanned here and errored
+    # against a real server -- probed 8.2.11, 2026-08-31.
+    (
+        "find-natural-hint-as-string",
+        HINT_SEED,
+        _with_index(lambda db: _read_hint(db, {"find": "c", "filter": {}, "hint": "$natural"})),
+    ),
+    (
+        "count-natural-hint-as-string",
+        HINT_SEED,
+        _with_index(lambda db: _read_hint(db, {"count": "c", "hint": "$natural"})),
+    ),
+    (
+        "distinct-natural-hint-as-string",
+        HINT_SEED,
+        _with_index(lambda db: _read_hint(db, {"distinct": "c", "key": "a", "hint": "$natural"})),
+    ),
+    (
+        "delete-natural-hint-as-string",
+        HINT_SEED,
+        _with_index(
+            lambda db: _write_hint(
+                db, {"delete": "c", "deletes": [{"q": {}, "limit": 1, "hint": "$natural"}]}
+            )
+        ),
+    ),
+    # `distinct` takes a hint and RESOLVES it: a valid one is honoured, one
+    # naming no index refuses the command. It was the only hint-bearing command
+    # that ignored the field, so a bogus hint returned full results.
+    (
+        "distinct-hint-valid-name",
+        HINT_SEED,
+        _with_index(lambda db: _read_hint(db, {"distinct": "c", "key": "a", "hint": "a_1"})),
+    ),
+    (
+        "distinct-hint-valid-key-spec",
+        HINT_SEED,
+        _with_index(lambda db: _read_hint(db, {"distinct": "c", "key": "a", "hint": {"a": 1}})),
+    ),
+    (
+        "distinct-hint-unresolvable",
+        HINT_SEED,
+        _with_index(lambda db: _read_hint(db, {"distinct": "c", "key": "a", "hint": "nope"})),
+    ),
+    # $natural direction.
+    (
+        "reverse-natural-hint",
+        HINT_SEED,
+        lambda db: [
+            d["_id"]
+            for d in db.command({"find": "c", "filter": {}, "hint": {"$natural": -1}})["cursor"][
+                "firstBatch"
+            ]
+        ],
+    ),
+    (
+        "forward-natural-hint",
+        HINT_SEED,
+        lambda db: [
+            d["_id"]
+            for d in db.command({"find": "c", "filter": {}, "hint": {"$natural": 1}})["cursor"][
+                "firstBatch"
+            ]
+        ],
+    ),
+    (
+        "sort-beats-reverse-natural",
+        HINT_SEED,
+        lambda db: [
+            d["_id"]
+            for d in db.command(
+                {"find": "c", "filter": {}, "hint": {"$natural": -1}, "sort": {"a": 1}}
+            )["cursor"]["firstBatch"]
+        ],
+    ),
+    # explain's error handling -- it used to FABRICATE a plan for these.
+    (
+        "explain-unknown-command",
+        HINT_SEED,
+        lambda db: _cursor_cmd(db, {"explain": {"nosuchcmd": "c"}, "verbosity": "queryPlanner"}),
+    ),
+    (
+        "explain-empty-command",
+        HINT_SEED,
+        lambda db: _cursor_cmd(db, {"explain": {}, "verbosity": "queryPlanner"}),
+    ),
+    (
+        "explain-non-document",
+        HINT_SEED,
+        lambda db: _cursor_cmd(db, {"explain": 5, "verbosity": "queryPlanner"}),
+    ),
+    (
+        "explain-verbosity-wrong-type",
+        HINT_SEED,
+        lambda db: _cursor_cmd(db, {"explain": {"find": "c"}, "verbosity": 5}),
+    ),
+    (
+        "explain-verbosity-bad-enum",
+        HINT_SEED,
+        lambda db: _cursor_cmd(db, {"explain": {"find": "c"}, "verbosity": "nope"}),
+    ),
+    # distinct's unknown fields. Probed with an ALWAYS-unknown name rather than
+    # `hint`, whose accepted/rejected status differs by mongod version.
+    (
+        "distinct-unknown-field",
+        HINT_SEED,
+        lambda db: _cursor_cmd(db, {"distinct": "c", "key": "a", "zz": 1}),
+    ),
+    (
+        "distinct-still-works",
+        HINT_SEED,
+        lambda db: sorted(db.command({"distinct": "c", "key": "a"})["values"]),
+    ),
+]
+
+LK_CHAIN = [
+    {"_id": 10, "sku": "a", "parent": None},
+    {"_id": 11, "sku": "b", "parent": "a"},
+    {"_id": 12, "sku": "c", "parent": "b"},
+    {"_id": 13, "sku": None, "parent": "c"},
+]
+
+_GRAPH = {
+    "from": "stock",
+    "startWith": "$sku",
+    "connectFromField": "parent",
+    "connectToField": "sku",
+    "as": "chain",
+}
+
+
+def _join(db: Database, stock: list[dict], pipeline: list) -> str:
+    """Run a join pipeline over `c` against a seeded `stock` collection.
+
+    The `as` array's ORDER is not compared -- mongod's reflects its internal
+    traversal rather than a documented contract, and this campaign has already
+    hit two version splits on ordering. The SET is what the joins are about.
+    """
+    from pymongo.errors import OperationFailure
+
+    db.stock.drop()
+    db.stock.insert_many([dict(d) for d in stock])
+    try:
+        out = list(db.c.aggregate(pipeline))
+    except OperationFailure as exc:
+        d = exc.details or {}
+        msg = str(d.get("errmsg", ""))
+        for w in (
+            "PlanExecutor error during aggregation :: caused by :: ",
+            "Failed to optimize pipeline :: caused by :: ",
+        ):
+            if msg.startswith(w):
+                msg = msg[len(w) :]
+        return f"{d.get('code')}: {msg!r}"
+    shaped = []
+    for doc in sorted(out, key=lambda d: d["_id"]):
+        joined = doc.get("chain", doc.get("s", doc.get("a", {}).get("b") if "a" in doc else None))
+        ids = sorted(j["_id"] for j in joined) if isinstance(joined, list) else joined
+        shaped.append((doc["_id"], ids))
+    return repr(shaped)
+
+
+# $lookup / $graphLookup. 27 shapes probed, 20 diverged -- the worst a
+# TRUNCATED traversal: $graphLookup stopped at the first null link, so a
+# four-document chain returned one document with no error.
+LOOKUP_CASES: list[tuple[str, list[dict], Callable[[Database], object]]] = [
+    (
+        "graph-null-link-continues",
+        [{"_id": 1, "sku": "a"}],
+        lambda db: _join(db, LK_CHAIN, [{"$graphLookup": _GRAPH}]),
+    ),
+    (
+        "graph-missing-link-stops",
+        [{"_id": 1, "sku": "a"}],
+        lambda db: _join(
+            db, [{"_id": 10, "sku": "a"}, {"_id": 11, "sku": None}], [{"$graphLookup": _GRAPH}]
+        ),
+    ),
+    (
+        "graph-null-link-skips-fieldless-doc",
+        [{"_id": 1, "sku": "a"}],
+        lambda db: _join(
+            db,
+            [{"_id": 10, "sku": "a", "parent": None}, {"_id": 11}],
+            [{"$graphLookup": _GRAPH}],
+        ),
+    ),
+    (
+        "graph-maxdepth",
+        [{"_id": 1, "sku": "a"}],
+        lambda db: _join(
+            db,
+            [
+                {"_id": 1, "sku": "a", "parent": "b"},
+                {"_id": 2, "sku": "b", "parent": "c"},
+                {"_id": 3, "sku": "c", "parent": "d"},
+            ],
+            [{"$graphLookup": {**_GRAPH, "maxDepth": 1}}],
+        ),
+    ),
+    (
+        "graph-negative-maxdepth",
+        [{"_id": 1, "sku": "a"}],
+        lambda db: _join(db, LK_CHAIN, [{"$graphLookup": {**_GRAPH, "maxDepth": -1}}]),
+    ),
+    (
+        "graph-unknown-argument",
+        [{"_id": 1, "sku": "a"}],
+        lambda db: _join(db, LK_CHAIN, [{"$graphLookup": {**_GRAPH, "zz": 1}}]),
+    ),
+    (
+        "graph-spec-not-a-document",
+        [{"_id": 1, "sku": "a"}],
+        lambda db: _join(db, LK_CHAIN, [{"$graphLookup": 5}]),
+    ),
+    (
+        "lookup-empty-array-matches-null",
+        [{"_id": 1, "tags": []}],
+        lambda db: _join(
+            db,
+            [{"_id": 10, "sku": "a"}, {"_id": 11, "sku": None}],
+            [
+                {
+                    "$lookup": {
+                        "from": "stock",
+                        "localField": "tags",
+                        "foreignField": "sku",
+                        "as": "s",
+                    }
+                }
+            ],
+        ),
+    ),
+    (
+        # Equality by VALUE across numeric types and Decimal128 scale. The
+        # hash join keyed on the raw value (Python) / derived `==` (Rust) and
+        # joined none of these; the indexed path always did.
+        "lookup-numeric-equality-by-value",
+        [
+            {"_id": 1, "v": Decimal128("1.5")},
+            {"_id": 2, "v": 2},
+            {"_id": 3, "v": 2.0},
+            {"_id": 4, "v": [Int64(7)]},
+            {"_id": 5, "v": float("nan")},
+            {"_id": 6, "v": True},
+        ],
+        lambda db: _join(
+            db,
+            [
+                {"_id": 10, "v": Decimal128("1.500")},
+                {"_id": 11, "v": Decimal128("2.0")},
+                {"_id": 12, "v": [7.0, 8]},
+                {"_id": 13, "v": Decimal128("NaN")},
+                {"_id": 14, "v": 1},
+            ],
+            [
+                {
+                    "$lookup": {
+                        "from": "stock",
+                        "localField": "v",
+                        "foreignField": "v",
+                        "as": "s",
+                    }
+                }
+            ],
+        ),
+    ),
+    (
+        "lookup-dotted-as-nests",
+        [{"_id": 1, "sku": "a"}],
+        lambda db: _join(
+            db,
+            [{"_id": 10, "sku": "a"}],
+            [
+                {
+                    "$lookup": {
+                        "from": "stock",
+                        "localField": "sku",
+                        "foreignField": "sku",
+                        "as": "a.b",
+                    }
+                }
+            ],
+        ),
+    ),
+    (
+        "lookup-let-wrong-type",
+        [{"_id": 1, "sku": "a"}],
+        lambda db: _join(
+            db,
+            [{"_id": 10, "sku": "a"}],
+            [{"$lookup": {"from": "stock", "let": 5, "pipeline": [], "as": "s"}}],
+        ),
+    ),
+    (
+        "lookup-pipeline-wrong-type",
+        [{"_id": 1, "sku": "a"}],
+        lambda db: _join(
+            db,
+            [{"_id": 10, "sku": "a"}],
+            [{"$lookup": {"from": "stock", "pipeline": 5, "as": "s"}}],
+        ),
+    ),
+    (
+        "lookup-unknown-argument",
+        [{"_id": 1, "sku": "a"}],
+        lambda db: _join(
+            db,
+            [{"_id": 10, "sku": "a"}],
+            [
+                {
+                    "$lookup": {
+                        "from": "stock",
+                        "localField": "sku",
+                        "foreignField": "sku",
+                        "as": "s",
+                        "zz": 1,
+                    }
+                }
+            ],
+        ),
+    ),
+    (
+        "lookup-missing-as",
+        [{"_id": 1, "sku": "a"}],
+        lambda db: _join(
+            db,
+            [{"_id": 10, "sku": "a"}],
+            [{"$lookup": {"from": "stock", "localField": "sku", "foreignField": "sku"}}],
+        ),
+    ),
+    (
+        "lookup-half-specified-field-pair",
+        [{"_id": 1, "sku": "a"}],
+        lambda db: _join(
+            db,
+            [{"_id": 10, "sku": "a"}],
+            [{"$lookup": {"from": "stock", "localField": "sku", "as": "s"}}],
+        ),
+    ),
+]
+
+
+def _plain_cmd(db: Database, cmd: dict) -> str:
+    """A command reply reduced to what is comparable across the two servers."""
+    from pymongo.errors import OperationFailure
+
+    try:
+        db.command(cmd)
+    except OperationFailure as exc:
+        d = exc.details or {}
+        return f"{d.get('code')}/{_stable_code_name(d)}: {str(d.get('errmsg', ''))!r}"
+    return "ok"
+
+
+# ``maxTimeMS``, which is a GENERIC command field -- mongod validates it on
+# every command, and we used to check it on ``find`` alone, so 23 commands took
+# a wrong-typed value silently. The values here are deliberately either invalid
+# or large: a small VALID value (2, 5) makes mongod actually time the operation
+# out and answer 50 MaxTimeMSExpired, which we do not enforce -- a real but
+# separate gap (backlog §5), and a race against elapsed time that would make
+# this gate flaky.
+MAXTIME_SEED = [{"_id": 1, "a": 1}]
+
+_MAXTIME_BODIES: dict[str, dict] = {
+    "find": {"find": "c", "filter": {}},
+    "aggregate": {"aggregate": "c", "pipeline": [], "cursor": {}},
+    "count": {"count": "c"},
+    "distinct": {"distinct": "c", "key": "a"},
+    "insert": {"insert": "c", "documents": [{"z": 1}]},
+    "listCollections": {"listCollections": 1},
+    "ping": {"ping": 1},
+}
+
+_MAXTIME_VALUES: list[tuple[str, object]] = [
+    ("string", "x"),
+    ("object", {}),
+    ("array", [1]),
+    ("bool", True),
+    ("frac", 1.5),
+    ("frac-negative", -1.5),
+    ("nan", float("nan")),
+    ("inf", float("inf")),
+    ("huge-double", 1e100),
+    ("dec-frac", Decimal128("1.5")),
+    ("dec-nan", Decimal128("NaN")),
+    ("negative", -1),
+    ("over-int32", 2**31),
+    ("null", None),
+    ("valid", 1000),
+]
+
+
+def _maxtime_op(body: dict, value: object) -> Callable[[Database], object]:
+    """Bind the loop variables -- a lambda in the comprehension would capture
+    the last iteration's values for all 105 cases."""
+
+    def op(db: Database) -> str:
+        return _plain_cmd(db, {**body, "maxTimeMS": value})
+
+    return op
+
+
+MAXTIME_CASES: list[tuple[str, list[dict], Callable[[Database], object]]] = [
+    (f"maxtimems-{cname}-{vname}", MAXTIME_SEED, _maxtime_op(body, value))
+    for cname, body in _MAXTIME_BODIES.items()
+    for vname, value in _MAXTIME_VALUES
+] + [
+    # The null-means-absent rule next door, and its wrong-typed neighbour.
+    (
+        "createindexes-indexes-null",
+        MAXTIME_SEED,
+        lambda db: _plain_cmd(db, {"createIndexes": "c", "indexes": None}),
+    ),
+    (
+        "createindexes-indexes-missing",
+        MAXTIME_SEED,
+        lambda db: _plain_cmd(db, {"createIndexes": "c"}),
+    ),
+    (
+        "createindexes-indexes-int",
+        MAXTIME_SEED,
+        lambda db: _plain_cmd(db, {"createIndexes": "c", "indexes": 5}),
+    ),
+]
+
+
+def _agg_err_full(db: Database, pipeline: list) -> str:
+    """Like ``_agg_err``, but keeps mongod's wrapper prefix.
+
+    The namespace inside the executor prefix names the case's own database, so
+    both servers render the same string only after it is normalised away.
+    """
+    from pymongo.errors import OperationFailure
+
+    try:
+        return f"ok:{len(list(db.c.aggregate(pipeline)))}"
+    except OperationFailure as exc:
+        msg = str(exc.details.get("errmsg", ""))
+        msg = re.sub(r"namespace: [^ ]+", "namespace: <ns>", msg)
+        return f"{exc.code}/{_stable_code_name(exc.details)}: {msg}"
+
+
+def _rr(new_root: object) -> Callable[[Database], object]:
+    return lambda db: _agg_err_full(db, [{"$replaceRoot": {"newRoot": new_root}}])
+
+
+def _rw(expr: object) -> Callable[[Database], object]:
+    return lambda db: _agg_err_full(db, [{"$replaceWith": expr}])
+
+
+def _redact(spec: object) -> Callable[[Database], object]:
+    return lambda db: _agg_err_full(db, [{"$redact": spec}])
+
+
+def _redact_ok(spec: object) -> Callable[[Database], object]:
+    """A `$redact` that SUCCEEDS — the result documents are the assertion."""
+    return lambda db: list(db.c.aggregate([{"$redact": spec}]))
+
+
+def _switch(case: object, **extra: object) -> Callable[[Database], object]:
+    body: dict = {"branches": [{"case": case, "then": 1}], **extra}
+    return lambda db: _agg_err_full(db, [{"$addFields": {"x": {"$switch": body}}}])
+
+
+ONE = [{"_id": 1, "n": 1}]
+
+# `$replaceRoot`/`$replaceWith` runtime failure (40228), `$switch` with no
+# matching branch (40066 at execution, 40069 when mongod folds it away), and
+# `$bucket`'s out-of-range value (7158303). All probed against mongod 8.2.11.
+#
+# The `Input document:` half of the 40228 message is mongod's DEPENDENCY-PRUNED
+# document, not the stored one, so several cases exist only to pin that: which
+# fields survive, in which order, and how a dotted or absent path behaves.
+AGGERR_CASES: list[tuple[str, list[dict], Callable[[Database], object]]] = [
+    ("rr-int", ONE, _rr("$n")),
+    ("rr-string", [{"_id": 1, "n": "abc"}], _rr("$n")),
+    ("rr-double", [{"_id": 1, "n": 1.5}], _rr("$n")),
+    ("rr-long", [{"_id": 1, "n": Int64(2**40)}], _rr("$n")),
+    ("rr-decimal", [{"_id": 1, "n": Decimal128("1.25")}], _rr("$n")),
+    ("rr-bool", [{"_id": 1, "n": True}], _rr("$n")),
+    ("rr-array", [{"_id": 1, "n": [1, {"a": 2}]}], _rr("$n")),
+    ("rr-objectid", [{"_id": ObjectId("0123456789ab0123456789ab"), "n": 1}], _rr("$_id")),
+    ("rr-date", [{"_id": 1, "n": datetime(2026, 8, 31, 12, 0, 0)}], _rr("$n")),
+    ("rr-null-literal", ONE, _rr({"$literal": None})),
+    # Pruning: unreferenced fields are dropped, and `_id` is not automatic.
+    ("rr-prunes-unreferenced", [{"_id": 1, "n": 1, "s": "hi", "arr": [1, 2]}], _rr("$n")),
+    ("rr-keeps-referenced-id", [{"_id": 7, "n": 1}], _rr({"$add": ["$_id", "$n"]})),
+    ("rr-no-field-refs", [{"_id": 1}], _rr({"$literal": 5})),
+    ("rr-absent-field", ONE, _rr({"$ifNull": ["$missing", 5]})),
+    ("rr-absent-parent", ONE, _rr({"$ifNull": ["$a.b", 5]})),
+    ("rr-dotted-path", [{"_id": 1, "a": {"b": 5, "c": 6}}], _rr("$a.b")),
+    (
+        "rr-parent-subsumes-child",
+        [{"_id": 1, "a": {"b": 1, "c": 2}}],
+        _rr({"$concat": [{"$toString": "$a.b"}, {"$toString": {"$type": "$a"}}]}),
+    ),
+    ("rr-root-dot-field", [{"_id": 1, "a": 1, "b": 2}], _rr({"$toString": "$$ROOT.a"})),
+    # Order follows the DOCUMENT, not the order the expression mentions fields.
+    (
+        "rr-doc-order",
+        [{"_id": 1, "a": 1, "b": 2}],
+        _rr({"$concat": [{"$toString": "$b"}, {"$toString": "$a"}]}),
+    ),
+    (
+        "rr-doc-order-nested",
+        [{"_id": 1, "a": {"b": 1, "c": 2, "d": 3}}],
+        _rr({"$concat": [{"$toString": "$a.c"}, {"$toString": "$a.b"}]}),
+    ),
+    # `$replaceWith` names a different subject in the same message.
+    ("rw-scalar", ONE, _rw("$n")),
+    ("rw-literal", ONE, _rw({"$literal": 5})),
+    # `$switch`: folded at parse time (40069) vs discovered per document (40066).
+    ("switch-field-ref", ONE, _switch({"$gt": ["$n", 99]})),
+    ("switch-literal-false", ONE, _switch(False)),
+    ("switch-literal-all-const", ONE, _switch({"$gt": [1, 99]})),
+    ("switch-with-default", ONE, _switch(False, default=9)),
+    # The fold fires with nothing to execute over -- an empty seed is the point.
+    ("switch-folds-on-empty", [], _switch(False)),
+    ("switch-field-ref-on-empty", [], _switch({"$gt": ["$n", 99]})),
+    # `$bucket` reuses mongod's `$switch` text and takes the executor wrapper.
+    (
+        "bucket-out-of-range",
+        [{"_id": 1, "n": 99}],
+        lambda db: _agg_err_full(db, [{"$bucket": {"groupBy": "$n", "boundaries": [0, 2, 4]}}]),
+    ),
+    (
+        "bucket-with-default",
+        [{"_id": 1, "n": 99}],
+        lambda db: _agg_err_full(
+            db, [{"$bucket": {"groupBy": "$n", "boundaries": [0, 2, 4], "default": "other"}}]
+        ),
+    ),
+]
+
+
+# `$redact` — three defects found on 2026-08-31, all of which made the stage
+# return data it exists to withhold, and all of which were present on BOTH
+# servers. The decision names are VARIABLES bound only inside `$redact`, not the
+# strings that spell them: a stored `"$$KEEP"` used to be accepted as a decision
+# (disclosure driven by document content), the descent skipped NESTED arrays
+# (a tagged sub-doc one array deeper was returned), and the names resolved to
+# marker strings anywhere in a pipeline. The 17053 rendering is mongod's compact
+# `Value::toString` — a different renderer from the shell form other messages
+# use, which is why the container cases are here. Probed on mongod 8.2.11.
+LEVELLED = [{"_id": 1, "lvl": 1, "n": [[{"lvl": 9, "x": 1}], {"lvl": 1, "y": 2}], "s": "t"}]
+DESCEND_EXPR = {"$cond": [{"$lte": [{"$ifNull": ["$lvl", 0]}, 3]}, "$$DESCEND", "$$PRUNE"]}
+
+REDACT_CASES: list[tuple[str, list[dict], Callable[[Database], object]]] = [
+    # A stored string must not impersonate a decision.
+    ("stored-keep-string", [{"_id": 1, "tag": "$$KEEP", "s": "x"}], _redact("$tag")),
+    ("stored-prune-string", [{"_id": 1, "tag": "$$PRUNE"}], _redact("$tag")),
+    ("literal-keep-string", ONE, _redact({"$literal": "$$KEEP"})),
+    # The decision names are undefined OUTSIDE $redact.
+    ("keep-in-project", ONE, lambda db: _agg_err_full(db, [{"$project": {"x": "$$KEEP"}}])),
+    # Descent reaches nested arrays.
+    ("nested-arrays", LEVELLED, _redact_ok(DESCEND_EXPR)),
+    ("deep-nested-arrays", [{"_id": 1, "lvl": 1, "n": [[[{"lvl": 9}]]]}], _redact_ok(DESCEND_EXPR)),
+    # A non-decision result: mongod's code, wrapper, and compact rendering.
+    ("non-decision-int", ONE, _redact(5)),
+    ("non-decision-string", ONE, _redact({"$literal": "x"})),
+    ("non-decision-bool", ONE, _redact({"$literal": True})),
+    ("non-decision-null", ONE, _redact(None)),
+    ("non-decision-empty-doc", ONE, _redact({})),
+    ("non-decision-doc", ONE, _redact({"$literal": {"k": 1, "j": "s"}})),
+    ("non-decision-array", ONE, _redact({"$literal": [1, "a"]})),
+    ("non-decision-nested", ONE, _redact({"$literal": [[1]]})),
+    ("non-decision-double", ONE, _redact({"$literal": 1.5})),
+    ("non-decision-decimal", ONE, _redact({"$literal": Decimal128("2")})),
+    ("non-decision-oid", ONE, _redact({"$literal": ObjectId("0123456789ab0123456789ab")})),
+    ("non-decision-date", ONE, _redact({"$literal": datetime(2026, 1, 2, 3, 4, 5)})),
+    ("non-decision-field", ONE, _redact("$n")),
+    # Happy paths, so a future fix cannot trade the errors for wrong data.
+    ("keep-top", ONE, _redact_ok("$$KEEP")),
+    ("descend-classic", LEVELLED, _redact_ok(DESCEND_EXPR)),
+]
+
+# Undefined `$$variable` — mongod reports it at PARSE time, so it fires on an
+# EMPTY collection where nothing is ever evaluated. Both servers used to answer
+# ok:1 there, and the Rust server answered a generic BadValue (2) even with
+# documents present. The wrapper is per stage: `Invalid $<stage> :: caused by ::`
+# for `$project` / `$addFields` / `$set`, bare everywhere else. The `ok-` cases
+# are the false-positive guards: a conservative checker must leave a literal
+# `"$$NOPE"` in a `$match` filter, a `$literal`, and every binding form alone.
+# Probed on mongod 8.2.11.
+#: An empty seed leaves the collection NON-EXISTENT, which is the strongest form
+#: of the parse-time check: mongod still reports the undefined variable there.
+NONE_AT_ALL: list[dict] = []
+
+
+def _agg(pipeline: list[dict]) -> Callable[[Database], object]:
+    return lambda db: _agg_err_full(db, pipeline)
+
+
+UNDEFVAR_CASES: list[tuple[str, list[dict], Callable[[Database], object]]] = [
+    ("project", ONE, _agg([{"$project": {"x": "$$NOPE"}}])),
+    ("addfields", ONE, _agg([{"$addFields": {"x": "$$NOPE"}}])),
+    ("set", ONE, _agg([{"$set": {"x": "$$NOPE"}}])),
+    ("group", ONE, _agg([{"$group": {"_id": "$$NOPE"}}])),
+    ("redact", ONE, _agg([{"$redact": "$$NOPE"}])),
+    ("replacewith", ONE, _agg([{"$replaceWith": {"k": "$$NOPE"}}])),
+    ("replaceroot", ONE, _agg([{"$replaceRoot": {"newRoot": {"x": "$$NOPE"}}}])),
+    ("match-expr", ONE, _agg([{"$match": {"$expr": {"$eq": ["$$NOPE", 1]}}}])),
+    ("facet-inner", ONE, _agg([{"$facet": {"f": [{"$project": {"x": "$$NOPE"}}]}}])),
+    ("nested-doc", ONE, _agg([{"$addFields": {"x": {"y": "$$NOPE"}}}])),
+    ("nested-array", ONE, _agg([{"$addFields": {"x": [1, "$$NOPE"]}}])),
+    ("deep-expr", ONE, _agg([{"$set": {"x": {"$concatArrays": [["$$NOPE"]]}}}])),
+    # `$let` bindings cannot see each other, and do not escape the `in`.
+    (
+        "let-escapes",
+        ONE,
+        _agg([{"$project": {"y": {"$let": {"vars": {"v": 1}, "in": "$$v"}}, "z": "$$v"}}]),
+    ),
+    (
+        "let-siblings",
+        ONE,
+        _agg([{"$project": {"x": {"$let": {"vars": {"a1": 1, "b1": "$$a1"}, "in": "$$b1"}}}}]),
+    ),
+    # PARSE time: an empty collection still errors.
+    ("empty-collection", NONE_AT_ALL, _agg([{"$project": {"x": "$$NOPE"}}])),
+    ("empty-collection-bare", NONE_AT_ALL, _agg([{"$group": {"_id": "$$NOPE"}}])),
+    # --- false-positive guards: all of these are VALID -----------------------
+    ("ok-match-literal", [{"_id": 1, "s": "$$NOPE"}], _agg([{"$match": {"s": "$$NOPE"}}])),
+    ("ok-literal", ONE, _agg([{"$project": {"x": {"$literal": "$$NOPE"}}}])),
+    ("ok-let", ONE, _agg([{"$project": {"x": {"$let": {"vars": {"v": 1}, "in": "$$v"}}}}])),
+    (
+        "ok-let-nested",
+        ONE,
+        _agg(
+            [
+                {
+                    "$project": {
+                        "x": {
+                            "$let": {
+                                "vars": {"v": 1},
+                                "in": {
+                                    "$let": {"vars": {"w": "$$v"}, "in": {"$add": ["$$v", "$$w"]}}
+                                },
+                            }
+                        }
+                    }
+                }
+            ]
+        ),
+    ),
+    (
+        "ok-map-as",
+        ONE,
+        _agg([{"$project": {"x": {"$map": {"input": [1, 2], "as": "m", "in": "$$m"}}}}]),
+    ),
+    (
+        "ok-map-default",
+        ONE,
+        _agg([{"$project": {"x": {"$map": {"input": [1, 2], "in": "$$this"}}}}]),
+    ),
+    (
+        "ok-filter-default",
+        ONE,
+        _agg([{"$project": {"x": {"$filter": {"input": [1, 2], "cond": {"$gt": ["$$this", 1]}}}}}]),
+    ),
+    (
+        "ok-reduce",
+        ONE,
+        _agg(
+            [
+                {
+                    "$project": {
+                        "x": {
+                            "$reduce": {
+                                "input": [1, 2],
+                                "initialValue": 0,
+                                "in": {"$add": ["$$value", "$$this"]},
+                            }
+                        }
+                    }
+                }
+            ]
+        ),
+    ),
+    ("ok-root", ONE, _agg([{"$project": {"x": "$$ROOT"}}])),
+    ("ok-now-type", ONE, _agg([{"$project": {"x": {"$type": "$$NOW"}}}])),
+    ("ok-redact-decisions", ONE, _agg([{"$redact": {"$cond": [True, "$$KEEP", "$$PRUNE"]}}])),
+    (
+        "ok-map-over-let",
+        ONE,
+        _agg(
+            [
+                {
+                    "$project": {
+                        "x": {
+                            "$let": {
+                                "vars": {"v": 1},
+                                "in": {
+                                    "$map": {
+                                        "input": [1],
+                                        "as": "m",
+                                        "in": {"$add": ["$$v", "$$m"]},
+                                    }
+                                },
+                            }
+                        }
+                    }
+                }
+            ]
+        ),
+    ),
+    (
+        "ok-dotted-var",
+        ONE,
+        _agg([{"$project": {"x": {"$let": {"vars": {"v": {"k": 1}}, "in": "$$v.k"}}}}]),
+    ),
+]
+
+# `$$REMOVE` IS the missing value — probed 9-for-9 against the equivalent absent
+# field path, in every position. It used to be a marker of its own, which leaked:
+# `{arr: [1, "$$REMOVE", 2]}` reached `bson.encode` and CRASHED the command,
+# `$type` answered "object", `$concat` raised 16702, and the Rust engine deferred
+# the variable entirely (a generic BadValue on a server with no Python). The
+# `twin-` cases pair each shape with its absent-path equivalent: the two must
+# stay identical, which is the whole claim being pinned.
+TWO_FIELDS = [{"_id": 1, "a": 1, "b": 2}]
+
+
+def _af(spec: dict) -> Callable[[Database], object]:
+    return lambda db: _agg_err_full(db, [{"$addFields": spec}])
+
+
+REMOVE_CASES: list[tuple[str, list[dict], Callable[[Database], object]]] = [
+    ("project", TWO_FIELDS, lambda db: _agg_err_full(db, [{"$project": {"x": "$$REMOVE"}}])),
+    (
+        "project-keeps-others",
+        TWO_FIELDS,
+        lambda db: _agg_err_full(db, [{"$project": {"a": 1, "x": "$$REMOVE"}}]),
+    ),
+    ("addfields", TWO_FIELDS, _af({"x": "$$REMOVE"})),
+    ("set-existing", TWO_FIELDS, _af({"a": "$$REMOVE"})),
+    (
+        "replacewith",
+        TWO_FIELDS,
+        lambda db: _agg_err_full(db, [{"$replaceWith": {"k": "$$REMOVE", "j": 1}}]),
+    ),
+    ("group-id", TWO_FIELDS, lambda db: _agg_err_full(db, [{"$group": {"_id": "$$REMOVE"}}])),
+    (
+        "group-acc",
+        TWO_FIELDS,
+        lambda db: _agg_err_full(db, [{"$group": {"_id": None, "s": {"$sum": "$$REMOVE"}}}]),
+    ),
+    ("nested-doc", TWO_FIELDS, _af({"o": {"p": "$$REMOVE", "q": 1}})),
+    # Crashed the Python server: the marker reached bson.encode.
+    ("in-array", TWO_FIELDS, _af({"arr": [1, "$$REMOVE", 2]})),
+    (
+        "let-binding",
+        TWO_FIELDS,
+        lambda db: _agg_err_full(
+            db, [{"$project": {"x": {"$let": {"vars": {"v": "$$REMOVE"}, "in": "$$v"}}}}]
+        ),
+    ),
+    ("ifnull", TWO_FIELDS, _af({"x": {"$ifNull": ["$$REMOVE", 9]}})),
+    ("eq-null", TWO_FIELDS, _af({"x": {"$eq": ["$$REMOVE", None]}})),
+    ("type", TWO_FIELDS, _af({"x": {"$type": "$$REMOVE"}})),
+    ("concat", TWO_FIELDS, _af({"x": {"$concat": ["s", "$$REMOVE"]}})),
+    ("sum-pair", TWO_FIELDS, _af({"x": {"$sum": ["$$REMOVE", 1]}})),
+    # `$setField` removes for `$$REMOVE` AND for an absent path; only an
+    # explicit null writes a null. The null form was rejected outright.
+    (
+        "setfield-remove",
+        TWO_FIELDS,
+        _af({"d": {"$setField": {"field": "a", "input": "$$ROOT", "value": "$$REMOVE"}}}),
+    ),
+    (
+        "setfield-absent",
+        TWO_FIELDS,
+        _af({"d": {"$setField": {"field": "a", "input": "$$ROOT", "value": "$nosuch"}}}),
+    ),
+    (
+        "setfield-null",
+        TWO_FIELDS,
+        _af({"d": {"$setField": {"field": "a", "input": "$$ROOT", "value": None}}}),
+    ),
+    # The absent-path twins: each must answer exactly what its `$$REMOVE` pair does.
+    ("twin-array", TWO_FIELDS, _af({"arr": [1, "$nosuch", 2]})),
+    ("twin-type", TWO_FIELDS, _af({"x": {"$type": "$nosuch"}})),
+    ("twin-ifnull", TWO_FIELDS, _af({"x": {"$ifNull": ["$nosuch", 9]}})),
+    ("twin-concat", TWO_FIELDS, _af({"x": {"$concat": ["s", "$nosuch"]}})),
+    ("twin-nested-doc", TWO_FIELDS, _af({"o": {"p": "$nosuch", "q": 1}})),
+]
+
+# "Missing" propagates through the operators whose result IS one of their
+# sub-expressions -- `$cond`, `$switch`, `$let`, `$ifNull` -- and does NOT
+# through the ones that compute a value (`$add`, `$concat`), which is why both
+# families are here. mongod omits the field when a field-value position selects
+# a missing sub-expression; both servers wrote a null. It matters in operator
+# position too: `{$eq: [{$cond: [true, "$nosuch", 1]}, null]}` is FALSE on
+# mongod, because the result is missing rather than null. Probed on 8.2.11.
+ONE_A = [{"_id": 1, "a": 1}]
+
+
+def _z(spec: object) -> Callable[[Database], object]:
+    return lambda db: _agg_err_full(db, [{"$addFields": {"z": spec}}])
+
+
+PROPAGATE_CASES: list[tuple[str, list[dict], Callable[[Database], object]]] = [
+    ("cond-then", ONE_A, _z({"$cond": [True, "$nosuch", 1]})),
+    ("cond-else", ONE_A, _z({"$cond": [False, 1, "$nosuch"]})),
+    ("cond-taken-present", ONE_A, _z({"$cond": [True, 1, "$nosuch"]})),
+    ("cond-nested", ONE_A, _z({"$cond": [True, {"$cond": [True, "$nosuch", 1]}, 2]})),
+    ("cond-object-form", ONE_A, _z({"$cond": {"if": True, "then": "$nosuch", "else": 1}})),
+    ("cond-remove", ONE_A, _z({"$cond": [True, "$$REMOVE", 1]})),
+    ("switch-branch", ONE_A, _z({"$switch": {"branches": [{"case": True, "then": "$nosuch"}]}})),
+    (
+        "switch-default",
+        ONE_A,
+        _z({"$switch": {"branches": [{"case": False, "then": 1}], "default": "$nosuch"}}),
+    ),
+    (
+        "switch-taken-present",
+        ONE_A,
+        _z({"$switch": {"branches": [{"case": True, "then": 5}], "default": "$nosuch"}}),
+    ),
+    ("let-in", ONE_A, _z({"$let": {"vars": {"v": 1}, "in": "$nosuch"}})),
+    ("let-var-used", ONE_A, _z({"$let": {"vars": {"v": "$nosuch"}, "in": "$$v"}})),
+    ("let-var-unused", ONE_A, _z({"$let": {"vars": {"v": "$nosuch"}, "in": 7}})),
+    ("ifnull-all-missing", ONE_A, _z({"$ifNull": ["$n1", "$n2"]})),
+    ("ifnull-second-present", ONE_A, _z({"$ifNull": ["$n1", 9]})),
+    ("ifnull-last-null", ONE_A, _z({"$ifNull": ["$n1", None]})),
+    ("ifnull-three-missing", ONE_A, _z({"$ifNull": ["$n1", "$n2", "$n3"]})),
+    ("ifnull-null-then-missing", ONE_A, _z({"$ifNull": [None, "$nosuch"]})),
+    ("nested-doc", ONE_A, _z({"k": {"$cond": [True, "$nosuch", 1]}})),
+    ("in-array", ONE_A, _z([{"$cond": [True, "$nosuch", 1]}])),
+    # The computing operators must keep collapsing missing to null.
+    ("add-collapses", ONE_A, _z({"$add": ["$nosuch", 1]})),
+    ("concat-collapses", ONE_A, _z({"$concat": ["x", "$nosuch"]})),
+    # Operator position: the propagated value is MISSING, not null.
+    ("eq-cond-null", ONE_A, _z({"$eq": [{"$cond": [True, "$nosuch", 1]}, None]})),
+    ("eq-path-null", ONE_A, _z({"$eq": ["$nosuch", None]})),
+    ("lte-cond-literal", ONE_A, _z({"$lte": [{"$cond": [True, "$nosuch", 1]}, "lit"]})),
+    (
+        "eq-switch-null",
+        ONE_A,
+        _z({"$eq": [{"$switch": {"branches": [{"case": True, "then": "$nosuch"}]}}, None]}),
+    ),
+]
+
+# The expression language's comparison and truthiness rules, found by the first
+# operator-by-operator sweep of it (`tools/probes/agg_expressions.py`). Four
+# separate defects, all silent wrong ANSWERS rather than wrong errors:
+#
+#   * `$gt`/`$gte`/`$lt`/`$lte` compared with Python's own operators and
+#     swallowed the TypeError a cross-type pair raises, so EVERY comparison
+#     between different BSON types answered false. `$cmp` had it right.
+#   * `$and`/`$or` iterated a non-array argument, walking a STRING CHARACTER BY
+#     CHARACTER, and mongod's truthiness makes every string true -- empty too.
+#   * A bool is not a number: `{$eq: [true, 1]}` is false on mongod, and Python's
+#     `True == 1` made it true (and collapsed `$addToSet`'s `0` and `false`).
+#   * Missing is falsy; it was reaching the catch-all and reading as true.
+#
+# `sc-` are the short-circuit cases: mongod DOES short-circuit at runtime, so a
+# false `$and` operand hides a later error -- but an all-constant version folds
+# at optimization time and raises, which is why these use a field reference.
+CMP_SEED = [{"_id": 1, "n": 1, "s": "abc", "z0": 0}]
+
+
+def _r(expr: object) -> Callable[[Database], object]:
+    return lambda db: _agg_err_full(db, [{"$addFields": {"r": expr}}])
+
+
+EXPRCMP_CASES: list[tuple[str, list[dict], Callable[[Database], object]]] = [
+    ("gt-str-int", CMP_SEED, _r({"$gt": ["abc", 1]})),
+    ("gte-str-int", CMP_SEED, _r({"$gte": ["abc", 1]})),
+    ("lt-null-int", CMP_SEED, _r({"$lt": [None, 1]})),
+    ("lte-null-int", CMP_SEED, _r({"$lte": [None, 1]})),
+    ("gt-bool-int", CMP_SEED, _r({"$gt": [True, 1]})),
+    ("lt-bool-date", CMP_SEED, _r({"$lt": [True, datetime(2026, 1, 2)]})),
+    (
+        "gt-date-oid",
+        CMP_SEED,
+        _r({"$gt": [datetime(2026, 1, 2), ObjectId("0123456789ab0123456789ab")]}),
+    ),
+    ("lt-obj-arr", CMP_SEED, _r({"$lt": [{"$literal": {"k": 1}}, {"$literal": [1]}]})),
+    ("gt-emptystr-int", CMP_SEED, _r({"$gt": ["", 1]})),
+    ("gt-missing-int", CMP_SEED, _r({"$gt": ["$nosuch", 1]})),
+    ("lt-missing-int", CMP_SEED, _r({"$lt": ["$nosuch", 1]})),
+    ("cmp-agrees-with-lt", CMP_SEED, _r({"$cmp": ["abc", 1]})),
+    # bool is not a number
+    ("eq-bool-int", CMP_SEED, _r({"$eq": [True, 1]})),
+    ("ne-bool-int", CMP_SEED, _r({"$ne": [True, 1]})),
+    ("eq-int-double", CMP_SEED, _r({"$eq": [1, 1.0]})),
+    ("in-bool-numbers", CMP_SEED, _r({"$in": [False, {"$literal": [0, 44]}]})),
+    (
+        "setunion-bool-zero",
+        CMP_SEED,
+        _r({"$setUnion": [{"$literal": [0, False]}, {"$literal": [44]}]}),
+    ),
+    # truthiness
+    ("or-empty-string", CMP_SEED, _r({"$or": ""})),
+    ("and-string-field", CMP_SEED, _r({"$and": "$s"})),
+    ("or-missing", CMP_SEED, _r({"$or": "$nosuch"})),
+    ("and-missing", CMP_SEED, _r({"$and": "$nosuch"})),
+    ("and-empty-array", CMP_SEED, _r({"$and": []})),
+    ("or-empty-array", CMP_SEED, _r({"$or": []})),
+    ("and-zero", CMP_SEED, _r({"$and": 0})),
+    ("cond-empty-string", CMP_SEED, _r({"$cond": ["", "T", "F"]})),
+    ("not-empty-string", CMP_SEED, _r({"$not": ""})),
+    ("tobool-empty-string", CMP_SEED, _r({"$toBool": ""})),
+    # short-circuiting, which the fix must not lose
+    ("sc-and-false-hides-error", CMP_SEED, _r({"$and": [False, {"$divide": ["$n", "$z0"]}]})),
+    (
+        "sc-or-true-hides-error",
+        CMP_SEED,
+        _r({"$or": [{"$lt": ["$n", 5]}, {"$divide": ["$n", "$z0"]}]}),
+    ),
+    (
+        "sc-and-true-raises",
+        CMP_SEED,
+        _r({"$and": [{"$lt": ["$n", 5]}, {"$divide": ["$n", "$z0"]}]}),
+    ),
+]
+
+# The undefined-`$$variable` walker reached the aggregation pipeline; every
+# OTHER surface that takes a filter or an update still answered the storage
+# layer's generic BadValue (2) on the Rust server. `find` / `count` / `distinct`
+# / `findAndModify` error at the command level, while `update` / `delete` report
+# it PER STATEMENT in `writeErrors` -- so an earlier statement in the batch still
+# applies. A pipeline-form update carries the `Invalid $<stage>` wrapper; a
+# filter never does. Probed on mongod 8.2.11.
+UV_SEED = [{"_id": 1, "a": 1, "s": "$$NOPE"}]
+UV_EXPR = {"$expr": {"$eq": ["$$NOPE", 1]}}
+
+
+def _c(cmd: dict) -> Callable[[Database], object]:
+    """Run a raw command, keeping any per-statement writeError."""
+
+    def run(db: Database) -> object:
+        from pymongo.errors import OperationFailure
+
+        try:
+            r = db.command(dict(cmd))
+        except OperationFailure as exc:
+            return f"{exc.code}: {str(exc.details.get('errmsg', ''))}"
+        we = (r.get("writeErrors") or [{}])[0]
+        if we:
+            return f"we{we.get('index')}/{we.get('code')}: {we.get('errmsg')} n={r.get('n')}"
+        return f"ok n={r.get('n')}"
+
+    return run
+
+
+UNDEFVAR_CMD_CASES: list[tuple[str, list[dict], Callable[[Database], object]]] = [
+    ("find", UV_SEED, _c({"find": "c", "filter": UV_EXPR})),
+    ("find-nested-and", UV_SEED, _c({"find": "c", "filter": {"$and": [UV_EXPR]}})),
+    ("count", UV_SEED, _c({"count": "c", "query": UV_EXPR})),
+    ("distinct", UV_SEED, _c({"distinct": "c", "key": "a", "query": UV_EXPR})),
+    (
+        "fam-query",
+        UV_SEED,
+        _c({"findAndModify": "c", "query": UV_EXPR, "update": {"$set": {"b": 1}}}),
+    ),
+    (
+        "fam-pipeline",
+        UV_SEED,
+        _c({"findAndModify": "c", "query": {}, "update": [{"$set": {"b": "$$NOPE"}}]}),
+    ),
+    (
+        "update-q",
+        UV_SEED,
+        _c({"update": "c", "updates": [{"q": UV_EXPR, "u": {"$set": {"b": 1}}}]}),
+    ),
+    (
+        "update-pipeline",
+        UV_SEED,
+        _c({"update": "c", "updates": [{"q": {}, "u": [{"$set": {"b": "$$NOPE"}}]}]}),
+    ),
+    # The error is per STATEMENT: the first update still applies (`n: 1`).
+    (
+        "update-second-statement",
+        UV_SEED,
+        _c(
+            {
+                "update": "c",
+                "updates": [
+                    {"q": {}, "u": {"$set": {"ok": 1}}},
+                    {"q": UV_EXPR, "u": {"$set": {"b": 1}}},
+                ],
+            }
+        ),
+    ),
+    ("delete-q", UV_SEED, _c({"delete": "c", "deletes": [{"q": UV_EXPR, "limit": 0}]})),
+    # False-positive guards: a filter is query language, and `let` binds.
+    ("ok-literal-in-filter", UV_SEED, _c({"find": "c", "filter": {"s": "$$NOPE"}})),
+    (
+        "ok-command-let",
+        UV_SEED,
+        _c({"find": "c", "filter": {"$expr": {"$eq": ["$$cv", 1]}}, "let": {"cv": 1}}),
+    ),
+    ("ok-plain-find", UV_SEED, _c({"find": "c", "filter": {"a": 1}})),
+    (
+        "ok-plain-update",
+        UV_SEED,
+        _c({"update": "c", "updates": [{"q": {"a": 1}, "u": {"$set": {"b": 2}}}]}),
+    ),
+]
+
+# Fixed-arity operators: mongod answers 16020 `Expression $x takes exactly N
+# arguments. M were passed in.` for 65 of them. We answered a mix of 14 / 28765 /
+# 51044 / 51276 and, for 233 of the ~907 shapes, CRASHED with `internal server
+# error` — an operator indexing `arg[0], arg[1]` on a scalar. It is a PARSE
+# error: an empty or missing collection still reports it.
+#
+# The arity table was DERIVED by asking mongod each operator with 0-4 arguments
+# and reading the count out of its own message, not taken from documentation.
+# The count is `len(arg)` for an array and 1 for anything else; `$cond`'s object
+# form is exempt; `$substr` is reported under its canonical name `$substrBytes`.
+ARITY_SEED = [{"_id": 1, "a": 1}]
+
+
+def _e(expr: object) -> Callable[[Database], object]:
+    return lambda db: _agg_err_full(db, [{"$addFields": {"z": expr}}])
+
+
+ARITY_CASES: list[tuple[str, list[dict], Callable[[Database], object]]] = [
+    # arity 1 — these CRASHED
+    ("abs-two-args", ARITY_SEED, _e({"$abs": [1, 2]})),
+    ("abs-zero-args", ARITY_SEED, _e({"$abs": []})),
+    ("abs-bare-ok", ARITY_SEED, _e({"$abs": 5})),
+    ("abs-one-array-ok", ARITY_SEED, _e({"$abs": [5]})),
+    ("abs-nested-expr-ok", ARITY_SEED, _e({"$abs": {"$add": [1, 2]}})),
+    ("not-two-args", ARITY_SEED, _e({"$not": [True, True]})),
+    ("type-doc-arg-ok", ARITY_SEED, _e({"$type": {"$literal": {"k": 1}}})),
+    ("size-bare-ok", ARITY_SEED, _e({"$size": {"$literal": [1, 2]}})),
+    # arity 2
+    ("eq-one-arg", ARITY_SEED, _e({"$eq": [1]})),
+    ("eq-three-args", ARITY_SEED, _e({"$eq": [1, 2, 3]})),
+    ("eq-bare", ARITY_SEED, _e({"$eq": 1})),
+    ("divide-one-arg", ARITY_SEED, _e({"$divide": [1]})),
+    ("split-one-arg", ARITY_SEED, _e({"$split": ["a"]})),
+    ("arrayelemat-one-arg", ARITY_SEED, _e({"$arrayElemAt": [1]})),
+    # arity 3, and $cond's object form which must stay exempt
+    ("cond-two-args", ARITY_SEED, _e({"$cond": [True, 1]})),
+    ("cond-three-args-ok", ARITY_SEED, _e({"$cond": [True, 1, 2]})),
+    ("cond-object-form-ok", ARITY_SEED, _e({"$cond": {"if": True, "then": 1, "else": 2}})),
+    # `$substr` reports as `$substrBytes`
+    ("substr-alias-name", ARITY_SEED, _e({"$substr": 1})),
+    ("substrbytes-two-args", ARITY_SEED, _e({"$substrBytes": ["ab", 0]})),
+    # PARSE time: an empty (here, missing) collection still reports it.
+    ("empty-collection", [], _e({"$abs": [1, 2]})),
+    # The wrapper follows the stage, as for undefined variables.
+    (
+        "bare-in-group",
+        ARITY_SEED,
+        lambda db: _agg_err_full(db, [{"$group": {"_id": {"$abs": [1, 2]}}}]),
+    ),
+]
+
+# Decimal128 through the math operators. Thirteen of them CRASHED the Python
+# server (`internal server error`) because `math` rejects a `Decimal128`
+# outright, and the rest narrowed it to a `float`, dropping half the digits
+# mongod keeps. decimal128 carries 34 significant digits and mongod computes in
+# them; `float` carries 17.
+#
+# The hyperbolics are exact identities over exp/ln/sqrt, which `decimal`
+# provides. The CIRCULAR functions have no such identity and still narrow —
+# recorded in `tasks/backlog.md`, not fixed here.
+DEC = Decimal128("2.5")
+DEC_SEED = [{"_id": 1}]
+
+
+def _d(expr: object) -> Callable[[Database], object]:
+    return lambda db: _agg_err_full(db, [{"$addFields": {"z": expr}}])
+
+
+DECIMAL_CASES: list[tuple[str, list[dict], Callable[[Database], object]]] = [
+    # these thirteen crashed
+    ("abs", DEC_SEED, _d({"$abs": DEC})),
+    ("ceil", DEC_SEED, _d({"$ceil": DEC})),
+    ("floor", DEC_SEED, _d({"$floor": DEC})),
+    ("trunc", DEC_SEED, _d({"$trunc": DEC})),
+    ("round", DEC_SEED, _d({"$round": DEC})),
+    ("exp", DEC_SEED, _d({"$exp": DEC})),
+    ("ln", DEC_SEED, _d({"$ln": DEC})),
+    ("log10", DEC_SEED, _d({"$log10": DEC})),
+    ("sqrt", DEC_SEED, _d({"$sqrt": DEC})),
+    ("mod", DEC_SEED, _d({"$mod": [DEC, 2]})),
+    ("pow", DEC_SEED, _d({"$pow": [DEC, 2]})),
+    ("log", DEC_SEED, _d({"$log": [DEC, 2]})),
+    ("avg", DEC_SEED, _d({"$avg": [DEC, DEC]})),
+    # precision, not crashes
+    ("sinh", DEC_SEED, _d({"$sinh": DEC})),
+    ("cosh", DEC_SEED, _d({"$cosh": DEC})),
+    ("tanh", DEC_SEED, _d({"$tanh": DEC})),
+    ("asinh", DEC_SEED, _d({"$asinh": DEC})),
+    ("degrees-to-radians", DEC_SEED, _d({"$degreesToRadians": DEC})),
+    ("radians-to-degrees", DEC_SEED, _d({"$radiansToDegrees": DEC})),
+    # the conversions and predicates, which were already right
+    ("to-decimal", DEC_SEED, _d({"$toDecimal": DEC})),
+    ("to-string", DEC_SEED, _d({"$toString": DEC})),
+    ("type", DEC_SEED, _d({"$type": DEC})),
+    ("is-number", DEC_SEED, _d({"$isNumber": DEC})),
+    ("add", DEC_SEED, _d({"$add": [DEC, 2]})),
+    ("multiply", DEC_SEED, _d({"$multiply": [DEC, 2]})),
+    ("divide", DEC_SEED, _d({"$divide": [DEC, 2]})),
+    ("eq-decimal-int", DEC_SEED, _d({"$eq": [Decimal128("2"), 2]})),
+]
+
+# Operators whose argument must be a DOCUMENT. 25 of them, 675 shapes, each with
+# mongod's own code and one of FIVE phrasings that are not interchangeable
+# ("found: <T>" / "found <T>" / no type at all). The Rust server answered a
+# generic BadValue (2) for every one; a table is the only thing that reproduces
+# them. Parse-time, like the arity check.
+#
+# The last of the sweep's CRASHES are here too: an unrecognised key in `$cond` /
+# `$dateToString` was a bare KeyError, `{$trunc: []}` an IndexError, and
+# `$exp`/`$sinh`/`$cosh` of a large value an OverflowError — mongod saturates to
+# infinity. That takes the Python server from 274 crashes to zero.
+OBJ_SEED = [{"_id": 1}]
+
+
+def _o(expr: object) -> Callable[[Database], object]:
+    return lambda db: _agg_err_full(db, [{"$addFields": {"z": expr}}])
+
+
+OBJECT_ARG_CASES: list[tuple[str, list[dict], Callable[[Database], object]]] = [
+    # the five phrasings, one operator each
+    ("let-int", OBJ_SEED, _o({"$let": 5})),
+    ("reduce-int", OBJ_SEED, _o({"$reduce": 5})),
+    ("trim-int", OBJ_SEED, _o({"$trim": 5})),
+    ("convert-int", OBJ_SEED, _o({"$convert": 5})),
+    ("dateadd-int", OBJ_SEED, _o({"$dateAdd": 5})),
+    # the type name is rendered per value kind
+    ("reduce-string", OBJ_SEED, _o({"$reduce": "x"})),
+    ("reduce-bool", OBJ_SEED, _o({"$reduce": True})),
+    ("reduce-null", OBJ_SEED, _o({"$reduce": None})),
+    ("reduce-array", OBJ_SEED, _o({"$reduce": [1]})),
+    # a spread of the remaining operators
+    ("filter-int", OBJ_SEED, _o({"$filter": 5})),
+    ("map-int", OBJ_SEED, _o({"$map": 5})),
+    ("switch-int", OBJ_SEED, _o({"$switch": 5})),
+    ("zip-int", OBJ_SEED, _o({"$zip": 5})),
+    ("regexmatch-int", OBJ_SEED, _o({"$regexMatch": 5})),
+    ("replaceall-int", OBJ_SEED, _o({"$replaceAll": 5})),
+    ("sortarray-int", OBJ_SEED, _o({"$sortArray": 5})),
+    ("setfield-int", OBJ_SEED, _o({"$setField": 5})),
+    ("datetostring-int", OBJ_SEED, _o({"$dateToString": 5})),
+    ("datetrunc-int", OBJ_SEED, _o({"$dateTrunc": 5})),
+    ("datefromstring-int", OBJ_SEED, _o({"$dateFromString": 5})),
+    # parse-time: a missing collection still reports it
+    ("let-int-empty-collection", [], _o({"$let": 5})),
+    # ranged arity
+    ("trunc-zero-args", OBJ_SEED, _o({"$trunc": []})),
+    ("trunc-three-args", OBJ_SEED, _o({"$trunc": [1, 2, 3]})),
+    ("round-zero-args", OBJ_SEED, _o({"$round": []})),
+    ("trunc-two-args-ok", OBJ_SEED, _o({"$trunc": [1.55, 1]})),
+    # unrecognised keys — were bare KeyErrors
+    ("cond-unknown-key", OBJ_SEED, _o({"$cond": {"k": 1}})),
+    ("datetostring-unknown-key", OBJ_SEED, _o({"$dateToString": {"k": 1}})),
+    ("cond-object-ok", OBJ_SEED, _o({"$cond": {"if": True, "then": 1, "else": 2}})),
+    # overflow saturates to infinity
+    ("exp-overflow", OBJ_SEED, _o({"$exp": 1099511627776})),
+    ("sinh-overflow", OBJ_SEED, _o({"$sinh": 1099511627776})),
+    ("cosh-overflow", OBJ_SEED, _o({"$cosh": 1099511627776})),
+    ("sinh-ok", OBJ_SEED, _o({"$sinh": 1})),
+]
+
+# mongod's numeric type guard, `$OP only supports numeric types, not <type>` --
+# 24 unary operators, 220 shapes, the largest family left in the sweep. The Rust
+# engine deferred every one to a generic BadValue, because the operators know
+# the operand's type when they evaluate it but `Fallback` carries no code.
+#
+# The Python server already answered these correctly, so these cases pin BOTH
+# servers against a family only one of them had.
+NG_SEED = [{"_id": 1, "s": "x", "n": 2}]
+
+
+def _n(expr: object) -> Callable[[Database], object]:
+    return lambda db: _agg_err_full(db, [{"$addFields": {"z": expr}}])
+
+
+NUMERIC_GUARD_CASES: list[tuple[str, list[dict], Callable[[Database], object]]] = [
+    # a FIELD reference — evaluated per document, so this is the runtime path
+    ("abs-field-string", NG_SEED, _n({"$abs": "$s"})),
+    ("sqrt-field-string", NG_SEED, _n({"$sqrt": "$s"})),
+    ("ln-field-string", NG_SEED, _n({"$ln": "$s"})),
+    ("ceil-field-string", NG_SEED, _n({"$ceil": "$s"})),
+    ("floor-field-string", NG_SEED, _n({"$floor": "$s"})),
+    ("sin-field-string", NG_SEED, _n({"$sin": "$s"})),
+    ("exp-field-string", NG_SEED, _n({"$exp": "$s"})),
+    # `$round` / `$trunc` answer 51081 where the rest answer 28765
+    ("round-field-string", NG_SEED, _n({"$round": "$s"})),
+    ("trunc-field-string", NG_SEED, _n({"$trunc": "$s"})),
+    # nested inside another expression
+    ("nested-in-add", NG_SEED, _n({"$add": [1, {"$abs": "$s"}]})),
+    # a null operand is NOT an error, and a numeric one computes
+    ("abs-null-ok", NG_SEED, _n({"$abs": None})),
+    ("abs-number-ok", NG_SEED, _n({"$abs": -3})),
+    ("abs-field-number-ok", NG_SEED, _n({"$abs": "$n"})),
+    ("sqrt-field-number-ok", NG_SEED, _n({"$sqrt": "$n"})),
+]
+
+# Which of mongod's two prefixes an expression error carries. A CONSTANT
+# expression is folded at optimization time -- `Failed to optimize pipeline ::
+# caused by ::` -- and a document-dependent one fails per document under
+# `Executor error during aggregate command on namespace: … :: caused by ::`.
+# Both servers always used the executor form: 618 of the Python server's
+# message-only differences and 148 of the Rust server's.
+#
+# The predicate is "does it read the document": a field path, `$$ROOT` /
+# `$$CURRENT`, a variable bound from the input and `$rand` are execution-time;
+# literals, `$$NOW` and the command's own `let` values fold. Each pair below is
+# the same error reached both ways, so the two prefixes are pinned against each
+# other rather than in isolation.
+FOLD_SEED = [{"_id": 1, "s": "x", "n": 2}]
+
+
+def _f(expr: object) -> Callable[[Database], object]:
+    return lambda db: _agg_err_full(db, [{"$addFields": {"z": expr}}])
+
+
+FOLD_CASES: list[tuple[str, list[dict], Callable[[Database], object]]] = [
+    # constant -> folded
+    ("const-abs", FOLD_SEED, _f({"$abs": "x"})),
+    ("const-divide-by-zero", FOLD_SEED, _f({"$divide": [1, 0]})),
+    ("const-nested", FOLD_SEED, _f({"$abs": {"$concat": ["a", "b"]}})),
+    ("const-literal", FOLD_SEED, _f({"$abs": {"$literal": "x"}})),
+    ("const-now", FOLD_SEED, _f({"$abs": "$$NOW"})),
+    ("const-sqrt", FOLD_SEED, _f({"$sqrt": "x"})),
+    # document-dependent -> executor
+    ("field-abs", FOLD_SEED, _f({"$abs": "$s"})),
+    ("field-divide-by-zero", FOLD_SEED, _f({"$divide": ["$n", 0]})),
+    ("field-nested", FOLD_SEED, _f({"$abs": {"$concat": ["a", "$s"]}})),
+    ("root-var", FOLD_SEED, _f({"$abs": "$$ROOT"})),
+    ("current-var", FOLD_SEED, _f({"$abs": "$$CURRENT"})),
+    ("rand-is-not-constant", FOLD_SEED, _f({"$abs": {"$toString": {"$rand": {}}}})),
+    (
+        "map-binding-is-not-constant",
+        FOLD_SEED,
+        _f({"$map": {"input": [["x"]], "in": {"$abs": "$$this"}}}),
+    ),
+    # `$let` folds only when its bindings do
+    ("let-constant-binding", FOLD_SEED, _f({"$let": {"vars": {"v": "x"}, "in": {"$abs": "$$v"}}})),
+    ("let-field-binding", FOLD_SEED, _f({"$let": {"vars": {"v": "$s"}, "in": {"$abs": "$$v"}}})),
+    # a successful constant is still just computed
+    ("const-ok", FOLD_SEED, _f({"$abs": -3})),
+    ("field-ok", FOLD_SEED, _f({"$abs": "$n"})),
+]
+
+# The BSON *type* an expression answers, alongside its value. These bugs were
+# invisible to a value-only comparison -- `$trunc` of a long answered the right
+# number as the wrong type -- so every case here pins `$type` too.
+#
+# Three rules, all probed on 8.2.11:
+#   * the rounding operators are type-preserving (a double in is a double out,
+#     `$ceil` of 1.5 is 2.0);
+#   * `long` is contagious through arithmetic, and an int32 result that
+#     outgrows its width widens to long;
+#   * an integral result past int64 saturates to a **double** in an
+#     aggregation (`$pow: [2, 64]`), where the *update* operators fail --
+#     see `UPDATE_OVERFLOW_CASES`.
+NUMTYPE_SEED = [{"_id": 1, "n": 2, "big": Int64(9223372036854775807), "small": Int64(5)}]
+
+
+def _tv(expr: object) -> Callable[[Database], object]:
+    from pymongo.errors import OperationFailure
+
+    def run(db: Database) -> object:
+        try:
+            doc = list(db.c.aggregate([{"$addFields": {"z": expr, "zt": {"$type": expr}}}]))[0]
+            return f"{doc['zt']}={doc['z']!r}"
+        except OperationFailure as exc:
+            msg = re.sub(r"namespace: [^ ]+", "namespace: <ns>", str(exc.details.get("errmsg", "")))
+            return f"{exc.code}/{_stable_code_name(exc.details)}: {msg}"
+
+    return run
+
+
+NUMTYPE_CASES: list[tuple[str, list[dict], Callable[[Database], object]]] = [
+    # type-preserving rounding
+    ("ceil-double", NUMTYPE_SEED, _tv({"$ceil": 1.5})),
+    ("floor-double", NUMTYPE_SEED, _tv({"$floor": 1.5})),
+    ("trunc-double", NUMTYPE_SEED, _tv({"$trunc": 1.5})),
+    ("round-double", NUMTYPE_SEED, _tv({"$round": 1.5})),
+    ("trunc-int", NUMTYPE_SEED, _tv({"$trunc": 1})),
+    ("trunc-long", NUMTYPE_SEED, _tv({"$trunc": "$small"})),
+    ("floor-long", NUMTYPE_SEED, _tv({"$floor": "$small"})),
+    ("ceil-long", NUMTYPE_SEED, _tv({"$ceil": "$small"})),
+    ("round-long", NUMTYPE_SEED, _tv({"$round": "$small"})),
+    ("abs-long", NUMTYPE_SEED, _tv({"$abs": "$small"})),
+    # long is contagious
+    ("add-long-int", NUMTYPE_SEED, _tv({"$add": ["$small", 1]})),
+    ("subtract-long-int", NUMTYPE_SEED, _tv({"$subtract": ["$small", 1]})),
+    ("multiply-long-int", NUMTYPE_SEED, _tv({"$multiply": ["$small", 2]})),
+    ("mod-long-int", NUMTYPE_SEED, _tv({"$mod": ["$small", 2]})),
+    ("pow-long-int", NUMTYPE_SEED, _tv({"$pow": ["$small", 2]})),
+    ("add-int-int", NUMTYPE_SEED, _tv({"$add": [1, 2]})),
+    # int32 overflow widens to long
+    ("add-int32-overflow", NUMTYPE_SEED, _tv({"$add": [2147483647, 1]})),
+    ("multiply-int32-overflow", NUMTYPE_SEED, _tv({"$multiply": [2147483647, 2]})),
+    ("abs-int32-min", NUMTYPE_SEED, _tv({"$abs": -2147483648})),
+    # int64 overflow saturates to a double
+    ("add-int64-overflow", NUMTYPE_SEED, _tv({"$add": ["$big", 1]})),
+    ("multiply-int64-overflow", NUMTYPE_SEED, _tv({"$multiply": ["$big", 2]})),
+    ("pow-int64-overflow", NUMTYPE_SEED, _tv({"$pow": [2, 64]})),
+    ("pow-huge-is-inf", NUMTYPE_SEED, _tv({"$pow": [10, 400]})),
+    # `$mod` truncates toward zero, so the sign follows the DIVIDEND
+    ("mod-neg-dividend", NUMTYPE_SEED, _tv({"$mod": [-5, 2]})),
+    ("mod-neg-divisor", NUMTYPE_SEED, _tv({"$mod": [5, -2]})),
+    ("mod-both-neg", NUMTYPE_SEED, _tv({"$mod": [-5, -2]})),
+    ("mod-double", NUMTYPE_SEED, _tv({"$mod": [-5.5, 2]})),
+    # the degree/radian factor is precomputed, which shows in the last bit
+    ("degrees-to-radians", NUMTYPE_SEED, _tv({"$degreesToRadians": 1.5})),
+    ("radians-to-degrees", NUMTYPE_SEED, _tv({"$radiansToDegrees": 1.5})),
+    ("degrees-to-radians-int", NUMTYPE_SEED, _tv({"$degreesToRadians": 7})),
+]
+
+# `$toLower` / `$toUpper` coerce their operand to a string first, and that
+# conversion is NOT `$toString`'s: it takes a javascript value but rejects a
+# bool and an ObjectId, renders a double through `%g` (six significant digits)
+# where `$toString` round-trips it, and turns null and missing into `""` where
+# `$toString` gives null. Both probed against 8.2.11.
+STR_SEED = [{"_id": 1, "n": 2, "s": "aB", "d": 1099511627776.0, "arr": [1], "o": {"k": 1}}]
+
+STRCONV_CASES: list[tuple[str, list[dict], Callable[[Database], object]]] = [
+    ("lower-int", STR_SEED, _tv({"$toLower": 1})),
+    ("lower-negative", STR_SEED, _tv({"$toLower": -1})),
+    ("lower-double-fraction", STR_SEED, _tv({"$toLower": 1.5})),
+    ("lower-double-whole", STR_SEED, _tv({"$toLower": 4.0})),
+    ("lower-double-wide", STR_SEED, _tv({"$toLower": "$d"})),
+    ("lower-decimal", STR_SEED, _tv({"$toLower": Decimal128("2.5")})),
+    ("lower-null", STR_SEED, _tv({"$toLower": None})),
+    ("lower-missing", STR_SEED, _tv({"$toLower": "$nosuch"})),
+    ("lower-date", STR_SEED, _tv({"$toLower": datetime(2026, 1, 2, 3, 4, 5)})),
+    ("lower-field", STR_SEED, _tv({"$toLower": "$s"})),
+    ("lower-bool-rejected", STR_SEED, _tv({"$toLower": True})),
+    ("lower-oid-rejected", STR_SEED, _tv({"$toLower": ObjectId("64b7f9a2c1d2e3f4a5b6c7d8")})),
+    ("lower-array-rejected", STR_SEED, _tv({"$toLower": "$arr"})),
+    ("lower-object-rejected", STR_SEED, _tv({"$toLower": "$o"})),
+    ("upper-double-wide", STR_SEED, _tv({"$toUpper": "$d"})),
+    ("upper-field", STR_SEED, _tv({"$toUpper": "$s"})),
+    ("upper-date", STR_SEED, _tv({"$toUpper": datetime(2026, 1, 2, 3, 4, 5)})),
+    ("upper-missing", STR_SEED, _tv({"$toUpper": "$nosuch"})),
+    # `$toString` is the other conversion
+    ("tostring-true", STR_SEED, _tv({"$toString": True})),
+    ("tostring-false", STR_SEED, _tv({"$toString": False})),
+    ("tostring-date", STR_SEED, _tv({"$toString": datetime(2026, 1, 2, 3, 4, 5)})),
+    ("tostring-double-wide", STR_SEED, _tv({"$toString": "$d"})),
+    ("tostring-double-whole", STR_SEED, _tv({"$toString": 4.0})),
+    ("tostring-oid", STR_SEED, _tv({"$toString": ObjectId("64b7f9a2c1d2e3f4a5b6c7d8")})),
+    ("tostring-null", STR_SEED, _tv({"$toString": None})),
+    ("tostring-missing", STR_SEED, _tv({"$toString": "$nosuch"})),
+    ("tostring-array-rejected", STR_SEED, _tv({"$toString": "$arr"})),
+    ("tostring-object-rejected", STR_SEED, _tv({"$toString": "$o"})),
+    # the same `%g` rendering inside an error message
+    ("acos-message-renders-wide-double", STR_SEED, _tv({"$acos": "$d"})),
+    # A decimal string past what Decimal128 holds. mongod ROUNDS TOWARD ZERO to
+    # 34 digits and fails only on IEEE overflow / subnormal-and-inexact
+    # underflow (8.2.11, 2026-09-19); both engines raised an internal error.
+    ("todecimal-35-digits", STR_SEED, _tv({"$toDecimal": "1.2345678901234567890123456789012345"})),
+    ("todecimal-truncates", STR_SEED, _tv({"$toDecimal": "1.99999999999999999999999999999999999"})),
+    (
+        "todecimal-truncates-neg",
+        STR_SEED,
+        _tv({"$toDecimal": "-99999999999999999999999999999999999.5"}),
+    ),
+    ("todecimal-50-digits", STR_SEED, _tv({"$toDecimal": "1234567890" * 5})),
+    ("todecimal-underflow", STR_SEED, _tv({"$toDecimal": "1E-6177"})),
+    (
+        "todecimal-underflow-35",
+        STR_SEED,
+        _tv({"$toDecimal": "1.2345678901234567890123456789012345E-6150"}),
+    ),
+    ("todecimal-floor-exact", STR_SEED, _tv({"$toDecimal": "1E-6176"})),
+    ("todecimal-overflow", STR_SEED, _tv({"$toDecimal": "1E+6145"})),
+    ("todecimal-max", STR_SEED, _tv({"$toDecimal": "9.999999999999999999999999999999999E+6144"})),
+    (
+        "convert-decimal-overflow-onerror",
+        STR_SEED,
+        _tv({"$convert": {"input": "1E+7000", "to": "decimal", "onError": "E"}}),
+    ),
+    (
+        "convert-decimal-35-onerror",
+        STR_SEED,
+        _tv(
+            {
+                "$convert": {
+                    "input": "0.1234567890123456789012345678901234567",
+                    "to": "decimal",
+                    "onError": "E",
+                }
+            }
+        ),
+    ),
+]
+
+# `$inc` / `$mul` past int64 FAIL the write -- they do not saturate to a double
+# the way the aggregation operators do. Probed 8.2.11. Both servers used to let
+# the unbounded Python int reach `bson.encode`, whose `OverflowError` escaped
+# from inside the storage layer's update transaction as an internal error.
+OVF_SEED = [
+    {"_id": 1, "n": Int64(9223372036854775807)},
+    {"_id": 2, "n": Int64(-9223372036854775808)},
+    {"_id": 3, "n": Int64(5)},
+]
+
+
+def _u(query: dict, update: dict) -> Callable[[Database], object]:
+    from pymongo.errors import OperationFailure
+
+    def run(db: Database) -> object:
+        try:
+            db.c.update_one(query, update)
+            doc = db.c.find_one(query)
+            return f"ok:{doc['n']!r}" if doc else "ok:none"
+        except OperationFailure as exc:
+            return f"{exc.code}/{_stable_code_name(exc.details)}: {exc.details.get('errmsg', '')}"
+
+    return run
+
+
+UPDATE_OVERFLOW_CASES: list[tuple[str, list[dict], Callable[[Database], object]]] = [
+    ("inc-past-max", OVF_SEED, _u({"_id": 1}, {"$inc": {"n": 1}})),
+    ("inc-past-max-by-long", OVF_SEED, _u({"_id": 1}, {"$inc": {"n": Int64(5)}})),
+    ("mul-past-max", OVF_SEED, _u({"_id": 1}, {"$mul": {"n": 2}})),
+    ("inc-past-min", OVF_SEED, _u({"_id": 2}, {"$inc": {"n": -1}})),
+    # a double operand moves the whole thing into the double domain -- no overflow
+    ("inc-by-double-widens", OVF_SEED, _u({"_id": 1}, {"$inc": {"n": 1.0}})),
+    # and the ordinary case still works, keeping its width
+    ("inc-in-range", OVF_SEED, _u({"_id": 3}, {"$inc": {"n": 1}})),
+    ("mul-in-range", OVF_SEED, _u({"_id": 3}, {"$mul": {"n": 2}})),
+]
+
+
+def _merge_obj(value: object) -> Callable[[Database], object]:
+    return lambda db: _agg_err_full(db, [{"$project": {"_id": 0, "r": {"$mergeObjects": value}}}])
+
+
+def _ln(value: object) -> Callable[[Database], object]:
+    return lambda db: _agg_err_full(db, [{"$project": {"_id": 0, "r": {"$ln": value}}}])
+
+
+def _first_n(value: object) -> Callable[[Database], object]:
+    return lambda db: _agg_err_full(db, [{"$addFields": {"x": {"$firstN": value}}}])
+
+
+def _graph_lookup(value: object) -> Callable[[Database], object]:
+    return lambda db: _agg_err_full(
+        db,
+        [
+            {
+                "$graphLookup": {
+                    "startWith": value,
+                    "connectFromField": "a",
+                    "connectToField": "b",
+                    "as": "c",
+                }
+            }
+        ],
+    )
+
+
+# mongod has TWO renderings for a double inside an error message and they are
+# not interchangeable (measured 8.2.11, 2026-09-07):
+#
+#   VALUE form (`Value::toString`) -- C's `%g`, precision 6:
+#       -0.0 -> `-0`, -1.0 -> `-1`, 1234567.0 -> `1.23457e+06`
+#   SPEC form (a stage's echoed specification) -- shortest round-trip, a whole
+#   double keeping its `.0`:
+#       -0.0 -> `-0.0`, -1.0 -> `-1.0`, 1234567.0 -> `1234567.0`
+#
+# One renderer served both, so every VALUE message rendered a double the SPEC
+# way. Switching the shared renderer is NOT the fix on its own: it corrects
+# `$mergeObjects` / `$replaceRoot` / `$ln` and silently breaks `$graphLookup`,
+# which is a SPEC echo that happened to share the function. Both vocabularies
+# are pinned here for that reason -- a future simplification that collapses
+# them fails on one side or the other.
+_DOUBLES = [
+    ("neg-zero", -0.0),
+    ("neg-one", -1.0),
+    ("whole", 100.0),
+    ("six-digits", 123456.0),
+    ("seven-digits", 1234567.0),
+    ("int32-min", -2147483648.0),
+    ("huge", 1e308),
+    # The bottom of the range, where the SPEC form stops agreeing with the
+    # shortest round-trip form: mongod prints the double's actual value to 16
+    # significant digits, so `1e-308` echoes as `9.999999999999999e-309`. Both
+    # servers rendered the round-trip form until this gate said otherwise.
+    ("tiny", 1e-308),
+    ("denormal-min", 5e-324),
+    ("denormal", 1e-310),
+    ("normal-min", 2.2250738585072014e-308),
+    ("small-exp", 1e-5),
+    ("many-decimals", 0.000123456789),
+    ("pi", 3.14159265358979),
+]
+
+DBLRENDER_CASES: list[tuple[str, list[dict], Callable[[Database], object]]] = (
+    [(f"value-mergeobjects-{name}", ONE, _merge_obj(v)) for name, v in _DOUBLES]
+    + [(f"value-replaceroot-{name}", ONE, _rr({"$literal": v})) for name, v in _DOUBLES]
+    # `$ln` renders its operand as a DOUBLE whatever its BSON type, so the
+    # Int32 case below comes back as `-2.14748e+09` rather than as itself.
+    + [(f"value-ln-{name}", ONE, _ln(v)) for name, v in _DOUBLES if v <= 0]
+    + [("value-ln-int32", ONE, _ln(-2147483648))]
+    + [(f"spec-firstn-{name}", ONE, _first_n(v)) for name, v in _DOUBLES]
+    + [(f"spec-graphlookup-{name}", ONE, _graph_lookup(v)) for name, v in _DOUBLES]
+)
+
+
+def _unary(op: str, value: object) -> Callable[[Database], object]:
+    return lambda db: _agg_err_full(db, [{"$project": {"_id": 0, "r": {op: value}}}])
+
+
+# `Decimal128` NaN / +-Infinity through the math operators. These carry no
+# precision, so they are answerable without 34-digit decimal math -- which is
+# what separates them from a FINITE decimal, still deferred on the Rust server.
+#
+# Four of these defeat a guess, which is why the whole cross-product is pinned
+# rather than a rule: `$ceil`/`$floor` of a Decimal INFINITY are NaN;
+# `$ln`/`$log10` of a Decimal NaN come back as a DOUBLE nan; `$cosh(-Infinity)`
+# is +Infinity; and `$abs(-0)` is `0` while `$trunc(-0)` is `-0`.
+#
+# The Python engine's domain guards tested `isinstance(v, (int, float))`, so a
+# decimal slipped past them and answered NaN where mongod raises. Measured
+# 8.2.11, 2026-09-07.
+_DECIMAL_MATH_OPS = [
+    "$sqrt",
+    "$exp",
+    "$ln",
+    "$log10",
+    "$degreesToRadians",
+    "$radiansToDegrees",
+    "$sin",
+    "$cos",
+    "$tan",
+    "$asin",
+    "$acos",
+    "$atan",
+    "$sinh",
+    "$cosh",
+    "$tanh",
+    "$asinh",
+    "$acosh",
+    "$atanh",
+    "$abs",
+    "$trunc",
+    "$ceil",
+    "$floor",
+]
+_DECIMAL_SPECIALS = [
+    ("nan", Decimal128("NaN")),
+    ("inf", Decimal128("Infinity")),
+    ("neginf", Decimal128("-Infinity")),
+    # The zero and negative FINITE decimals: mongod's domain checks apply by
+    # VALUE, and the guards here tested `isinstance(v, (int, float))`, so these
+    # skipped them and answered `NaN` / `-Infinity` instead of raising.
+    ("negzero", Decimal128("-0")),
+    ("zero", Decimal128("0")),
+    ("negone", Decimal128("-1")),
+]
+
+# A decimal ZERO answers a CONSTANT in this family -- no series runs -- and both
+# the per-operator QUANTUM (`$tan` -> `0E-40`, `$asinh` -> `0E-6176`, `$cos` ->
+# 1 to 34 places) and the sign rule (ODD functions keep `-0`, EVEN ones drop it)
+# are unguessable. Both engines were wrong here: Rust deferred, and Python's
+# decimal series returned bare `0` / `1` and lost the sign. Measured 8.2.11,
+# 2026-09-07.
+#
+# `_agg_err_full` compares the RENDERED reply, so the quantum is part of the
+# assertion -- `Decimal128("0") == Decimal128("0E-40")` compares equal as a
+# VALUE and would have hidden exactly what these cases are about.
+DECIMAL_ZERO_CASES: list[tuple[str, list[dict], Callable[[Database], object]]] = [
+    (f"{op[1:]}-{name}", ONE, _unary(op, value))
+    for op in _DECIMAL_MATH_OPS
+    for name, value in (("zero", Decimal128("0")), ("negzero", Decimal128("-0")))
+]
+
+# mongod converts an integer TOTAL to a double and THEN divides. Above 2**53
+# that is NOT the exact quotient, and the Python server used to give the exact
+# one -- a better answer and the wrong one.
+AVG_CASES: list[tuple[str, list[dict], Callable[[Database], object]]] = [
+    (
+        f"avg-{name}",
+        ONE,
+        (
+            lambda vals: (
+                lambda db: _agg_err_full(
+                    db, [{"$project": {"_id": 0, "r": {"$avg": [Int64(v) for v in vals]}}}]
+                )
+            )
+        )(values),
+    )
+    for name, values in (
+        ("past-2-53", [2**53 + 1, 2**53 + 3, 2**53 + 5]),
+        ("straddling", [9007199254740993, 1, 1]),
+        ("int64-max", [2**63 - 1]),
+        ("small", [1, 2]),
+    )
+]
+
+DECIMAL_SPECIAL_CASES: list[tuple[str, list[dict], Callable[[Database], object]]] = [
+    (f"{op[1:]}-{name}", ONE, _unary(op, value))
+    for op in _DECIMAL_MATH_OPS
+    for name, value in _DECIMAL_SPECIALS
+]
+
+# --- sort-path resolution -------------------------------------------------
+#
+# Two rules about the SORT walk, both measured 2026-09-09 and neither
+# reproducible from a filter. The wider sweep is
+# `tools/probes/sort_path_resolution.py`.
+
+#: A probe document ranked against sentinels whose value AT THE SAME PATH is a
+#: number, a string and an array, so its position names the type bracket its
+#: sort key landed in.
+SORTPATH_INDEXED: list[dict] = [
+    {"_id": 0, "x": [[5]]},
+    {"_id": 1, "x": [6]},
+    {"_id": 2, "x": ["zz"]},
+    {"_id": 3, "x": [[4]]},
+]
+SORTPATH_NAMED: list[dict] = [
+    {"_id": 0, "x": [{"y": [1, 2]}]},
+    {"_id": 1, "x": {"y": 6}},
+    {"_id": 2, "x": {"y": "zz"}},
+    {"_id": 3, "x": {"y": [4]}},
+]
+SORTPATH_TOP: list[dict] = [
+    {"_id": 0, "x": [[5]]},
+    {"_id": 1, "x": 6},
+    {"_id": 2, "x": "zz"},
+    {"_id": 3, "x": [4]},
+]
+
+#: The ambiguity rule: a component that is a valid INDEX of the array *and* a
+#: key of some element document. Both halves matter -- `x.1` over `[{"1": 5}]`
+#: is allowed because index 1 is past the end, and `x.0` over `[{"00": 5}]`
+#: because "00" is not the key "0".
+SORTPATH_AMBIG: list[dict] = [{"_id": 1, "x": [{"0": 5}]}]
+SORTPATH_AMBIG_SPLIT: list[dict] = [{"_id": 1, "x": [{"a": 5}, {"0": 6}]}]
+SORTPATH_PAST_END: list[dict] = [{"_id": 1, "x": [{"1": 5}]}]
+SORTPATH_NONCANON: list[dict] = [{"_id": 1, "x": [{"00": 5}]}]
+
+
+def _sort_err(db: Database, spec: list, agg: bool = False) -> object:
+    """The sorted ids, or the refusal -- whichever mongod gives."""
+    from pymongo.errors import OperationFailure
+
+    try:
+        if agg:
+            rows = db.c.aggregate([{"$sort": dict([*spec, ("_id", 1)])}, {"$project": {"_id": 1}}])
+        else:
+            rows = db.c.find({}, {"_id": 1}).sort([*spec, ("_id", 1)])
+        return [d["_id"] for d in rows]
+    except OperationFailure as exc:
+        return (exc.code, exc.details.get("errmsg"))
+
+
+def _sorts(spec: list, agg: bool = False) -> Callable[[Database], object]:
+    return lambda db: _sort_err(db, spec, agg)
+
+
+SORTPATH_CASES: list[tuple[str, list[dict], Callable[[Database], object]]] = [
+    # An array reached by an explicit INDEX is the sort key as it stands; both
+    # servers descended it and ranked `[[5]]` among the NUMBERS.
+    ("index-no-descend", SORTPATH_INDEXED, _sorts([("x.0", 1)])),
+    ("index-no-descend-desc", SORTPATH_INDEXED, _sorts([("x.0", -1)])),
+    ("index-no-descend-agg", SORTPATH_INDEXED, _sorts([("x.0", 1)], agg=True)),
+    # One reached by a FIELD NAME is descended a level.
+    ("named-descends", SORTPATH_NAMED, _sorts([("x.y", 1)])),
+    ("named-descends-desc", SORTPATH_NAMED, _sorts([("x.y", -1)])),
+    ("named-descends-agg", SORTPATH_NAMED, _sorts([("x.y", 1)], agg=True)),
+    # One level, not any.
+    ("top-level-one-level", SORTPATH_TOP, _sorts([("x", 1)])),
+    ("top-level-one-level-agg", SORTPATH_TOP, _sorts([("x", 1)], agg=True)),
+    # The ambiguity refusal, and its two boundaries.
+    ("ambiguous-refused", SORTPATH_AMBIG, _sorts([("x.0", 1)])),
+    ("ambiguous-refused-agg", SORTPATH_AMBIG, _sorts([("x.0", 1)], agg=True)),
+    ("ambiguous-elsewhere-in-array", SORTPATH_AMBIG_SPLIT, _sorts([("x.0", 1)])),
+    ("index-past-end-allowed", SORTPATH_PAST_END, _sorts([("x.1", 1)])),
+    ("noncanonical-key-allowed", SORTPATH_NONCANON, _sorts([("x.0", 1)])),
+    # ...and the same path in a FILTER is not refused at all.
+    ("ambiguous-path-in-filter", SORTPATH_AMBIG, lambda db: _ids(db, {"x.0": 5})),
+]
+
+
+# --- $rename path refusals ------------------------------------------------
+#
+# mongod separates a DYNAMIC component (parse time, bare, decided without the
+# document) from an ARRAY-element path (execution time, wrapped, skipped when
+# the source is absent). Precedence measured 2026-09-09; wider sweep in
+# `tools/probes/rename_paths.py`.
+
+RENAME_SEED: list[dict] = [
+    {
+        "_id": 1,
+        "v": [{"a": 1}, {"a": 2}],
+        "w": {"a": 1},
+        "z": 5,
+        "deep": {"n": [{"a": 1}]},
+        "s": "x",
+    }
+]
+
+
+def _upd(update: dict, **kwargs) -> Callable[[Database], object]:
+    from pymongo.errors import OperationFailure
+
+    def run(db: Database) -> object:
+        try:
+            db.c.update_one({"_id": 1}, update, **kwargs)
+        except OperationFailure as exc:
+            return (type(exc).__name__, exc.code, exc.details.get("errmsg"))
+        return db.c.find_one({"_id": 1})
+
+    return run
+
+
+RENAME_CASES: list[tuple[str, list[dict], Callable[[Database], object]]] = [
+    ("src-dynamic-all", RENAME_SEED, _upd({"$rename": {"v.$[].a": "q"}})),
+    ("src-dynamic-dollar", RENAME_SEED, _upd({"$rename": {"v.$.a": "q"}})),
+    ("dst-dynamic", RENAME_SEED, _upd({"$rename": {"z": "v.$[].b"}})),
+    # Precedence: source-dynamic > destination-dynamic > source-array.
+    ("both-dynamic-source-wins", RENAME_SEED, _upd({"$rename": {"v.$[].a": "v.$[].b"}})),
+    ("dst-dynamic-beats-src-array", RENAME_SEED, _upd({"$rename": {"v.0.a": "v.$[].b"}})),
+    # Decided without the document: the source field does not exist.
+    ("dynamic-on-absent-source", RENAME_SEED, _upd({"$rename": {"nope.$[].x": "q"}})),
+    # ...but a missing arrayFilter identifier is reported ahead of all of them,
+    # and as a per-statement write error, not a command failure.
+    ("missing-array-filter-first", RENAME_SEED, _upd({"$rename": {"v.$[e].a": "q"}})),
+    (
+        "identified-with-filter-is-dynamic",
+        RENAME_SEED,
+        _upd({"$rename": {"v.$[e].a": "q"}}, array_filters=[{"e.a": 1}]),
+    ),
+    # Array elements, under the executor wrapper, naming the HOLDING field.
+    ("src-array-element", RENAME_SEED, _upd({"$rename": {"v.0.a": "v.0.b"}})),
+    ("src-array-element-bare", RENAME_SEED, _upd({"$rename": {"v.0": "q"}})),
+    ("src-array-element-deep", RENAME_SEED, _upd({"$rename": {"deep.n.0.a": "q"}})),
+    ("dst-array-element", RENAME_SEED, _upd({"$rename": {"z": "v.0.b"}})),
+    # An unresolvable source is a plain no-op -- no array check, no 28.
+    ("src-index-past-end", RENAME_SEED, _upd({"$rename": {"v.9.a": "q"}})),
+    ("src-leaf-missing-under-array", RENAME_SEED, _upd({"$rename": {"v.0.zz": "q"}})),
+    ("absent-source-array-dest", RENAME_SEED, _upd({"$rename": {"nope": "v.0.b"}})),
+    # ...and a path blocked by a SCALAR is the wrapped 28, which we sent bare.
+    ("traverse-through-scalar", RENAME_SEED, _upd({"$rename": {"s.a": "q"}})),
+    ("numeric-key-on-document", RENAME_SEED, _upd({"$rename": {"w.0": "w.1"}})),
+]
+
+
+# --- NaN in the expression language ---------------------------------------
+#
+# Found by `tools/probes/query_result_sets.py` the first time it ran with a
+# PYTHON column: `$expr` over a `Decimal128("NaN")` was a crash, and
+# `{$eq: [NaN, NaN]}` was false where mongod says true. Measured 2026-09-09.
+
+NAN_DOCS: list[dict] = [
+    {"_id": "dblnan", "v": float("nan")},
+    {"_id": "decnan", "v": Decimal128("NaN")},
+    {"_id": "pos", "v": 5},
+    {"_id": "neg", "v": -5},
+]
+
+
+def _proj(expr: dict) -> Callable[[Database], object]:
+    return lambda db: [
+        (d["_id"], d.get("r"))
+        for d in db.c.aggregate([{"$project": {"r": expr}}, {"$sort": {"_id": 1}}])
+    ]
+
+
+NAN_EXPR_CASES: list[tuple[str, list[dict], Callable[[Database], object]]] = [
+    # The crash: the Decimal128 rows answered `1 internal server error`.
+    ("gt-zero", NAN_DOCS, _proj({"$gt": ["$v", 0]})),
+    ("gte-zero", NAN_DOCS, _proj({"$gte": ["$v", 0]})),
+    ("lt-zero", NAN_DOCS, _proj({"$lt": ["$v", 0]})),
+    ("lte-zero", NAN_DOCS, _proj({"$lte": ["$v", 0]})),
+    ("cmp-zero", NAN_DOCS, _proj({"$cmp": ["$v", 0]})),
+    # ...and the `$expr` FILTER that surfaced it.
+    ("expr-gt-filter", NAN_DOCS, lambda db: _ids(db, {"$expr": {"$gt": ["$v", 0]}})),
+    ("expr-lt-filter", NAN_DOCS, lambda db: _ids(db, {"$expr": {"$lt": ["$v", 0]}})),
+    # NaN equals NaN, in every pairing of the two numeric types that hold one.
+    ("eq-double-nan", NAN_DOCS, _proj({"$eq": ["$v", float("nan")]})),
+    ("eq-decimal-nan", NAN_DOCS, _proj({"$eq": ["$v", Decimal128("NaN")]})),
+    ("ne-double-nan", NAN_DOCS, _proj({"$ne": ["$v", float("nan")]})),
+    # ...and the neighbours the fix must not move.
+    ("eq-zero", NAN_DOCS, _proj({"$eq": ["$v", 0]})),
+    ("eq-bool-one", ONE, _proj({"$eq": [True, 1]})),
+    ("eq-signed-zeros", ONE, _proj({"$eq": [0.0, -0.0]})),
+]
+
+
+# --- $toDate string formats -----------------------------------------------
+#
+# mongod runs timelib, not an ISO-8601 parser. Measured 2026-09-09; wider sweep
+# in `tools/probes/todate_string_formats.py`. The REJECTIONS matter as much as
+# the acceptances -- a parser that takes too much is as wrong as one that takes
+# too little.
+
+TODATE_STRINGS = [
+    "12/31/2020",
+    "1/2/2020",
+    "12/31/2020 10:30",
+    "2020/12/31",
+    "2020-1-1",
+    "Dec 31 2020",
+    "31 December 2020",
+    "Dec 31, 2020",
+    "@1577836800",
+    "@-1",
+    "@1577836800.5",
+    "20200101",
+    "20200101T120000",
+    "2020-W01-1",
+    "2020-01-01T00",
+    "2020-01-01 ",
+    "  2020-01-01",
+    # A trailing letter is a MILITARY zone: `T` is UTC-7, `J` is invalid.
+    "2020-01-01T",
+    "2020-01-01t",
+    "2020-01-01A",
+    "2020-01-01Z",
+    "2020-01-01J",
+    # Refusals.
+    "31/12/2020",
+    "13/01/2020",
+    "12/32/2020",
+    "2020-02-30",
+    "2020",
+    "",
+]
+
+
+def _todate(text: str) -> Callable[[Database], object]:
+    def run(db: Database) -> object:
+        from pymongo.errors import OperationFailure
+
+        db.c.delete_many({})
+        db.c.insert_one({"_id": 1, "s": text})
+        try:
+            return list(db.c.aggregate([{"$project": {"v": {"$toDate": "$s"}}}]))[0].get("v")
+        except OperationFailure as exc:
+            # The per-position timelib diagnostic is deliberately out of scope,
+            # so this compares the CODE rather than mongod's scanner text.
+            return ("ERR", exc.code)
+
+    return run
+
+
+TODATE_CASES: list[tuple[str, list[dict], Callable[[Database], object]]] = [
+    (f"s{i}", ONE, _todate(text)) for i, text in enumerate(TODATE_STRINGS)
+]
+
+
+# --- projection results ----------------------------------------------------
+#
+# `apply_projection` had no probe at all until 2026-09-09. Wider sweep in
+# `tools/probes/projection_results.py`; these are the three shapes it found.
+
+#: Key order `_id, b, a` -- deliberately not alphabetical, so a spec-ordered or
+#: sorted result is distinguishable from the document's own order.
+PROJ_DOCS: list[dict] = [{"_id": 1, "b": 9, "a": [1, 2, 3], "c": 7}]
+PROJ_ARRAYS: list[dict] = [
+    {"_id": 1, "a": [1, 2, 3]},
+    {"_id": 2, "a": [[1, 2], [3, 4]]},
+    {"_id": 3, "a": [{"x": 1}, {"x": 2}]},
+    {"_id": 4, "a": [[1, 2], [3]]},
+]
+PROJ_NESTED: list[dict] = [{"_id": 1, "a": {"x": 1, "y": 2}, "ab": {"x": 3}, "b": 4}]
+
+
+def _proj(projection: dict) -> Callable[[Database], object]:
+    def run(db: Database) -> object:
+        from pymongo.errors import OperationFailure
+
+        try:
+            # `list(doc)` -- the KEY SEQUENCE, which an equality compare drops.
+            return [(list(d), d) for d in db.c.find({}, projection).sort("_id", 1)]
+        except OperationFailure as exc:
+            return ("ERR", exc.code, exc.details.get("errmsg"))
+
+    return run
+
+
+#: An unknown expression operator. mongod does NOT answer this one way -- the
+#: discriminator is POSITION, so the same `$project` gives two different codes
+#: depending on how deep the operator sits. `$literal` is in here because a
+#: parse-time check built on the evaluator's dispatch table alone calls it
+#: unknown and rejects a VALID pipeline; it is the case that catches that.
+UNKNOWN_EXPR_DOCS = [{"_id": 1, "a": 1}]
+UNKNOWN_EXPR_CASES: list[tuple[str, list[dict], Callable[[Database], object]]] = [
+    (
+        "project-top",
+        UNKNOWN_EXPR_DOCS,
+        lambda db: _agg_err_full(db, [{"$project": {"n": {"$nosuch": 1}}}]),
+    ),
+    (
+        "project-top-count",
+        UNKNOWN_EXPR_DOCS,
+        lambda db: _agg_err_full(db, [{"$project": {"n": {"$count": {}}}}]),
+    ),
+    (
+        "project-top-topn",
+        UNKNOWN_EXPR_DOCS,
+        lambda db: _agg_err_full(
+            db, [{"$project": {"n": {"$topN": {"n": 1, "sortBy": {"a": 1}, "output": "$a"}}}}]
+        ),
+    ),
+    (
+        "project-nested",
+        UNKNOWN_EXPR_DOCS,
+        lambda db: _agg_err_full(db, [{"$project": {"n": {"$add": [{"$nosuch": 1}, 1]}}}]),
+    ),
+    (
+        "project-literal-ok",
+        UNKNOWN_EXPR_DOCS,
+        lambda db: _agg_err_full(db, [{"$project": {"n": {"$literal": 5}}}]),
+    ),
+    (
+        "addfields-top",
+        UNKNOWN_EXPR_DOCS,
+        lambda db: _agg_err_full(db, [{"$addFields": {"n": {"$count": {}}}}]),
+    ),
+    (
+        "group-id",
+        UNKNOWN_EXPR_DOCS,
+        lambda db: _agg_err_full(db, [{"$group": {"_id": {"$nosuch": 1}}}]),
+    ),
+]
+
+
+PROJECTION_CASES: list[tuple[str, list[dict], Callable[[Database], object]]] = [
+    # Field ORDER: the document's own, not the spec's, with computed appended.
+    ("order-include", PROJ_DOCS, _proj({"a": 1, "b": 1})),
+    ("order-spec-reversed", PROJ_DOCS, _proj({"b": 1, "a": 1})),
+    ("order-slice", PROJ_DOCS, _proj({"a": {"$slice": 2}, "b": 1})),
+    ("order-elemmatch", PROJ_DOCS, _proj({"a": {"$elemMatch": {"$gt": 1}}, "b": 1})),
+    ("order-computed", PROJ_DOCS, _proj({"z": {"$literal": 1}, "b": 1})),
+    # `$elemMatch` as an element-VALUE predicate, with no array traversal.
+    ("elemmatch-value", PROJ_ARRAYS, _proj({"a": {"$elemMatch": {"$gt": 2}}})),
+    ("elemmatch-size", PROJ_ARRAYS, _proj({"a": {"$elemMatch": {"$size": 2}}})),
+    ("elemmatch-eq-array", PROJ_ARRAYS, _proj({"a": {"$elemMatch": {"$eq": [3, 4]}}})),
+    ("elemmatch-all", PROJ_ARRAYS, _proj({"a": {"$elemMatch": {"$all": [3]}}})),
+    ("elemmatch-field", PROJ_ARRAYS, _proj({"a": {"$elemMatch": {"x": {"$gt": 1}}}})),
+    # Path collision, both codes, and the shapes that are NOT collisions.
+    ("collide-parent-child", PROJ_NESTED, _proj({"a": 1, "a.x": 1})),
+    ("collide-child-parent", PROJ_NESTED, _proj({"a.x": 1, "a": 1})),
+    ("collide-deep", PROJ_NESTED, _proj({"a.x": 1, "a.x.y": 1})),
+    ("collide-exclusion", PROJ_NESTED, _proj({"a": 0, "a.x": 0})),
+    ("collide-mixed", PROJ_NESTED, _proj({"a": 0, "a.x": 1})),
+    ("nocollide-siblings", PROJ_NESTED, _proj({"a.x": 1, "a.y": 1})),
+    ("nocollide-string-prefix", PROJ_NESTED, _proj({"a": 1, "ab.x": 1})),
+]
+
+
+ALL_CASES = (
+    [("query", c) for c in QUERY_CASES]
+    + [("readpath", c) for c in READPATH_CASES]
+    + [("update", c) for c in UPDATE_CASES]
+    + [("fam", c) for c in FAM_CASES]
+    + [("updatecmd", c) for c in UPDATE_CMD_CASES]
+    + [("cursor", c) for c in CURSOR_CASES]
+    + [("hint", c) for c in HINT_CASES]
+    + [("lookup", c) for c in LOOKUP_CASES]
+    + [("maxtime", c) for c in MAXTIME_CASES]
+    + [("aggerr", c) for c in AGGERR_CASES]
+    + [("redact", c) for c in REDACT_CASES]
+    + [("undefvar", c) for c in UNDEFVAR_CASES]
+    + [("remove", c) for c in REMOVE_CASES]
+    + [("propagate", c) for c in PROPAGATE_CASES]
+    + [("exprcmp", c) for c in EXPRCMP_CASES]
+    + [("undefvarcmd", c) for c in UNDEFVAR_CMD_CASES]
+    + [("arity", c) for c in ARITY_CASES]
+    + [("decimal", c) for c in DECIMAL_CASES]
+    + [("objarg", c) for c in OBJECT_ARG_CASES]
+    + [("numguard", c) for c in NUMERIC_GUARD_CASES]
+    + [("fold", c) for c in FOLD_CASES]
+    + [("numtype", c) for c in NUMTYPE_CASES]
+    + [("strconv", c) for c in STRCONV_CASES]
+    + [("updovf", c) for c in UPDATE_OVERFLOW_CASES]
+    + [("dblrender", c) for c in DBLRENDER_CASES]
+    + [("decspecial", c) for c in DECIMAL_SPECIAL_CASES]
+    + [("deczero", c) for c in DECIMAL_ZERO_CASES]
+    + [("avgdiv", c) for c in AVG_CASES]
+    + [("sortpath", c) for c in SORTPATH_CASES]
+    + [("rename", c) for c in RENAME_CASES]
+    + [("nanexpr", c) for c in NAN_EXPR_CASES]
+    + [("todate", c) for c in TODATE_CASES]
+    + [("projection", c) for c in PROJECTION_CASES]
+    + [("unknownexpr", c) for c in UNKNOWN_EXPR_CASES]
+)
 
 
 @requires_mongod
 @pytest.mark.parametrize("kind,case", ALL_CASES, ids=[f"{k}-{c[0]}" for k, c in ALL_CASES])
-def test_matches_mongod(kind, case, secantus_uri: str, mongod_uri: str) -> None:
+def test_matches_mongod(
+    kind, case, secantus_uri: str, mongod_uri: str, mongod_version: tuple[int, int]
+) -> None:
     """SecantusDB must answer exactly what mongod answers."""
     name, seed, op = case
+    if mongod_version[0] != PROBED_MONGOD_MAJOR:
+        found = ".".join(str(p) for p in mongod_version)
+        pytest.skip(
+            f"this gate asserts an exact match against mongod "
+            f"{PROBED_MONGOD_MAJOR}.x (probed {PROBED_MONGOD_VERSION}), and this "
+            f"box has mongod {found}; across majors its error surface differs in "
+            f"ways that are not SecantusDB divergences. See PROBED_MONGOD_MAJOR."
+        )
     db_name = f"diff_{kind}_{name.replace('-', '_')}"
     ours = _run(secantus_uri, db_name, seed, op)
     theirs = _run(mongod_uri, db_name, seed, op)
     assert ours == theirs, f"{name}: mongod={theirs} ours={ours}"
+
+
+# ------------------------------------- local-time rendering, under a zone
+#
+# `$toLower` / `$toUpper` of a Timestamp is the ONE conversion mongod renders in
+# the server process's LOCAL time -- a legacy asctime-like path, not the
+# `$dateToString` format language. The zone is therefore part of the input, and
+# the module-scoped `mongod_uri` fixture cannot express it: a process inherits
+# its zone at startup, so a case that varies the zone has to vary the process.
+# Each case below spawns its own mongod and asks each engine in its own
+# subprocess, both under the same `TZ`.
+#
+# EVALUATOR-LEVEL on our side, not server-level like the rest of this file. The
+# rendering lives entirely in the expression evaluator, and the Rust engine --
+# the half that had the bug -- is reachable as `_secantus_core` without the
+# storage-engine build a Rust *server* would need. Parametrising the engine
+# keeps the Rust half a VISIBLE skip where that extension is absent, rather than
+# a silent one folded into a passing Python assertion.
+#
+# NOTHING HERE IS A HARDCODED EXPECTATION, and that is the point. The sibling
+# `tests/test_tolower_timestamp_local_time.py` pins values measured on Unix, so
+# it must skip the zone-shifted cases on Windows -- `TZ=<IANA name>` is a POSIX
+# device, and the MSVC CRT reads `TZ` as a different grammar entirely. Asking
+# the mongod that is running, on the box that is running it, needs no such skip.
+#
+# This is what caught the real divergence (2026-09-18, mongod 8.2.11 on Windows
+# 11): the Rust engine resolved the zone through `chrono::Local`, which on
+# Windows reads `GetDynamicTimeZoneInformation` and IGNORES `TZ`. On a
+# `Europe/London` host a `TZ=UTC` server rendered the July instant an hour late
+# while mongod and the Python evaluator both said UTC. Note which instants
+# separate them: London IS UTC in winter, so three of the four below agree even
+# when the zone handling is broken. A corpus without the July case proves
+# nothing.
+
+#: `(seconds, increment)`. Chosen to straddle a northern-hemisphere DST
+#: boundary: a zone that is UTC in winter but not in summer agrees on the three
+#: winter instants and disagrees only on the July one.
+TZ_RENDER_INSTANTS = [(1, 1), (1700000000, 3), (1720000000, 0), (1767225600, 12)]
+
+#: `None` means "leave `TZ` unset" -- the host's own zone, which is what a real
+#: deployment runs in. The named zones are passed through verbatim on both
+#: platforms; what each one MEANS differs (POSIX resolves the IANA name, while
+#: the MSVC CRT reads it as a zone name with a zero offset plus a daylight
+#: rule, which lands `America/New_York` on UTC+1 in July rather than UTC-4).
+#: That difference is precisely why the expected value comes from mongod.
+TZ_RENDER_ZONES = ["UTC", "America/New_York", None]
+
+_PY_RENDER = (
+    "import sys\n"
+    "from bson import Timestamp\n"
+    "from secantus.expressions import evaluate\n"
+    "print(evaluate({'$toLower': Timestamp(int(sys.argv[1]), int(sys.argv[2]))}, {}))\n"
+)
+
+_RUST_RENDER = (
+    "import sys\n"
+    "import bson\n"
+    "import _secantus_core as rust\n"
+    "from bson import Timestamp\n"
+    "expr = {'e': {'$toLower': Timestamp(int(sys.argv[1]), int(sys.argv[2]))}}\n"
+    "res = rust.evaluate(bson.encode({}), bson.encode(expr), bson.encode({}))\n"
+    "print('<DEFER>' if res is None else bson.decode(res)['r'])\n"
+)
+
+_ENGINE_RENDERERS = {"python": _PY_RENDER, "rust": _RUST_RENDER}
+
+#: mongod's answers per zone, so the engine parametrisation below costs one
+#: mongod per ZONE rather than one per (zone, engine). Worker-local under
+#: xdist, which is what we want -- each worker spawns its own servers anyway.
+_TZ_MONGOD_CACHE: dict[str | None, list[str]] = {}
+
+
+def _env_with_tz(tz: str | None) -> dict[str, str]:
+    """This process's environment with `TZ` set to `tz`, or removed for `None`."""
+    env = dict(os.environ)
+    if tz is None:
+        env.pop("TZ", None)
+    else:
+        env["TZ"] = tz
+    return env
+
+
+def _mongod_renders_under_tz(tz: str | None) -> list[str]:
+    """What a mongod whose process environment carries `tz` answers, per instant."""
+    if tz in _TZ_MONGOD_CACHE:
+        return _TZ_MONGOD_CACHE[tz]
+    proc, uri, tmp = _start_mongod(_env_with_tz(tz))
+    try:
+        client = MongoClient(uri, serverSelectionTimeoutMS=10000)
+        try:
+            coll = client.diff_tzrender.c
+            coll.drop()
+            coll.insert_one({"_id": 1})
+            rendered = [
+                coll.aggregate([{"$project": {"r": {"$toLower": Timestamp(secs, inc)}}}]).next()[
+                    "r"
+                ]
+                for secs, inc in TZ_RENDER_INSTANTS
+            ]
+        finally:
+            client.close()
+    finally:
+        proc.terminate()
+        proc.wait(timeout=30)
+        shutil.rmtree(tmp, ignore_errors=True)
+    _TZ_MONGOD_CACHE[tz] = rendered
+    return rendered
+
+
+def _engine_renders_under_tz(script: str, tz: str | None, secs: int, inc: int) -> str:
+    """What one engine answers, in a fresh process whose environment carries `tz`."""
+    out = subprocess.run(  # noqa: S603 - fixed argv, no shell
+        [sys.executable, "-c", script, str(secs), str(inc)],
+        capture_output=True,
+        text=True,
+        env=_env_with_tz(tz),
+        check=True,
+    )
+    return out.stdout.strip()
+
+
+@requires_mongod
+@pytest.mark.parametrize("engine", sorted(_ENGINE_RENDERERS))
+@pytest.mark.parametrize("tz", TZ_RENDER_ZONES, ids=[z or "host-zone" for z in TZ_RENDER_ZONES])
+def test_timestamp_local_render_matches_mongod(
+    tz: str | None, engine: str, mongod_version: tuple[int, int]
+) -> None:
+    """Both engines must render a Timestamp exactly as mongod does, in any zone."""
+    if mongod_version[0] != PROBED_MONGOD_MAJOR:
+        found = ".".join(str(p) for p in mongod_version)
+        pytest.skip(
+            f"this gate asserts an exact match against mongod "
+            f"{PROBED_MONGOD_MAJOR}.x (probed {PROBED_MONGOD_VERSION}), and this "
+            f"box has mongod {found}; across majors its error surface differs in "
+            f"ways that are not SecantusDB divergences. See PROBED_MONGOD_MAJOR."
+        )
+    if engine == "rust":
+        pytest.importorskip("_secantus_core")
+
+    theirs = _mongod_renders_under_tz(tz)
+    for (secs, inc), expected in zip(TZ_RENDER_INSTANTS, theirs, strict=True):
+        ours = _engine_renders_under_tz(_ENGINE_RENDERERS[engine], tz, secs, inc)
+        assert ours == expected, (
+            f"TZ={tz or '<unset>'} Timestamp({secs}, {inc}): mongod={expected!r} {engine}={ours!r}"
+        )

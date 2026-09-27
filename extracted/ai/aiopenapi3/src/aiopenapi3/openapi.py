@@ -1,66 +1,53 @@
-import typing
-
-from typing import Any, Union, cast, Optional, ForwardRef
-from collections.abc import Callable
-import logging
 import copy
+import logging
+import pathlib
 import pickle
 import random
+import typing
+from collections.abc import Callable
+from typing import Any, ForwardRef, Optional, TypeGuard, cast
 
-import pathlib
-
-
-from typing import TypeGuard
-
-
-import httpx
+import httpx2
 import yarl
 from pydantic import BaseModel
 
-from aiopenapi3.v30.general import Reference
 import aiopenapi3.request
-from .json import JSONReference
-from . import v20
-from . import v30
-from . import v31
-from . import v32
-from . import log
-from .request import OperationIndex, HTTP_METHODS
-from .errors import ReferenceResolutionError, HTTPClientError, HTTPServerError
-from .loader import Loader, NullLoader
-from .plugin import Plugin, Plugins
-from .base import RootBase, ReferenceBase, SchemaBase, DiscriminatorBase
-from .request import RequestBase
-from .v30.paths import Operation
-from .model import is_basemodel, Model
+from aiopenapi3.v30.general import Reference
 
+from . import log, v20, v30, v31, v32
+from .base import DiscriminatorBase, ReferenceBase, RootBase, SchemaBase
+from .errors import HTTPClientError, HTTPServerError, ReferenceResolutionError
+from .json import JSONReference
+from .loader import Loader, NullLoader
+from .model import Model, is_basemodel
+from .plugin import Plugin, Plugins
+from .request import HTTP_METHODS, OperationIndex, RequestBase
+from .v30.paths import Operation
 
 if typing.TYPE_CHECKING:
     from ._types import (
-        RootType,
         JSON,
-        PathItemType,
-        SchemaType,
-        OperationType,
-        RequestType,
         HTTPMethodType,
+        OperationType,
+        PathItemType,
+        RequestType,
+        RootType,
+        SchemaType,
         ServerType,
     )
 
 
-def has_components(y: Optional["RootType"]) -> TypeGuard[v30.Root | v31.Root]:
+def has_components(y: Optional["RootType"]) -> TypeGuard[v30.Root | v31.Root | v32.Root]:
     #    return all([typing.cast("RootType", y), typing.cast("RootType", y).components])
     #    return isinstance(y, (v30.Root, v31.Root))
     #    return all([y, y.components])
     if y is None:
         return False
-    if y.components is None:
-        return False
-    return True
+    return y.components is not None
 
 
 def is_schema(v: tuple[str, "SchemaType"]) -> TypeGuard["SchemaType"]:
-    return isinstance(v[1], (v20.Schema, v30.Schema, v31.Schema))
+    return isinstance(v[1], (v20.Schema, v30.Schema, v31.Schema, v32.Schema))
 
 
 class OpenAPI:
@@ -92,7 +79,7 @@ class OpenAPI:
     def load_sync(
         cls,
         url,
-        session_factory: Callable[..., httpx.Client] = httpx.Client,
+        session_factory: Callable[..., httpx2.Client] = httpx2.Client,
         loader: Loader | None = None,
         plugins: list[Plugin] | None = None,
         use_operation_tags: bool = False,
@@ -115,7 +102,7 @@ class OpenAPI:
     async def load_async(
         cls,
         url: str,
-        session_factory: Callable[..., httpx.AsyncClient] = httpx.AsyncClient,
+        session_factory: Callable[..., httpx2.AsyncClient] = httpx2.AsyncClient,
         loader: Loader | None = None,
         plugins: list[Plugin] | None = None,
         use_operation_tags: bool = False,
@@ -144,7 +131,7 @@ class OpenAPI:
         cls,
         url: str,
         path: str | pathlib.Path | yarl.URL,
-        session_factory: Callable[..., httpx.AsyncClient | httpx.Client] = httpx.AsyncClient,
+        session_factory: Callable[..., httpx2.AsyncClient | httpx2.Client] = httpx2.AsyncClient,
         loader: Loader | None = None,
         plugins: list[Plugin] | None = None,
         use_operation_tags: bool = False,
@@ -163,7 +150,7 @@ class OpenAPI:
                 url="<live-url>",
                 path=pathlib.Path("<path-relative-to-root>"),
                 loader=loader,
-                session_factory=httpx.Client
+                session_factory=httpx2.Client
                 )
 
 
@@ -187,7 +174,7 @@ class OpenAPI:
         cls,
         url: str,
         data: str,
-        session_factory: Callable[..., httpx.AsyncClient | httpx.Client] = httpx.AsyncClient,
+        session_factory: Callable[..., httpx2.AsyncClient | httpx2.Client] = httpx2.AsyncClient,
         loader: Loader | None = None,
         plugins: list[Plugin] | None = None,
         use_operation_tags: bool = False,
@@ -236,7 +223,7 @@ class OpenAPI:
         self,
         url: str,
         document: "JSON",
-        session_factory: Callable[..., httpx.Client | httpx.AsyncClient] = httpx.AsyncClient,
+        session_factory: Callable[..., httpx2.Client | httpx2.AsyncClient] = httpx2.AsyncClient,
         loader: Loader | None = None,
         plugins: list[Plugin] | None = None,
         use_operation_tags: bool = True,
@@ -255,14 +242,14 @@ class OpenAPI:
         """
         self._base_url: yarl.URL = yarl.URL(url)
 
-        self._session_factory: Callable[..., httpx.Client | httpx.AsyncClient] = session_factory
+        self._session_factory: Callable[..., httpx2.Client | httpx2.AsyncClient] = session_factory
 
         self.loader: Loader | None = loader
         """
         Loader - loading referenced documents
         """
 
-        self._createRequest: Callable[["OpenAPI", str, str, "OperationType", list["ServerType"] | None], "RequestBase"]
+        self._createRequest: Callable[[OpenAPI, str, str, OperationType, list[ServerType] | None], RequestBase]
         """
         creates the Async/Request for the protocol required
         """
@@ -280,23 +267,23 @@ class OpenAPI:
         Raise for http status code
         """
 
-        self._security: dict[str, tuple[str]] = dict()
+        self._security: dict[str, tuple[str]] = {}
         """
         authorization informations
         e.g. {"BasicAuth": ("user","secret")}
         """
 
-        self._documents: dict[yarl.URL, "RootType"] = dict()
+        self._documents: dict[yarl.URL, RootType] = {}
         """
         the related documents
         """
 
-        self._server_variables: dict[str, str] = dict()
+        self._server_variables: dict[str, str] = {}
         """
         server variable mapping
         """
 
-        self._server_select: Callable[[list["ServerType"]], "ServerType"] = random.choice
+        self._server_select: Callable[[list[ServerType]], ServerType] = random.choice
 
         self._init_plugins(plugins)
         """
@@ -330,8 +317,8 @@ class OpenAPI:
         self.plugins = Plugins(plugins or [])
 
     def _init_session_factory(self, session_factory):
-        if issubclass(getattr(session_factory, "__annotations__", {}).get("return", None.__class__), httpx.Client) or (
-            type(session_factory) is type and issubclass(session_factory, httpx.Client)
+        if issubclass(getattr(session_factory, "__annotations__", {}).get("return", None.__class__), httpx2.Client) or (
+            type(session_factory) is type and issubclass(session_factory, httpx2.Client)
         ):
             if isinstance(self._root, v20.Root):
                 self._createRequest = v20.Request
@@ -340,8 +327,8 @@ class OpenAPI:
             else:
                 raise ValueError(self._root)
         elif issubclass(
-            getattr(session_factory, "__annotations__", {}).get("return", None.__class__), httpx.AsyncClient
-        ) or (type(session_factory) is type and issubclass(session_factory, httpx.AsyncClient)):
+            getattr(session_factory, "__annotations__", {}).get("return", None.__class__), httpx2.AsyncClient
+        ) or (type(session_factory) is type and issubclass(session_factory, httpx2.AsyncClient)):
             if isinstance(self._root, v20.Root):
                 self._createRequest = v20.AsyncRequest
             elif isinstance(self._root, (v30.Root, v31.Root, v32.Root)):
@@ -369,7 +356,6 @@ class OpenAPI:
                     e.document = names[i]
                     raise
             processed = set(values.keys())
-        return
 
     #        for i in self._documents.values():
     #            i._resolve_references(self)
@@ -380,10 +366,10 @@ class OpenAPI:
 
         if isinstance(self._root, v20.Root):
             if self.paths:
-                obj: "PathItemType"
+                obj: PathItemType
                 for path, obj in self.paths.items():
                     for m in obj.model_fields_set & HTTP_METHODS:
-                        op: "Operation" = getattr(obj, m)
+                        op: Operation = getattr(obj, m)
                         op._validate_path_parameters(obj, path, (m, cast(str, op.operationId)))
                         if op.operationId is None:
                             continue
@@ -408,7 +394,7 @@ class OpenAPI:
 
             for schemas in allschemas:
                 name: str
-                schema: "SchemaType"
+                schema: SchemaType
                 for name, schema in filter(is_schema, schemas.items()):
                     schema._get_identity(name=name, prefix="OP")
 
@@ -428,7 +414,7 @@ class OpenAPI:
                             for c, content in response.content.items():
                                 if content.schema_ is None:
                                     continue
-                                if isinstance(content.schema_, (v30.Schema, v31.Schema)):
+                                if isinstance(content.schema_, (v30.Schema, v31.Schema, v32.Schema)):
                                     content.schema_._get_identity("OP", f"{path}.{m}.{r}.{c}")
             else:
                 if isinstance(self._root, v30.Root):
@@ -438,9 +424,9 @@ class OpenAPI:
                 elif isinstance(self._root, v32.Root):
                     self._root.paths = v32.Paths(paths={}, extensions={})
                 else:
-                    raise ValueError(self._root)
+                    raise TypeError(self._root)
         else:
-            raise ValueError(self._root)
+            raise TypeError(self._root)
 
         self._operationindex = OperationIndex(self, use_operation_tags)
         return p is None
@@ -449,10 +435,11 @@ class OpenAPI:
     def _get_combined_attributes(schema):
         """Combine attributes from the schema."""
         is_array = Model.is_type_any(schema) or Model.is_type(schema, "array")
+        additional = getattr(schema, "additionalProperties", None)
         return (
             getattr(schema, "oneOf", [])  # Swagger compat
             + (
-                list(getattr(schema, "discriminator").mapping.values())
+                list(schema.discriminator.mapping.values())
                 if isinstance(getattr(schema, "discriminator", {}), DiscriminatorBase)
                 else []
             )
@@ -462,6 +449,7 @@ class OpenAPI:
             + ([schema.items] if is_array and schema.items is not None and not isinstance(schema, list) else [])
             + (schema.items if is_array and schema.items is not None and isinstance(schema, list) else [])
             + (getattr(schema, "prefixItems", []) or [] if is_array else [])
+            + ([additional] if isinstance(additional, (SchemaBase, ReferenceBase)) else [])
         )
 
     @classmethod
@@ -490,17 +478,14 @@ class OpenAPI:
         return processed
 
     def _init_schema_types_collect(self, only_required: bool) -> dict[str, "SchemaType"]:
-        byname: dict[str, "SchemaType"] = dict()
-
-        def is_schema(v: tuple[str, "SchemaType"]) -> bool:
-            return isinstance(v[1], (v20.Schema, v30.Schema, v31.Schema))
+        byname: dict[str, SchemaType] = {}
 
         op: Operation
         if isinstance(self._root, v20.Root):
             documents = cast(list[v20.Root], self._documents.values())
             # Schema
             if only_required is False:
-                for byid in map(lambda x: x.definitions, documents):
+                for byid in (x.definitions for x in documents):
                     assert byid is not None and isinstance(byid, dict)
                     for name, schema in filter(is_schema, byid.items()):
                         n = schema._get_identity(name=name)
@@ -508,7 +493,7 @@ class OpenAPI:
                         byname[n] = schema
 
                 # PathItems
-                for path, obj in (self.paths or dict()).items():
+                for path, obj in (self.paths or {}).items():
                     for m in obj.model_fields_set & HTTP_METHODS:
                         op = getattr(obj, m)
 
@@ -524,7 +509,7 @@ class OpenAPI:
                                 raise TypeError(f"{type(response)} at {path}")
 
             # Response
-            for byid in map(lambda x: x.responses, documents):
+            for byid in (x.responses for x in documents):
                 assert byid is not None and isinstance(byid, dict)
                 for name, response in filter(is_schema, byid.items()):
                     assert response.schema_
@@ -532,13 +517,13 @@ class OpenAPI:
                     # assert byname.get(name, None) in [None, response.schema_]
                     byname[n] = response.schema_
 
-        elif isinstance(self._root, (v30.Root, v31.Root)):
+        elif isinstance(self._root, (v30.Root, v31.Root, v32.Root)):
             # Schema
-            documents = cast(Union[list[v30.Root], list[v31.Root]], self._documents.values())
+            documents = cast(list[v30.Root] | list[v31.Root] | list[v32.Root], self._documents.values())
             components = [x.components for x in filter(has_components, documents) if x.components is not None]
             assert components is not None
             if only_required is False:
-                for byid in map(lambda x: x.schemas, components):
+                for byid in (x.schemas for x in components):
                     assert byid is not None and isinstance(byid, dict)
                     for name, schema in filter(is_schema, byid.items()):
                         n = schema._get_identity(name=name)
@@ -546,7 +531,7 @@ class OpenAPI:
                         byname[n] = schema
 
             # PathItems
-            for path, obj in (self.paths or dict()).items():
+            for path, obj in (self.paths or {}).items():
                 for m in obj.model_fields_set & HTTP_METHODS:
                     op = getattr(obj, m)
 
@@ -582,7 +567,7 @@ class OpenAPI:
                     for r, response in op.responses.items():
                         if isinstance(response, ReferenceBase):
                             response = response._target
-                        if isinstance(response, (v30.paths.Response, v31.paths.Response)):
+                        if isinstance(response, (v30.paths.Response, v31.paths.Response, v32.paths.Response)):
                             assert response.content is not None
                             for mt, mto in response.content.items():
                                 if mto.schema_ is None:
@@ -597,9 +582,9 @@ class OpenAPI:
 
             # Response
             if only_required is False:
-                for responses in map(lambda x: x.responses, components):
+                for responses in (x.responses for x in components):
                     assert responses is not None
-                    for rname, response in responses.items():
+                    for response in responses.values():
                         for mt, mto in response.content.items():
                             if mto.schema_ is None:
                                 continue
@@ -611,18 +596,19 @@ class OpenAPI:
         return byname
 
     def _init_schema_types(self, only_required: bool) -> None:
-        byname: dict[str, "SchemaType"] = self._init_schema_types_collect(only_required)
-        byid: dict[int, "SchemaType"] = {id(i): i for i in byname.values()}
+        byname: dict[str, SchemaType] = self._init_schema_types_collect(only_required)
+        byid: dict[int, SchemaType] = {id(i): i for i in byname.values()}
         data: set[int] = set(byid.keys())
         todo: set[int] = self._iterate_schemas(byid, data, set())
-        types: dict[str, ForwardRef | type[BaseModel] | type[int] | type[str] | type[float] | type[bool]] = dict()
+        types: dict[str, type[BaseModel | int | str | float | bool] | ForwardRef] = {}
 
         """
         Due to Plugins (e.g. Cull/Reduce) byname may be incomplete
         """
-        resolved: list["SchemaType"] = list(
-            map(lambda x: byid[x]._target if isinstance(byid[x], ReferenceBase) else byid[x], todo | data)
-        )
+        #        from . import v32
+        resolved: list[SchemaType] = [
+            byid[x]._target if isinstance(byid[x], ReferenceBase) else byid[x] for x in todo | data
+        ]
         self.plugins.init.resolved(initialized=self._root, resolved=resolved)
 
         # print(f"{len(todo | data)} {only_required=}")
@@ -657,8 +643,8 @@ class OpenAPI:
                     for v in byid[id(thes)]._model_types:
                         assert v.__name__ in types, v.__name__
                         v.model_rebuild(_types_namespace={"__types": types})
-            except Exception as e:
-                raise e
+            except Exception:  # noqa: TRY203
+                raise
 
     @property
     def url(self) -> yarl.URL:
@@ -686,7 +672,7 @@ class OpenAPI:
             return r
         elif isinstance(self._root, (v30.Root, v31.Root, v32.Root)):
             assert self._root.servers
-            server: "ServerType" = self._server_select(self._root.servers)
+            server: ServerType = self._server_select(self._root.servers)
             return self._base_url.join(yarl.URL(server.createUrl(self._server_variables)))
 
     def authenticate(self, *args, **kwargs):
@@ -698,16 +684,16 @@ class OpenAPI:
         :param kwargs: scheme=value
         """
         if len(args) == 1 and args[0] is None:
-            self._security = dict()
+            self._security = {}
 
         schemes = frozenset(kwargs.keys())
 
         if isinstance(self._root, v20.Root):
             v = schemes - frozenset(SecuritySchemes := self._root.securityDefinitions)
-        elif isinstance(self._root, (v30.Root, v31.Root)):
+        elif isinstance(self._root, (v30.Root, v31.Root, v32.Root)):
             v = schemes - frozenset(SecuritySchemes := self._root.components.securitySchemes)
         else:
-            raise TypeError(self._root)  # noqa
+            raise TypeError(self._root)
 
         if v:
             raise ValueError(f"{self.info.title} does not accept security schemes {sorted(v)}")
@@ -751,10 +737,10 @@ class OpenAPI:
 
         :param operationId: the operationId or tuple(path,method)
         :return: the returned Request is either :class:`aiopenapi3.request.RequestBase` or -
-            in case of a httpx.AsyncClient session_factory - :class:`aiopenapi3.request.AsyncRequestBase`
+            in case of a httpx2.AsyncClient session_factory - :class:`aiopenapi3.request.AsyncRequestBase`
         """
-        operation: Optional["OperationType"] = None
-        request: Optional["RequestType"] = None
+        operation: OperationType | None = None
+        request: RequestType | None = None
         try:
             if isinstance(operationId, str):
                 *tags, opn = operationId.split(".")

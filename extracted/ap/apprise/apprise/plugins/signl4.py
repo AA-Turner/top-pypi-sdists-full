@@ -35,6 +35,7 @@ from typing import Any, Optional
 import requests
 
 from ..common import NotifyType
+from ..exception import AppriseImproperlyConfigured
 from ..locale import gettext_lazy as _
 from ..url import PrivacyMode
 from ..utils.parse import parse_bool, validate_regex
@@ -137,7 +138,7 @@ class NotifySIGNL4(NotifyBase):
                 "({}) was specified.".format(secret)
             )
             self.logger.warning(msg)
-            raise TypeError(msg)
+            raise AppriseImproperlyConfigured(msg)
 
         # A service option for notifications
         self.service = service
@@ -301,7 +302,7 @@ class NotifySIGNL4(NotifyBase):
         # Extend our parameters
         params.update(self.url_parameters(privacy=privacy, *args, **kwargs))
 
-        url = "{schema}://{secret}"
+        url = "{schema}://{secret}/?{params}"
 
         return url.format(
             schema=self.secure_protocol,
@@ -349,10 +350,8 @@ class NotifySIGNL4(NotifyBase):
 
         if "filtering" in results["qsd"] and len(results["qsd"]["filtering"]):
             results["filtering"] = parse_bool(
-                NotifySIGNL4.unquote(
-                    results["qsd"]["filtering"],
-                    NotifySIGNL4.template_args["filtering"]["default"],
-                )
+                NotifySIGNL4.unquote(results["qsd"]["filtering"]),
+                NotifySIGNL4.template_args["filtering"]["default"],
             )
 
         if "external_id" in results["qsd"] and len(

@@ -1341,6 +1341,70 @@ class TestSyncBrowserSolveIntegration:
         assert resp.challenge_type == "cloudflare"
         assert len(mock_solver.solve_calls) == 1
 
+    @staticmethod
+    def _redirect_chain_solver():
+        def clearance(domain):
+            return SolveResult(
+                cookies=[
+                    {
+                        "name": "cf_clearance",
+                        "value": "ok",
+                        "domain": domain,
+                        "path": "/",
+                        "expires": -1,
+                    }
+                ],
+                user_agent="Chrome/153",
+            )
+
+        return MockBrowserSolver(
+            results=[clearance(".fcc.report"), clearance(".fccid.io")]
+        )
+
+    _CF = MockResponse(
+        403, {"cf-mitigated": "challenge"}, "<html>Just a moment...</html>"
+    )
+    _CHAIN = [
+        _CF,
+        MockResponse(301, {"location": "https://fccid.io/2AC7Z"}, ""),
+        _CF,
+        MockResponse(200, {}, "<html>filing</html>"),
+    ]
+
+    @patch("time.sleep")
+    def test_each_host_in_a_redirect_chain_gets_its_own_solve(self, mock_sleep):
+        """A redirect onto another host behind the same WAF is a new challenge,
+        not a repeat of the one already solved on the first host."""
+        solver = self._redirect_chain_solver()
+        session, _ = make_sync_session(
+            list(self._CHAIN), max_rotations=0, browser_solver=solver,
+            use_cookie_jar=True,
+        )
+        resp = session.get("https://fcc.report/FCC-ID/2AC7Z")
+        assert resp.text == "<html>filing</html>"
+        assert resp.url == "https://fccid.io/2AC7Z"
+        assert solver.solve_calls == [
+            ("https://fcc.report/FCC-ID/2AC7Z", "cloudflare"),
+            ("https://fccid.io/2AC7Z", "cloudflare"),
+        ]
+
+    @pytest.mark.asyncio
+    @patch("wafer._async.asyncio.sleep")
+    async def test_each_host_in_a_redirect_chain_gets_its_own_solve_async(
+        self, mock_sleep
+    ):
+        solver = self._redirect_chain_solver()
+        session, _ = make_async_session(
+            list(self._CHAIN), max_rotations=0, browser_solver=solver,
+            use_cookie_jar=True,
+        )
+        resp = await session.get("https://fcc.report/FCC-ID/2AC7Z")
+        assert resp.text == "<html>filing</html>"
+        assert [url for url, _ in solver.solve_calls] == [
+            "https://fcc.report/FCC-ID/2AC7Z",
+            "https://fccid.io/2AC7Z",
+        ]
+
     @patch("time.sleep")
     def test_browser_solve_only_attempted_once(self, mock_sleep):
         """Browser solve should only be attempted once per request."""
@@ -6464,6 +6528,97 @@ class TestBrowserSolverFailClosed:
 
         assert _is_passthrough_challenge_html(html)
 
+
+
+class TestPostSolvePassthroughLanding:
+    """After a solve, the page the browser ended on is only passed through
+    when it is on the requested origin and the server answered it with 2xx.
+    Anything else leaves the cookies for the replay, which surfaces the
+    redirect or the real status through the normal transport."""
+
+    _CLEARANCE = [{"name": "cf_clearance", "value": "x", "domain": ".fcc.report"}]
+    _HTML = "<html><body>" + "filing content " * 200 + "</body></html>"
+
+    def _solve(self, requested, page_url, documents=()):
+        solver, context, page, response = (
+            TestBrowserSolverFailClosed._cloudflare_navigation(
+                response_url=requested,
+                page_url=page_url,
+                cookies=self._CLEARANCE,
+            )
+        )
+        page.content.return_value = self._HTML
+
+        def goto(*_args, **_kwargs):
+            # Fire the page's response listeners as the server would.
+            for name, handler in [c.args for c in page.on.call_args_list]:
+                if name != "response":
+                    continue
+                for doc_url, status in documents:
+                    doc = MagicMock()
+                    doc.url = doc_url
+                    doc.status = status
+                    doc.request.resource_type = "document"
+                    doc.request.frame = page.main_frame
+                    handler(doc)
+            return response
+
+        page.goto.side_effect = goto
+        try:
+            with (
+                patch.object(solver, "_create_context", return_value=context),
+                patch.object(solver, "_setup_headless_patches"),
+                patch.object(solver, "_dispatch_challenge", return_value=True),
+            ):
+                return solver._solve_on_worker(requested, "cloudflare", timeout=5)
+        finally:
+            solver.close()
+
+    def test_same_origin_landing_is_passed_through(self):
+        url = "https://fcc.report/FCC-ID/2AC7Z-ESPWROOM32"
+        result = self._solve(url, url, documents=[(url, 200)])
+        assert result.response is not None
+        assert result.response.status == 200
+        assert result.response.url == url
+
+    def test_cross_origin_landing_is_replayed_not_passed_through(self):
+        result = self._solve(
+            "https://fcc.report/FCC-ID/2AC7Z-ESPWROOM32",
+            "https://fccid.io/2AC7Z-ESPWROOM32",
+            documents=[("https://fccid.io/2AC7Z-ESPWROOM32", 200)],
+        )
+        assert result is not None
+        assert result.response is None
+        assert result.cookies
+
+    def test_non_2xx_landing_is_replayed(self):
+        url = "https://fcc.report/FCC-ID/missing"
+        result = self._solve(url, url, documents=[(url, 404)])
+        assert result is not None
+        assert result.response is None
+
+    def test_landing_on_a_cookie_gate_is_not_content(self):
+        from wafer.browser._solver import _is_passthrough_challenge_html
+
+        gate = (
+            Path(__file__).parent / "fixtures" / "fccid_continue_gate.html"
+        ).read_text()
+        assert _is_passthrough_challenge_html(gate)
+        url = "https://fccid.io/2AC7Z-ESPWROOM32"
+        self._HTML, saved = gate, self._HTML
+        try:
+            result = self._solve(url, url, documents=[(url, 200)])
+        finally:
+            self._HTML = saved
+        assert result.response is None
+        assert result.cookies
+
+    def test_landing_status_is_the_servers(self):
+        url = "https://fcc.report/FCC-ID/2AC7Z-ESPWROOM32"
+        result = self._solve(
+            url, url, documents=[(url + "?__cf_chl_tk=abc", 403), (url, 203)]
+        )
+        assert result.response.status == 203
 
 class TestSolvePerimeterx:
     def _make_solver_with_recordings(self):

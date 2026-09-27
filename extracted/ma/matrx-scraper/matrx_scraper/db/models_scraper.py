@@ -69,7 +69,7 @@ class ScrapeParsedPage(MatrxEntity):
     user_id = ForeignKey(to_model='Users', to_column='id', to_schema='auth', )
     created_at = DateTimeField(null=False)
     updated_at = DateTimeField(null=False)
-    is_public = BooleanField(default=False)
+    is_public = BooleanField()
     expires_at = DateTimeField()
     url = TextField()
     domain = TextField()

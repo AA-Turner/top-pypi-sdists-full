@@ -89,6 +89,7 @@ class UnifiedConfigModel(BaseModel):
     authored_custom_tools: list | None = None
     reasoning_effort: Optional[Literal['auto', 'none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max']] = None
     reasoning_summary: Optional[Literal['concise', 'detailed', 'never', 'auto', 'always']] = None
+    visualization: Optional[Literal['auto', 'off']] = None
     thinking_level: Optional[Literal['minimal', 'low', 'medium', 'high']] = None
     include_thoughts: bool | None = None
     thinking_budget: int | None = None
@@ -117,6 +118,10 @@ class UnifiedConfigModel(BaseModel):
     reference_strength: float | None = None  # never populated in 6,485 stored configs
     tts_voice: str | list[dict[str, str]] | None = None
     audio_format: str | None = None
+    performance_direction: str | None = None
+    speech_speed: float | None = None
+    turn_pause_ms: int | None = None
+    language_code: str | None = None
     duration_seconds: int | None = None  # never populated in 6,485 stored configs
     resolution: str | None = None
     fps: int | None = None  # never populated in 6,485 stored configs
@@ -132,6 +137,7 @@ class UnifiedConfigModel(BaseModel):
     disable_safety_checker: bool | None = None  # never populated in 6,485 stored configs
     generate_audio: bool | None = None  # never populated in 6,485 stored configs
     enhance_prompt: bool | None = None  # never populated in 6,485 stored configs
+    camera_control: dict | None = None
     image_input: Any | None = None  # never populated in 6,485 stored configs
     image_inputs: list[Any] | None = None  # never populated in 6,485 stored configs
     mask: Any | None = None  # never populated in 6,485 stored configs

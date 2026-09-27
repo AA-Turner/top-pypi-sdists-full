@@ -1,21 +1,26 @@
+import hashlib
 import logging
+import math
 import os
+import re
 from html import unescape
 from pathlib import Path
 from typing import Any
 from urllib.parse import quote, urlparse
 
-from abx_plugins.plugins.archivewebpage.replay_preview import is_replay_target as is_archivewebpage_replay_target
 from django import template
-from django.urls import reverse
 from django.utils import timezone
-from django.utils.html import escape
+from django.utils.html import escape, format_html
 from django.utils.safestring import mark_safe
 from django.utils.text import Truncator
 
 from archivebox.config import CONSTANTS
 from archivebox.core.routes_util import (
+    build_snapshot_detail_url,
+    build_snapshot_files_url,
+    build_snapshot_role_output_url,
     build_snapshot_url,
+    build_snapshot_zip_url,
     get_admin_base_url,
     get_snapshot_base_url,
     get_web_base_url,
@@ -26,9 +31,46 @@ from archivebox.plugins.discovery import (
     get_plugin_icon,
     get_plugin_name,
     get_plugin_template,
+    plugin_card_is_interactive,
 )
 
 register = template.Library()
+register.filter("plugin_card_is_interactive", plugin_card_is_interactive)
+
+# Preview cards are clipped windows onto their content, never scroll areas.
+# Apply inside the document too: parent overflow cannot constrain an iframe.
+CARD_OVERFLOW_STYLE = (
+    "<style>html,body{height:100%!important;min-height:0!important}"
+    "html,body,body *{overflow:clip!important;scrollbar-width:none!important}</style>"
+)
+
+
+@register.filter
+def snapshot_url_text(url):
+    """Emphasize the hostname while preserving the exact selectable URL."""
+    url = str(url or "")
+    match = re.match(r"^(?:[a-zA-Z][a-zA-Z0-9+.-]*:)?//([^/?#]*)", url)
+    if not match:
+        return escape(url)
+    netloc = match[1]
+    authority = netloc.rsplit("@", 1)[-1]
+    start = match.start(1) + len(netloc) - len(authority)
+    host_end = authority.find("]") + 1 if authority.startswith("[") else authority.find(":")
+    hostname = authority[:host_end] if host_end > 0 else authority
+    if hostname.lower().startswith("www."):
+        start += 4
+        hostname = hostname[4:]
+    remainder = url[start + len(hostname) :]
+    suffix = re.search(r"[?&#]", remainder)
+    suffix_start = suffix.start() if suffix else len(remainder)
+    return format_html(
+        '<span class="snapshot-url-prefix">{}</span><span class="snapshot-url-domain">{}</span>'
+        '<span class="snapshot-url-path">{}</span><span class="snapshot-url-suffix">{}</span>',
+        url[:start],
+        hostname,
+        remainder[:suffix_start],
+        remainder[suffix_start:],
+    )
 
 
 @register.simple_tag(takes_context=True)
@@ -191,7 +233,13 @@ def _list_media_files(result, *, include_filesystem_fallback=True) -> list[dict]
                 candidates.append((rel_path, size))
 
     for rel_path, size in candidates:
-        href = str(Path(result.plugin) / rel_path)
+        if callable(getattr(result, "output_file_path", None)):
+            href = result.output_file_path(str(rel_path), output_file_map=output_files)
+        else:
+            metadata = output_files.get(str(rel_path)) or {}
+            href = str(rel_path) if metadata.get("root_relative") else str(Path(result.plugin) / rel_path)
+        if not href:
+            continue
         suffix = rel_path.suffix.lower()
         media_type = "video" if suffix in _VIDEO_FILE_EXTS else "audio"
         media_files.append(
@@ -270,12 +318,14 @@ def _snapshot_base_url_for_context(context, snapshot) -> str:
 
 def _snapshot_url_for_context(context, snapshot, path: str = "") -> str:
     if not context.get("STATIC_EXPORT"):
-        return build_snapshot_url(
+        path_part, separator, query = str(path or "").partition("?")
+        url = build_snapshot_url(
             str(_snapshot_id(snapshot)),
-            path,
+            path_part,
             request=context.get("request"),
             config=context.get("CONFIG"),
         )
+        return f"{url}?{query}" if separator else url
 
     base_url = _static_snapshot_base_url(context, snapshot)
     raw_path = str(path or "")
@@ -285,14 +335,6 @@ def _snapshot_url_for_context(context, snapshot, path: str = "") -> str:
     quoted_path = quote(path_part, safe=_STATIC_URL_SAFE)
     suffix = f"?{query}" if separator else ""
     return f"{base_url.rstrip('/')}/{quoted_path}{suffix}"
-
-
-def _build_snapshot_files_url(snapshot_id: str, request=None, config=None, base_url: str | None = None) -> str:
-    return (
-        f"{base_url.rstrip('/')}/index.jsonl"
-        if base_url
-        else build_snapshot_url(str(snapshot_id), "/?files=1", request=request, config=config)
-    )
 
 
 def _build_snapshot_preview_url(
@@ -306,20 +348,25 @@ def _build_snapshot_preview_url(
     if path == "about:blank":
         return path
     if _is_root_snapshot_output_path(path):
-        return _build_snapshot_files_url(snapshot_id, request=request, config=config, base_url=base_url)
+        return (
+            f"{base_url.rstrip('/')}/index.jsonl"
+            if base_url
+            else build_snapshot_files_url(str(snapshot_id), request=request, config=config)
+        )
     if base_url:
         path_part, separator, query = str(path).lstrip("/").partition("?")
         url = f"{base_url.rstrip('/')}/{quote(path_part, safe=_STATIC_URL_SAFE)}"
         if separator:
             url = f"{url}?{query}"
     else:
-        url = build_snapshot_url(str(snapshot_id), path, request=request, config=config)
+        path_part, separator, query = str(path).partition("?")
+        url = build_snapshot_url(str(snapshot_id), path_part, request=request, config=config)
+        if separator:
+            url = f"{url}?{query}"
     path_parts = Path(path).parts
     plugin = get_plugin_name(plugin) if plugin else (path_parts[0] if len(path_parts) > 1 else "")
     has_plugin_preview = bool(plugin and get_plugin_template(plugin, "full", fallback=False))
-    if not (
-        _is_text_preview_path(path) or _is_image_preview_path(path) or has_plugin_preview or is_archivewebpage_replay_target(path or "")
-    ):
+    if not (_is_text_preview_path(path) or _is_image_preview_path(path) or has_plugin_preview):
         return url
     separator = "&" if "?" in url else "?"
     return f"{url}{separator}preview=1"
@@ -388,9 +435,26 @@ def index(value, position):
 def file_size(num_bytes: float, decimal_places: int = 1) -> str:
     for count in ["Bytes", "KB", "MB", "GB"]:
         if num_bytes > -1024.0 and num_bytes < 1024.0:
+            if num_bytes >= 0:
+                precision = 10 ** max(0, int(decimal_places))
+                num_bytes = math.ceil(num_bytes * precision) / precision
             return f"{num_bytes:.{decimal_places}f} {count}"
         num_bytes /= 1024.0
+    if num_bytes >= 0:
+        precision = 10 ** max(0, int(decimal_places))
+        num_bytes = math.ceil(num_bytes * precision) / precision
     return f"{num_bytes:.{decimal_places}f} TB"
+
+
+@register.filter
+def grid_file_size(num_bytes: float | None) -> str:
+    if not num_bytes or num_bytes <= 0:
+        return ""
+    if num_bytes < 1024**2:
+        return f"{max(1, num_bytes / 1024):.0f}kb"
+    if num_bytes < 1024**3:
+        return f"{num_bytes / 1024**2:.0f}mb"
+    return f"{num_bytes / 1024**3:.1f}gb"
 
 
 @register.filter
@@ -558,86 +622,139 @@ def snapshot_base_url(context, snapshot) -> str:
 
 
 @register.simple_tag(takes_context=True)
+def snapshot_detail_url(context, snapshot) -> str:
+    """Keep the trusted snapshot detail page on web.*, not the replay host."""
+    if context.get("STATIC_EXPORT"):
+        return _snapshot_url_for_context(context, snapshot, "index.html")
+    return build_snapshot_detail_url(
+        snapshot.archive_path_from_db,
+        request=context.get("request"),
+        config=context.get("CONFIG"),
+    )
+
+
+@register.simple_tag(takes_context=True)
 def snapshot_url(context, snapshot, path: str = "") -> str:
     return _snapshot_url_for_context(context, snapshot, path)
 
 
 @register.simple_tag(takes_context=True)
-def snapshot_archiveresult_url(context, snapshot, plugin: str, filename: str) -> str:
-    snapshot_id = str(_snapshot_id(snapshot))
-    url_cache = snapshot.__dict__.setdefault("_snapshot_archiveresult_url_cache", {})
+def snapshot_files_url(context, snapshot, path: str = "") -> str:
+    if context.get("STATIC_EXPORT"):
+        return _snapshot_url_for_context(context, snapshot, "index.jsonl")
+    return build_snapshot_files_url(
+        str(_snapshot_id(snapshot)),
+        path,
+        request=context.get("request"),
+        config=context.get("CONFIG"),
+    )
+
+
+@register.simple_tag(takes_context=True)
+def snapshot_zip_url(context, snapshot, path: str = "") -> str:
+    if context.get("STATIC_EXPORT"):
+        return ""
+    return build_snapshot_zip_url(
+        str(_snapshot_id(snapshot)),
+        path,
+        request=context.get("request"),
+        config=context.get("CONFIG"),
+    )
+
+
+@register.simple_tag(takes_context=True)
+def snapshot_role_output_url(context, snapshot, role: str, fallback_to_default: bool = False) -> str:
+    url_cache = snapshot.__dict__.setdefault("_snapshot_role_output_url_cache", {})
     cache_key = (
-        plugin,
-        filename,
+        role,
         bool(context.get("STATIC_EXPORT")),
         str(context.get("STATIC_EXPORT_DIR") or ""),
+        fallback_to_default,
     )
     if cache_key in url_cache:
         return url_cache[cache_key]
 
-    results = None
-    if "_admin_archiveresults" in snapshot.__dict__:
-        results = snapshot.__dict__["_admin_archiveresults"]
-    elif "archiveresult_set" in snapshot.__dict__.get("_prefetched_objects_cache", {}):
-        results = snapshot.archiveresult_set.all()
-    elif "_snapshot_archiveresult_url_results" in snapshot.__dict__:
-        results = snapshot.__dict__["_snapshot_archiveresult_url_results"]
+    from archivebox.plugins.discovery import get_snapshot_role_names
 
-    if results is None:
-        from archivebox.core.models import ArchiveResult
-
-        results = list(
-            ArchiveResult.objects.filter(
-                snapshot_id=snapshot_id,
-                plugin__in=("screenshot", "chrome_extension_screenshot", "favicon"),
-                status=ArchiveResult.StatusChoices.SUCCEEDED,
-            ).only(
-                "plugin",
-                "status",
-                "output_files",
-            ),
+    if context.get("STATIC_EXPORT"):
+        output_path = None
+        for plugin in get_snapshot_role_names(role):
+            output_path = snapshot.plugin_output_path(plugin)
+            if output_path:
+                break
+        url_cache[cache_key] = _snapshot_url_for_context(context, snapshot, output_path) if output_path else ""
+    else:
+        url_cache[cache_key] = build_snapshot_role_output_url(
+            snapshot,
+            role,
+            request=context.get("request"),
+            config=context.get("CONFIG"),
+            fallback_to_default=fallback_to_default,
         )
-        snapshot.__dict__["_snapshot_archiveresult_url_results"] = results
-
-    for result in results:
-        if result.plugin != plugin or result.status != "succeeded":
-            continue
-        output_files = result.output_files or {}
-        file_info = output_files.get(filename)
-        if not isinstance(file_info, dict) or int(file_info.get("size") or 0) <= 0:
-            continue
-        output_path = filename if file_info.get("root_relative") else f"{plugin}/{filename}"
-        url_cache[cache_key] = _snapshot_url_for_context(context, snapshot, output_path)
-        return url_cache[cache_key]
-
-    url_cache[cache_key] = ""
-    return ""
+    return url_cache[cache_key]
 
 
 @register.simple_tag(takes_context=True)
-def admin_snapshot_archiveresult_url(context, snapshot, plugin: str, filename: str) -> str:
-    if not snapshot_archiveresult_url(context, snapshot, plugin, filename):
+def snapshot_result_file_url(context, snapshot, result, path: str) -> str:
+    """Build a saved-file URL from one ArchiveResult declaration."""
+    try:
+        output_path = result.output_file_path(path)
+    except (AttributeError, TypeError, ValueError, OverflowError):
         return ""
-    return reverse("admin:core_snapshot_preview", args=(snapshot.pk, plugin, filename))
+    if not output_path:
+        return ""
+    return _snapshot_url_for_context(context, snapshot, output_path)
 
 
 @register.simple_tag(takes_context=True)
 def snapshot_thumbnail(context, snapshot, admin=False, width="100px", height="100px"):
-    from archivebox.core.preview_util import render_snapshot_preview
+    from django.template.loader import render_to_string
 
-    if admin:
-        url_for_candidate = lambda candidate: reverse(
-            "admin:core_snapshot_preview",
-            args=(snapshot.pk, candidate["plugin"], candidate["filename"]),
+    from archivebox.plugins.output_groups import snapshot_thumbnail_result
+
+    results = snapshot.__dict__.get("_snapshot_card_results")
+    if results is None:
+        results = snapshot.__dict__.get("_admin_output_results")
+    if results is None:
+        results = snapshot.__dict__.get("_admin_archiveresults")
+    if results is None:
+        results = snapshot.__dict__.get("_prefetched_objects_cache", {}).get("archiveresult_set")
+    if results is None:
+        results = snapshot.archiveresult_set.exclude(plugin="").only(
+            "id",
+            "snapshot_id",
+            "plugin",
+            "status",
+            "output_str",
+            "output_files",
+            "output_size",
         )
-    else:
-        url_for_candidate = lambda candidate: _snapshot_url_for_context(context, snapshot, candidate["path"])
-    return render_snapshot_preview(snapshot, url_for_candidate, width=width, height=height)
+
+    try:
+        host = urlparse(snapshot.url).hostname or "Archive"
+    except ValueError:
+        host = "Archive"
+    host = host.removeprefix("www.")
+    hue = int(hashlib.sha256(host.encode()).hexdigest()[:6], 16) % 360
+    return mark_safe(
+        render_to_string(
+            "core/snapshot_thumbnail.html",
+            {
+                **context.flatten(),
+                "card_result": snapshot_thumbnail_result(results),
+                "host": host,
+                "initial": host[:1].upper(),
+                "hue": hue,
+                "width": width,
+                "height": height,
+            },
+        ),
+    )
 
 
 @register.simple_tag(takes_context=True)
 def snapshot_index_row(context, link) -> str:
-    snapshot_base = _snapshot_base_url_for_context(context, link)
+    detail_url = snapshot_detail_url(context, link)
 
     status = getattr(link, "status", None) or "unknown"
     bookmarked_at = getattr(link, "bookmarked_at", None)
@@ -673,14 +790,14 @@ def snapshot_index_row(context, link) -> str:
     archive_size = int(getattr(link, "archive_size", 0) or 0)
     size_cell = file_size(archive_size) if archive_size else '<span class="empty-value">...</span>'
     output_plural = "" if num_outputs == 1 else "s"
-    files_url = _snapshot_url_for_context(context, link, "index.jsonl") if context.get("STATIC_EXPORT") else f"{snapshot_base}/?files=1"
+    files_url = snapshot_files_url(context, link)
 
     preview_html = snapshot_thumbnail(context, link)
 
-    if "_public_favicon_paths" in link.__dict__:
-        favicon_paths = list(getattr(link, "_public_favicon_paths", []) or [])
-        if favicon_paths:
-            favicon_urls = [_snapshot_url_for_context(context, link, path) for path in favicon_paths]
+    if "_public_list_icon_paths" in link.__dict__:
+        list_icon_paths = list(getattr(link, "_public_list_icon_paths", []) or [])
+        if list_icon_paths:
+            favicon_urls = [_snapshot_url_for_context(context, link, path) for path in list_icon_paths]
             favicon_html = (
                 f'<img src="{escape(favicon_urls[0])}" '
                 f'data-fallbacks="{escape(",".join(favicon_urls[1:]))}" '
@@ -690,7 +807,7 @@ def snapshot_index_row(context, link) -> str:
         else:
             favicon_html = '<span class="link-favicon link-favicon-empty" aria-hidden="true"></span>'
     else:
-        favicon_url = snapshot_archiveresult_url(context, link, "favicon", "favicon.ico")
+        favicon_url = snapshot_role_output_url(context, link, "list_icon")
         favicon_html = (
             (
                 f'<img src="{escape(favicon_url)}" '
@@ -705,27 +822,24 @@ def snapshot_index_row(context, link) -> str:
     html = f"""
 <tr class="snapshot-row status-{escape(status)}">
     <td class="snapshot-time" title="{escape(title_time)}" data-sort="{escape(sort_value)}">
-        <a href="{escape(snapshot_base)}/index.html">
+        <a href="{escape(detail_url)}">
             <span>{escape(date_text)}</span>
             <small>{escape(time_text)}</small>
         </a>
     </td>
     <td class="snapshot-preview-cell">
-        <a href="{escape(snapshot_base)}/index.html" title="Open archived snapshot">
+        <a href="{escape(detail_url)}" title="Open archived snapshot">
             {preview_html}
         </a>
     </td>
     <td class="snapshot-title-cell" title="{escape(title or url)}">
         <div class="snapshot-title-line">
-            <a href="{escape(snapshot_base)}/index.html" class="snapshot-favicon-link" title="Open archived snapshot">
-                {favicon_html}
-            </a>
-            <a href="{escape(snapshot_base)}/index.html" class="snapshot-title">
-                {escape(Truncator(title_text).chars(110))}
+            <a href="{escape(detail_url)}" class="snapshot-title">
+                {escape(Truncator(title_text).chars(110) if title_text != url else url)}
             </a>
         </div>
         <a href="{escape(url)}" class="snapshot-url" title="{escape(url)}" target="_blank" rel="noopener noreferrer">
-            {escape(url)}
+            {favicon_html}<span class="snapshot-url-text">{snapshot_url_text(url)}</span>
         </a>
         <span class="snapshot-mobile-saved">Saved {escape(date_text)} at {escape(time_text)}</span>
     </td>
@@ -797,6 +911,27 @@ def plugin_card(context, result) -> str:
         return ""
 
     plugin = get_plugin_name(result.plugin)
+    if not context.get("STATIC_EXPORT"):
+        # The cover and expanded stack both embed this one card document. Run
+        # plugin code on the snapshot origin so it can read saved files without
+        # exposing raw archives or the admin session to the collection page.
+        card_url = build_snapshot_url(
+            str(_snapshot_id(result.snapshot)),
+            f"_card/{result.id}",
+            request=context.get("request"),
+            config=context.get("CONFIG"),
+        )
+        return mark_safe(
+            f'<iframe src="{escape(card_url)}" title="{escape(plugin)} card" '
+            'loading="lazy" fetchpriority="low" sandbox="allow-scripts allow-same-origin" '
+            'style="width:100% !important;height:100% !important;transform:none !important;border:0"></iframe>',
+        )
+    return render_plugin_card_document(context, result)
+
+
+def render_plugin_card_document(context, result) -> str:
+    """Render one plugin card template for the trusted snapshot-origin frame."""
+    plugin = get_plugin_name(result.plugin)
     has_card_template = bool(get_plugin_template(plugin, "card", fallback=False))
     template_str = get_plugin_template(plugin, "card")
 
@@ -805,12 +940,7 @@ def plugin_card(context, result) -> str:
     output_url = _snapshot_url_for_context(context, result.snapshot, raw_output_path or "")
 
     icon_html = get_plugin_icon(plugin)
-    plugin_lower = (plugin or "").lower()
-    media_files = (
-        _list_media_files(result, include_filesystem_fallback=bool(context.get("STATIC_EXPORT")))
-        if plugin_lower in ("ytdlp", "yt-dlp", "youtube-dl")
-        else []
-    )
+    media_files = _list_media_files(result, include_filesystem_fallback=bool(context.get("STATIC_EXPORT")))
     media_file_count = len(media_files)
     if context.get("STATIC_EXPORT") and media_files:
         media_files = [
@@ -859,6 +989,18 @@ def plugin_card(context, result) -> str:
             rendered = tpl.render(ctx)
             # Only return non-empty content (strip whitespace to check)
             if rendered.strip():
+                if rendered.lstrip().lower().startswith("<!doctype html"):
+                    rendered = rendered.replace("</head>", CARD_OVERFLOW_STYLE + "</head>", 1)
+                if context.get("STATIC_EXPORT") and rendered.lstrip().lower().startswith("<!doctype html"):
+                    # Static exports have no _card route. Keep the same card
+                    # document in both stack positions, with relative saved-file
+                    # URLs resolved against the exported index page.
+                    return mark_safe(
+                        f'<iframe srcdoc="{escape(rendered)}" title="{escape(plugin)} card" '
+                        'loading="lazy" sandbox="allow-scripts allow-same-origin" '
+                        'style="width:100% !important;height:100% !important;max-width:100% !important;'
+                        'transform:none !important;border:0"></iframe>',
+                    )
                 return mark_safe(rendered)
     except (template.TemplateSyntaxError, AttributeError, TypeError, ValueError):
         rendered = ""
@@ -944,6 +1086,7 @@ def plugin_full(context, result) -> str:
                 "output_path": output_url,
                 "output_path_raw": raw_output_path,
                 "plugin": plugin,
+                "plugin_icon": get_plugin_icon(plugin),
             },
         )
         rendered = tpl.render(ctx)

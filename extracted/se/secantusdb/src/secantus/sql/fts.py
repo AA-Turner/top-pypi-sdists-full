@@ -11,11 +11,15 @@ Prefix (``cat:*``) and phrase (``foo <-> bar`` / ``foo <N> bar``) queries are
 supported (positions are tracked in the tsvector), as are ``phraseto_tsquery``
 and ``ts_headline``.
 
-Simplifications vs real Postgres: the text-search configuration is fixed
-(English stop-words, **no stemming** — ``cats`` and ``cat`` stay distinct), and
-``ts_rank`` is a simple normalised match count rather than the cover-density
-algorithm. Lexeme weights (``:A`` / ``setweight`` / weighted ``ts_rank``) are out
-of scope (the tsvector stores no per-lexeme weight).
+Stemming IS applied: ``english`` (and the default) run the Porter2 algorithm
+from ``secantus.sql.snowball``, so ``cats`` matches ``cat``, on the query side
+as well as the document side. ``simple`` neither stems nor drops stop-words.
+
+Simplifications vs real Postgres: the text-search configuration is otherwise
+fixed (one English stop-word list; no other language), and ``ts_rank`` is a
+simple normalised match count rather than the cover-density algorithm. Lexeme
+weights (``:A`` / ``setweight`` / weighted ``ts_rank``) are out of scope (the
+tsvector stores no per-lexeme weight).
 """
 
 from __future__ import annotations
@@ -23,6 +27,8 @@ from __future__ import annotations
 import math
 import re
 from typing import Any
+
+from . import snowball as _snowball
 
 # A small English stop-word set (a subset of Postgres' ``english`` list — enough
 # for the common cases without shipping the full 100+ word table).
@@ -47,18 +53,42 @@ class TSQueryError(ValueError):
 _MAX_LEXEME_LEN = 2046
 
 
-def _lexemes(text: str) -> list[str]:
-    """Tokenise text into normalised lexemes (lower-case words, stop-words kept so
-    the caller can decide — positions count every token in Postgres)."""
-    return [t.lower() for t in _TOKEN_RE.findall(text or "")]
+def _is_simple(config: str | None) -> bool:
+    """Whether `config` is the ``simple`` text-search configuration, which
+    neither drops stop-words nor stems. Anything else (``english``, and the
+    default) does both."""
+    return (config or "").strip().lower() == "simple"
 
 
-def to_tsvector(text: str) -> dict[str, Any]:
-    """Build a ``tsvector`` subdocument from text: lower-cased non-stop-word tokens
-    mapped to their 1-based positions."""
+def _normalise(word: str, config: str | None) -> str:
+    """One token as the configuration's dictionary would store it: stemmed
+    under ``english``, left alone under ``simple``. PostgreSQL stems the QUERY
+    side too, prefixes included (``running:*`` becomes ``'run':*``), which is
+    what makes a query match a differently-inflected document."""
+    return word if _is_simple(config) else _snowball.stem(word)
+
+
+def _lexemes(text: str, config: str | None = None) -> list[str]:
+    """Tokenise text into normalised lexemes (lower-case, stemmed unless the
+    configuration is ``simple``; stop-words kept so the caller can decide —
+    positions count every token in Postgres)."""
+    return [_normalise(t.lower(), config) for t in _TOKEN_RE.findall(text or "")]
+
+
+def to_tsvector(text: str, config: str | None = None) -> dict[str, Any]:
+    """Build a ``tsvector`` subdocument from text: lower-cased tokens mapped to
+    their 1-based positions.
+
+    ``config`` is the text-search configuration. Only the stop-word half of it
+    is modelled: ``simple`` keeps every token, anything else (``english`` and
+    the default) drops stop-words. That distinction is not cosmetic —
+    ``to_tsvector('simple', 'The quick brown fox')`` must keep ``'the':1``, and
+    dropping it silently loses a token the caller explicitly asked to index.
+    Stemming is still absent under every config; see the module docstring."""
+    keep_stopwords = _is_simple(config)
     positions: dict[str, list[int]] = {}
-    for pos, lex in enumerate(_lexemes(text), start=1):
-        if lex in _STOPWORDS or len(lex) > _MAX_LEXEME_LEN:
+    for pos, lex in enumerate(_lexemes(text, config), start=1):
+        if len(lex) > _MAX_LEXEME_LEN or (not keep_stopwords and lex in _STOPWORDS):
             continue
         positions.setdefault(lex, []).append(pos)
     return {"tsvector": positions}
@@ -112,20 +142,20 @@ def parse_tsvector(text: str) -> dict[str, Any]:
 # --------------------------------------------------------------------------- #
 
 
-def plainto_tsquery(text: str) -> dict[str, Any]:
+def plainto_tsquery(text: str, config: str | None = None) -> dict[str, Any]:
     """``plainto_tsquery`` — AND together every non-stop-word lexeme in the text."""
-    terms = [{"lexeme": lex} for lex in _lexemes(text) if lex not in _STOPWORDS]
+    terms = [{"lexeme": lex} for lex in _lexemes(text, config) if lex not in _STOPWORDS]
     if not terms:
         return {"tsquery": None}
     node = terms[0] if len(terms) == 1 else {"and": terms}
     return {"tsquery": node}
 
 
-def phraseto_tsquery(text: str) -> dict[str, Any]:
+def phraseto_tsquery(text: str, config: str | None = None) -> dict[str, Any]:
     """``phraseto_tsquery`` — chain the text's non-stop-word lexemes with the phrase
     operator ``<->`` (adjacency), so word order matters. A dropped stop-word widens
     the distance between its neighbours (``<2>``), matching Postgres."""
-    tokens = _lexemes(text)
+    tokens = _lexemes(text, config)
     terms: list[tuple[str, int]] = []  # (lexeme, gap-since-previous-kept-term)
     gap = 1
     for lex in tokens:
@@ -142,11 +172,68 @@ def phraseto_tsquery(text: str) -> dict[str, Any]:
     return {"tsquery": node}
 
 
-def to_tsquery(text: str) -> dict[str, Any]:
-    """``to_tsquery`` — parse a boolean query over ``& | !`` and parentheses."""
-    parser = _TSQueryParser(text)
-    node = parser.parse()
+def to_tsquery(text: str, config: str | None = None) -> dict[str, Any]:
+    """``to_tsquery`` — parse a boolean query over ``& | !`` and parentheses.
+
+    Stop-words are dropped, as they are on the document side:
+    ``to_tsquery('english','the')`` is the EMPTY query, not ``'the'``. Leaving
+    them in makes a query that can never match, since no document indexes
+    them."""
+    parser = _TSQueryParser(text, config)
+    node = _prune_stopwords(parser.parse(), config)
     return {"tsquery": node}
+
+
+def _prune_stopwords(node: Any, config: str | None) -> Any:
+    """`node` with stop-word lexemes removed. None when nothing survives."""
+    if _is_simple(config):
+        return node
+    pruned, _owed = _prune(node, config)
+    return pruned
+
+
+def _prune(node: Any, config: str | None) -> tuple[Any, int]:
+    """``(node_without_stop_words, distance_owed)``.
+
+    The second element is what makes a phrase come out right. Dropping a term
+    from the MIDDLE of a phrase must WIDEN the gap between its neighbours, not
+    close it: PostgreSQL renders ``quick <-> the <-> brown`` as
+    ``'quick' <2> 'brown'``, because `brown` is still two tokens after `quick`
+    in any document that matches. Simply deleting the node would give ``<->``
+    and silently match a different set of documents. A term dropped from the
+    START of a phrase owes nothing — there is no earlier term for the gap to
+    apply to — which is why `the <-> quick` is just ``'quick'``."""
+    if not isinstance(node, dict):
+        return node, 0
+    if "lexeme" in node:
+        return (None, 0) if node["lexeme"] in _STOPWORDS else (node, 0)
+    if "prefix" in node:
+        return node, 0
+    if "not" in node:
+        inner, _ = _prune(node["not"], config)
+        return (None if inner is None else {"not": inner}), 0
+    for key in ("and", "or"):
+        if key in node:
+            kids = [k for k, _ in (_prune(c, config) for c in node[key]) if k is not None]
+            if not kids:
+                return None, 0
+            return (kids[0] if len(kids) == 1 else {key: kids}), 0
+    if "phrase" in node:
+        ph = node["phrase"]
+        distance = int(ph.get("distance", 1))
+        left, owed_left = _prune(ph.get("left"), config)
+        right, owed_right = _prune(ph.get("right"), config)
+        if left is None and right is None:
+            return None, 0
+        if left is None:
+            return right, owed_right
+        if right is None:
+            # The gap this term occupied is owed to whatever follows.
+            return left, owed_left + distance + owed_right
+        return {
+            "phrase": {**ph, "left": left, "right": right, "distance": distance + owed_left}
+        }, owed_right
+    return node, 0
 
 
 # The web-search grammar: bare words AND together, ``"quoted phrases"`` become
@@ -155,7 +242,7 @@ def to_tsquery(text: str) -> dict[str, Any]:
 _WEBSEARCH_TOKEN_RE = re.compile(r'\s*(-?"[^"]*"|-?[^\s"]+)')
 
 
-def websearch_to_tsquery(text: str) -> dict[str, Any]:
+def websearch_to_tsquery(text: str, config: str | None = None) -> dict[str, Any]:
     """``websearch_to_tsquery`` — parse a web-search-style query."""
     items: list[Any] = []  # a mix of query-nodes and the sentinel "or"
     for m in _WEBSEARCH_TOKEN_RE.finditer(text):
@@ -171,7 +258,7 @@ def websearch_to_tsquery(text: str) -> dict[str, Any]:
             items.append("or")
             continue
         else:
-            lexemes = [lex for lex in _lexemes(tok) if lex not in _STOPWORDS]
+            lexemes = [lex for lex in _lexemes(tok, config) if lex not in _STOPWORDS]
             node = (
                 {"and": [{"lexeme": x} for x in lexemes]}
                 if len(lexemes) > 1
@@ -208,9 +295,10 @@ class _TSQueryParser:
     ('&' phrase)*``; ``phrase := factor (('<->' | '<N>') factor)*``; a factor is
     ``!factor`` / ``(or)`` / a lexeme (optionally ``lex:*`` for a prefix match)."""
 
-    def __init__(self, text: str) -> None:
+    def __init__(self, text: str, config: str | None = None) -> None:
         self._tokens = self._tokenize(text)
         self._i = 0
+        self.config = config
 
     def _tokenize(self, text: str) -> list[str]:
         out: list[str] = []
@@ -278,8 +366,10 @@ class _TSQueryParser:
         if tok in ("&", "|", ")") or _PHRASE_OP_RE.match(tok):
             raise TSQueryError(f"unexpected token {tok!r} in tsquery")
         if tok.endswith(":*"):
-            return {"prefix": tok[:-2].lower()}
-        return {"lexeme": tok.lower()}
+            # A prefix is stemmed too — PostgreSQL renders `running:*` as
+            # `'run':*` — so a prefix query keeps matching a stemmed document.
+            return {"prefix": _normalise(tok[:-2].lower(), self.config)}
+        return {"lexeme": _normalise(tok.lower(), self.config)}
 
 
 def render_tsquery(v: Any) -> str:
@@ -442,3 +532,102 @@ def ts_headline(
         else:
             out.append(part)
     return "".join(out)
+
+
+def strip_tsvector(v: Any) -> dict[str, Any]:
+    """``strip(tsvector)`` — drop every position, keeping the lexemes."""
+    return {"tsvector": {lex: [] for lex in tsvector_lexemes(v)}}
+
+
+def tsvector_length(v: Any) -> int:
+    """``length(tsvector)`` — the number of DISTINCT lexemes, not of positions
+    and emphatically not of the rendered string (which is what a generic
+    ``length`` on the internal dict was returning)."""
+    return len(tsvector_lexemes(v))
+
+
+def tsvector_to_array(v: Any) -> list[str]:
+    """``tsvector_to_array`` — the lexemes, sorted, as a text array."""
+    return sorted(tsvector_lexemes(v))
+
+
+def array_to_tsvector(items: Any) -> dict[str, Any]:
+    """``array_to_tsvector`` — a text array as a position-less tsvector."""
+    return {"tsvector": {str(x): [] for x in sorted(str(i) for i in (items or []))}}
+
+
+def tsvector_concat(a: Any, b: Any) -> dict[str, Any]:
+    """``tsvector || tsvector`` — union, with the right operand's positions
+    SHIFTED past the left's highest position, as PostgreSQL does:
+    ``'a':1 'b':2 || 'c':1 'd':2`` is ``'a':1 'b':2 'c':3 'd':4``. Concatenating
+    without the shift would collide the two documents' position spaces and
+    silently corrupt any phrase query over the result."""
+    left, right = tsvector_lexemes(a), tsvector_lexemes(b)
+    offset = max((p for ps in left.values() for p in ps), default=0)
+    out: dict[str, list[int]] = {lex: list(ps) for lex, ps in left.items()}
+    for lex, ps in right.items():
+        out.setdefault(lex, []).extend(p + offset for p in ps)
+    for lex in out:
+        out[lex] = sorted(set(out[lex]))
+    return {"tsvector": out}
+
+
+def tsquery_and(a: Any, b: Any) -> dict[str, Any]:
+    return {"tsquery": {"and": [_node(a), _node(b)]}}
+
+
+def tsquery_or(a: Any, b: Any) -> dict[str, Any]:
+    return {"tsquery": {"or": [_node(a), _node(b)]}}
+
+
+def tsquery_not(a: Any) -> dict[str, Any]:
+    return {"tsquery": {"not": _node(a)}}
+
+
+def _node(q: Any) -> Any:
+    """The bare tree inside a ``{"tsquery": …}`` wrapper."""
+    return q.get("tsquery") if isinstance(q, dict) and "tsquery" in q else q
+
+
+def numnode(q: Any) -> int:
+    """``numnode(tsquery)`` — the node count PostgreSQL reports: every lexeme
+    AND every operator. Measured against 14.13: ``'quick'`` is 1,
+    ``'quick' & 'brown'`` is 3, ``!'quick'`` is 2, and
+    ``'quick' & 'brown' | 'fox'`` is 5."""
+
+    def count(node: Any) -> int:
+        if not isinstance(node, dict):
+            return 0
+        if "lexeme" in node or "phrase" in node:
+            return 1
+        if "not" in node:
+            return 1 + count(node["not"])
+        for key in ("and", "or"):
+            if key in node:
+                return 1 + sum(count(c) for c in node[key])
+        return 0
+
+    return count(_node(q))
+
+
+def querytree(q: Any) -> str:
+    """``querytree(tsquery)`` — the query as text, or ``'T'`` when it contains
+    no positive lexeme to search for. PostgreSQL renders ``!'quick'`` as ``T``
+    because a purely negative query selects nothing on its own."""
+    node = _node(q)
+    if not _has_positive_term(node):
+        return "T"
+    return _render_query_node(node)
+
+
+def _has_positive_term(node: Any) -> bool:
+    if not isinstance(node, dict):
+        return False
+    if "lexeme" in node or "phrase" in node:
+        return True
+    if "not" in node:
+        return False
+    for key in ("and", "or"):
+        if key in node:
+            return any(_has_positive_term(c) for c in node[key])
+    return False

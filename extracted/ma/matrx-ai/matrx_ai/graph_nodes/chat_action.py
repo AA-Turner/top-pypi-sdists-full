@@ -24,6 +24,11 @@ from matrx_graph.types.result import NodeResult
 from matrx_graph.types.usl import field_extras
 from pydantic import BaseModel, ConfigDict, Field, JsonValue
 
+from matrx_ai.graph_nodes.iteration_limit import (
+    AGENT_MAX_ITERATIONS_CEILING,
+    MAX_ITERATIONS_DESCRIPTION,
+    resolve_step_iteration_limit,
+)
 from matrx_ai.graph_nodes.mandates import (
     WORKFLOW_STEP_INTELLIGENCE_MANDATE,
     hold_step,
@@ -72,11 +77,11 @@ class ChatManualInput(BaseModel):
         default=None, ge=0.0, le=1.0, json_schema_extra=field_extras(widget="slider")
     )
     max_tokens: int | None = Field(default=None, ge=1)
-    max_iterations: int = Field(
-        default=100,
+    max_iterations: int | None = Field(
+        default=None,
         ge=1,
-        le=500,
-        description="Hard cap on agent-loop iterations (tool-call rounds).",
+        le=AGENT_MAX_ITERATIONS_CEILING,
+        description=MAX_ITERATIONS_DESCRIPTION,
     )
     max_retries_per_iteration: int = Field(default=2, ge=0, le=10)
     variables: dict[str, JsonValue] = Field(default_factory=dict)
@@ -147,6 +152,8 @@ async def chat_manual(
         metadata=inputs.metadata,
     )
     config = UnifiedConfig.from_dict(held.config)
+    limit = await resolve_step_iteration_limit(ctx, inputs.max_iterations)
+    inputs.max_iterations = limit.value
 
     completed = await execute_ai_request(
         config,
@@ -157,4 +164,4 @@ async def chat_manual(
     )
     # Node Result System: a failed turn becomes a structured Failure
     # (code='ai_turn_failed', billed usage in details) instead of a raise.
-    return await asyncio.to_thread(normalize_completed_result, completed)
+    return limit.name_on(await asyncio.to_thread(normalize_completed_result, completed))

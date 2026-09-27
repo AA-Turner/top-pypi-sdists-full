@@ -122,6 +122,9 @@ class KindComponentContext(KindModel):
     platform_components: dict[str, str] = {}
     design_doctrine: str = ""
     summary: KindComponentContextSummary | None = None
+    #: Set only when the schema / canonical example was cut to the result
+    #: budget: what, and how to get the rest (``bound_kind_bodies``).
+    note: str | None = None
 
 
 @kind(

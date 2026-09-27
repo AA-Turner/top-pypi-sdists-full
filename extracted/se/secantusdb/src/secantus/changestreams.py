@@ -46,10 +46,29 @@ class ChangeStreamHistoryLost(Exception):
 
 
 class ChangeStreamFatalError(Exception):
-    """``fullDocument: "required"`` lookup missed (code 280)."""
+    """A change stream cannot continue — e.g. the pipeline projected out
+    ``_id``, so no resume token can be built (measured against mongod
+    6.0.16: code 280, with the non-resumable label)."""
 
     code = 280
     codeName = "ChangeStreamFatalError"
+    error_labels: tuple[str, ...] = ("NonResumableChangeStreamError",)
+
+
+class ChangeStreamRequiredImageError(ChangeStreamFatalError):
+    """``fullDocument`` / ``fullDocumentBeforeChange`` was ``"required"``
+    and the image was not available.
+
+    A *different* condition from the one above and mongod answers it
+    differently: measured against 6.0.16 on 2026-08-29 it is code 47
+    ``NoMatchingDocument`` with **no** error labels, not 280. Both cases
+    used to share 280 here, which is why this is a subclass — the
+    getMore path catches the base class and the reply is shaped from
+    whichever code/labels the instance carries."""
+
+    code = 47
+    codeName = "NoMatchingDocument"
+    error_labels: tuple[str, ...] = ()
 
 
 @dataclass
@@ -85,7 +104,19 @@ def parse_resume_token(token: Mapping[str, Any]) -> ResumeTokenData:
     raw = token["_data"]
     if not isinstance(raw, str):
         raise ValueError("resume token _data must be a hex string")
-    inner = bson.decode(bytes.fromhex(raw))
+    try:
+        decoded = bytes.fromhex(raw)
+    except ValueError:
+        # mongod's wording, which names the problem rather than quoting
+        # Python's ``fromhex()`` complaint back at the client.
+        raise ValueError("resume token string was not a valid hex string") from None
+    try:
+        inner = bson.decode(decoded)
+    except Exception:
+        # Valid hex that is not valid BSON -- e.g. ``{"_data": "aa"}``, two hex
+        # digits that decode to one byte. This raised ``InvalidBSON`` straight
+        # out of the handler and escaped as "internal server error" (code 1).
+        raise ValueError("resume token is not a valid resume token") from None
     ts = inner.get("t")
     if not isinstance(ts, Timestamp):
         raise ValueError("resume token has invalid timestamp")
@@ -130,9 +161,98 @@ def _ns_doc(ns: str) -> dict[str, str]:
     return out
 
 
+# mongod's field order for a change event, measured against 6.0.16 on
+# 2026-08-29 with tools/probes/change_streams.py.
+#
+# Re-measured against mongod 8.2.1 -- the version `PROBED_MONGOD_VERSION`
+# targets -- on 2026-08-30: identical to 6.0.16, so this order matches the
+# probed server. `fullDocument`'s slot is the one that is NOT stable forever:
+# 8.3.4 moves it to the END, after updateDescription. Nothing to do today;
+# whoever moves the probed version to 8.3+ moves this and the key sequences in
+# tests/test_change_stream_spec_fidelity.py together. Order is invisible to a dict
+# comparison, so it survived every equality-based check we had: the probe
+# compares key LISTS, and found 28 of 34 CRUD cases out of order. Any key not
+# listed here keeps its relative position after these.
+_EVENT_FIELD_ORDER = (
+    "_id",
+    "operationType",
+    "clusterTime",
+    "collectionUUID",
+    "wallTime",
+    "fullDocument",
+    "ns",
+    "to",
+    "documentKey",
+    "operationDescription",
+    "updateDescription",
+    "stateBeforeChange",
+    "fullDocumentBeforeChange",
+    "nsType",
+)
+
+
+def _order_event_fields(event: dict[str, Any]) -> dict[str, Any]:
+    """Rebuild an event with mongod's field order.
+
+    Applied once, at the end of projection, rather than by constructing every
+    event type in the right order — there are nine construction sites and they
+    drifted apart precisely because nothing checked them."""
+    known = [k for k in _EVENT_FIELD_ORDER if k in event]
+    rest = [k for k in event if k not in _EVENT_FIELD_ORDER]
+    order = known + rest
+    # `rename` is the one event where mongod does NOT lead with `_id`: `to`
+    # comes first, before the resume token. Measured on 6.0.16 and 8.2.11, with
+    # and without showExpandedEvents -- it was first written off as a probable
+    # 6.0 assembly artifact, and re-measuring on the target version showed it is
+    # simply what a rename event looks like.
+    if event.get("operationType") == "rename" and "to" in event:
+        order = ["to"] + [k for k in order if k != "to"]
+    return {k: event[k] for k in order}
+
+
 def _do_lookup(storage: Storage, db: str, coll: str, doc_id: Any) -> dict[str, Any] | None:
     docs = storage.find_matching(db, coll, {"_id": doc_id}, limit=1)
     return docs[0] if docs else None
+
+
+def _set_full_document(event: dict[str, Any], value: Any) -> None:
+    """Set ``fullDocument``; placement is handled by [`_order_event_fields`].
+
+    This used to hand-place the key immediately after ``operationType``, which
+    was measured wrong twice over against mongod 6.0.16: mongod puts
+    ``fullDocument`` after ``wallTime``, and the hoisting also pushed ``_id``
+    out of first position."""
+    event["fullDocument"] = value
+
+
+def _required_image_message(event: Mapping[str, Any], *, pre: bool) -> str:
+    """mongod's wording for a missing required pre-/post-image.
+
+    Verbatim from 6.0.16, including the ``Executor error during getMore``
+    wrapper it adds when the condition is hit while draining a cursor and
+    the shell-style rendering of the offending event."""
+    ts = event.get("clusterTime")
+    ns = event.get("ns") or {}
+    summary = (
+        '{{operationType: "{op}", ns: {{db: "{db}", coll: "{coll}"}}, '
+        "clusterTime: Timestamp({secs}, {inc})}}"
+    ).format(
+        op=event.get("operationType", ""),
+        db=ns.get("db", ""),
+        coll=ns.get("coll", ""),
+        secs=getattr(ts, "time", 0),
+        inc=getattr(ts, "inc", 0),
+    )
+    if pre:
+        what = (
+            "a pre-image for all update, delete and replace events, but the pre-image was not found"
+        )
+    else:
+        what = "a post-image for all update events, but the post-image was not found"
+    return (
+        "Executor error during getMore :: caused by :: "
+        f"Change stream was configured to require {what} for event: {summary}"
+    )
 
 
 def _attach_full_document(
@@ -146,13 +266,13 @@ def _attach_full_document(
     if op == "i":
         # Inserts already carry the full doc.
         if full_document_mode != FULL_DOC_OFF:
-            event["fullDocument"] = dict(oplog_entry["o"])
+            _set_full_document(event, dict(oplog_entry["o"]))
         return
     if event.get("operationType") == "replace":
         # Replacement-style updates emit the full new doc as `o` (mirroring
         # mongod). The change-stream contract says replace events always
         # carry fullDocument; no separate updateLookup is required.
-        event["fullDocument"] = dict(oplog_entry["o"])
+        _set_full_document(event, dict(oplog_entry["o"]))
         return
     if op == "u" and full_document_mode in (
         FULL_DOC_UPDATE_LOOKUP,
@@ -175,22 +295,16 @@ def _attach_full_document(
             FULL_DOC_WHEN_AVAILABLE,
         ) and not storage._pre_post_images_enabled(db, coll):
             if full_document_mode == FULL_DOC_REQUIRED:
-                raise ChangeStreamFatalError(
-                    "the 'fullDocument: required' option requires "
-                    "changeStreamPreAndPostImages to be enabled on the "
-                    f"collection {ns}"
-                )
-            event["fullDocument"] = None
+                raise ChangeStreamRequiredImageError(_required_image_message(event, pre=False))
+            _set_full_document(event, None)
             return
         looked_up = _do_lookup(storage, db, coll, doc_id) if doc_id is not None else None
         if looked_up is not None:
-            event["fullDocument"] = looked_up
+            _set_full_document(event, looked_up)
         elif full_document_mode == FULL_DOC_REQUIRED:
-            raise ChangeStreamFatalError(
-                f"fullDocument required but document with _id={doc_id!r} not found"
-            )
+            raise ChangeStreamRequiredImageError(_required_image_message(event, pre=False))
         else:
-            event["fullDocument"] = None
+            _set_full_document(event, None)
 
 
 def _attach_full_document_before_change(
@@ -206,12 +320,50 @@ def _attach_full_document_before_change(
     if pre is not None:
         event["fullDocumentBeforeChange"] = pre
     elif mode == FULL_DOC_REQUIRED:
-        raise ChangeStreamFatalError("fullDocumentBeforeChange required but pre-image not stored")
+        raise ChangeStreamRequiredImageError(_required_image_message(event, pre=True))
     elif mode == FULL_DOC_WHEN_AVAILABLE:
         event["fullDocumentBeforeChange"] = None
 
 
 def project(
+    seq: int,
+    oplog_entry: Mapping[str, Any],
+    *,
+    storage: Storage,
+    full_document_mode: str = FULL_DOC_DEFAULT,
+    full_document_before_change_mode: str = FULL_DOC_DEFAULT,
+    scope: Mapping[str, Any],
+    show_expanded_events: bool = False,
+) -> tuple[dict[str, Any] | None, bool]:
+    """Project an oplog entry into a change event, in mongod's field order."""
+    event, invalidates = _project(
+        seq,
+        oplog_entry,
+        storage=storage,
+        full_document_mode=full_document_mode,
+        full_document_before_change_mode=full_document_before_change_mode,
+        scope=scope,
+        show_expanded_events=show_expanded_events,
+    )
+    if event is not None:
+        # `showExpandedEvents` puts the collection's UUID on every event that
+        # HAS a collection -- CRUD and the command events alike (probed on
+        # 8.2.11: create / createIndexes / dropIndexes / collMod / drop /
+        # rename all carry it). `invalidate` does NOT, even though it is derived
+        # from an entry that does, so it is excluded explicitly rather than by
+        # accident. The CRUD path sets it earlier; this fills in the rest.
+        if (
+            show_expanded_events
+            and event.get("operationType") != "invalidate"
+            and "collectionUUID" not in event
+            and oplog_entry.get("ui") is not None
+        ):
+            event["collectionUUID"] = oplog_entry["ui"]
+        event = _order_event_fields(event)
+    return event, invalidates
+
+
+def _project(
     seq: int,
     oplog_entry: Mapping[str, Any],
     *,
@@ -268,16 +420,21 @@ def project(
             "_id": token,
             "operationType": op_type,
             "clusterTime": ts,
-            "ns": _ns_doc(ns),
-            "documentKey": document_key,
         }
+        # mongod puts wallTime immediately after clusterTime and before ns
+        # (measured against 6.0.16, 2026-08-29; we emitted it after
+        # documentKey). Field order is invisible to a dict comparison, so it
+        # survived every equality-based check until the probe compared key
+        # lists — see tools/probes/change_streams.py.
+        if wall is not None:
+            event["wallTime"] = wall
+        event["ns"] = _ns_doc(ns)
+        event["documentKey"] = document_key
         # mongod 6.0+ attaches the collection's UUID to CRUD events when the
         # stream was opened with ``showExpandedEvents``. The oplog row carries
         # it as ``ui`` (Binary subtype 4).
         if show_expanded_events and oplog_entry.get("ui") is not None:
             event["collectionUUID"] = oplog_entry["ui"]
-        if isinstance(wall, object) and wall is not None:
-            event["wallTime"] = wall
         # Writes that happened inside a multi-document transaction carry
         # the session/transaction identity on their oplog entries; mongod
         # surfaces both on the change event.
@@ -399,6 +556,16 @@ def project(
             }
             if wall is not None:
                 event["wallTime"] = wall
+            # mongod 8.1+ tags a `create` event with what was created. Probed on
+            # 8.2.11: "collection", "timeseries" or "view", as a TOP-LEVEL field
+            # (not inside `ns`), emitted last. The unified
+            # `change-streams-nsType` spec asserts all three.
+            if "viewOn" in cmd:
+                event["nsType"] = "view"
+            elif "timeseries" in cmd:
+                event["nsType"] = "timeseries"
+            else:
+                event["nsType"] = "collection"
             return event, False
         if "collMod" in cmd:
             if not show_expanded_events:
@@ -416,6 +583,13 @@ def project(
             }
             if wall is not None:
                 event["wallTime"] = wall
+            # The collection's options as they were BEFORE this collMod. mongod
+            # keeps them in the oplog entry's `o2.collectionOptions_old` and
+            # renames the key on the event to `collectionOptions` (probed
+            # 8.2.11).
+            old_opts = (oplog_entry.get("o2") or {}).get("collectionOptions_old")
+            if old_opts is not None:
+                event["stateBeforeChange"] = {"collectionOptions": old_opts}
             return event, False
         if "createIndexes" in cmd:
             if not show_expanded_events:
@@ -522,7 +696,105 @@ class ChangeStreamSpec:
     show_expanded_events: bool = False
 
 
+_KNOWN_SPEC_FIELDS = frozenset(
+    {
+        "fullDocument",
+        "fullDocumentBeforeChange",
+        "resumeAfter",
+        "startAfter",
+        "startAtOperationTime",
+        "allChangesForCluster",
+        "showExpandedEvents",
+        "showRawUpdateDescription",
+        "splitLargeChangeStreamEvents",
+        "allowToRunOnSystemNS",
+    }
+)
+_FULL_DOCUMENT_MODES = frozenset({"default", "updateLookup", "whenAvailable", "required"})
+_FULL_DOCUMENT_BEFORE_MODES = frozenset({"off", "whenAvailable", "required"})
+
+
+def _spec_error(message: str, code: int, code_name: str):
+    """An ``AggregateError`` carrying mongod's code for a bad $changeStream spec.
+
+    Imported lazily: ``aggregate`` imports this module, so a module-level
+    import the other way round would be circular.
+    """
+    from secantus.aggregate import AggregateError
+
+    return AggregateError(message, code=code, code_name=code_name)
+
+
+def validate_spec(spec: Mapping[str, Any]) -> None:
+    """Reject a ``$changeStream`` spec mongod would reject.
+
+    Every check here covers something previously accepted and IGNORED, which is
+    the worst shape for a change stream: the caller believes they asked for
+    ``updateLookup``, or to resume from a token, and gets a stream that quietly
+    does neither. ``parse_spec``'s ``isinstance`` guards silently skipped a
+    wrong-typed value and carried on with the default.
+
+    Note this lives in ``parse_spec``'s module rather than in the ``$changeStream``
+    pipeline STAGE, because the ``aggregate`` command routes change streams
+    through its own path and never runs that stage.
+    """
+    unknown = next((k for k in spec if k not in _KNOWN_SPEC_FIELDS), None)
+    if unknown is not None:
+        raise _spec_error(
+            f"BSON field '$changeStream.{unknown}' is an unknown field.",
+            40415,
+            "Location40415",
+        )
+    for field, allowed in (
+        ("fullDocument", _FULL_DOCUMENT_MODES),
+        ("fullDocumentBeforeChange", _FULL_DOCUMENT_BEFORE_MODES),
+    ):
+        value = spec.get(field)
+        if value is not None and value not in allowed:
+            raise _spec_error(
+                f"Enumeration value '{value}' for field '$changeStream.{field}' "
+                "is not a valid value.",
+                2,
+                "BadValue",
+            )
+    for field in ("resumeAfter", "startAfter"):
+        value = spec.get(field)
+        if value is not None and not isinstance(value, Mapping):
+            raise _spec_error(
+                f"BSON field '$changeStream.{field}' is the wrong type "
+                f"'{_bson_type_name(value)}', expected type 'object'",
+                14,
+                "TypeMismatch",
+            )
+    sat = spec.get("startAtOperationTime")
+    if sat is not None and not isinstance(sat, Timestamp):
+        raise _spec_error(
+            f"BSON field '$changeStream.startAtOperationTime' is the wrong type "
+            f"'{_bson_type_name(sat)}', expected type 'timestamp'",
+            14,
+            "TypeMismatch",
+        )
+
+
+def _bson_type_name(v: Any) -> str:
+    """mongod's type vocabulary for ``$changeStream`` option type errors.
+
+    Delegates to `secantus.bsontypes`. This copy also named every int ``int``,
+    where mongod calls an out-of-int32-range value ``long``.
+    """
+    from secantus.bsontypes import bson_type_name
+
+    return bson_type_name(v)
+
+
 def parse_spec(spec: Mapping[str, Any]) -> ChangeStreamSpec:
+    if not isinstance(spec, Mapping):
+        raise _spec_error(
+            f"$changeStream must take a nested object but found: $changeStream: {spec}",
+            6188500,
+            "Location6188500",
+        )
+    validate_spec(spec)
     out = ChangeStreamSpec()
     fd = spec.get("fullDocument")
     if isinstance(fd, str):
@@ -616,6 +888,7 @@ def stamp_split_event(event: dict[str, Any]) -> list[dict[str, Any]]:
 
 __all__ = [
     "ChangeStreamFatalError",
+    "ChangeStreamRequiredImageError",
     "ChangeStreamHistoryLost",
     "ChangeStreamSpec",
     "FULL_DOC_DEFAULT",

@@ -35,9 +35,13 @@ from pymongo.errors import OperationFailure
 from secantus import SecantusDBServer
 
 
-@pytest.fixture
-def server(tmp_path):
-    with SecantusDBServer(port=0, storage_path=str(tmp_path / "d")) as srv:
+# Module-scoped: this file's tests each use their own collection, so one
+# server serves them all and the ~236 ms store open is paid once, not per
+# test. Do NOT widen this to a module whose tests share a namespace, or
+# that needs a private oplog / cluster time / reopen.
+@pytest.fixture(scope="module")
+def server(wt_home_module):
+    with SecantusDBServer(port=0, storage_path=wt_home_module) as srv:
         yield srv
 
 
@@ -729,14 +733,19 @@ def test_empty_input_returns_empty(client) -> None:
     assert list(coll.aggregate(pipeline)) == []
 
 
-def test_preserves_original_input_order(client) -> None:
-    """The output is in input order, NOT sort-by order. Internally we
-    partition + sort to compute the new fields, but emit rows in the
-    same order they came in."""
+def test_emits_in_sortby_order_not_input_order(client) -> None:
+    """The output is in SORT-BY order, not input order.
+
+    This test asserted the opposite -- "internally we partition + sort to
+    compute the new fields, but emit rows in the same order they came in" --
+    and the implementation's docstring said the same. mongod emits partition by
+    partition, in first-seen partition order, and within each partition in
+    `sortBy` order: the same documents in a different sequence, which is wrong
+    RESULTS as soon as a `$limit` follows. Measured 8.2.11, 2026-09-09.
+    """
     coll = client["swf_db"]["order"]
-    # Insert in non-monotonic ts order. Without a downstream sort, the
-    # pipeline preserves the storage iteration order (which for an
-    # int _id is _id-asc, matching the natural order docs came in).
+    # Inserted in non-monotonic ts order, so input order and sortBy order
+    # differ and the assertion can tell them apart.
     coll.insert_many(
         [
             {"_id": 1, "ts": 30},
@@ -758,8 +767,80 @@ def test_preserves_original_input_order(client) -> None:
         },
     ]
     docs = list(coll.aggregate(pipeline))
-    # _id order preserved in output.
-    assert [d["_id"] for d in docs] == [1, 2, 3]
-    # In ts-asc order: ts=10 (_id=2, running=1), ts=20 (_id=3, running=2),
-    # ts=30 (_id=1, running=3). So _id=1 → 3, _id=2 → 1, _id=3 → 2.
-    assert [d["running"] for d in docs] == [3, 1, 2]
+    # ts-asc: ts=10 (_id=2), ts=20 (_id=3), ts=30 (_id=1) -- and the running
+    # count therefore climbs 1, 2, 3 down the output rather than jumping about.
+    assert [d["_id"] for d in docs] == [2, 3, 1]
+    assert [d["running"] for d in docs] == [1, 2, 3]
+
+
+# --- Argument validation ----------------------------------------------------
+#
+# These were ACCEPTED AND IGNORED, which is the worst shape for an option: the
+# caller believes they asked for something and gets a wrong answer instead of an
+# error. A misspelled `partitionBy` computed over the whole collection as one
+# partition; `range` written at the top level -- where it looks plausible, but
+# belongs inside a window -- silently widened every window to the partition.
+#
+# Codes and messages probed against mongod 8.2.11 (2026-08-30).
+
+
+@pytest.mark.parametrize(
+    ("stage", "code", "fragment"),
+    [
+        (
+            {"sortBy": {"n": 1}, "output": {"o": {"$sum": "$n"}}, "bogus": 1},
+            40415,
+            "BSON field '$setWindowFields.bogus' is an unknown field.",
+        ),
+        (
+            {"sortBy": {"n": 1}, "output": {"o": {"$sum": "$n"}}, "range": [1]},
+            40415,
+            "BSON field '$setWindowFields.range' is an unknown field.",
+        ),
+        (
+            {"sortBy": {"n": 1}},
+            40414,
+            "BSON field '$setWindowFields.output' is missing but a required field",
+        ),
+        (
+            {"sortBy": {"n": 1}, "output": {"o": {"$sum": "$n", "window": {"bogus": [1, 2]}}}},
+            9,
+            "'window' field can only contain 'documents'",
+        ),
+    ],
+    ids=["unknown-top-field", "range-at-top-level", "missing-output", "unknown-window-field"],
+)
+def test_rejects_what_it_used_to_ignore(
+    client: MongoClient, stage: dict, code: int, fragment: str
+) -> None:
+    db = client["swf_validation"]
+    db.c.drop()
+    db.c.insert_many([{"_id": 1, "n": 1}, {"_id": 2, "n": 5}])
+    with pytest.raises(OperationFailure) as ei:
+        list(db.c.aggregate([{"$setWindowFields": stage}]))
+    details = ei.value.details or {}
+    assert details.get("code") == code
+    assert fragment in details.get("errmsg", "")
+
+
+def test_valid_window_spec_still_runs(client: MongoClient) -> None:
+    """The validation must not reject the real thing."""
+    db = client["swf_validation_ok"]
+    db.c.drop()
+    db.c.insert_many([{"_id": 1, "n": 1}, {"_id": 2, "n": 5}])
+    out = list(
+        db.c.aggregate(
+            [
+                {
+                    "$setWindowFields": {
+                        "partitionBy": None,
+                        "sortBy": {"n": 1},
+                        "output": {
+                            "o": {"$sum": "$n", "window": {"documents": ["unbounded", "current"]}}
+                        },
+                    }
+                }
+            ]
+        )
+    )
+    assert [d["o"] for d in out] == [1, 6]

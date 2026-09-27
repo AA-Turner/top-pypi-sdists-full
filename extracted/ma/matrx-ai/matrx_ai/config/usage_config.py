@@ -320,6 +320,10 @@ USAGE_BASIS_SPECS: dict[str | None, UsageBasisSpec] = {
 # together with the ``from_<provider>`` code that counts its units.
 PROVIDER_SERVICE_COMPONENTS: dict[tuple[str, str], str] = {
     ("anthropic_chat", "web_search"): "service.web_search",
+    # Google's Deep Research agents (Interactions API) bill Grounding with Google
+    # Search per search request ($14 per 1,000 on Gemini 3.x -> 14000); counted by
+    # matrx_ai/providers/google/google_research_agent.research_usage.
+    ("google_interactions", "web_search"): "service.google_search",
 }
 
 

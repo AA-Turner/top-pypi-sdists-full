@@ -6,6 +6,16 @@
 #include <stdlib.h>
 #include <math.h>
 
+// Keeps a hot kernel out of line, so that its generated code does not
+// depend on the code it would otherwise be inlined into
+#if defined(__GNUC__) || defined(__clang__)
+#define DAQP_NOINLINE __attribute__((noinline))
+#elif defined(_MSC_VER)
+#define DAQP_NOINLINE __declspec(noinline)
+#else
+#define DAQP_NOINLINE
+#endif
+
 /*
  * The equality constraints are eliminated from
  *   min 0.5||u||^2  s.t.  dlower <= M u <= dupper,   M = A*Rinv, u = R*x+v
@@ -153,8 +163,25 @@ static int count_eq(const DAQPWorkspace* work){
  * only general constraints (multi-stage MPC, for instance).
  */
 static int is_eq_elim_worthwhile(const DAQPWorkspace* work, const int n_eq){
-    if(n_eq <= DAQP_EQ_MIN_COUNT || DAQP_EQ_MIN_RATIO*n_eq <= work->n) return 0;
-    if(work->RinvD != NULL && work->m == work->ms+n_eq) return 0;
+    const int n = work->n;
+    const int n_ineq = work->m-work->ms-n_eq;
+    const int policy = work->settings->eq_reduction;
+
+    if(policy == DAQP_EQ_REDUCTION_OFF) return 0;
+    if(policy == DAQP_EQ_REDUCTION_ON) return n_eq > 0;
+
+    // Fixed reduction overhead dominates for tiny problems. At larger sizes,
+    // require strictly more than the nominal equality ratio: exact-boundary
+    // cases have too little dimension reduction to recover the setup cost.
+    if(n < DAQP_EQ_MIN_DIM || n_eq <= DAQP_EQ_MIN_COUNT ||
+            DAQP_EQ_MIN_RATIO*n_eq <= n) return 0;
+
+    // A diagonal Hessian makes the original constraints especially cheap.
+    // Preserve the useful equality-dense case, but avoid reducing sparse
+    // equalities (and the equality-only multi-stage-MPC case).
+    if(work->RinvD != NULL && (n_ineq == 0 ||
+                DAQP_EQ_DIAG_MIN_RATIO*n_eq < n)) return 0;
+
     return 1;
 }
 
@@ -237,7 +264,7 @@ static void allocate_daqp_eq(DAQPWorkspace* work, const int n_eq){
  * linearly dependent on the already factorized ones are not eliminated; their
  * ids are stored after the eliminated ones in eq_ids.
  */
-static void build_qr(DAQPWorkspace* work){
+static DAQP_NOINLINE void build_qr(DAQPWorkspace* work){
     DAQPEqElim* eq = work->eq;
     const int n = eq->n;
     const c_float tol = sqrt(work->settings->zero_tol);
@@ -318,7 +345,7 @@ static void build_qr(DAQPWorkspace* work){
  * the ones of the simple bounds are rows of W, and the solution of the QP is
  * x = xp + W*w.
  */
-static void form_W(DAQPWorkspace* work){
+static DAQP_NOINLINE void form_W(DAQPWorkspace* work){
     DAQPEqElim* eq = work->eq;
     const int n = eq->n, ms = eq->ms, nz = eq->nz;
     const c_float* Q2 = eq->Q+(size_t)eq->neq*n;
@@ -348,7 +375,7 @@ static void form_W(DAQPWorkspace* work){
 }
 
 // Reduced row of constraint i: A_i*W, or row i of W for a simple bound
-static void reduced_row(const DAQPWorkspace* work, const int i, c_float* row){
+static DAQP_NOINLINE void reduced_row(const DAQPWorkspace* work, const int i, c_float* row){
     const DAQPEqElim* eq = work->eq;
     const int n = eq->n, ms = eq->ms, nz = eq->nz;
     int j, k;
@@ -381,7 +408,7 @@ static c_float row_dot_xp(const DAQPWorkspace* work, const int i){
  * Solve R'y1 = d_E and form xp = Rinv*(up-v), which is the part of the
  * solution that the eliminated equality constraints determine.
  */
-static void compute_particular(DAQPWorkspace* work){
+static DAQP_NOINLINE void compute_particular(DAQPWorkspace* work){
     DAQPEqElim* eq = work->eq;
     const int n = eq->n;
     c_float* up = eq->tmp;
@@ -519,7 +546,7 @@ int daqp_eq_reduce(DAQPWorkspace* work, const int mask){
     }
     else{
         // Only the bounds depend on data that can have changed
-        if(mask&DAQP_UPDATE_sense)
+        if(mask&DAQP_UPDATE_sense || !eq->working_set_valid)
             for(j = 0; j < eq->m_r; j++) eq->sense[j] = work->sense[eq->map[j]];
         for(j = 0; j < eq->m_r; j++){
             const int id = eq->map[j];
@@ -644,6 +671,7 @@ void daqp_eq_expand(DAQPWorkspace* work){
         work->lam_star[i] *= eq->scaling[work->WS[i]];
     work->fval += eq->up_norm2; // ||u||^2 = ||up||^2+||w||^2
     expand_solution(work,work->u,eq->tmp);
+    eq->working_set_valid = 1;
     daqp_eq_restore(work);
     for(i = 0; i < eq->n; i++) work->x[i] = eq->tmp[i];
     eq->expanded = 1;
@@ -655,7 +683,7 @@ int daqp_eq_form_full(DAQPWorkspace* work){
     daqp_eq_restore(work);
     if(work->eq != NULL) work->eq->neq = 0; // Nothing to retrieve
     if(work->qp == NULL || work->qp->A == NULL) return 0;
-    error_flag = daqp_update_M(work,work->qp->A,0);
+    error_flag = daqp_update_M(work,work->qp->A);
     if(error_flag < 0) return error_flag;
     daqp_update_d(work,work->qp->bupper,work->qp->blower);
     reset_daqp_workspace(work);
@@ -676,10 +704,14 @@ int daqp_eq_eliminate(DAQPWorkspace* work){
         else if(work->eq != NULL) work->eq->neq = 0;
         return (flag < 0) ? flag : 0;
     }
-    // Form the working set of the reduced problem
-    reset_daqp_workspace(work);
-    error_flag = daqp_activate_constraints(work);
-    if(error_flag < 0) return error_flag;
+    // Reuse the working-set factorization when the reduction is unchanged.
+    if(flag == 2 || !work->eq->working_set_valid){
+        reset_daqp_workspace(work);
+        error_flag = daqp_activate_constraints(work);
+        if(error_flag < 0) return error_flag;
+        work->eq->working_set_valid = 1;
+    }
+    else work->sing_ind = DAQP_EMPTY_IND;
     if(work->n_prox > 0) daqp_eq_restore(work);
     return work->eq->neq;
 }
@@ -690,7 +722,11 @@ int daqp_eq_eliminate(DAQPWorkspace* work){
 int daqp_eq_reinstall(DAQPWorkspace* work){
     DAQPEqElim* eq = work->eq;
     int flag;
-    if(eq == NULL || eq->neq == 0 || eq->installed || work->n_prox > 0) return 0;
+    if(eq == NULL || eq->neq == 0) return 0;
+    // The policy may have changed since setup/update
+    if(work->settings->eq_reduction == DAQP_EQ_REDUCTION_OFF)
+        return daqp_eq_form_full(work);
+    if(eq->installed || work->n_prox > 0) return 0;
     flag = daqp_eq_eliminate(work);
     return (flag < 0) ? flag : 0;
 }
@@ -704,6 +740,16 @@ void daqp_eq_retrieve(DAQPResult* res, DAQPWorkspace* work){
     DAQPEqElim* eq = work->eq;
     int i, j;
     if(eq == NULL || eq->neq == 0) return;
+    if(eq->installed){
+        eq->working_set_valid = res->exitflag > 0;
+        // Preserve the reduced problem's final working-set state
+        const int state_mask = DAQP_ACTIVE | DAQP_LOWER | DAQP_SLACK_FIXED;
+        for(j = 0; j < eq->m_r; j++){
+            const int id = eq->map[j];
+            eq->sense_full[id] = (eq->sense_full[id] & ~state_mask)
+                               | (work->sense[j] & state_mask);
+        }
+    }
     if(eq->installed) expand_solution(work,work->u,eq->tmp);
     if((eq->installed || eq->expanded) && res->lam != NULL &&
             !DAQP_IS_HIERARCHICAL(work)){

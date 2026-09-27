@@ -9,7 +9,8 @@ from shutil import copy
 
 import pytest
 
-from pikepdf import Array, Dictionary, Name, Page, Pdf, Stream
+import pikepdf
+from pikepdf import Array, Dictionary, Integer, Name, Page, Pdf, Stream
 from pikepdf._cpphelpers import label_from_label_dict
 
 # pylint: disable=redefined-outer-name,pointless-statement
@@ -507,6 +508,37 @@ def test_page_label_dicts(d_factory, result, exc, excmsg):
         assert label_from_label_dict(d) == result
 
 
+def test_page_label_dicts_explicit_mode():
+    """A page label reads the same in either conversion mode.
+
+    /St arrives as a pikepdf.Integer in explicit mode; read as anything but an
+    int the label silently restarts at 1.
+    """
+    with pikepdf.explicit_conversion():
+        assert label_from_label_dict(Dictionary(S=Name.D, P='A-', St=2)) == 'A-2'
+        assert label_from_label_dict(Dictionary(S=Name.R, St=42)) == 'XLII'
+        assert label_from_label_dict(Dictionary(P='Appendix-', S=Name.a, St=261)) == (
+            'Appendix-ja'
+        )
+        assert label_from_label_dict(Integer(42)) == '42'
+        with pytest.raises(ValueError, match="Can't represent"):
+            label_from_label_dict(Dictionary(S=Name.R, St=-42))
+        with pytest.warns(UserWarning, match='invalid non-integer start value'):
+            assert label_from_label_dict(Dictionary(S=Name.r, St=Name.Invalid)) == 'i'
+
+
+def test_page_labels_explicit_mode():
+    p = Pdf.new()
+    d = Dictionary(Type=Name.Page, MediaBox=[0, 0, 612, 792], Resources=Dictionary())
+    for _ in range(3):
+        p.pages.append(Page(d))
+    p.Root.PageLabels = p.make_indirect(
+        Dictionary(Nums=Array([0, Dictionary(S=Name.r), 1, Dictionary(S=Name.D, St=7)]))
+    )
+    with pikepdf.explicit_conversion():
+        assert [page.label for page in p.pages] == ['i', '7', '8']
+
+
 def test_externalize(resources):
     with Pdf.open(resources / 'image-mono-inline.pdf') as p:
         page = p.pages[0]
@@ -587,3 +619,38 @@ def test_page_iteration(graph, fourpages):
     next(fourpages_iter)  # Discard
     graph.pages.extend(fourpages_iter)  # Append remaining two
     assert len(graph.pages) == 3
+
+
+def _roundtrip(pdf: Pdf) -> Pdf:
+    from io import BytesIO
+
+    buf = BytesIO()
+    pdf.save(buf)
+    buf.seek(0)
+    return Pdf.open(buf)
+
+
+def test_save_corrects_page_count():
+    pdf = pikepdf.new()
+    pdf.add_blank_page()
+    pdf.Root.Pages.Count = 2
+    assert _roundtrip(pdf).Root.Pages.Count == 1
+
+
+def test_save_corrects_nested_page_counts():
+    pdf = pikepdf.new()
+    for _ in range(3):
+        pdf.add_blank_page()
+    root = pdf.Root.Pages
+    p0, p1, p2 = root.Kids
+    mid = pdf.make_indirect(
+        Dictionary(Type=Name.Pages, Kids=Array([p0, p1]), Count=5, Parent=root)
+    )
+    p0.Parent = mid
+    p1.Parent = mid
+    root.Kids = Array([mid, p2])
+    root.Count = 7
+    out = _roundtrip(pdf)
+    assert out.Root.Pages.Count == 3
+    assert out.Root.Pages.Kids[0].Count == 2
+    assert len(out.pages) == 3

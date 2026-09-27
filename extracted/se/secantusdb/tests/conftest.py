@@ -19,6 +19,7 @@ import faulthandler
 import importlib.machinery
 import importlib.util
 import os
+import pathlib
 import sys
 import threading
 import time
@@ -137,6 +138,196 @@ def _install_sigtrace() -> None:
             _signal.signal(signo, _log_and_die)
 
 
+@pytest.fixture(scope="session")
+def _wt_template(tmp_path_factory: pytest.TempPathFactory) -> str:
+    """One pristine WiredTiger home per xdist worker, built once.
+
+    ``tmp_path_factory`` is session-scoped and already per-worker, so each
+    worker process builds and owns exactly one template — no cross-worker
+    sharing, no lock, nothing to race.
+    """
+    # Imported lazily, NOT at module scope: tests/test_crash_stall_watchdog.py
+    # copies THIS FILE alone into a tmp dir and runs a nested pytest session
+    # against it, without wt_template.py alongside. A module-level import would
+    # break every one of those nested sessions at conftest load.
+    from wt_template import build_template
+
+    home = tmp_path_factory.mktemp("wt-template") / "home"
+    build_template(str(home))
+    return str(home)
+
+
+@pytest.fixture
+def wt_home(_wt_template: str, tmp_path) -> str:
+    """A per-test WiredTiger home CLONED from the template rather than created.
+
+    Cuts the per-test fixture floor from ~235 ms to ~127 ms by skipping the ~12
+    ``session.create`` calls (~9.7 ms each) that every test would otherwise pay
+    to build the same empty schema. Equivalence with a freshly-created home is
+    pinned by ``tests/test_wt_template.py``; the measurements behind it are in
+    ``tasks/rust-test-harness-investigation.md``.
+
+    Returns a subdirectory rather than ``tmp_path`` itself, so a test can still
+    use ``tmp_path`` for archives / exports without tripping over WT's files.
+    """
+    from wt_template import clone_template  # lazy — see _wt_template above
+
+    dest = tmp_path / "wt"
+    clone_template(_wt_template, str(dest))
+    return str(dest)
+
+
+@pytest.fixture(scope="module")
+def wt_home_module(_wt_template: str, tmp_path_factory: pytest.TempPathFactory) -> str:
+    """One cloned WiredTiger home shared by a whole test MODULE.
+
+    ``wt_home`` gives every test its own store, which is the safe default. A
+    module that stands its server up once amortises the ~236 ms open across all
+    its tests instead of paying it each time — but only where the tests do not
+    collide, since they then share one server's databases.
+
+    Use it ONLY in modules where every test already writes to its own namespace
+    and nothing depends on a private server (no change streams, oplog, reopen,
+    capped collections, TTL clocks, cluster time or auth state).
+    """
+    from wt_template import clone_template  # lazy -- see _wt_template above
+
+    dest = tmp_path_factory.mktemp("wt-module") / "wt"
+    clone_template(_wt_template, str(dest))
+    return str(dest)
+
+
+#: The repository this checkout is, for asking git about it.
+_REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent
+
+_REBUILD_CORE_CMD = "uv run python -m invoke sync"
+
+#: Crates whose content the `_secantus_core` extension is built from. Both
+#: matter: the engines live in one, the PyO3 bindings in the other.
+_CORE_CRATES = ("crates/secantus-core", "crates/secantus-core-py")
+
+
+def _committed_source_tree() -> str:
+    """The checkout's tree hash for the core crates, or "" if git can't say.
+
+    HEAD, deliberately, not the working copy: someone mid-edit in
+    ``crates/secantus-core/src`` has an extension that legitimately differs
+    from their uncommitted changes, and failing their whole run for that
+    teaches people to disable the check — which is worse than not having one.
+    """
+    import subprocess
+
+    hashes = []
+    for path in _CORE_CRATES:
+        try:
+            out = subprocess.run(
+                ["git", "rev-parse", f"HEAD:{path}"],
+                cwd=_REPO_ROOT,
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+        except (OSError, subprocess.SubprocessError):
+            return ""
+        if out.returncode != 0:
+            return ""
+        hashes.append(out.stdout.strip())
+    return "-".join(hashes)
+
+
+def _check_core_build_provenance() -> None:
+    """Fail loudly when the installed `_secantus_core` predates the checkout.
+
+    **Why this exists.** On 2026-09-18, eight separate incidents in one day came
+    from a built artifact being older than the tree it was tested against. Every
+    one presented as somebody else's regression, because the *tests* were
+    current and only the artifact was old:
+
+    - a psycopg gauge reported 1,084 failures and a 73.8% pass rate from a
+      binary 50 crate-commits behind; the real figure was 5,545 of 5,546, and
+      the wrong one reached the public website;
+    - a full suite produced 174 parity failures that were all fictional — the
+      same files passed 207/207 after a rebuild, with no code change;
+    - three failures landed in a colleague's new test file, which read as their
+      bug and was a binary built 33 minutes before the fix those tests assert.
+
+    Reading the diff cannot catch this: the evidence is not in the diff. Only
+    comparing what you built against what you are testing can.
+
+    **Loud, not a warning.** A warning inside a 15,000-test run is invisible,
+    and the dangerous version of this failure is silent — a suite that passes
+    over a stale artifact tells you nothing is wrong.
+
+    Stays quiet when it cannot be sure: no extension (the ~1,700 parity tests
+    `importorskip` it by design, and whole CI lanes run without it), no stamp
+    (an sdist or a build container without git history), or no git.
+    """
+    try:
+        import _secantus_core  # type: ignore[import-not-found]
+    except ImportError:
+        return
+
+    message = stale_core_message(
+        getattr(_secantus_core, "__source_tree__", ""), _committed_source_tree()
+    )
+    if message is not None:
+        raise pytest.UsageError(message)
+
+
+def stale_core_message(built: str, current: str) -> str | None:
+    """The failure text when `built` and `current` disagree, else ``None``.
+
+    Split out from the check so its decisions are testable without arranging a
+    genuinely stale build (see ``tests/test_build_provenance.py``). Silence when
+    either side is unknown is the important half: an unstamped extension or a
+    checkout git cannot read must not fail anybody's run.
+    """
+    if not built or not current or built == current:
+        return None
+    return (
+        "the installed `_secantus_core` was built from different sources than "
+        f"this checkout:\n"
+        f"    extension: {built}\n"
+        f"    checkout:  {current}\n"
+        "Running against a stale extension produces failures that look like "
+        "real regressions and are not — on 2026-09-18 this cost 174 fictional "
+        "parity failures and a wrong conformance number published to the "
+        "website. Rebuild it:\n"
+        f"    {_REBUILD_CORE_CMD}\n"
+        "(`uv sync` alone will NOT do it: secantus-core is a path dependency "
+        "and uv reuses the cached build. Pull first — syncing a checkout that "
+        "is behind rebuilds the staleness and looks like it worked.)"
+    )
+
+
+def pytest_report_header() -> str | None:
+    """Say so when the staleness check is DORMANT.
+
+    An extension built before this check existed carries no stamp, so the check
+    abstains — correctly, since it cannot judge. But abstaining silently means
+    the check is installed, doing nothing, and nobody knows: exactly the "the
+    fix is applied and changes no output" failure this check was written to
+    stop, one level up. Anyone who never rebuilds keeps that state forever.
+
+    The header is the right place: a warning is invisible inside a
+    15,000-test run, while this prints at the top of every one. Only the
+    unknown case is reported — a matching build says nothing, and a mismatch
+    has already aborted the run in `pytest_configure`.
+    """
+    try:
+        import _secantus_core  # type: ignore[import-not-found]
+    except ImportError:
+        # No extension at all is a normal, deliberate configuration.
+        return None
+    if getattr(_secantus_core, "__source_tree__", ""):
+        return None
+    return (
+        "core build provenance: UNKNOWN — the installed `_secantus_core` "
+        "carries no source stamp, so staleness cannot be detected. Rebuild it "
+        f"({_REBUILD_CORE_CMD}) to arm the check."
+    )
+
+
 def pytest_configure(config: pytest.Config) -> None:
     """Refuse to run under a ``tmp_path_retention_policy`` that deletes tmp
     dirs mid-session.
@@ -159,6 +350,8 @@ def pytest_configure(config: pytest.Config) -> None:
     aggressive cleanup, run it in its own pytest invocation instead of
     flipping this policy globally.
     """
+    _check_core_build_provenance()
+
     if os.environ.get("SECANTUS_SIGTRACE") == "1":
         _install_sigtrace()
     # Start the session stall watcher (see the block below). Done here rather
@@ -184,6 +377,7 @@ _crash_dump_file = None
 
 
 def pytest_sessionstart(session: pytest.Session) -> None:
+    _reap_abandoned_pytest_tmp(session.config)
     # Arm the crash faulthandler HERE, not in pytest_configure: pytest's own
     # faulthandler plugin calls ``faulthandler.enable(file=<stderr>)`` in its
     # pytest_configure (_pytest/faulthandler.py), and hook ordering let it clobber
@@ -191,6 +385,55 @@ def pytest_sessionstart(session: pytest.Session) -> None:
     # runs strictly after every pytest_configure, so our file wins and stays the
     # fatal-signal target for the whole run.
     _arm_crash_faulthandler(session.config)
+
+
+def _reap_abandoned_pytest_tmp(config: pytest.Config) -> None:
+    """Reclaim earlier runs' abandoned temp trees.
+
+    This suite pins ``tmp_path_retention_policy = "all"`` deliberately --
+    deleting a passed test's ``tmp_path`` mid-session races WiredTiger's
+    background threads into ``WT_PANIC`` (see ``pytest_configure`` above) -- so
+    every run leaves its per-test WiredTiger databases behind and depends on
+    pytest's own numbered-dir janitor to reclaim them. That janitor stalls for
+    a 3-day ``LOCK_TIMEOUT`` whenever a run dies without its atexit hooks, and
+    the backlog then compounds: one box reached 241 dirs / 391 GiB, another
+    48 GiB in a day.
+
+    ``invoke clean`` has been able to fix this for a while, but only when
+    somebody remembered to run it, which is why the backlog kept coming back.
+    Doing it at session start makes the suite self-maintaining, and it is the
+    safe half of "each test cleans up after itself": we delete only trees whose
+    owning pytest process is **gone**, never a live one and never the newest
+    few. The current run is protected twice over -- its dir is the newest, and
+    its ``.lock`` names this live PID.
+
+    Best-effort by construction. It runs on the xdist CONTROLLER only (workers
+    would each redo it and race one another), skips silently where
+    ``python_tasks`` will not import -- CI's slim `storage-engine` env has no
+    ``invoke`` -- and swallows every error: reclaiming disk must never fail a
+    test run.
+    """
+    if hasattr(config, "workerinput"):  # an xdist worker, not the controller
+        return
+    if os.environ.get("SECANTUS_NO_TMP_REAP") == "1":
+        return
+    try:
+        import tempfile
+
+        import python_tasks
+
+        base = tempfile.gettempdir()
+        reaped, _ = python_tasks._sweep_stale_pytest_tmp(base, measure=False)
+        # Probe stores are invisible to pytest's own janitor -- a different
+        # naming scheme entirely -- and cost ~130 MB a server. See
+        # ``python_tasks._sweep_stale_probe_tmp``.
+        probes, _ = python_tasks._sweep_stale_probe_tmp(base)
+    except Exception:  # noqa: BLE001 - never fail a run over housekeeping
+        return
+    if reaped:
+        print(f"\nreaped {reaped} abandoned pytest temp tree(s) from earlier runs")
+    if probes:
+        print(f"\nreaped {probes} abandoned probe store(s) from earlier runs")
 
 
 def _arm_crash_faulthandler(config: pytest.Config) -> None:
@@ -323,6 +566,7 @@ _last_progress_at = time.monotonic()
 _stall_watch_armed = False
 _node_down: list[str] = []
 _first_node_down_at: float | None = None
+_seen_nodeids: set[str] = set()
 
 
 def pytest_runtest_logreport(report: pytest.TestReport) -> None:
@@ -334,6 +578,10 @@ def pytest_runtest_logreport(report: pytest.TestReport) -> None:
     """
     global _last_progress_at
     _last_progress_at = time.monotonic()
+    # Which tests actually got as far as running. A test assigned to a worker
+    # that died is never dispatched anywhere else, so it never lands here --
+    # that gap is how ``_lost_test_report`` counts what a crash swallowed.
+    _seen_nodeids.add(report.nodeid)
 
 
 @pytest.hookimpl(optionalhook=True)
@@ -394,6 +642,83 @@ def pytest_testnodedown(node: object, error: object) -> None:
     )
     faulthandler.dump_traceback(file=sys.stderr, all_threads=True)
     sys.stderr.flush()
+
+
+def _lost_test_report(
+    collected: int,
+    executed: int,
+    node_down: list[str],
+) -> str | None:
+    """The banner for a run that lost a worker, or ``None`` if it was clean.
+
+    Kept pure so it can be unit-tested without staging a real worker death.
+    """
+    if not node_down:
+        return None
+    missing = max(0, collected - executed)
+    lines = [
+        "",
+        "=" * 72,
+        "RUN INVALID -- an xdist worker died; this result proves nothing.",
+        "=" * 72,
+        f"workers lost: {len(node_down)}",
+    ]
+    lines += [f"  - {r}" for r in node_down]
+    lines.append(f"collected: {collected}   actually ran: {executed}   never ran: {missing}")
+    if missing:
+        lines.append(
+            f"{missing} test(s) were assigned to a dead worker and were never "
+            "re-dispatched, so nothing here says whether they pass."
+        )
+    lines += [
+        "",
+        "pytest's own summary above counts only the tests that DID run, and the",
+        "session would otherwise exit 0 -- a green-looking result hiding the gap.",
+        "Common cause on a dev box: a second `-n auto` suite (or another heavy",
+        "job) oversubscribing the machine, so the OS kills a worker. Re-run on a",
+        "quiet machine before trusting any result.",
+        "=" * 72,
+        "",
+    ]
+    return "\n".join(lines)
+
+
+def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
+    """Fail a run that lost a worker, instead of exiting 0 on partial results.
+
+    Observed 2026-08-26: a contended box got a worker SIGKILLed ~2/3 of the way
+    through. xdist logged ``node down: Not properly terminated`` and an
+    ``INTERNALERROR``, then pytest printed ``4093 passed`` and exited **0** --
+    but 6257 tests had been collected, so ~2100 never ran at all. That is a
+    green light over an unmeasured suite, which is exactly the kind of signal
+    this repo must never hand back (CLAUDE.md: never discount an error).
+
+    The worker-death diagnostics already existed (see ``pytest_testnodedown``
+    and ``pytest_handlecrashitem``); what was missing was making the *exit
+    status* reflect them.
+
+    It also reclaims disk on the way OUT. Reaping only at session start means a
+    box holds every retained run's WiredTiger homes for as long as nobody runs
+    pytest again -- which is most of the time, because the suite is the thing
+    you run and then go and do other work. Whatever the last run left sits
+    there until the next run starts, and that one may be days away or may be
+    blocked BY the disk usage: this box reached 50 MB free with the
+    start-of-session sweep working exactly as designed, and every
+    server-starting test then failed with "No space left on device". The
+    current run is never at risk -- its dir is the newest and its ``.lock``
+    still names this live PID, so both of the sweep's rules protect it.
+    """
+    # Controller only -- workers have ``workerinput`` and their own exit path.
+    if hasattr(session.config, "workerinput"):
+        return
+    _reap_abandoned_pytest_tmp(session.config)
+    banner = _lost_test_report(session.testscollected, len(_seen_nodeids), _node_down)
+    if banner is None:
+        return
+    sys.stderr.write(banner)
+    sys.stderr.flush()
+    if exitstatus == 0:
+        session.exitstatus = 1
 
 
 def _stall_trigger(

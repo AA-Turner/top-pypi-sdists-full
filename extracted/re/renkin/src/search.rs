@@ -1,7 +1,7 @@
 use std::collections::BinaryHeap;
 use std::sync::{Arc, OnceLock};
 
-use anyhow::{Result, bail};
+use anyhow::{Context, Result, bail};
 use chematic::chem::{molecular_weight, sa_score, standardize};
 #[cfg(not(target_arch = "wasm32"))]
 use rayon::prelude::*;
@@ -481,6 +481,60 @@ pub struct SearchStats {
     /// a nonzero value means a mixed-mode run (part reranked, part legacy)
     /// happened and should be investigated, not silently accepted.
     pub reranker_failures: u64,
+    /// First-route receipt (Syntheseus "calls to first solution" parity):
+    /// frontier expansions performed before the first route passed the
+    /// acceptance boundary. `None` when no route was accepted. Deterministic
+    /// for identical inputs. Later post-search filters (element constraints,
+    /// CLI constraint files) can still drop that route; this records the
+    /// search-time event, not the final output.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub first_route_nodes_expanded: Option<u64>,
+    /// Retro-expansion calls (retro-cache misses: one rule-set application
+    /// per unique intermediate, the analogue of Syntheseus's reaction-model
+    /// calls) made before the first accepted route. `None` when no route
+    /// was accepted.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub first_route_expansion_calls: Option<u64>,
+    /// Wall-clock microseconds from search start to the first accepted
+    /// route (native targets only; always `None` on wasm32). Never
+    /// serialized with the stats, so stats JSON stays deterministic;
+    /// callers surface it explicitly.
+    #[serde(skip)]
+    pub first_route_elapsed_us: Option<u64>,
+    /// Raw one-step candidates removed because a precursor is in
+    /// `SearchConfig::banned_molecules` (counted once per unique expanded
+    /// intermediate). Always `0` without a ban list.
+    #[serde(skip_serializing_if = "is_zero_u64")]
+    pub banned_precursor_candidates: u64,
+    /// Expansion entries dropped by `SearchConfig::max_branching` (counted
+    /// once per unique expanded intermediate). Always `0` without a cap.
+    #[serde(skip_serializing_if = "is_zero_u64")]
+    pub branching_pruned_candidates: u64,
+    /// `true` when the search stopped because `SearchConfig::max_expansions`
+    /// was exhausted (another expansion was about to start). Deterministic.
+    /// Reported here rather than as a new [`SearchTermination`] variant so
+    /// that public enum stays unchanged for downstream exhaustive matches;
+    /// `termination` remains `Completed` in this case.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub expansion_limit_reached: bool,
+    /// `true` when the search stopped because `SearchConfig::max_tree_size`
+    /// search nodes had been generated. Deterministic; `termination`
+    /// remains `Completed`, as for `expansion_limit_reached`.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub tree_size_limit_reached: bool,
+    /// Search nodes generated (root plus every child pushed onto the
+    /// frontier). Not serialized with the stats, so existing stats JSON is
+    /// unchanged; surfaced explicitly by callers that report tree size.
+    #[serde(skip)]
+    pub nodes_generated: u64,
+    /// Expansion entries whose cost was lowered by
+    /// `SearchConfig::priority_templates` (once per unique intermediate).
+    #[serde(skip_serializing_if = "is_zero_u64")]
+    pub priority_candidates_promoted: u64,
+}
+
+fn is_zero_u64(value: &u64) -> bool {
+    *value == 0
 }
 
 /// Counts stock-membership lookups and memoization reuse within one search.
@@ -1108,7 +1162,10 @@ fn is_bb_cached(
         diagnostics.cache_hits += 1;
         return cached;
     }
-    let matched = env.is_building_block_smiles(smiles);
+    // Stock membership, or an opt-in small-molecule terminal
+    // (`ChemEnv::with_small_molecule_terminal`); identical to the stock
+    // lookup when no threshold is configured.
+    let matched = env.is_search_terminal_smiles(smiles);
     cache.insert(smiles.to_owned(), matched);
     diagnostics.cache_misses += 1;
     if matched {
@@ -2507,7 +2564,7 @@ fn cached_one_step_stock_terminal(
             && entry
                 .precursor_smiles
                 .iter()
-                .all(|precursor| env.is_building_block_smiles(precursor))
+                .all(|precursor| env.is_search_terminal_smiles(precursor))
     }))
 }
 
@@ -2713,6 +2770,75 @@ pub struct SearchConfig {
     /// Opt-in same-parent cross-template deduplication. Default false
     /// preserves provenance-rich historical behavior.
     pub cross_template_dedup: bool,
+    /// AiZynthFinder `exclude_target_from_stock` parity (opt-in, default
+    /// `false`). When `true`, the root target is never treated as a stock
+    /// terminal, even when its standardized canonical SMILES is in the
+    /// stock: the search therefore never returns the depth-0 "buy it"
+    /// route and every returned route synthesizes the target. Precursor
+    /// stock identity is unchanged. `false` reproduces the historical
+    /// behavior byte-for-byte.
+    pub exclude_target_from_stock: bool,
+    /// Deterministic expansion budget (Syntheseus `limit_iterations` /
+    /// AiZynthFinder `iteration_limit` parity). When `Some(n)`, the search
+    /// stops before its `n + 1`-th frontier expansion with
+    /// [`SearchStats::expansion_limit_reached`] set (termination stays
+    /// [`SearchTermination::Completed`] so the public enum is unchanged);
+    /// routes accepted so far are returned. Unlike a wall-clock deadline this is reproducible
+    /// across machines and load. `None` (default) is unlimited.
+    pub max_expansions: Option<u64>,
+    /// ASKCOS "banned chemicals" parity: molecules (standardized canonical
+    /// SMILES, i.e. the stock-identity policy -- build with
+    /// [`banned_molecule_set`]) that may never appear as a precursor
+    /// anywhere in a route. Candidates containing one are removed at
+    /// proposal time, before scoring, so they neither enter the frontier
+    /// nor consume beam slots. `None` (default) bans nothing.
+    pub banned_molecules: Option<std::sync::Arc<std::collections::HashSet<String>>>,
+    /// ASKCOS `max_branching` / AiZynthFinder `cutoff_number` parity: keep
+    /// at most this many distinct precursor sets per expanded molecule,
+    /// choosing the lowest search step cost (ties: proposal order). Every
+    /// source template of a kept precursor set is retained, so provenance is
+    /// never split. Applied once per unique intermediate, before the child
+    /// loop. `None` (default) keeps every proposal.
+    pub max_branching: Option<usize>,
+    /// SynPlanner `max_tree_size` parity: stop once this many search nodes
+    /// (root plus every generated child) exist, bounding frontier memory
+    /// deterministically. The limit is never exceeded; routes accepted so
+    /// far are returned and [`SearchStats::tree_size_limit_reached`] is set.
+    /// `None` (default) is unlimited.
+    pub max_tree_size: Option<u64>,
+    /// SynPlanner `use_priority` parity: template IDs or rule names whose
+    /// proposals are tried ahead of their siblings. In each expansion, a
+    /// matching candidate's step cost is lowered to the cheapest sibling's
+    /// step cost, so it is never ordered behind a sibling and survives
+    /// `max_branching`/beam pruning as well as the cheapest one does. This
+    /// changes route `score` for promoted steps (like any ordering prior);
+    /// it never adds candidates. SynPlanner's repeated application to a
+    /// fixpoint (`priority_rule_multiapplication`) is not implemented.
+    /// `None` (default) promotes nothing.
+    pub priority_templates: Option<std::sync::Arc<std::collections::HashSet<String>>>,
+}
+
+/// Build a [`SearchConfig::banned_molecules`] set from SMILES, applying the
+/// exact stock-identity policy (standardize, then canonicalize) so a ban
+/// matches the same molecule a stock lookup would. Blank lines and `#`
+/// comments are ignored; the first whitespace-separated token of a line is
+/// the SMILES. Any unparseable SMILES is an error rather than a silently
+/// ineffective ban.
+pub fn banned_molecule_set<'a>(
+    smiles: impl IntoIterator<Item = &'a str>,
+) -> Result<std::collections::HashSet<String>> {
+    let mut set = std::collections::HashSet::new();
+    for line in smiles {
+        let line = line.trim();
+        if line.is_empty() || line.starts_with('#') {
+            continue;
+        }
+        let token = line.split_whitespace().next().unwrap_or(line);
+        let key = crate::chem_env::canonical_stock_identity_from_smiles(token)
+            .with_context(|| format!("invalid banned molecule {token:?}"))?;
+        set.insert(key);
+    }
+    Ok(set)
 }
 
 impl Default for SearchConfig {
@@ -2742,6 +2868,12 @@ impl Default for SearchConfig {
             beam_diversity_policy: BeamDiversityPolicy::Off,
             beam_diversity_slots: 0,
             cross_template_dedup: false,
+            exclude_target_from_stock: false,
+            max_expansions: None,
+            banned_molecules: None,
+            max_branching: None,
+            max_tree_size: None,
+            priority_templates: None,
         }
     }
 }
@@ -2847,7 +2979,9 @@ impl SearchControl {
 #[serde(rename_all = "snake_case")]
 pub enum SearchTermination {
     /// The frontier heap emptied or `max_routes` was reached -- same
-    /// stopping conditions [`find_routes`] has always had.
+    /// stopping conditions [`find_routes`] has always had -- or the opt-in
+    /// deterministic `SearchConfig::max_expansions` budget was exhausted
+    /// (distinguished by [`SearchStats::expansion_limit_reached`]).
     Completed,
     /// [`SearchControl`]'s deadline passed at one of the search's
     /// cooperative-cancellation checkpoints. **A soft, cooperative
@@ -2950,7 +3084,11 @@ pub fn find_routes_with_retro_generator_retry(
         &prepared_rules,
         None,
     )?;
-    if !initial.routes.is_empty() || initial.termination != SearchTermination::Completed {
+    if !initial.routes.is_empty()
+        || initial.termination != SearchTermination::Completed
+        || initial.stats.expansion_limit_reached
+        || initial.stats.tree_size_limit_reached
+    {
         return Ok(RetroGeneratorRetryRunResult {
             selected: initial,
             initial: None,
@@ -3042,6 +3180,67 @@ impl SearchEngine {
     }
 }
 
+/// Lower every priority entry's step cost to the cheapest sibling cost (see
+/// [`SearchConfig::priority_templates`]). Returns how many entries were
+/// promoted (cost actually lowered).
+fn promote_priority_entries(
+    entries: &mut [RetroEntry],
+    priority: &std::collections::HashSet<String>,
+) -> u64 {
+    let Some(min_cost) = entries
+        .iter()
+        .map(|e| e.step_cost)
+        .filter(|c| c.is_finite())
+        .min_by(f64::total_cmp)
+    else {
+        return 0;
+    };
+    let mut promoted = 0;
+    for entry in entries.iter_mut() {
+        if (priority.contains(&entry.template_id) || priority.contains(&entry.rule_name))
+            && entry.step_cost > min_cost
+        {
+            entry.step_cost = min_cost;
+            promoted += 1;
+        }
+    }
+    promoted
+}
+
+/// Keep the `limit` cheapest distinct precursor sets of one expansion (see
+/// [`SearchConfig::max_branching`]). Entries sharing a kept precursor set are
+/// all retained; surviving entries keep their original relative order, so
+/// the downstream child loop sees the same sequence minus pruned entries.
+fn cap_branching(entries: &mut Vec<RetroEntry>, limit: usize) {
+    fn signature(entry: &RetroEntry) -> SmallVec<[&str; 4]> {
+        let mut sig: SmallVec<[&str; 4]> =
+            entry.precursor_smiles.iter().map(|s| s.as_ref()).collect();
+        sig.sort_unstable();
+        sig
+    }
+    let mut order: Vec<usize> = (0..entries.len()).collect();
+    // Stable: equal costs keep proposal order.
+    order.sort_by(|&a, &b| entries[a].step_cost.total_cmp(&entries[b].step_cost));
+    let mut kept: FxHashSet<SmallVec<[&str; 4]>> = FxHashSet::default();
+    for &index in &order {
+        if kept.len() >= limit {
+            break;
+        }
+        kept.insert(signature(&entries[index]));
+    }
+    let keep: Vec<bool> = entries
+        .iter()
+        .map(|entry| kept.contains(&signature(entry)))
+        .collect();
+    drop(kept);
+    let mut index = 0;
+    entries.retain(|_| {
+        let retain = keep[index];
+        index += 1;
+        retain
+    });
+}
+
 /// Same search as [`find_routes`], with an explicit cooperative-cancellation
 /// budget (`control`). [`find_routes`] is a thin wrapper over this function
 /// using [`SearchControl::unlimited`] -- this is the one place the frontier
@@ -3097,6 +3296,8 @@ pub fn find_routes_with_element_accounting_retry(
 
     let should_retry = initial.routes.is_empty()
         && initial.termination == SearchTermination::Completed
+        && !initial.stats.expansion_limit_reached
+        && !initial.stats.tree_size_limit_reached
         && initial.stats.route_integrity.unaccounted_target_element > 0;
     if !should_retry {
         return Ok(ElementAccountingRetryRunResult {
@@ -3152,6 +3353,8 @@ pub fn find_routes_with_beam_diversity_retry(
 
     let should_retry = initial.routes.is_empty()
         && initial.termination == SearchTermination::Completed
+        && !initial.stats.expansion_limit_reached
+        && !initial.stats.tree_size_limit_reached
         && initial.stats.beam_limit_hit
         && config.beam_width > 0
         && config.beam_diversity_slots > 0;
@@ -3277,6 +3480,17 @@ pub(crate) fn find_routes_with_control_prepared(
     let mut crowd_out = CrowdOutDiagnostics::default();
     let mut route_integrity = RouteIntegrityDiagnostics::default();
     let mut termination = SearchTermination::Completed;
+    let mut first_route_nodes_expanded: Option<u64> = None;
+    let mut first_route_expansion_calls: Option<u64> = None;
+    #[allow(unused_mut)]
+    let mut first_route_elapsed_us: Option<u64> = None;
+    let mut banned_precursor_candidates: u64 = 0;
+    let mut branching_pruned_candidates: u64 = 0;
+    let mut expansion_limit_reached = false;
+    let mut tree_size_limit_reached = false;
+    let mut priority_candidates_promoted: u64 = 0;
+    // The root node below counts as the first generated node.
+    let mut nodes_generated: u64 = 1;
 
     let mut routes: Vec<Route> = Vec::new();
     let mut best_g_by_frontier: FxHashMap<FrontierKey, f64> = FxHashMap::default();
@@ -3287,14 +3501,24 @@ pub(crate) fn find_routes_with_control_prepared(
     // standardized according to the stock identity policy. Resolve it once
     // from the already-parsed molecule; every generated descendant is
     // standardized before it enters the frontier.
-    let target_is_building_block = env.is_building_block(&target_mol);
-    bb_cache.insert(target_canonical.clone(), target_is_building_block);
-    stock_lookup_diagnostics.cache_misses += 1;
-    if target_is_building_block {
-        stock_lookup_diagnostics.positive_results += 1;
+    //
+    // `exclude_target_from_stock` pins the root to "not stock" in the same
+    // per-search cache every later lookup consults, so the target can never
+    // become a terminal anywhere in this search (root or a cyclic
+    // re-occurrence). No stock lookup is performed for it in that case.
+    let target_is_building_block = if config.exclude_target_from_stock {
+        false
     } else {
-        stock_lookup_diagnostics.negative_results += 1;
-    }
+        let in_stock = env.is_search_terminal(&target_mol);
+        stock_lookup_diagnostics.cache_misses += 1;
+        if in_stock {
+            stock_lookup_diagnostics.positive_results += 1;
+        } else {
+            stock_lookup_diagnostics.negative_results += 1;
+        }
+        in_stock
+    };
+    bb_cache.insert(target_canonical.clone(), target_is_building_block);
     let target_smiles_arc: Arc<str> = Arc::from(target_canonical.as_str());
     let target_mol_arc = Arc::new(target_mol);
     let mut molecule_cache: FxHashMap<Arc<str>, Arc<Molecule>> = FxHashMap::default();
@@ -3388,6 +3612,15 @@ pub(crate) fn find_routes_with_control_prepared(
             // candidate would, and keeps looking for a valid one.
             let defects = route_integrity_defects(&candidate, &target_canonical);
             if defects.is_empty() {
+                if routes.is_empty() {
+                    first_route_nodes_expanded = Some(nodes_expanded);
+                    first_route_expansion_calls = Some(retro_cache_misses);
+                    #[cfg(not(target_arch = "wasm32"))]
+                    {
+                        first_route_elapsed_us =
+                            Some(u64::try_from(t0.elapsed().as_micros()).unwrap_or(u64::MAX));
+                    }
+                }
                 routes.push(candidate);
             } else {
                 route_integrity.record(&defects);
@@ -3401,6 +3634,15 @@ pub(crate) fn find_routes_with_control_prepared(
 
         if !should_expand_frontier(&node.frontier, node.g, &mut best_g_by_frontier) {
             continue;
+        }
+        // Deterministic budget: checked immediately before an expansion
+        // would be counted, so `nodes_expanded` never exceeds the limit.
+        if config
+            .max_expansions
+            .is_some_and(|limit| nodes_expanded >= limit)
+        {
+            expansion_limit_reached = true;
+            break;
         }
         // This is part of the serialized search contract, including WASM;
         // only the separate `nodes_popped` timing counter is native-only.
@@ -3573,6 +3815,18 @@ pub(crate) fn find_routes_with_control_prepared(
                     step_gated_out.extend(full_gated_out);
                     step_element_accounting_gated_out.extend(full_element_accounting_gated_out);
                 }
+            }
+            if let Some(banned) = config.banned_molecules.as_deref() {
+                let before = raw_proposals.len();
+                raw_proposals.retain(|proposal| {
+                    !proposal.precursors.iter().any(|precursor| {
+                        banned.contains(precursor.smiles.as_str())
+                            || banned.contains(&crate::chem_env::canonical_stock_identity(
+                                &precursor.mol,
+                            ))
+                    })
+                });
+                banned_precursor_candidates += (before - raw_proposals.len()) as u64;
             }
             ring_context_diagnostics.merge(&step_ring_diag);
             crowd_out
@@ -3754,6 +4008,16 @@ pub(crate) fn find_routes_with_control_prepared(
             #[cfg(not(target_arch = "wasm32"))]
             if let Some(t0) = postprocess_t0 {
                 crowd_out.candidate_postprocess_wall_time_us += t0.elapsed().as_micros() as u64;
+            }
+
+            if let Some(priority) = config.priority_templates.as_deref() {
+                priority_candidates_promoted += promote_priority_entries(&mut entries, priority);
+            }
+
+            if let Some(limit) = config.max_branching {
+                let before = entries.len();
+                cap_branching(&mut entries, limit);
+                branching_pruned_candidates += (before - entries.len()) as u64;
             }
 
             let arc = Arc::new(entries);
@@ -3939,6 +4203,14 @@ pub(crate) fn find_routes_with_control_prepared(
                 Some(id)
             });
 
+            if config
+                .max_tree_size
+                .is_some_and(|limit| nodes_generated >= limit)
+            {
+                tree_size_limit_reached = true;
+                break 'frontier;
+            }
+            nodes_generated += 1;
             heap.push(Node {
                 frontier: new_frontier,
                 path: new_path,
@@ -4066,6 +4338,15 @@ pub(crate) fn find_routes_with_control_prepared(
             crowd_out,
             route_integrity,
             reranker_failures,
+            first_route_nodes_expanded,
+            first_route_expansion_calls,
+            first_route_elapsed_us,
+            banned_precursor_candidates,
+            branching_pruned_candidates,
+            expansion_limit_reached,
+            tree_size_limit_reached,
+            nodes_generated,
+            priority_candidates_promoted,
         },
         termination,
     })
@@ -4394,6 +4675,324 @@ mod tests {
             routes.iter().any(|r| r.depth == 0),
             "building block must return depth-0 route"
         );
+    }
+
+    #[test]
+    fn cap_branching_keeps_cheapest_distinct_sets_with_all_sources() {
+        let entry = |template: &str, cost: f64, precursors: &[&str]| RetroEntry {
+            rule_name: template.to_owned(),
+            template_id: template.to_owned(),
+            step_cost: cost,
+            precursor_smiles: precursors.iter().map(|p| Arc::from(*p)).collect(),
+        };
+        let mut entries = vec![
+            entry("t1", 3.0, &["A", "B"]),
+            entry("t2", 1.0, &["C"]),
+            entry("t3", 2.0, &["B", "A"]), // same set as t1, cheaper
+            entry("t4", 1.0, &["D"]),
+            entry("t5", 5.0, &["E"]),
+        ];
+        cap_branching(&mut entries, 2);
+        let kept: Vec<&str> = entries.iter().map(|e| e.template_id.as_str()).collect();
+        // Cheapest two distinct sets are {C} and {D} (cost 1.0, proposal order).
+        assert_eq!(kept, vec!["t2", "t4"]);
+
+        let mut entries = vec![
+            entry("t1", 3.0, &["A", "B"]),
+            entry("t2", 1.0, &["C"]),
+            entry("t3", 2.0, &["B", "A"]),
+            entry("t5", 5.0, &["E"]),
+        ];
+        cap_branching(&mut entries, 2);
+        let kept: Vec<&str> = entries.iter().map(|e| e.template_id.as_str()).collect();
+        // {C} then {A,B}; both sources of {A,B} survive in original order.
+        assert_eq!(kept, vec!["t1", "t2", "t3"]);
+    }
+
+    #[test]
+    fn max_branching_prunes_search_and_generous_cap_is_identity() {
+        let env = aspirin_env();
+        let rules = default_rules();
+        let aspirin = "CC(=O)Oc1ccccc1C(=O)O";
+        let (baseline, baseline_stats) = find_routes(aspirin, &env, &rules, &cfg(3)).unwrap();
+        assert_eq!(baseline_stats.branching_pruned_candidates, 0);
+
+        let generous = SearchConfig {
+            max_branching: Some(usize::MAX),
+            ..cfg(3)
+        };
+        let (same, _) = find_routes(aspirin, &env, &rules, &generous).unwrap();
+        assert_eq!(
+            serde_json::to_string(&same).unwrap(),
+            serde_json::to_string(&baseline).unwrap()
+        );
+
+        let narrow = SearchConfig {
+            max_branching: Some(1),
+            ..cfg(3)
+        };
+        let (_, stats) = find_routes(aspirin, &env, &rules, &narrow).unwrap();
+        assert!(stats.branching_pruned_candidates > 0);
+        assert!(stats.nodes_expanded <= baseline_stats.nodes_expanded);
+    }
+
+    #[test]
+    fn promote_priority_entries_matches_ids_or_names_and_only_lowers() {
+        let entry = |template: &str, name: &str, cost: f64| RetroEntry {
+            rule_name: name.to_owned(),
+            template_id: template.to_owned(),
+            step_cost: cost,
+            precursor_smiles: vec![Arc::from("C")],
+        };
+        let mut entries = vec![
+            entry("rule:a", "a", 1.0),
+            entry("rule:b", "b", 3.0),
+            entry("smirks-sha256:x", "c", 2.5),
+            entry("rule:d", "d", 4.0),
+        ];
+        let priority: std::collections::HashSet<String> =
+            ["rule:b".to_owned(), "c".to_owned(), "rule:a".to_owned()].into();
+        assert_eq!(promote_priority_entries(&mut entries, &priority), 2);
+        let costs: Vec<f64> = entries.iter().map(|e| e.step_cost).collect();
+        assert_eq!(costs, vec![1.0, 1.0, 1.0, 4.0]);
+        assert_eq!(promote_priority_entries(&mut [], &priority), 0);
+    }
+
+    #[test]
+    fn priority_templates_promote_candidates_in_search() {
+        let env = aspirin_env();
+        let rules = default_rules();
+        let aspirin = "CC(=O)Oc1ccccc1C(=O)O";
+        let (baseline, _) = find_routes(aspirin, &env, &rules, &cfg(2)).unwrap();
+        // Promote a rule that does not already produce the top route.
+        let top_rule = baseline[0].steps[0].template_id.clone();
+        let other = baseline
+            .iter()
+            .flat_map(|r| r.steps.iter())
+            .map(|s| s.template_id.clone())
+            .find(|id| *id != top_rule)
+            .expect("fixture yields at least two distinct first-step rules");
+        let config = SearchConfig {
+            priority_templates: Some(std::sync::Arc::new([other.clone()].into())),
+            ..cfg(2)
+        };
+        let (routes, stats) = find_routes(aspirin, &env, &rules, &config).unwrap();
+        assert!(stats.priority_candidates_promoted > 0);
+        assert!(!routes.is_empty());
+    }
+
+    #[test]
+    fn max_tree_size_bounds_generated_nodes_deterministically() {
+        let env = aspirin_env();
+        let rules = default_rules();
+        let aspirin = "CC(=O)Oc1ccccc1C(=O)O";
+        let (_, unlimited) = find_routes(
+            aspirin,
+            &env,
+            &rules,
+            &SearchConfig {
+                max_routes: 50,
+                ..cfg(4)
+            },
+        )
+        .unwrap();
+        assert!(unlimited.nodes_generated > 10);
+        assert!(!unlimited.tree_size_limit_reached);
+
+        let limited = SearchConfig {
+            max_routes: 50,
+            max_tree_size: Some(10),
+            ..cfg(4)
+        };
+        let (a_routes, a) = find_routes(aspirin, &env, &rules, &limited).unwrap();
+        let (b_routes, b) = find_routes(aspirin, &env, &rules, &limited).unwrap();
+        assert!(a.tree_size_limit_reached);
+        assert_eq!(a.nodes_generated, 10);
+        assert_eq!(
+            serde_json::to_string(&a_routes).unwrap(),
+            serde_json::to_string(&b_routes).unwrap()
+        );
+        assert_eq!(
+            serde_json::to_string(&a).unwrap(),
+            serde_json::to_string(&b).unwrap()
+        );
+    }
+
+    #[test]
+    fn max_expansions_is_a_deterministic_budget() {
+        let env = aspirin_env();
+        let rules = default_rules();
+        let aspirin = "CC(=O)Oc1ccccc1C(=O)O";
+        let unlimited = find_routes_with_control(
+            aspirin,
+            &env,
+            &rules,
+            &SearchConfig {
+                max_routes: 50,
+                ..cfg(4)
+            },
+            &SearchControl::unlimited(),
+        )
+        .unwrap();
+        assert!(unlimited.stats.nodes_expanded > 3);
+
+        let limited_cfg = SearchConfig {
+            max_routes: 50,
+            max_expansions: Some(3),
+            ..cfg(4)
+        };
+        let a = find_routes_with_control(
+            aspirin,
+            &env,
+            &rules,
+            &limited_cfg,
+            &SearchControl::unlimited(),
+        )
+        .unwrap();
+        let b = find_routes_with_control(
+            aspirin,
+            &env,
+            &rules,
+            &limited_cfg,
+            &SearchControl::unlimited(),
+        )
+        .unwrap();
+        assert_eq!(a.termination, SearchTermination::Completed);
+        assert!(a.stats.expansion_limit_reached);
+        assert!(!unlimited.stats.expansion_limit_reached);
+        assert_eq!(a.stats.nodes_expanded, 3);
+        assert_eq!(
+            serde_json::to_string(&a.routes).unwrap(),
+            serde_json::to_string(&b.routes).unwrap()
+        );
+        assert_eq!(
+            serde_json::to_string(&a.stats).unwrap(),
+            serde_json::to_string(&b.stats).unwrap()
+        );
+
+        // A budget the search never reaches leaves the result unchanged.
+        let generous = find_routes_with_control(
+            aspirin,
+            &env,
+            &rules,
+            &SearchConfig {
+                max_routes: 50,
+                max_expansions: Some(u64::MAX),
+                ..cfg(4)
+            },
+            &SearchControl::unlimited(),
+        )
+        .unwrap();
+        assert_eq!(generous.termination, SearchTermination::Completed);
+        assert!(!generous.stats.expansion_limit_reached);
+        assert_eq!(
+            serde_json::to_string(&generous.routes).unwrap(),
+            serde_json::to_string(&unlimited.routes).unwrap()
+        );
+    }
+
+    #[test]
+    fn first_route_receipt_is_recorded_and_deterministic() {
+        let env = aspirin_env();
+        let rules = default_rules();
+        let aspirin = "CC(=O)Oc1ccccc1C(=O)O";
+        let (routes, stats) = find_routes(aspirin, &env, &rules, &cfg(3)).unwrap();
+        assert!(!routes.is_empty());
+        let first = stats.first_route_nodes_expanded.expect("route found");
+        assert!(first <= stats.nodes_expanded);
+        let calls = stats.first_route_expansion_calls.expect("route found");
+        assert!(calls <= stats.retro_cache_misses);
+        assert!(stats.first_route_elapsed_us.is_some());
+        let json = serde_json::to_value(&stats).unwrap();
+        assert_eq!(json["first_route_nodes_expanded"], first);
+        assert!(json.get("first_route_elapsed_us").is_none());
+
+        let (_, again) = find_routes(aspirin, &env, &rules, &cfg(3)).unwrap();
+        assert_eq!(again.first_route_nodes_expanded, Some(first));
+        assert_eq!(again.first_route_expansion_calls, Some(calls));
+
+        let empty = ChemEnv::in_memory(&["[Xe]"]);
+        let (none_routes, none_stats) = find_routes(aspirin, &empty, &rules, &cfg(1)).unwrap();
+        assert!(none_routes.is_empty());
+        assert_eq!(none_stats.first_route_nodes_expanded, None);
+        assert_eq!(none_stats.first_route_expansion_calls, None);
+        assert_eq!(none_stats.first_route_elapsed_us, None);
+    }
+
+    #[test]
+    fn banned_molecules_never_appear_in_any_route() {
+        let env = aspirin_env();
+        let rules = default_rules();
+        let aspirin = "CC(=O)Oc1ccccc1C(=O)O";
+        let salicylic = banned_molecule_set(["Oc1ccccc1C(O)=O"]).unwrap();
+        let salicylic_key = salicylic.iter().next().unwrap().clone();
+
+        let (baseline, _) = find_routes(aspirin, &env, &rules, &cfg(3)).unwrap();
+        assert!(
+            baseline.iter().any(|r| r
+                .steps
+                .iter()
+                .any(|s| s.precursors.contains(&salicylic_key))),
+            "fixture must use salicylic acid without a ban"
+        );
+
+        let config = SearchConfig {
+            banned_molecules: Some(std::sync::Arc::new(salicylic)),
+            ..cfg(3)
+        };
+        let (routes, stats) = find_routes(aspirin, &env, &rules, &config).unwrap();
+        assert!(stats.banned_precursor_candidates > 0);
+        for route in &routes {
+            assert!(!route.building_blocks.contains(&salicylic_key));
+            for step in &route.steps {
+                assert!(!step.precursors.contains(&salicylic_key));
+            }
+        }
+    }
+
+    #[test]
+    fn banned_molecule_set_uses_stock_identity_and_rejects_bad_smiles() {
+        let set = banned_molecule_set([
+            "# comment",
+            "",
+            "OC(=O)c1ccccc1O salicylic acid",
+            "Oc1ccccc1C(O)=O",
+        ])
+        .unwrap();
+        assert_eq!(set.len(), 1, "two spellings of one molecule share a key");
+        assert!(banned_molecule_set(["not((smiles"]).is_err());
+    }
+
+    #[test]
+    fn exclude_target_from_stock_forces_a_synthesis_route() {
+        // Aspirin itself is declared as stock alongside its precursors.
+        let env = ChemEnv::in_memory(&["CC(=O)Oc1ccccc1C(=O)O", "CC(=O)O", "Oc1ccccc1C(=O)O"]);
+        let rules = default_rules();
+        let aspirin = "CC(=O)Oc1ccccc1C(=O)O";
+
+        let default_routes = find_routes(aspirin, &env, &rules, &cfg(2)).unwrap().0;
+        assert!(
+            default_routes.iter().any(|r| r.depth == 0),
+            "default policy keeps the historical depth-0 buy route"
+        );
+
+        let config = SearchConfig {
+            exclude_target_from_stock: true,
+            ..cfg(2)
+        };
+        let (routes, stats) = find_routes(aspirin, &env, &rules, &config).unwrap();
+        assert!(!routes.is_empty(), "aspirin must still be synthesizable");
+        assert!(
+            routes.iter().all(|r| r.depth > 0 && !r.steps.is_empty()),
+            "an excluded target must never be returned as a depth-0 terminal"
+        );
+        assert!(
+            routes
+                .iter()
+                .all(|r| !r.building_blocks.iter().any(|bb| bb == aspirin)),
+            "the excluded target must not reappear as a building block"
+        );
+        assert!(stats.nodes_expanded > 0);
     }
 
     #[test]

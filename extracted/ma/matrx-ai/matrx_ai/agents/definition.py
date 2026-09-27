@@ -98,6 +98,19 @@ class Agent:
         self.matrx_actions: dict[str, Any] | None = matrx_actions
         self.variable_values: dict[str, Any] = {}
         self._variables_applied = False
+        # Controls as first-class variables. ``control_binding_policy`` is the
+        # org's ``agents.controls / variable_bindable_keys`` value a HOST resolved
+        # (None = the platform default). The composed values and the policy last
+        # used are kept so a host that learns the org policy after the variables
+        # were applied can re-resolve exactly once (``apply_control_binding_policy``).
+        self.control_binding_policy: Any = None
+        self._binding_values: dict[str, Any] | None = None
+        self._binding_policy_applied: Any = None
+        # Every explicit config override this agent received, in order. Re-applied
+        # after the variable-bound controls resolve, so an explicit override wins
+        # whichever of the two happened first (THE PRECEDENCE RULE: author default
+        # < bound variable < explicit override).
+        self._config_overrides: list[LLMParams] = []
 
         self.request_metadata: dict[str, Any] = {}
         self.last_completed_request: CompletedRequest | None = None
@@ -156,6 +169,8 @@ class Agent:
         cloned.request_context = deepcopy(self.request_context)
         # Reset the applied flag
         cloned._variables_applied = False
+        cloned.control_binding_policy = self.control_binding_policy
+        cloned._config_overrides = list(self._config_overrides)
         return cloned
 
     def clone_with_variables(self, **variables) -> Agent:
@@ -297,11 +312,9 @@ class Agent:
         begin_turn()
 
         # Controls as first-class variables: resolve variable-bound controls before the
-        # provider call (platform default bindable policy — hosts with a knob register
-        # resolve the org's policy on their own paths).
-        from matrx_ai.agents.control_bindings import resolve_control_bindings
-
-        resolve_control_bindings(self.config, self.variable_defaults, final_values)
+        # provider call, under ``control_binding_policy`` (the org's, when a host set
+        # it; else the platform default). Explicit overrides are re-applied after.
+        self._resolve_control_bindings(final_values)
 
         # Use UnifiedConfig's replace_variables method
         self.config.replace_variables(final_values)
@@ -309,6 +322,42 @@ class Agent:
         # Mark as applied
         self._variables_applied = True
 
+        return self
+
+    def _resolve_control_bindings(self, values: dict[str, Any]) -> None:
+        from matrx_ai.agents.control_bindings import (
+            DEFAULT_BINDABLE_POLICY,
+            control_bindings_from_variables,
+            resolve_control_bindings,
+        )
+
+        policy = (
+            DEFAULT_BINDABLE_POLICY
+            if self.control_binding_policy is None
+            else self.control_binding_policy
+        )
+        self._binding_values = dict(values)
+        self._binding_policy_applied = policy
+        if not control_bindings_from_variables(self.variable_defaults):
+            return
+        resolve_control_bindings(self.config, self.variable_defaults, values, policy=policy)
+        for overrides in self._config_overrides:
+            self.config.apply_overrides(overrides)
+
+    def apply_control_binding_policy(self, policy: Any) -> Agent:
+        """Adopt the host-resolved org policy for variable-bound controls.
+
+        Before variables are applied this only records the policy (it is used
+        once, when they are). After, the bindings are re-resolved under it ONLY
+        if it differs from the policy they were resolved with — then explicit
+        config overrides are re-applied so they still win.
+        """
+        self.control_binding_policy = policy
+        if not self._variables_applied or self._binding_values is None:
+            return self
+        if policy == self._binding_policy_applied:
+            return self
+        self._resolve_control_bindings(self._binding_values)
         return self
 
     def with_variables(self, **variables) -> Agent:
@@ -343,8 +392,11 @@ class Agent:
         """
         if overrides is not None:
             self.config.apply_overrides(overrides)
+            self._config_overrides.append(overrides)
         if kwargs:
-            self.config.apply_overrides(LLMParams(**kwargs))
+            params = LLMParams(**kwargs)
+            self.config.apply_overrides(params)
+            self._config_overrides.append(params)
         return self
 
     @classmethod

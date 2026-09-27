@@ -18,7 +18,7 @@
 //!   `ordering._SortKey` uses). `$addToSet` membership uses Python `==`
 //!   (`expressions::py_eq`).
 //!
-//! Any unported / deferring construct returns `Err(())` and the pure-Python
+//! Any unported / deferring construct returns `Err(Fallback::Defer)` and the pure-Python
 //! `$group` runs instead.
 
 use std::cmp::Ordering;
@@ -28,12 +28,20 @@ use bson::{Bson, Document};
 
 use crate::decimal;
 use crate::expressions;
+use crate::fallback::Fallback;
 use crate::numeric::{self, as_int_like, int_promoted_to_bson, int_to_bson, is_int64, NumVal};
 
-type R<T> = Result<T, ()>;
+/// This module used to be `Result<T, ()>`, which DISCARDED every error the
+/// expression evaluator named. `$group` therefore answered the generic
+/// "not supported by the Rust server" for errors reported correctly everywhere
+/// else -- `{$group: {_id: null, x: {$first: {$ln: 0}}}}` lost mongod's 28766,
+/// and a missing required argument lost its code too. Carrying `Fallback` lets a
+/// NAMED error through; `Fallback::Defer` is the same "cannot reproduce this"
+/// signal the unit `()` used to be, so every site that had one behaves as before.
+type R<T> = Result<T, Fallback>;
 
 fn eval(expr: &Bson, doc: &Document, vars: &Document) -> R<Bson> {
-    expressions::evaluate(doc, expr, vars).map_err(|_| ())
+    expressions::evaluate(doc, expr, vars)
 }
 
 /// Evaluate an accumulator input, distinguishing a missing field from an explicit
@@ -52,32 +60,79 @@ fn eval_or_missing(expr: &Bson, doc: &Document, vars: &Document) -> R<Option<Bso
     eval(expr, doc, vars).map(Some)
 }
 
-/// Canonical, hashable group-key — mirrors `_hashable` + Python dict equality.
-/// Also used by `$densify` for partition keys (same dict semantics).
+/// Canonical, hashable group-key.
+///
+/// Matches mongod's bucketing: `1 == 1.0` share a bucket, the signed zeros
+/// share one, and so does every NaN -- but a BOOL is its own, because a bool is
+/// not a number to mongod. Measured 8.2.11 (2026-09-09):
+///
+/// ```text
+///     _id=0      <- 0, 0.0, -0.0
+///     _id=False  <- False
+///     _id=True   <- True
+///     _id=1      <- 1, 1.0
+/// ```
+///
+/// This comment used to claim `1 == 1.0 == true` share a bucket, and the code
+/// implemented that -- so six documents collapsed into TWO buckets keyed by
+/// truthiness. Both the claim and the NaN bug before it came from describing
+/// this type as mirroring "Python dict equality" rather than mongod: Python
+/// keys a NaN by identity and treats `True == 1`, and mongod does neither.
+/// Also used by `$densify` for partition keys.
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub enum GKey {
     Null,
-    Num(NumVal), // int / int64 / double / bool, normalised (1 == 1.0 == True)
+    Num(NumVal), // int / int64 / double, normalised (1 == 1.0)
+    /// A bool is NOT a number to mongod, so it never shares a numeric bucket.
+    Bool(bool),
+    /// The types that used to `Defer` -- which on the standalone Rust server is
+    /// an ERROR, so ONE MinKey (or Timestamp, Binary, Regex, Code) anywhere in
+    /// the grouped field failed the whole `$group`. Each buckets by exact
+    /// value, with no special rule: two equal values share a bucket and a
+    /// different one does not (measured 8.2.11, 2026-09-09 across all six).
+    MinKey,
+    MaxKey,
+    Timestamp(u32, u32),
+    Binary(u8, Vec<u8>),
+    Regex(String, String),
+    Code(String),
     Str(String),
     Date(i64),
     Oid([u8; 12]),
     Doc(Vec<(String, GKey)>), // sorted by field name
     Arr(Vec<GKey>),
+    /// Every NaN, of any numeric type, buckets together.
+    ///
+    /// mongod groups two `NaN`s into ONE bucket, and merges a double NaN with
+    /// a `Decimal128` NaN into that same bucket (probed 8.2.11, 2026-09-05).
+    /// This used to `Err(Fallback::Defer)` and defer, on the grounds that "NaN never equals
+    /// itself in a dict probe" -- true of Python, and the reason the pure
+    /// engine put every NaN in its own bucket until it was fixed. Deferring
+    /// also meant the STANDALONE Rust server, which has no Python behind a
+    /// defer, could not group a NaN at all.
+    Nan,
 }
 
-/// Canonicalise a key value, or `Err(())` for a type we don't bucket faithfully
-/// (Decimal128, NaN, Binary/Timestamp/Regex/Min/MaxKey, exotic).
+/// Canonicalise a key value, or `Err(Fallback::Defer)` for a type we don't bucket faithfully
+/// (non-NaN Decimal128, Binary/Timestamp/Regex/Min/MaxKey, exotic).
 pub fn gkey(v: &Bson) -> R<GKey> {
     match v {
         Bson::Null => Ok(GKey::Null),
-        Bson::Boolean(b) => Ok(GKey::Num(
-            numeric::classify(&Bson::Int32(i32::from(*b))).unwrap(),
-        )),
-        Bson::Int32(_) | Bson::Int64(_) | Bson::Double(_) => match numeric::classify(v) {
-            Some(NumVal::Nan) => Err(()), // NaN never equals itself in a dict probe -> defer
-            Some(n) => Ok(GKey::Num(n)),
-            None => Err(()),
-        },
+        Bson::Boolean(b) => Ok(GKey::Bool(*b)),
+        // Decimal128 belongs here with the rest: mongod buckets int `1`,
+        // double `1.0`, `Decimal128("1")` and `Decimal128("1.0")` together
+        // under one key (measured 8.2.11, 2026-09-09), and `NumVal` is a
+        // normalised digit form that already collapses all four. Only a
+        // non-NaN decimal used to reach the `Defer` at the bottom -- which on
+        // the standalone server is an ERROR, so one decimal anywhere in the
+        // grouped field failed the whole `$group`.
+        Bson::Int32(_) | Bson::Int64(_) | Bson::Double(_) | Bson::Decimal128(_) => {
+            match numeric::classify(v) {
+                Some(NumVal::Nan) => Ok(GKey::Nan),
+                Some(n) => Ok(GKey::Num(n)),
+                None => Err(Fallback::Defer),
+            }
+        }
         Bson::String(s) => Ok(GKey::Str(s.clone())),
         Bson::DateTime(d) => Ok(GKey::Date(d.timestamp_millis())),
         Bson::ObjectId(o) => Ok(GKey::Oid(o.bytes())),
@@ -98,8 +153,15 @@ pub fn gkey(v: &Bson) -> R<GKey> {
             }
             Ok(GKey::Arr(items))
         }
-        // Decimal128, Binary, Timestamp, Regex, Min/MaxKey, exotic -> Python.
-        _ => Err(()),
+        Bson::MinKey => Ok(GKey::MinKey),
+        Bson::MaxKey => Ok(GKey::MaxKey),
+        Bson::Timestamp(t) => Ok(GKey::Timestamp(t.time, t.increment)),
+        Bson::Binary(b) => Ok(GKey::Binary(b.subtype.into(), b.bytes.clone())),
+        Bson::RegularExpression(r) => Ok(GKey::Regex(r.pattern.clone(), r.options.clone())),
+        Bson::JavaScriptCode(c) => Ok(GKey::Code(c.clone())),
+        // Undefined / DbPointer / Symbol / CodeWithScope remain unbucketed --
+        // nobody has measured them.
+        _ => Err(Fallback::Defer),
     }
 }
 
@@ -129,7 +191,7 @@ impl Num {
         std::mem::replace(self, Num::Int { v: 0, wide: false })
     }
 
-    /// Python `self + v`. `Err(())` if `v` isn't numeric (Python `int + str`
+    /// Python `self + v`. `Err(Fallback::Defer)` if `v` isn't numeric (Python `int + str`
     /// etc. raises -> defer). `pub(crate)` so the expression-form `$sum`/`$avg`
     /// accumulators (`expressions.rs`) reuse the exact width logic for parity.
     pub(crate) fn add(self, v: &Bson) -> R<Num> {
@@ -148,15 +210,15 @@ impl Num {
                     // Unreachable — a decimal running total took the branch
                     // above. Deferring (rather than panicking) keeps a wrong
                     // assumption here a slowdown, not a crash.
-                    Num::Dec(_) => return Err(()),
+                    Num::Dec(_) => return Err(Fallback::Defer),
                 })
             }
             Bson::Double(d) => Ok(match self {
                 Num::Int { v: a, .. } => Num::Float(a as f64 + d),
                 Num::Float(f) => Num::Float(f + d),
-                Num::Dec(_) => return Err(()), // as above
+                Num::Dec(_) => return Err(Fallback::Defer), // as above
             }),
-            _ => Err(()), // string / array / doc / Decimal128 / null -> TypeError
+            _ => Err(Fallback::Defer), // string / array / doc / Decimal128 / null -> TypeError
         }
     }
 
@@ -166,26 +228,29 @@ impl Num {
     fn add_decimal(self, v: &Bson) -> R<Num> {
         let a = match self {
             Num::Dec(d) => d,
-            Num::Int { v: a, .. } => decimal::parse(&a.to_string()).ok_or(())?,
-            Num::Float(f) => decimal::from_bson_accumulator(&Bson::Double(f)).ok_or(())?,
+            Num::Int { v: a, .. } => decimal::parse(&a.to_string()).ok_or(Fallback::Defer)?,
+            Num::Float(f) => {
+                decimal::from_bson_accumulator(&Bson::Double(f)).ok_or(Fallback::Defer)?
+            }
         };
         let b = match v {
             Bson::Boolean(_) => {
-                decimal::from_bson(&Bson::Int32(as_int_like(v).ok_or(())? as i32)).ok_or(())?
+                decimal::from_bson(&Bson::Int32(as_int_like(v).ok_or(Fallback::Defer)? as i32))
+                    .ok_or(Fallback::Defer)?
             }
             Bson::Int32(_) | Bson::Int64(_) | Bson::Double(_) | Bson::Decimal128(_) => {
-                decimal::from_bson_accumulator(v).ok_or(())?
+                decimal::from_bson_accumulator(v).ok_or(Fallback::Defer)?
             }
-            _ => return Err(()), // string / array / doc / null -> TypeError
+            _ => return Err(Fallback::Defer), // string / array / doc / null -> TypeError
         };
-        Ok(Num::Dec(decimal::add(&a, &b).ok_or(())?))
+        Ok(Num::Dec(decimal::add(&a, &b).ok_or(Fallback::Defer)?))
     }
 
     pub(crate) fn into_bson(self) -> R<Bson> {
         match self {
-            Num::Int { v, wide } => int_promoted_to_bson(v, wide).ok_or(()),
+            Num::Int { v, wide } => int_promoted_to_bson(v, wide).ok_or(Fallback::Defer),
             Num::Float(f) => Ok(Bson::Double(f)),
-            Num::Dec(d) => decimal::to_bson(&d).ok_or(()),
+            Num::Dec(d) => decimal::to_bson(&d).ok_or(Fallback::Defer),
         }
     }
 }
@@ -343,7 +408,7 @@ pub(crate) fn new_acc(op: &str) -> R<Acc> {
             ps: None,
             values: Vec::new(),
         },
-        _ => return Err(()), // unsupported accumulator -> Python (raises or handles)
+        _ => return Err(Fallback::Defer), // unsupported accumulator -> Python (raises or handles)
     })
 }
 
@@ -449,7 +514,7 @@ pub(crate) fn apply_acc(acc: &mut Acc, arg: &Bson, doc: &Document, vars: &Docume
             };
             let mut present = false;
             for existing in list.iter() {
-                if expressions::py_eq(&v, existing).map_err(|_| ())? {
+                if expressions::py_eq(&v, existing).map_err(|_| Fallback::Defer)? {
                     present = true;
                     break;
                 }
@@ -470,18 +535,28 @@ pub(crate) fn apply_acc(acc: &mut Acc, arg: &Bson, doc: &Document, vars: &Docume
                             merged.insert(k, val);
                         }
                     }
-                    _ => return Err(()),
+                    _ => return Err(Fallback::Defer),
                 }
             }
         }
         Acc::StdDev { values, .. } => {
-            // Python appends every non-null value; a non-numeric would then blow
-            // up `sum(values)` at finalize, so we defer such a group to Python
-            // (which raises). `null` is skipped. Bool counts as 0/1 (Python sums
-            // bools as ints) — matches the pure evaluator.
+            // mongod counts only int / long / double / decimal. bool, null,
+            // string, array and document values are silently *skipped*, not
+            // errors (probed 6.0.16: `$stdDevPop` over [5, "x", 7] is 1.0, and
+            // over bools alone is null).
+            //
+            // This used to defer the whole group on any non-numeric, with a
+            // comment saying Python would raise — which it did, with a bare
+            // TypeError that escaped as "internal server error". It also folded
+            // bool to 0/1 "matching the pure evaluator", which mongod does not.
+            // Both sides are fixed together.
             let v = eval(arg, doc, vars)?;
-            if !is_null(&v) {
-                values.push(numeric_f64(&v).ok_or(())?);
+            // `percentile_f64` is the same domain (int/long/double/decimal,
+            // bool and NaN excluded) and handles Decimal128, which
+            // `numeric_f64` does not — mongod answers a double even for decimal
+            // input (probed: $stdDevPop over Decimal128 5 and 7 is 1.0).
+            if let Some(f) = percentile_f64(&v) {
+                values.push(f);
             }
         }
         Acc::Percentile {
@@ -489,31 +564,10 @@ pub(crate) fn apply_acc(acc: &mut Acc, arg: &Bson, doc: &Document, vars: &Docume
             ps,
             values,
         } => {
-            let Bson::Document(spec) = arg else {
-                return Err(()); // Python raises 7429703 / 40414
-            };
-            if spec.get_str("method") != Ok("approximate") {
-                return Err(()); // missing (40414) or non-approximate (BadValue)
-            }
-            let input = spec.get("input").ok_or(())?;
+            let op = if *is_median { "$median" } else { "$percentile" };
+            let (input, parsed) = percentile_spec(arg, op)?;
             if !*is_median && ps.is_none() {
-                let Some(Bson::Array(raw)) = spec.get("p") else {
-                    return Err(()); // missing (40414) or non-array (7750301)
-                };
-                let mut parsed = Vec::with_capacity(raw.len());
-                for p in raw {
-                    let f = match p {
-                        Bson::Int32(n) => *n as f64,
-                        Bson::Int64(n) => *n as f64,
-                        Bson::Double(d) => *d,
-                        _ => return Err(()), // Python raises 7750303
-                    };
-                    if !(0.0..=1.0).contains(&f) {
-                        return Err(());
-                    }
-                    parsed.push(f);
-                }
-                *ps = Some(parsed);
+                *ps = parsed;
             }
             let v = eval(input, doc, vars)?;
             if let Some(f) = percentile_f64(&v) {
@@ -526,19 +580,19 @@ pub(crate) fn apply_acc(acc: &mut Acc, arg: &Bson, doc: &Document, vars: &Docume
             // which raises the exact mongod code. `input` is collected per doc,
             // null included (finalize drops nulls for max/min only).
             let Bson::Document(d) = arg else {
-                return Err(());
+                return Err(Fallback::Defer);
             };
-            let nn = match eval(d.get("n").ok_or(())?, doc, vars)? {
+            let nn = match eval(d.get("n").ok_or(Fallback::Defer)?, doc, vars)? {
                 Bson::Int32(x) => x as i64,
                 Bson::Int64(x) => x,
                 Bson::Double(x) if x.is_finite() && x.fract() == 0.0 => x as i64,
-                _ => return Err(()),
+                _ => return Err(Fallback::Defer),
             };
             if nn <= 0 {
-                return Err(());
+                return Err(Fallback::Defer);
             }
             *n = Some(nn as usize);
-            vals.push(eval(d.get("input").ok_or(())?, doc, vars)?);
+            vals.push(eval(d.get("input").ok_or(Fallback::Defer)?, doc, vars)?);
         }
         Acc::TopN {
             kind,
@@ -549,30 +603,30 @@ pub(crate) fn apply_acc(acc: &mut Acc, arg: &Bson, doc: &Document, vars: &Docume
             // `arg` is `{n?, sortBy, output}`. Any invalid shape defers to Python,
             // which raises the exact mongod code (5788002-5, 10065, 5787908).
             let Bson::Document(d) = arg else {
-                return Err(());
+                return Err(Fallback::Defer);
             };
             let has_n = matches!(kind, TopNKind::TopN | TopNKind::BottomN);
             if has_n != d.contains_key("n") {
-                return Err(()); // topN/bottomN need n; top/bottom reject it
+                return Err(Fallback::Defer); // topN/bottomN need n; top/bottom reject it
             }
             let Some(Bson::Document(sortby)) = d.get("sortBy") else {
-                return Err(()); // missing / non-object sortBy
+                return Err(Fallback::Defer); // missing / non-object sortBy
             };
             if !d.contains_key("output") {
-                return Err(());
+                return Err(Fallback::Defer);
             }
             let nn = if has_n {
                 match eval(d.get("n").unwrap(), doc, vars)? {
                     Bson::Int32(x) => x as i64,
                     Bson::Int64(x) => x,
                     Bson::Double(x) if x.is_finite() && x.fract() == 0.0 => x as i64,
-                    _ => return Err(()),
+                    _ => return Err(Fallback::Defer),
                 }
             } else {
                 1
             };
             if nn <= 0 {
-                return Err(());
+                return Err(Fallback::Defer);
             }
             *n = Some(nn as usize);
             if dirs.is_empty() {
@@ -609,7 +663,7 @@ fn topn_result(
 ) -> R<Bson> {
     for (sv, _) in &items {
         if !sv.iter().all(crate::order::is_sortable) {
-            return Err(());
+            return Err(Fallback::Defer);
         }
     }
     items.sort_by(|a, b| {
@@ -658,7 +712,7 @@ fn nelem_result(kind: NElemKind, n: usize, vals: Vec<Bson>) -> R<Vec<Bson>> {
         NElemKind::Max | NElemKind::Min => {
             let mut nn: Vec<Bson> = vals.into_iter().filter(|x| !is_null(x)).collect();
             if !nn.iter().all(crate::order::is_sortable) {
-                return Err(());
+                return Err(Fallback::Defer);
             }
             let largest = matches!(kind, NElemKind::Max);
             nn.sort_by(|a, b| {
@@ -674,19 +728,6 @@ fn nelem_result(kind: NElemKind, n: usize, vals: Vec<Bson>) -> R<Vec<Bson>> {
     }
 }
 
-/// A numeric value as `f64` for `$stdDev*`: int / long / double, plus bool as
-/// `0.0`/`1.0` (Python folds bools into the numeric sum). Anything else → `None`,
-/// so the caller defers the group to Python (whose `sum()` would raise).
-fn numeric_f64(b: &Bson) -> Option<f64> {
-    match b {
-        Bson::Int32(n) => Some(*n as f64),
-        Bson::Int64(n) => Some(*n as f64),
-        Bson::Double(d) => Some(*d),
-        Bson::Boolean(x) => Some(if *x { 1.0 } else { 0.0 }),
-        _ => None,
-    }
-}
-
 /// Population / sample standard deviation, mirroring the pure `_std_dev`: `None`
 /// for an empty set, and additionally for a sample (`pop == false`) with < 2
 /// values (population of a single value is `0.0`). Squares with plain
@@ -694,7 +735,9 @@ fn numeric_f64(b: &Bson) -> Option<f64> {
 /// operations that reproduce CPython's `(x - mean) ** 2` / `... ** 0.5` bit-for-bit
 /// (a fuzz seed exposed that `f64::powf(2.0)` can round differently from
 /// multiplication). Sums in document order to match `sum(...)`.
-fn std_dev(values: &[f64], pop: bool) -> Option<f64> {
+/// Shared with the EXPRESSION forms in `expressions.rs`, so the two cannot
+/// answer different numbers for the same values.
+pub(crate) fn std_dev(values: &[f64], pop: bool) -> Option<f64> {
     let n = values.len();
     if n == 0 || (!pop && n < 2) {
         return None;
@@ -731,7 +774,7 @@ fn update_extreme(cur: &mut Option<Bson>, v: Bson, want: Ordering) -> R<()> {
             match replace {
                 Some(true) => *cur = Some(v),
                 Some(false) => {}
-                None => return Err(()),
+                None => return Err(Fallback::Defer),
             }
         }
     }
@@ -747,7 +790,10 @@ fn finalize(id: Bson, accs: Vec<(&str, Acc)>) -> R<Document> {
                 out.insert(field.to_string(), n.into_bson()?);
             }
             Acc::Count(n) => {
-                out.insert(field.to_string(), int_to_bson(n as i128).ok_or(())?);
+                out.insert(
+                    field.to_string(),
+                    int_to_bson(n as i128).ok_or(Fallback::Defer)?,
+                );
             }
             Acc::Avg(state) => {
                 // All-non-numeric group -> null (mongod), matching Python's
@@ -757,17 +803,17 @@ fn finalize(id: Bson, accs: Vec<(&str, Acc)>) -> R<Document> {
                         let val = match total {
                             Num::Int { v: a, .. } => {
                                 if a.unsigned_abs() > (1u128 << 53) {
-                                    return Err(()); // precision: defer to Python int/int divide
+                                    return Err(Fallback::Defer); // precision: defer to Python int/int divide
                                 }
                                 Bson::Double(a as f64 / count as f64)
                             }
                             Num::Float(f) => Bson::Double(f / count as f64),
                             // Stay in the decimal domain — an f64 divide would
                             // narrow the type and drop digits.
-                            Num::Dec(d) => {
-                                decimal::to_bson(&decimal::div_int(&d, count).ok_or(())?)
-                                    .ok_or(())?
-                            }
+                            Num::Dec(d) => decimal::to_bson(
+                                &decimal::div_int(&d, count).ok_or(Fallback::Defer)?,
+                            )
+                            .ok_or(Fallback::Defer)?,
                         };
                         out.insert(field.to_string(), val);
                     }
@@ -792,13 +838,11 @@ fn finalize(id: Bson, accs: Vec<(&str, Acc)>) -> R<Document> {
                 out.insert(field.to_string(), Bson::Document(merged));
             }
             Acc::StdDev { values, pop } => {
-                // No numeric value seen -> the pure code never creates the bucket
-                // key, so the field is absent. Otherwise `_std_dev` may still be
-                // null (sample of a single value), which the pure code writes.
-                if !values.is_empty() {
-                    let v = std_dev(&values, pop).map_or(Bson::Null, Bson::Double);
-                    out.insert(field.to_string(), v);
-                }
+                // mongod always emits the field, answering `null` when the group
+                // held no numeric value. Omitting it (which the pure code also
+                // did) dropped a key mongod always sends.
+                let v = std_dev(&values, pop).map_or(Bson::Null, Bson::Double);
+                out.insert(field.to_string(), v);
             }
             Acc::Percentile {
                 is_median,
@@ -843,13 +887,13 @@ fn finalize(id: Bson, accs: Vec<(&str, Acc)>) -> R<Document> {
 pub(crate) fn finalize_window_value(acc: Acc) -> R<Bson> {
     Ok(match acc {
         Acc::Sum(n) => n.into_bson()?,
-        Acc::Count(n) => int_to_bson(n as i128).ok_or(())?,
+        Acc::Count(n) => int_to_bson(n as i128).ok_or(Fallback::Defer)?,
         Acc::Avg(state) => match state {
             Some((total, count)) => {
                 let tf = match total {
                     Num::Int { v: a, .. } => {
                         if a.unsigned_abs() > (1u128 << 53) {
-                            return Err(()); // precision: defer to Python int/int divide
+                            return Err(Fallback::Defer); // precision: defer to Python int/int divide
                         }
                         a as f64
                     }
@@ -857,7 +901,10 @@ pub(crate) fn finalize_window_value(acc: Acc) -> R<Bson> {
                     // A decimal total stays in the decimal domain — dividing
                     // through f64 would both narrow the type and lose digits.
                     Num::Dec(d) => {
-                        return decimal::to_bson(&decimal::div_int(&d, count).ok_or(())?).ok_or(());
+                        return decimal::to_bson(
+                            &decimal::div_int(&d, count).ok_or(Fallback::Defer)?,
+                        )
+                        .ok_or(Fallback::Defer);
                     }
                 };
                 Bson::Double(tf / count as f64)
@@ -1013,10 +1060,10 @@ fn run_group(
     let mut compiled: Vec<Compiled> = Vec::with_capacity(accumulators.len());
     for (field, spec) in accumulators {
         let Bson::Document(d) = spec else {
-            return Err(()); // Python raises
+            return Err(Fallback::Defer); // Python raises
         };
         if d.len() != 1 {
-            return Err(());
+            return Err(Fallback::Defer);
         }
         let (op, arg) = d.iter().next().unwrap();
         new_acc(op)?; // reject unsupported ops before doing work
@@ -1060,10 +1107,10 @@ fn run_group(
 /// `$group` stage entry point.
 pub fn group_stage(spec: &Bson, docs: &[Document], vars: &Document) -> R<Vec<Document>> {
     let Bson::Document(s) = spec else {
-        return Err(());
+        return Err(Fallback::Defer);
     };
     let Some(id_expr) = s.get("_id") else {
-        return Err(()); // Python raises "requires an _id expression"
+        return Err(Fallback::Defer); // Python raises "requires an _id expression"
     };
     let accumulators: Vec<(String, Bson)> = s
         .iter()
@@ -1084,7 +1131,7 @@ pub fn sort_by_count_stage(spec: &Bson, docs: &[Document], vars: &Document) -> R
         Bson::String(s) if s.starts_with('$') => {}
         Bson::Document(d)
             if d.len() == 1 && d.keys().next().is_some_and(|k| k.starts_with('$')) => {}
-        _ => return Err(()),
+        _ => return Err(Fallback::Defer),
     }
     let count_acc = bson::doc! {"$sum": 1i32};
     let accumulators = vec![("count".to_string(), Bson::Document(count_acc))];
@@ -1099,9 +1146,8 @@ pub fn sort_by_count_stage(spec: &Bson, docs: &[Document], vars: &Document) -> R
 
 /// Accumulate `output_spec` over `docs` into a single bucket with a fixed
 /// `_id` (shared by `$bucket`). Mirrors the per-bucket `_accumulate` /
-/// `_finalize` loop in `_stage_bucket`. Caller guarantees `docs` is non-empty
-/// (an empty `$bucket` bucket emits only `{_id}` — the accumulator fields are
-/// never created, matching the pure code).
+/// `_finalize` loop in `_stage_bucket`. Caller guarantees `docs` is non-empty —
+/// an empty bucket is not emitted at all.
 fn accumulate_into(
     id: Bson,
     output_spec: &Document,
@@ -1111,10 +1157,10 @@ fn accumulate_into(
     let mut compiled: Vec<(&str, &Bson, Acc)> = Vec::with_capacity(output_spec.len());
     for (field, spec) in output_spec {
         let Bson::Document(d) = spec else {
-            return Err(()); // Python raises (accumulator must be a doc)
+            return Err(Fallback::Defer); // Python raises (accumulator must be a doc)
         };
         if d.len() != 1 {
-            return Err(());
+            return Err(Fallback::Defer);
         }
         let (op, arg) = d.iter().next().unwrap();
         compiled.push((field.as_str(), arg, new_acc(op)?));
@@ -1129,10 +1175,9 @@ fn accumulate_into(
 }
 
 /// `$bucket` — place each doc into the half-open boundary range
-/// `boundaries[i] <= value < boundaries[i+1]` (Python's native `<=`/`<` via
-/// `expressions::py_order`, so cross-type / Decimal128 / array-doc boundaries
-/// defer rather than guess), falling to `default` when unplaced, then run the
-/// `output` accumulators per bucket.
+/// `boundaries[i] <= value < boundaries[i+1]`, compared in mongod's BSON order
+/// so the numeric types interoperate, falling to `default` when unplaced, then
+/// run the `output` accumulators per bucket.
 /// Canonical type name for a `$bucket` boundary — the numeric BSON types collapse
 /// to one bracket (mongod requires all boundaries the same type).
 fn bucket_ctype(v: &Bson) -> &'static str {
@@ -1144,30 +1189,27 @@ fn bucket_ctype(v: &Bson) -> &'static str {
 
 pub fn bucket_stage(spec: &Bson, docs: &[Document], vars: &Document) -> R<Vec<Document>> {
     let Bson::Document(s) = spec else {
-        return Err(());
+        return Err(Fallback::Defer);
     };
     let group_by = match s.get("groupBy") {
-        None | Some(Bson::Null) => return Err(()), // missing groupBy -> Python raises 40198
+        None | Some(Bson::Null) => return Err(Fallback::Defer), // missing groupBy -> Python raises 40198
         Some(v) => v.clone(),
     };
     let Some(Bson::Array(boundaries)) = s.get("boundaries") else {
-        return Err(()); // missing / non-array boundaries -> Python raises
+        return Err(Fallback::Defer); // missing / non-array boundaries -> Python raises
     };
     if boundaries.len() < 2 {
-        return Err(());
+        return Err(Fallback::Defer);
     }
     // Boundaries must all be the same canonical type (40193) and strictly
     // ascending (40194) -- previously unsorted/mixed boundaries were accepted.
     let ct0 = bucket_ctype(&boundaries[0]);
     for w in boundaries.windows(2) {
         if bucket_ctype(&w[1]) != ct0 {
-            return Err(());
+            return Err(Fallback::Defer);
         }
-        if !matches!(
-            expressions::py_order(&w[0], &w[1]).map_err(|_| ())?,
-            Some(Ordering::Less)
-        ) {
-            return Err(());
+        if !matches!(expressions::py_order(&w[0], &w[1])?, Some(Ordering::Less)) {
+            return Err(Fallback::Defer);
         }
     }
     // `default is not None` — an explicit null default counts as absent.
@@ -1179,22 +1221,23 @@ pub fn bucket_stage(spec: &Bson, docs: &[Document], vars: &Document) -> R<Vec<Do
         // default must lie outside [first, last) -- below the first boundary or
         // >= the last (mongod 40199).
         let below = matches!(
-            expressions::py_order(dv, &boundaries[0]).map_err(|_| ())?,
+            expressions::py_order(dv, &boundaries[0])?,
             Some(Ordering::Less)
         );
         let below_last = matches!(
-            expressions::py_order(dv, &boundaries[boundaries.len() - 1]).map_err(|_| ())?,
+            expressions::py_order(dv, &boundaries[boundaries.len() - 1])
+                .map_err(|_| Fallback::Defer)?,
             Some(Ordering::Less)
         );
         if !below && below_last {
-            return Err(());
+            return Err(Fallback::Defer);
         }
     }
     let default_output = bson::doc! {"count": {"$sum": 1i32}};
     let output_spec: &Document = match s.get("output") {
         Some(Bson::Document(d)) if !d.is_empty() => d,
         None | Some(Bson::Document(_)) => &default_output, // absent / empty -> default
-        Some(_) => return Err(()), // truthy non-doc -> Python `.items()` raises
+        Some(_) => return Err(Fallback::Defer), // truthy non-doc -> Python `.items()` raises
     };
 
     // Bucket keys = boundaries[..-1] then `default`. Python keys them in a dict,
@@ -1205,7 +1248,7 @@ pub fn bucket_stage(spec: &Bson, docs: &[Document], vars: &Document) -> R<Vec<Do
     for b in &boundaries[..nb - 1] {
         let gk = gkey(b)?;
         if seen.contains(&gk) {
-            return Err(());
+            return Err(Fallback::Defer);
         }
         seen.push(gk);
         keys.push(b.clone());
@@ -1213,7 +1256,7 @@ pub fn bucket_stage(spec: &Bson, docs: &[Document], vars: &Document) -> R<Vec<Do
     let default_idx = if let Some(dv) = &default {
         let gk = gkey(dv)?;
         if seen.contains(&gk) {
-            return Err(());
+            return Err(Fallback::Defer);
         }
         keys.push(dv.clone());
         Some(keys.len() - 1)
@@ -1226,20 +1269,19 @@ pub fn bucket_stage(spec: &Bson, docs: &[Document], vars: &Document) -> R<Vec<Do
         let v = eval(&group_by, d, vars)?;
         let mut put = false;
         for i in 0..nb - 1 {
-            // `boundaries[i] <= v` (skip this bucket on TypeError / NaN-False).
-            match expressions::py_order(&boundaries[i], &v).map_err(|_| ())? {
-                None => continue,
-                Some(Ordering::Greater) => continue, // lo > v
-                Some(_) => {}
+            // mongod's BSON order, NOT `py_order`'s emulation of Python's
+            // operators. `py_order` DEFERS on a Decimal128 -- and a defer on
+            // the standalone server is an error -- so one decimal anywhere in
+            // the grouped field failed the whole `$bucket`, where mongod places
+            // it with the other numerics (measured 8.2.11, 2026-09-09).
+            // Mirrors the same switch in `aggregate._stage_bucket`.
+            if crate::order::cmp(&boundaries[i], &v) == Ordering::Greater {
+                continue; // lo > v
             }
-            // `v < boundaries[i+1]`.
-            match expressions::py_order(&v, &boundaries[i + 1]).map_err(|_| ())? {
-                Some(Ordering::Less) => {
-                    placed[i].push(d);
-                    put = true;
-                    break;
-                }
-                _ => continue, // >= hi, or TypeError/NaN -> not this bucket
+            if crate::order::cmp(&v, &boundaries[i + 1]) == Ordering::Less {
+                placed[i].push(d);
+                put = true;
+                break;
             }
         }
         if !put {
@@ -1247,21 +1289,24 @@ pub fn bucket_stage(spec: &Bson, docs: &[Document], vars: &Document) -> R<Vec<Do
                 Some(di) => placed[di].push(d),
                 // No matching bucket and no default: mongod errors (Python raises
                 // 7158303). Previously the document was silently DROPPED.
-                None => return Err(()),
+                None => return Err(Fallback::Defer),
             }
         }
     }
 
     let mut out = Vec::with_capacity(keys.len());
     for (key, bucket_docs) in keys.into_iter().zip(placed) {
+        // mongod emits a bucket only when something landed in it — boundary
+        // buckets and `default` alike (probed 6.0.16: boundaries [0,2,4,8] over
+        // values 1 and 7 answer `_id: 0` and `_id: 4`, omitting the empty
+        // `_id: 2`). Buckets are pre-created to keep boundary order, so the
+        // empty ones are dropped here. This previously emitted a bare `{_id}`
+        // with no accumulator fields, faithfully reproducing the pure-Python
+        // bug; both are fixed together.
         if bucket_docs.is_empty() {
-            // Empty bucket: only `_id` (accumulator fields are never created).
-            let mut doc = Document::new();
-            doc.insert("_id".to_string(), key);
-            out.push(doc);
-        } else {
-            out.push(accumulate_into(key, output_spec, &bucket_docs, vars)?);
+            continue;
         }
+        out.push(accumulate_into(key, output_spec, &bucket_docs, vars)?);
     }
     Ok(out)
 }
@@ -1270,9 +1315,9 @@ pub fn bucket_stage(spec: &Bson, docs: &[Document], vars: &Document) -> R<Vec<Do
 /// cross-type order matches mongod / storage) and split them into at most
 /// `buckets` chunks of roughly equal count, then run the `output` accumulators
 /// (default `{count: {$sum: 1}}`) per chunk with `_id: {min, max}`. Mirrors
-/// `aggregate._stage_bucket_auto`: a pure count-chunking — documents that share a
-/// boundary value are *not* coalesced into one bucket (so N equal values still
-/// split across buckets), matching the Python server.
+/// `aggregate._stage_bucket_auto`. Documents that share a boundary value ARE
+/// coalesced into one bucket -- mongod never splits equal values -- and the
+/// remainder goes to the EARLIER buckets.
 // mongod's preferred-number rounding series for $bucketAuto `granularity`,
 // stored exactly as mongod stores them (integer-valued doubles) so that
 // `series_element * multiplier` reproduces mongod's f64 boundaries bit-for-bit.
@@ -1422,7 +1467,7 @@ fn round_down_pow2(v: f64) -> f64 {
     2.0_f64.powf(v.log2().ceil() - 1.0)
 }
 
-/// Coerce a groupBy value to the double mongod's rounder works on, or `Err(())`
+/// Coerce a groupBy value to the double mongod's rounder works on, or `Err(Fallback::Defer)`
 /// (defer) for a value mongod would reject (non-numeric / NaN / negative) or a
 /// Decimal128 (the standing precision deferral). The Python engine raises the
 /// exact 40258 / 40259 / 40260; on the Rust server a defer surfaces as BadValue.
@@ -1431,10 +1476,10 @@ fn granularity_coerce(v: &Bson) -> R<f64> {
         Bson::Int32(n) => *n as f64,
         Bson::Int64(n) => *n as f64,
         Bson::Double(d) => *d,
-        _ => return Err(()),
+        _ => return Err(Fallback::Defer),
     };
     if f.is_nan() || f < 0.0 {
-        return Err(());
+        return Err(Fallback::Defer);
     }
     Ok(f)
 }
@@ -1458,7 +1503,7 @@ fn bucket_auto_granular(
     let series: &[f64] = if is_pow2 {
         &[]
     } else {
-        series_for(granularity).ok_or(())?
+        series_for(granularity).ok_or(Fallback::Defer)?
     };
     let rup = |x: f64| {
         if is_pow2 {
@@ -1549,10 +1594,10 @@ fn bucket_auto_granular(
 
 pub fn bucket_auto_stage(spec: &Bson, docs: &[Document], vars: &Document) -> R<Vec<Document>> {
     let Bson::Document(s) = spec else {
-        return Err(());
+        return Err(Fallback::Defer);
     };
     let Some(group_by) = s.get("groupBy") else {
-        return Err(());
+        return Err(Fallback::Defer);
     };
     // buckets: a positive integer, or a whole double (mongod accepts 2.0). Any
     // other value (bool, fractional double, non-positive, non-number, missing)
@@ -1561,19 +1606,19 @@ pub fn bucket_auto_stage(spec: &Bson, docs: &[Document], vars: &Document) -> R<V
         Some(Bson::Int32(n)) if *n >= 1 => *n as usize,
         Some(Bson::Int64(n)) if *n >= 1 => *n as usize,
         Some(Bson::Double(d)) if d.fract() == 0.0 && *d >= 1.0 => *d as usize,
-        _ => return Err(()),
+        _ => return Err(Fallback::Defer),
     };
     let default_output = bson::doc! {"count": {"$sum": 1i32}};
     let output_spec: &Document = match s.get("output") {
         Some(Bson::Document(d)) if !d.is_empty() => d,
         None | Some(Bson::Document(_)) => &default_output,
-        Some(_) => return Err(()),
+        Some(_) => return Err(Fallback::Defer),
     };
     // A non-string / unknown granularity defers so Python raises 40261 / 40257.
     let granularity: Option<&str> = match s.get("granularity") {
         None => None,
         Some(Bson::String(g)) if is_valid_granularity(g) => Some(g.as_str()),
-        Some(_) => return Err(()),
+        Some(_) => return Err(Fallback::Defer),
     };
 
     // Evaluate groupBy per doc, then sort by the byte-sortable encoding (the same
@@ -1585,7 +1630,7 @@ pub fn bucket_auto_stage(spec: &Bson, docs: &[Document], vars: &Document) -> R<V
     }
     let mut keyed: Vec<(Vec<u8>, Bson, &Document)> = Vec::with_capacity(pairs.len());
     for (v, d) in pairs {
-        let k = crate::sortkey::encode_value(&v, None).map_err(|_| ())?;
+        let k = crate::sortkey::encode_value(&v, None).map_err(|_| Fallback::Defer)?;
         keyed.push((k, v, d));
     }
     keyed.sort_by(|a, b| a.0.cmp(&b.0));
@@ -1597,24 +1642,40 @@ pub fn bucket_auto_stage(spec: &Bson, docs: &[Document], vars: &Document) -> R<V
         return bucket_auto_granular(&keyed, n_buckets, gran, output_spec, vars);
     }
 
-    let bucket_size = std::cmp::max(1, keyed.len() / n_buckets);
     let mut out: Vec<Document> = Vec::new();
     let mut i = 0usize;
     while i < keyed.len() && out.len() < n_buckets {
         let is_last = out.len() == n_buckets - 1;
-        let end = if is_last {
+        // The REMAINDER goes to the earlier buckets: 8 values into 3 buckets is
+        // 3/3/2, not 2/3/3. Recomputed each time from what is left, so a bucket
+        // that grew to keep equal values together does not distort the ones
+        // after it (measured 8.2.11, 2026-09-09, at 2 / 3 / 4 buckets).
+        let remaining_buckets = n_buckets - out.len();
+        let bucket_size = std::cmp::max(1, (keyed.len() - i).div_ceil(remaining_buckets));
+        let mut end = if is_last {
             keyed.len()
         } else {
             std::cmp::min(i + bucket_size, keyed.len())
         };
-        let chunk = &keyed[i..end];
-        if chunk.is_empty() {
+        if end == i {
             break;
         }
-        // Upper bound: the next chunk's first value when there is one, else this
-        // chunk's last value (mirrors Python's `pairs[i + bucket_size]` lookahead).
-        let upper = if !is_last && i + bucket_size < keyed.len() {
-            keyed[i + bucket_size].1.clone()
+        // Documents sharing a value NEVER straddle a bucket boundary. `keyed` is
+        // sorted by the byte-sortable encoding, so two entries are the SAME
+        // value exactly when those bytes match -- which is the point: `1.5` and
+        // `Decimal128("1.5")` encode identically and are equal to mongod, while
+        // Rust's `==` on the `Bson` would call them different. The doc comment
+        // above used to say equal values are NOT coalesced, "matching the Python
+        // server" -- and both servers were wrong.
+        while end < keyed.len() && keyed[end - 1].0 == keyed[end].0 {
+            end += 1;
+        }
+        let chunk = &keyed[i..end];
+        // Upper bound: the first value of the NEXT bucket, taken from the
+        // EXTENDED chunk -- a bucket that grew to keep equal values together
+        // would otherwise report the value it had just absorbed.
+        let upper = if !is_last && end < keyed.len() {
+            keyed[end].1.clone()
         } else {
             chunk[chunk.len() - 1].1.clone()
         };
@@ -1624,6 +1685,129 @@ pub fn bucket_auto_stage(spec: &Bson, docs: &[Document], vars: &Document) -> R<V
         i += chunk.len();
     }
     Ok(out)
+}
+
+/// Validate a `$median` / `$percentile` spec, returning `(input, ps)` where
+/// `ps` is `None` for `$median`.
+///
+/// Both call sites used to `Fallback::Defer` on every one of these -- and a
+/// defer on the Rust server is `2 aggregation pipeline uses a stage or operator
+/// not supported`, which blames the operator for a bad argument. mongod's codes
+/// are eight different numbers with no pattern between them, so this is a
+/// transcription of a measurement (8.2.11, 2026-09-08), not a rule.
+///
+/// The ORDER is mongod's IDL field-declaration order -- `input`, then `p` (for
+/// `$percentile`), then `method` -- with an unknown field outranking all of
+/// them. Two consequences that are not guessable: `{$median: {}}` names
+/// `input` and not `method`, and `{$percentile: {input, method: "exact",
+/// p: "x"}}` reports the `p` shape rather than the bad method.
+pub fn percentile_spec<'a>(
+    arg: &'a Bson,
+    op: &str,
+) -> Result<(&'a Bson, Option<Vec<f64>>), Fallback> {
+    let spec = match arg {
+        Bson::Document(d) => d,
+        Bson::Array(_) => {
+            return Err(Fallback::mongo(
+                40237,
+                format!("The {op} accumulator is a unary operator"),
+            ));
+        }
+        other => {
+            let code = if op == "$median" { 7436100 } else { 7436200 };
+            return Err(Fallback::mongo(
+                code,
+                format!(
+                    "specification must be an object; found {op}: {}",
+                    render(other)
+                ),
+            ));
+        }
+    };
+    let known: &[&str] = if op == "$median" {
+        &["input", "method"]
+    } else {
+        &["input", "p", "method"]
+    };
+    for key in spec.keys() {
+        if !known.contains(&key.as_str()) {
+            return Err(Fallback::mongo(
+                40415,
+                format!("BSON field '{op}.{key}' is an unknown field."),
+            ));
+        }
+    }
+    let missing = |field: &str| {
+        Fallback::mongo(
+            40414,
+            format!("BSON field '{op}.{field}' is missing but a required field"),
+        )
+    };
+    let input = spec.get("input").ok_or_else(|| missing("input"))?;
+    let ps = if op == "$median" {
+        None
+    } else {
+        // `p` is read BEFORE `method`, so a bad `p` outranks a bad method.
+        let raw = spec.get("p").ok_or_else(|| missing("p"))?;
+        let bad = |v: &Bson, code: i32| {
+            Fallback::mongo(
+                code,
+                format!(
+                    "The $percentile 'p' field must be an array of numbers from \
+                     [0.0, 1.0], but found: {}",
+                    render(v)
+                ),
+            )
+        };
+        // A non-array AND an EMPTY array are the same code; a bad ELEMENT is
+        // 7750302 (not a number) or 7750303 (out of range).
+        let Bson::Array(items) = raw else {
+            return Err(bad(raw, 7750301));
+        };
+        if items.is_empty() {
+            return Err(bad(raw, 7750301));
+        }
+        let mut parsed = Vec::with_capacity(items.len());
+        for item in items {
+            let f = match item {
+                Bson::Int32(n) => f64::from(*n),
+                Bson::Int64(n) => *n as f64,
+                Bson::Double(d) => *d,
+                other => return Err(bad(other, 7750302)),
+            };
+            if !(0.0..=1.0).contains(&f) {
+                return Err(bad(item, 7750303));
+            }
+            parsed.push(f);
+        }
+        Some(parsed)
+    };
+    match spec.get("method") {
+        None => return Err(missing("method")),
+        Some(Bson::String(m)) if m == "approximate" => {}
+        Some(_) => {
+            return Err(Fallback::mongo(
+                2,
+                "Currently only 'approximate' can be used as a percentile 'method'.",
+            ));
+        }
+    }
+    Ok((input, ps))
+}
+
+/// mongod's rendering of a value inside these messages: a string is quoted,
+/// `null` is `null`, and an empty container prints as itself.
+fn render(v: &Bson) -> String {
+    match v {
+        Bson::String(s) => format!("\"{s}\""),
+        Bson::Null => "null".into(),
+        Bson::Array(a) if a.is_empty() => "[]".into(),
+        Bson::Document(d) if d.is_empty() => "{}".into(),
+        Bson::Double(d) => crate::format_double_g(*d),
+        Bson::Int32(n) => n.to_string(),
+        Bson::Int64(n) => n.to_string(),
+        other => format!("{other}"),
+    }
 }
 
 #[cfg(test)]
@@ -1637,7 +1821,12 @@ mod tests {
 
     #[test]
     fn sum_and_count_collide_numeric_keys() {
-        // keys 1 (int) and 1.0 (double) and true bucket together.
+        // The NUMERIC keys 1 (int) and 1.0 (double) bucket together; `true`
+        // does NOT join them. This asserted that it did -- "keys 1 (int) and
+        // 1.0 (double) and true bucket together" -- which pinned the bug it
+        // described: six documents collapsed into two buckets keyed by
+        // truthiness. mongod keeps `true` separate (measured 8.2.11,
+        // 2026-09-09); a bool is not a number to it.
         let docs = vec![
             doc! {"k": 1i32, "v": 10i32},
             doc! {"k": 1.0f64, "v": 5i32},
@@ -1648,11 +1837,14 @@ mod tests {
             bson::bson!({"_id": "$k", "total": {"$sum": "$v"}, "n": {"$sum": 1}}),
             docs,
         );
-        // First bucket: _id == 1 (first-seen), total 17, n 3.
+        // First bucket: _id == 1 (first-seen), total 15, n 2 -- the two numerics.
         assert_eq!(out[0].get("_id"), Some(&Bson::Int32(1)));
-        assert_eq!(out[0].get("total"), Some(&Bson::Int32(17)));
-        assert_eq!(out[0].get("n"), Some(&Bson::Int32(3)));
-        assert_eq!(out.len(), 2);
+        assert_eq!(out[0].get("total"), Some(&Bson::Int32(15)));
+        assert_eq!(out[0].get("n"), Some(&Bson::Int32(2)));
+        // ...then `true` on its own, then 2.
+        assert_eq!(out[1].get("_id"), Some(&Bson::Boolean(true)));
+        assert_eq!(out[1].get("total"), Some(&Bson::Int32(2)));
+        assert_eq!(out.len(), 3);
     }
 
     #[test]
@@ -1784,7 +1976,10 @@ mod tests {
         );
         assert_eq!(out[0].get("p"), Some(&Bson::Double((8.0f64 / 3.0).sqrt())));
         assert_eq!(out[0].get("s"), Some(&Bson::Double(2.0)));
-        // Single value: pop -> 0.0, samp -> null. All-missing -> field absent.
+        // Single value: pop -> 0.0, samp -> null. All-missing -> field present
+        // and null: mongod always emits the key (probed 6.0.16). This assertion
+        // used to require the field be *absent*, pinning the bug it was meant to
+        // guard.
         let out2 = g(
             bson::bson!({
                 "_id": Bson::Null,
@@ -1795,7 +1990,7 @@ mod tests {
         );
         assert_eq!(out2[0].get("p"), Some(&Bson::Double(0.0)));
         assert_eq!(out2[0].get("s"), Some(&Bson::Null));
-        assert!(out2[0].get("m").is_none());
+        assert_eq!(out2[0].get("m"), Some(&Bson::Null));
     }
 
     #[test]

@@ -3,10 +3,11 @@
 
 """Shared leaf symbols for the image package: helpers and type aliases.
 
-This module has no intra-package dependencies (it imports only stdlib and
-:mod:`pikepdf.objects`), so it can be imported by every other module in the
-``image`` package without risking an import cycle. The image exceptions live
-one level up, in :mod:`pikepdf.models._image_exceptions`, so that
+This module has no intra-package dependencies (it imports only stdlib,
+:mod:`pikepdf.objects` and :func:`pikepdf.unbox`), so it can be imported by
+every other module in the ``image`` package without risking an import cycle.
+The image exceptions live one level up, in
+:mod:`pikepdf.models._image_exceptions`, so that
 :mod:`pikepdf.models._transcoding` can raise them without importing this
 package.
 """
@@ -14,8 +15,10 @@ package.
 from __future__ import annotations
 
 from collections.abc import Callable
+from decimal import Decimal
 from typing import Any, NamedTuple, TypeVar
 
+from pikepdf._core import unbox
 from pikepdf.objects import (
     Array,
     Dictionary,
@@ -45,13 +48,16 @@ def _array_str(value: Object | str | list):
     """Simplify pikepdf objects to array of str. Keep streams, dictionaries intact."""
 
     def _convert(item):
+        # Unbox first, so a PDF number or boolean is the same native value
+        # whichever conversion mode delivered it.
+        item = unbox(item)
         if isinstance(item, list | Array):
             return [_convert(subitem) for subitem in item]
-        if isinstance(item, Stream | Dictionary | bytes | int):
+        if isinstance(item, Stream | Dictionary | bytes | int | Decimal):
             return item
         if isinstance(item, Name | str):
             return str(item)
-        if isinstance(item, (String)):
+        if isinstance(item, String):
             return bytes(item)
         raise NotImplementedError(value)
 
@@ -69,24 +75,66 @@ def _ensure_list(value: list[Object] | Dictionary | Array | Object) -> list[Obje
     """
     if isinstance(value, list):
         return value
+    if not isinstance(value, Object):
+        return [value]  # a native value, as implicit conversion mode gives
     return list(value.wrap_in_array().as_list())
 
 
+def _array_list(value: Any) -> list:
+    """Return the items of an array-valued entry such as /Decode.
+
+    Any value other than an array is malformed, so treat it as absent.
+    """
+    if isinstance(value, list):
+        return value
+    if isinstance(value, Array):
+        return list(value.as_list())
+    return []
+
+
+def _decodeparms_list(value: Any) -> list:
+    """Normalize /DecodeParms to a list with one entry per filter.
+
+    /DecodeParms may be a dictionary (for a single filter) or an array. Any
+    other value is malformed; qpdf reads it as a dictionary with no keys, so
+    treat it as absent and let every filter default to no parameters.
+    """
+    if isinstance(value, list):
+        return value
+    if isinstance(value, Array):
+        return list(value.as_list())
+    if isinstance(value, Dictionary | Stream):
+        return [value]
+    return []
+
+
+class _MetadataTypeError(TypeError, NotImplementedError):
+    """An image metadata value has the wrong PDF type.
+
+    Also a NotImplementedError, which is what pikepdf raised for this before,
+    so that existing handlers keep catching it.
+    """
+
+
 def _metadata_from_obj(
-    obj: Object, name: str, type_: Callable[[Any], T], default: T
-) -> T | None:
+    obj: Object, name: str, type_: Callable[[Any], T], default: Any
+) -> T:
     """Retrieve metadata from a dictionary or stream and wrangle types.
 
     *obj* is the underlying image object: a Stream (image XObject), or a
     Dictionary (inline image). Any Object with attribute access works.
+
+    The value is unboxed before *type_* converts it, so the result does not
+    depend on the conversion mode. A missing or null entry gives *default*;
+    a value *type_* cannot convert raises TypeError.
     """
-    val = getattr(obj, name, default)
+    val = unbox(getattr(obj, name, default))
     try:
         return type_(val)
-    except TypeError:
-        if val is None:
-            return None
-    raise NotImplementedError('Metadata access for ' + name)
+    except TypeError as e:
+        raise _MetadataTypeError(
+            f'Image /{name} has a value of the wrong type: {val!r}'
+        ) from e
 
 
 class PaletteData(NamedTuple):

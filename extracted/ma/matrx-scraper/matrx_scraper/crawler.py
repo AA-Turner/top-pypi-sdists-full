@@ -35,6 +35,7 @@ from urllib.parse import urljoin, urlparse
 import httpx
 import tldextract
 
+from matrx_scraper.unreachable import UNREACHABLE_ERROR_SIGNATURES as _UNREACHABLE_ERROR_SIGNATURES
 from matrx_scraper.events import (
     CrawlCompletedEvent,
     CrawlEvent,
@@ -166,6 +167,8 @@ class PersistRequest:
     mime_type: str | None = "text/html"
     extractor_results: dict[str, Any] = field(default_factory=dict)
     page_summary: PageSummary | None = None
+    #: The engine that read the page ("http" / "browser") — the landed Source's capture method.
+    engine: str | None = None
 
 
 _BODY_FORMATS: dict[str, tuple[str, str]] = {
@@ -1721,6 +1724,7 @@ class SiteCrawler:
                                 mime_type=result.content_type_raw or result.content_type,
                                 extractor_results=extractor_results,
                                 page_summary=summary,
+                                engine=getattr(result, "engine", None),
                             )
                         )
                         if persisted:
@@ -1911,16 +1915,9 @@ class SiteCrawler:
     # site with a broken link graph would otherwise pay one render per dead
     # link. Anything else at the transport layer (TLS/fingerprint rejections,
     # resets mid-handshake) IS worth one browser attempt.
-    UNREACHABLE_ERROR_SIGNATURES = (
-        "name or service not known",
-        "nodename nor servname",
-        "temporary failure in name resolution",
-        "could not resolve host",
-        "connection refused",
-        "no route to host",
-        "network is unreachable",
-        "getaddrinfo",
-    )
+    #: One list for every surface (matrx_scraper.unreachable) — the crawler's escalation gate
+    #: and the per-result sentence can never disagree about what "unreachable" means.
+    UNREACHABLE_ERROR_SIGNATURES = _UNREACHABLE_ERROR_SIGNATURES
 
     def _looks_unreachable(self, result: ScrapeResult) -> bool:
         for detail in result.failure_details:

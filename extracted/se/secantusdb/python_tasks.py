@@ -21,9 +21,17 @@ import os
 import re
 import shlex
 import shutil
+import sys
+import time
 
 from invoke.context import Context
 from invoke.tasks import task
+
+#: `pty=True` makes invoke allocate a pseudo-terminal, which Windows does not
+#: have: every task using it failed there with "your platform doesn't support
+#: the 'pty' module" (`invoke sync` included, 2026-09-19). Off on Windows only.
+PTY = sys.platform != "win32"
+
 
 # Ruff is a pure-Python static check that needs neither the compiled `secantus`
 # extension nor a synced project env, so `lint` / `fmt` run it through `uvx`
@@ -54,7 +62,31 @@ _LOCAL_DESELECT = "tests/test_rust_pitr_cross_server.py::test_python_restores_ru
 
 @task
 def sync(c: Context) -> None:
-    c.run("uv sync --extra dev", pty=True)
+    """Sync the venv so the FULL suite can actually collect and run.
+
+    Two traps this exists to avoid, both of which produce a green run that
+    proved less than it looked:
+
+    1. ``--extra dev`` alone omits the ``rust`` extra, so ``_secantus_core`` is
+       not installed -- and the ~1700 engine-parity tests then do not collect
+       at all (they ``pytest.importorskip`` it, deliberately, so pure-Python
+       environments still work). The suite still exits 0, roughly 1700 tests
+       short, and only comparing the collected count catches it. Worse, a
+       partial sync PRUNES: syncing a subset once removed the whole Pelican
+       toolchain the website tasks need. ``--all-extras`` is the dev default.
+
+    2. ``uv sync`` does NOT rebuild ``secantus-core`` when its Rust source
+       changes -- it is a path dependency, and uv reuses the cached build. Pull
+       a commit that touches ``crates/secantus-core*`` and the venv keeps the
+       OLD compiled extension, so the parity suites compare current Python
+       against stale Rust. Observed as 31 phantom failures in
+       ``test_rust_diff_parity.py`` on a perfectly green ``main``, which reads
+       exactly like a regression. ``--reinstall-package`` busts that cache.
+    """
+    c.run(
+        "uv sync --all-extras --reinstall-package secantus-core",
+        pty=PTY,
+    )
 
 
 @task
@@ -67,7 +99,7 @@ def test(c: Context, k: str = "", verbose: bool = False) -> None:
         # single quotes but doesn't escape embedded single quotes,
         # leaving a shell-injection hole on a CLI-supplied filter.
         cmd += f" -k {shlex.quote(k)}"
-    c.run(cmd, pty=True)
+    c.run(cmd, pty=PTY)
 
 
 @task(name="test-one")
@@ -79,7 +111,7 @@ def test_one(c: Context, nodeid: str) -> None:
     c.run(
         "uv run --no-sync python -m pytest -n0 -o addopts= -p no:cacheprovider "
         f"{shlex.quote(nodeid)}",
-        pty=True,
+        pty=PTY,
     )
 
 
@@ -101,27 +133,27 @@ def perf_task(c: Context) -> None:
         "-o addopts= -m perf "
         "--benchmark-columns=min,median,max -v "
         "tests/test_perf_regression.py",
-        pty=True,
+        pty=PTY,
     )
 
 
 @task
 def lint(c: Context) -> None:
-    c.run(f"uvx {_RUFF} check src tests", pty=True)
-    c.run(f"uvx {_RUFF} format --check src tests", pty=True)
+    c.run(f"uvx {_RUFF} check src tests", pty=PTY)
+    c.run(f"uvx {_RUFF} format --check src tests", pty=PTY)
 
 
 @task
 def fmt(c: Context) -> None:
-    c.run(f"uvx {_RUFF} format src tests", pty=True)
-    c.run(f"uvx {_RUFF} check --fix src tests", pty=True)
+    c.run(f"uvx {_RUFF} format src tests", pty=PTY)
+    c.run(f"uvx {_RUFF} check --fix src tests", pty=PTY)
 
 
 @task
 def serve(c: Context, host: str = "127.0.0.1", port: int = 27017) -> None:
     c.run(
         f"uv run python -m secantus --host {shlex.quote(host)} --port {int(port)}",
-        pty=True,
+        pty=PTY,
     )
 
 
@@ -134,12 +166,12 @@ def docs(c: Context, builder: str = "html", clean: bool = False) -> None:
     # that never ran a project build. `_DOCS_DEPS` overlays the doc toolchain
     # plus secantus's pure-Python runtime deps.
     if clean:
-        c.run("rm -rf docs/_build", pty=True)
+        c.run("rm -rf docs/_build", pty=PTY)
     qb = shlex.quote(builder)
     c.run(
         f"uv run --no-project {_DOCS_DEPS} "
         f"sphinx-build -W --keep-going -b {qb} docs docs/_build/{qb}",
-        pty=True,
+        pty=PTY,
     )
 
 
@@ -152,12 +184,12 @@ def docs_rust(c: Context, builder: str = "html", clean: bool = False) -> None:
     bare worktree with no build at all.
     """
     if clean:
-        c.run("rm -rf docs-rust/_build", pty=True)
+        c.run("rm -rf docs-rust/_build", pty=PTY)
     qb = shlex.quote(builder)
     c.run(
         f"uv run --no-project {_DOCS_DEPS} "
         f"sphinx-build -W --keep-going -b {qb} docs-rust docs-rust/_build/{qb}",
-        pty=True,
+        pty=PTY,
     )
 
 
@@ -166,7 +198,7 @@ def docs_serve(c: Context, port: int = 8000) -> None:
     docs(c)
     c.run(
         f"uv run --no-sync python -m http.server {port} --directory docs/_build/html",
-        pty=True,
+        pty=PTY,
     )
 
 
@@ -174,7 +206,7 @@ def docs_serve(c: Context, port: int = 8000) -> None:
 def clean(c: Context) -> None:
     c.run(
         "rm -rf build dist *.egg-info .pytest_cache .ruff_cache .coverage htmlcov docs/_build",
-        pty=True,
+        pty=PTY,
     )
     # Sweep leaked gauge tempdirs. Aborted runs of ``invoke validate-*``
     # leave ``secantus-<driver>-gauge-XXXXXX`` directories under the
@@ -209,20 +241,45 @@ def clean(c: Context) -> None:
             f"({freed / 1024**3:.1f} GiB) under {base}"
         )
 
+    reaped, freed = _sweep_stale_probe_tmp(base)
+    if reaped:
+        print(
+            f"clean: reaped {reaped} abandoned probe store(s) "
+            f"({freed / 1024**3:.1f} GiB) under {base}"
+        )
 
-#: How many numbered pytest dirs to keep, mirroring pytest's own retention.
-_PYTEST_TMP_KEEP = 3
+
+#: How many numbered pytest dirs to keep.
+#:
+#: ONE, not pytest's own default of three, because of what a run costs here. The
+#: docstring below used to say "~1.7 GiB a run"; measured on 2026-09-22 a full
+#: 16-worker run leaves **~104 GiB** -- the suite has grown by orders of
+#: magnitude since that number was written, and nothing re-derived it. Three
+#: retained runs is then ~300 GiB of WiredTiger homes, which is how a 935 GiB
+#: box reached 50 MB free with the janitor working exactly as designed.
+#:
+#: Keeping the newest run is what post-mortem of a failure actually needs; the
+#: two behind it have never been the thing anyone looked at.
+_PYTEST_TMP_KEEP = 1
 
 
-def _sweep_stale_pytest_tmp(base: str) -> tuple[int, int]:
+def _sweep_stale_pytest_tmp(base: str, *, measure: bool = True) -> tuple[int, int]:
     """Delete abandoned ``pytest-of-<user>/pytest-NNNN`` trees; return
     ``(count, bytes_freed)``.
+
+    ``measure=False`` skips sizing the trees and reports ``0`` bytes. Sizing
+    walks every file to produce a number for ``invoke clean``'s summary line,
+    which doubles the I/O on a large backlog -- 37 GiB in one run directory has
+    been seen. The automatic sweep in ``tests/conftest.py`` runs on every
+    pytest start and wants none of that, so it opts out.
 
     This suite pins ``tmp_path_retention_policy = "all"`` on purpose — deleting
     a passed test's ``tmp_path`` mid-session races WiredTiger's background
     threads into ``WT_PANIC`` (see ``tests/conftest.py``) — so every run leaves
-    its per-test WiredTiger databases behind, ~1.7 GiB a run. Reclaiming them
-    is pytest's job: it keeps the newest few and ``rmtree``s the rest.
+    its per-test WiredTiger databases behind: **~104 GiB a run** on a
+    16-worker box (measured 2026-09-22; an earlier "~1.7 GiB" here was many
+    thousands of tests out of date). Reclaiming them is pytest's job: it keeps
+    the newest few and ``rmtree``s the rest.
 
     That janitor stops working the moment a run dies abnormally. pytest writes
     the owning PID into a ``.lock`` beside each dir and removes it in an
@@ -256,12 +313,125 @@ def _sweep_stale_pytest_tmp(base: str) -> tuple[int, int]:
         if _pytest_tmp_owner_alive(path):
             continue
         try:
+            if measure:
+                freed += _dir_size(path)
+            shutil.rmtree(path, ignore_errors=True)
+            reaped += 1
+        except OSError:
+            continue
+    return (reaped, freed)
+
+
+#: Prefix of a probe's throwaway WiredTiger home.
+#:
+#: Duplicated from ``tools/probes/_servers.PROBE_TMP_PREFIX`` rather than
+#: imported: that module imports ``pymongo`` at module scope, and this is
+#: housekeeping that must work in an environment with no probe dependencies
+#: installed (CI's slim ``storage-engine`` env is exactly that). A one-word
+#: constant is a better dependency than a package import here.
+#: ``tests/test_clean_pytest_tmp.py`` pins the two to each other.
+_PROBE_TMP_PREFIX = "secantus-probe-"
+
+
+def _sweep_stale_probe_tmp(base: str) -> tuple[int, int]:
+    """Delete abandoned probe WiredTiger homes; return ``(count, bytes)``.
+
+    A differential probe stands up real servers, so it needs a real WT home,
+    and every one of the ~17 probes under ``tools/probes/`` used to take a bare
+    ``tempfile.mkdtemp()`` that nothing ever deleted. Those are invisible to
+    every janitor here: pytest only manages ``pytest-of-<user>/``, and the
+    gauge sweep above only matches ``secantus-*-gauge-*``. One session left 385
+    of them -- ~50 GiB.
+
+    ``tools/probes/_servers.probe_store`` now deletes its store at exit, but
+    that is best-effort and CANNOT be the whole answer: on Windows an open file
+    cannot be deleted at all, so a probe that dies before stopping its server
+    (the normal outcome when a probe is how you are chasing a bug) leaves the
+    home behind with WiredTiger still holding it. That is why the store carries
+    its creating PID -- liveness is decidable here rather than guessed from an
+    mtime, the same rule the pytest sweep above uses.
+    """
+    reaped = freed = 0
+    for name in os.listdir(base):
+        if not name.startswith(_PROBE_TMP_PREFIX):
+            continue
+        path = os.path.join(base, name)
+        if not os.path.isdir(path) or os.path.islink(path):
+            continue
+        owner = name[len(_PROBE_TMP_PREFIX) :].split("-", 1)[0]
+        if not owner.isdigit() or _pid_alive(int(owner)):
+            continue
+        # The PID in the NAME is a hint, not proof of ownership, and trusting
+        # it alone deleted a RUNNING mongod's dbpath (2026-09-22): the name had
+        # been hand-rolled with a shell's `$$` rather than the server's PID, so
+        # the sweep saw a long-dead shell, reaped the directory, and mongod
+        # died on a fatal WiredTiger assertion -- "log pre-alloc server error
+        # ... the process must exit and restart". Ask the STORE whether it is
+        # in use before believing the name.
+        if _wt_home_in_use(path):
+            continue
+        try:
             freed += _dir_size(path)
             shutil.rmtree(path, ignore_errors=True)
             reaped += 1
         except OSError:
             continue
     return (reaped, freed)
+
+
+#: How long a probe store must sit untouched before a dead pid is believed.
+#:
+#: The pid in the name is not trustworthy on its own -- see `_wt_home_in_use`.
+#: A store in use is written to constantly (WiredTiger checkpoints and rolls
+#: its log), so a recent mtime is strong evidence something is alive even when
+#: the name says otherwise. Half an hour costs nothing: an abandoned store is
+#: reclaimed on the next run after that, and the disk problem this whole sweep
+#: exists for is measured in days, not minutes.
+_PROBE_TMP_GRACE_SECONDS = 1800.0
+
+
+def _wt_home_in_use(path: str) -> bool:
+    """Whether a probe store may still belong to something alive.
+
+    The pid in a store's NAME is written by whoever created the directory, so
+    it can simply be wrong -- and when it is, the cost is a live database
+    losing its files. That happened on 2026-09-22: a name built from a shell's
+    `$$` rather than the server's pid sent this sweep through a running
+    mongod's dbpath, and it died on a fatal WiredTiger assertion.
+
+    **Recent modification is the signal, and it is the only one that works
+    everywhere.** A store being served is written to constantly, so a fresh
+    mtime means hands off. `WiredTiger.lock` looks like the better authority
+    and is not: POSIX advisory locks are held per PROCESS, so a check made
+    from the process that opened the store reports the file as free -- CI
+    failed exactly that way on macOS while Windows passed, because Windows
+    locks mandatorily at the handle. Worse, merely opening and closing a
+    descriptor to a file this process holds an `fcntl` lock on RELEASES that
+    lock, so the "safe" probe can itself break the database it is inspecting.
+
+    On Windows an attempted `os.remove` of the lock IS decisive (measured:
+    opening it `r+b` succeeds while WiredTiger holds it and distinguishes
+    nothing), so that runs as an extra gate there. It is destructive when it
+    answers "free", which is safe only because the caller deletes the whole
+    directory immediately afterwards -- do not reuse it as a predicate.
+
+    Ambiguity answers IN USE. A store left behind costs disk; a store deleted
+    too early costs data.
+    """
+    try:
+        age = time.time() - os.stat(path).st_mtime
+    except OSError:
+        return True
+    if age < _PROBE_TMP_GRACE_SECONDS:
+        return True
+
+    lock = os.path.join(path, "WiredTiger.lock")
+    if os.name == "nt" and os.path.isfile(lock):  # pragma: no cover - Windows
+        try:
+            os.remove(lock)
+        except OSError:
+            return True
+    return False
 
 
 def _pytest_tmp_owner_alive(path: str) -> bool:
@@ -357,7 +527,7 @@ def py_gate(c: Context, perf: bool = True, deselect: str = _LOCAL_DESELECT) -> N
     cmd = "uv run python -m pytest -q"
     for nodeid in (d for d in deselect.split(",") if d.strip()):
         cmd += f" --deselect {shlex.quote(nodeid.strip())}"
-    c.run(cmd, pty=True)
+    c.run(cmd, pty=PTY)
     if perf:
         print(f"==> [3/{steps}] Perf", flush=True)
         perf_task(c)
@@ -393,8 +563,8 @@ def py_ship(
         "':(exclude)vendor' "
         "':(exclude)secantus-data' "
         "':(exclude,glob)docs/validation-report-*-rust-server.md'",
-        pty=True,
+        pty=PTY,
     )
-    c.run(f"git commit -m {shlex.quote(message)}", pty=True)
+    c.run(f"git commit -m {shlex.quote(message)}", pty=PTY)
     if push:
-        c.run("git push origin HEAD:main", pty=True)
+        c.run("git push origin HEAD:main", pty=PTY)

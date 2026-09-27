@@ -61,6 +61,25 @@ def terminate_backend(args: list, session: Session, *, cancel: bool = False) -> 
     return False
 
 
+#: Session functions that are pure reads of session / server state, so they are
+#: safe to evaluate anywhere an expression can appear. Everything with a side
+#: effect (``set_config``, the advisory locks, ``pg_terminate_backend``) stays
+#: off this list and keeps its explicit handling.
+_ANY_CONTEXT_FUNCS = frozenset(
+    {
+        "current_setting",
+        "current_database",
+        "current_schema",
+        "current_query",
+        "version",
+        "pg_is_in_recovery",
+        "inet_server_addr",
+        "inet_server_port",
+        "pg_postmaster_start_time",
+    }
+)
+
+
 def evaluate_scalar_by_name(name: str, args: list, session: Session) -> Any:
     """Session-function dispatch by bare name + evaluated args — the scalar
     evaluator's escape hatch for calls that appear in non-constant contexts."""
@@ -72,6 +91,13 @@ def evaluate_scalar_by_name(name: str, args: list, session: Session) -> Any:
         # Per-row pg_sleep (``select pg_sleep(0.01) from generate_series(…)``)
         # — same cancellation-point semantics as the FROM-less form.
         return _evaluate_named("pg_sleep", args, session)[1]
+    if name in _ANY_CONTEXT_FUNCS:
+        # These were reachable ONLY from `plan_constant_select`, so
+        # `SELECT current_setting('x')` worked while
+        # `SELECT current_setting('x') ~ '…'` -- the same call one level down --
+        # answered `42883 function current_setting(text) does not exist`. A read
+        # of session state is valid wherever an expression is.
+        return _evaluate_named(name, args, session)[1]
     raise errors.feature_not_supported(f"function {name}() is not supported in this context")
 
 
@@ -127,7 +153,15 @@ def _evaluate_named(name: str, args: list[Any], session: Session) -> tuple[str, 
     if name == "current_setting":
         if not args:
             raise errors.syntax_error("current_setting() requires a setting name")
-        return ("current_setting", session.get_setting(str(args[0])), "text")
+        # An unknown setting is `42704`, or NULL when `missing_ok` is passed —
+        # both spellings answered the empty string, which reads as a setting
+        # that exists and is blank.
+        setting = str(args[0])
+        if not session.has_setting(setting):
+            if len(args) > 1 and args[1]:
+                return ("current_setting", None, "text")
+            raise errors.SQLError("42704", f'unrecognized configuration parameter "{setting}"')
+        return ("current_setting", session.get_setting(setting), "text")
     if name == "set_config":
         if len(args) < 2:
             raise errors.syntax_error("set_config() requires (name, value, is_local)")
@@ -207,6 +241,7 @@ _SCALAR_EVAL_ANON = frozenset(
         "array_dims",
         "array_upper",
         "array_lower",
+        "to_number",
         "to_jsonb",
         "to_json",
         "row_to_json",
@@ -219,6 +254,15 @@ _SCALAR_EVAL_ANON = frozenset(
         "ts_rank",
         "ts_rank_cd",
         "ts_headline",
+        "strip",
+        "numnode",
+        "querytree",
+        "tsvector_to_array",
+        "array_to_tsvector",
+        "tsvector_concat",
+        "tsquery_and",
+        "tsquery_or",
+        "tsquery_not",
         "masklen",
         "network",
         "netmask",

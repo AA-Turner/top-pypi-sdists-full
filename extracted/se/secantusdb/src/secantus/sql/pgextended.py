@@ -19,6 +19,7 @@ import decimal
 import ipaddress as _ipaddress
 import logging
 import os
+import re
 import struct
 import uuid as _uuid
 from dataclasses import dataclass, field
@@ -29,6 +30,7 @@ import bson
 from sqlglot import exp
 
 from secantus.sql import copyfmt, engine, errors, pggeo, pgwire, planner, typemap
+from secantus.sql import numeric as _numeric
 from secantus.sql.catalog import ENUM_TYPE_OID_BASE, USER_TYPE_ARRAY_OID_OFFSET, Catalog
 from secantus.sql.session import Session
 
@@ -564,7 +566,9 @@ def _encode_range(value: Any, range_oid: int) -> bytes:
         flags |= _RANGE_LB_INC
     if value.get("upper_inc"):
         flags |= _RANGE_UB_INC
-    lo, hi = value.get("lower"), value.get("upper")
+    from secantus.sql import ranges as _ranges
+
+    lo, hi = _ranges.lower_bound(value), _ranges.upper_bound(value)
     if lo is None:
         flags |= _RANGE_LB_INF
     if hi is None:
@@ -589,8 +593,15 @@ def _encode_multirange(value: Any, mr_oid: int) -> bytes:
 
 
 def _encode_numeric(value: Any) -> bytes:
-    """Encode a Decimal as Postgres' binary ``numeric`` (base-10000 digits)."""
-    d = value if isinstance(value, Decimal) else Decimal(str(value))
+    """Encode a Decimal as Postgres' binary ``numeric`` (base-10000 digits).
+
+    Accepts a stored numeric of EITHER form (`secantus.sql.numeric`): a wide
+    one is a document, and ``Decimal(str(<dict>))`` raised ConversionSyntax --
+    an XX000 for a ``numrange`` / ``nummultirange`` with a wide bound in the
+    binary format, which psycopg's random-data leak tests hit."""
+    d = _numeric.to_decimal(value)
+    if d is None:
+        d = Decimal(str(value))
     if d.is_nan():
         return struct.pack("!HhHH", 0, 0, 0xC000, 0)
     if d.is_infinite():
@@ -1050,7 +1061,9 @@ def _encode_range_generic(rng: dict, encoding: str | None = "utf-8") -> bytes:
     if rng.get("empty"):
         return bytes([_RANGE_EMPTY])
     flags = 0
-    lo, hi = rng.get("lower"), rng.get("upper")
+    from secantus.sql import ranges as _ranges
+
+    lo, hi = _ranges.lower_bound(rng), _ranges.upper_bound(rng)
     if rng.get("lower_inc"):
         flags |= _RANGE_LB_INC
     if rng.get("upper_inc"):
@@ -1306,6 +1319,28 @@ def _decode_param(raw: bytes | None, fmt: int, oid: int, encoding: str | None = 
     return raw.decode(encoding or "utf-8", "replace")
 
 
+def _rejects_parameters(stmt: object) -> bool:
+    """True for a statement PostgreSQL refuses to bind parameters into.
+
+    Measured against PostgreSQL 14.13 rather than reasoned from the grammar,
+    because the boundary is surprising: ``CREATE TABLE t AS SELECT $1`` is
+    fine (its body is planned) while ``CREATE VIEW v AS SELECT $1`` is not,
+    even though both carry a query. ``CREATE INDEX`` and ``ALTER TABLE``
+    reject; ``DECLARE CURSOR``, ``EXPLAIN`` and every DML statement accept.
+    """
+    if isinstance(stmt, exp.Alter):
+        return True
+    if not isinstance(stmt, exp.Create):
+        return False
+    if str(stmt.args.get("kind") or "").upper() != "TABLE":
+        return True  # VIEW / INDEX / anything else
+    # CREATE TABLE ... AS <query> is planned; a plain column-definition list
+    # (a DEFAULT or CHECK holding the placeholder) is not.
+    return not isinstance(stmt.expression, (exp.Select, exp.SetOperation)) and not isinstance(
+        stmt.this, (exp.Select, exp.SetOperation)
+    )
+
+
 class ExtendedSession:
     def __init__(self, storage: Any, session: Session) -> None:
         self.storage = storage
@@ -1405,7 +1440,7 @@ class ExtendedSession:
             return bytes(out) + pgwire.ready_for_query(self.session.txn_status())
         if self.skip_until_sync:
             return b""  # discard everything until the next Sync
-        if msg_type == "H":  # Flush — we send eagerly, nothing to flush
+        if msg_type == "H":  # Flush — no reply; the caller flushes its buffer
             return b""
         if (
             msg_type in ("P", "B", "D", "E")
@@ -1502,7 +1537,10 @@ class ExtendedSession:
             # Garbage input ("SYNTAX ERROR") parses as a bare expression;
             # real PG rejects it AT PARSE TIME — pgx's Prepare and pipelined
             # SendPrepare both expect the ErrorResponse here, not at Execute.
-            near = stmt.sql(dialect="postgres").split(None, 1)[0]
+            # The first token of what the CLIENT wrote: regenerating SQL from
+            # the AST reorders it (``this is not sql`` renders ``NOT this IS
+            # sql``), and Postgres points at the input.
+            near = (query.split(None, 1) or [stmt.sql(dialect="postgres")])[0]
             raise errors.syntax_error(f'syntax error at or near "{near[:40]}"')
         count = planner.parameter_count(stmt) if stmt is not None else 0
         # Checked on the RAW statement, before the pg_typeof rewrite below
@@ -1554,6 +1592,37 @@ class ExtendedSession:
             typecheck.check_statement(
                 stmt, self.catalog, self.session.database, param_oids=list(oids)
             )
+        if count and _rejects_parameters(stmt):
+            # PostgreSQL accepts parameters only in statements whose body goes
+            # through the planner. A utility statement's parse analysis never
+            # binds them, so the placeholder resolves against an empty list and
+            # the message is about the PARAMETER, not the syntax.
+            #
+            # The split is measured against 14.13, and it is not the obvious
+            # one: `CREATE TABLE ... AS SELECT $1` is ACCEPTED while `CREATE
+            # VIEW ... AS SELECT $1` is REJECTED, so "has a query body" is the
+            # wrong discriminator and only the statement KIND settles it.
+            # `DECLARE CURSOR` and `EXPLAIN` accept them too. (`SET x = $1` is
+            # a 42601 syntax error rather than this, and is left alone.)
+            first = re.search(r"\$(\d+)", query)
+            raise errors.SQLError(
+                "42P02", f"there is no parameter ${first.group(1) if first else 1}"
+            )
+        if isinstance(stmt, (exp.Select, exp.Insert, exp.Update, exp.Delete)):
+            # Postgres' parse analysis resolves every relation AT PARSE, so a
+            # missing table is a 42P01 in reply to Parse -- pgx's Prepare, or
+            # any client that prepares now and executes later, sees it there.
+            # This server deferred it to Execute. Resolved with planning's own
+            # resolver, on a copy (search-path qualification rewrites the AST).
+            probe = stmt.copy()
+            planner.qualify_from_search_path(
+                probe, self.catalog, self.session.database, self.session
+            )
+            missing = planner.missing_relation(
+                probe, self.catalog, self.session.database, self.storage
+            )
+            if missing is not None:
+                raise errors.undefined_table(missing)
         if isinstance(stmt, exp.Copy):
             # PG's parse analysis gives COPY zero parameters — placeholders
             # inside the query survive to Execute, where an unbound one is
@@ -1891,7 +1960,11 @@ class ExtendedSession:
                 )
             chunks += [
                 copyfmt.format_csv(
-                    [row], delimiter=plan.delimiter, null=plan.null, quote=plan.quote or '"'
+                    [row],
+                    delimiter=plan.delimiter,
+                    null=plan.null,
+                    quote=plan.quote or '"',
+                    force_quote=plan.force_quote,
                 )
                 for row in rows
             ]

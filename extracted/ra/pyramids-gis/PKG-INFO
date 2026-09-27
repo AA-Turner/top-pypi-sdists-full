@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyramids-gis
-Version: 0.64.0
+Version: 0.65.0
 Summary: GIS utility package
 Author-email: Mostafa Farrag <moah.farag@gmail.com>
 License: GNU General Public License v3
@@ -24,8 +24,8 @@ Classifier: Intended Audience :: Developers
 Requires-Python: <4,>=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE.md
-Requires-Dist: certifi; sys_platform == "win32" and platform_machine == "ARM64"
-Requires-Dist: packaging; sys_platform == "win32" and platform_machine == "ARM64"
+Requires-Dist: certifi
+Requires-Dist: packaging
 Requires-Dist: cftime>=1.6.4
 Requires-Dist: geopandas>=1.0.0; sys_platform != "win32" or platform_machine != "ARM64"
 Requires-Dist: hpc-utils>=0.1.5

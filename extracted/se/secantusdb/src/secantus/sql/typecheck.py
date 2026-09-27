@@ -1,7 +1,7 @@
-"""Plan-time comparison-operator resolution (Postgres' 42883).
+"""Plan-time operator resolution (Postgres' 42883) — comparisons and arithmetic.
 
-In Postgres a comparison is resolved to a concrete operator during *parse
-analysis*, before any row is read, so comparing two incompatible types is an
+In Postgres an operator is resolved to a concrete implementation during *parse
+analysis*, before any row is read, so combining two incompatible types is an
 ERROR rather than a predicate that matches nothing::
 
     -- real postgres
@@ -18,10 +18,16 @@ that works today, which is far worse than the lenient FALSE. So the analysis
 is deliberately **sound but very incomplete** — every uncertainty resolves to
 "say nothing":
 
-* Only a comparison whose BOTH operands have a confidently-known static type
+* Only an expression whose BOTH operands have a confidently-known static type
   is judged. An untyped string literal (Postgres' ``unknown``), a bound
   parameter, a subquery, an unrecognised function, an unresolvable column —
-  any of these makes the comparison unjudged.
+  any of these leaves it unjudged.
+* **Arithmetic** (``+ - * / %``) is judged as well as comparison, on one rule:
+  Postgres defines no arithmetic operator on a text-category operand, so
+  ``text_col + 1`` is 42883 whatever the column contains. That is invisible to
+  the evaluator, where a typed text column and an unknown literal are both a
+  Python ``str`` — it coerced both, so ``text_col + 1`` silently answered a
+  number.
 * Only four type *categories* participate (numeric / text / boolean /
   date-time). Within a category Postgres has implicit casts both ways, so a
   same-category pair is always fine; across these four there is no implicit
@@ -38,9 +44,12 @@ is deliberately **sound but very incomplete** — every uncertainty resolves to
   tables (CTEs, derived tables, set operations, subqueries, functions in FROM)
   is skipped wholesale rather than analysed with partial information. A
   statement with **no** FROM at all (``SELECT 'a'::text = 1``) is likewise not
-  judged: this analysis is driven by declared column types, and constant-only
-  expressions are the bulk of what the psycopg / SQLAlchemy gauges evaluate,
-  so widening to them is a separate, separately-measured change.
+  judged here: this analysis is driven by declared column types, and
+  constant-only expressions are the bulk of what the psycopg / SQLAlchemy
+  gauges evaluate. The constant *arithmetic* case is covered instead by
+  ``scalar._text_cast_type``, which decides an explicit cast from the AST alone
+  — a cast is unambiguously typed, so it needs no catalog and carries none of
+  the risk that made widening this module's scope a separate question.
 """
 
 from __future__ import annotations
@@ -82,6 +91,19 @@ _CATEGORY: dict[str, str] = {
     "date": "datetime",
     "timestamp": "datetime",
     "timestamptz": "datetime",
+    # json / jsonb have no implicit cast to or from text or numeric, which is
+    # what makes `INSERT INTO t (jsonb_col) VALUES ('{}'::text)` a 42804 while
+    # the same value as an UNKNOWN literal casts in fine. Measured on 14.13:
+    # `jsonb = text`, `jsonb = integer` and `json = text` are all 42883.
+    #
+    # ONE category for both, because a `json` and a `jsonb` column store the
+    # same `type_tag` here — only the pg_oid tells them apart — so there is
+    # nothing to key a split on. Two consequences, both LENIENT and therefore
+    # safe: `jsonb = json` is accepted where Postgres rejects it, and so is
+    # `json = json` / `json = '{}'` (Postgres gives `json` no equality operator
+    # at all, so even those are 42883 there). Saying either needs the declared
+    # oid, not the storage tag.
+    "json": "json",
 }
 
 #: Categories for types that only ever arrive as a DECLARED parameter type —
@@ -134,6 +156,19 @@ _OP_TEXT = {
     exp.GTE: ">=",
     exp.LT: "<",
     exp.LTE: "<=",
+}
+
+#: Arithmetic operators. Postgres defines none of them on a text-category
+#: operand, so a text column in arithmetic is 42883 whatever the other side is
+#: — ``t + 1`` errors on a column holding '1' exactly as on one holding 'a'.
+_ARITHMETIC = (exp.Add, exp.Sub, exp.Mul, exp.Div, exp.Mod)
+
+_ARITH_OP_TEXT = {
+    exp.Add: "+",
+    exp.Sub: "-",
+    exp.Mul: "*",
+    exp.Div: "/",
+    exp.Mod: "%",
 }
 
 #: Functions that return ``text`` when handed a text argument. Postgres has no
@@ -365,6 +400,135 @@ def _check_comparison(node: exp.Expression, resolver: _Resolver) -> None:
     raise errors.SQLError("42883", f"operator does not exist: {left[1]} {op} {right[1]}")
 
 
+def _check_arithmetic(node: exp.Expression, resolver: _Resolver) -> None:
+    """Raise 42883 for arithmetic over a text-category operand.
+
+    Postgres has no arithmetic operator on text at all, so the *content* is
+    irrelevant — a text column holding '1' is as much an error as one holding
+    'a'. The scalar evaluator cannot see this: by the time it runs, a typed text
+    column and an unknown literal are both a Python ``str``, and it coerced
+    both, so ``t + 1`` silently answered 2.
+
+    Same soundness bar as the comparison check — BOTH operands must be
+    statically certain, so an unknown literal, a parameter or a subquery leaves
+    the expression unjudged rather than guessed at. The explicit-cast form
+    (``'1'::text + 1``) is decided in `sql/scalar.py` instead, because a
+    constant-only statement never reaches this analysis at all."""
+    left = _static_type(node.this, resolver)
+    right = _static_type(node.expression, resolver)
+    if left is None or right is None:
+        return
+    if left[0] != "string" and right[0] != "string":
+        return
+    op = _ARITH_OP_TEXT[type(node)]
+    raise errors.SQLError("42883", f"operator does not exist: {left[1]} {op} {right[1]}")
+
+
+def _check_assignment(node: exp.Expression, resolver: _Resolver) -> None:
+    """Raise 42804 for an ``UPDATE … SET col = expr`` Postgres would not assign.
+
+    Assignment uses ASSIGNMENT casts, which are more permissive than the
+    implicit casts a comparison gets — so this is a different rule from
+    `_check_comparison`, not the same one on a different node. Probed against
+    PostgreSQL 14.13 across 25 shapes:
+
+        UPDATE t SET text_col = 42          OK      -- anything casts to text
+        UPDATE t SET varchar_col = 42       OK
+        UPDATE t SET int_col = '42'         OK      -- unknown literal, parsed
+        UPDATE t SET int_col = 'abc'        22P02   -- ... and it fails at RUNTIME
+        UPDATE t SET int_col = 1.7          OK      -- within the numeric family
+        UPDATE t SET bigint_col = int_col   OK
+        UPDATE t SET int_col = text_col     42804
+        UPDATE t SET int_col = true         42804
+        UPDATE t SET bool_col = 1           42804
+        UPDATE t SET date_col = 42          42804
+
+    Three rules cover all of it. A STRING target accepts anything (Postgres
+    defines an assignment cast to text/varchar/char from every type here). An
+    operand whose type is not statically certain — an unknown literal, a
+    parameter, a subquery, NULL — is left alone, so a bad value still surfaces
+    as Postgres's own runtime 22P02 rather than a plan-time guess. Otherwise a
+    CATEGORY mismatch is the error, which is what makes ``bigint = int`` and
+    ``int = real`` fine while ``int = text`` is not.
+
+    Same soundness bar as the rest of this module: when in doubt, stay lenient.
+    A false 42804 rejects a statement Postgres would run, which is worse than
+    the silent coercion this replaces.
+    """
+    target = _static_type(node.this, resolver)
+    value = _static_type(node.expression, resolver)
+    column = node.this.name if isinstance(node.this, (exp.Column, exp.Identifier)) else None
+    _assert_assignable(column, target, value)
+
+
+def _assert_assignable(
+    column: str | None,
+    target: tuple[str, str] | None,
+    value: tuple[str, str] | None,
+) -> None:
+    """The shared assignment rule, for ``UPDATE … SET`` and ``INSERT … VALUES``.
+
+    Postgres applies the same assignment-cast rules to both, and reports the
+    same 42804 message naming the target column.
+    """
+    if target is None or value is None or not column:
+        return
+    if target[0] == "string" or target[0] == value[0]:
+        return
+    raise errors.SQLError(
+        "42804",
+        f'column "{column}" is of type {target[1]} but expression is of type {value[1]}',
+    )
+
+
+def _check_insert(stmt: exp.Insert, catalog: Any, db: str, param_oids: list[int] | None) -> None:
+    """Apply the assignment rule to ``INSERT INTO t (cols) VALUES (…)``.
+
+    Only the plain literal-VALUES shape is analysed. `INSERT … SELECT`, a
+    missing column list, `DEFAULT`, and anything else are left alone — the same
+    when-in-doubt-stay-lenient bar as the rest of the module.
+
+    This is what psycopg's `test_return_untyped` exercises: `'{}'` as an
+    UNKNOWN literal casts into a `jsonb` column, but `'{}'::text` does not
+    (`42804 column "data" is of type jsonb but expression is of type text`,
+    probed on 14.13). The backlog filed it as a binary-parameter nicety; it is
+    neither binary-specific nor parameter-specific — a bare `42` into a `jsonb`
+    column diverged the same way.
+    """
+    target = stmt.this
+    if not isinstance(target, exp.Schema):
+        return  # no explicit column list
+    table_node = target.this
+    if not isinstance(table_node, exp.Table):
+        return
+    columns = [c.name for c in target.expressions if isinstance(c, (exp.Column, exp.Identifier))]
+    if not columns or len(columns) != len(target.expressions):
+        return
+    table = catalog.get(db, _table_name(table_node))
+    if table is None or table.reflected:
+        return
+    values = stmt.expression
+    if not isinstance(values, exp.Values):
+        return
+    # Columns cannot be resolved inside VALUES, so an empty resolver is right:
+    # `_static_type` answers only for casts, literals and parameters.
+    resolver = _Resolver([], frozenset(), param_oids)
+    for row in values.expressions:
+        if not isinstance(row, exp.Tuple) or len(row.expressions) != len(columns):
+            continue
+        for name, expr in zip(columns, row.expressions, strict=True):
+            col = table.column(name)
+            if col is None:
+                continue
+            cat = _CATEGORY.get(col.type_tag)
+            if cat is None:
+                continue
+            declared = col.enum_type or col.domain_type or _DECL_OID_NAME.get(col.decl_oid or 0)
+            _assert_assignable(
+                name, (cat, declared or _describe(col.type_tag)), _static_type(expr, resolver)
+            )
+
+
 def _has_nested_query(node: exp.Expression, root: exp.Expression) -> bool:
     """Whether ``node`` sits inside a nested query relative to ``root`` — its
     columns may resolve against a scope the resolver knows nothing about."""
@@ -396,6 +560,9 @@ def check_statement(
 def _analyse(
     stmt: exp.Expression, catalog: Any, db: str, param_oids: list[int] | None = None
 ) -> None:
+    if isinstance(stmt, exp.Insert):
+        _check_insert(stmt, catalog, db, param_oids)
+        return
     if not isinstance(stmt, (exp.Select, exp.Update, exp.Delete)):
         return
     if any(True for _ in stmt.find_all(exp.Select, exp.Subquery)) and not isinstance(
@@ -408,9 +575,37 @@ def _analyse(
         return
     assignments = _set_assignments(stmt)
     for node in stmt.find_all(*_COMPARISONS):
-        if id(node) in assignments or _has_nested_query(node, stmt):
+        if _has_nested_query(node, stmt):
+            continue
+        if id(node) in assignments:
+            _check_assignment(node, resolver)
             continue
         _check_comparison(node, resolver)
+    for node in stmt.find_all(*_ARITHMETIC):
+        if _has_nested_query(node, stmt):
+            continue
+        _check_arithmetic(node, resolver)
+    for node in stmt.find_all(exp.DPipe):
+        _stamp_array_concat(node, resolver)
+
+
+def _stamp_array_concat(node: exp.Expression, resolver: _Resolver) -> None:
+    """Mark a ``||`` whose operand is an ARRAY-typed column.
+
+    Postgres treats a NULL array as EMPTY in a concatenation, so
+    `NULL::int[] || 9` is `{9}` — while a NULL of any other type makes the
+    whole `||` NULL. The evaluator sees only values, and a NULL array and a
+    NULL string are the same `None`, so it answered NULL for both. A cast or an
+    `ARRAY[…]` constructor it can read off the node itself; a COLUMN needs the
+    catalog, which is what this pass has."""
+    for side in (node.this, node.expression):
+        col = resolver.column(side) if isinstance(side, exp.Column) else None
+        if col is not None and typemap.is_array_tag(col.type_tag):
+            # Both marks matter: one says this `||` is an array concat at all,
+            # the other says WHICH side is the array — a NULL there is empty,
+            # while a NULL on the element side stays a NULL element.
+            node._secantus_array_concat = True  # noqa: SLF001
+            side._secantus_array_operand = True  # noqa: SLF001
 
 
 def _set_assignments(stmt: exp.Expression) -> set[int]:
@@ -418,7 +613,8 @@ def _set_assignments(stmt: exp.Expression) -> set[int]:
     assignment as an ``EQ``, but it is not a comparison: Postgres reports an
     unassignable value as ``42804 datatype_mismatch`` ("column is of type text
     but expression is of type integer"), a different analysis with different
-    coercion rules (assignment casts, not implicit ones)."""
+    coercion rules (assignment casts, not implicit ones) — see
+    `_check_assignment`, which is where these nodes are routed."""
     if not isinstance(stmt, exp.Update):
         return set()
     return {id(e) for e in stmt.args.get("expressions") or []}

@@ -28,6 +28,14 @@ Two trigger shapes are supported:
 
 Both shapes can carry an optional ``failCommands: [...]`` filter; an
 empty list means "any command".
+
+``data.appName`` scopes the failpoint to connections whose client metadata
+names that application (``client.application.name`` from the handshake), as
+mongod does. Driver spec tests rely on it to fail ONE client's commands --
+often its ``hello`` with ``closeConnection`` -- while the test runner's own
+client keeps working and can switch the failpoint off again. Without it an
+``alwaysOn`` failpoint on ``hello`` reached every connection, including the
+one that would have disabled it, and the server stayed unusable.
 """
 
 from __future__ import annotations
@@ -36,6 +44,16 @@ import threading
 from dataclasses import dataclass
 from typing import Any
 
+# Lower-case aliases mongod registers under a canonical command name.
+# ``failCommands`` is compared against the CANONICAL name, so a failpoint
+# listing ``isMaster`` also fires on pymongo's legacy ``{ismaster: 1}``
+# handshake -- which is what the SDAM spec tests' ``["hello", "isMaster"]``
+# rely on. Comparing the raw request key let every such handshake through.
+_COMMAND_ALIASES: dict[str, str] = {
+    "ismaster": "isMaster",
+    "findandmodify": "findAndModify",
+}
+
 
 @dataclass
 class _FailCommand:
@@ -43,6 +61,9 @@ class _FailCommand:
 
     fail_commands: tuple[str, ...]
     """Names this failpoint fires on. Empty == any command."""
+
+    app_name: str | None = None
+    """If set, fire only for connections whose client names this application."""
 
     error_code: int | None = None
     """If set, return ``{ok: 0, code: errorCode}``."""
@@ -103,7 +124,8 @@ class CloseConnectionRequested(Exception):
 class FailPointRegistry:
     """Thread-safe per-server registry of active failpoints.
 
-    Only ``failCommand`` is implemented. Other failpoint names are
+    ``failCommand`` (and its ``failGetMoreAfterCursorCheckout`` variant) and
+    ``maxTimeAlwaysTimeOut`` are implemented. Other failpoint names are
     silently accepted (so test setup doesn't break) but never fire —
     real mongod exposes dozens of failpoints, almost all of which only
     a developer with a debug build of the server cares about.
@@ -112,6 +134,9 @@ class FailPointRegistry:
     def __init__(self) -> None:
         self._lock = threading.RLock()
         self._fail_commands: list[_FailCommand] = []
+        # ``maxTimeAlwaysTimeOut``: None when off, -1 for ``alwaysOn``, else
+        # the number of firings left (``{times: N}``).
+        self._max_time_always_timeout: int | None = None
 
     def configure(self, name: str, mode: Any, data: dict[str, Any]) -> None:
         """Install / replace / disable a named failpoint.
@@ -127,6 +152,9 @@ class FailPointRegistry:
         # Ignoring it meant the getMore succeeded, no error was raised, and no
         # resume ever happened, so the driver sent 2 commands where the spec
         # expects 3 (aggregate / getMore / resume aggregate).
+        if name == "maxTimeAlwaysTimeOut":
+            self._configure_max_time_always_timeout(mode)
+            return
         getmore_only = name == "failGetMoreAfterCursorCheckout"
         if name != "failCommand" and not getmore_only:
             # Accept-but-ignore: lets test setup that configures
@@ -161,6 +189,7 @@ class FailPointRegistry:
                 fail_commands=(
                     ("getMore",) if getmore_only else tuple(data.get("failCommands") or ())
                 ),
+                app_name=data["appName"] if isinstance(data.get("appName"), str) else None,
                 error_code=int(data["errorCode"]) if "errorCode" in data else None,
                 write_concern_error=(
                     dict(data["writeConcernError"])
@@ -177,15 +206,49 @@ class FailPointRegistry:
             )
             self._fail_commands.append(fc)
 
-    def match(self, command_name: str) -> FailPointMatch | None:
+    def _configure_max_time_always_timeout(self, mode: Any) -> None:
+        """mongod's ``maxTimeAlwaysTimeOut``: every operation that has a time
+        limit expires at its first interrupt check, however large the budget.
+        Driver suites use it to provoke ``MaxTimeMSExpired`` deterministically.
+        """
+        with self._lock:
+            if mode == "alwaysOn":
+                self._max_time_always_timeout = -1
+            elif isinstance(mode, dict) and isinstance(mode.get("times"), int):
+                times = int(mode["times"])
+                self._max_time_always_timeout = times if times > 0 else None
+            else:
+                self._max_time_always_timeout = None
+
+    def max_time_always_times_out_armed(self) -> bool:
+        with self._lock:
+            return self._max_time_always_timeout is not None
+
+    def consume_max_time_always_timeout(self) -> bool:
+        """Fire once if armed, spending one of a ``{times: N}`` budget."""
+        with self._lock:
+            left = self._max_time_always_timeout
+            if left is None:
+                return False
+            if left > 0:
+                self._max_time_always_timeout = left - 1 or None
+            return True
+
+    def match(self, command_name: str, app_name: str | None = None) -> FailPointMatch | None:
         """Return the failpoint match for this command, if any.
 
-        Consumes one ``times`` slot when a match fires. Returns
+        ``app_name`` is the issuing connection's application name, or
+        ``None`` when its client sent none. Consumes one ``skip`` / ``times``
+        slot only when the command is in scope -- a command from another
+        client must not use up the failpoint meant for this one. Returns
         ``None`` if no failpoint applies.
         """
+        command_name = _COMMAND_ALIASES.get(command_name, command_name)
         with self._lock:
             for fc in self._fail_commands:
                 if fc.fail_commands and command_name not in fc.fail_commands:
+                    continue
+                if fc.app_name is not None and fc.app_name != app_name:
                     continue
                 if fc.skip_remaining > 0:
                     fc.skip_remaining -= 1

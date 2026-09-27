@@ -61,6 +61,25 @@ class InlineBoxParsingTest(TestCase):
         inner = next(f for f in para.frags if f.text == "b")
         self.assertIsNotNone(inner.backColor)
 
+    def test_a_rounded_background_colour_is_a_box(self) -> None:
+        # A pill: the colour has to be one shape, not a rectangle per word.
+        para = _paragraph(
+            "<p style='font-size: 10pt'>a <span style='background-color: #eee; "
+            "border-radius: 1em'>"
+            "b c</span> d</p>"
+        )
+        (opening, _closing) = _markers(para)
+        self.assertEqual((10, 10), opening.style.borderTopLeftRadius.resolve(100, 100))
+        self.assertIsNotNone(opening.style.backColor)
+        inner = next(f for f in para.frags if f.text.startswith("b"))
+        self.assertIsNone(inner.backColor)
+
+    def test_a_radius_with_nothing_to_round_is_not_a_box(self) -> None:
+        for style in ("border-radius: 4pt", "border-radius: 0; background-color: #eee"):
+            with self.subTest(style):
+                para = _paragraph(f"<p>a <span style='{style}'>b</span> c</p>")
+                self.assertEqual([], _markers(para))
+
     def test_a_box_with_nothing_to_draw_is_not_a_box(self) -> None:
         # A reset such as `* { padding: 0 }` declares the properties without
         # giving the element anything to paint; its text keeps painting its
@@ -162,6 +181,24 @@ class _LineFixture(TestCase):
 
 
 class InlineBoxLineTest(_LineFixture):
+    def test_a_box_around_another_paints_first(self) -> None:
+        # The inner box closes, and is recorded, before the outer one; the
+        # outer background painted last used to cover it.
+        para = _paragraph(
+            "<p>a <span style='padding: 0 4pt; background-color: #ff0000'>"
+            "b <span style='padding: 0 2pt; background-color: #00ff00'>c</span>"
+            " d</span> e</p>"
+        )
+        painted = []
+        with patch.object(
+            reportlab_paragraph,
+            "drawBoxBackground",
+            lambda *args, **_kw: painted.append(args[5].backColor),
+        ):
+            para.wrapOn(self.canv, 400, 800)
+            para.drawOn(self.canv, 0, 0)
+        self.assertEqual(["0xff0000", "0x00ff00"], [c.hexval() for c in painted])
+
     def test_getFragWords_counts_the_padding_in_the_word(self) -> None:
         box = BoxStyle(paddingLeft=6, paddingRight=6)
         para = self._frags("aa ", "bb", " cc", box)
@@ -232,7 +269,7 @@ class InlineBoxLineTest(_LineFixture):
         with patch.object(
             reportlab_paragraph,
             "drawBoxBackground",
-            lambda _c, x, y, w, h, _s: rects.append((x, y, w, h)),
+            lambda _c, x, y, w, h, _s, **_kw: rects.append((x, y, w, h)),
         ):
             para.wrapOn(self.canv, 400, 800)
             para.drawOn(self.canv, 0, 0)

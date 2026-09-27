@@ -51,6 +51,7 @@ Sample and leakage guards
 from __future__ import annotations
 
 import logging
+import time
 import warnings
 from dataclasses import dataclass, field
 from typing import Optional, Sequence
@@ -107,6 +108,10 @@ HEMISPHERE_SHIFT_DAYS = 182
 
 #: Targets whose value is meaningless on a wall-to-wall calendar row.
 WALL_TO_WALL_MASKED_TARGETS = ("planting", "harvest")
+
+#: Stratified fitting: a stratum with fewer training rows than this in a fold
+#: is fitted on the pooled training rows instead, and the fallback is counted.
+MIN_STRATUM_ROWS = 30
 
 #: Paired cluster bootstrap (over spatial tiles) for the skill interval.
 BOOTSTRAP_RESAMPLES = 500
@@ -288,6 +293,10 @@ def climatology_predict(
 
     For each test row the first trusted level wins, coarsest last:
 
+    ``hemisphere`` is the design matrix's column, i.e. the sign of the
+    region's latitude, not the zone file's label (see
+    :func:`geocif.cropcal.features.latitude_hemisphere`).
+
     1. ``crop_hemisphere_season`` -- circular median of training rows with the
        same crop, hemisphere and season. Kenya's maize seasons 1 and 2 are six
        months apart; pooled, their median is meaningless.
@@ -451,6 +460,7 @@ class Evaluation:
     metrics: pd.DataFrame
     failures: list[str] = field(default_factory=list)
     consistency: pd.DataFrame = field(default_factory=pd.DataFrame)
+    notes: list[str] = field(default_factory=list)
 
 
 def _prediction_block(frame, model, target, scheme, encoding, predicted, observed, **extra) -> pd.DataFrame:
@@ -488,6 +498,8 @@ def evaluate(
     encodings: Sequence[str] = ENCODINGS,
     bootstrap_resamples: int = BOOTSTRAP_RESAMPLES,
     scheme_models: Optional[dict] = None,
+    stratify_by: Optional[str] = None,
+    min_stratum_rows: int = MIN_STRATUM_ROWS,
 ) -> Evaluation:
     """Out-of-fold predictions and metrics for every model x target x scheme x encoding.
 
@@ -505,6 +517,14 @@ def evaluate(
             those models (the climatology null always runs). Lets the 145-fold
             leave-one-country-out scheme run for a cheap model without paying
             for tabpfn/tabicl on it.
+        stratify_by: column of ``frame`` whose values define strata; when
+            given, every fold fits one model PER STRATUM on that stratum's
+            training rows and predicts only that stratum's test rows (e.g.
+            separate northern- and southern-hemisphere models). The folds,
+            the features and the climatology null are unchanged, so the
+            result is paired with the pooled run row for row.
+        min_stratum_rows: a stratum with fewer training rows in a fold is
+            fitted on the pooled training rows; the count is in ``notes``.
 
     The ``climatology`` null is scored under every scheme for every target.
     Metrics are reported overall and broken out by crop and by ``cm_group``,
@@ -543,7 +563,26 @@ def evaluate(
     wall = wall.fillna(False).astype(bool).to_numpy() if wall is not None else np.zeros(len(frame), bool)
     anchor_all = frame[features.ANCHOR_FEATURE].to_numpy(dtype=float) if features.ANCHOR_FEATURE in frame else np.full(len(frame), np.nan)
 
-    rows, failures = [], []
+    rows, failures, notes = [], [], []
+    if stratify_by is not None:
+        if stratify_by not in frame.columns:
+            raise ValueError(f"stratify_by column {stratify_by!r} not in the design matrix")
+        strata = frame[stratify_by].astype(str).to_numpy()
+    else:
+        strata = None
+
+    def _fit_groups(fit_idx, test_idx):
+        """(fit rows, test rows) pairs: one pooled pair, or one per stratum."""
+        if strata is None:
+            return [(fit_idx, test_idx)], 0
+        pairs, fallbacks = [], 0
+        for value in np.unique(strata[test_idx]):
+            test_s = test_idx[strata[test_idx] == value]
+            fit_s = fit_idx[strata[fit_idx] == value]
+            if fit_s.size < min_stratum_rows:
+                fit_s, fallbacks = fit_idx, fallbacks + 1
+            pairs.append((fit_s, test_s))
+        return pairs, fallbacks
 
     for target in targets:
         column = f"target_{target}"
@@ -591,29 +630,44 @@ def evaluate(
                 for encoding in encodings:
                     prediction = np.full(len(frame), np.nan)
                     resultant = np.full(len(frame), np.nan)
+                    started, fallbacks = time.time(), 0
                     try:
                         for train_idx, test_idx in scheme.splits:
-                            fit_idx = train_idx[valid[train_idx]]
-                            if fit_idx.size == 0:
+                            fit_all = train_idx[valid[train_idx]]
+                            if fit_all.size == 0:
                                 continue
-                            X_train, X_test = impute(X_raw.iloc[fit_idx], X_raw.iloc[test_idx])
-                            if encoding == "sincos":
-                                days, res = predict_days_sincos(
-                                    model_name, X_train, X_test,
-                                    frame[f"{column}_sin"].iloc[fit_idx],
-                                    frame[f"{column}_cos"].iloc[fit_idx],
-                                    feature_names,
-                                )
-                                prediction[test_idx], resultant[test_idx] = days, res
-                            elif encoding == "anchored":
-                                offsets = frame[f"{column}_anchored"].iloc[fit_idx]
-                                ok = np.isfinite(offsets.to_numpy(dtype=float))
-                                prediction[test_idx] = predict_days_anchored(
-                                    model_name, X_train[ok], X_test,
-                                    offsets[ok], anchor_all[test_idx], feature_names,
-                                )
-                            else:
-                                raise ValueError(f"unknown encoding {encoding!r}")
+                            groups, n_fallback = _fit_groups(fit_all, test_idx)
+                            fallbacks += n_fallback
+                            for fit_idx, test_sub in groups:
+                                X_train, X_test = impute(X_raw.iloc[fit_idx], X_raw.iloc[test_sub])
+                                if encoding == "sincos":
+                                    days, res = predict_days_sincos(
+                                        model_name, X_train, X_test,
+                                        frame[f"{column}_sin"].iloc[fit_idx],
+                                        frame[f"{column}_cos"].iloc[fit_idx],
+                                        feature_names,
+                                    )
+                                    prediction[test_sub], resultant[test_sub] = days, res
+                                elif encoding == "anchored":
+                                    offsets = frame[f"{column}_anchored"].iloc[fit_idx]
+                                    ok = np.isfinite(offsets.to_numpy(dtype=float))
+                                    prediction[test_sub] = predict_days_anchored(
+                                        model_name, X_train[ok], X_test,
+                                        offsets[ok], anchor_all[test_sub], feature_names,
+                                    )
+                                else:
+                                    raise ValueError(f"unknown encoding {encoding!r}")
+                        # Progress: the fold loop is otherwise silent for hours.
+                        logger.info(
+                            f"done {model_name}/{target}/{scheme_name}/{encoding} "
+                            f"in {(time.time() - started) / 60:.1f} min"
+                            + (f"; {fallbacks} stratum fold(s) fell back to pooled" if fallbacks else "")
+                        )
+                        if fallbacks:
+                            notes.append(
+                                f"{model_name}/{target}/{scheme_name}/{encoding}: {fallbacks} "
+                                f"stratum fold(s) had < {min_stratum_rows} training rows and used the pooled fit"
+                            )
                     except Exception as exc:  # noqa: BLE001 - one model must not sink the run
                         message = f"{model_name}/{target}/{scheme_name}/{encoding}: {exc}"
                         logger.warning(f"model failed, skipping -- {message}")
@@ -635,7 +689,7 @@ def evaluate(
         predictions, tolerance=tolerance, seed=seed, bootstrap_resamples=bootstrap_resamples
     )
     consistency = summarise_consistency(predictions, frame)
-    return Evaluation(predictions, metrics, failures, consistency)
+    return Evaluation(predictions, metrics, failures, consistency, notes)
 
 
 # --------------------------------------------------------------------------

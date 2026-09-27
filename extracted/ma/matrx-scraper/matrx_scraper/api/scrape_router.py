@@ -322,6 +322,24 @@ async def page_capture(
         target_url = await validate_public_http_url(request.url)
     except Exception as exc:
         logger.info("page-capture rejected %r: %s", redact_url_secrets(request.url), redact_url_secrets(exc))
+        import socket
+
+        from matrx_scraper.unreachable import unreachable_sentence
+
+        if isinstance(exc.__cause__, socket.gaierror):
+            # The name does not exist — say so, the way quick-scrape does. (Where a name that DOES
+            # resolve points stays unsaid below: that answer would be an oracle into our network.)
+            sentence = unreachable_sentence(request.url, [{"request_error": "name or service not known"}])
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail={
+                    "code": "host_not_found",
+                    "error": "host_not_found",
+                    "message": sentence,
+                    "user_message": sentence,
+                    "remedy": "check_the_web_address",
+                },
+            ) from None
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="url must be a publicly routable http(s) address",

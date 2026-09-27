@@ -153,6 +153,21 @@ NODE: list[ExpectedFailure] = [
     ),
 ]
 
+PHP_LIB: list[ExpectedFailure] = [
+    ExpectedFailure(
+        pattern="IndexInfoFunctionalTest::testIsText",
+        rationale=(
+            "Text indexes (`$text`, `$meta: textScore`, text-index creation) "
+            "are intentionally out of scope per CLAUDE.md — would require a "
+            "full-text index implementation. The driver's own error names it: "
+            "`text indexes are not supported by SecantusDB`. Documented in "
+            "tasks/backlog.md §4. The SAME gap is already declared for the "
+            "node and pymongo gauges; php-library was the one left reading as "
+            "an unexplained failure."
+        ),
+    ),
+]
+
 RUBY: list[ExpectedFailure] = [
     ExpectedFailure(
         pattern=(
@@ -259,6 +274,20 @@ C: list[ExpectedFailure] = [
         rationale=(
             "Requires an IPv6 listener (`MONGOC_TEST_IPV6`); the gauge daemon "
             "binds IPv4 `127.0.0.1` only. Environment-specific, not a protocol gap."
+        ),
+    ),
+]
+
+
+PSYCOPG: list[ExpectedFailure] = [
+    ExpectedFailure(
+        pattern="test_typing.py::test_generic_connect",
+        rationale=(
+            "psycopg's own static-typing check: it runs mypy over a source "
+            "STRING and compares `reveal_type` output, opening no connection "
+            "and executing no database code (vendor/psycopg/tests/"
+            "test_typing.py:386). Its outcome depends on the installed mypy "
+            "and psycopg's type stubs; no server behaviour can change it."
         ),
     ),
 ]

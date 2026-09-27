@@ -37,12 +37,11 @@ use crate::collation::{self, Collation};
 use crate::{expressions, numeric, regexutil};
 
 /// Signal that the pure-Python matcher must handle this query/value.
-#[derive(Debug)]
-pub struct Fallback;
+pub use crate::fallback::Fallback;
 
 type R = Result<bool, Fallback>;
 
-/// Entry point. `Ok(b)` is the match result; `Err(Fallback)` means defer to
+/// Entry point. `Ok(b)` is the match result; `Err(Fallback::Defer)` means defer to
 /// Python (the query uses something not ported yet). `vars` carries user vars
 /// for `$expr`; `coll` is the active collation (or `None`).
 pub fn matches(doc: &Document, query: &Document, vars: &Document, coll: Option<&Collation>) -> R {
@@ -78,6 +77,24 @@ pub fn matches_raw(
     Ok(true)
 }
 
+/// The array `$and` / `$or` / `$nor` require, or mongod's parse error. Both the
+/// raw and the materialised matcher validate through this so they cannot drift.
+fn doc_op_array<'a>(key: &str, cond: &'a Bson) -> Result<&'a Vec<Bson>, Fallback> {
+    let Some(arr) = cond.as_array() else {
+        return Err(Fallback::mongo(
+            2,
+            format!("{key} argument must be an array"),
+        ));
+    };
+    if arr.is_empty() {
+        return Err(Fallback::mongo(
+            2,
+            format!("{key} argument must be a non-empty array"),
+        ));
+    }
+    Ok(arr)
+}
+
 fn match_clause_raw(
     raw: &RawDocument,
     key: &str,
@@ -87,24 +104,24 @@ fn match_clause_raw(
 ) -> R {
     match key {
         "$and" => {
-            for c in cond.as_array().ok_or(Fallback)? {
-                if !matches_raw(raw, as_doc(c)?, vars, coll)? {
+            for c in doc_op_array(key, cond)? {
+                if !matches_raw(raw, as_doc_entry(key, c)?, vars, coll)? {
                     return Ok(false);
                 }
             }
             Ok(true)
         }
         "$or" => {
-            for c in cond.as_array().ok_or(Fallback)? {
-                if matches_raw(raw, as_doc(c)?, vars, coll)? {
+            for c in doc_op_array(key, cond)? {
+                if matches_raw(raw, as_doc_entry(key, c)?, vars, coll)? {
                     return Ok(true);
                 }
             }
             Ok(false)
         }
         "$nor" => {
-            for c in cond.as_array().ok_or(Fallback)? {
-                if matches_raw(raw, as_doc(c)?, vars, coll)? {
+            for c in doc_op_array(key, cond)? {
+                if matches_raw(raw, as_doc_entry(key, c)?, vars, coll)? {
                     return Ok(false);
                 }
             }
@@ -115,15 +132,18 @@ fn match_clause_raw(
         // by staying raw — decode once and delegate this clause to the owned
         // matcher.
         "$expr" | "$jsonSchema" => {
-            let doc: Document = raw.try_into().map_err(|_| Fallback)?;
+            let doc: Document = raw.try_into().map_err(|_| Fallback::Defer)?;
             match_clause(&doc, key, cond, vars, coll)
         }
         // $where, $text, ... -> Python.
-        _ if key.starts_with('$') => Err(Fallback),
+        _ if key.starts_with('$') => Err(Fallback::Defer),
         _ => {
             let reached = resolve_path_raw(raw, key)?;
-            let refs: Vec<Option<&Bson>> = reached.iter().map(Option::as_ref).collect();
-            field_matches(&refs, cond, coll)
+            let refs: Vec<Cand> = reached
+                .iter()
+                .map(|(o, expandable)| Cand::new(o.as_ref(), *expandable))
+                .collect();
+            field_matches(&refs, cond, coll, key)
         }
     }
 }
@@ -133,45 +153,63 @@ fn match_clause_raw(
 /// non-index parts) over a [`RawDocument`], decoding **only** the reached values
 /// into owned `Bson`. Returns `Fallback` on a raw-parse error so the caller
 /// defers rather than guessing.
-fn resolve_path_raw(raw: &RawDocument, path: &str) -> Result<Vec<Option<Bson>>, Fallback> {
+/// The raw-BSON twin of [`resolve_path`], returning owned values plus each
+/// one's `expandable` flag (see [`Cand`]).
+fn resolve_path_raw(raw: &RawDocument, path: &str) -> Result<Vec<(Option<Bson>, bool)>, Fallback> {
     let mut parts = path.split('.');
     let first = parts.next().unwrap_or("");
-    let mut current: Vec<Option<RawBsonRef>> = vec![raw.get(first).map_err(|_| Fallback)?];
+    let mut current: Vec<(Option<RawBsonRef>, bool)> =
+        vec![(raw.get(first).map_err(|_| Fallback::Defer)?, true)];
     for part in parts {
-        let mut nxt: Vec<Option<RawBsonRef>> = Vec::new();
-        for cur in current.iter().copied() {
+        let mut nxt: Vec<(Option<RawBsonRef>, bool)> = Vec::new();
+        for (cur, _) in current.iter().copied() {
             match cur {
-                Some(RawBsonRef::Document(d)) => nxt.push(d.get(part).map_err(|_| Fallback)?),
+                Some(RawBsonRef::Document(d)) => {
+                    nxt.push((d.get(part).map_err(|_| Fallback::Defer)?, true))
+                }
                 Some(RawBsonRef::Array(arr)) => {
-                    if !part.is_empty() && part.bytes().all(|b| b.is_ascii_digit()) {
-                        let idx: usize = part.parse().map_err(|_| Fallback)?;
-                        nxt.push(arr.get(idx).map_err(|_| Fallback)?);
-                    } else {
-                        for elem in arr {
-                            if let RawBsonRef::Document(ed) = elem.map_err(|_| Fallback)? {
-                                nxt.push(ed.get(part).map_err(|_| Fallback)?);
-                            }
+                    // A numeric component means BOTH readings, exactly as in
+                    // `resolve_path`: the element at that INDEX and the field of
+                    // that name in each element. This path is the raw-BSON fast
+                    // lane, so it must agree with the owned one or the same
+                    // query answers differently depending on which ran.
+                    let numeric = !part.is_empty() && part.bytes().all(|b| b.is_ascii_digit());
+                    if numeric {
+                        let idx: usize = part.parse().map_err(|_| Fallback::Defer)?;
+                        // The INDEX reading, marked so the matcher does not
+                        // expand it again.
+                        nxt.push((arr.get(idx).map_err(|_| Fallback::Defer)?, false));
+                    }
+                    for elem in arr {
+                        if let RawBsonRef::Document(ed) = elem.map_err(|_| Fallback::Defer)? {
+                            nxt.push((ed.get(part).map_err(|_| Fallback::Defer)?, true));
                         }
                     }
                 }
-                _ => nxt.push(None),
+                _ => nxt.push((None, true)),
             }
         }
         current = nxt;
     }
     current
         .into_iter()
-        .map(|o| match o {
-            Some(rbr) => Bson::try_from(rbr).map(Some).map_err(|_| Fallback),
-            None => Ok(None),
+        .map(|(o, expandable)| match o {
+            Some(rbr) => Bson::try_from(rbr)
+                .map(|b| (Some(b), expandable))
+                .map_err(|_| Fallback::Defer),
+            None => Ok((None, expandable)),
         })
         .collect()
 }
 
-fn as_doc(b: &Bson) -> Result<&Document, Fallback> {
+/// One `$and` / `$or` / `$nor` entry, which must be a document.
+fn as_doc_entry<'a>(key: &str, b: &'a Bson) -> Result<&'a Document, Fallback> {
     match b {
         Bson::Document(d) => Ok(d),
-        _ => Err(Fallback),
+        _ => Err(Fallback::mongo(
+            2,
+            format!("{key} argument's entries must be objects"),
+        )),
     }
 }
 
@@ -184,27 +222,27 @@ fn match_clause(
 ) -> R {
     match key {
         "$and" => {
-            let arr = cond.as_array().ok_or(Fallback)?;
+            let arr = cond.as_array().ok_or(Fallback::Defer)?;
             for c in arr {
-                if !matches(doc, as_doc(c)?, vars, coll)? {
+                if !matches(doc, as_doc_entry(key, c)?, vars, coll)? {
                     return Ok(false);
                 }
             }
             Ok(true)
         }
         "$or" => {
-            let arr = cond.as_array().ok_or(Fallback)?;
+            let arr = cond.as_array().ok_or(Fallback::Defer)?;
             for c in arr {
-                if matches(doc, as_doc(c)?, vars, coll)? {
+                if matches(doc, as_doc_entry(key, c)?, vars, coll)? {
                     return Ok(true);
                 }
             }
             Ok(false)
         }
         "$nor" => {
-            let arr = cond.as_array().ok_or(Fallback)?;
+            let arr = cond.as_array().ok_or(Fallback::Defer)?;
             for c in arr {
-                if matches(doc, as_doc(c)?, vars, coll)? {
+                if matches(doc, as_doc_entry(key, c)?, vars, coll)? {
                     return Ok(false);
                 }
             }
@@ -214,44 +252,93 @@ fn match_clause(
         "$expr" => {
             // _truthy(evaluate(cond, doc, vars)); the evaluator defers (and so
             // do we) for any expression operator it doesn't yet handle.
-            let value = expressions::evaluate(doc, cond, vars).map_err(|_| Fallback)?;
+            let value = expressions::evaluate(doc, cond, vars)?;
             Ok(expressions::truthy(&value))
         }
         "$jsonSchema" => validate_json_schema(&Bson::Document(doc.clone()), cond),
         // $where, $text, ... -> Python.
-        _ if key.starts_with('$') => Err(Fallback),
-        _ => field_matches(&resolve_path(doc, key), cond, coll),
+        _ if key.starts_with('$') => Err(Fallback::Defer),
+        _ => field_matches(&resolve_path(doc, key), cond, coll, key),
     }
 }
 
 /// Resolve a dotted path into the list of values it reaches, mirroring
 /// `secantus.query._resolve_path`: walks into maps and arrays, fans out over
 /// array elements for non-index path parts, and yields `None` for MISSING.
-fn resolve_path<'a>(doc: &'a Document, path: &str) -> Vec<Option<&'a Bson>> {
+/// One candidate value a path resolved to, plus whether the implicit
+/// one-level array traversal applies to it.
+///
+/// `expandable` is FALSE for an array reached by a POSITIONAL index: mongod
+/// spends the path step on the index, so `{"v.0": 1}` does NOT match
+/// `{v: [[1, 2]]}` even though `1` is inside `v.0`. Every other value is
+/// expandable, which is the behaviour every operator had before. Measured
+/// 8.2.11, 2026-09-08.
+#[derive(Clone, Copy)]
+pub struct Cand<'a> {
+    pub value: Option<&'a Bson>,
+    expandable: bool,
+}
+
+impl<'a> Cand<'a> {
+    pub fn plain(value: Option<&'a Bson>) -> Self {
+        Self {
+            value,
+            expandable: true,
+        }
+    }
+
+    /// Rebuild a candidate whose provenance was carried separately -- the raw
+    /// path lane resolves into OWNED values, so it cannot hold a `Cand`.
+    pub fn new(value: Option<&'a Bson>, expandable: bool) -> Self {
+        Self { value, expandable }
+    }
+
+    fn positional(value: Option<&'a Bson>) -> Self {
+        Self {
+            value,
+            expandable: false,
+        }
+    }
+
+    /// The array to traverse into, or `None` when traversal does not apply.
+    fn elements(&self, descend: bool) -> Option<&'a Vec<Bson>> {
+        match (descend && self.expandable, self.value) {
+            (true, Some(Bson::Array(a))) => Some(a),
+            _ => None,
+        }
+    }
+}
+
+fn resolve_path<'a>(doc: &'a Document, path: &str) -> Vec<Cand<'a>> {
     // Borrow throughout — never clone the document or the values it reaches. The
     // root is always a document, so seed by resolving the first path component
     // against it directly; later components fan out over the borrowed values.
     let mut parts = path.split('.');
     let first = parts.next().unwrap_or("");
-    let mut current: Vec<Option<&Bson>> = vec![doc.get(first)];
+    let mut current: Vec<Cand<'a>> = vec![Cand::plain(doc.get(first))];
     for part in parts {
-        let mut nxt: Vec<Option<&Bson>> = Vec::new();
+        let mut nxt: Vec<Cand<'a>> = Vec::new();
         for cur in &current {
-            match cur {
-                Some(Bson::Document(d)) => nxt.push(d.get(part)),
+            match cur.value {
+                Some(Bson::Document(d)) => nxt.push(Cand::plain(d.get(part))),
                 Some(Bson::Array(arr)) => {
-                    if !part.is_empty() && part.bytes().all(|b| b.is_ascii_digit()) {
-                        let idx: Result<usize, _> = part.parse();
-                        nxt.push(idx.ok().and_then(|i| arr.get(i)));
-                    } else {
-                        for elem in arr {
-                            if let Bson::Document(ed) = elem {
-                                nxt.push(ed.get(part));
-                            }
+                    let numeric = !part.is_empty() && part.bytes().all(|b| b.is_ascii_digit());
+                    if numeric {
+                        // The INDEX reading. An array reached this way is not
+                        // expanded again by the matcher.
+                        let at = part.parse::<usize>().ok().and_then(|i| arr.get(i));
+                        nxt.push(Cand::positional(at));
+                    }
+                    // ... and the FIELD-of-that-name reading, which mongod tries
+                    // alongside the index: `{"v.0": 9}` matches
+                    // `{v: [{"0": 9}]}`. Skipping it missed those entirely.
+                    for elem in arr {
+                        if let Bson::Document(ed) = elem {
+                            nxt.push(Cand::plain(ed.get(part)));
                         }
                     }
                 }
-                _ => nxt.push(None),
+                _ => nxt.push(Cand::plain(None)),
             }
         }
         current = nxt;
@@ -341,18 +428,47 @@ pub fn first_unknown_operator(filter: &Document) -> Option<String> {
 /// error (BadValue "$options has to be a string" / Location51108).
 fn regex_options_ok(arg: &Bson) -> Result<(), Fallback> {
     let Bson::String(s) = arg else {
-        return Err(Fallback);
+        return Err(Fallback::Defer);
     };
     if s.chars().any(|c| !matches!(c, 'i' | 'm' | 's' | 'x' | 'u')) {
-        return Err(Fallback);
+        return Err(Fallback::Defer);
     }
     Ok(())
 }
 
-fn field_matches(values: &[Option<&Bson>], cond: &Bson, coll: Option<&Collation>) -> R {
+/// Evaluate one field's condition against already-resolved candidates.
+///
+/// `pub(crate)` so the PROJECTION layer can reuse it for `$elemMatch`'s
+/// element-value predicate, where the element must be tested with the implicit
+/// one-level array traversal SUPPRESSED -- a `Cand` built with
+/// `expandable: false`. Going through `matches` with a wrapper document cannot
+/// express that.
+pub(crate) fn field_matches(
+    values: &[Cand],
+    cond: &Bson,
+    coll: Option<&Collation>,
+    field: &str,
+) -> R {
+    field_matches_descend(values, cond, coll, field, true)
+}
+
+/// [`field_matches`] with the implicit one-level array traversal switchable.
+///
+/// mongod traverses an array ONCE per path step, and `$elemMatch` spends that
+/// step choosing the element -- so inside it the element is a terminal value
+/// and nothing below descends into it again. With `descend = true` this is
+/// exactly `field_matches`; `op_elem_match` is the only caller that passes
+/// `false`. Mirrors `secantus.query._field_matches(..., descend=)`.
+fn field_matches_descend(
+    values: &[Cand],
+    cond: &Bson,
+    coll: Option<&Collation>,
+    field: &str,
+    descend: bool,
+) -> R {
     match cond {
         // A bare BSON regex literal: `{field: /pat/flags}` matches as a pattern.
-        Bson::RegularExpression(_) => op_regex(values, cond, None),
+        Bson::RegularExpression(_) => op_regex(values, cond, None, descend),
         Bson::Document(d) if is_operator_dict(d) => {
             // Validate the $regex/$options pair up front (mongod parse-time),
             // before any operator can short-circuit the match — mirrors the pure
@@ -360,7 +476,7 @@ fn field_matches(values: &[Option<&Bson>], cond: &Bson, coll: Option<&Collation>
             // defers so Python raises Location51108 / BadValue.
             if let Some(opts) = d.get("$options") {
                 if !d.contains_key("$regex") {
-                    return Err(Fallback);
+                    return Err(Fallback::Defer);
                 }
                 regex_options_ok(opts)?;
             }
@@ -369,7 +485,7 @@ fn field_matches(values: &[Option<&Bson>], cond: &Bson, coll: Option<&Collation>
                     // `$options` is a sibling modifier of `$regex`, validated above.
                     "$options" => continue,
                     "$regex" => {
-                        if !op_regex(values, arg, d.get("$options"))? {
+                        if !op_regex(values, arg, d.get("$options"), descend)? {
                             return Ok(false);
                         }
                     }
@@ -403,7 +519,7 @@ fn field_matches(values: &[Option<&Bson>], cond: &Bson, coll: Option<&Collation>
                         }
                     }
                     _ => {
-                        if !op_matches(values, op, arg, coll)? {
+                        if !op_matches(values, op, arg, coll, field, descend)? {
                             return Ok(false);
                         }
                     }
@@ -411,7 +527,7 @@ fn field_matches(values: &[Option<&Bson>], cond: &Bson, coll: Option<&Collation>
             }
             Ok(true)
         }
-        _ => eq_with_array(values, cond, coll),
+        _ => eq_with_array(values, cond, coll, descend),
     }
 }
 
@@ -420,87 +536,168 @@ fn field_matches(values: &[Option<&Bson>], cond: &Bson, coll: Option<&Collation>
 /// values). `pattern` is a `String` or a BSON `RegularExpression`; `options`
 /// is the optional sibling `$options` string. A non-string pattern/options, or
 /// a pattern neither regex engine can compile, signals `Fallback`.
-fn op_regex(values: &[Option<&Bson>], pattern: &Bson, options: Option<&Bson>) -> R {
-    let re = regexutil::compile(pattern, options).map_err(|_| Fallback)?;
-    for v in values {
-        match v {
-            Some(Bson::String(s)) if re.is_match(s) => return Ok(true),
-            Some(Bson::Array(arr)) => {
-                for e in arr {
-                    if let Bson::String(s) = e {
-                        if re.is_match(s) {
-                            return Ok(true);
-                        }
-                    }
-                }
+fn op_regex(values: &[Cand], pattern: &Bson, options: Option<&Bson>, descend: bool) -> R {
+    // mongod takes a string or a BSON regex and nothing else.
+    if !matches!(pattern, Bson::String(_) | Bson::RegularExpression(_)) {
+        return Err(Fallback::mongo(2, "$regex has to be a string"));
+    }
+    let re = regexutil::compile(pattern, options).map_err(|_| Fallback::Defer)?;
+    // The regex this query denotes, for the stored-regex case below. `$regex`
+    // with a separate `$options` participates too: `{$regex: "ab", $options:
+    // "i"}` equals a stored `/ab/i` on mongod, while a bare `{$regex: "ab"}`
+    // does not (probed 8.2.11).
+    let want = match (pattern, options) {
+        (Bson::RegularExpression(r), None) => Some(r.clone()),
+        (Bson::RegularExpression(r), Some(Bson::String(o))) => Some(bson::Regex {
+            pattern: r.pattern.clone(),
+            options: format!("{}{o}", r.options),
+        }),
+        (Bson::String(p), None) => Some(bson::Regex {
+            pattern: p.clone(),
+            options: String::new(),
+        }),
+        (Bson::String(p), Some(Bson::String(o))) => Some(bson::Regex {
+            pattern: p.clone(),
+            options: o.clone(),
+        }),
+        _ => None,
+    };
+    let hit = |e: &Bson| match e {
+        // mongod matches a regex against a STRING by pattern and against a
+        // stored REGEX by equality. Without the equality arm `find({v: /ab/i})`
+        // missed every document whose `v` IS that regex.
+        Bson::String(s) => re.is_match(s),
+        Bson::RegularExpression(r) => want.as_ref().is_some_and(|w| regexutil::regex_eq(r, w)),
+        _ => false,
+    };
+    for c in values {
+        if c.value.is_some_and(&hit) {
+            return Ok(true);
+        }
+        if let Some(arr) = c.elements(descend) {
+            if arr.iter().any(&hit) {
+                return Ok(true);
             }
-            _ => {}
         }
     }
     Ok(false)
 }
 
-fn op_matches(values: &[Option<&Bson>], op: &str, arg: &Bson, coll: Option<&Collation>) -> R {
+fn op_matches(
+    values: &[Cand],
+    op: &str,
+    arg: &Bson,
+    coll: Option<&Collation>,
+    field: &str,
+    descend: bool,
+) -> R {
+    // mongod rejects a regex bound on a non-equality predicate at PARSE time
+    // (probed 8.2.11, 2026-09-01) -- a regex is only meaningful under equality,
+    // where it matches rather than compares. Answering an empty result set
+    // instead hid a malformed query behind "nothing matched".
+    if matches!(arg, Bson::RegularExpression(_)) {
+        if matches!(op, "$gt" | "$gte" | "$lt" | "$lte") {
+            return Err(Fallback::mongo(
+                2,
+                format!("Can't have RegEx as arg to non-equality predicate over field '{field}'."),
+            ));
+        }
+        if op == "$ne" {
+            return Err(Fallback::mongo(2, "Can't have regex as arg to $ne."));
+        }
+    }
     match op {
-        "$eq" => eq_with_array(values, arg, coll),
-        "$ne" => Ok(!eq_with_array(values, arg, coll)?),
-        "$gt" => cmp_op(values, arg, coll, |o| o == Ordering::Greater),
+        "$eq" => eq_with_array(values, arg, coll, descend),
+        "$ne" => Ok(!eq_with_array(values, arg, coll, descend)?),
+        "$gt" => cmp_op(values, arg, coll, |o| o == Ordering::Greater, descend),
         // `$gte`/`$lte: null` match null + missing (like `$eq: null`); a plain
         // BSON-order compare against null would spuriously match everything.
-        "$gte" if matches!(arg, Bson::Null) => eq_with_array(values, arg, coll),
-        "$gte" => cmp_op(values, arg, coll, |o| o != Ordering::Less),
-        "$lt" => cmp_op(values, arg, coll, |o| o == Ordering::Less),
-        "$lte" if matches!(arg, Bson::Null) => eq_with_array(values, arg, coll),
-        "$lte" => cmp_op(values, arg, coll, |o| o != Ordering::Greater),
+        // A NaN bound: mongod's comparison order treats NaN as EQUAL to NaN --
+        // which is why `find({x: NaN})` matches -- so an INCLUSIVE bound matches
+        // it and a strict one (`$gt` / `$lt`, above and below) does not. IEEE
+        // makes every NaN comparison false, so `cmp_op` answered nothing for all
+        // four and `{x: {$gte: NaN}}` skipped the document holding the NaN
+        // (probed 8.2.11, 2026-09-06). Same shape as the NaN gate on partial
+        // indexes: NaN is inside the numeric bracket, and mongod's two orders
+        // disagree about it.
+        "$gte" | "$lte" if is_nan_bound(arg) => eq_with_array(values, arg, coll, descend),
+        "$gte" if matches!(arg, Bson::Null) => eq_with_array(values, arg, coll, descend),
+        "$gte" => cmp_op(values, arg, coll, |o| o != Ordering::Less, descend),
+        "$lt" => cmp_op(values, arg, coll, |o| o == Ordering::Less, descend),
+        "$lte" if matches!(arg, Bson::Null) => eq_with_array(values, arg, coll, descend),
+        "$lte" => cmp_op(values, arg, coll, |o| o != Ordering::Greater, descend),
         "$in" => {
-            let arr = arg.as_array().ok_or(Fallback)?;
+            let Some(arr) = arg.as_array() else {
+                return Err(Fallback::mongo(2, "$in needs an array"));
+            };
             in_elements_ok(arr)?;
             for cand in arr {
-                if in_candidate_matches(values, cand, coll)? {
+                if in_candidate_matches(values, cand, coll, descend)? {
                     return Ok(true);
                 }
             }
             Ok(false)
         }
         "$nin" => {
-            let arr = arg.as_array().ok_or(Fallback)?;
+            let Some(arr) = arg.as_array() else {
+                return Err(Fallback::mongo(2, "$nin needs an array"));
+            };
             in_elements_ok(arr)?;
             for cand in arr {
-                if in_candidate_matches(values, cand, coll)? {
+                if in_candidate_matches(values, cand, coll, descend)? {
                     return Ok(false);
                 }
             }
             Ok(true)
         }
         "$exists" => {
-            let present = values.iter().any(|v| v.is_some());
+            let present = values.iter().any(|c| c.value.is_some());
             Ok(present == truthy(arg)?)
         }
         "$not" => {
-            // mongod: $not needs a regex or a non-empty document (else BadValue).
-            // A scalar / array / bool / empty doc defers so Python raises.
             match arg {
                 Bson::RegularExpression(_) => {}
-                Bson::Document(d) if !d.is_empty() => {}
-                _ => return Err(Fallback),
+                Bson::Document(d) if d.is_empty() => {
+                    return Err(Fallback::mongo(
+                        2,
+                        "$not argument must be a non-empty object",
+                    ));
+                }
+                Bson::Document(d) => {
+                    // Every key must be an OPERATOR. Without this an ordinary
+                    // field name degraded to an equality test that `$not` then
+                    // negated, so `{v: {$not: {a: 1}}}` MATCHED where mongod
+                    // refuses the query.
+                    for key in d.keys() {
+                        if !KNOWN_FIELD_OPERATORS.contains(&key.as_str()) {
+                            return Err(Fallback::mongo(2, format!("unknown operator: {key}")));
+                        }
+                    }
+                }
+                _ => {
+                    return Err(Fallback::mongo(
+                        2,
+                        "$not argument must be a regex or an object",
+                    ));
+                }
             }
-            Ok(!field_matches(values, arg, coll)?)
+            Ok(!field_matches_descend(values, arg, coll, field, descend)?)
         }
-        "$type" => op_type(values, arg),
+        "$type" => op_type(values, arg, field, descend),
         "$size" => op_size(values, arg),
-        "$all" => op_all(values, arg),
+        "$all" => op_all(values, arg, field, descend),
         "$elemMatch" => {
-            // mongod: $elemMatch needs an Object (else BadValue) -> defer.
             if !matches!(arg, Bson::Document(_)) {
-                return Err(Fallback);
+                return Err(Fallback::mongo(2, "$elemMatch needs an Object"));
             }
-            op_elem_match(values, arg)
+            op_elem_match(values, arg, field)
         }
         "$mod" => op_mod(values, arg),
-        "$bitsAllSet" => op_bits(values, arg, |v, m| v & m == m),
-        "$bitsAnySet" => op_bits(values, arg, |v, m| v & m != 0),
-        "$bitsAllClear" => op_bits(values, arg, |v, m| v & m == 0),
-        "$bitsAnyClear" => op_bits(values, arg, |v, m| v & m != m),
+        // all mask bits SET / any SET / all CLEAR / any CLEAR.
+        "$bitsAllSet" => op_bits(values, arg, |b| b, true, op, field, descend),
+        "$bitsAnySet" => op_bits(values, arg, |b| b, false, op, field, descend),
+        "$bitsAllClear" => op_bits(values, arg, |b| !b, true, op, field, descend),
+        "$bitsAnyClear" => op_bits(values, arg, |b| !b, false, op, field, descend),
         "$geoWithin" => crate::geo::op_geo_within(values, arg),
         "$geoIntersects" => crate::geo::op_geo_intersects(values, arg),
         // The legacy 2d *sibling* `$maxDistance`/`$minDistance` form is handled in
@@ -511,7 +708,7 @@ fn op_matches(values: &[Option<&Bson>], op: &str, arg: &Bson, coll: Option<&Coll
         // Anything unknown -> Python (Python raises QueryError for genuinely-
         // unknown operators). $regex/$options are intercepted in `field_matches`
         // (they share a condition dict).
-        _ => Err(Fallback),
+        _ => Err(Fallback::Defer),
     }
 }
 
@@ -539,24 +736,29 @@ fn in_elements_ok(arr: &[Bson]) -> Result<(), Fallback> {
     for el in arr {
         if let Bson::Document(d) = el {
             if d.keys().any(|k| k.starts_with('$')) {
-                return Err(Fallback);
+                return Err(Fallback::mongo(2, "cannot nest $ under $in"));
             }
         }
     }
     Ok(())
 }
 
-fn in_candidate_matches(values: &[Option<&Bson>], cand: &Bson, coll: Option<&Collation>) -> R {
+fn in_candidate_matches(
+    values: &[Cand],
+    cand: &Bson,
+    coll: Option<&Collation>,
+    descend: bool,
+) -> R {
     if matches!(cand, Bson::RegularExpression(_)) {
-        op_regex(values, cand, None)
+        op_regex(values, cand, None, descend)
     } else {
-        eq_with_array(values, cand, coll)
+        eq_with_array(values, cand, coll, descend)
     }
 }
 
-fn eq_with_array(values: &[Option<&Bson>], expected: &Bson, coll: Option<&Collation>) -> R {
-    for v in values {
-        match v {
+fn eq_with_array(values: &[Cand], expected: &Bson, coll: Option<&Collation>, descend: bool) -> R {
+    for c in values {
+        match c.value {
             None => {
                 if matches!(expected, Bson::Null) {
                     return Ok(true);
@@ -566,7 +768,7 @@ fn eq_with_array(values: &[Option<&Bson>], expected: &Bson, coll: Option<&Collat
                 if eq_scalar(val, expected, coll)? {
                     return Ok(true);
                 }
-                if let Bson::Array(arr) = val {
+                if let Some(arr) = c.elements(descend) {
                     for e in arr {
                         if eq_scalar(e, expected, coll)? {
                             return Ok(true);
@@ -609,7 +811,7 @@ fn doc_eq(a: &Document, b: &Document, coll: Option<&Collation>) -> R {
     Ok(true)
 }
 
-fn eq_scalar(v: &Bson, expected: &Bson, coll: Option<&Collation>) -> R {
+pub(crate) fn eq_scalar(v: &Bson, expected: &Bson, coll: Option<&Collation>) -> R {
     // Array equality: `{field: [a, b, c]}` matches when the stored value is an
     // array equal element-by-element (same length, each pair `eq_scalar`-equal).
     // The "field-is-an-array-containing-this-array" nested case is handled by the
@@ -631,19 +833,45 @@ fn eq_scalar(v: &Bson, expected: &Bson, coll: Option<&Collation>) -> R {
     }
     // Symbol / JS-Code (with or without scope) match by value — mongod compares
     // them directly (mongo-node-driver's "handles BSON type inserts" queries on
-    // a Symbol / Code value). Cross-type (Symbol vs String) and ordering keep
-    // deferring via the `is_exotic` checks below / in the comparison path.
+    // a Symbol / Code value).
     match (v, expected) {
         (Bson::Symbol(a), Bson::Symbol(b)) => return Ok(a == b),
         (Bson::JavaScriptCode(a), Bson::JavaScriptCode(b)) => return Ok(a == b),
         (Bson::JavaScriptCodeWithScope(a), Bson::JavaScriptCodeWithScope(b)) => {
             return Ok(a.code == b.code && a.scope == b.scope)
         }
+        // A Symbol IS a string to mongod, so the cross pair compares as text --
+        // through the collation when there is one.
+        (Bson::Symbol(x), Bson::String(y)) | (Bson::String(x), Bson::Symbol(y)) => {
+            return Ok(match coll {
+                Some(c) => collation::equal(x, y, c).ok_or(Fallback::Defer)?,
+                None => x == y,
+            });
+        }
+        // JavaScript is its own BSON type: it equals no value of another type.
+        // This used to fall into the blanket defer below, and a defer here is
+        // not local to the one document -- it errors the WHOLE query. So
+        // `{v: Code("x=1")}` over a collection holding any non-Code document
+        // answered "query uses a construct the Rust server does not support",
+        // even though the matching document was right there.
+        (_, Bson::JavaScriptCode(_) | Bson::JavaScriptCodeWithScope(_)) => return Ok(false),
         _ => {}
     }
-    // Regex / exotic expected -> special semantics we don't reproduce: defer.
-    if matches!(expected, Bson::RegularExpression(_)) || is_exotic(expected) {
-        return Err(Fallback);
+    // `$eq` with a regex operand is EQUALITY on mongod, never a pattern match:
+    // `{v: {$eq: /ab/i}}` matches a stored `/ab/i` and does NOT match the
+    // string "ab" (probed 8.2.11) -- the opposite of a BARE `/ab/i`, which
+    // routes to `op_regex` before reaching here. This used to defer, which on
+    // the standalone server is an error, so an ordinary `$eq` answered
+    // `BadValue` for every document in the collection.
+    if let Bson::RegularExpression(want) = expected {
+        return Ok(match v {
+            Bson::RegularExpression(got) => regexutil::regex_eq(got, want),
+            _ => false,
+        });
+    }
+    // DbPointer / undefined equality is genuinely unreproduced.
+    if is_exotic(expected) {
+        return Err(Fallback::Defer);
     }
     let v_bool = matches!(v, Bson::Boolean(_));
     let e_bool = matches!(expected, Bson::Boolean(_));
@@ -673,7 +901,7 @@ fn eq_scalar(v: &Bson, expected: &Bson, coll: Option<&Collation>) -> R {
     // numericOrdering); without a collation, plain byte equality.
     if let (Bson::String(a), Bson::String(b)) = (v, expected) {
         return match coll {
-            Some(c) => collation::equal(a, b, c).ok_or(Fallback),
+            Some(c) => collation::equal(a, b, c).ok_or(Fallback::Defer),
             None => Ok(a == b),
         };
     }
@@ -692,13 +920,29 @@ fn eq_scalar(v: &Bson, expected: &Bson, coll: Option<&Collation>) -> R {
 // --- comparison ---------------------------------------------------------
 
 fn cmp_op(
-    values: &[Option<&Bson>],
+    values: &[Cand],
     target: &Bson,
     coll: Option<&Collation>,
     pred: fn(Ordering) -> bool,
+    descend: bool,
 ) -> R {
-    for v in values {
-        let Some(val) = v else { continue };
+    for c in values {
+        // An ABSENT field compares as NULL, which is what mongod's query
+        // language treats it as. It used to be skipped outright, so
+        // `{x: {$gt: MinKey()}}` and `{x: {$lt: MaxKey()}}` -- the two bounds
+        // that DO compare against every type -- left out every document with no
+        // `x` at all, where mongod returns them (probed 8.2.11, 2026-09-06;
+        // four shapes, both servers).
+        //
+        // Safe for the ordinary bounds because the type bracketing already
+        // excludes null from them: `{x: {$gt: 3}}` compares null against a
+        // number, the brackets differ, and the document is dropped exactly as
+        // before. Only a MinKey / MaxKey bound escapes the bracketing, and
+        // those are precisely the two that should see it.
+        let val = match c.value {
+            Some(val) => val,
+            None => &Bson::Null,
+        };
         // Whole-value compare. For a scalar `val` this is the ordinary compare.
         // For an array `val`: against a *scalar* bound `compare_values` returns
         // None (Python's `[..] < 2` raises -> no match), so this is harmless; but
@@ -709,7 +953,7 @@ fn cmp_op(
                 return Ok(true);
             }
         }
-        if let Bson::Array(arr) = val {
+        if let Some(arr) = c.elements(descend) {
             // Multikey field: also match if any *element* satisfies the bound
             // (a scalar-bound query against an array-valued field). The
             // whole-array compare above covers the array-bound case.
@@ -729,13 +973,29 @@ fn cmp_op(
 /// comparison raises `TypeError`, which the matcher treats as no-match).
 /// Arrays are compared element-wise / lexicographically (mirroring Python's
 /// native `list < list`); a document operand or an array-vs-scalar pair is
-/// not comparable (`None`). `Err(Fallback)` only for the exotic BSON types
+/// not comparable (`None`). `Err(Fallback::Defer)` only for the exotic BSON types
 /// (JS code, symbol, dbpointer, undefined) whose ordering we don't reproduce.
 fn compare_values(
     a: &Bson,
     b: &Bson,
     coll: Option<&Collation>,
 ) -> Result<Option<Ordering>, Fallback> {
+    // mongod's ONE exception to type bracketing: a `MinKey` / `MaxKey` BOUND
+    // compares against every type, through the full cross-type order. Only the
+    // bound -- a document whose VALUE is a MaxKey stays bracketed out of
+    // `{v: {$gt: 3}}`. These used to fall through to the "not comparable"
+    // catch-all, so `{v: {$lt: MaxKey()}}` matched NOTHING where mongod matches
+    // everything but the MaxKey itself (probed 8.2.11, 2026-09-01).
+    if matches!(b, Bson::MinKey | Bson::MaxKey) {
+        let ord = if crate::order::bson_lt(a, b).ok_or(Fallback::Defer)? {
+            Ordering::Less
+        } else if crate::order::bson_lt(b, a).ok_or(Fallback::Defer)? {
+            Ordering::Greater
+        } else {
+            Ordering::Equal
+        };
+        return Ok(Some(ord));
+    }
     // MongoDB ranks bool as its own type bracket: under range operators a bool
     // compares only with another bool, never with a number or any other type
     // (verified against mongod — `{a: {$gt: 0}}` skips a bool-valued `a`). A bool
@@ -756,7 +1016,7 @@ fn compare_values(
     }
     // Collation-aware string ordering (defers on non-ASCII / numericOrdering).
     if let (Some(c), Bson::String(x), Bson::String(y)) = (coll, a, b) {
-        return Ok(Some(collation::compare(x, y, c).ok_or(Fallback)?));
+        return Ok(Some(collation::compare(x, y, c).ok_or(Fallback::Defer)?));
     }
     // A document operand: Python's `<` on dicts raises TypeError — i.e. no match —
     // and mongod's range operators ($gt/$lt/…) are type-bracketed, so a
@@ -772,9 +1032,9 @@ fn compare_values(
         // is exactly that comparator; `None` from it means a DBPointer sub-value
         // Python resolves with a type-name tiebreak — defer that rare case.
         (Bson::Document(_), Bson::Document(_)) => {
-            let ord = if crate::order::bson_lt(a, b).ok_or(Fallback)? {
+            let ord = if crate::order::bson_lt(a, b).ok_or(Fallback::Defer)? {
                 Ordering::Less
-            } else if crate::order::bson_lt(b, a).ok_or(Fallback)? {
+            } else if crate::order::bson_lt(b, a).ok_or(Fallback::Defer)? {
                 Ordering::Greater
             } else {
                 Ordering::Equal
@@ -797,10 +1057,10 @@ fn compare_values(
                 // string element above a number element, so `[1,"x"] > [1,2]`.
                 // `order::bson_lt` is that full order (a DBPointer element
                 // defers, via `None`).
-                if crate::order::bson_lt(ea, eb).ok_or(Fallback)? {
+                if crate::order::bson_lt(ea, eb).ok_or(Fallback::Defer)? {
                     return Ok(Some(Ordering::Less));
                 }
-                if crate::order::bson_lt(eb, ea).ok_or(Fallback)? {
+                if crate::order::bson_lt(eb, ea).ok_or(Fallback::Defer)? {
                     return Ok(Some(Ordering::Greater));
                 }
                 // Equal — continue to the next element pair.
@@ -812,28 +1072,42 @@ fn compare_values(
         (Bson::Array(_), _) | (_, Bson::Array(_)) => return Ok(None),
         _ => {}
     }
-    // Exotic BSON types under a range operator. pymongo hands the Python
-    // engine plain `str` for a Symbol and the str-subclass `Code` for JS code
-    // (scope ignored), so the Python oracle compares those as strings —
-    // including cross Symbol/Code/String pairs. A DBPointer has no ordering in
-    // Python (TypeError) and undefined decodes to None: not comparable, clean
-    // no-match. Under a collation the string path above would have applied
-    // folding the exotic text skips, so defer that combination to Python.
+    // Exotic BSON types under a range operator. A Symbol IS a string to mongod
+    // (and pymongo decodes one as `str`), so it takes the string bracket and
+    // the collation with it. JavaScript is its own bracket and compares only
+    // with JavaScript -- comparing it with a String is how `{v: {$gt: "ab"}}`
+    // matched a `Code` document -- and a collation has nothing to say about
+    // code text, so it applies to neither side. A DBPointer has no ordering and
+    // undefined decodes to nothing: not comparable, clean no-match.
+    //
+    // This whole branch used to DEFER whenever a collation was present, which
+    // on the standalone Rust server answered "query uses a construct the Rust
+    // server does not support" for an ordinary collated query over a collection
+    // that merely happened to contain a JavaScript value.
     if is_exotic(a) || is_exotic(b) {
-        if coll.is_some() {
-            return Err(Fallback);
-        }
-        fn text_of(v: &Bson) -> Option<&str> {
+        fn string_text(v: &Bson) -> Option<&str> {
             match v {
-                Bson::String(s) | Bson::Symbol(s) | Bson::JavaScriptCode(s) => Some(s),
+                Bson::String(s) | Bson::Symbol(s) => Some(s),
+                _ => None,
+            }
+        }
+        fn js_text(v: &Bson) -> Option<&str> {
+            match v {
+                Bson::JavaScriptCode(s) => Some(s),
                 Bson::JavaScriptCodeWithScope(c) => Some(&c.code),
                 _ => None,
             }
         }
-        return Ok(match (text_of(a), text_of(b)) {
-            (Some(x), Some(y)) => Some(x.cmp(y)),
-            _ => None,
-        });
+        if let (Some(x), Some(y)) = (js_text(a), js_text(b)) {
+            return Ok(Some(x.cmp(y)));
+        }
+        let (Some(x), Some(y)) = (string_text(a), string_text(b)) else {
+            return Ok(None);
+        };
+        return Ok(Some(match coll {
+            Some(c) => collation::compare(x, y, c).ok_or(Fallback::Defer)?,
+            None => x.cmp(y),
+        }));
     }
     Ok(match (a, b) {
         (Bson::String(x), Bson::String(y)) => Some(x.cmp(y)),
@@ -861,14 +1135,41 @@ fn truthy(arg: &Bson) -> Result<bool, Fallback> {
         Bson::Null => false,
         // mongod truthiness: only false / 0 / null are falsy. An empty string,
         // array, or document is TRUTHY (unlike Python's bool()).
-        // Decimal128 truthiness in Python keys on object identity (always
-        // true), but $exists: Decimal128(0) is pathological — defer.
-        Bson::Decimal128(_) => return Err(Fallback),
+        // mongod reads a Decimal128 NUMERICALLY: zero (and negative zero) are
+        // falsy, NaN is truthy. This deferred, which on the standalone server
+        // made `{n: {$exists: Decimal128("1.5")}}` an error.
+        Bson::Decimal128(d) => {
+            let text = d.to_string();
+            if text.eq_ignore_ascii_case("nan") || text.eq_ignore_ascii_case("-nan") {
+                true
+            } else {
+                // Numerically, not structurally: `-0` parses to a Dec whose
+                // sign differs from `0`'s, so a structural compare called it
+                // truthy where mongod says falsy.
+                text.parse::<f64>().is_ok_and(|f| f != 0.0)
+            }
+        }
         _ => true,
     })
 }
 
 // --- $type --------------------------------------------------------------
+
+/// A NaN range bound, `f64` or `Decimal128` — the one numeric value the
+/// comparison operators cannot rank, because IEEE says every comparison with it
+/// is false. Mirrors `secantus.query._is_nan`.
+fn is_nan_bound(v: &Bson) -> bool {
+    match v {
+        Bson::Double(d) => d.is_nan(),
+        Bson::Decimal128(d) => {
+            // `Decimal128` has no NaN predicate; its string form is the
+            // canonical one bson-rust renders.
+            let s = d.to_string();
+            s.eq_ignore_ascii_case("nan") || s.eq_ignore_ascii_case("-nan")
+        }
+        _ => false,
+    }
+}
 
 fn matches_type(v: &Bson, spec: &Bson) -> bool {
     let alias: Option<&str> = match spec {
@@ -898,6 +1199,24 @@ fn matches_type(v: &Bson, spec: &Bson) -> bool {
         || is(&["int"], &[16], matches!(v, Bson::Int32(_)))
         || is(&["long"], &[18], matches!(v, Bson::Int64(_)))
         || is(&["decimal"], &[19], matches!(v, Bson::Decimal128(_)))
+        // These eight were absent, so `$type` silently answered "no match" for
+        // a value it should have found: `{x: {$type: "javascript"}}`,
+        // `"minKey"` and `"maxKey"` each returned NOTHING where mongod returns
+        // the document (measured 8.2.11, 2026-09-06). `type_spec_valid` above
+        // already ACCEPTED every one of these aliases, which is what made the
+        // gap invisible -- the argument parsed, the match just never fired.
+        || is(&["undefined"], &[6], matches!(v, Bson::Undefined))
+        || is(&["dbPointer"], &[12], matches!(v, Bson::DbPointer(_)))
+        || is(&["javascript"], &[13], matches!(v, Bson::JavaScriptCode(_)))
+        || is(&["symbol"], &[14], matches!(v, Bson::Symbol(_)))
+        || is(
+            &["javascriptWithScope"],
+            &[15],
+            matches!(v, Bson::JavaScriptCodeWithScope(_)),
+        )
+        || is(&["timestamp"], &[17], matches!(v, Bson::Timestamp(_)))
+        || is(&["minKey"], &[-1], matches!(v, Bson::MinKey))
+        || is(&["maxKey"], &[127], matches!(v, Bson::MaxKey))
         || is(
             &["number"],
             &[],
@@ -914,6 +1233,94 @@ fn matches_type(v: &Bson, spec: &Bson) -> bool {
 /// straight match suffices (Python orders `bool`/`Int64` ahead of `int` only
 /// because they're `int` subclasses there). Unknown variants → `"object"`,
 /// matching Python's default.
+/// Render a BSON value the way mongod echoes an offending one back in a parse
+/// error. Its shell-ish form, NOT Rust's `Debug`: strings take DOUBLE quotes, a
+/// document prints `{ a: 1 }` with inner spaces, a regex prints `/a/i`, a date
+/// prints `new Date(<millis>)`. Probed across every BSON type against 8.2.11
+/// (2026-09-01); mirrors `secantus.bsontypes.bson_value_repr`.
+pub fn bson_value_repr(v: &Bson) -> String {
+    match v {
+        Bson::Null | Bson::Undefined => "null".to_string(),
+        Bson::Boolean(b) => (if *b { "true" } else { "false" }).to_string(),
+        Bson::String(s) => format!("\"{s}\""),
+        Bson::Symbol(s) => format!("\"{s}\""),
+        Bson::JavaScriptCode(c) => c.clone(),
+        Bson::JavaScriptCodeWithScope(c) => c.code.clone(),
+        // A double in a PARSE error keeps its round-trip form -- `-1.0` stays
+        // `-1.0`, where the arithmetic overflow messages would print `-1`.
+        Bson::Double(d) => fmt_double_parse(*d),
+        Bson::Decimal128(d) => d.to_string(),
+        Bson::Int32(n) => n.to_string(),
+        Bson::Int64(n) => n.to_string(),
+        Bson::ObjectId(oid) => format!("ObjectId('{oid}')"),
+        Bson::MinKey => "MinKey".to_string(),
+        Bson::MaxKey => "MaxKey".to_string(),
+        Bson::Timestamp(t) => format!("Timestamp({}, {})", t.time, t.increment),
+        Bson::DateTime(dt) => format!("new Date({})", dt.timestamp_millis()),
+        Bson::RegularExpression(r) => format!("/{}/{}", r.pattern, r.options),
+        Bson::Binary(b) => format!(
+            "BinData({}, {})",
+            u8::from(b.subtype),
+            b.bytes
+                .iter()
+                .map(|x| format!("{x:02X}"))
+                .collect::<String>()
+        ),
+        Bson::Array(a) => {
+            if a.is_empty() {
+                "[]".to_string()
+            } else {
+                format!(
+                    "[ {} ]",
+                    a.iter().map(bson_value_repr).collect::<Vec<_>>().join(", ")
+                )
+            }
+        }
+        Bson::Document(d) => {
+            if d.is_empty() {
+                "{}".to_string()
+            } else {
+                format!(
+                    "{{ {} }}",
+                    d.iter()
+                        .map(|(k, val)| format!("{k}: {}", bson_value_repr(val)))
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                )
+            }
+        }
+        other => format!("{other}"),
+    }
+}
+
+/// A double as mongod echoes it in a PARSE error: the shortest round-trip form,
+/// keeping a whole double's `.0`. Rust's `{}` already drops nothing and prints
+/// `1e20` as `100000000000000000000`, so the exponent form is applied by hand
+/// at the same threshold Python's `repr` uses.
+pub fn fmt_double_parse(d: f64) -> String {
+    if d.is_nan() {
+        return "nan".to_string();
+    }
+    if d.is_infinite() {
+        return (if d > 0.0 { "inf" } else { "-inf" }).to_string();
+    }
+    let abs = d.abs();
+    if d != 0.0 && !(1e-4..1e16).contains(&abs) {
+        let text = format!("{d:e}");
+        // Rust writes `1e20`; the form here is `1e+20`.
+        return match text.split_once('e') {
+            Some((m, exp)) if !exp.starts_with('-') => format!("{m}e+{exp}"),
+            _ => text,
+        };
+    }
+    let text = format!("{d}");
+    if text.contains(['.', 'e']) {
+        text
+    } else {
+        format!("{text}.0")
+    }
+}
+
 pub fn bson_type_name(v: &Bson) -> &'static str {
     match v {
         Bson::Boolean(_) => "bool",
@@ -928,6 +1335,16 @@ pub fn bson_type_name(v: &Bson) -> &'static str {
         Bson::RegularExpression(_) => "regex",
         Bson::Binary(_) => "binData",
         Bson::Array(_) => "array",
+        // These four fell into the catch-all and reported "object" -- probed
+        // 8.2.11 (2026-09-01): `{$bit: {n: MinKey()}}` names `minKey`.
+        Bson::MinKey => "minKey",
+        Bson::MaxKey => "maxKey",
+        Bson::Timestamp(_) => "timestamp",
+        Bson::Undefined => "undefined",
+        Bson::JavaScriptCode(_) => "javascript",
+        Bson::JavaScriptCodeWithScope(_) => "javascriptWithScope",
+        Bson::Symbol(_) => "symbol",
+        Bson::DbPointer(_) => "dbPointer",
         _ => "object",
     }
 }
@@ -951,7 +1368,7 @@ fn unique_items_key(value: &Bson) -> Result<Vec<u8>, Fallback> {
     match value {
         Bson::Int32(_) | Bson::Int64(_) | Bson::Double(_) | Bson::Decimal128(_) => {
             out.push(b'n');
-            out.extend(crate::sortkey::encode_value(value, None).map_err(|_| Fallback)?);
+            out.extend(crate::sortkey::encode_value(value, None).map_err(|_| Fallback::Defer)?);
         }
         Bson::Document(d) => {
             out.push(b'd');
@@ -973,7 +1390,7 @@ fn unique_items_key(value: &Bson) -> Result<Vec<u8>, Fallback> {
         }
         other => {
             out.push(b's');
-            out.extend(crate::sortkey::encode_value(other, None).map_err(|_| Fallback)?);
+            out.extend(crate::sortkey::encode_value(other, None).map_err(|_| Fallback::Defer)?);
         }
     }
     Ok(out)
@@ -1172,7 +1589,7 @@ fn validate_json_schema(value: &Bson, schema: &Bson) -> R {
         let mut ok = false;
         for t in types {
             let Bson::String(name) = t else {
-                return Err(Fallback); // non-string json type -> defer
+                return Err(Fallback::Defer); // non-string json type -> defer
             };
             if matches_json_type(value, name) {
                 ok = true;
@@ -1186,11 +1603,11 @@ fn validate_json_schema(value: &Bson, schema: &Bson) -> R {
     // enum — membership via Python `==`.
     if let Some(en) = sch.get("enum") {
         let Bson::Array(items) = en else {
-            return Err(Fallback); // `value not in <non-list>` -> defer
+            return Err(Fallback::Defer); // `value not in <non-list>` -> defer
         };
         let mut found = false;
         for e in items {
-            if expressions::py_eq(value, e).map_err(|_| Fallback)? {
+            if expressions::py_eq(value, e)? {
                 found = true;
                 break;
             }
@@ -1225,7 +1642,7 @@ fn validate_json_schema(value: &Bson, schema: &Bson) -> R {
                 Bson::Int32(n) => *n as f64,
                 Bson::Int64(n) => *n as f64,
                 Bson::Double(d) => *d,
-                _ => return Err(Fallback), // rejected at parse time server-side
+                _ => return Err(Fallback::Defer), // rejected at parse time server-side
             };
             let v = match value {
                 Bson::Int32(n) => *n as f64,
@@ -1252,7 +1669,7 @@ fn validate_json_schema(value: &Bson, schema: &Bson) -> R {
             }
         }
         if let Some(pat) = sch.get("pattern") {
-            let re = regexutil::compile(pat, None).map_err(|_| Fallback)?;
+            let re = regexutil::compile(pat, None).map_err(|_| Fallback::Defer)?;
             if !re.is_match(s) {
                 return Ok(false);
             }
@@ -1324,11 +1741,11 @@ fn validate_json_schema(value: &Bson, schema: &Bson) -> R {
     if let Bson::Document(obj) = value {
         if let Some(req) = sch.get("required") {
             let Bson::Array(keys) = req else {
-                return Err(Fallback);
+                return Err(Fallback::Defer);
             };
             for k in keys {
                 let Bson::String(name) = k else {
-                    return Err(Fallback);
+                    return Err(Fallback::Defer);
                 };
                 if !obj.contains_key(name) {
                     return Ok(false);
@@ -1337,7 +1754,7 @@ fn validate_json_schema(value: &Bson, schema: &Bson) -> R {
         }
         if let Some(props) = sch.get("properties") {
             let Bson::Document(pd) = props else {
-                return Err(Fallback);
+                return Err(Fallback::Defer);
             };
             for (prop, prop_schema) in pd {
                 if let Some(pv) = obj.get(prop) {
@@ -1364,11 +1781,11 @@ fn validate_json_schema(value: &Bson, schema: &Bson) -> R {
         let mut pattern_res: Vec<regexutil::CompiledRegex> = Vec::new();
         if let Some(pp) = sch.get("patternProperties") {
             let Bson::Document(pd) = pp else {
-                return Err(Fallback);
+                return Err(Fallback::Defer);
             };
             for (pat, sub) in pd {
-                let rx =
-                    regexutil::compile(&Bson::String(pat.clone()), None).map_err(|_| Fallback)?;
+                let rx = regexutil::compile(&Bson::String(pat.clone()), None)
+                    .map_err(|_| Fallback::Defer)?;
                 for (k, v) in obj {
                     if rx.is_match(k) && !validate_json_schema(v, sub)? {
                         return Ok(false);
@@ -1401,14 +1818,14 @@ fn validate_json_schema(value: &Bson, schema: &Bson) -> R {
                         }
                     }
                 }
-                _ => return Err(Fallback), // non-bool/doc -> defer
+                _ => return Err(Fallback::Defer), // non-bool/doc -> defer
             }
         }
         // dependencies: if a trigger key is present, its listed properties must all
         // be present (array form) or the whole doc must validate (schema form).
         if let Some(deps) = sch.get("dependencies") {
             let Bson::Document(dd) = deps else {
-                return Err(Fallback);
+                return Err(Fallback::Defer);
             };
             for (prop, dep) in dd {
                 if !obj.contains_key(prop) {
@@ -1418,7 +1835,7 @@ fn validate_json_schema(value: &Bson, schema: &Bson) -> R {
                     Bson::Array(reqs) => {
                         for r in reqs {
                             let Bson::String(name) = r else {
-                                return Err(Fallback);
+                                return Err(Fallback::Defer);
                             };
                             if !obj.contains_key(name) {
                                 return Ok(false);
@@ -1430,7 +1847,7 @@ fn validate_json_schema(value: &Bson, schema: &Bson) -> R {
                             return Ok(false);
                         }
                     }
-                    _ => return Err(Fallback),
+                    _ => return Err(Fallback::Defer),
                 }
             }
         }
@@ -1443,7 +1860,7 @@ fn validate_json_schema(value: &Bson, schema: &Bson) -> R {
             }
         }
     } else if sch.contains_key("allOf") {
-        return Err(Fallback);
+        return Err(Fallback::Defer);
     }
     if let Some(Bson::Array(subs)) = sch.get("anyOf") {
         let mut any = false;
@@ -1457,7 +1874,7 @@ fn validate_json_schema(value: &Bson, schema: &Bson) -> R {
             return Ok(false);
         }
     } else if sch.contains_key("anyOf") {
-        return Err(Fallback);
+        return Err(Fallback::Defer);
     }
     if let Some(Bson::Array(subs)) = sch.get("oneOf") {
         let mut count = 0;
@@ -1470,7 +1887,7 @@ fn validate_json_schema(value: &Bson, schema: &Bson) -> R {
             return Ok(false);
         }
     } else if sch.contains_key("oneOf") {
-        return Err(Fallback);
+        return Err(Fallback::Defer);
     }
     if let Some(not_schema) = sch.get("not") {
         if validate_json_schema(value, not_schema)? {
@@ -1502,11 +1919,11 @@ fn matches_json_type(value: &Bson, name: &str) -> bool {
 /// (`py_order` -> `None`) also defers.
 fn numeric_order(value: &Bson, bound: &Bson) -> Result<Ordering, Fallback> {
     if !matches!(bound, Bson::Int32(_) | Bson::Int64(_) | Bson::Double(_)) {
-        return Err(Fallback);
+        return Err(Fallback::Defer);
     }
     expressions::py_order(value, bound)
-        .map_err(|_| Fallback)?
-        .ok_or(Fallback)
+        .map_err(|_| Fallback::Defer)?
+        .ok_or(Fallback::Defer)
 }
 
 /// A schema keyword that must be an integer count (`minLength` / `maxItems` /
@@ -1515,14 +1932,14 @@ fn as_schema_int(b: &Bson) -> Result<i64, Fallback> {
     match b {
         Bson::Int32(n) => Ok(*n as i64),
         Bson::Int64(n) => Ok(*n),
-        _ => Err(Fallback),
+        _ => Err(Fallback::Defer),
     }
 }
 
 /// A valid mongod $type argument: a known alias, or a numeric code in
 /// {-1, 1..19, 127} (a whole double counts). Anything else -> defer so Python
 /// raises the exact error (BadValue / TypeMismatch).
-fn type_spec_valid(spec: &Bson) -> bool {
+fn type_spec_valid(spec: &Bson) -> Result<(), Fallback> {
     const ALIASES: [&str; 22] = [
         "double",
         "string",
@@ -1548,33 +1965,144 @@ fn type_spec_valid(spec: &Bson) -> bool {
         "number",
     ];
     let valid_code = |c: i64| c == -1 || c == 127 || (1..=19).contains(&c);
+    // mongod distinguishes four ways a `$type` argument is wrong, and each has
+    // its own code: a bool / document / date / JavaScript is TypeMismatch (14),
+    // an unknown alias and a bad numeric code are BadValue (2), and code 0 gets
+    // a hint pointing at `$exists`. A `Decimal128` IS a valid code.
     match spec {
-        Bson::String(s) => ALIASES.contains(&s.as_str()),
-        Bson::Int32(n) => valid_code(*n as i64),
-        Bson::Int64(n) => valid_code(*n),
-        Bson::Double(d) if d.fract() == 0.0 => valid_code(*d as i64),
-        _ => false,
+        // `Code` is a distinct BSON type, not a string alias.
+        Bson::JavaScriptCode(_) | Bson::JavaScriptCodeWithScope(_) | Bson::Boolean(_) => Err(
+            Fallback::mongo(14, "type must be represented as a number or a string"),
+        ),
+        Bson::String(s) if ALIASES.contains(&s.as_str()) => Ok(()),
+        Bson::String(s) => Err(Fallback::mongo(2, format!("Unknown type name alias: {s}"))),
+        Bson::Double(d) if d.fract() != 0.0 => Err(Fallback::mongo(
+            2,
+            // The numeric-code message uses the %g form, unlike the parse
+            // errors around it -- probed 8.2.11.
+            format!("Invalid numerical type code: {}", format_g(*d)),
+        )),
+        Bson::Int32(_) | Bson::Int64(_) | Bson::Double(_) | Bson::Decimal128(_) => {
+            let code = match spec {
+                Bson::Int32(n) => *n as i64,
+                Bson::Int64(n) => *n,
+                Bson::Double(d) => *d as i64,
+                Bson::Decimal128(d) => {
+                    // `trunc_to_i64` TRUNCATES, so 1.5 would become the valid
+                    // code 1 and the query would be accepted. Only a WHOLE
+                    // decimal is a type code.
+                    let text = d.to_string();
+                    let parsed = crate::decimal::parse(&text);
+                    match parsed
+                        .as_ref()
+                        .and_then(crate::decimal::trunc_to_i64)
+                        .filter(|n| text.parse::<f64>().is_ok_and(|f| f == *n as f64))
+                    {
+                        Some(n) => n,
+                        None => {
+                            // Rendered through the double form like every other
+                            // numeric code: `Decimal128("NaN")` prints `nan`.
+                            return Err(Fallback::mongo(
+                                2,
+                                format!(
+                                    "Invalid numerical type code: {}",
+                                    format_g(text.parse::<f64>().unwrap_or(f64::NAN))
+                                ),
+                            ));
+                        }
+                    }
+                }
+                _ => unreachable!(),
+            };
+            if valid_code(code) {
+                Ok(())
+            } else {
+                let suffix = if code == 0 {
+                    ". Instead use {$exists:false}."
+                } else {
+                    ""
+                };
+                // Negative zero keeps its sign in the message, and `code` (an
+                // i64) has already lost it -- render from the original.
+                let rendered = match spec {
+                    Bson::Double(d) => format_g(*d),
+                    Bson::Decimal128(d) => {
+                        format_g(d.to_string().parse::<f64>().unwrap_or(f64::NAN))
+                    }
+                    _ => code.to_string(),
+                };
+                Err(Fallback::mongo(
+                    2,
+                    format!("Invalid numerical type code: {rendered}{suffix}"),
+                ))
+            }
+        }
+        _ => Err(Fallback::mongo(
+            14,
+            "type must be represented as a number or a string",
+        )),
     }
 }
 
-fn op_type(values: &[Option<&Bson>], spec: &Bson) -> R {
+/// A double in C++'s `ostream <<` default form -- six significant digits. Used
+/// by the `$type` numeric-code message, which does NOT use the round-trip form
+/// its neighbours do.
+fn format_g(d: f64) -> String {
+    // `{:.5e}` of a non-finite emits no exponent, so the `split_once('e')`
+    // below panicked -- `{v: {$type: NaN}}` answered `1 internal server error`.
+    if d.is_nan() {
+        return "nan".to_string();
+    }
+    if d.is_infinite() {
+        return (if d > 0.0 { "inf" } else { "-inf" }).to_string();
+    }
+    let text = format!("{:.5e}", d);
+    let (mantissa, exp) = text.split_once('e').expect("scientific form");
+    let exp: i32 = exp.parse().expect("integer exponent");
+    if !(-4..6).contains(&exp) {
+        let mantissa = if mantissa.contains('.') {
+            mantissa.trim_end_matches('0').trim_end_matches('.')
+        } else {
+            mantissa
+        };
+        return format!(
+            "{}e{}{:02}",
+            mantissa,
+            if exp < 0 { '-' } else { '+' },
+            exp.abs()
+        );
+    }
+    let text = format!("{:.*}", (5 - exp).max(0) as usize, d);
+    if text.contains('.') {
+        text.trim_end_matches('0').trim_end_matches('.').to_string()
+    } else {
+        text
+    }
+}
+
+fn op_type(values: &[Cand], spec: &Bson, field: &str, descend: bool) -> R {
     // spec is a single alias/code or an array of them. A non-alias/code spec
     // element (e.g. a float code) is pathological -> Python.
     let specs: Vec<&Bson> = match spec {
         Bson::Array(a) => a.iter().collect(),
         single => vec![single],
     };
-    for s in &specs {
-        if !type_spec_valid(s) {
-            return Err(Fallback); // bad alias / code / bool / fractional -> Python raises
-        }
+    if matches!(spec, Bson::Array(a) if a.is_empty()) {
+        // An empty alias list is a parse error, not "matches nothing".
+        return Err(Fallback::mongo(
+            9,
+            format!("{field} must match at least one type"),
+        ));
     }
-    for v in values {
-        let Some(val) = v else { continue };
+    for s in &specs {
+        type_spec_valid(s)?;
+    }
+    for c in values {
+        let Some(val) = c.value else { continue };
         if specs.iter().any(|s| matches_type(val, s)) {
             return Ok(true);
         }
-        if let Bson::Array(arr) = val {
+        if let Some(arr) = c.elements(descend) {
             for e in arr {
                 if specs.iter().any(|s| matches_type(e, s)) {
                     return Ok(true);
@@ -1591,9 +2119,10 @@ fn op_type(values: &[Option<&Bson>], spec: &Bson) -> R {
 /// element. Element equality uses Python `==` (`expressions::py_eq` — numeric
 /// bridge + bool-as-int), matching `secantus.query._op_all`. Regex elements
 /// (which Python matches as patterns) defer to Python.
-fn op_all(values: &[Option<&Bson>], required: &Bson) -> R {
+fn op_all(values: &[Cand], required: &Bson, field: &str, descend: bool) -> R {
+    let field_name = field;
     let Bson::Array(required) = required else {
-        return Err(Fallback); // Python raises QueryError on a non-array $all
+        return Err(Fallback::mongo(2, "$all needs an array"));
     };
     // `$all: []` matches nothing (mongod), not everything — the vacuous
     // all-clauses-satisfied below would otherwise be true for every value.
@@ -1608,20 +2137,22 @@ fn op_all(values: &[Option<&Bson>], required: &Bson) -> R {
     let is_elemmatch =
         |e: &Bson| matches!(e, Bson::Document(d) if d.len() == 1 && d.contains_key("$elemMatch"));
     if required.iter().any(has_dollar) && !required.iter().all(is_elemmatch) {
-        return Err(Fallback);
+        return Err(Fallback::Defer);
     }
     // A regex element matches as a *pattern* (not by equality), mirroring
     // `query._op_all`; a non-regex element matches by `py_eq`. A regex the
     // engine can't compile still defers via `op_regex`. mongod treats a scalar
     // field value like a one-element array for `$all` (only `$elemMatch`
     // clauses require an actual array) — verified against mongod 7.0.12.
-    for v in values {
-        let Some(field) = v else { continue };
+    for c in values {
+        let Some(field) = c.value else { continue };
         // The elements to match each required clause against: the array's own
         // elements, or the scalar itself as a single element.
-        let elems: &[Bson] = match field {
-            Bson::Array(arr) => arr,
-            scalar => std::slice::from_ref(scalar),
+        let elems: &[Bson] = match (descend, field) {
+            (true, Bson::Array(arr)) => arr,
+            // `descend = false`: the value IS the single element to match --
+            // inside `$elemMatch` the array step is already spent.
+            (_, scalar) => std::slice::from_ref(scalar),
         };
         let is_array = matches!(field, Bson::Array(_));
         let mut all_present = true;
@@ -1633,7 +2164,9 @@ fn op_all(values: &[Option<&Bson>], required: &Bson) -> R {
                     if let Some(sub) = rd.get("$elemMatch") {
                         let ok = is_array && {
                             let arr_bson = Bson::Array(elems.to_vec());
-                            op_elem_match(&[Some(&arr_bson)], sub)?
+                            // `field` is shadowed here by a local `&Bson`, so
+                            // reach past it for the name the error message wants.
+                            op_elem_match(&[Cand::plain(Some(&arr_bson))], sub, field_name)?
                         };
                         if !ok {
                             all_present = false;
@@ -1646,8 +2179,8 @@ fn op_all(values: &[Option<&Bson>], required: &Bson) -> R {
             let mut found = false;
             for e in elems {
                 let matched = match r {
-                    Bson::RegularExpression(_) => op_regex(&[Some(e)], r, None)?,
-                    _ => expressions::py_eq(e, r).map_err(|_| Fallback)?,
+                    Bson::RegularExpression(_) => op_regex(&[Cand::plain(Some(e))], r, None, true)?,
+                    _ => expressions::py_eq(e, r)?,
                 };
                 if matched {
                     found = true;
@@ -1666,25 +2199,38 @@ fn op_all(values: &[Option<&Bson>], required: &Bson) -> R {
     Ok(false)
 }
 
-fn op_size(values: &[Option<&Bson>], size: &Bson) -> R {
-    let n = match size {
-        Bson::Int32(n) => *n as i64,
-        Bson::Int64(n) => *n,
-        // An integer-valued double is accepted (mongod: `$size: 2.0` == 2). A
-        // non-integer double, and any non-number (bool / string / …), are parse
-        // errors mongod rejects — defer so the Rust server surfaces BadValue
-        // (code 2, matching mongod's code) rather than a silent no-match.
-        Bson::Double(d) if d.is_finite() && d.fract() == 0.0 => *d as i64,
-        _ => return Err(Fallback),
+fn op_size(values: &[Cand], size: &Bson) -> R {
+    // The shared ladder, under mongod's own prefix. A BadValue (2), not the
+    // FailedToParse (9) the ladder uses elsewhere -- `$size` re-codes it.
+    let prefix = "Failed to parse $size. ";
+    let n = match coerce_int64_argument(size, "$size") {
+        None => {
+            return Err(Fallback::mongo(
+                2,
+                format!(
+                    "{prefix}Expected a number in: $size: {}",
+                    bson_value_repr(size)
+                ),
+            ));
+        }
+        Some(Err(Fallback::Mongo { message, .. })) => {
+            return Err(Fallback::mongo(2, format!("{prefix}{message}")));
+        }
+        Some(Err(other)) => return Err(other),
+        Some(Ok(n)) => n,
     };
     if n < 0 {
-        // mongod: "Expected a non-negative number" (code 2) — error, not
-        // no-match. Fallback -> BadValue on the Rust server.
-        return Err(Fallback);
+        return Err(Fallback::mongo(
+            2,
+            format!(
+                "{prefix}Expected a non-negative number in: $size: {}",
+                bson_value_repr(size)
+            ),
+        ));
     }
     let n = n as usize;
-    for v in values {
-        if let Some(Bson::Array(arr)) = v {
+    for c in values {
+        if let Some(Bson::Array(arr)) = c.value {
             if arr.len() == n {
                 return Ok(true);
             }
@@ -1695,17 +2241,24 @@ fn op_size(values: &[Option<&Bson>], size: &Bson) -> R {
 
 // --- $elemMatch ---------------------------------------------------------
 
-fn op_elem_match(values: &[Option<&Bson>], cond: &Bson) -> R {
+fn op_elem_match(values: &[Cand], cond: &Bson, field: &str) -> R {
     let Bson::Document(condd) = cond else {
         return Ok(false); // Python: non-mapping condition -> False
     };
     let scalar_form = is_operator_dict(condd);
-    for v in values {
-        let Some(Bson::Array(arr)) = v else { continue };
+    for c in values {
+        let Some(Bson::Array(arr)) = c.value else {
+            continue;
+        };
         for elem in arr {
             if scalar_form {
-                // Python's $elemMatch passes no collation to the inner match.
-                if field_matches(&[Some(elem)], cond, None)? {
+                // `descend = false`: the element is a TERMINAL value here.
+                // mongod traverses an array once per path step and `$elemMatch`
+                // already spent it, so `{$elemMatch: {$gt: 1}}` must not look
+                // inside an element that is itself an array. It did, and matched
+                // `[[5]]` and `[1, [2, [3]]]`, which mongod matches neither
+                // (probed 8.2.11, 2026-09-06). No collation, as on the Python side.
+                if field_matches_descend(&[Cand::plain(Some(elem))], cond, None, field, false)? {
                     return Ok(true);
                 }
             } else if let Bson::Document(ed) = elem {
@@ -1713,6 +2266,13 @@ fn op_elem_match(values: &[Option<&Bson>], cond: &Bson) -> R {
                 if matches(ed, condd, &Document::new(), None)? {
                     return Ok(true);
                 }
+            } else if matches!(elem, Bson::Array(_)) && condd.is_empty() {
+                // An empty criteria imposes no field requirement, so an ARRAY
+                // element satisfies it as readily as a subdocument does --
+                // `{$elemMatch: {}}` returns those documents on mongod and this
+                // considered only documents. A NON-empty criteria still cannot
+                // match an array: it has no fields to name.
+                return Ok(true);
             }
         }
     }
@@ -1746,23 +2306,127 @@ fn mod_int(val: &Bson) -> Result<Option<i64>, Fallback> {
                 Some(d.trunc() as i64)
             }
         }
-        Bson::Decimal128(_) => return Err(Fallback),
+        // Truncated toward zero on the decimal digits, not through f64 --
+        // this used to defer, which on the standalone Rust server made
+        // `{dec: {$mod: [2, 0]}}` answer "query uses a construct the Rust
+        // server does not support" for an ordinary query.
+        Bson::Decimal128(d) => crate::decimal::parse(&d.to_string())
+            .as_ref()
+            .and_then(crate::decimal::trunc_to_i64),
         // bool and every non-numeric type: not eligible (no match), not an error.
         _ => None,
     })
 }
 
-fn op_mod(values: &[Option<&Bson>], spec: &Bson) -> R {
-    let arr = spec.as_array().ok_or(Fallback)?;
+/// mongod's numeric-argument ladder, shared by `$size`, `$pop` and the `$bits*`
+/// mask. Four distinct failures in this order, differing only in the `label`
+/// before the colon (probed 8.2.11, 2026-09-01):
+///
+/// ```text
+/// NaN                       Expected an integer, but found NaN in: <label>: nan
+/// non-finite / out of range Cannot represent as a 64-bit integer: <label>: 1e+20
+/// fractional                Expected an integer: <label>: 1.5
+/// non-integral Decimal128   Cannot represent as a 64-bit integer: <label>: 1.5
+/// ```
+///
+/// A whole `Decimal128` is accepted. `None` means "not a numeric argument at
+/// all", which each caller words differently. Mirrors
+/// `secantus.bsontypes.coerce_int64_argument`.
+pub(crate) fn coerce_int64_argument(value: &Bson, label: &str) -> Option<Result<i64, Fallback>> {
+    let bad = |msg: String| Some(Err(Fallback::mongo(9, msg)));
+    match value {
+        Bson::Boolean(_) => None,
+        Bson::Int32(n) => Some(Ok(*n as i64)),
+        Bson::Int64(n) => Some(Ok(*n)),
+        Bson::Double(d) => {
+            if d.is_nan() {
+                return bad(format!(
+                    "Expected an integer, but found NaN in: {label}: nan"
+                ));
+            }
+            if !d.is_finite() || *d < i64::MIN as f64 || *d > i64::MAX as f64 {
+                return bad(format!(
+                    "Cannot represent as a 64-bit integer: {label}: {}",
+                    fmt_double_parse(*d)
+                ));
+            }
+            if d.fract() != 0.0 {
+                return bad(format!(
+                    "Expected an integer: {label}: {}",
+                    fmt_double_parse(*d)
+                ));
+            }
+            Some(Ok(*d as i64))
+        }
+        Bson::Decimal128(d) => {
+            let text = d.to_string();
+            let whole = crate::decimal::parse(&text)
+                .as_ref()
+                .and_then(crate::decimal::trunc_to_i64)
+                // Whole-ness is a NUMERIC question. Comparing the parsed
+                // forms structurally said `-0` was not whole (its sign differs
+                // from `0`'s), so every `Decimal128("-0")` argument was
+                // rejected as unrepresentable where mongod accepts it.
+                .filter(|as_int| text.parse::<f64>().is_ok_and(|f| f == *as_int as f64));
+            match whole {
+                Some(n) => Some(Ok(n)),
+                None => bad(format!(
+                    "Cannot represent as a 64-bit integer: {label}: {text}"
+                )),
+            }
+        }
+        _ => None,
+    }
+}
+
+/// Every field-level operator `op_matches` dispatches, plus the sibling
+/// modifiers that tune one. `$not` validates its inner document against this.
+/// Mirrors `query._KNOWN_FIELD_OPERATORS`.
+const KNOWN_FIELD_OPERATORS: [&str; 28] = [
+    "$eq",
+    "$ne",
+    "$gt",
+    "$gte",
+    "$lt",
+    "$lte",
+    "$in",
+    "$nin",
+    "$exists",
+    "$not",
+    "$type",
+    "$size",
+    "$all",
+    "$mod",
+    "$elemMatch",
+    "$regex",
+    "$options",
+    "$bitsAllSet",
+    "$bitsAnySet",
+    "$bitsAllClear",
+    "$bitsAnyClear",
+    "$geoWithin",
+    "$geoIntersects",
+    "$near",
+    "$nearSphere",
+    "$maxDistance",
+    "$minDistance",
+    "$comment",
+];
+
+fn op_mod(values: &[Cand], spec: &Bson) -> R {
+    // mongod separates "not an array at all" from "an array that is too short".
+    let Some(arr) = spec.as_array() else {
+        return Err(Fallback::mongo(2, "malformed mod, needs to be an array"));
+    };
     if arr.len() < 2 {
-        return Err(Fallback); // "malformed mod, not enough elements" (code 2)
+        return Err(Fallback::mongo(2, "malformed mod, not enough elements"));
     }
     // The divisor is truncated toward zero too (mongod: `[2.5, 0]` divides by 2).
     let Some(div) = mod_int(&arr[0])? else {
-        return Err(Fallback); // non-numeric divisor -> malformed (code 2)
+        return Err(Fallback::mongo(2, "malformed mod, divisor not a number"));
     };
     if div == 0 {
-        return Err(Fallback); // "divisor cannot be 0" (code 2)
+        return Err(Fallback::mongo(2, "divisor cannot be 0"));
     }
     let rem = as_int(&arr[1]);
     let check = |val: &Bson| -> Result<Option<bool>, Fallback> {
@@ -1774,8 +2438,8 @@ fn op_mod(values: &[Option<&Bson>], spec: &Bson) -> R {
             None => Ok(None),
         }
     };
-    for v in values {
-        let Some(val) = v else { continue };
+    for c in values {
+        let Some(val) = c.value else { continue };
         if let Some(true) = check(val)? {
             return Ok(true);
         }
@@ -1792,57 +2456,180 @@ fn op_mod(values: &[Option<&Bson>], spec: &Bson) -> R {
 
 // --- $bits* -------------------------------------------------------------
 
-fn resolve_bitmask(arg: &Bson) -> Result<u64, Fallback> {
-    // mongod accepts a whole-number double mask / bit position (truncated);
-    // fractional / negative / bool defer to the Python oracle (which raises the
-    // exact code -- mask 9, position 2).
-    match arg {
-        Bson::Boolean(_) => Err(Fallback),
-        Bson::Int32(n) if *n >= 0 => Ok(*n as u64),
-        Bson::Int64(n) if *n >= 0 => Ok(*n as u64),
-        Bson::Double(d) if d.is_finite() && d.fract() == 0.0 && *d >= 0.0 => Ok(*d as u64),
-        Bson::Int32(_) | Bson::Int64(_) | Bson::Double(_) => Err(Fallback),
-        Bson::Array(a) => {
-            let mut mask = 0u64;
-            for bit in a {
-                let p = match bit {
-                    Bson::Int32(p) => *p as i64,
-                    Bson::Int64(p) => *p,
-                    Bson::Double(d) if d.is_finite() && d.fract() == 0.0 => *d as i64,
-                    _ => return Err(Fallback),
-                };
-                if !(0..64).contains(&p) {
-                    return Err(Fallback);
+/// A value's bits, for the `$bits*` operators.
+///
+/// Two representations because mongod accepts two shapes that no single integer
+/// width covers: a NUMBER (int32 / int64 / whole double / whole Decimal128),
+/// which is two's complement with infinite sign extension so `-1` has every bit
+/// set however far you look; and BinData, which is an arbitrarily long
+/// little-endian bit string, least-significant bit first within each byte.
+#[derive(Debug)]
+enum Bits {
+    Num(i128),
+    Bytes(Vec<u8>),
+}
+
+impl Bits {
+    fn bit(&self, i: usize) -> bool {
+        match self {
+            // Past i128's width, a non-negative value reads 0 and a negative
+            // one reads 1 -- that IS the sign extension.
+            Bits::Num(v) => {
+                if i < 127 {
+                    (v >> i) & 1 == 1
+                } else {
+                    *v < 0
                 }
-                mask |= 1 << p;
             }
-            Ok(mask)
+            Bits::Bytes(b) => b.get(i / 8).is_some_and(|byte| (byte >> (i % 8)) & 1 == 1),
         }
-        _ => Err(Fallback),
+    }
+
+    /// The positions this value sets. Only meaningful for a MASK, which is
+    /// always non-negative and finite, so the scan terminates.
+    fn set_positions(&self) -> Vec<usize> {
+        match self {
+            Bits::Num(v) => (0..127).filter(|i| (v >> i) & 1 == 1).collect(),
+            Bits::Bytes(b) => (0..b.len() * 8).filter(|i| self.bit(*i)).collect(),
+        }
     }
 }
 
-fn op_bits(values: &[Option<&Bson>], arg: &Bson, pred: fn(u64, u64) -> bool) -> R {
-    let mask = resolve_bitmask(arg)?;
-    for v in values {
-        let val = match v {
-            Some(Bson::Int32(n)) => *n as i64,
-            Some(Bson::Int64(n)) => *n,
-            _ => continue, // bool/non-int values are skipped (matches Python)
-        };
-        if val < 0 {
-            return Err(Fallback); // two's-complement-infinite semantics -> Python
+/// The bits a STORED value contributes, or `None` when it is not bit-eligible.
+///
+/// mongod accepts int32 / int64, a whole finite double in int64 range, a whole
+/// Decimal128, and BinData -- and skips strings, bools, fractional doubles,
+/// NaN / Infinity and out-of-range doubles. This used to accept int32 / int64
+/// and nothing else, so a document holding `5.0` or `BinData(0x05)` was
+/// invisible to `{v: {$bitsAllSet: 5}}`, and a negative value DEFERRED (an
+/// error on the standalone server) rather than sign-extending.
+fn bit_source(value: &Bson) -> Option<Bits> {
+    match value {
+        Bson::Boolean(_) => None,
+        Bson::Int32(n) => Some(Bits::Num(*n as i128)),
+        Bson::Int64(n) => Some(Bits::Num(*n as i128)),
+        Bson::Double(d) => {
+            if !d.is_finite() || d.fract() != 0.0 || *d < i64::MIN as f64 || *d > i64::MAX as f64 {
+                None
+            } else {
+                Some(Bits::Num(*d as i128))
+            }
         }
-        if pred(val as u64, mask) {
-            return Ok(true);
+        Bson::Decimal128(d) => {
+            let dec = crate::decimal::parse(&d.to_string())?;
+            crate::decimal::trunc_to_i64(&dec).and_then(|as_int| {
+                // `trunc_to_i64` truncates; only a WHOLE decimal is eligible.
+                (crate::decimal::parse(&as_int.to_string())? == dec)
+                    .then_some(Bits::Num(as_int as i128))
+            })
+        }
+        Bson::Binary(b) => Some(Bits::Bytes(b.bytes.clone())),
+        _ => None,
+    }
+}
+
+/// Build the `$bits*` mask: a bit-position array, a non-negative whole number,
+/// or BinData. `field` names the field in mongod's type error.
+fn resolve_bitmask(arg: &Bson, op: &str, field: &str) -> Result<Bits, Fallback> {
+    if let Bson::Binary(b) = arg {
+        return Ok(Bits::Bytes(b.bytes.clone()));
+    }
+    if let Bson::Array(a) = arg {
+        let mut bytes: Vec<u8> = Vec::new();
+        for bit in a {
+            let p = match bit {
+                Bson::Boolean(_) => return Err(Fallback::Defer),
+                Bson::Int32(p) => *p as i64,
+                Bson::Int64(p) => *p,
+                Bson::Double(d) if d.is_finite() && d.fract() == 0.0 => *d as i64,
+                _ => return Err(Fallback::Defer),
+            };
+            if p < 0 {
+                return Err(Fallback::Defer); // Python raises the exact code 2
+            }
+            let idx = (p / 8) as usize;
+            if idx >= bytes.len() {
+                bytes.resize(idx + 1, 0);
+            }
+            bytes[idx] |= 1 << (p % 8);
+        }
+        return Ok(Bits::Bytes(bytes));
+    }
+    let mask = match coerce_int64_argument(arg, op) {
+        // Not a number at all (string, document, bool, ...).
+        None => {
+            return Err(Fallback::mongo(
+                2,
+                format!(
+                    "{field} takes an Array, a number, or a BinData but received: {op}: {}",
+                    bson_value_repr(arg)
+                ),
+            ));
+        }
+        Some(Err(e)) => return Err(e),
+        Some(Ok(n)) => n,
+    };
+    if mask < 0 {
+        return Err(Fallback::mongo(
+            9,
+            format!(
+                "Expected a non-negative number in: {op}: {}",
+                bson_value_repr(arg)
+            ),
+        ));
+    }
+    Ok(Bits::Num(mask as i128))
+}
+
+fn op_bits(
+    values: &[Cand],
+    arg: &Bson,
+    pred: fn(bool) -> bool,
+    all: bool,
+    op: &str,
+    field: &str,
+    descend: bool,
+) -> R {
+    let mask = resolve_bitmask(arg, op, field)?;
+    let positions = mask.set_positions();
+    let test = |bits: &Bits| -> bool {
+        if all {
+            positions.iter().all(|i| pred(bits.bit(*i)))
+        } else {
+            positions.iter().any(|i| pred(bits.bit(*i)))
+        }
+    };
+    for c in values {
+        let Some(val) = c.value else { continue };
+        if let Some(bits) = bit_source(val) {
+            if test(&bits) {
+                return Ok(true);
+            }
+        }
+        // An ARRAY field matches element-wise, one level deep -- the multikey
+        // rule every other operator follows. Without it a document holding
+        // `[1, 4]` was skipped entirely.
+        if let Some(arr) = c.elements(descend) {
+            for elem in arr {
+                if let Some(bits) = bit_source(elem) {
+                    if test(&bits) {
+                        return Ok(true);
+                    }
+                }
+            }
         }
     }
     Ok(false)
 }
 
-/// A float or Decimal128 NaN. Used only by equality — ordering keeps IEEE
-/// semantics, where NaN is incomparable with everything including itself.
-fn is_nan_bson(b: &Bson) -> bool {
+/// A float or Decimal128 NaN.
+///
+/// Used by equality — ordering keeps IEEE semantics, where NaN is incomparable
+/// with everything including itself — and by `secantus-storage`'s partial-index
+/// implication check, which must refuse any RANGE bound involving a NaN: the
+/// range operators exclude NaN outright while the sort key ranks it below
+/// -Infinity, and taking the sort key for the answer lost rows (2026-09-03).
+pub fn is_nan_bson(b: &Bson) -> bool {
     match b {
         Bson::Double(d) => d.is_nan(),
         // Decimal128's NaN is a bit pattern, not a value we can compare; parse
@@ -1857,6 +2644,164 @@ fn is_nan_bson(b: &Bson) -> bool {
 
 #[cfg(test)]
 mod tests {
+    /// A MinKey / MaxKey bound compares against every type, an ABSENT field
+    /// included -- mongod's query language treats a missing field as null,
+    /// which ranks above MinKey and below MaxKey. The comparison skipped an
+    /// absent field outright, so those two bounds dropped every document with
+    /// no such field (probed 8.2.11, 2026-09-06).
+    #[test]
+    fn a_minkey_or_maxkey_bound_reaches_an_absent_field() {
+        let empty = Document::new();
+        let absent = doc! {"_id": 1i32};
+        for (q, want) in [
+            (doc! {"x": {"$gt": Bson::MinKey}}, true),
+            (doc! {"x": {"$gte": Bson::MinKey}}, true),
+            (doc! {"x": {"$lt": Bson::MaxKey}}, true),
+            (doc! {"x": {"$lte": Bson::MaxKey}}, true),
+            // The empty directions stay empty.
+            (doc! {"x": {"$lt": Bson::MinKey}}, false),
+            (doc! {"x": {"$gt": Bson::MaxKey}}, false),
+        ] {
+            assert_eq!(
+                matches(&absent, &q, &empty, None).unwrap(),
+                want,
+                "absent field vs {q:?}"
+            );
+        }
+    }
+
+    /// ...and an ORDINARY bound still must not reach it. That is what makes the
+    /// change safe: the range operators are TYPE-BRACKETED, so comparing an
+    /// absent field as null puts it in the null bracket, which every bound but
+    /// MinKey / MaxKey excludes.
+    #[test]
+    fn an_ordinary_bound_still_excludes_an_absent_field() {
+        let empty = Document::new();
+        let absent = doc! {"_id": 1i32};
+        for q in [
+            doc! {"x": {"$gt": 3i32}},
+            doc! {"x": {"$gte": 3i32}},
+            doc! {"x": {"$lt": 3i32}},
+            doc! {"x": {"$lte": 3i32}},
+            doc! {"x": {"$gt": "a"}},
+            doc! {"x": {"$lt": "z"}},
+            // `$gt` / `$lt` null match nothing, as before.
+            doc! {"x": {"$gt": Bson::Null}},
+            doc! {"x": {"$lt": Bson::Null}},
+        ] {
+            assert!(
+                !matches(&absent, &q, &empty, None).unwrap(),
+                "absent field must not match {q:?}"
+            );
+        }
+        // `$gte` / `$lte` null DO match it -- their own rule, unchanged.
+        assert!(matches(&absent, &doc! {"x": {"$gte": Bson::Null}}, &empty, None).unwrap());
+        assert!(matches(&absent, &doc! {"x": {"$lte": Bson::Null}}, &empty, None).unwrap());
+    }
+
+    /// `$elemMatch` traverses an array ONCE. The operator form used to look
+    /// inside an element that was itself an array, and the criteria form could
+    /// not reach an array element at all. Probed 8.2.11 (2026-09-06).
+    #[test]
+    fn elem_match_treats_the_element_as_terminal() {
+        let nested = doc! {"x": [[5]]};
+        let flat = doc! {"x": [5]};
+        let ragged = doc! {"x": [1, [2, [3]]]};
+        let empty = Document::new();
+
+        let q = |c: bson::Bson| doc! {"x": {"$elemMatch": c}};
+        // The OPERATOR form: an array element is not > 1, so a nested array
+        // must not match through it.
+        for d in [&nested, &ragged] {
+            assert!(
+                !matches(d, &q(bson::bson!({"$gt": 1})), &empty, None).unwrap(),
+                "{d:?} must not match $elemMatch {{$gt: 1}}"
+            );
+        }
+        assert!(matches(&flat, &q(bson::bson!({"$gt": 1})), &empty, None).unwrap());
+        // ...but `$type` still sees the element as the array it is.
+        assert!(matches(&nested, &q(bson::bson!({"$type": "array"})), &empty, None).unwrap());
+        assert!(!matches(&flat, &q(bson::bson!({"$type": "array"})), &empty, None).unwrap());
+
+        // The CRITERIA form: an empty criteria asks nothing, so an array
+        // element satisfies it; a named field cannot.
+        assert!(matches(&nested, &q(bson::bson!({})), &empty, None).unwrap());
+        assert!(!matches(&flat, &q(bson::bson!({})), &empty, None).unwrap());
+        let arr_of_doc = doc! {"x": [[{"y": 5}]]};
+        assert!(matches(&arr_of_doc, &q(bson::bson!({})), &empty, None).unwrap());
+        assert!(
+            !matches(&arr_of_doc, &q(bson::bson!({"y": 5})), &empty, None).unwrap(),
+            "an ARRAY element has no field `y` for the criteria to name"
+        );
+        let doc_elem = doc! {"x": [{"y": 5}]};
+        assert!(matches(&doc_elem, &q(bson::bson!({"y": 5})), &empty, None).unwrap());
+    }
+
+    /// The one-level descent OUTSIDE `$elemMatch` is untouched -- the flag
+    /// defaults on, and a plain field predicate still traverses.
+    #[test]
+    fn the_ordinary_one_level_descent_is_unchanged() {
+        let empty = Document::new();
+        let d = doc! {"x": [5]};
+        assert!(matches(&d, &doc! {"x": 5}, &empty, None).unwrap());
+        assert!(matches(&d, &doc! {"x": {"$gt": 4}}, &empty, None).unwrap());
+        assert!(matches(&d, &doc! {"x": {"$in": [5]}}, &empty, None).unwrap());
+        assert!(matches(&d, &doc! {"x": {"$type": "number"}}, &empty, None).unwrap());
+    }
+
+    /// A NaN range bound. mongod treats NaN as EQUAL to NaN in its comparison
+    /// order, so an INCLUSIVE bound matches it and a strict one does not
+    /// (probed 8.2.11, 2026-09-06). IEEE makes every NaN comparison false, so
+    /// all four used to answer nothing.
+    #[test]
+    fn a_nan_range_bound_is_recognised() {
+        assert!(super::is_nan_bound(&Bson::Double(f64::NAN)));
+        assert!(!super::is_nan_bound(&Bson::Double(5.0)));
+        assert!(!super::is_nan_bound(&Bson::Double(f64::INFINITY)));
+        assert!(!super::is_nan_bound(&Bson::Int32(5)));
+        assert!(!super::is_nan_bound(&Bson::String("NaN".into())));
+        let dnan: bson::Decimal128 = "NaN".parse().expect("a Decimal128 NaN");
+        assert!(super::is_nan_bound(&Bson::Decimal128(dnan)));
+        let d5: bson::Decimal128 = "5".parse().expect("a Decimal128 five");
+        assert!(!super::is_nan_bound(&Bson::Decimal128(d5)));
+    }
+
+    /// `$type` accepted all 22 aliases and then matched nothing for eight of
+    /// them, so a query naming one silently returned no documents.
+    #[test]
+    fn matches_type_covers_every_alias_it_accepts() {
+        let cases: [(Bson, &str, i64); 6] = [
+            (Bson::JavaScriptCode("f".into()), "javascript", 13),
+            (Bson::MinKey, "minKey", -1),
+            (Bson::MaxKey, "maxKey", 127),
+            (
+                Bson::Timestamp(bson::Timestamp {
+                    time: 1,
+                    increment: 1,
+                }),
+                "timestamp",
+                17,
+            ),
+            (Bson::Undefined, "undefined", 6),
+            (Bson::Symbol("s".into()), "symbol", 14),
+        ];
+        for (value, alias, code) in cases {
+            assert!(
+                super::matches_type(&value, &Bson::String(alias.to_string())),
+                "$type {alias} must match {value:?}"
+            );
+            assert!(
+                super::matches_type(&value, &Bson::Int32(code as i32)),
+                "$type {code} must match {value:?}"
+            );
+            // ...and must NOT match an unrelated value.
+            assert!(!matches_type(
+                &Bson::Int32(5),
+                &Bson::String(alias.to_string())
+            ));
+        }
+    }
+
     use super::*;
     use bson::doc;
 
@@ -2124,6 +3069,8 @@ mod tests {
         let coll = Collation {
             strength: 2,
             case_level: false,
+            case_first_upper: false,
+            backwards: false,
             numeric_ordering: false,
         };
         assert!(matches(
@@ -2133,14 +3080,16 @@ mod tests {
             Some(&coll)
         )
         .unwrap());
-        // non-ASCII under a case-insensitive collation defers to Python
+        // non-ASCII under a case-insensitive collation used to defer, which on
+        // this server is an ERROR, not a fallback -- it surfaced as
+        // `2 BadValue` for ordinary accented input. mongod 8.2.11 matches.
         assert!(matches(
             &doc! {"n": "café"},
             &doc! {"n": "CAFÉ"},
             &Document::new(),
             Some(&coll)
         )
-        .is_err());
+        .unwrap());
     }
 
     #[test]

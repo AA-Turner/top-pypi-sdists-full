@@ -51,7 +51,7 @@ from pyramids.netcdf.cf import (
     write_attributes_to_md_array,
     write_global_attributes,
 )
-from pyramids.netcdf.dimensions import ClassicDimensionInfo
+from pyramids.netcdf.dimensions import COLUMN_AXIS, ROW_AXIS, ClassicDimensionInfo
 
 logger = logging.getLogger(__name__)
 
@@ -87,6 +87,7 @@ class Variables(_Engine["NetCDF"]):
         attrs: dict | None = None,
         *,
         copy: bool = True,
+        dim_attrs: dict[str, dict[str, str]] | None = None,
     ):
         """Write a classic Dataset back as an MDArray variable in this container.
 
@@ -121,6 +122,12 @@ class Variables(_Engine["NetCDF"]):
             attrs: Variable attributes to set (e.g. `{"units": "K"}`).
                 Auto-detected from `_variable_attrs` when available.
                 Defaults to None.
+            dim_attrs: CF `(units, calendar)` to write onto a band dimension this call
+                creates, keyed by dimension name — `{"level": {"units": "hPa"}}`. Only a
+                newly created, labelled dimension is stamped; a dimension already in the
+                store keeps what it was created with. A join uses this so a variable it
+                adds after the first keeps its band axis' calendar through `to_file`
+                (#1179). Defaults to None.
             copy: When True (the default) an in-memory container is copied
                 before mutation so that any handle sharing the same backing
                 `gdal.Dataset` (a `get_group()` view, or a caller holding
@@ -203,11 +210,12 @@ class Variables(_Engine["NetCDF"]):
         # (abs(gt[5]) would write a descending axis below the extent).
         x_values = GeoTransform(*gt).x_axis(dataset.columns)
         y_values = GeoTransform(*gt).y_axis(dataset.rows)
-        dim_x = nc._get_or_create_dimension(
-            rg, "x", x_values, coord_dtype, gdal.DIM_TYPE_HORIZONTAL_X
-        )
-        dim_y = nc._get_or_create_dimension(
-            rg, "y", y_values, coord_dtype, gdal.DIM_TYPE_HORIZONTAL_Y
+        # By what the axis holds, not by what it is called: a store on `longitude` /
+        # `latitude` used to gain an `x` / `y` pair beside its own, describing the same
+        # grid, with the new variable declared against the pair the store never had
+        # (#1194).
+        dim_x, dim_y = nc._spatial_axes(
+            rg, x_values, y_values, coord_dtype, (ROW_AXIS, COLUMN_AXIS)
         )
 
         md_arr = _build_variable_mdarray(
@@ -222,6 +230,7 @@ class Variables(_Engine["NetCDF"]):
             band_dim_name,
             band_dim_values,
             band,
+            dim_attrs,
         )
 
         # Set spatial reference (RT-7: attribute copying). Carry a no-EPSG CRS
@@ -685,6 +694,130 @@ def _resolve_band_metadata(
     return band_dim_name, band_dim_values, attrs, band
 
 
+def _is_text_axis(values: np.ndarray) -> bool:
+    """Whether a coordinate axis holds text rather than numbers.
+
+    A NumPy string array (`kind` `U`/`S`) is text outright. An **object** array
+    (`kind` `O`) is text only when every element is a `str` or `bytes`: that is how a
+    `pandas.Index` of strings, an xarray string coordinate's `.values`, and an explicit
+    `np.array([...], dtype=object)` all present, none of which a `kind` check alone
+    catches, yet each is a realistic caller of `set_variable` / `from_array` (#1181).
+
+    Args:
+        values: The coordinate values.
+
+    Returns:
+        bool: `True` when the axis is text.
+    """
+    if values.dtype.kind in ("U", "S"):
+        text = True
+    elif values.dtype.kind == "O":
+        text = values.size > 0 and all(
+            isinstance(one, (str, bytes)) for one in values.ravel()
+        )
+    else:
+        text = False
+    return text
+
+
+def _coordinate_dtype(values: np.ndarray, default: Any) -> Any:
+    """The GDAL type for a band-coordinate axis, chosen from what it holds.
+
+    An integer axis keeps its own integer type; a **text** axis — WRF's `Time` of
+    `'2000-01-24_12:00:00'` stamps, a scenario name, a station id, whether NumPy string
+    or object-of-strings (see `_is_text_axis`) — is stored as GDAL strings; everything
+    else is `default` (the float64 coordinate type). Reducing over a variable's *other*
+    dimension has to carry this one through the rebuild, and coercing a text axis to
+    float64 turned every stamp into `could not convert string to float` (#1181).
+
+    Args:
+        values: The coordinate values.
+        default: The type for a non-integer, non-text axis (float64).
+
+    Returns:
+        The GDAL :class:`osgeo.gdal.ExtendedDataType` to create the axis with.
+
+    Raises:
+        ValueError: The axis mixes text with non-text values (e.g. a string
+            `pandas.Index` carrying a `None`/`NaN` gap). Such an axis has no single
+            storage type; without this it fell through to float64 and raised the
+            misleading `could not convert string to float` (#1181).
+    """
+    if np.issubdtype(values.dtype, np.integer):
+        dtype = gdal.ExtendedDataType.Create(numpy_to_gdal_dtype(values.dtype))
+    elif _is_text_axis(values):
+        dtype = gdal.ExtendedDataType.CreateString()
+    else:
+        _reject_partial_text_axis(values)
+        dtype = default
+    return dtype
+
+
+def _reject_partial_text_axis(values: np.ndarray) -> None:
+    """Refuse an object axis that carries text alongside non-text values.
+
+    `_is_text_axis` is all-or-nothing, so a text axis with a gap — a string
+    `pandas.Index` with a `None` or a float `nan` — reaches the float64 default and
+    raised `could not convert string to float`, the exact #1181 error, from deep in the
+    GDAL write. Storing the gap would mean inventing a value for it (an empty string, a
+    sentinel), which is the caller's decision, so this refuses with a message that names
+    the real problem instead.
+
+    Args:
+        values: The coordinate values, already known not to be integer or all-text.
+
+    Raises:
+        ValueError: An object array holds at least one `str`/`bytes` element but is not
+            all text.
+    """
+    if values.dtype.kind == "O" and any(
+        isinstance(one, (str, bytes)) for one in values.ravel()
+    ):
+        raise ValueError(
+            "a coordinate axis that mixes text with non-text values (a gap, a number) "
+            f"has no single storage type: {list(values)!r}. Give every coordinate a "
+            "value of one kind."
+        )
+
+
+def _carry_band_dim_attrs(
+    rg: Any,
+    dim_name: str,
+    created: Any,
+    labelled: bool,
+    preexisting: bool,
+    dim_attrs: dict[str, dict[str, str]] | None,
+) -> None:
+    """Write a band dimension's carried CF attributes onto its coordinate array.
+
+    This is the `set_variable` counterpart of `_create_extra_dimensions`' carry, for the
+    variables a rebuild adds after the first (#1179). It writes only for an axis that is
+    both **newly created** — a dimension the first variable already made carries the
+    attributes it was created with, and re-writing would duplicate them — and **labelled**,
+    since the fabricated `0..n-1` of an unlabelled axis are positions, not measurements
+    (the rule `_coordinate_attrs` enforces on the first-variable path).
+
+    Args:
+        rg: The root group.
+        dim_name: The dimension's name.
+        created: The dimension just returned by `_get_or_create_dimension`.
+        labelled: Whether the caller supplied this axis' coordinate values.
+        preexisting: Whether a dimension of this name was already in the store.
+        dim_attrs: CF attributes keyed by dimension name, or `None`.
+    """
+    if preexisting or not labelled:
+        return
+    carried = (dim_attrs or {}).get(dim_name)
+    if carried:
+        # `SetIndexingVariable` is skipped on the netCDF driver, so the coordinate array is
+        # reached by name there. A dimension just created on this MEM group always has one,
+        # so the `is not None` guard covers a driver that refuses rather than any supported
+        # path — it is not covered, and cannot be (as in `_create_extra_dimensions`).
+        indexing = created.GetIndexingVariable() or rg.OpenMDArray(dim_name)
+        if indexing is not None:
+            write_attributes_to_md_array(indexing, carried)
+
+
 def _create_multi_band_dims(
     nc: NetCDF,
     rg: Any,
@@ -692,26 +825,50 @@ def _create_multi_band_dims(
     sizes: tuple[int, ...],
     values_map: dict,
     coord_dtype: Any,
+    dim_attrs: dict[str, dict[str, str]] | None = None,
 ) -> list:
     """Create one GDAL dimension per tracked non-spatial axis (the 4-D+ rebuild path).
 
-    Each axis takes its coordinate values from ``values_map`` (filling integer
-    indices when absent); the first axis is tagged ``DIM_TYPE_TEMPORAL``.
+    Each axis takes its coordinate values from `values_map`; the first axis is tagged
+    `DIM_TYPE_TEMPORAL`. An axis *tracked* as coordinate-less — its `values_map` entry is
+    present and `None`, which a T20 operator disagreement produces — is created with no
+    indexing variable via `NetCDF._coordinateless_dimension`, so it reads back as `None`
+    (#1192). An axis simply absent from `values_map` keeps the positional `range(size)`
+    default, the same decision the single-band path makes, matching `from_array`. A newly
+    created, labelled axis also carries its CF `(units, calendar)` from `dim_attrs` onto its
+    coordinate array, so a variable a join adds after the first keeps them through `to_file`
+    (#1179).
     """
     band_dims = []
+    known = {dimension.GetName() for dimension in rg.GetDimensions() or []}
     for i, dim_name in enumerate(names):
+        dim_type = gdal.DIM_TYPE_TEMPORAL if i == 0 else None
+        # Decide from the same evidence the single-band path uses: an axis *tracked* as
+        # coordinate-less is the key present with a `None` value (a T20 disagreement); a key
+        # simply absent is an omitted axis that keeps the positional `range(size)` default,
+        # matching `from_array`. For a well-formed `values_map` (every name a key) this is
+        # exactly `values is None`; the split only guards a future invariant slip (#1201 N3).
+        if dim_name in values_map and values_map[dim_name] is None:
+            # No coordinates for this axis: write it with no indexing variable so it reads
+            # back `None`, not a fabricated `range(size)` (#1192).
+            band_dims.append(
+                nc._coordinateless_dimension(rg, dim_name, int(sizes[i]), dim_type)
+            )
+            continue
         values = values_map.get(dim_name)
+        labelled = values is not None
         if values is None:
             values = list(range(int(sizes[i])))
-        band_dims.append(
-            nc._get_or_create_dimension(
-                rg,
-                dim_name,
-                np.array(values, dtype=np.float64),
-                coord_dtype,
-                gdal.DIM_TYPE_TEMPORAL if i == 0 else None,
-            )
+        # `np.asarray`, not `dtype=np.float64`: a text axis stays text so it can be stored
+        # as strings, where the float cast raised on WRF's `Time` stamps (#1181).
+        values = np.asarray(values)
+        created = nc._get_or_create_dimension(
+            rg, dim_name, values, _coordinate_dtype(values, coord_dtype), dim_type
         )
+        _carry_band_dim_attrs(
+            rg, dim_name, created, labelled, dim_name in known, dim_attrs
+        )
+        band_dims.append(created)
     return band_dims
 
 
@@ -727,33 +884,66 @@ def _build_variable_mdarray(
     band_dim_name: str | None,
     band_dim_values: list | None,
     band: dict,
+    dim_attrs: dict[str, dict[str, str]] | None = None,
 ) -> Any:
-    """Create the variable MDArray with the right band dimensions and write ``arr``.
+    """Create the variable MDArray with the right band dimensions and write `arr`.
 
-    Three layouts: a multi-band-dim 4-D+ rebuild (reshape the flattened bands
-    back into storage order, one GDAL dim per non-spatial axis via
-    :func:`_create_multi_band_dims`); the legacy single-band-dim 3-D path; and a
-    plain 2-D ``(y, x)`` variable. Returns the written MDArray.
+    Three layouts: a multi-band-dim 4-D+ rebuild (reshape the flattened bands back into
+    storage order, one GDAL dim per non-spatial axis via :func:`_create_multi_band_dims`);
+    the legacy single-band-dim 3-D path; and a plain 2-D `(y, x)` variable. An axis the
+    source *tracks* as coordinate-less — its `values_map` entry is present and `None`, which
+    a T20 operator disagreement produces — is created with no indexing variable via
+    `NetCDF._coordinateless_dimension`, so it reads back as `None` (#1192). A caller who
+    merely omits `band_dim_values` on a plain raster is not that case: the axis keeps the
+    documented positional `range(size)` default, matching `from_array`. A newly created,
+    labelled band axis carries its CF `(units, calendar)` from `dim_attrs` onto its
+    coordinate array so a join's later variable keeps them through `to_file` (#1179).
+    Returns the written MDArray.
     """
     names, sizes, values_map = band["names"], band["sizes"], band["values_map"]
     if len(names) > 1 and arr.ndim == 3 and sizes:
         arr = unflatten_band_axes(arr, names, sizes)
         band_dims = _create_multi_band_dims(
-            nc, rg, names, sizes, values_map, coord_dtype
+            nc, rg, names, sizes, values_map, coord_dtype, dim_attrs
         )
         md_arr = rg.CreateMDArray(variable_name, [*band_dims, dim_y, dim_x], data_dtype)
     elif arr.ndim == 3:
         if band_dim_name is None:
             band_dim_name = "bands"
-        if band_dim_values is None:
-            band_dim_values = list(range(arr.shape[0]))
-        dim_band = nc._get_or_create_dimension(
-            rg,
-            band_dim_name,
-            np.array(band_dim_values, dtype=np.float64),
-            coord_dtype,
-            gdal.DIM_TYPE_TEMPORAL,
+        # Only a source that *tracks* this axis as coordinate-less writes a
+        # coordinate-less dimension — a T20 operator disagreement leaves
+        # `_band_dim_values_map[name] is None` (the key present, the value `None`). A
+        # caller who merely omits `band_dim_values` on a plain raster is not that case:
+        # it still gets the documented positional `range(size)` default, matching
+        # `from_array` (#1192, #1201).
+        coordinate_less = (
+            band_dim_name in values_map and values_map[band_dim_name] is None
         )
+        if band_dim_values is None and coordinate_less:
+            # Write the dimension with no indexing variable so it reads back `None`,
+            # rather than adopting the store's own stamps (#1192).
+            dim_band = nc._coordinateless_dimension(
+                rg, band_dim_name, arr.shape[0], gdal.DIM_TYPE_TEMPORAL
+            )
+        else:
+            labelled = band_dim_values is not None
+            if band_dim_values is None:
+                band_dim_values = list(range(arr.shape[0]))
+            preexisting = band_dim_name in {
+                dimension.GetName() for dimension in rg.GetDimensions() or []
+            }
+            # `np.asarray`, not `dtype=np.float64`: a text axis stays text (#1181).
+            band_values = np.asarray(band_dim_values)
+            dim_band = nc._get_or_create_dimension(
+                rg,
+                band_dim_name,
+                band_values,
+                _coordinate_dtype(band_values, coord_dtype),
+                gdal.DIM_TYPE_TEMPORAL,
+            )
+            _carry_band_dim_attrs(
+                rg, band_dim_name, dim_band, labelled, preexisting, dim_attrs
+            )
         md_arr = rg.CreateMDArray(variable_name, [dim_band, dim_y, dim_x], data_dtype)
     else:
         md_arr = rg.CreateMDArray(variable_name, [dim_y, dim_x], data_dtype)
@@ -771,6 +961,7 @@ def from_array(
     dims: ExtraDimensions | None = None,
     encoding: Encoding | None = None,
     attrs: CFAttributes | None = None,
+    spatial_names: tuple[str, str] | None = None,
 ) -> Container:
     """Create a NetCDF dataset from a NumPy array and geotransform.
 
@@ -842,6 +1033,12 @@ def from_array(
             `history`) as a
             :class:`~pyramids.netcdf.array_options.CFAttributes`. Defaults to
             an empty `CFAttributes()`.
+        spatial_names: `(row, column)` names for the two spatial dimensions. `None`
+            (default) names them `y` / `x`. A rebuild passes the source store's own
+            names, so a `reduce` / `coarsen` result keeps `latitude` / `longitude`
+            rather than renaming the grid (#1180). Must be two distinct non-empty
+            strings; anything else is refused here rather than surfacing later as an
+            unpacking error or a GDAL duplicate-dimension message.
 
     Returns:
         Container: The newly created store. Always a `Container`, never a bare
@@ -853,7 +1050,10 @@ def from_array(
         ValueError: `geo_ref` resolves to no geotransform — it carries neither
             a `geo` nor a complete `top_left_corner` + `cell_size` pair — or
             the requested extra dimensions do not match `arr`'s non-spatial
-            axes.
+            axes; `spatial_names` is not two distinct non-empty strings; or
+            `dims.attrs` is keyed by a dimension this array does not have (a
+            misspelled key wrote nothing at all before, which looked exactly like
+            the bug the parameter exists to fix).
         DriverNotExistError: `path` has no extension, or one the driver catalog
             does not know.
         FileFormatNotSupportedError: `path`'s extension names a driver other
@@ -905,6 +1105,8 @@ def from_array(
     if variable_name is None:
         variable_name = "data"
 
+    _require_spatial_names(spatial_names)
+    _require_known_dimensions(dims.attrs, resolved_extra_dims)
     cf_attrs = attrs.as_dict()
 
     dst_ds = _create_netcdf_from_array(
@@ -917,13 +1119,94 @@ def from_array(
         geo_ref.epsg,
         no_data_value,
         path=path,
-        chunk_sizes=encoding.chunk_sizes,
-        compression=encoding.compression,
-        compression_level=encoding.compression_level,
+        encoding=encoding,
         cf_attrs=cf_attrs,
+        spatial_names=spatial_names,
+        dim_attrs=_coordinate_attrs(dims),
     )
     result = Container(dst_ds)
 
+    return result
+
+
+def _require_spatial_names(spatial_names: tuple[str, str] | None) -> None:
+    """Refuse a `spatial_names` the dimension creation would only fail on later.
+
+    Unchecked, the four ways to get it wrong surface as an unpacking error, a SWIG
+    argument-type message, or `RuntimeError: A dimension with same name already exists` —
+    none of which names the parameter the caller passed.
+
+    Args:
+        spatial_names: The `(row, column)` names, or `None` for the default.
+
+    Raises:
+        ValueError: `spatial_names` is not two distinct non-empty strings.
+    """
+    if spatial_names is not None:
+        names = tuple(spatial_names)
+        if len(names) != 2 or not all(isinstance(one, str) and one for one in names):
+            raise ValueError(
+                "spatial_names must be two non-empty strings naming the row and column "
+                f"axes, got {spatial_names!r}."
+            )
+        if names[0] == names[1]:
+            raise ValueError(
+                f"spatial_names must name two different axes, got {names[0]!r} for both."
+            )
+
+
+def _require_known_dimensions(
+    attrs: dict[str, dict[str, str]] | None, resolved: list[tuple[str, list]]
+) -> None:
+    """Refuse CF attributes addressed to a dimension the array does not have.
+
+    A misspelled key, or one left over from a dimension the caller dropped, used to do
+    nothing at all — the attributes were quietly not written and the axis came back bare,
+    which is the same symptom as #1179 with none of its cause.
+
+    Args:
+        attrs: The `ExtraDimensions.attrs` mapping, or `None`.
+        resolved: The `(name, values)` pairs of every non-spatial dimension.
+
+    Raises:
+        ValueError: A key of `attrs` names no non-spatial dimension.
+    """
+    known = {name for name, _ in resolved}
+    unknown = sorted(set(attrs or {}) - known)
+    if unknown:
+        raise ValueError(
+            f"attrs names {', '.join(repr(one) for one in unknown)}, which "
+            f"{'are' if len(unknown) > 1 else 'is'} not among the dimensions of this "
+            f"array ({', '.join(sorted(known)) or 'none'})."
+        )
+
+
+def _coordinate_attrs(dims: ExtraDimensions) -> dict[str, dict[str, str]] | None:
+    """The CF attributes of `dims`, less any axis that was given no coordinate values.
+
+    An axis handed in as `None` is filled with `[0, 1, ..., size - 1]`, which are
+    positions, not measurements. Writing `units = "hours since 1900-01-01"` over them
+    does not describe the axis — it invents timestamps for it, and every later read
+    decodes step 0 as 1900-01-01 rather than as the unlabelled position it is. Only an
+    axis whose values the caller supplied can be said to be in those units.
+
+    Args:
+        dims: The dimensions as the caller described them, before `_resolve_extra_dims`
+            fills the missing coordinates in.
+
+    Returns:
+        dict | None: The attributes to write, or `None` when none survive.
+    """
+    if not dims.attrs:
+        result = None
+    else:
+        if dims.dims is not None:
+            labelled = {name for name, values in dims.dims if values is not None}
+        else:
+            labelled = {dims.name} if dims.values is not None else set()
+        result = {
+            name: attrs for name, attrs in dims.attrs.items() if name in labelled
+        } or None
     return result
 
 
@@ -1038,6 +1321,7 @@ def _create_extra_dimensions(
     extra_dims: list[tuple[str, list]],
     dtype: Any,
     use_set_indexing: bool,
+    dim_attrs: dict[str, dict[str, str]] | None = None,
 ) -> list:
     """Create one GDAL dimension per non-spatial axis, in storage order.
 
@@ -1045,15 +1329,17 @@ def _create_extra_dimensions(
     legacy 3-D path); the rest are left untagged so the netCDF driver does not
     second-guess their semantics.
 
-    An **integer** axis keeps its own integer dtype; everything else is written
-    in ``dtype`` (float64). The float64 rule was written for the *spatial*
-    axes, where sharing the data array's integer type truncated a 2.5-degree
-    grid to whole degrees -- a real defect it fixes. Applied to a non-spatial
-    axis it costs the opposite: an `int64` nanosecond-epoch `time` handed in as
-    `1700000000123456789` came back `1700000000123456768`, because float64
-    carries 53 bits of mantissa. Nothing is lost by keeping the integer type,
-    and the streamed arm (`_add_aux_var_spec`) already copies the source dtype,
-    so the two arms of a fan-out now agree about `time` as well.
+    The coordinate type is chosen by ``_coordinate_dtype``: an **integer** axis
+    keeps its own integer dtype, a **text** axis (``_is_text_axis`` — WRF's
+    ``Time`` stamps, a scenario name) is stored as GDAL strings, and everything
+    else is written in ``dtype`` (float64). The float64 rule was written for the
+    *spatial* axes, where sharing the data array's integer type truncated a
+    2.5-degree grid to whole degrees -- a real defect it fixes. Applied to a
+    non-spatial axis it costs the opposite: an `int64` nanosecond-epoch `time`
+    handed in as `1700000000123456789` came back `1700000000123456768`, because
+    float64 carries 53 bits of mantissa. Nothing is lost by keeping the integer
+    type, and the streamed arm (`_add_aux_var_spec`) already copies the source
+    dtype, so the two arms of a fan-out now agree about `time` as well.
 
     Visible consequence relative to `origin/main`: a band dim left to default is
     `list(range(size))`, so it is integer too, and anything reading those values
@@ -1063,6 +1349,11 @@ def _create_extra_dimensions(
     Args:
         rg: The group to create the dimensions in.
         extra_dims: ``(name, values)`` per non-spatial axis, in storage order.
+        dim_attrs: CF attributes to write onto an axis' coordinate array, keyed by
+            dimension name — `{"time": {"units": …, "calendar": …}}`. A computed result
+            carries its `(units, calendar)` on the Python object; without writing them
+            here the store never had them, so `to_file` had nothing to copy and the
+            calendar died at the write (#1179).
         dtype: The coordinate :class:`osgeo.gdal.ExtendedDataType` to use for
             any axis that is not integer-valued.
         use_set_indexing: Whether ``SetIndexingVariable`` is supported by the
@@ -1078,16 +1369,20 @@ def _create_extra_dimensions(
     for i, (dim_name, dim_values) in enumerate(extra_dims):
         dim_type = gdal.DIM_TYPE_TEMPORAL if i == 0 else None
         values = np.asarray(dim_values)
-        dim_dtype = (
-            gdal.ExtendedDataType.Create(numpy_to_gdal_dtype(values.dtype))
-            if np.issubdtype(values.dtype, np.integer)
-            else dtype
+        dim_dtype = _coordinate_dtype(values, dtype)
+        created = NetCDF._create_dimension(
+            rg, dim_name, dim_dtype, values, dim_type, use_set_indexing
         )
-        gdal_extra_dims.append(
-            NetCDF._create_dimension(
-                rg, dim_name, dim_dtype, values, dim_type, use_set_indexing
-            )
-        )
+        carried = (dim_attrs or {}).get(dim_name)
+        if carried:
+            # `SetIndexingVariable` is skipped on the netCDF driver, so the coordinate
+            # array is reached by name there. `_create_dimension` has just created it, so
+            # the `is not None` below is a guard against a driver that refuses rather than
+            # a path any supported store takes — it is not covered, and cannot be.
+            indexing = created.GetIndexingVariable() or rg.OpenMDArray(dim_name)
+            if indexing is not None:
+                write_attributes_to_md_array(indexing, carried)
+        gdal_extra_dims.append(created)
     return gdal_extra_dims
 
 
@@ -1269,10 +1564,10 @@ def _create_netcdf_from_array(
     epsg: str | int | None = None,
     no_data_value: Any | list = DEFAULT_NO_DATA_VALUE,
     path: str | Path | None = None,
-    chunk_sizes: tuple | list | None = None,
-    compression: str | None = None,
-    compression_level: int | None = None,
+    encoding: Encoding | None = None,
     cf_attrs: dict[str, str] | None = None,
+    spatial_names: tuple[str, str] | None = None,
+    dim_attrs: dict[str, dict[str, str]] | None = None,
 ) -> gdal.Dataset:
     """Build a multidimensional GDAL dataset from an array.
 
@@ -1299,10 +1594,9 @@ def _create_netcdf_from_array(
             DEFAULT_NO_DATA_VALUE.
         path: Output file path. If None, created in memory.
             Defaults to None.
-        chunk_sizes: Chunk sizes for the variable. Defaults to
-            None.
-        compression: Compression algorithm. Defaults to None.
-        compression_level: Compression level. Defaults to None.
+        encoding: On-disk write options — chunk sizes, compression and its level —
+            as an :class:`~pyramids.netcdf.array_options.Encoding`. `None` uses the
+            GDAL defaults. Defaults to None.
         cf_attrs: Optional CF global attributes (e.g. ``title`` /
             ``institution`` / ``source`` / ``history``) to merge onto the
             root group, alongside the always-written ``Conventions``.
@@ -1316,6 +1610,7 @@ def _create_netcdf_from_array(
     # set_variable and other call sites) and are reached through the class.
     from pyramids.netcdf.netcdf import NetCDF
 
+    encoding = encoding or Encoding()
     _require_create_inputs(variable_name, geo)
     # `_require_create_inputs` raises `ValueError` on a None `geo`; restate that
     # invariant so the geotransform indexing below is guarded. `epsg` is NOT
@@ -1372,9 +1667,15 @@ def _create_netcdf_from_array(
     # instead of crashing on a None EPSG code (#706).
     srse, is_geographic = _resolve_write_crs(epsg)
 
+    # A rebuilt result names its grid after the store it came from — `longitude` /
+    # `latitude` stay themselves rather than becoming `x` / `y`, which made every
+    # `reduce`, `coarsen`, `rolling`, `cumsum` and `diff` hand back axes the source
+    # never had, on the object and on the written file (#1180). A caller who names
+    # none, and every in-memory build, keeps `y` / `x`.
+    row_name, column_name = spatial_names or (ROW_AXIS, COLUMN_AXIS)
     dim_x = NetCDF._create_dimension(
         rg,
-        "x",
+        column_name,
         coord_dtype,
         x_dim_values,
         gdal.DIM_TYPE_HORIZONTAL_X,
@@ -1383,7 +1684,7 @@ def _create_netcdf_from_array(
     )
     dim_y = NetCDF._create_dimension(
         rg,
-        "y",
+        row_name,
         coord_dtype,
         y_dim_values,
         gdal.DIM_TYPE_HORIZONTAL_Y,
@@ -1392,11 +1693,12 @@ def _create_netcdf_from_array(
     )
 
     gdal_extra_dims = _create_extra_dimensions(
-        rg, extra_dims, coord_dtype, use_set_indexing
+        rg, extra_dims, coord_dtype, use_set_indexing, dim_attrs
     )
     # For a dask input with no explicit on-disk chunking, align the netCDF storage
     # BLOCKSIZE with the dask block shape so the streamed windows map onto whole
     # storage chunks. An explicit `chunk_sizes` always wins.
+    chunk_sizes = encoding.chunk_sizes
     if chunk_sizes is None and _is_dask_array(arr):
         chunk_sizes = tuple(
             int(axis_chunks[0]) for axis_chunks in cast("Any", arr).chunks
@@ -1405,7 +1707,9 @@ def _create_netcdf_from_array(
         variable_name,
         [*gdal_extra_dims, dim_y, dim_x],
         dtype,
-        _build_create_options(chunk_sizes, compression, compression_level),
+        _build_create_options(
+            chunk_sizes, encoding.compression, encoding.compression_level
+        ),
     )
 
     # Set metadata BEFORE writing data — netCDF driver requires

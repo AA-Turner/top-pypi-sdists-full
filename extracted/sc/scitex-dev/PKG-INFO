@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: scitex-dev
-Version: 0.60.1
+Version: 0.60.2
 Summary: Shared developer utilities for the SciTeX ecosystem
 Author-email: Yusuke Watanabe <ywatanabe@scitex.ai>
 License-Expression: AGPL-3.0-only
@@ -36,6 +36,8 @@ Requires-Dist: textual>=0.50.0; extra == "dev"
 Requires-Dist: newb>=0.3.0; extra == "dev"
 Requires-Dist: tomlkit>=0.12.0; extra == "dev"
 Requires-Dist: Pillow>=9.2.0; extra == "dev"
+Requires-Dist: jsonschema>=4.0; extra == "dev"
+Requires-Dist: scitex-events>=0.1; extra == "dev"
 Provides-Extra: docs
 Requires-Dist: sphinx>=7.0; extra == "docs"
 Requires-Dist: sphinx-rtd-theme>=2.0; extra == "docs"
@@ -45,6 +47,10 @@ Requires-Dist: sphinx-autodoc-typehints>=1.25; extra == "docs"
 Provides-Extra: all
 Requires-Dist: scitex-dev[dev]; extra == "all"
 Requires-Dist: scitex-dev[docs]; extra == "all"
+Requires-Dist: scitex-events>=0.1; extra == "all"
+Requires-Dist: flask>=2.2; extra == "all"
+Requires-Dist: numpy>=1.21; extra == "all"
+Requires-Dist: pytest>=7.0.0; extra == "all"
 Dynamic: license-file
 
 # SciTeX Dev (`scitex-dev`)

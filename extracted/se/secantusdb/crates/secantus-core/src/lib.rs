@@ -24,6 +24,7 @@ pub mod aggregate;
 pub mod collation;
 pub mod diff;
 pub mod expressions;
+pub mod fallback;
 pub mod geo;
 pub mod projection;
 pub mod query;
@@ -35,6 +36,7 @@ pub mod update;
 // `Result<_, ()>` "defer" signals stay internal rather than public API).
 mod decimal;
 mod densify;
+mod explain;
 mod fill;
 mod group;
 mod numeric;
@@ -48,7 +50,15 @@ mod windowfields;
 // how `secantus.storage` imports from `secantus.paths`. The module itself stays
 // private — its `set_path` / `unset_path` use deliberate `Result<_, ()>` "defer"
 // signals that shouldn't become public API (clippy::result_unit_err).
-pub use paths::{get_path, get_path_values, has_path};
+pub use paths::{
+    ambiguous_sort_message, ambiguous_sort_path, get_path, get_path_values, has_path,
+    sort_path_values,
+};
+// mongod's two double renderings, needed by the command layer's stage
+// echo as well as by this crate's value messages. The module stays
+// private; only the two formatters are public.
+pub use explain::{build_stage_tree, canonical_match};
+pub use numeric::{format_double_g, format_double_spec};
 
 // Re-export the `$group` field-reference pushdown (only) so the command layer
 // can decode just the top-level fields a `$group` reads from wide documents

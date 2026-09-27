@@ -13,24 +13,130 @@ const {
 } = require("../base/utils.js");
 ensureNodeModuleResolution(module);
 const chrome = require("../chrome/chrome_utils.js");
+const { memoryHeadroomBytes } = require("./server/memory.cjs");
 const config = loadConfig();
 const output = path.join(path.resolve(config.SNAP_DIR), "tlsnotary");
 let browser, caller, server, extensionId, releaseLock;
+let managedWindowUrl, existingTargets, existingWindowIds, managedTarget;
 let stopped = false;
-async function cleanup() {
-  if (caller) await caller.close().catch(() => {});
-  // This extension instance belongs to this hook. Unloading also cancels any
-  // active WASM proof and its managed auth window on timeout; Chrome stays alive.
-  if (browser && extensionId)
-    await chrome
-      .sendBrowserCommand(browser, "Extensions.uninstall", { id: extensionId })
-      .catch(() => {});
-  if (browser) await browser.disconnect();
-  server?.closeAllConnections();
-  server?.close();
-  if (releaseLock) await releaseLock();
+let deadlineExceeded = false;
+let cleanupPromise;
+let terminalRecordEmitted = false;
+let memoryMonitor, verifierMonitor, resourceFailure;
+const STREAM_CAPACITY_ISSUE = "https://github.com/tlsnotary/tlsn/issues/new";
+const GIB = 1024 ** 3;
+const PROOF_START_HEADROOM = 2 * GIB;
+const PROOF_STOP_HEADROOM = GIB / 2;
+
+function requireProofMemory(minimum, phase) {
+  let available;
+  try {
+    available = memoryHeadroomBytes();
+  } catch (error) {
+    resourceFailure = "TLSNotary stopped because available memory could not be measured.";
+    throw new Error(resourceFailure, { cause: error });
+  }
+  if (available < minimum) {
+    const amounts = `${(available / GIB).toFixed(2)} GiB available, ${(minimum / GIB).toFixed(2)} GiB required.`;
+    resourceFailure = phase === "start"
+      ? `Not enough memory for TLSNotary: ${amounts}`
+      : `TLSNotary stopped to avoid exhausting memory: ${amounts}`;
+    throw new Error(resourceFailure);
+  }
 }
-function pluginCode(url, verifierUrl, receiptId) {
+async function checkVerifierAdmission(verifierUrl) {
+  let response;
+  try {
+    response = await fetch(verifierUrl + "/session", {
+      signal: AbortSignal.timeout(3000),
+    });
+  } catch (error) {
+    // Preserve the existing WebSocket path for old verifiers and temporary
+    // network errors; only an explicit admission response is authoritative.
+    console.error(`[tlsnotary] verifier admission check unavailable: ${error.message}`);
+    return;
+  }
+  if (response.status !== 503) return;
+  let failure;
+  try {
+    failure = await response.json();
+  } catch {
+    return;
+  }
+  if (typeof failure.error === "string") {
+    resourceFailure = failure.error.slice(0, 240);
+    throw new Error(resourceFailure);
+  }
+}
+
+function emitTerminalArchiveResult(status, outputStr) {
+  if (terminalRecordEmitted) return;
+  terminalRecordEmitted = true;
+  emitArchiveResultRecord(status, outputStr);
+}
+function captureFailureMessage(error) {
+  if (resourceFailure) return resourceFailure;
+  const message = String(error.message || error);
+  if (/maximum number of streams reached|TooManyStreams/i.test(message))
+    return `TLSNotary couldn’t verify this response: generating its proof required more simultaneous tasks than the verifier supports. Request support for larger proofs: ${STREAM_CAPACITY_ISSUE}`;
+  if (/proving failed during zk execution[\s\S]*connection is closed/i.test(message))
+    return `The TLSNotary proof connection closed; this can happen when the proof needs more simultaneous tasks than the verifier supports. Request support for larger proofs: ${STREAM_CAPACITY_ISSUE}`;
+  return "TLSNotary extension capture failed; see hook log";
+}
+async function windowIdFor(target) {
+  const targetId = chrome.getTargetIdFromTarget(target);
+  if (!targetId) return null;
+  const window = await chrome.sendBrowserCommand(browser, "Browser.getWindowForTarget", {
+    targetId,
+  });
+  return window.windowId;
+}
+async function isManagedWindowTarget(target) {
+  if (
+    !existingTargets ||
+    !existingWindowIds ||
+    existingTargets.has(target) ||
+    target.type() !== "page" ||
+    target.url() !== managedWindowUrl
+  )
+    return false;
+  const windowId = await windowIdFor(target).catch(() => null);
+  return windowId != null && !existingWindowIds.has(windowId);
+}
+function cleanup() {
+  if (!cleanupPromise) {
+    // Deadline cleanup closes the caller, which rejects the in-flight execCode
+    // and lets capture() settle through this same cleanup path.
+    cleanupPromise = (async () => {
+      if (caller) await caller.close().catch(() => {});
+      if (browser && existingTargets) {
+        // The extension opens a separate authenticated page. Its normal done()
+        // path closes that window, but an interrupted proof leaves it behind.
+        // A concurrent tab can have the same URL; only the new popup window
+        // belongs to this capture.
+        for (const target of browser.targets()) {
+          if (target === managedTarget || (await isManagedWindowTarget(target))) {
+            await target.page().then((page) => page?.close()).catch(() => {});
+          }
+        }
+      }
+      // This extension instance belongs to this hook. Unloading also cancels any
+      // active WASM proof and its managed auth window on timeout; Chrome stays alive.
+      if (browser && extensionId)
+        await chrome
+          .sendBrowserCommand(browser, "Extensions.uninstall", {
+            id: extensionId,
+          })
+          .catch(() => {});
+      if (browser) await browser.disconnect();
+      server?.closeAllConnections();
+      server?.close();
+      if (releaseLock) await releaseLock();
+    })();
+  }
+  return cleanupPromise;
+}
+function pluginCode(url, verifierUrl, receiptId, managedWindowUrl) {
   const target = new URL(url);
   const pluginConfig = {
     name: "ArchiveBox private response proof",
@@ -50,7 +156,8 @@ function pluginCode(url, verifierUrl, receiptId) {
           receiptId,
       },
     ],
-    urls: [target.origin + "/*"],
+    // The ephemeral loopback page is the extension-owned window's blank shell.
+    urls: [target.origin + "/*", managedWindowUrl],
     timeout: config.TLSNOTARY_TIMEOUT * 1000,
   };
   const options = {
@@ -77,7 +184,7 @@ const url=${JSON.stringify(url)};
 function main(){
  const [request]=useHeaders(items=>items.filter(h=>h.url===url&&h.method==='GET').slice(-1));
  const running=useState('running',false);
- useEffect(()=>{openWindow(url,{width:1024,height:768}).catch(error=>done(JSON.stringify({ok:false,error:String(error)})));},[]);
+ useEffect(()=>{openWindow(${JSON.stringify(managedWindowUrl)},{width:1024,height:768}).catch(error=>done(JSON.stringify({ok:false,error:String(error)})));},[]);
  useEffect(()=>{if(request&&!running){setState('running',true);run(request);}},[!!request,running]);
  return div({},['Authenticating the main response privately…']);
 }
@@ -115,6 +222,19 @@ async function capture() {
     throw new Error("TLSNotary requires an HTTPS document");
   if (new URL(url).port)
     throw new Error("TLSNotary supports HTTPS on port 443 only");
+  const verifierUrl = config.TLSNOTARY_VERIFIER_URL.replace(/\/$/, "");
+  const endpoint = new URL(verifierUrl);
+  if (
+    endpoint.protocol !== "https:" &&
+    !(endpoint.protocol === "http:" &&
+      ["localhost", "127.0.0.1", "host.docker.internal", "gateway"].includes(
+        endpoint.hostname
+      ))
+  )
+    throw new Error("Verifier endpoint requires HTTPS");
+  await checkVerifierAdmission(verifierUrl);
+  // A real proof can add roughly 1.6 GiB of client memory before cleanup.
+  requireProofMemory(PROOF_START_HEADROOM, "start");
   const original = chrome.findExtensionMetadataByName(
     connection.extensions || [],
     "tlsnotary"
@@ -144,20 +264,58 @@ async function capture() {
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
   caller = await browser.newPage();
   await caller.goto(`http://127.0.0.1:${server.address().port}/`);
+  managedWindowUrl = caller.url();
   await caller.waitForFunction(() => !!window.tlsn, { timeout: 10000 });
-  const verifierUrl = config.TLSNOTARY_VERIFIER_URL.replace(/\/$/, "");
-  const endpoint = new URL(verifierUrl);
-  if (
-    endpoint.protocol !== "https:" &&
-    !(
-      endpoint.protocol === "http:" &&
-      ["localhost", "127.0.0.1", "host.docker.internal", "gateway"].includes(
-        endpoint.hostname
-      )
-    )
-  )
-    throw new Error("Verifier endpoint requires HTTPS");
   const receiptId = crypto.randomBytes(32).toString("hex");
+  console.error(
+    "[tlsnotary] capture correlation",
+    crypto.createHash("sha256").update(receiptId).digest("hex").slice(0, 12)
+  );
+  existingTargets = new Set(browser.targets());
+  existingWindowIds = new Set();
+  for (const target of existingTargets) {
+    if (target.type() !== "page") continue;
+    const windowId = await windowIdFor(target).catch(() => null);
+    if (windowId != null) existingWindowIds.add(windowId);
+  }
+  requireProofMemory(PROOF_STOP_HEADROOM, "proof");
+  memoryMonitor = setInterval(() => {
+    if (stopped || cleanupPromise) return;
+    try {
+      requireProofMemory(PROOF_STOP_HEADROOM, "proof");
+    } catch (_) {
+      stopped = true;
+      // Closing this hook's caller and extension rejects the active proof;
+      // the shared Chrome browser and original snapshot target remain open.
+      cleanup().catch(() => {});
+    }
+  }, 250);
+  let checkingVerifier = false;
+  verifierMonitor = setInterval(async () => {
+    if (stopped || cleanupPromise || checkingVerifier) return;
+    checkingVerifier = true;
+    try {
+      // A remote verifier may run out of memory while this client has plenty.
+      // Socket termination alone can leave the SDK's execCode unresolved.
+      const response = await fetch(verifierUrl + "/receipts/" + receiptId, {
+        signal: AbortSignal.timeout(3000),
+      });
+      if (response.status === 503) {
+        const failure = await response.json();
+        if (typeof failure.error === "string") {
+          resourceFailure = failure.error.slice(0, 240);
+          stopped = true;
+          await cleanup();
+        }
+      }
+    } catch (error) {
+      // This observer does not establish success; signed receipt verification
+      // below remains mandatory even when a status request cannot be read.
+      console.error(`[tlsnotary] verifier status unavailable: ${error.message}`);
+    } finally {
+      checkingVerifier = false;
+    }
+  }, 1000);
   const targetPromise = browser.waitForTarget(
     (t) =>
       t.url().startsWith(`chrome-extension://${extensionId}/`) &&
@@ -167,7 +325,7 @@ async function capture() {
   const resultPromise = caller.evaluate(
     (code, receiptId) =>
       window.tlsn.execCode(code, { sessionData: { mode: "Mpc", receiptId } }),
-    pluginCode(url, verifierUrl, receiptId),
+    pluginCode(url, verifierUrl, receiptId, managedWindowUrl),
     receiptId
   );
   resultPromise.catch(() => {});
@@ -197,6 +355,65 @@ async function capture() {
   } finally {
     await approvalSession.detach();
   }
+  // The extension captures request headers only from a network request. A
+  // cached managed-window navigation has no headers event, leaving prove()
+  // waiting until the hook deadline. Reload only that window from the network.
+  const managedDeadline = Date.now() + 10000;
+  while (Date.now() < managedDeadline && !stopped && !managedTarget) {
+    for (const target of browser.targets()) {
+      if (await isManagedWindowTarget(target)) {
+        managedTarget = target;
+        break;
+      }
+    }
+    if (!managedTarget) await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  if (managedTarget) {
+    const managedPage = await managedTarget.page();
+    const session = await managedTarget.createCDPSession();
+    let substituted = false;
+    let interceptionError;
+    try {
+      await session.send("Network.enable");
+      await session.send("Network.setCacheDisabled", { cacheDisabled: true });
+      await session.send("Fetch.enable", {
+        patterns: [{ resourceType: "Document", requestStage: "Response" }],
+      });
+      session.on("Fetch.requestPaused", async (request) => {
+        try {
+          if (request.responseStatusCode >= 300 && request.responseStatusCode < 400) {
+            await session.send("Fetch.continueRequest", { requestId: request.requestId });
+          } else {
+            // The real navigation exposes the browser's cookie/auth headers to
+            // useHeaders(). Its body is unnecessary once the response arrives.
+            await session.send("Fetch.fulfillRequest", {
+              requestId: request.requestId,
+              responseCode: 200,
+              responseHeaders: [
+                { name: "Content-Type", value: "text/html" },
+                { name: "Cache-Control", value: "no-store" },
+              ],
+              body: Buffer.from("<!doctype html><title>TLSNotary</title>").toString("base64"),
+            });
+            substituted = true;
+          }
+        } catch (error) {
+          interceptionError = error;
+          await session.send("Fetch.failRequest", {
+            requestId: request.requestId,
+            errorReason: "Aborted",
+          }).catch(() => {});
+        }
+      });
+      await managedPage.goto(url, { waitUntil: "domcontentloaded" });
+      if (interceptionError) throw interceptionError;
+      if (!substituted) throw new Error("Managed window response was not intercepted");
+    } finally {
+      await session.send("Fetch.disable").catch(() => {});
+      await session.detach();
+    }
+  } else throw new Error("Extension-managed window did not open");
+  console.error("[tlsnotary] request headers captured; proof in progress");
   const raw = await resultPromise;
   const result = typeof raw === "string" ? JSON.parse(raw) : raw;
   if (!result.ok)
@@ -247,7 +464,7 @@ async function capture() {
       mode: "Mpc",
     })
   );
-  emitArchiveResultRecord("succeeded", "tlsnotary/receipt.json");
+  emitTerminalArchiveResult("succeeded", "tlsnotary/receipt.json");
 }
 (async () => {
   if (!config.TLSNOTARY_ENABLED) {
@@ -255,10 +472,14 @@ async function capture() {
     return;
   }
   const timer = setTimeout(() => {
+    deadlineExceeded = true;
     stopped = true;
     // Leave the runner time to reap the hook, even if CDP cleanup is stuck.
     const finish = () => {
-      emitArchiveResultRecord("failed", "TLSNotary capture deadline exceeded");
+      emitTerminalArchiveResult(
+        "failed",
+        "TLSNotary capture deadline exceeded",
+      );
       process.exit(1);
     };
     const cleanupDeadline = setTimeout(finish, 1000);
@@ -275,13 +496,16 @@ async function capture() {
     await capture();
   } catch (error) {
     console.error(`[tlsnotary] ${error.message}`);
-    emitArchiveResultRecord(
-      "failed",
-      "TLSNotary extension capture failed; see hook log"
-    );
+    if (!deadlineExceeded)
+      emitTerminalArchiveResult(
+        "failed",
+        captureFailureMessage(error)
+      );
     process.exitCode = 1;
   } finally {
     clearTimeout(timer);
+    if (memoryMonitor) clearInterval(memoryMonitor);
+    if (verifierMonitor) clearInterval(verifierMonitor);
     await cleanup();
   }
 })();

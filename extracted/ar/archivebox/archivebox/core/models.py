@@ -466,21 +466,23 @@ class SnapshotQuerySet(models.QuerySet):
 
         from archivebox.config import VERSION
         from archivebox.config.version import get_COMMIT_HASH
+        from archivebox.plugins.discovery import get_snapshot_role_names
 
         config = get_config()
 
         template = "static_index.html" if with_headers else "minimal_index.html"
         snapshot_list = list(self.iterator(chunk_size=500))
+        list_icon_plugins = set(get_snapshot_role_names("list_icon"))
         manifest_records = []
         for snapshot in snapshot_list:
             # Unarchived snapshots still need an export destination before discovery.
             snapshot.output_dir.mkdir(parents=True, exist_ok=True)
-            outputs = snapshot.discover_outputs(include_filesystem_fallback=True)
-            output_paths = [str(output.get("path") or "") for output in outputs]
-            snapshot._public_preview_paths = [
-                path for preferred in ("screenshot/screenshot.png", "screenshot.png") for path in output_paths if path == preferred
+            # The list icon is part of the portable export too; an incomplete
+            # hash manifest must not hide a file that is still on disk.
+            outputs = snapshot.discover_outputs(include_filesystem_fallback=True, filesystem_index={})
+            snapshot._public_list_icon_paths = [
+                str(output.get("path") or "") for output in outputs if output.get("name") in list_icon_plugins
             ]
-            snapshot._public_favicon_paths = [path for path in output_paths if path in ("favicon/favicon.ico", "favicon.ico")]
             snapshot.write_html_details()
             if with_headers:
                 # Use the same portable schema as the JSON export. Rendering
@@ -2374,15 +2376,77 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
             return calc_tags_str()
         return calc_tags_str()
 
+    def plugin_output_path(self, plugin: str, archive_results=None) -> str | None:
+        """Return the first declared successful output path for one plugin."""
+        from archivebox.plugins.discovery import get_archive_result_names
+
+        result_names = get_archive_result_names(plugin)
+        if archive_results is None:
+            for cache_name in ("_snapshot_card_results", "_admin_output_results", "_admin_archiveresults"):
+                if cache_name in self.__dict__:
+                    archive_results = self.__dict__[cache_name]
+                    break
+        if archive_results is None:
+            archive_results = self.__dict__.get("_prefetched_objects_cache", {}).get("archiveresult_set")
+        if archive_results is None:
+            archive_results = self.archiveresult_set.filter(plugin__in=result_names, status=ArchiveResult.StatusChoices.SUCCEEDED).only(
+                "plugin",
+                "status",
+                "output_str",
+                "output_files",
+            )
+
+        for result in archive_results:
+            if result.plugin not in result_names or result.status != ArchiveResult.StatusChoices.SUCCEEDED:
+                continue
+            try:
+                output_path = result.embed_path()
+            except (TypeError, ValueError, OverflowError):
+                continue
+            if output_path:
+                return output_path
+        return None
+
     def icons(self, path: str | None = None, prefix: str = "/", quote_paths: bool = False) -> str:
         """Generate HTML icons showing which extractor plugins have succeeded for this snapshot"""
-        from urllib.parse import quote
-
         from django.utils.html import format_html
+
+        from archivebox.core.routes_util import build_snapshot_detail_path, build_snapshot_index_path, get_snapshot_output_anchor
 
         compact_icons = self.__dict__.get("_icons_compact", False)
 
         def calc_icons():
+            from archivebox.plugins.output_groups import (
+                OUTPUT_GROUPS,
+                display_plugin_name,
+                output_group_for_plugin,
+                order_output_plugins,
+                plugin_icon_is_hidden,
+                plugin_output_sizes,
+            )
+
+            precomputed_archive_results = self.__dict__.get("_icons_archive_results")
+            if precomputed_archive_results is not None and compact_icons:
+                archive_results = {
+                    plugin: result if isinstance(result, ArchiveResult) else True
+                    for plugin, result in (
+                        precomputed_archive_results.items()
+                        if isinstance(precomputed_archive_results, dict)
+                        else ((plugin, True) for plugin in precomputed_archive_results)
+                    )
+                }
+                output_sizes = self.__dict__.get("_icons_output_sizes")
+                if output_sizes is None:
+                    output_sizes = plugin_output_sizes(result for result in archive_results.values() if isinstance(result, ArchiveResult))
+            else:
+                results = list(self.archiveresult_set.all())
+                output_sizes = plugin_output_sizes(results)
+                archive_results = {
+                    result.plugin: result
+                    for result in results
+                    if result.status == "succeeded" and (compact_icons or result.output_files or result.output_str)
+                }
+            ordered_plugins = order_output_plugins(archive_results, output_sizes)
             if compact_icons and self.status == self.StatusChoices.STARTED:
                 progress_stats = self.__dict__.get("_icons_progress_stats") or self.get_progress_stats()
                 total = int(progress_stats.get("total") or 0)
@@ -2393,29 +2457,76 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
                 running = int(progress_stats.get("running") or 0)
                 completed = succeeded + failed + skipped + noresults
                 percent = int((completed / total * 100) if total > 0 else 0)
-                successful_plugins = sorted(self.__dict__.get("_icons_archive_results") or ())
-                visible_plugins = successful_plugins[:8]
-                plugin_icon_spans = []
-                for plugin in visible_plugins:
+                icons_by_group: dict[str, list[dict[str, object]]] = {group_id: [] for group_id, _, _ in OUTPUT_GROUPS}
+                for plugin in ordered_plugins:
+                    if plugin_icon_is_hidden(plugin):
+                        continue
                     icon = get_plugin_icon(plugin)
                     if str(icon).strip():
-                        plugin_icon_spans.append(str(format_html('<span title="{}">{}</span>', plugin, mark_safe(icon))))
-                successful_icons = format_html(
-                    '<div class="snapshot-successful-plugin-icons" style="display:flex; flex-wrap:wrap; gap:2px; margin-top:4px;">{}</div>',
-                    mark_safe(
-                        "".join(plugin_icon_spans)
-                        + (
-                            str(
+                        group_id = output_group_for_plugin(plugin)
+                        icons_by_group[group_id].append({"plugin": plugin, "icon": mark_safe(icon)})
+                plugin_icon_piles = []
+                for group_id, label, _ in OUTPUT_GROUPS:
+                    icons = icons_by_group[group_id]
+                    if icons:
+                        top = icons[0]
+                        front_index = 0
+                        pile_column = len(plugin_icon_piles)
+                        top_html = format_html(
+                            '<span class="files-icon-pile-top files-icon-pile-cover files-icon-plugin--{}" aria-label="{}" data-tooltip="{}" style="--files-icon-front-index:{}">{}</span>',
+                            top["plugin"],
+                            label,
+                            label,
+                            front_index,
+                            top["icon"],
+                        )
+                        members = []
+                        for index, item in enumerate(icons):
+                            row = index // 5
+                            member_top = 26 + row * 18
+                            row_offset = (5 - min(5, len(icons) - row * 5)) * 11 + 3
+                            member_left = 3 + row_offset + (index % 5) * 22 - pile_column * 22
+                            members.append(
                                 format_html(
-                                    '<span title="{} more successful plugins">+{}</span>',
-                                    len(successful_plugins) - 8,
-                                    len(successful_plugins) - 8,
+                                    '<span class="files-icon-plugin--{}" aria-label="{}" data-tooltip="{}" style="--files-icon-index:{};--files-icon-row:{};--files-icon-column:{};--files-icon-row-offset:{}px;--files-icon-member-left:{}px;--files-icon-member-top:{}px">{}</span>',
+                                    item["plugin"],
+                                    display_plugin_name(item["plugin"]),
+                                    item["plugin"],
+                                    index,
+                                    row,
+                                    index % 5,
+                                    row_offset,
+                                    member_left,
+                                    member_top,
+                                    item["icon"],
                                 ),
                             )
-                            if len(successful_plugins) > 8
-                            else ""
-                        ),
-                    ),
+                        pile_contents = format_html(
+                            '<span class="files-icon-pile-backplate" aria-hidden="true"></span><span class="files-icon-pile-hover-bridge" aria-hidden="true"></span>{}{}',
+                            top_html,
+                            mark_safe("".join(str(icon) for icon in members)),
+                        )
+                        plugin_icon_piles.append(
+                            format_html(
+                                '<span class="files-icon-pile files-icon-pile--{}" role="group" aria-label="{} saved outputs" style="--files-icon-count:{};--files-icon-pile-column:{};--files-icon-front-index:{};--files-icon-popup-left:{}px;--files-icon-front-offset:{}px;--files-icon-bridge-start:{}px;--files-icon-bridge-end:{}px;--files-icon-rows:{};--files-icon-card-height:{}px;--files-icon-card-width:{}px">{}</span>',
+                                group_id,
+                                label,
+                                len(icons),
+                                pile_column,
+                                front_index,
+                                pile_column * -22,
+                                front_index * 2,
+                                pile_column * 22 + front_index * 2,
+                                pile_column * 22 + front_index * 2 + 16,
+                                (len(icons) + 4) // 5,
+                                ((len(icons) + 4) // 5) * 18 + 8,
+                                116,
+                                pile_contents,
+                            ),
+                        )
+                successful_icons = format_html(
+                    '<div class="snapshot-successful-plugin-icons files-icons">{}</div>',
+                    mark_safe("".join(str(pile) for pile in plugin_icon_piles)),
                 )
                 return format_html(
                     '<div class="snapshot-files-progress" title="{} of {} hooks complete" style="min-width: 96px;">'
@@ -2442,39 +2553,12 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
                     successful_icons,
                 )
 
-            precomputed_archive_results = self.__dict__.get("_icons_archive_results")
-            prefetched_cache = self.__dict__.get("_prefetched_objects_cache", {})
-            if precomputed_archive_results is not None and compact_icons:
-                archive_results = {plugin: True for plugin in precomputed_archive_results}
-            elif "archiveresult_set" in prefetched_cache:
-                archive_results = {
-                    r.plugin: r
-                    for r in self.archiveresult_set.all()
-                    if r.status == "succeeded" and (compact_icons or r.output_files or r.output_str)
-                }
-            else:
-                # Filter for results that have either output_files or output_str
-                from django.db.models import Q
-
-                archive_results_qs = self.archiveresult_set.filter(status="succeeded")
-                if not compact_icons:
-                    archive_results_qs = archive_results_qs.filter(Q(output_files__isnull=False) | ~Q(output_str=""))
-                archive_results = {r.plugin: r for r in archive_results_qs}
-
-            archive_path = path or self.archive_path
-            output = ""
-            output_template = '<a href="{}{}/{}" class="exists-{}" title="{}">{}</a>'
-
-            # Get all plugins from hooks system (sorted by numeric prefix)
-            all_plugins = self.__dict__.get("_icons_plugin_names")
-            if all_plugins is None and not compact_icons:
-                all_plugins = [get_plugin_name(e) for e in get_plugins()]
-            elif all_plugins is None:
-                all_plugins = []
-            ordered_plugins = [plugin for plugin in all_plugins if plugin in archive_results]
-            ordered_plugins.extend(sorted(set(archive_results) - set(ordered_plugins)))
+            archive_path = path or self.archive_path_from_db
+            icons_by_group: dict[str, list[dict[str, object]]] = {group_id: [] for group_id, _, _ in OUTPUT_GROUPS}
 
             for plugin in ordered_plugins:
+                if plugin_icon_is_hidden(plugin):
+                    continue
                 result = archive_results.get(plugin)
                 existing = result is True or bool(
                     result and result.status == "succeeded" and (compact_icons or result.output_files or result.output_str),
@@ -2488,7 +2572,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
                 if not icon.strip():
                     continue
 
-                embed_path = f"{plugin}/" if compact_icons else result.embed_path()
+                embed_path = result.embed_path() if isinstance(result, ArchiveResult) else f"{plugin}/"
                 if not embed_path or str(embed_path).strip() in (".", "/", "./"):
                     continue
                 output_path = Path(str(embed_path))
@@ -2498,21 +2582,88 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
                     and (output_path.is_absolute() or ".." in output_path.parts or not (Path(self.output_dir) / output_path).exists())
                 ):
                     continue
-                if quote_paths:
-                    embed_path = quote(str(embed_path), safe="/@-._~!$&'()*+,;=")
-                output += format_html(
-                    output_template,
-                    prefix,
-                    archive_path,
-                    embed_path,
-                    str(bool(existing)),
-                    plugin,
-                    icon,
+                group_id = output_group_for_plugin(plugin)
+                anchor_path = get_snapshot_output_anchor(plugin, embed_path)
+                icons_by_group[group_id].append(
+                    {
+                        "plugin": plugin,
+                        "icon": icon,
+                        "href": (
+                            build_snapshot_index_path(archive_path, output_path=anchor_path, prefix=prefix)
+                            if quote_paths
+                            else build_snapshot_detail_path(archive_path, output_path=anchor_path, prefix=prefix)
+                        ),
+                        "existing": bool(existing),
+                    },
                 )
 
+            output = []
+            for group_id, label, _ in OUTPUT_GROUPS:
+                icons = icons_by_group[group_id]
+                if icons:
+                    top = icons[0]
+                    front_index = 0
+                    pile_column = len(output)
+                    top_html = format_html(
+                        '<a href="{}" class="exists-{} files-icon-pile-top files-icon-pile-cover files-icon-plugin--{}" aria-label="{}" data-tooltip="{}" style="--files-icon-front-index:{}">{}</a>',
+                        top["href"],
+                        str(top["existing"]),
+                        top["plugin"],
+                        label,
+                        label,
+                        front_index,
+                        top["icon"],
+                    )
+                    members = []
+                    for index, item in enumerate(icons):
+                        row = index // 5
+                        member_top = 26 + row * 18
+                        row_offset = (5 - min(5, len(icons) - row * 5)) * 11 + 3
+                        member_left = 3 + row_offset + (index % 5) * 22 - pile_column * 22
+                        members.append(
+                            format_html(
+                                '<a href="{}" class="exists-{} files-icon-plugin--{}" aria-label="{}" data-tooltip="{}" style="--files-icon-index:{};--files-icon-row:{};--files-icon-column:{};--files-icon-row-offset:{}px;--files-icon-member-left:{}px;--files-icon-member-top:{}px">{}</a>',
+                                item["href"],
+                                str(item["existing"]),
+                                item["plugin"],
+                                display_plugin_name(item["plugin"]),
+                                item["plugin"],
+                                index,
+                                row,
+                                index % 5,
+                                row_offset,
+                                member_left,
+                                member_top,
+                                item["icon"],
+                            ),
+                        )
+                    pile_contents = format_html(
+                        '<span class="files-icon-pile-backplate" aria-hidden="true"></span><span class="files-icon-pile-hover-bridge" aria-hidden="true"></span>{}{}',
+                        top_html,
+                        mark_safe("".join(str(icon) for icon in members)),
+                    )
+                    output.append(
+                        format_html(
+                            '<span class="files-icon-pile files-icon-pile--{}" role="group" aria-label="{} saved outputs" style="--files-icon-count:{};--files-icon-pile-column:{};--files-icon-front-index:{};--files-icon-popup-left:{}px;--files-icon-front-offset:{}px;--files-icon-bridge-start:{}px;--files-icon-bridge-end:{}px;--files-icon-rows:{};--files-icon-card-height:{}px;--files-icon-card-width:{}px">{}</span>',
+                            group_id,
+                            label,
+                            len(icons),
+                            pile_column,
+                            front_index,
+                            pile_column * -22,
+                            front_index * 2,
+                            pile_column * 22 + front_index * 2,
+                            pile_column * 22 + front_index * 2 + 16,
+                            (len(icons) + 4) // 5,
+                            ((len(icons) + 4) // 5) * 18 + 8,
+                            116,
+                            pile_contents,
+                        ),
+                    )
+
             return format_html(
-                '<span class="files-icons" style="font-size: 1em; opacity: 0.8; display: inline-grid; grid-auto-flow: column; grid-auto-columns: auto; grid-template-rows: repeat(4, auto); gap: 0 0; justify-content: start; align-content: start;">{}</span>',
-                mark_safe(output),
+                '<span class="files-icons" style="font-size: 1em;">{}</span>',
+                mark_safe("".join(str(pile) for pile in output)),
             )
 
         return calc_icons()
@@ -2522,7 +2673,9 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         return str(reverse_lazy("api-1:get_snapshot", args=[self.id]))
 
     def get_absolute_url(self):
-        return f"/{self.archive_path}"
+        from archivebox.core.routes_util import build_snapshot_detail_path
+
+        return build_snapshot_detail_path(self.archive_path_from_db)
 
     @cached_property
     def domain(self) -> str:
@@ -2716,30 +2869,49 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
     def legacy_archive_path(self) -> str:
         return f"{CONSTANTS.ARCHIVE_DIR_NAME}/{self.timestamp}"
 
+    @classmethod
+    def archive_path_for_values(
+        cls,
+        *,
+        fs_version: str,
+        timestamp: str,
+        snapshot_id,
+        url: str,
+        username: str = "web",
+        bookmarked_at=None,
+        created_at=None,
+    ) -> str:
+        """Build the public detail path without consulting the filesystem."""
+        legacy_path = f"{CONSTANTS.ARCHIVE_DIR_NAME}/{timestamp}"
+        if fs_version not in ("0.9.0", "0.9.1", "0.9.2", "0.9.3", "0.9.4", "1.0.0"):
+            return legacy_path
+
+        date_base = bookmarked_at or created_at
+        if not date_base:
+            return legacy_path
+
+        username = username if username and username != "system" else "web"
+        date_str = date_base.strftime("%Y%m%d")
+        domain = cls.extract_domain_from_url(url)
+        return f"{username}/{date_str}/{domain}/{snapshot_id}"
+
     @cached_property
     def archive_path_from_db(self) -> str:
         """Best-effort public URL path derived from DB fields only."""
-        if self.fs_version in ("0.7.0", "0.8.0"):
-            return self.legacy_archive_path
-
+        username = "web"
         if self.fs_version in ("0.9.0", "0.9.1", "0.9.2", "0.9.3", "0.9.4", "1.0.0"):
-            username = "web"
             crawl = self.crawl if self.crawl_id else None
             if crawl and crawl.created_by_id:
                 username = crawl.created_by.username
-            if username == "system":
-                username = "web"
-
-            date_base = self.bookmarked_at or self.created_at
-            if date_base:
-                date_str = date_base.strftime("%Y%m%d")
-            else:
-                return self.legacy_archive_path
-
-            domain = self.extract_domain_from_url(self.url)
-            return f"{username}/{date_str}/{domain}/{self.id}"
-
-        return self.legacy_archive_path
+        return self.archive_path_for_values(
+            fs_version=self.fs_version,
+            timestamp=self.timestamp,
+            snapshot_id=self.id,
+            url=self.url,
+            username=username,
+            bookmarked_at=self.bookmarked_at,
+            created_at=self.created_at,
+        )
 
     @cached_property
     def url_path(self) -> str:
@@ -3413,8 +3585,6 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
             entry = Path(path)
             if len(entry.parts) != 1 or entry.name in ("index.html", "index.json", "favicon.ico"):
                 continue
-            if filesystem_index is not None and entry.name == "index.jsonl":
-                continue
             if entry.suffix.lstrip(".").lower() not in embeddable_exts or entry.stem in seen:
                 continue
             outputs.append(
@@ -3446,7 +3616,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
 
     def to_dict(self, extended: bool = False, static_export: bool = False) -> dict[str, Any]:
         """Convert Snapshot to a dictionary (replacement for Link._asdict())"""
-        from archivebox.core.routes_util import build_snapshot_url
+        from archivebox.core.routes_util import build_snapshot_detail_url, build_snapshot_index_path
 
         archive_size = self.archive_size
 
@@ -3475,8 +3645,12 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
             "extension": self.extension,
             "is_static": self.is_static,
             "is_archived": self.is_archived,
-            "archive_path": self.static_archive_path if static_export else self.archive_path,
-            "archive_url": f"./{self.static_archive_path}/index.html" if static_export else build_snapshot_url(str(self.id), "index.html"),
+            "archive_path": self.static_archive_path if static_export else self.archive_path_from_db,
+            "archive_url": (
+                build_snapshot_index_path(self.static_archive_path, prefix="./")
+                if static_export
+                else build_snapshot_detail_url(self.archive_path_from_db)
+            ),
             "output_dir": self.output_dir,
             "link_dir": self.output_dir,  # backwards compatibility alias
             "archive_size": archive_size,
@@ -3521,7 +3695,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         from archivebox.core.widgets import TagEditorWidget
         from archivebox.misc.logging_util import printable_filesize
         from archivebox.progressmonitor.views import progress_endpoint
-        from archivebox.plugins.output_groups import OUTPUT_GROUPS, order_snapshot_outputs
+        from archivebox.plugins.output_groups import OUTPUT_GROUPS, order_snapshot_outputs, plugin_card_is_hidden, plugin_output_sizes
 
         runtime_config = get_request_config(request) if request is not None else get_config()
         self._runtime_config = runtime_config
@@ -3533,8 +3707,9 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         self.__dict__["num_outputs_cached"] = sum(result.status == ArchiveResult.StatusChoices.SUCCEEDED for result in archive_results)
         self.__dict__["num_failures_cached"] = sum(result.status == ArchiveResult.StatusChoices.FAILED for result in archive_results)
 
-        filesystem_index = {} if discover_files else None
-        hidden_card_plugins = {"archivedotorg", "favicon"}
+        # Static exports must reflect files that still exist even when the
+        # saved hash manifest is incomplete or stale.
+        filesystem_index = {} if discover_files or static_export_dir is not None else None
         outputs = [
             output
             for output in self.discover_outputs(
@@ -3543,7 +3718,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
                 filesystem_index=filesystem_index,
             )
             if (output.get("size") or 0) > 0
-            and output.get("name") not in hidden_card_plugins
+            and not plugin_card_is_hidden(str(output.get("name") or ""))
             # Files left by failed/started/noresults hooks remain browsable,
             # but only the DB can authorize a successful live output card.
             and (
@@ -3562,6 +3737,11 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
                 return not output_path.is_absolute() and ".." not in output_path.parts and (static_export_dir / output_path).exists()
 
             outputs = [output for output in outputs if static_output_exists(output)]
+            # A snapshot's index.jsonl is a manifest, not another captured
+            # output card. Preserve it as the preview fallback only when the
+            # manifest is the snapshot's sole available output.
+            if any(output.get("path") != "index.jsonl" for output in outputs):
+                outputs = [output for output in outputs if output.get("path") != "index.jsonl"]
         outputs_by_name: dict[str, dict[str, Any]] = {}
         result_ids_by_name: dict[str, list[str]] = {}
         for output in outputs:
@@ -3572,22 +3752,15 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
                 outputs_by_name[output["name"]] = output
         # Several hooks can report the same plugin directory. Count overlapping
         # files once, while retaining every result ID for the existing delete action.
-        files_by_name: dict[str, dict[str, int]] = {}
-        for result in archive_results:
-            if result.plugin not in outputs_by_name:
-                continue
-            files = files_by_name.setdefault(result.plugin, {})
-            for path, metadata in result.output_file_map().items():
-                files[path] = result._coerce_output_file_size(metadata.get("size"))
+        output_sizes = plugin_output_sizes(archive_results)
         for name, output in outputs_by_name.items():
             output["result_ids"] = ",".join(result_ids_by_name.get(name, ()))
-            if files_by_name.get(name):
-                output["size"] = sum(files_by_name[name].values())
+            if name in output_sizes:
+                output["size"] = output_sizes[name]
 
         hash_index = filesystem_index if filesystem_index is not None else (self.hashes_index if static_export_dir is not None else {})
         loose_items, failed_items = self.get_detail_page_auxiliary_items(
             outputs,
-            hidden_card_plugins=hidden_card_plugins,
             archive_results=archive_results,
             hashes_index=hash_index,
         )
@@ -3614,11 +3787,27 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
             type(self)
             .objects.filter(url=self.url)
             .exclude(id=self.id)
-            .only("id", "url", "bookmarked_at", "created_at", "downloaded_at", "output_size")
-            .order_by("-bookmarked_at", "-created_at", "-timestamp")[:25],
+            .select_related("crawl__created_by")
+            .only(
+                "id",
+                "url",
+                "timestamp",
+                "fs_version",
+                "bookmarked_at",
+                "created_at",
+                "downloaded_at",
+                "output_size",
+                "crawl__created_by__username",
+            )
+            .order_by("-bookmarked_at", "-created_at", "-timestamp"),
+        )
+        url_snapshots = [*related_snapshots, self]
+        url_snapshots.sort(
+            key=lambda snapshot: snapshot.bookmarked_at or snapshot.created_at or snapshot.downloaded_at or timezone.now(),
+            reverse=True,
         )
         related_years_map: dict[int, list[Snapshot]] = {}
-        for snapshot in [self, *related_snapshots]:
+        for snapshot in url_snapshots:
             snapshot_date = snapshot.bookmarked_at or snapshot.created_at or snapshot.downloaded_at
             if snapshot_date:
                 related_years_map.setdefault(snapshot_date.year, []).append(snapshot)
@@ -3628,14 +3817,24 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
                 key=lambda snapshot: snapshot.bookmarked_at or snapshot.created_at or snapshot.downloaded_at or timezone.now(),
                 reverse=True,
             )
-            related_years.append({"year": year, "latest": snapshots[0], "snapshots": snapshots})
-        related_years.sort(key=lambda item: item["year"], reverse=True)
+            related_years.append(
+                {
+                    "year": year,
+                    "latest": snapshots[0],
+                    "snapshots": snapshots,
+                    "selected_date": (self.bookmarked_at or self.created_at or self.downloaded_at) if self in snapshots else None,
+                },
+            )
+        related_years.sort(key=lambda item: item["year"])
 
         warc_path = next(
             (rel_path for rel_path in hash_index if rel_path.startswith("warc/") and ".warc" in Path(rel_path).name),
             "warc/",
         )
         user = getattr(request, "user", None)
+        # The parent-domain hint is only a presentation bit for web.*/snap-*;
+        # it never authorizes deletion. The X button navigates to admin.*,
+        # where the host-only session and CSRF checks guard the real action.
         can_delete_outputs = bool(
             static_export_dir is None
             and request is not None
@@ -3673,7 +3872,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
             "best_result": best_result,
             "snapshot": self,
             "CONFIG": runtime_config,
-            "related_snapshots": related_snapshots,
+            "url_snapshots": url_snapshots,
             "related_years": related_years,
             "loose_items": loose_items,
             "failed_items": failed_items,
@@ -3700,13 +3899,11 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
     def get_detail_page_auxiliary_items(
         self,
         outputs: list[dict] | None = None,
-        hidden_card_plugins: set[str] | None = None,
         archive_results: list["ArchiveResult"] | None = None,
         hashes_index: dict[str, dict[str, Any]] | None = None,
     ) -> tuple[list[dict[str, object]], list[dict[str, object]]]:
         if outputs is None:
             outputs = self.discover_outputs(include_filesystem_fallback=True)
-        hidden_card_plugins = hidden_card_plugins or set()
         accounted_entries: set[str] = set()
         for output in outputs:
             output_name = str(output.get("name") or "")
@@ -4212,7 +4409,9 @@ class ArchiveResult(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithNotes):
         return str(reverse_lazy("api-1:get_archiveresult", args=[self.id]))
 
     def get_absolute_url(self):
-        return f"/{self.snapshot.archive_path}/{self.plugin}"
+        from archivebox.core.routes_util import build_snapshot_detail_path
+
+        return build_snapshot_detail_path(self.snapshot.archive_path_from_db, output_path=self.plugin)
 
     @property
     def is_paused(self) -> bool:
@@ -4236,6 +4435,28 @@ class ArchiveResult(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithNotes):
 
     def output_file_paths(self) -> list[str]:
         return list(self.output_file_map().keys())
+
+    def output_file_path(
+        self,
+        path: str,
+        output_file_map: dict[str, dict[str, Any]] | None = None,
+    ) -> str | None:
+        """Resolve an output_files key to its snapshot-relative path."""
+        requested_path = str(path or "")
+        if not requested_path or requested_path.startswith("/") or ".." in Path(requested_path).parts:
+            return None
+
+        output_file_map = output_file_map if output_file_map is not None else self.output_file_map()
+        plugin_relative_path = requested_path.removeprefix(f"{self.plugin}/")
+        plugin_path = f"{self.plugin}/{plugin_relative_path}"
+        for candidate in dict.fromkeys((requested_path, plugin_relative_path, plugin_path)):
+            file_info = output_file_map.get(candidate)
+            if not isinstance(file_info, dict):
+                continue
+            if file_info.get("root_relative"):
+                return candidate.removeprefix(f"{self.plugin}/")
+            return candidate if candidate.startswith(f"{self.plugin}/") else f"{self.plugin}/{candidate}"
+        return None
 
     def update_output_metadata_from_filesystem(self, snapshot_dir: Path | None = None, save: bool = True, full_scan: bool = False) -> bool:
         from abx_dl.output_files import OutputManifest, output_file_from_path
@@ -4395,26 +4616,14 @@ class ArchiveResult(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithNotes):
                 if Path(candidate).name.lower() == preferred_name:
                     return candidate
 
-        plugin_lower = (plugin_name or "").lower()
-        if plugin_lower in ("ytdlp", "yt-dlp", "youtube-dl"):
-            # yt-dlp commonly emits a thumbnail plus several media formats.
-            # Prefer something browsers can play directly; otherwise cards can
-            # select a large MKV or thumbnail that the plugin player cannot use.
-            ext_groups = (
-                (".mp4", ".webm", ".m4v", ".ogv"),
-                (".mp3", ".m4a", ".aac", ".opus", ".ogg", ".wav", ".flac"),
-                (".mkv", ".mov", ".avi", ".flv", ".wmv", ".mpg", ".mpeg", ".ts", ".m2ts", ".mts", ".3gp", ".3g2"),
-                (".html", ".htm", ".mhtml", ".mht", ".pdf"),
-                (".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".ico"),
-                (".json", ".jsonl", ".txt", ".md", ".csv", ".tsv", ".srt", ".vtt"),
-            )
-        else:
-            ext_groups = (
-                (".html", ".htm", ".mhtml", ".mht", ".pdf"),
-                (".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".ico"),
-                (".json", ".jsonl", ".txt", ".md", ".csv", ".tsv"),
-                (".mp4", ".webm", ".mp3", ".opus", ".ogg", ".wav"),
-            )
+        from archivebox.plugins.discovery import get_plugin_output_extension_preference
+
+        ext_groups = get_plugin_output_extension_preference(plugin_name or "") or (
+            (".html", ".htm", ".mhtml", ".mht", ".pdf"),
+            (".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".ico"),
+            (".json", ".jsonl", ".txt", ".md", ".csv", ".tsv"),
+            (".mp4", ".webm", ".mp3", ".opus", ".ogg", ".wav"),
+        )
         for ext_group in ext_groups:
             group_candidates = [candidate for candidate in candidates if Path(candidate).suffix.lower() in ext_group]
             if group_candidates:
@@ -4459,12 +4668,9 @@ class ArchiveResult(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithNotes):
     def embed_path_db(self, output_file_map: dict[str, dict[str, Any]] | None = None) -> str | None:
         output_file_map = output_file_map if output_file_map is not None else self.output_file_map()
 
-        def is_root_relative(path: str) -> bool:
-            metadata = output_file_map.get(path) or {}
-            return bool(isinstance(metadata, dict) and metadata.get("root_relative"))
-
-        if self.output_str:
-            raw_output = str(self.output_str).strip()
+        output_str = "" if "output_str" in self.get_deferred_fields() else self.output_str
+        if output_str:
+            raw_output = str(output_str).strip()
             if self._looks_like_output_path(raw_output, self.plugin):
                 output_path = Path(raw_output)
                 if output_path.is_absolute():
@@ -4492,23 +4698,16 @@ class ArchiveResult(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithNotes):
                     # payload storage while rendering a live snapshot page.
                     return candidates[0] if ".." not in output_path.parts else None
 
-                if raw_output in output_file_map and is_root_relative(raw_output):
-                    return raw_output
-
                 for relative_path in candidates:
-                    plugin_relative = relative_path.removeprefix(f"{self.plugin}/")
-                    if relative_path in output_file_map:
-                        return f"{self.plugin}/{relative_path}" if not relative_path.startswith(f"{self.plugin}/") else relative_path
-                    if plugin_relative in output_file_map:
-                        return f"{self.plugin}/{plugin_relative}"
+                    resolved_path = self.output_file_path(relative_path, output_file_map=output_file_map)
+                    if resolved_path:
+                        return resolved_path
 
         output_file_paths = list(output_file_map.keys())
         if output_file_paths:
             fallback_path = self._fallback_output_file_path(output_file_paths, self.plugin, output_file_map)
             if fallback_path:
-                if is_root_relative(fallback_path):
-                    return fallback_path
-                return f"{self.plugin}/{fallback_path}"
+                return self.output_file_path(fallback_path, output_file_map=output_file_map)
 
         return None
 

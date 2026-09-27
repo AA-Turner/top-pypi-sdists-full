@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: geocif
-Version: 0.4.1049
+Version: 0.4.1051
 Summary: Models to visualize and forecast crop conditions and yields
 Author-email: Ritvik Sahajpal <ritvik@umd.edu>
 License: MIT
@@ -337,7 +337,10 @@ onset, moisture wetting-up and drawdown, ESI interannual spread). Two
 references sit in every table: the rule-based port for the two interior
 transitions (its difference and a model's prediction error are the same
 quantity) and an out-of-fold **climatology null** for all four (circular
-median per crop, hemisphere and season). Each target is regressed two ways --
+median per crop, hemisphere and season). The model's `hemisphere` is the sign
+of the region's latitude, not the zone file's label, which disagrees with it
+for 123 regions and partly encodes harvest timing; the label is kept as
+`hemisphere_zone` and still drives the rule-based port. Each target is regressed two ways --
 sine/cosine with `atan2`, and a signed offset from the NDVI steepest-rise day --
 and `metrics.csv` reports skill against the null with a spatial-tile bootstrap
 interval alongside the Franch et al. (2022, WorldCereal) comparables -- linearised and circular R2, calibration line, debiased RMSE and the >60-day
@@ -797,6 +800,7 @@ training, no writes to the outlook DB. Each writes a date-stamped
 | `residuals_vs_cid` | Which CID anomalies does the yield model fail to absorb? |
 | `drought_audit` | Do drought years actually look anomalous in the inputs, or did the pipeline flatten them? |
 | `irrigation_kansas` | Does irrigated share interact with in-season stress to move county yield anomalies — and which stress CID and month carry it? |
+| `cropcal_hemisphere` | Crop calendars: does one model per hemisphere beat one pooled model? Paired on the same folds and null; takes a `calendar_validator` run's `models/design_matrix.csv`, not a cfg, and writes to `<run>/experiments/hemisphere/`. |
 
 ```python
 from geocif.experiments import irrigation_kansas

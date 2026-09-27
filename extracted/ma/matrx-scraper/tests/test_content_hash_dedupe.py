@@ -51,6 +51,25 @@ PREV_MD_FILE = "prev-md-file-id"
 
 
 @pytest.fixture(autouse=True)
+def wired_source_landing(monkeypatch: pytest.MonkeyPatch) -> list[dict]:
+    """Every crawled page lands as a Source through the injected door (SOURCE-CONVERGENCE §4.7;
+    pinned in test_crawl_lands_as_source.py). These tests pin storage, so the door records."""
+    from matrx_scraper import _ext
+
+    calls: list[dict] = []
+
+    async def hook(landing: dict) -> dict:
+        calls.append(landing)
+        return {"processed_document_id": "44913054-1933-44b8-ba94-f592f362b8c3", "source_id": "p", "notices": []}
+
+    monkeypatch.setitem(_ext._registry, "source_landing", hook)
+    monkeypatch.setattr(
+        "matrx_scraper.web_crawl.persistence.WebSnapshot.update_where", AsyncMock(return_value=1)
+    )
+    return calls
+
+
+@pytest.fixture(autouse=True)
 def _stub_identity(monkeypatch: pytest.MonkeyPatch) -> None:
     async def resolve_identity(**kwargs: Any) -> CrawlIdentityResolution:
         final_url = str(kwargs["final_url"])

@@ -46,7 +46,9 @@ from xhtml2pdf.builders.flex_layout import (
 from xhtml2pdf.reportlab_paragraph import Paragraph, _getFragWords
 from xhtml2pdf.util import (
     AUTO,
+    NO_RADIUS,
     NONE_LENGTH,
+    RADIUS_CORNERS,
     CSSLength,
     drawBoxBackground,
     drawBoxBorders,
@@ -114,6 +116,8 @@ class BoxStyle:
             setattr(self, f"border{side}Width", 0.0)
             setattr(self, f"border{side}Style", None)
             setattr(self, f"border{side}Color", None)
+        for corner in RADIUS_CORNERS:
+            setattr(self, f"border{corner}Radius", NO_RADIUS)
         self.backColor = None
         self.backgroundImage = None
         self.backgroundRepeat = "repeat"
@@ -1000,10 +1004,8 @@ class FlexContainer(Flowable, PmlMaxHeightMixIn):
             self._not_cut(probed)
             return None
 
-        head_style = BoxStyle(self.style, paddingBottom=0.0, spaceAfter=0.0)
-        head_style.borderBottomStyle = None
-        tail_style = BoxStyle(self.style, paddingTop=0.0, spaceBefore=0.0)
-        tail_style.borderTopStyle = None
+        head_style = cut_style(self.style, "Bottom")
+        tail_style = cut_style(self.style, "Top")
 
         placed_by_index = {p.index: p for p in self.layout.placed}
         items: list[FlexItem] = []
@@ -1071,10 +1073,8 @@ class FlexContainer(Flowable, PmlMaxHeightMixIn):
         head_content, tail_content = split_stack(
             entries, cut - top - item.style.content_top, width, canv
         )
-        head_style = BoxStyle(item.style, paddingBottom=0.0, spaceAfter=0.0)
-        head_style.borderBottomStyle = None
-        tail_style = BoxStyle(item.style, paddingTop=0.0, spaceBefore=0.0)
-        tail_style.borderTopStyle = None
+        head_style = cut_style(item.style, "Bottom")
+        tail_style = cut_style(item.style, "Top")
         head = replace(item, content=head_content, style=head_style)
         tail = self._continued(
             item, placed, tail_content, tail_style, remaining=top + size - cut
@@ -1313,6 +1313,22 @@ _BOX_ATTRIBUTES: dict[str, Any] = {
 }
 
 
+def cut_style(style: BoxStyle, side: str) -> BoxStyle:
+    """
+    The style of a box's fragment at a page break: no edge at the cut.
+
+    Its padding, border and the rounding of its two corners stop there, as
+    box-decoration-break: slice has it; the fragment on the other side of
+    the cut has them at its own end.
+    """
+    margin = "spaceAfter" if side == "Bottom" else "spaceBefore"
+    fragment = BoxStyle(style, **{f"padding{side}": 0.0, margin: 0.0})
+    setattr(fragment, f"border{side}Style", None)
+    for corner in (f"{side}Left", f"{side}Right"):
+        setattr(fragment, f"border{corner}Radius", NO_RADIUS)
+    return fragment
+
+
 def clear_box(frag) -> None:
     """Take an element's box off its frag, so its children do not repeat it."""
     for name, value in _BOX_ATTRIBUTES.items():
@@ -1321,6 +1337,8 @@ def clear_box(frag) -> None:
         setattr(frag, f"border{side}Width", 0)
         setattr(frag, f"border{side}Style", None)
         setattr(frag, f"border{side}Color", None)
+    for corner in RADIUS_CORNERS:
+        setattr(frag, f"border{corner}Radius", NO_RADIUS)
 
 
 class FlexData:

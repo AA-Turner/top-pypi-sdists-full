@@ -91,14 +91,26 @@ def test_elem_match_non_document_argument_raises() -> None:
 
 
 def test_id_only_truthy_spec_is_inclusion() -> None:
-    """{"_id": 1} (and any non-zero value) is an inclusion projection:
-    only _id survives. Oracle-pinned against real mongod."""
+    """{"_id": 1} (and any non-zero NUMBER or bool) is an inclusion projection:
+    only _id survives. Measured against mongod 8.2.11 (2026-09-06)."""
     doc = {"_id": 7, "a": 1, "b": 2}
     assert apply_projection(doc, {"_id": 1}) == {"_id": 7}
     assert apply_projection(doc, {"_id": True}) == {"_id": 7}
-    # mongod treats None and "" as include, not drop.
-    assert apply_projection(doc, {"_id": None}) == {"_id": 7}
-    assert apply_projection(doc, {"_id": ""}) == {"_id": 7}
+
+
+def test_id_none_and_empty_string_are_literals_not_flags() -> None:
+    """``{_id: None}`` and ``{_id: ""}`` REPLACE ``_id`` with that constant.
+
+    This test used to assert they were includes -- ``{_id: 7}`` -- under a
+    comment reading "mongod treats None and '' as include, not drop" and a
+    docstring saying "Oracle-pinned against real mongod". Nothing in this file
+    can reach a real mongod, so the claim had never been checked; running it
+    against 8.2.11 returns the constant. Only a BSON *number* or *bool* is a
+    flag -- see ``_is_flag_value``.
+    """
+    doc = {"_id": 7, "a": 1, "b": 2}
+    assert apply_projection(doc, {"_id": None}) == {"_id": None}
+    assert apply_projection(doc, {"_id": ""}) == {"_id": ""}
 
 
 def test_id_only_falsy_spec_is_exclusion() -> None:
@@ -256,7 +268,10 @@ def test_meta_unknown_arg_errors_17308() -> None:
         apply_projection(doc, {"score": {"$meta": "bogus"}})
     assert e.value.code == 17308
     assert e.value.code_name == "Location17308"
-    assert str(e.value) == "Unsupported argument to $meta: bogus"
+    # mongod's exact wording, re-probed on 8.2.11 (2026-09-01). This test used
+    # to assert "Unsupported argument to $meta: bogus" -- our own phrasing, which
+    # the code matched, so the suite was green over a string mongod never sends.
+    assert str(e.value) == "Unsupported $meta field: bogus"
 
 
 def test_meta_textscore_without_text_errors_40218() -> None:
@@ -271,8 +286,8 @@ def test_meta_textscore_without_text_errors_40218() -> None:
 def test_meta_textscore_with_text_query_omits_field() -> None:
     doc = {"_id": 1, "a": 1}
     out = apply_projection(doc, {"score": {"$meta": "textScore"}}, {"$text": {"$search": "x"}})
-    # $meta field is omitted (not computed); inclusion projection keeps only _id.
-    assert out == {"_id": 1}
+    # The $meta field is omitted (not computed); the document is untouched.
+    assert out == {"_id": 1, "a": 1}
 
 
 def test_meta_textscore_with_nested_text_query() -> None:
@@ -282,14 +297,22 @@ def test_meta_textscore_with_nested_text_query() -> None:
         {"score": {"$meta": "textScore"}},
         {"$and": [{"a": 1}, {"$text": {"$search": "x"}}]},
     )
-    assert out == {"_id": 1}
+    assert out == {"_id": 1, "a": 1}
 
 
 def test_meta_recognized_unsupported_arg_omits_field() -> None:
+    """The `$meta` field is omitted, but the DOCUMENT is untouched.
+
+    These assertions used to read `{"_id": 1}`, i.e. `$meta` made the projection
+    inclusion-mode and discarded every other field. mongod treats `$meta` as a
+    value re-shaper that does not participate in inclusion/exclusion detection —
+    oracle-pinned 6.0.16: `find({}, {m: {$meta: "recordId"}})` answers the whole
+    document.
+    """
     doc = {"_id": 1, "a": 1, "b": 2}
     for arg in ("indexKey", "recordId", "sortKey"):
         out = apply_projection(doc, {"m": {"$meta": arg}})
-        assert out == {"_id": 1}
+        assert out == {"_id": 1, "a": 1, "b": 2}
 
 
 def test_meta_alongside_inclusion_field() -> None:
@@ -300,9 +323,11 @@ def test_meta_alongside_inclusion_field() -> None:
 
 
 def test_meta_excludes_id() -> None:
+    # `_id: 0` still drops the identifier, but the rest of the document stays —
+    # mongod-probed. This used to assert `{}`.
     doc = {"_id": 1, "a": 1}
     out = apply_projection(doc, {"_id": 0, "score": {"$meta": "recordId"}})
-    assert out == {}
+    assert out == {"a": 1}
 
 
 def test_validate_meta_projection_parse_time() -> None:

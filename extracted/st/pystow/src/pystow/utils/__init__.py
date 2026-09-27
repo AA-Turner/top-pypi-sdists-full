@@ -15,10 +15,20 @@ import typing
 import warnings
 import zipfile
 from collections.abc import Callable, Generator, Iterable, Mapping, Sequence
-from io import BytesIO
-from pathlib import Path, PurePosixPath
+from io import BytesIO, StringIO
+from pathlib import Path, PurePath, PurePosixPath
 from subprocess import check_output
-from typing import IO, TYPE_CHECKING, Any, Literal, Protocol, TypeAlias, TypeVar, cast, overload
+from typing import (
+    IO,
+    TYPE_CHECKING,
+    Any,
+    Literal,
+    Protocol,
+    TypeAlias,
+    TypeVar,
+    cast,
+    overload,
+)
 from urllib.parse import urlparse
 from uuid import uuid4
 
@@ -27,6 +37,7 @@ from tqdm.auto import tqdm
 from .download import (
     DownloadBackend,
     DownloadError,
+    DownloadKwargs,
     UnexpectedDirectoryError,
     download,
     download_from_google,
@@ -84,6 +95,7 @@ from .pydantic_utils import (
     write_pydantic_yaml,
 )
 from .safe_open import (
+    _wrap_binary_if_needed,
     is_url,
     open_inner_zipfile,
     open_url,
@@ -111,8 +123,10 @@ __all__ = [
     "OPERATION_VALUES",
     "REPRESENTATION_VALUES",
     "REVERSE_MODE_MAP",
+    "ArchiveType",
     "DownloadBackend",
     "DownloadError",
+    "DownloadKwargs",
     "Hash",
     "HeaderMismatchError",
     "HexDigestError",
@@ -160,6 +174,8 @@ __all__ = [
     "n",
     "name_from_s3_key",
     "name_from_url",
+    "open_archive",
+    "open_inner_tarfile",
     "open_inner_zipfile",
     "open_tarfile",
     "open_url",
@@ -351,7 +367,7 @@ def read_lzma_csv(
 def write_zipfile_csv(
     df: pandas.DataFrame,
     path: str | Path,
-    inner_path: str,
+    inner_path: str | PurePath,
     sep: str = "\t",
     index: bool = False,
     **kwargs: Any,
@@ -371,7 +387,7 @@ def write_zipfile_csv(
 
 
 def read_zipfile_csv(
-    path: str | Path, inner_path: str, sep: str = "\t", **kwargs: Any
+    path: str | Path, inner_path: str | PurePath, sep: str = "\t", **kwargs: Any
 ) -> pandas.DataFrame:
     """Read an inner CSV file from a zip archive.
 
@@ -393,13 +409,14 @@ def read_zipfile_csv(
 @contextlib.contextmanager
 def open_zipfile(
     path: str | Path,
-    inner_path: str,
+    inner_path: str | PurePath,
     *,
     operation: Operation = ...,
     representation: Literal["text"] = ...,
     zipfile_kwargs: Mapping[str, Any] | None = ...,
     open_kwargs: Mapping[str, Any] | None = ...,
     encoding: str | None = ...,
+    newline: str | None = ...,
 ) -> Generator[IO[str]]: ...
 
 
@@ -408,26 +425,28 @@ def open_zipfile(
 @contextlib.contextmanager
 def open_zipfile(
     path: str | Path,
-    inner_path: str,
+    inner_path: str | PurePath,
     *,
     operation: Operation = ...,
     representation: Literal["binary"] = ...,
     zipfile_kwargs: Mapping[str, Any] | None = ...,
     open_kwargs: Mapping[str, Any] | None = ...,
     encoding: str | None = ...,
+    newline: str | None = ...,
 ) -> Generator[IO[bytes]]: ...
 
 
 @contextlib.contextmanager
 def open_zipfile(
     path: str | Path,
-    inner_path: str,
+    inner_path: str | PurePath,
     *,
     operation: Operation = "read",
     representation: Representation = "text",
     zipfile_kwargs: Mapping[str, Any] | None = None,
     open_kwargs: Mapping[str, Any] | None = None,
     encoding: str | None = None,
+    newline: str | None = None,
 ) -> Generator[IO[str]] | Generator[IO[bytes]]:
     """Open a zipfile."""
     mode = _OPERATION_TO_UNQUALIFIED_MODE[operation]
@@ -440,46 +459,142 @@ def open_zipfile(
             representation=representation,
             open_kwargs=open_kwargs,
             encoding=encoding,
+            newline=newline,
         ) as file,
     ):
         yield file
 
 
+# docstr-coverage:excused `overload`
+@overload
 @contextlib.contextmanager
 def open_tarfile(
     path: str | Path,
-    inner_path: str,
+    inner_path: str | PurePath,
+    *,
+    operation: Operation = ...,
+    representation: Literal["binary"] = ...,
+    open_kwargs: Mapping[str, Any] | None = ...,
+    encoding: str | None = ...,
+    newline: str | None = ...,
+) -> Generator[IO[bytes]]: ...
+
+
+# docstr-coverage:excused `overload`
+@overload
+@contextlib.contextmanager
+def open_tarfile(
+    path: str | Path,
+    inner_path: str | PurePath,
+    *,
+    operation: Operation = ...,
+    representation: Literal["text"] = ...,
+    open_kwargs: Mapping[str, Any] | None = ...,
+    encoding: str | None = ...,
+    newline: str | None = ...,
+) -> Generator[IO[str]]: ...
+
+
+@contextlib.contextmanager
+def open_tarfile(
+    path: str | Path,
+    inner_path: str | PurePath,
     *,
     operation: Operation = "read",
     representation: Representation = "binary",
     open_kwargs: Mapping[str, Any] | None = None,
-) -> Generator[IO[bytes]]:
+    encoding: str | None = None,
+    newline: str | None = None,
+) -> Generator[IO[bytes]] | Generator[IO[str]]:
     """Open a tar file."""
-    if representation != "binary":
-        raise NotImplementedError("tarfile must use binary representation")
-
-    if operation == "read":
-        with tarfile.open(path, "r", **(open_kwargs or {})) as tar:
-            member = tar.getmember(inner_path)
-            file = tar.extractfile(member)
-            if file is None:
-                raise FileNotFoundError(f"could not find {inner_path} in tarfile {path}")
-            yield file
-    elif operation == "write":
-        file = BytesIO()
+    mode = _OPERATION_TO_UNQUALIFIED_MODE[operation]
+    with (
+        tarfile.open(path, mode, **(open_kwargs or {})) as tar_file,
+        open_inner_tarfile(
+            tar_file,
+            inner_path,
+            operation=operation,
+            representation=representation,
+            encoding=encoding,
+            newline=newline,
+        ) as file,
+    ):
         yield file
-        file.seek(0)
+
+
+# docstr-coverage:excused `overload`
+@overload
+@contextlib.contextmanager
+def open_inner_tarfile(
+    tar_file: tarfile.TarFile,
+    inner_path: str | PurePath,
+    *,
+    operation: Operation = ...,
+    representation: Literal["text"] = ...,
+    encoding: str | None = ...,
+    newline: str | None = ...,
+) -> Generator[IO[str]]: ...
+
+
+# docstr-coverage:excused `overload`
+@overload
+@contextlib.contextmanager
+def open_inner_tarfile(
+    tar_file: tarfile.TarFile,
+    inner_path: str | PurePath,
+    *,
+    operation: Operation = ...,
+    representation: Literal["binary"] = ...,
+    encoding: str | None = ...,
+    newline: str | None = ...,
+) -> Generator[IO[bytes]]: ...
+
+
+@contextlib.contextmanager
+def open_inner_tarfile(
+    tar_file: tarfile.TarFile,
+    inner_path: str | PurePath,
+    *,
+    operation: Operation = "read",
+    representation: Representation = "text",
+    encoding: str | None = None,
+    newline: str | None = None,
+) -> Generator[IO[str]] | Generator[IO[bytes]]:
+    """Open an inner tar file."""
+    # by convention, paths inside tar files are POSIX-style, even on Windows
+    inner_path = str(PurePosixPath(inner_path))
+    encoding = ensure_sensible_default_encoding(encoding, representation=representation)
+    newline = ensure_sensible_newline(newline, representation=representation)
+    if operation == "read":
+        member = tar_file.getmember(inner_path)
+        file = tar_file.extractfile(member)
+        if file is None:
+            raise FileNotFoundError(f"could not find {inner_path} in tarfile {tar_file}")
+        with _wrap_binary_if_needed(file, representation, encoding=encoding, newline=newline) as yf:
+            yield yf
+    elif operation == "write":
+        if representation == "binary":
+            file = BytesIO()
+            yield file
+            file.seek(0)
+        elif representation == "text":
+            sio = StringIO(newline=newline)
+            yield sio
+            sio.seek(0)
+            file = BytesIO(sio.getvalue().encode(cast(str, encoding)))
+        else:
+            raise InvalidRepresentationError(representation)
+
         tarinfo = tarfile.TarInfo(name=inner_path)
         tarinfo.size = len(file.getbuffer())
-        with tarfile.TarFile(path, mode="w") as tar_file:
-            tar_file.addfile(tarinfo, file)
+        tar_file.addfile(tarinfo, file)
     else:
         raise InvalidOperationError(operation)
 
 
 @contextlib.contextmanager
 def open_zip_reader(
-    path: str | Path, inner_path: str, delimiter: str = "\t", **kwargs: Any
+    path: str | Path, inner_path: str | PurePath, delimiter: str = "\t", **kwargs: Any
 ) -> Generator[Reader]:
     """Read an inner CSV file from a zip archive.
 
@@ -496,7 +611,7 @@ def open_zip_reader(
 
 @contextlib.contextmanager
 def open_zip_dict_reader(
-    path: str | Path, inner_path: str, delimiter: str = "\t", **kwargs: Any
+    path: str | Path, inner_path: str | PurePath, delimiter: str = "\t", **kwargs: Any
 ) -> Generator[csv.DictReader[str]]:
     """Read an inner CSV file from a zip archive.
 
@@ -513,7 +628,7 @@ def open_zip_dict_reader(
 
 @contextlib.contextmanager
 def open_zip_writer(
-    path: str | Path, inner_path: str, delimiter: str = "\t", **kwargs: Any
+    path: str | Path, inner_path: str | PurePath, delimiter: str = "\t", **kwargs: Any
 ) -> Generator[Writer]:
     """Open a writer for an inner CSV file from a zip archive.
 
@@ -531,7 +646,7 @@ def open_zip_writer(
 def write_zipfile_xml(
     element_tree: lxml.etree.ElementTree,
     path: str | Path,
-    inner_path: str,
+    inner_path: str | PurePath,
     **kwargs: Any,
 ) -> None:
     """Write an XML element tree to an inner XML file to a zip archive.
@@ -583,7 +698,9 @@ def iterparse_xml(path: str | Path, tag: str | tuple[str, ...], **kwargs: Any) -
         yield from etree.iterparse(file, tag=tag, **kwargs)
 
 
-def read_zipfile_xml(path: str | Path, inner_path: str, **kwargs: Any) -> lxml.etree.ElementTree:
+def read_zipfile_xml(
+    path: str | Path, inner_path: str | PurePath, **kwargs: Any
+) -> lxml.etree.ElementTree:
     """Read an inner XML file from a zip archive.
 
     :param path: The path to the zip archive
@@ -601,7 +718,7 @@ def read_zipfile_xml(path: str | Path, inner_path: str, **kwargs: Any) -> lxml.e
 def write_zipfile_np(
     arr: numpy.typing.ArrayLike,
     path: str | Path,
-    inner_path: str,
+    inner_path: str | PurePath,
     **kwargs: Any,
 ) -> None:
     """Write a dataframe to an inner CSV file to a zip archive.
@@ -618,7 +735,9 @@ def write_zipfile_np(
         np.save(file, arr, **kwargs)
 
 
-def read_zip_np(path: str | Path, inner_path: str, **kwargs: Any) -> numpy.typing.ArrayLike:
+def read_zip_np(
+    path: str | Path, inner_path: str | PurePath, **kwargs: Any
+) -> numpy.typing.ArrayLike:
     """Read an inner numpy array-like from a zip archive.
 
     :param path: The path to the zip archive
@@ -633,7 +752,7 @@ def read_zip_np(path: str | Path, inner_path: str, **kwargs: Any) -> numpy.typin
         return cast(np.typing.ArrayLike, np.load(file, **kwargs))
 
 
-def read_zipfile_rdf(path: str | Path, inner_path: str, **kwargs: Any) -> rdflib.Graph:
+def read_zipfile_rdf(path: str | Path, inner_path: str | PurePath, **kwargs: Any) -> rdflib.Graph:
     """Read an inner RDF file from a zip archive.
 
     :param path: The path to the zip archive
@@ -651,7 +770,7 @@ def read_zipfile_rdf(path: str | Path, inner_path: str, **kwargs: Any) -> rdflib
 
 
 def write_zipfile_rdf(
-    graph: rdflib.Graph, path: str | Path, inner_path: str, **kwargs: Any
+    graph: rdflib.Graph, path: str | Path, inner_path: str | PurePath, **kwargs: Any
 ) -> None:
     """Read an inner RDF file from a zip archive.
 
@@ -667,7 +786,7 @@ def write_zipfile_rdf(
 def write_tarfile_csv(
     df: pandas.DataFrame,
     path: str | Path,
-    inner_path: str,
+    inner_path: str | PurePath,
     sep: str = "\t",
     index: bool = False,
     **kwargs: Any,
@@ -689,7 +808,7 @@ def write_tarfile_csv(
 def write_tarfile_xml(
     element_tree: lxml.etree.ElementTree,
     path: str | Path,
-    inner_path: str,
+    inner_path: str | PurePath,
     **kwargs: Any,
 ) -> None:
     """Write an XML document a tar archive.
@@ -708,7 +827,7 @@ def write_tarfile_xml(
 
 
 def read_tarfile_csv(
-    path: str | Path, inner_path: str, sep: str = "\t", **kwargs: Any
+    path: str | Path, inner_path: str | PurePath, sep: str = "\t", **kwargs: Any
 ) -> pandas.DataFrame:
     """Read an inner CSV file from a tar archive.
 
@@ -725,7 +844,9 @@ def read_tarfile_csv(
         return pd.read_csv(file, sep=sep, **kwargs)
 
 
-def read_tarfile_xml(path: str | Path, inner_path: str, **kwargs: Any) -> lxml.etree.ElementTree:
+def read_tarfile_xml(
+    path: str | Path, inner_path: str | PurePath, **kwargs: Any
+) -> lxml.etree.ElementTree:
     """Read an inner XML file from a tar archive.
 
     :param path: The path to the tar archive
@@ -767,7 +888,10 @@ def read_rdflib(path: str | Path, **kwargs: Any) -> rdflib.Graph:
 
 
 def write_rdflib(
-    graph: rdflib.Graph, path: str | Path | IO[str] | IO[bytes], *, format: str | None = None
+    graph: rdflib.Graph,
+    path: str | Path | IO[str] | IO[bytes],
+    *,
+    format: str | None = None,
 ) -> None:
     """Write an RDF file with :mod:`rdflib`.
 
@@ -1421,3 +1545,82 @@ def tarfile_write_bytes(tar_file: tarfile.TarFile, filename: str, data: bytes) -
     tar_info = tarfile.TarInfo(name=filename)
     tar_info.size = len(data)
     tar_file.addfile(tar_info, io.BytesIO(data))
+
+
+#: The archive type
+ArchiveType: TypeAlias = Literal["tar", "zip"]
+
+
+# docstr-coverage:excused `overload`
+@overload
+@contextlib.contextmanager
+def open_archive(
+    path: str | Path,
+    inner_path: str | PurePath,
+    *,
+    archive_type: ArchiveType,
+    operation: Operation = ...,
+    representation: Literal["binary"] = ...,
+    outer_open_kwargs: Mapping[str, Any] | None = ...,
+    inner_open_kwargs: Mapping[str, Any] | None = ...,
+    encoding: str | None = ...,
+    newline: str | None = ...,
+) -> Generator[IO[bytes]]: ...
+
+
+# docstr-coverage:excused `overload`
+@overload
+@contextlib.contextmanager
+def open_archive(
+    path: str | Path,
+    inner_path: str | PurePath,
+    *,
+    archive_type: ArchiveType,
+    operation: Operation = ...,
+    representation: Literal["text"] = ...,
+    outer_open_kwargs: Mapping[str, Any] | None = ...,
+    inner_open_kwargs: Mapping[str, Any] | None = ...,
+    encoding: str | None = ...,
+    newline: str | None = ...,
+) -> Generator[IO[str]]: ...
+
+
+@contextlib.contextmanager
+def open_archive(
+    path: str | Path,
+    inner_path: str | PurePath,
+    *,
+    archive_type: ArchiveType,
+    operation: Operation = "read",
+    representation: Representation = "text",
+    outer_open_kwargs: Mapping[str, Any] | None = None,
+    inner_open_kwargs: Mapping[str, Any] | None = None,
+    encoding: str | None = None,
+    newline: str | None = None,
+) -> Generator[IO[str]] | Generator[IO[bytes]]:
+    """Open an archived file."""
+    if archive_type == "tar":
+        with open_tarfile(
+            path,
+            inner_path,
+            operation=operation,
+            representation=representation,
+            open_kwargs=outer_open_kwargs,
+            encoding=encoding,
+            newline=newline,
+        ) as file:
+            yield file
+    elif archive_type == "zip":
+        with open_zipfile(
+            path,
+            inner_path,
+            operation=operation,
+            representation=representation,
+            zipfile_kwargs=outer_open_kwargs,
+            open_kwargs=inner_open_kwargs,
+            encoding=encoding,
+            newline=newline,
+        ) as file:
+            yield file
+    else:
+        raise ValueError(f"unrecognized archive type: {archive_type}")

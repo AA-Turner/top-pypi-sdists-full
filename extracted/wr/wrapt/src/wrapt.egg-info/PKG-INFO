@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: wrapt
-Version: 2.4.1
+Version: 2.5.0
 Summary: Module for decorators, wrappers and monkey patching.
 Author-email: Graham Dumpleton <Graham.Dumpleton@gmail.com>
 License-Expression: BSD-2-Clause
@@ -27,6 +27,10 @@ Provides-Extra: dev
 Requires-Dist: pytest; extra == "dev"
 Requires-Dist: setuptools; extra == "dev"
 Dynamic: license-file
+
+.. image:: https://raw.githubusercontent.com/GrahamDumpleton/wrapt/develop/docs/_static/wrapt-logo.svg
+   :alt: wrapt
+   :width: 182px
 
 wrapt
 =====

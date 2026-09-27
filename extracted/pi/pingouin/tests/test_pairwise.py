@@ -356,6 +356,14 @@ class TestPairwise(TestCase):
                 data=df,
             )
 
+        # More than two between or within factors
+        with pytest.raises(ValueError):
+            pairwise_tests(dv="Scores", between=["Time", "Group", "Subject"], data=df)
+        with pytest.raises(ValueError):
+            pairwise_tests(
+                dv="Scores", within=["Time", "Group", "Subject"], subject="Subject", data=df
+            )
+
         # Wrong input argument
         df["Group"] = "Control"
         with pytest.raises(ValueError):
@@ -528,6 +536,25 @@ class TestPairwise(TestCase):
             p = min(p * len(combs), 1)
             assert round(p, 7) == float(pt.at[a, b])
 
+        # Other correction methods must be honored, not silently replaced by Bonferroni
+        from pingouin.multicomp import multicomp
+
+        pvals = np.array([ttest_rel(df[a], df[b], nan_policy="omit")[1] for a, b in combs])
+        for padjust in ["holm", "sidak", "fdr_bh", "fdr_by"]:
+            pt = df.ptests(decimals=7, paired=True, stars=False, padjust=padjust)
+            actual = np.array([float(pt.at[a, b]) for a, b in combs])
+            np.testing.assert_allclose(actual, multicomp(pvals, method=padjust)[1], atol=1e-7)
+        pt_holm = df.ptests(paired=True, stars=False, padjust="holm")
+        pt_bonf = df.ptests(paired=True, stars=False, padjust="bonf")
+        assert not pt_holm.equals(pt_bonf)
+        with pytest.raises(ValueError):
+            df.ptests(padjust="wrong")
+        # axis and nan_policy are fixed by ptests and cannot be passed to scipy
+        with pytest.raises(ValueError):
+            df.ptests(axis=1)
+        with pytest.raises(ValueError):
+            df.ptests(nan_policy="raise")
+
     def test_pairwise_tukey(self):
         """Test function pairwise_tukey.
 
@@ -580,6 +607,31 @@ class TestPairwise(TestCase):
         # P-values Pingouin: [0.5766, 0.0010, 0.0010]
         sig = stats["p_tukey"].apply(lambda x: "Yes" if x < 0.05 else "No").to_numpy()
         assert np.array_equal(sig, ["No", "Yes", "Yes"])
+
+        # Interaction of two factors: all the pairs of species x sex cells. Compare with R:
+        # TukeyHSD(aov(body_mass_g ~ species * sex, data=df), which="species:sex")
+        stats = df.pairwise_tukey(dv="body_mass_g", between=["species", "sex"])
+        assert stats.shape[0] == 15
+        assert stats.at[0, "A"] == ("Adelie", "female")
+        assert stats.at[0, "B"] == ("Adelie", "male")
+        # R: Adelie:male-Adelie:female, Chinstrap:female-Adelie:female, Chinstrap:male-Adelie:male,
+        # Chinstrap:male-Chinstrap:female
+        idx = [0, 1, 6, 9]
+        np.testing.assert_allclose(
+            stats.loc[idx, "diff"], [-674.6575342, -158.3702659, 104.5225624, -411.7647059]
+        )
+        np.testing.assert_allclose(
+            stats.loc[idx, "p_tukey"], [0, 0.1376213087, 0.5812048336, 0.0000012196], atol=1e-8
+        )
+        # Same as a single factor with one level per cell
+        df_cells = df.dropna(subset=["species", "sex"]).copy()
+        df_cells["cell"] = df_cells["species"] + "_" + df_cells["sex"]
+        stats_cells = df_cells.pairwise_tukey(dv="body_mass_g", between="cell")
+        num = ["mean_A", "mean_B", "diff", "se", "T", "p_tukey", "hedges"]
+        np.testing.assert_allclose(stats[num], stats_cells[num])
+        # A list with a single factor is the same as a string
+        stats = df.pairwise_tukey(dv="body_mass_g", between=["species"])
+        assert stats.equals(df.pairwise_tukey(dv="body_mass_g", between="species"))
 
     def test_pairwise_gameshowell(self):
         """Test function pairwise_gameshowell.
@@ -637,6 +689,15 @@ class TestPairwise(TestCase):
         sig = stats["pval"].apply(lambda x: "Yes" if x < 0.05 else "No").to_numpy()
         assert np.array_equal(sig, ["No", "Yes", "Yes"])
 
+        # Interaction of two factors: same as a single factor with one level per cell
+        stats = pairwise_gameshowell(data=df, dv="body_mass_g", between=["species", "sex"])
+        assert stats.at[0, "A"] == ("Adelie", "female")
+        df_cells = df.dropna(subset=["species", "sex"]).copy()
+        df_cells["cell"] = df_cells["species"] + "_" + df_cells["sex"]
+        stats_cells = pairwise_gameshowell(data=df_cells, dv="body_mass_g", between="cell")
+        num = ["mean_A", "mean_B", "diff", "se", "T", "df", "pval", "hedges"]
+        np.testing.assert_allclose(stats[num], stats_cells[num])
+
     def test_pairwise_corr(self):
         """Test function pairwise_corr"""
         # Load JASP Big 5 DataSets (remove subject column)
@@ -681,6 +742,10 @@ class TestPairwise(TestCase):
         # Test with covariate
         pairwise_corr(data, covar="Age")
         pairwise_corr(data, covar=["Age", "Neuroticism"])
+        pd.testing.assert_frame_equal(
+            pairwise_corr(data, covar=pd.Index(["Age", "Neuroticism"])),
+            pairwise_corr(data, covar=["Age", "Neuroticism"]),
+        )
         with pytest.raises(AssertionError):
             pairwise_corr(data, covar=["Age", "Gender"])
         with pytest.raises(ValueError):

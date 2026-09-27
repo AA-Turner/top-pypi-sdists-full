@@ -129,6 +129,13 @@ class TestPutAgentsResponse(unittest.TestCase):
                         source_classes = [
                             'cloud'
                             ], )
+                    ],
+                rejected = [
+                    arthur_client.api_bindings.models.rejected_agent.RejectedAgent(
+                        index = 56, 
+                        task_id = '', 
+                        name = '', 
+                        reason = '', )
                     ]
             )
         else:

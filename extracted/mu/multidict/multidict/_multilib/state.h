@@ -1,14 +1,21 @@
 #ifndef _MULTIDICT_STATE_H
 #define _MULTIDICT_STATE_H
 
-#include "atomic_helpers.h"
-
 #ifdef __cplusplus
 extern "C" {
 #endif
 
+#include "../multidict_capi_struct.h"
+#include "htkeys.h"
+
 /* State of the _multidict module */
 typedef struct {
+    /* The module owning this state, borrowed. Anything caching `state`
+       holds a strong reference to it: type_clear() drops the type's
+       module reference, so the type is no longer enough to keep the
+       state alive. */
+    PyObject* mod;
+
     PyTypeObject* IStrType;
 
     PyTypeObject* MultiDictType;
@@ -28,21 +35,51 @@ typedef struct {
     PyObject* str_lower;
     PyObject* str_name;
 
+    // Parameter names, interned so parse2() can match kwnames by identity.
+    PyObject* str_key;
+    PyObject* str_default;
+    PyObject* str_value;
+
+    // The implicit default of setdefault(), kept so the common call does
+    // not build one per invocation.
+    PyObject* none;
+
+#ifndef Py_GIL_DISABLED
     uint64_t global_version;
+#endif
+
+    /* Watcher slots, indexed by the id MultiDict_AddWatcher() hands out.
+       Per-interpreter, like CPython's, since module state is. A NULL
+       callback is a free slot, and also what a watch bit left behind by
+       MultiDict_ClearWatcher() resolves to. */
+    MultiDict_WatchCallback watchers[MULTIDICT_MAX_WATCHERS];
+    void* watcher_data[MULTIDICT_MAX_WATCHERS];
+    /* Bumped by every MultiDict_ClearWatcher(), so a watch bit attached
+       under an earlier registration of the same ID no longer matches once
+       AddWatcher() hands the ID out again. */
+    uint64_t watcher_generation[MULTIDICT_MAX_WATCHERS];
+#ifdef Py_GIL_DISABLED
+    // serializes AddWatcher() and ClearWatcher(); delivery reads lock-free
+    PyMutex watcher_mutex;
+#endif
+
+    /* Nothing pooled here holds a reference, so module_traverse() has
+       nothing to visit; all of them are drained by module_clear().
+
+       One pool serves all three view types and one all three iterator
+       types: within a family the types differ only in their methods,
+       so a shell fits any of them. */
+    pool_t htkeys_pools[HTKEYS_POOL_CLASSES];
+    pool_t view_pool;
+    pool_t iter_pool;
+    pool_t md_pool;
+    pool_t proxy_pool;
 } mod_state;
 
 static inline mod_state*
 get_mod_state(PyObject* mod)
 {
     mod_state* state = (mod_state*)PyModule_GetState(mod);
-    assert(state != NULL);
-    return state;
-}
-
-static inline mod_state*
-get_mod_state_by_cls(PyTypeObject* cls)
-{
-    mod_state* state = (mod_state*)PyType_GetModuleState(cls);
     assert(state != NULL);
     return state;
 }
@@ -127,15 +164,33 @@ get_mod_state_by_def(PyObject* self)
     return get_mod_state(mod);
 }
 
-static inline uint64_t
-NEXT_VERSION(mod_state* state)
-{
-#ifdef Py_GIL_DISABLED
-    return atomic_fetch_add_uint64_relaxed(&state->global_version, 1) + 1;
-#else
-    return ++state->global_version;
-#endif
-}
+#define MultiDict_CheckExact(state, obj) Py_IS_TYPE(obj, state->MultiDictType)
+#define MultiDict_Check(state, obj)      \
+    (MultiDict_CheckExact(state, obj) || \
+     PyObject_TypeCheck(obj, state->MultiDictType))
+#define CIMultiDict_CheckExact(state, obj) \
+    Py_IS_TYPE(obj, state->CIMultiDictType)
+#define CIMultiDict_Check(state, obj)      \
+    (CIMultiDict_CheckExact(state, obj) || \
+     PyObject_TypeCheck(obj, state->CIMultiDictType))
+#define AnyMultiDict_Check(state, obj)     \
+    (MultiDict_CheckExact(state, obj) ||   \
+     CIMultiDict_CheckExact(state, obj) || \
+     PyObject_TypeCheck(obj, state->MultiDictType))
+#define MultiDictProxy_CheckExact(state, obj) \
+    Py_IS_TYPE(obj, state->MultiDictProxyType)
+#define MultiDictProxy_Check(state, obj)      \
+    (MultiDictProxy_CheckExact(state, obj) || \
+     PyObject_TypeCheck(obj, state->MultiDictProxyType))
+#define CIMultiDictProxy_CheckExact(state, obj) \
+    Py_IS_TYPE(obj, state->CIMultiDictProxyType)
+#define CIMultiDictProxy_Check(state, obj)      \
+    (CIMultiDictProxy_CheckExact(state, obj) || \
+     PyObject_TypeCheck(obj, state->CIMultiDictProxyType))
+#define AnyMultiDictProxy_Check(state, obj)     \
+    (MultiDictProxy_CheckExact(state, obj) ||   \
+     CIMultiDictProxy_CheckExact(state, obj) || \
+     PyObject_TypeCheck(obj, state->MultiDictProxyType))
 
 #ifdef __cplusplus
 }

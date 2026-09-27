@@ -228,7 +228,8 @@ class MediaItem(_MediaItemBase):
     provider_mappings: set[ProviderMapping]
     # optional fields below
     metadata: MediaItemMetadata = field(default_factory=MediaItemMetadata)
-    favorite: bool = False
+    # True is a like, False a dislike, None means the user expressed nothing
+    favorite: bool | None = None
     position: int | None = None  # required for playlist tracks, optional for all other
     date_added: datetime | None = None  # when item was added to library/collection
 
@@ -426,8 +427,14 @@ class Radio(_LocalizableTitle, MediaItem):
 
     media_type: MediaType = MediaType.RADIO
     duration: int | None = None
-    # When True, tracks come from get_dynamic_radio_tracks instead of a live stream.
+    # When True the tracklist changes on every fetch (get_dynamic_radio_tracks)
+    # and the queue keeps refilling from it.
     is_dynamic: bool = False
+    # When True playback never ends: a broadcast stream (not is_dynamic) or a
+    # continuous dynamic feed (is_dynamic). When False the station is finite: a fixed
+    # tracklist paged through get_radio_tracks (not is_dynamic) or a dynamic feed that
+    # ends once exhausted (is_dynamic); either way the queue plays it out and ends.
+    is_endless: bool = True
 
     def __post_serialize__(self, d: dict[str, Any]) -> dict[str, Any]:
         """Adjust dict object after it has been serialized."""

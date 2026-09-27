@@ -1,3 +1,5 @@
+import sys
+import types
 from unittest import TestCase
 
 import numpy as np
@@ -11,9 +13,6 @@ from pingouin.utils import (
     _flatten_list,
     _get_round_setting_for,
     _is_mpmath_installed,
-    _is_sklearn_installed,
-    _is_sklearn_version_compatible,
-    _is_statsmodels_installed,
     _perm_pval,
     _postprocess_dataframe,
     print_table,
@@ -66,7 +65,26 @@ class TestUtils(TestCase):
         df2 = _postprocess_dataframe(df2)
         pd.testing.assert_frame_equal(df2, df_expected)
 
+        # Column-only options (fast path): booleans and str are never rounded, arrays are
+        df3 = pd.DataFrame(
+            {
+                "flag": [True, False],
+                "name": ["a", "b"],
+                "CI95": [np.array([0.123, 1.987])] * 2,
+                "BF10": [1.23456, 0.0000123],
+            }
+        )
+        pingouin.options.clear()
+        pingouin.options["round"] = 1
+        pingouin.options["round.column.BF10"] = pingouin.config._format_bf
+        df3 = _postprocess_dataframe(df3)
+        assert df3["flag"].tolist() == [True, False]
+        assert df3["name"].tolist() == ["a", "b"]
+        np.testing.assert_array_equal(df3.at[0, "CI95"], [0.1, 2.0])
+        assert df3["BF10"].tolist() == ["1.235", "1.23e-05"]
+
         # restore old options
+        pingouin.options.clear()
         pingouin.options.update(old_opts)
 
     def test_get_round_setting_for(self):
@@ -122,6 +140,13 @@ class TestUtils(TestCase):
         assert low > up
         assert up + low == 1
         assert up < two < low
+        # Values within floating-point error of the estimate are counted as ties
+        x = 0.1 + 0.2  # 0.30000000000000004
+        bootstat = np.array([0.3, 0.3, 0.3, 0.1])
+        assert _perm_pval(bootstat, x, alternative="greater") == 0.75
+        assert _perm_pval(bootstat, -x, alternative="less") == 0
+        assert _perm_pval(-bootstat, -x, alternative="less") == 0.75
+        assert _perm_pval(-bootstat, x, alternative="two-sided") == 0.75
 
     def test_remove_na(self):
         """Test function remove_na."""
@@ -164,6 +189,28 @@ class TestUtils(TestCase):
 
     def test_check_dataframe(self):
         """Test function _check_dataframe."""
+
+        # DataMatrix objects are converted to pandas DataFrame
+        class DataMatrix:
+            pass
+
+        fake_datamatrix = types.ModuleType("datamatrix")
+        fake_datamatrix.DataMatrix = DataMatrix
+        fake_datamatrix.convert = types.SimpleNamespace(to_pandas=lambda dm: df)
+        with pytest.MonkeyPatch.context() as mp:
+            # DataMatrix not installed
+            mp.setitem(sys.modules, "datamatrix", None)
+            with pytest.raises(ValueError, match="DataMatrix not available"):
+                _check_dataframe(dv="Values", between="Group", effects="between", data=DataMatrix())
+            mp.setitem(sys.modules, "datamatrix", fake_datamatrix)
+            out = _check_dataframe(
+                dv="Values", between="Group", effects="between", data=DataMatrix()
+            )
+            pd.testing.assert_frame_equal(out, df)
+            # An object that is only named DataMatrix
+            other = type("DataMatrix", (), {})()
+            with pytest.raises(ValueError, match="compatible object"):
+                _check_dataframe(dv="Values", between="Group", effects="between", data=other)
         _check_dataframe(dv="Values", between="Group", effects="between", data=df)
         _check_dataframe(dv="Values", within="Time", subject="Subject", effects="within", data=df)
         _check_dataframe(
@@ -173,6 +220,10 @@ class TestUtils(TestCase):
             between="Group",
             effects="interaction",
             data=df,
+        )
+        # Unsigned integer DV
+        _check_dataframe(
+            dv="Values", between="Group", effects="between", data=df.astype({"Values": "uint8"})
         )
         # Wrond and or missing arguments
         with pytest.raises(ValueError):
@@ -192,18 +243,6 @@ class TestUtils(TestCase):
         with pytest.raises(ValueError):
             _check_dataframe(dv="Values", between="Group", within="Time", effects="within", data=df)
 
-    def _is_statsmodels_installed(self):
-        """Test function _is_statsmodels_installed."""
-        assert isinstance(_is_statsmodels_installed(), bool)
-
-    def _is_sklearn_installed(self):
-        """Test function _is_sklearn_installed."""
-        assert isinstance(_is_sklearn_installed(), bool)
-
-    def _is_sklearn_version_compatible(self):
-        """Test function _is_sklearn_version_compatible."""
-        assert isinstance(_is_sklearn_version_compatible(), bool)
-
-    def _is_mpmath_installed(self):
+    def test_is_mpmath_installed(self):
         """Test function _is_mpmath_installed."""
         assert isinstance(_is_mpmath_installed(), bool)

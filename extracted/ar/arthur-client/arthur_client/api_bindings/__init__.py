@@ -431,6 +431,7 @@ from arthur_client.api_bindings.models.regenerate_task_validation_key_job_spec i
 from arthur_client.api_bindings.models.regex_config import RegexConfig
 from arthur_client.api_bindings.models.register_user import RegisterUser
 from arthur_client.api_bindings.models.registered_agent_provider import RegisteredAgentProvider
+from arthur_client.api_bindings.models.rejected_agent import RejectedAgent
 from arthur_client.api_bindings.models.relevance_metric_config import RelevanceMetricConfig
 from arthur_client.api_bindings.models.reported_custom_aggregation import ReportedCustomAggregation
 from arthur_client.api_bindings.models.resource_kind import ResourceKind

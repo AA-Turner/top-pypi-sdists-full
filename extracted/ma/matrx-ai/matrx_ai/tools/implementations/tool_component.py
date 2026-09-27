@@ -1170,8 +1170,12 @@ async def toolcomp_list_tools(args: dict[str, Any], ctx: ToolContext) -> ToolRes
                 else:  # source_kind
                     key = t.get("source_kind") or "unknown"
 
-                groups.setdefault(key, []).append(_tool_row(t))
+                groups.setdefault(key, []).append(t["name"])
 
+            # Grouped mode is the DISCOVERY view: every group, its count and
+            # every tool NAME — never every full row (the 2026-08-31/09-04
+            # ops tool_result_overflow:toolcomp_list_tools events were this
+            # mode at 169,438 chars). Rows are one call away per family.
             sorted_groups = sorted(groups.items())
             return ToolResult(
                 success=True,
@@ -1180,13 +1184,17 @@ async def toolcomp_list_tools(args: dict[str, Any], ctx: ToolContext) -> ToolRes
                     total_tools=total_matching,
                     group_count=len(sorted_groups),
                     groups={
-                        key: {
-                            "count": len(rows),
-                            "tools": rows,
-                        }
-                        for key, rows in sorted_groups
+                        key: {"count": len(names), "tools": [], "names": names}
+                        for key, names in sorted_groups
                     },
+                    note=(
+                        "Grouped mode lists every group with its tool names only. For "
+                        "descriptions/categories/tags of one family call "
+                        "toolcomp_list_tools with that filter (prefix=<group> for "
+                        "group_by='prefix', category=<group>, or source_kind=<group>)."
+                    ),
                 ),
+                output_self_capped=True,
             )
 
         # ── Flat paginated mode ──────────────────────────────────────────────
@@ -1205,6 +1213,8 @@ async def toolcomp_list_tools(args: dict[str, Any], ctx: ToolContext) -> ToolRes
                 next_offset=next_offset,
                 tools=[_tool_row(t) for t in page],
             ),
+            # limit ≤ 100 rows x a 120-char description: bounded by construction.
+            output_self_capped=True,
         )
 
     except Exception as e:

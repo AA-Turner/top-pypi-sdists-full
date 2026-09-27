@@ -26,6 +26,8 @@ import bson
 import pytest
 from bson import Decimal128, Int64, ObjectId, Timestamp
 
+from parity_compare import same as _same
+
 _rust = pytest.importorskip("_secantus_core", reason="Rust core extension not built")
 
 
@@ -54,9 +56,42 @@ def _load_pure_expr():
 _pure = _load_pure_expr()
 
 
+class RustMongoError(Exception):
+    """The Rust engine named a real mongod error rather than deferring.
+
+    A defer on the Python server is harmless -- the pure engine runs -- but the
+    standalone Rust server has no Python behind it, so a deferred *argument*
+    error reaches the client as "not supported by the Rust server". The engine
+    can now carry the code and message instead, and this is how the parity suite
+    sees it: whenever Rust names an error, the pure engine must raise the same
+    one, verbatim. Comparing "both deferred" would have been vacuously green on
+    exactly the inputs the Rust server has to get right alone.
+    """
+
+    def __init__(self, code, errmsg):
+        super().__init__(f"[{code}] {errmsg}")
+        self.code = code
+        self.errmsg = errmsg
+
+
 def _rust_eval(expr, doc, vars=None):
     res = _rust.evaluate(bson.encode(doc), bson.encode({"e": expr}), bson.encode(vars or {}))
-    return None if res is None else bson.decode(res)["r"]
+    if res is None:
+        return None
+    out = bson.decode(res)
+    if "err" in out:
+        raise RustMongoError(out["err"]["code"], out["err"]["errmsg"])
+    return out["r"]
+
+
+def assert_named_error_matches_pure(exc, expr, doc=None, vars=None):
+    """The pure engine must raise exactly the error the Rust engine named."""
+    with pytest.raises(_pure.ExpressionError) as caught:
+        _pure.evaluate(expr, doc if doc is not None else {}, vars)
+    assert (caught.value.code, str(caught.value)) == (exc.code, exc.errmsg), (
+        f"named-error drift on {expr}: rust=({exc.code}, {exc.errmsg!r}) "
+        f"pure=({caught.value.code}, {str(caught.value)!r})"
+    )
 
 
 def _bson_norm(v):
@@ -79,6 +114,27 @@ def _mkdate(ms):
 
 # (expr, doc) pairs over the ported operator core.
 CURATED = [
+    # --- signed zero -------------------------------------------------------
+    # `$add` / `$sum` / `$avg` fold from a ZERO accumulator, so a lone `-0.0`
+    # comes back POSITIVE; `$multiply` folds from ONE and keeps the sign. Both
+    # engines returned `-0.0` from `$add` -- parity was green while both were
+    # wrong -- and `==` could not have seen it anyway (`-0.0 == 0.0`). See
+    # `_same`. Measured against mongod 8.2.11, 2026-09-03.
+    ({"$add": [-0.0]}, {}),
+    ({"$add": [-0.0, 0.0]}, {}),
+    ({"$sum": [-0.0]}, {}),
+    ({"$avg": [-0.0]}, {}),
+    ({"$multiply": [-0.0]}, {}),
+    # A rounding that lands on zero keeps the sign; `$abs` does not.
+    ({"$ceil": -0.5}, {}),
+    ({"$ceil": -0.0}, {}),
+    ({"$floor": -0.0}, {}),
+    ({"$trunc": -0.5}, {}),
+    ({"$trunc": -0.0}, {}),
+    ({"$round": -0.5}, {}),
+    ({"$abs": -0.0}, {}),
+    # Nested, because `==` on the container hid it too.
+    ({"$map": {"input": [-0.5, 0.5], "in": {"$ceil": "$$this"}}}, {}),
     # $sum/$avg/$max/$min as expression operators (MongoDB 5.0+) — Rust must
     # compute the SAME value + numeric width as Python (int32/int64/double).
     ({"$sum": "$arr"}, {"arr": [1, 2, 3]}),  # int32 result
@@ -241,10 +297,20 @@ CURATED = [
     ({"$toUpper": "$a"}, {"a": "hi"}),
     ({"$toLower": "HELLO"}, {}),
     ({"$toUpper": "$a"}, {"a": 123}),  # non-string passes through
+    # A Timestamp renders through mongod's legacy asctime-like path in the
+    # process's LOCAL time. Both engines read the same process zone, so these
+    # agree wherever they run; `tests/test_tolower_timestamp_local_time.py`
+    # is what pins the rendering itself to measured mongod answers.
+    ({"$toLower": Timestamp(1700000000, 3)}, {}),
+    ({"$toUpper": Timestamp(1700000000, 3)}, {}),
+    ({"$toLower": Timestamp(1720000000, 0)}, {}),  # zero increment, not dropped
+    ({"$toUpper": Timestamp(1, 12)}, {}),  # epoch, two-digit increment
+    ({"$toLower": "$a"}, {"a": Timestamp(1767225600, 7)}),  # via a field path
     ({"$strLenCP": "hello"}, {}),
     ({"$split": ["a,b,c", ","]}, {}),
     ({"$split": ["$a", "-"]}, {"a": "1-2-3"}),
-    # Invalid $split: Rust defers (None); Python raises 40085/40086/40087/16020.
+    # Invalid $split: both engines now NAME these -- 40085 / 10503900 / 40087 /
+    # 16020 (the second argument's code is not 40086 on 8.2.11).
     ({"$split": ["a,b", ""]}, {}),  # empty sep
     ({"$split": [5, ","]}, {}),  # non-string first
     ({"$split": ["a,b", 5]}, {}),  # non-string second
@@ -993,11 +1059,15 @@ CURATED = [
 @pytest.mark.parametrize("expr,doc", CURATED)
 def test_curated_parity(expr, doc):
     doc = bson.decode(bson.encode(doc))
-    rust = _rust_eval(expr, doc)
+    try:
+        rust = _rust_eval(expr, doc)
+    except RustMongoError as exc:
+        assert_named_error_matches_pure(exc, expr, doc)
+        return
     if rust is None:
         return
     py = _bson_norm(_pure.evaluate(expr, doc))
-    assert rust == py, f"rust={rust!r} pure={py!r} expr={expr}"
+    assert _same(rust, py), f"rust={rust!r} pure={py!r} expr={expr}"
 
 
 def test_rand_shape_parity():
@@ -1080,7 +1150,7 @@ def test_index_math_fuzz():
     """Stress $slice / $substrCP / $indexOfArray index arithmetic (the riskiest
     part — negative indices, out-of-range, clamping) against pure Python."""
     rng = random.Random(0x51CE)
-    handled = 0
+    handled = named = 0
     for _ in range(6000):
         arr = [rng.randint(0, 4) for _ in range(rng.randint(0, 6))]
         s = "".join(rng.choice("abcde") for _ in range(rng.randint(0, 6)))
@@ -1096,13 +1166,21 @@ def test_index_math_fuzz():
             ]
         )
         expr = bson.decode(bson.encode({"e": expr}))["e"]
-        rust = _rust_eval(expr, {})
+        try:
+            rust = _rust_eval(expr, {})
+        except RustMongoError as exc:
+            # A negative / non-integral index is an ERROR in mongod, not a
+            # clamp; both engines used to answer a value for it.
+            assert_named_error_matches_pure(exc, expr)
+            named += 1
+            continue
         if rust is None:
             continue
         handled += 1
         py = _pure.evaluate(expr, {})
-        assert rust == py, f"divergence: rust={rust!r} pure={py!r} expr={expr}"
+        assert _same(rust, py), f"divergence: rust={rust!r} pure={py!r} expr={expr}"
     assert handled > 2000, f"expected many handled cases, only {handled}"
+    assert named > 100, f"expected many named errors, only {named}"
 
 
 def test_date_extractor_fuzz():
@@ -1137,7 +1215,7 @@ def test_date_extractor_fuzz():
             if rust is None:
                 continue
             py = _pure.evaluate(expr, doc)
-            assert rust == py, f"{op}: rust={rust} pure={py} ms={ms} dt={doc['d']}"
+            assert _same(rust, py), f"{op}: rust={rust} pure={py} ms={ms} dt={doc['d']}"
 
 
 def test_date_from_string_strptime_fuzz():
@@ -1179,7 +1257,7 @@ def test_date_from_string_strptime_fuzz():
         if rust is None:
             continue  # Rust deferred -> Python (compute or raise) handles it
         py = _bson_norm(_pure.evaluate(expr, {}))
-        assert rust == py, f"rust={rust!r} pure={py!r} inp={inp!r} fmt={fmt!r}"
+        assert _same(rust, py), f"rust={rust!r} pure={py!r} inp={inp!r} fmt={fmt!r}"
 
 
 def test_date_arithmetic_fuzz():
@@ -1212,7 +1290,7 @@ def test_date_arithmetic_fuzz():
             py = _pure.evaluate(expr, doc)
         except Exception:
             pytest.fail(f"rust={rust!r} but pure raised; expr={expr} a={d1} b={d2}")
-        assert rust == py, f"rust={rust!r} pure={py!r} expr={expr} a={d1} b={d2}"
+        assert _same(rust, py), f"rust={rust!r} pure={py!r} expr={expr} a={d1} b={d2}"
 
 
 def test_zip_fuzz():
@@ -1229,14 +1307,22 @@ def test_zip_fuzz():
         if rng.random() < 0.4:
             spec["defaults"] = [rng.randint(-1, -1) for _ in inputs]
         expr = bson.decode(bson.encode({"e": {"$zip": spec}}))["e"]
-        rust = _rust_eval(expr, {})
+        # The generator can produce `inputs: []`, which mongod rejects with
+        # 34465 -- both engines now name that error, where they used to answer
+        # an empty array. A named error is a parity result like any other: the
+        # pure engine must raise exactly the same code and message.
+        try:
+            rust = _rust_eval(expr, {})
+        except RustMongoError as exc:
+            assert_named_error_matches_pure(exc, expr, {})
+            continue
         if rust is None:
             continue
         try:
             py = _pure.evaluate(expr, {})
         except Exception:
             pytest.fail(f"rust={rust!r} but pure raised; expr={expr}")
-        assert rust == py, f"rust={rust!r} pure={py!r} expr={expr}"
+        assert _same(rust, py), f"rust={rust!r} pure={py!r} expr={expr}"
 
 
 def test_string_index_fuzz():
@@ -1261,14 +1347,18 @@ def test_string_index_fuzz():
             ]
         )
         expr = bson.decode(bson.encode({"e": expr}))["e"]
-        rust = _rust_eval(expr, {})
+        try:
+            rust = _rust_eval(expr, {})
+        except RustMongoError as exc:
+            assert_named_error_matches_pure(exc, expr)
+            continue
         if rust is None:
             continue
         try:
             py = _pure.evaluate(expr, {})
         except Exception:
             pytest.fail(f"rust={rust!r} but pure raised; expr={expr}")
-        assert rust == py, f"rust={rust!r} pure={py!r} expr={expr}"
+        assert _same(rust, py), f"rust={rust!r} pure={py!r} expr={expr}"
 
 
 def test_math_and_range_fuzz():
@@ -1285,21 +1375,180 @@ def test_math_and_range_fuzz():
         )
         for op in ("$abs", "$floor", "$ceil", "$sqrt"):
             expr = {op: v}
-            rust = _rust_eval(expr, {})
+            try:
+                rust = _rust_eval(expr, {})
+            except RustMongoError as exc:
+                # e.g. $sqrt of a negative — a domain error mongod names.
+                assert_named_error_matches_pure(exc, expr)
+                continue
             if rust is None:
                 continue
             try:
                 py = _pure.evaluate(expr, {})
             except Exception:
                 pytest.fail(f"{op}: rust={rust!r} but pure raised; v={v!r}")
-            assert rust == py, f"{op}: rust={rust!r} pure={py!r} v={v!r}"
+            assert _same(rust, py), f"{op}: rust={rust!r} pure={py!r} v={v!r}"
         # $range
         lo, hi = rng.randint(-20, 20), rng.randint(-20, 20)
         step = rng.choice([1, 2, 3, -1, -2])
         expr = {"$range": [lo, hi, step]}
-        rust = _rust_eval(expr, {})
+        try:
+            rust = _rust_eval(expr, {})
+        except RustMongoError as exc:
+            assert_named_error_matches_pure(exc, expr)
+            continue
         if rust is not None:
-            assert rust == _pure.evaluate(expr, {}), f"$range lo={lo} hi={hi} step={step}"
+            assert _same(rust, _pure.evaluate(expr, {})), f"$range lo={lo} hi={hi} step={step}"
+
+
+def test_numeric_string_conversion_parity():
+    """$convert / $toInt / $toLong / $toDouble / $toObjectId over numeric-ish
+    strings, including every shape that separates mongod's parsing from the host
+    language's.
+
+    Python's `int()` / `float()` and Rust's `str::parse` each accept things
+    mongod refuses, and not the SAME things -- Python takes PEP-515 underscores
+    and surrounding whitespace, Rust takes neither but does take `inf`. So this
+    is not a "both use the standard parser" case where parity is free; each
+    engine had to gate the syntax itself, and the reason strings differ per
+    target (int says "No digits" where double says "Empty string"). Drift here
+    is silent: a wrong reason still errors, just with the wrong sentence.
+    """
+    strings = [
+        "",
+        " ",
+        "5",
+        " 5 ",
+        "5 ",
+        "-5",
+        "+5",
+        "0",
+        "-0",
+        "007",
+        "1_000",
+        "1,000",
+        "12abc",
+        "abc",
+        "0x10",
+        "-0x10",
+        "0X1f",
+        "1.5",
+        "-1.5",
+        ".5",
+        "5.",
+        "1e3",
+        "1E3",
+        "1e",
+        "1e+",
+        "1e-3",
+        "inf",
+        "-inf",
+        "Infinity",
+        "nan",
+        "NaN",
+        "-NaN",
+        "99999999999999999999",
+        "-99999999999999999999",
+        "2147483647",
+        "2147483648",
+        "-2147483648",
+        "-2147483649",
+        "9223372036854775807",
+        "9223372036854775808",
+        "507f1f77bcf86cd799439011",
+        "507f1f77bcf86cd79943901",
+        "zzzzzzzzzzzzzzzzzzzzzzzz",
+        "true",
+        "null",
+        "\t5",
+        "5\n",
+    ]
+    ops = ["$toInt", "$toLong", "$toDouble", "$toObjectId", "$toString"]
+    compared = 0
+    for text in strings:
+        for op in ops:
+            expr = bson.decode(bson.encode({"e": {op: text}}))["e"]
+            try:
+                rust = _rust_eval(expr, {})
+            except RustMongoError as exc:
+                assert_named_error_matches_pure(exc, expr)
+                compared += 1
+                continue
+            if rust is None:
+                continue
+            compared += 1
+            py = _bson_norm(_pure.evaluate(expr, {}))
+            assert _same(rust, py), f"{op}({text!r}): rust={rust!r} pure={py!r}"
+        # The same inputs through $convert with an onError sink: the error must
+        # not escape, and both engines must reach the sink for the same inputs.
+        for target in ("int", "long", "double", "objectId"):
+            expr = bson.decode(
+                bson.encode({"e": {"$convert": {"input": text, "to": target, "onError": "E"}}})
+            )["e"]
+            rust = _rust_eval(expr, {})
+            if rust is None:
+                continue
+            compared += 1
+            assert _same(rust, _bson_norm(_pure.evaluate(expr, {}))), (
+                f"$convert({text!r} -> {target}, onError): rust={rust!r}"
+            )
+    assert compared > 200, f"expected broad coverage, only {compared} comparisons"
+
+
+def test_date_format_directive_parity():
+    """Every `$dateToString` directive mongod accepts, over dates chosen for the
+    week-numbering edges, plus the ones it REFUSES.
+
+    `%G` / `%V` (ISO week-based year and week) and `%U` (Sunday-start week) are
+    the reason this exists: they disagree with the calendar year around New
+    Year, so 2021-01-03 is 2020-W53 and 2012-12-31 is week 53 of 2012. The Rust
+    `%U` was off by one week for exactly that last date while agreeing on the
+    other fifteen -- the kind of gap a handful of round-number dates misses.
+    """
+    dates = [
+        datetime.datetime(y, m, d, tzinfo=datetime.timezone.utc)
+        for y, m, d in [
+            (2026, 1, 2),
+            (2021, 1, 1),
+            (2021, 1, 3),
+            (2021, 1, 4),
+            (2020, 12, 31),
+            (2024, 12, 30),
+            (2019, 12, 29),
+            (2000, 2, 29),
+            (2015, 6, 15),
+            (1999, 12, 31),
+            (2100, 3, 1),
+            (2016, 1, 1),
+            (2010, 1, 1),
+            (2011, 1, 2),
+            (2012, 12, 31),
+            (2013, 12, 30),
+        ]
+    ]
+    accepted = list("bdjmuwzBGHLMSUVYZ") + ["%"]
+    refused = list("acefghiklnopqrstvxyACDEFIJKNOPQRTWX")
+    compared = named = 0
+    for value in dates:
+        doc = bson.decode(bson.encode({"d": value}))
+        for ch in accepted + refused:
+            expr = bson.decode(
+                bson.encode({"e": {"$dateToString": {"date": "$d", "format": f"[%{ch}]"}}})
+            )["e"]
+            try:
+                rust = _rust_eval(expr, doc)
+            except RustMongoError as exc:
+                assert_named_error_matches_pure(exc, expr, doc)
+                named += 1
+                continue
+            if rust is None:
+                continue
+            compared += 1
+            assert _same(rust, _bson_norm(_pure.evaluate(expr, doc))), (
+                f"%{ch} on {value.date()}: rust={rust!r}"
+            )
+    assert compared > 200, f"expected broad coverage, only {compared}"
+    assert named > 100, f"expected the refused directives to be named, only {named}"
 
 
 def test_conversion_fuzz():
@@ -1329,14 +1578,18 @@ def test_conversion_fuzz():
         doc = bson.decode(bson.encode({"v": v}))
         for op in ("$toInt", "$toDouble", "$toBool", "$toString"):
             expr = {op: "$v"}
-            rust = _rust_eval(expr, doc)
+            try:
+                rust = _rust_eval(expr, doc)
+            except RustMongoError as exc:
+                assert_named_error_matches_pure(exc, expr, doc)
+                continue
             if rust is None:
                 continue
             try:
                 py = _pure.evaluate(expr, doc)
             except Exception:
                 pytest.fail(f"{op}: rust={rust!r} but pure raised; v={v!r}")
-            assert rust == py, f"{op}: rust={rust!r} pure={py!r} v={v!r}"
+            assert _same(rust, py), f"{op}: rust={rust!r} pure={py!r} v={v!r}"
 
 
 def test_randomised_fuzz_parity():
@@ -1345,7 +1598,17 @@ def test_randomised_fuzz_parity():
     for _ in range(8000):
         doc = bson.decode(bson.encode(_rand_doc(rng)))
         expr = bson.decode(bson.encode({"e": _rand_expr(rng, 3)}))["e"]
-        rust = _rust_eval(expr, doc)
+        try:
+            rust = _rust_eval(expr, doc)
+        except RustMongoError as exc:
+            # The engine NAMED mongod's error rather than deferring. That is a
+            # third outcome this loop did not have when it was written -- it
+            # only knew "a value" and "deferred" -- and an escaping exception
+            # failed the run rather than comparing anything. The pure engine
+            # must raise exactly the same error.
+            assert_named_error_matches_pure(exc, expr, doc)
+            handled += 1
+            continue
         if rust is None:
             continue
         try:
@@ -1354,7 +1617,7 @@ def test_randomised_fuzz_parity():
             # Rust produced a value where Python raises -> a real divergence.
             pytest.fail(f"rust={rust!r} but pure raised; expr={expr} doc={doc}")
         handled += 1
-        assert rust == py, f"divergence: rust={rust!r} pure={py!r} expr={expr} doc={doc}"
+        assert _same(rust, py), f"divergence: rust={rust!r} pure={py!r} expr={expr} doc={doc}"
     assert handled > 1000, f"expected many handled cases, only {handled}"
 
 
@@ -1376,18 +1639,22 @@ def test_randomised_fuzz_parity():
     ],
 )
 def test_array_set_typeguard_defers_and_raises(expr, code):
-    # A non-array/non-object argument to these operators: Rust must *defer* (the
-    # raw evaluate returns None) so the pure engine raises mongod's exact
-    # Location code — checking the raw result, not `_rust_eval`, because a
+    # A non-array/non-object argument to these operators. Rust must NOT answer a
+    # value: it either defers (raw evaluate returns None) so the pure engine
+    # raises mongod's exact Location code, or -- better -- names that same error
+    # itself. Checking the RAW result rather than `_rust_eval`, because a
     # computed BSON null would also decode to Python None and hide a silent
     # accept (as it did for $arrayElemAt before the Rust fix).
     doc = bson.decode(bson.encode({"_id": 1}))
     expr = bson.decode(bson.encode({"e": expr}))["e"]
     raw = _rust.evaluate(bson.encode(doc), bson.encode({"e": expr}), bson.encode({}))
-    assert raw is None
+    named = None if raw is None else bson.decode(raw).get("err")
+    assert raw is None or named is not None, f"Rust answered a value for {expr}"
     with pytest.raises(_pure.ExpressionError) as exc:
         _pure.evaluate(expr, doc)
     assert exc.value.code == code
+    if named is not None:
+        assert (named["code"], named["errmsg"]) == (exc.value.code, str(exc.value))
 
 
 @pytest.mark.parametrize(
@@ -1402,16 +1669,24 @@ def test_array_set_typeguard_defers_and_raises(expr, code):
     ],
 )
 def test_string_typeguard_defers_and_raises(expr, code):
-    # Non-string argument to these operators: Rust must defer (raw evaluate None)
-    # so the pure engine raises mongod's exact code. The regex ops previously
-    # silently returned false/null/[] on both engines.
+    """A non-string argument reaches the client as mongod's code either way.
+
+    Rust may DEFER (the pure engine then raises) or NAME the error itself; what
+    must hold is that the client sees `code`. This asserted `raw is None` --
+    pinning the gating DECISION rather than the behaviour -- so it broke the
+    moment these operators learned to name their own error, which is the point
+    of naming them. The regex ops previously returned false/null/[] silently on
+    both engines.
+    """
     doc = bson.decode(bson.encode({"_id": 1}))
     expr = bson.decode(bson.encode({"e": expr}))["e"]
     raw = _rust.evaluate(bson.encode(doc), bson.encode({"e": expr}), bson.encode({}))
-    assert raw is None
+    named = bson.decode(raw).get("err") if raw is not None else None
     with pytest.raises(_pure.ExpressionError) as exc:
         _pure.evaluate(expr, doc)
     assert exc.value.code == code
+    if named is not None:
+        assert (named["code"], named["errmsg"]) == (exc.value.code, str(exc.value))
 
 
 @pytest.mark.parametrize(
@@ -1423,7 +1698,7 @@ def test_string_typeguard_defers_and_raises(expr, code):
         ({"$let": {"vars": {}, "in": "$$x"}}, 17276),
         ({"$switch": {"branches": []}}, 40068),
         ({"$ifNull": [1]}, 1257300),
-        ({"$getField": {"field": 5, "input": {}}}, 5654602),
+        ({"$getField": {"field": 5, "input": {}}}, 3041704),
         ({"$setField": {"field": 5, "input": {}, "value": 1}}, 4161107),
         ({"$sortArray": {"input": [1], "sortBy": "x"}}, 2942507),
         ({"$convert": {"input": 5}}, 9),
@@ -1431,13 +1706,17 @@ def test_string_typeguard_defers_and_raises(expr, code):
     ],
 )
 def test_date_misc_typeguard_defers_and_raises(expr, code):
-    # Date/misc operator error cases: Rust must defer (raw evaluate None) so the
-    # pure engine raises mongod's exact code. $dateToString and $dateDiff missing
-    # endDate were silent accepts.
+    """As above: defer or name it, but the client must see `code` either way.
+
+    `$dateToString` and a `$dateDiff` missing its `endDate` were silent accepts
+    before this existed.
+    """
     doc = bson.decode(bson.encode({"_id": 1}))
     expr = bson.decode(bson.encode({"e": expr}))["e"]
     raw = _rust.evaluate(bson.encode(doc), bson.encode({"e": expr}), bson.encode({}))
-    assert raw is None
+    named = bson.decode(raw).get("err") if raw is not None else None
     with pytest.raises(_pure.ExpressionError) as exc:
         _pure.evaluate(expr, doc)
     assert exc.value.code == code
+    if named is not None:
+        assert (named["code"], named["errmsg"]) == (exc.value.code, str(exc.value))

@@ -1,44 +1,58 @@
-"""Unicode normalization.
+"""Pure-Python implementation of the Unicode normalization algorithm.
 
-This is a pure-Python implementation of the Unicode normalization algorithm.
-Because it relies on data files from the Unicode character database (UCD)
-associated with version 17.0 of the Unicode Standard, it is independent
-of Python's core Unicode database. This approach ensures strict compliance
-with the definitions and rules of that version, released in September 2025.
+This zero-dependency package provides functions for applying the four
+Unicode normalization forms (NFC, NFD, NFKC, and NFKD). It relies on generated
+lookup tables built from the Unicode Character Database (UCD) associated with
+Unicode 18.0.0.
 
-Copyright (c) 2021-2025, Marc Lodewijck
-All rights reserved.
+Because it does not depend on third-party packages or the standard library
+`unicodedata` module, it guarantees consistent behavior across all supported
+Python environments (Python 3.9+), ensuring strict compliance with the rules
+and definitions of Unicode 18.0.0.
 
-The code is available under the terms of the MIT license.
+Copyright (c) 2021-2026, Marc Lodewijck
+Licensed under the terms of the MIT License.
 """
 
-__all__ = [
+from typing import TYPE_CHECKING
+
+from ._internal import UNICODE_VERSION
+from ._version import __version__ as _pkg_version
+
+UCD_VERSION = UNICODE_VERSION
+__version__ = _pkg_version
+
+del _pkg_version
+
+if TYPE_CHECKING:
+    from pyunormalize.normalization import (
+        NFC,
+        NFD,
+        NFKC,
+        NFKD,
+        normalize,
+    )
+
+__all__ = (
     "NFC",
     "NFD",
     "NFKC",
     "NFKD",
-    "normalize",
     "UCD_VERSION",
     "UNICODE_VERSION",
     "__version__",
-]
+    "normalize",
+)
 
-# Unicode Standard used to process the data
-UNICODE_VERSION = UCD_VERSION = "17.0.0"
+_LAZY_EXPORTS = {"NFC", "NFD", "NFKC", "NFKD", "normalize"}
 
-from pyunormalize import _version
 
-__version__ = _version.__version__
-del _version
+def __getattr__(name: str):
+    if name in _LAZY_EXPORTS:
+        from pyunormalize import normalization
 
-from pyunormalize._unicode_data import _UNICODE_VERSION
+        value = getattr(normalization, name)
+        globals()[name] = value
+        return value
 
-if _UNICODE_VERSION != UNICODE_VERSION:
-    raise RuntimeError(
-        f"Unicode version mismatch in '_unicode_data' "
-        f"(expected {UNICODE_VERSION!r}, found {_UNICODE_VERSION!r})"
-    )
-
-del _UNICODE_VERSION
-
-from pyunormalize.normalization import *
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

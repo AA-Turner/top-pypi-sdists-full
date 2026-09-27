@@ -58,6 +58,14 @@ class WorkbookResult(KindModel):
     rows: int | None = None
     cols: int | None = None
     values: list[list[JsonValue]] | None = None
+    #: ``read`` with sheet/range, when the grid was cut to the result budget:
+    #: the requested range's full row count, the A1 range still unread, and the
+    #: sentence naming the exact next call. (The overview read carries the same
+    #: keys inside ``first_sheet``.)
+    truncated: bool | None = None
+    total_rows: int | None = None
+    next_range: str | None = None
+    truncation_notice: str | None = None
     #: ``edit`` — per-op receipts + the saved snapshot.
     applied: list[dict] | None = None
     saved: dict | None = None

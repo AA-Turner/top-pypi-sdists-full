@@ -13,7 +13,7 @@ blob in ``table:secantus_documents``; the index entry's ``key_bytes`` is just
 a sortable fingerprint.
 
 Layout: ``<rank_byte><payload>``. ``rank_byte`` is the BSON type rank
-(MinKey=1 .. MaxKey=13). Payload format depends on type — see ``_encode_*``
+(MinKey=1 .. MaxKey=14). Payload format depends on type — see ``_encode_*``
 helpers. Compound keys are joined with ``\\x00\\x00`` after payload nulls
 have been escaped to ``\\x00\\xff``, so the join is unambiguous and
 byte-sortable.
@@ -28,14 +28,15 @@ from __future__ import annotations
 
 import datetime as _dt
 import math
-import re as _re
 import struct
 from collections.abc import Mapping
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
 import bson
-from bson import Binary, Decimal128, MaxKey, MinKey, ObjectId, Regex, Timestamp
+from bson import Binary, Code, Decimal128, MaxKey, MinKey, ObjectId, Regex, Timestamp
+
+from secantus.bsontypes import regex_options_string
 
 # Type ranks — must match storage._bson_type_rank.
 RANK_MINKEY = 1
@@ -50,7 +51,17 @@ RANK_BOOL = 9
 RANK_DATE = 10
 RANK_TIMESTAMP = 11
 RANK_REGEX = 12
-RANK_MAXKEY = 13
+#: JavaScript is its OWN type to mongod, which sorts it between Regex and
+#: MaxKey -- probed 8.2.11 (2026-09-01): a mixed corpus orders
+#: ``... Timestamp < Regex < Code < MaxKey``. It used to take ``RANK_STRING``,
+#: because ``bson.Code`` subclasses ``str`` and an ``isinstance(value, str)``
+#: test catches one. That put every JavaScript value among the strings, in this
+#: encoder AND in ``ordering._bson_type_rank`` -- and the two HAVE to agree,
+#: because this one writes the rank byte that persisted index entries are
+#: sorted by while that one drives the in-memory sort. Fixing only one made an
+#: index change the sort answer.
+RANK_JAVASCRIPT = 13
+RANK_MAXKEY = 14
 
 
 def _rank(value: Any) -> int:
@@ -62,6 +73,9 @@ def _rank(value: Any) -> int:
         return RANK_BOOL
     if isinstance(value, (int, float, Decimal128)):
         return RANK_NUMBER
+    # Before the `str` arm: `bson.Code` subclasses `str`.
+    if isinstance(value, Code):
+        return RANK_JAVASCRIPT
     if isinstance(value, str):
         return RANK_STRING
     if isinstance(value, Mapping):
@@ -258,22 +272,8 @@ def _encode_array(arr: list[Any]) -> bytes:
 # branch turned e.g. flags=10 into ten NUL bytes instead of "im". Reconstruct
 # the option string the way pymongo serialises it so the key matches the stored
 # regex (and mongod's ordering).
-_RE_FLAG_CHARS = (
-    (_re.I, "i"),
-    (_re.L, "l"),
-    (_re.M, "m"),
-    (_re.S, "s"),
-    (_re.U, "u"),
-    (_re.X, "x"),
-)
-
-
 def _regex_options(flags: Any) -> bytes:
-    if isinstance(flags, str):
-        return flags.encode("utf-8")
-    if isinstance(flags, (bytes, bytearray)):
-        return bytes(flags)
-    return "".join(c for bit, c in _RE_FLAG_CHARS if flags & bit).encode("utf-8")
+    return regex_options_string(flags).encode("utf-8")
 
 
 def _encode_regex(r: Regex) -> bytes:
@@ -299,6 +299,12 @@ def encode_value(value: Any, *, collation: Any = None) -> bytes:
         return head + _encode_number(value)
     if rank == RANK_STRING:
         return head + _encode_string(value, collation)
+    if rank == RANK_JAVASCRIPT:
+        # The code text, byte-ordered. A collation has nothing to say about
+        # JavaScript, so it is deliberately not applied (mongod compares code
+        # text directly); `str(value)` drops `Code`'s scope, which mongod also
+        # ignores for ordering.
+        return head + _escape(str(value).encode("utf-8"))
     if rank == RANK_DOCUMENT:
         return head + _encode_doc(value)
     if rank == RANK_ARRAY:
@@ -340,7 +346,26 @@ def invert_bytes(b: bytes) -> bytes:
 
 
 def encode_value_directed(value: Any, direction: int = 1, *, collation: Any = None) -> bytes:
-    """Like ``encode_value`` but inverts bytes when ``direction == -1``."""
+    """Like ``encode_value`` but inverts bytes when ``direction == -1``.
+
+    **Only for physical B-tree placement -- never for comparison.**
+
+    Inverting gives a descending column the right ORDER inside the index, where
+    the storage engine sorts by raw bytes and there is nowhere to put a
+    direction. It is not a general descending comparator, because **inversion
+    does not reverse a PREFIX relationship**: ``""`` encodes to a strict prefix
+    of ``"a"``'s key, and a shorter byte string sorts first both before and
+    after inversion. The Rust server sorted documents by these keys and put
+    every prefix chain in ASCENDING order inside a descending result --
+    ``["", "a", "ab", "abc", "b"]`` sorted descending came back
+    ``["", "b", "a", "ab", "abc"]`` (measured against mongod 8.2.11,
+    2026-09-06). This server was unaffected only because its in-memory sort
+    goes through ``ordering.sort_docs`` instead.
+
+    To ORDER values, compare ``encode_value`` outputs and negate for a
+    descending column: prefix-shorter-first is exactly right ascending, and its
+    reverse is exactly right descending.
+    """
     e = encode_value(value, collation=collation)
     return invert_bytes(e) if direction == -1 else e
 

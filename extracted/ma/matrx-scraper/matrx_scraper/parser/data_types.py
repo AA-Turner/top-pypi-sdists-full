@@ -363,12 +363,14 @@ class Table(BaseContent):
         if settings.remove_filtered and self.metadata.filtered:
             return {}
         flattened_rows = []
-        all_columns = set()
+        # Columns in the order the table declares them — never a set, whose order changes with
+        # every process (hash randomization) and made one page render as two different texts.
+        all_columns: dict[str, None] = {}
         for row in self.content:
             flattened_row = {}
             for column, cell_content in row.items():
                 flattened_row[column] = self._flatten_cell_to_data(cell_content, settings)
-                all_columns.add(column)
+                all_columns.setdefault(column, None)
             if not any(val.strip() for val in flattened_row.values()):
                 continue
             flattened_rows.append(flattened_row)
@@ -390,12 +392,14 @@ class Table(BaseContent):
         if not self.content:
             return ""
         flattened_rows = []
-        all_columns = set()
+        # Columns in the order the table declares them — never a set, whose order changes with
+        # every process (hash randomization) and made one page render as two different texts.
+        all_columns: dict[str, None] = {}
         for row in self.content:
             flattened_row = {}
             for column, cell_content in row.items():
                 flattened_row[column] = self._flatten_cell_to_text(cell_content, settings)
-                all_columns.add(column)
+                all_columns.setdefault(column, None)
             if not any(val.strip() for val in flattened_row.values()):
                 continue
             flattened_rows.append(flattened_row)

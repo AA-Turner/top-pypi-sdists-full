@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import logging
 import time
 from typing import Any
@@ -101,6 +102,112 @@ MAX_QUERY_TIMEOUT = 10
 
 def _json_safe(value: Any) -> Any:
     return to_jsonable_python(value, serialize_unknown=True, fallback=str)
+
+
+#: Budget for one `sql` query page, measured as compact ASCII-escaped JSON (a
+#: conservative bound for what the model receives). Kept under the generic soft
+#: cap so the tool bounds itself and the platform gate never has to slice JSON.
+SQL_QUERY_RESULT_BUDGET_CHARS = 40_000
+
+#: Per-cell ceiling when a page carries more than one cell. One fat column
+#: (a message `content`, a jsonb `metadata`) must not starve the rest of the
+#: page. A single-row, single-column read gets the whole page budget instead —
+#: that is the documented way to read a trimmed cell in full.
+SQL_CELL_MAX_CHARS = 4_000
+
+#: How many trimmed cells are itemized in `truncated_cells` (the notice still
+#: counts them all).
+_SQL_TRUNCATED_CELLS_LISTED = 50
+
+
+def _compact_len(value: Any) -> int:
+    return len(json.dumps(value, ensure_ascii=True, separators=(",", ":"), default=str))
+
+
+def _bounded_query_output(
+    rows: list[Any], *, offset: int, limit: int
+) -> dict[str, Any]:
+    """Bound one `sql` query page and say so — the tool's own size management.
+
+    Two steps, both announced to the model: (1) trim any single cell larger than
+    the per-cell ceiling (strings keep their head; a jsonb value becomes the
+    head of its JSON text), itemized in ``truncated_cells``; (2) keep the longest
+    whole-row prefix that fits the page budget, with ``next_offset`` naming the
+    exact ``offset`` for the next call. A result that needed neither keeps the
+    plain ``{rows, count}`` shape.
+    """
+    from matrx_ai.tools.output_caps import cap_json_list, cap_text
+
+    safe_rows = [_json_safe(r) for r in rows]
+    cell_count = sum(len(r) for r in safe_rows if isinstance(r, dict))
+    cell_cap = (
+        SQL_QUERY_RESULT_BUDGET_CHARS - 200 if cell_count <= 1 else SQL_CELL_MAX_CHARS
+    )
+
+    trimmed: list[dict[str, Any]] = []
+    for index, row in enumerate(safe_rows):
+        if not isinstance(row, dict):
+            continue
+        for column, value in list(row.items()):
+            if value is None or isinstance(value, bool | int | float):
+                continue
+            text = value if isinstance(value, str) else json.dumps(value, ensure_ascii=False)
+            if _compact_len(value) <= cell_cap:
+                continue
+            capped, info = cap_text(text, limit=cell_cap)
+            # ASCII escaping can make a short string long; trim until it fits.
+            while capped and _compact_len(capped) > cell_cap:
+                capped = capped[: max(0, len(capped) - max(1, len(capped) // 10))]
+            row[column] = capped
+            trimmed.append(
+                {
+                    "row_index": index,
+                    "column": column,
+                    "total_chars": info.total_chars,
+                    "shown_chars": len(capped),
+                }
+            )
+
+    shown, cap = cap_json_list(safe_rows, max_chars=SQL_QUERY_RESULT_BUDGET_CHARS)
+    output: dict[str, Any] = {"rows": shown, "count": len(shown)}
+    notices: list[str] = []
+
+    if cap.truncated:
+        next_offset = offset + len(shown)
+        output["total"] = cap.total
+        output["truncated"] = True
+        output["next_offset"] = next_offset
+        notices.append(
+            f"Showing {len(shown)} of the {cap.total} rows this query fetched — the page "
+            f"was bounded to fit the model's context. For the next rows call `sql` "
+            f"action='query' again with the same arguments and offset={next_offset}, "
+            "or select fewer/narrower `fields` to fit more rows per page."
+        )
+    elif len(rows) >= limit:
+        output["more_may_exist"] = True
+        output["next_offset"] = offset + len(rows)
+        notices.append(
+            f"This page is full ({len(rows)} rows = limit). More rows may exist: call "
+            f"again with offset={offset + len(rows)} to continue."
+        )
+
+    kept = [t for t in trimmed if t["row_index"] < len(shown)]
+    if kept:
+        output["truncated"] = True
+        output["truncated_cells"] = kept[:_SQL_TRUNCATED_CELLS_LISTED]
+        columns = sorted({t["column"] for t in kept})
+        notices.append(
+            f"{len(kept)} cell(s) longer than {cell_cap:,} characters were cut to their "
+            f"first {cell_cap:,} characters (columns: {', '.join(columns)}; see "
+            "`truncated_cells` for the row, column and true size). To read one in full, "
+            "query that single row (match on its id) with `fields` set to that one "
+            f"column — a single-cell read returns up to "
+            f"{SQL_QUERY_RESULT_BUDGET_CHARS - 200:,} characters."
+        )
+
+    if notices:
+        output["truncation_notice"] = " ".join(notices)
+    return output
 
 
 def _write_output(verb: str, rows: Any, returning: str) -> dict[str, Any]:
@@ -509,14 +616,12 @@ async def db_query(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
 
         return ToolResult(
             success=True,
-            output={
-                "rows": _json_safe(rows),
-                "count": len(rows),
-            },
+            output=_bounded_query_output(rows, offset=parsed.offset, limit=parsed.limit),
             started_at=started_at,
             completed_at=time.time(),
             tool_name="db_query",
             call_id=ctx.call_id,
+            output_self_capped=True,
         )
     except Exception as exc:
         message, suggested = await _agent_db_error(exc)
@@ -1203,11 +1308,12 @@ async def _sql_query_scoped(
         )
     return ToolResult(
         success=True,
-        output={"rows": _json_safe(rows), "count": len(rows)},
+        output=_bounded_query_output(rows, offset=parsed.offset, limit=parsed.limit),
         started_at=started_at,
         completed_at=time.time(),
         tool_name="sql",
         call_id=ctx.call_id,
+        output_self_capped=True,
     )
 
 

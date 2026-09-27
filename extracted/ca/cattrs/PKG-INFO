@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: cattrs
-Version: 26.2.0
+Version: 26.2.1
 Summary: Composable complex class support for attrs and dataclasses.
 Project-URL: Homepage, https://catt.rs
 Project-URL: Changelog, https://catt.rs/en/latest/history.html

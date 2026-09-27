@@ -44,6 +44,11 @@ from matrx_utils import vcprint
 from pydantic import BaseModel, ConfigDict, Field, JsonValue
 
 from matrx_ai._ext import get_ext, has_ext
+from matrx_ai.graph_nodes.iteration_limit import (
+    AGENT_MAX_ITERATIONS_CEILING,
+    MAX_ITERATIONS_DESCRIPTION,
+    resolve_step_iteration_limit,
+)
 from matrx_ai.graph_nodes.shared import AiExecutionResult, normalize_completed_result
 
 
@@ -245,8 +250,11 @@ class ConversationContinueInput(BaseModel):
     )
 
     # --- agent loop bounds ---
-    max_iterations: int = Field(
-        default=100, ge=1, le=500, description="Maximum agent reasoning/tool-loop iterations."
+    max_iterations: int | None = Field(
+        default=None,
+        ge=1,
+        le=AGENT_MAX_ITERATIONS_CEILING,
+        description=MAX_ITERATIONS_DESCRIPTION,
     )
     max_retries_per_iteration: int = Field(
         default=2,
@@ -350,9 +358,11 @@ async def conversation_continue(
     ctx: NodeExecutionContext, inputs: ConversationContinueInput
 ) -> NodeResult[AiExecutionResult]:
     require_conversation_host("ai.conversation.continue")
+    limit = await resolve_step_iteration_limit(ctx, inputs.max_iterations)
+    inputs.max_iterations = limit.value
     request = build_continue_request(inputs)
     completed = await run_step_conversation_continue(ctx, inputs.conversation_id, request)
 
     # Node Result System: a failed turn becomes a structured Failure
     # (code='ai_turn_failed', billed usage in details) instead of a raise.
-    return await asyncio.to_thread(normalize_completed_result, completed)
+    return limit.name_on(await asyncio.to_thread(normalize_completed_result, completed))

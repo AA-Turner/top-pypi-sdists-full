@@ -18,6 +18,8 @@ def get_relevant_images(soup: BeautifulSoup, url: str) -> list:
     image_urls = []
     
     try:
+        if soup is None:
+            return []
         # Find all img tags with src attribute
         all_images = soup.find_all('img', src=True)
         
@@ -26,7 +28,12 @@ def get_relevant_images(soup: BeautifulSoup, url: str) -> list:
             if img_src.startswith(('http://', 'https://')):
                 score = 0
                 # Check for relevant classes
-                if any(cls in img.get('class', []) for cls in ['header', 'featured', 'hero', 'thumbnail', 'main', 'content']):
+                classes = img.get("class") or []
+                if isinstance(classes, str):
+                    classes = classes.split()
+                elif not isinstance(classes, (list, tuple, set)):
+                    classes = []
+                if any(cls in classes for cls in ['header', 'featured', 'hero', 'thumbnail', 'main', 'content']):
                     score = 4  # Higher score
                 # Check for size attributes
                 elif img.get('width') and img.get('height'):
@@ -57,6 +64,16 @@ def get_relevant_images(soup: BeautifulSoup, url: str) -> list:
 
 def parse_dimension(value: str) -> int:
     """Parse dimension value, handling px units"""
+    # HTML width/height attrs are often missing or non-string; callers pass
+    # img.get('width') which may be None.
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        try:
+            return int(float(value))
+        except (ValueError, TypeError) as e:
+            logging.debug("Could not parse dimension value %r: %s", value, e)
+            return None
     if value.lower().endswith('px'):
         value = value[:-2]  # Remove 'px' suffix
     try:
@@ -136,9 +153,74 @@ def clean_soup(soup: BeautifulSoup) -> BeautifulSoup:
     return soup
 
 
+# Elements a browser lays out as blocks. Each one starts a new line of extracted
+# text, while the text of any other element stays in the line around it.
+_BLOCK_TAGS = frozenset(
+    "address article aside blockquote body caption center dd details dialog dir div dl dt"
+    " fieldset figcaption figure footer form h1 h2 h3 h4 h5 h6 head header hgroup hr html"
+    " legend li listing main menu nav ol optgroup option p plaintext pre search section"
+    " summary table tbody td textarea tfoot th thead title tr ul xmp".split()
+)
+# Whitespace inside these elements is content, so their text is kept as written.
+_PREFORMATTED_TAGS = frozenset(("listing", "plaintext", "pre", "textarea", "xmp"))
+# Inline boxes whose text never runs into the text next to them.
+_BOX_TAGS = frozenset(("button", "select"))
+# Only these characters are whitespace in HTML. A no-break space is content.
+_HTML_WHITESPACE = re.compile(r"[ \t\n\r\f]+")
+
+
+def _block_lines(soup: BeautifulSoup) -> list[str]:
+    """Return the text of the soup as one line per block element.
+
+    ``soup.get_text(separator="\\n")`` puts every text node on its own line, so
+    a link or an emphasis split the sentence, and even the word, it sat in.
+    """
+    lines: list[str] = []
+    line: list[str] = []
+
+    def end_line() -> None:
+        text = _HTML_WHITESPACE.sub(" ", "".join(line)).strip(" ")
+        line.clear()
+        if text.strip():
+            lines.append(text)
+
+    # An explicit stack, so deeply nested markup cannot exhaust the recursion limit.
+    stack: list[tuple[bs4.PageElement, str]] = [(soup, "visit")]
+    while stack:
+        node, action = stack.pop()
+        if action == "end_line":
+            end_line()
+        elif action == "space":
+            line.append(" ")
+        elif isinstance(node, bs4.Tag):
+            if node.name == "br":
+                end_line()
+            elif node.name in _PREFORMATTED_TAGS:
+                end_line()
+                text = node.get_text().strip("\n")
+                if text.strip():
+                    lines.append(text)
+            else:
+                if node.name in _BLOCK_TAGS:
+                    end_line()
+                    stack.append((node, "end_line"))
+                elif node.name in _BOX_TAGS:
+                    line.append(" ")
+                    stack.append((node, "space"))
+                stack.extend((child, "visit") for child in reversed(node.contents))
+        # Script, style, template and comment strings are subclasses and are
+        # not page text, the same filter get_text() applies by default.
+        elif type(node) in (bs4.NavigableString, bs4.CData):
+            line.append(str(node))
+    end_line()
+    return lines
+
+
 def get_text_from_soup(soup: BeautifulSoup) -> str:
     """Get the relevant text from the soup with improved filtering"""
-    text = soup.get_text(strip=True, separator="\n")
+    if soup is None:
+        return ""
+    text = "\n".join(_block_lines(soup))
     # Remove excess whitespace
     text = re.sub(r"\s{2,}", " ", text)
     return text

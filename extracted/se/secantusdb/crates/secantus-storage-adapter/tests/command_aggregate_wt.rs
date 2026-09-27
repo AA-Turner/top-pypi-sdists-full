@@ -562,10 +562,20 @@ fn aggregate_explain_option_returns_plan_without_running() {
 
 #[test]
 fn bucket_auto_chunks_by_count() {
-    // php-lib Builder{Collection,Database}FunctionalTest::testAggregate. Pure
-    // count-chunking (Python parity): 3 docs / 2 buckets → chunks of 1 then 2.
+    // php-lib Builder{Collection,Database}FunctionalTest::testAggregate.
+    //
+    // This asserted "pure count-chunking (Python parity): 3 docs / 2 buckets ->
+    // chunks of 1 then 2", and both halves were wrong. mongod never splits
+    // EQUAL values across buckets, and it gives the remainder to the EARLIER
+    // bucket (measured 8.2.11, 2026-09-09):
+    //
+    //     x: [10, 10, 10], buckets 2 -> ONE bucket of 3
+    //     x: [1, 2, 3],    buckets 2 -> counts 2 then 1
+    //
+    // The citation is the tell: "Python parity" describes the other engine, not
+    // the server this project imitates, and the other engine was wrong too.
     with_wt(|c| {
-        // Collection variant: 3 identical values still split into 2 buckets.
+        // Three identical values collapse into ONE bucket.
         seed(c, "c", vec![doc! {"x": 10}, doc! {"x": 10}, doc! {"x": 10}]);
         let r = dispatch(
             &doc! {"aggregate": "c", "pipeline": [
@@ -574,7 +584,9 @@ fn bucket_auto_chunks_by_count() {
             c,
         );
         assert_eq!(r.get_f64("ok").unwrap(), 1.0);
-        assert_eq!(docs_of(&r).len(), 2);
+        let out = docs_of(&r);
+        assert_eq!(out.len(), 1);
+        assert_eq!(out[0].get_i32("count").unwrap(), 3);
 
         // Database variant: $documents source + $bucketAuto over distinct values.
         let r = dispatch(
@@ -586,11 +598,17 @@ fn bucket_auto_chunks_by_count() {
         );
         let out = docs_of(&r);
         assert_eq!(out.len(), 2);
-        assert_eq!(out[0].get_i32("count").unwrap(), 1);
-        assert_eq!(out[1].get_i32("count").unwrap(), 2);
+        // The remainder goes to the EARLIER bucket: 2 then 1, not 1 then 2.
+        assert_eq!(out[0].get_i32("count").unwrap(), 2);
+        assert_eq!(out[1].get_i32("count").unwrap(), 1);
         assert_eq!(
             out[0].get_document("_id").unwrap().get_i32("min").unwrap(),
             1
+        );
+        // `max` is the first value of the NEXT bucket.
+        assert_eq!(
+            out[0].get_document("_id").unwrap().get_i32("max").unwrap(),
+            3
         );
     });
 }
@@ -705,5 +723,111 @@ fn aggregate_batches_into_cursor() {
         let cursor = reply.get_document("cursor").unwrap();
         assert_eq!(cursor.get_array("firstBatch").unwrap().len(), 2);
         assert_ne!(cursor.get_i64("id").unwrap(), 0, "remaining ⇒ live cursor");
+    });
+}
+
+/// An unknown expression operator: mongod answers three different ways, and
+/// which one depends on POSITION rather than on the stage alone.
+///
+/// Measured against mongod 8.2.11 (2026-09-17) --
+/// `tools/probes/unknown_expression_errors.py`, 13 shapes, both servers now
+/// 0 divergent. Before this, nine of them came back as the blanket
+/// `2 BadValue "aggregation pipeline uses a stage or operator not supported by
+/// the Rust server"`, which told the client the server could not do
+/// `$addFields` when the operator inside it was the problem.
+#[test]
+fn unknown_expression_operator_code_depends_on_position() {
+    with_wt(|c| {
+        seed(c, "c", vec![doc! {"_id": 1, "a": 1}]);
+        let agg = |c: &mut CommandContext, stage: Document| {
+            dispatch(
+                &doc! {"aggregate": "c", "pipeline": [stage], "cursor": {}},
+                c,
+            )
+        };
+
+        // TOP level of a `$project` field: the PROJECTION parser's own code and
+        // wording -- "Unknown", operator UNQUOTED.
+        let r = agg(c, doc! {"$project": {"n": {"$nosuch": 1}}});
+        assert_eq!(r.get_i32("code").unwrap(), 31325);
+        assert_eq!(r.get_str("codeName").unwrap(), "Location31325");
+        assert_eq!(
+            r.get_str("errmsg").unwrap(),
+            "Invalid $project :: caused by :: Unknown expression $nosuch"
+        );
+
+        // One level DEEPER in the same stage: the generic expression parser,
+        // so 168 and the operator QUOTED. This answered 31325 until the
+        // top-level check stopped recursing.
+        let r = agg(c, doc! {"$project": {"n": {"$add": [{"$nosuch": 1}, 1]}}});
+        assert_eq!(r.get_i32("code").unwrap(), 168);
+        assert_eq!(r.get_str("codeName").unwrap(), "InvalidPipelineOperator");
+        assert_eq!(
+            r.get_str("errmsg").unwrap(),
+            "Invalid $project :: caused by :: Unrecognized expression '$nosuch'"
+        );
+
+        // `$addFields` / `$set` use 168 in BOTH positions, under their own
+        // stage envelope.
+        let r = agg(c, doc! {"$addFields": {"n": {"$nosuch": 1}}});
+        assert_eq!(r.get_i32("code").unwrap(), 168);
+        assert_eq!(
+            r.get_str("errmsg").unwrap(),
+            "Invalid $addFields :: caused by :: Unrecognized expression '$nosuch'"
+        );
+
+        // `$group` / `$replaceWith` / `$match`'s `$expr`: NO envelope at all.
+        for stage in [
+            doc! {"$group": {"_id": {"$nosuch": 1}}},
+            doc! {"$replaceWith": {"$nosuch": 1}},
+            doc! {"$match": {"$expr": {"$nosuch": 1}}},
+        ] {
+            let r = agg(c, stage);
+            assert_eq!(r.get_i32("code").unwrap(), 168);
+            assert_eq!(
+                r.get_str("errmsg").unwrap(),
+                "Unrecognized expression '$nosuch'"
+            );
+        }
+    });
+}
+
+/// The unknown-operator check must not reject VALID pipelines, which is the
+/// failure mode that matters here.
+///
+/// `$push` / `$addToSet` / `$count` / `$topN` are absent from `KNOWN_EXPR_OPS`
+/// because they are ACCUMULATORS, not expressions -- legal in a `$group` output
+/// field and unknown in a `$project`. Walking them would reject
+/// `{$group: {_id: "$g", p: {$push: "$s"}}}`, the plainest valid pipeline there
+/// is; the Python server did exactly that before its own check excluded them.
+/// `$literal` is the other trap: its argument is data, so it is intercepted
+/// before the operator dispatch it would otherwise be looked up in.
+#[test]
+fn accumulators_and_literal_are_not_unknown_expressions() {
+    with_wt(|c| {
+        seed(
+            c,
+            "c",
+            vec![
+                doc! {"_id": 1, "g": "a", "s": "x"},
+                doc! {"_id": 2, "g": "a"},
+            ],
+        );
+        for pipeline in [
+            doc! {"$group": {"_id": "$g", "p": {"$push": "$s"}}},
+            doc! {"$group": {"_id": "$g", "v": {"$addToSet": "$s"}}},
+            doc! {"$group": {"_id": "$g", "n": {"$count": {}}}},
+            doc! {"$project": {"n": {"$literal": 5}}},
+        ] {
+            let reply = dispatch(
+                &doc! {"aggregate": "c", "pipeline": [pipeline.clone()], "cursor": {}},
+                c,
+            );
+            assert_eq!(
+                reply.get_f64("ok").unwrap(),
+                1.0,
+                "valid pipeline rejected: {pipeline:?} -> {reply:?}"
+            );
+        }
     });
 }

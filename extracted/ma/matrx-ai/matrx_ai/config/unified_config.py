@@ -291,6 +291,8 @@ class UnifiedConfig:
         Literal["auto", "none", "minimal", "low", "medium", "high", "xhigh", "max"] | None
     ) = None
     reasoning_summary: Literal["concise", "detailed", "never", "auto", "always"] | None = None
+    # Deep Research agents: charts/images in the report ("auto") or none ("off").
+    visualization: Literal["auto", "off"] | None = None
 
     # Google Gemini 3 thinking format
     thinking_level: Literal["minimal", "low", "medium", "high"] | None = None
@@ -721,6 +723,7 @@ class UnifiedConfig:
             authored_custom_tools=data.get("authored_custom_tools"),
             reasoning_effort=data.get("reasoning_effort"),
             reasoning_summary=data.get("reasoning_summary"),
+            visualization=data.get("visualization"),
             thinking_level=data.get("thinking_level"),
             include_thoughts=data.get("include_thoughts"),
             thinking_budget=data.get("thinking_budget"),
@@ -939,6 +942,8 @@ class UnifiedConfig:
             config["reasoning_effort"] = self.reasoning_effort
         if self.reasoning_summary is not None:
             config["reasoning_summary"] = self.reasoning_summary
+        if self.visualization is not None:
+            config["visualization"] = self.visualization
         if self.thinking_level is not None:
             config["thinking_level"] = self.thinking_level
         if self.include_thoughts is not None:

@@ -1,8 +1,7 @@
 [project]
 name = "aio-pika"
-version = "10.0.1"
+version = "10.0.4"
 description = "Wrapper around the aiormq for asyncio and humans"
-authors = [{ name = "Dmitry Orlov", email = "me@mosquito.su" }]
 requires-python = ">=3.11,<4"
 readme = "README.md"
 license = "Apache-2.0"
@@ -38,6 +37,10 @@ dependencies = [
     "aiormq>=7,<8",
     "yarl",
 ]
+
+[[project.authors]]
+name = "Dmitry Orlov"
+email = "me@mosquito.su"
 
 [project.urls]
 Homepage = "https://github.com/mosquito/aio-pika"
@@ -79,10 +82,6 @@ module-name = ["aio_pika"]
 module-root = ""
 source-include = ["tests/**"]
 
-[build-system]
-requires = ["uv_build>=0.9.26,<0.12"]
-build-backend = "uv_build"
-
 [tool.mypy]
 check_untyped_defs = true
 disallow_any_generics = false
@@ -120,9 +119,7 @@ warn_unused_ignores = false
 [tool.pytest.ini_options]
 log_cli = true
 addopts = "-p no:asyncio"
-markers = [
-    "asyncio: asyncio",
-]
+markers = ["asyncio: asyncio"]
 
 [tool.coverage.run]
 branch = true
@@ -145,5 +142,14 @@ exclude = [
 ]
 
 [tool.ruff.lint]
-select = ["E", "W", "F", "C90"]
+select = [
+    "E",
+    "W",
+    "F",
+    "C90",
+]
 ignore = ["C901"]
+
+[build-system]
+requires = ["uv_build>=0.9.26,<0.12"]
+build-backend = "uv_build"

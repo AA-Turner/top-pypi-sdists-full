@@ -19,6 +19,8 @@ mismatch. A handle is never honored for anyone but the user who produced it.
 
 from __future__ import annotations
 
+from typing import Any
+
 from pydantic import BaseModel
 
 from matrx_ai.tools.output_caps import TOOL_RESULT_ABSOLUTE_CEILING_CHARS
@@ -140,4 +142,41 @@ def fetch_overflow(
         next_offset=consumed if has_more else None,
         has_more=has_more,
         content=window,
+    )
+
+
+def hold_full_text_for_fetch(ctx: Any, *, text: str, tool_name: str) -> str | None:
+    """A self-capping tool's "get the rest": stash ``text`` and offer ``fetch_tool_result``.
+
+    For a tool that cut a body it cannot page natively (a kind's schema or
+    canonical example, a rendered element's HTML). The full text is stashed under
+    THIS call's id — owner-checked exactly like a gate stash — and
+    ``fetch_tool_result`` is queued for the next turn, so the returned sentence is a
+    real instruction. Returns None (and the caller must say the rest is
+    unreachable) when there is no call_id to fetch by.
+    """
+    def _attr(name: str) -> Any:
+        try:
+            return getattr(ctx, name, None)
+        except Exception:  # noqa: BLE001 — ToolContext identity reads the live AppContext
+            return None
+
+    call_id = str(_attr("call_id") or "")
+    stored = stash_overflow(
+        call_id=call_id,
+        content=text,
+        total_chars=len(text),
+        user_id=_attr("user_id"),
+        conversation_id=_attr("conversation_id"),
+        tool_name=tool_name,
+    )
+    if not stored:
+        return None
+    try:
+        ctx.queue_tool_changes(add=[{"kind": "registered", "name": "fetch_tool_result"}])
+    except Exception:  # noqa: BLE001 — a bare/fake context cannot queue; the stash still stands
+        pass
+    return (
+        f'The complete text ({len(text):,} chars) is held for you: call '
+        f'fetch_tool_result(call_id="{call_id}", offset=<n>, max_chars=<how many>).'
     )

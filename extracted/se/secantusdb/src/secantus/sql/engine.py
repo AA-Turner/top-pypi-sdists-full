@@ -205,6 +205,11 @@ def is_pubsub_statement(sql: str) -> bool:
     return _PUBSUB_RE.match(sql) is not None
 
 
+#: PostgreSQL's NOTIFY payload cap. 7999 bytes is accepted and 8000 is not
+#: (measured against 14.13), so the limit is exclusive.
+_NOTIFY_PAYLOAD_MAX = 8000
+
+
 def _pubsub_ident(token: str) -> str:
     """Normalise a LISTEN/NOTIFY channel token: a quoted ``"Ch"`` keeps its case;
     an unquoted name is lower-cased (Postgres identifier folding)."""
@@ -237,10 +242,19 @@ def _maybe_pubsub(sql: str, session: Session) -> SQLResult | None:
     # NOTIFY — the payload literal is single-quoted with '' escaping.
     raw = m.group("payload")
     payload = raw[1:-1].replace("''", "'") if raw else ""
+    if len(payload.encode("utf-8")) >= _NOTIFY_PAYLOAD_MAX:
+        raise errors.SQLError("22023", "payload string too long")
     if hub is not None:
         if session.txn_handle is not None:
-            # Inside a transaction block: buffer, deliver at COMMIT.
-            session.pending_notifies.append((channel, payload))
+            # Inside a transaction block: buffer, deliver at COMMIT — and
+            # COLLAPSE an exact repeat. PostgreSQL delivers one event when the
+            # same channel is signalled with an identical payload more than
+            # once in a transaction, so a loop that notifies per row wakes the
+            # listener once, not once per row. Distinct payloads on the same
+            # channel are all delivered, so this is deduplication of the PAIR,
+            # not of the channel.
+            if (channel, payload) not in session.pending_notifies:
+                session.pending_notifies.append((channel, payload))
         else:
             hub.notify(channel, payload, session.backend_pid)
     return SQLResult(command_tag="NOTIFY")
@@ -712,11 +726,18 @@ def _rollback_to_savepoint(name: str, storage: Any, db: str, session: Session) -
     for fr in session.savepoints[idx:]:
         for coll, snap in fr.snapshots.items():
             restore.setdefault(coll, snap)
+    restore_ix: dict[str, list] = {}
+    for fr in session.savepoints[idx:]:
+        for coll, ix in fr.indexes.items():
+            restore_ix.setdefault(coll, ix)
     with storage.use_user_transaction(session.txn_handle):
         for coll, snap in restore.items():
             storage.delete_matching(db, coll, {})
             if snap:
                 storage.insert(db, coll, [copy.deepcopy(d) for d in snap])
+        # Indexes AFTER the documents: `create_index` builds its entries from the
+        # rows present, so a recreated index must see the restored ones.
+        _restore_savepoint_indexes(storage, db, restore_ix)
     # Drop the nested savepoints; keep ``name`` (a repeat ROLLBACK TO must work,
     # and its snapshots still hold the pre-``name`` state).
     del session.savepoints[idx + 1 :]
@@ -725,6 +746,36 @@ def _rollback_to_savepoint(name: str, storage: Any, db: str, session: Session) -
     # re-reported (pgtest param_status reads them after ROLLBACK TO SAVEPOINT).
     session.restore_savepoint_gucs(session.savepoints[idx].gucs)
     return SQLResult(command_tag="ROLLBACK")
+
+
+def _restore_savepoint_indexes(storage: Any, db: str, wanted: dict[str, list]) -> None:
+    """Put each collection's indexes back to its savepoint-time set.
+
+    Drops what was created since, recreates what was dropped. ``_id_`` is
+    implicit and never dropped or recreated.
+    """
+    for coll, snap in wanted.items():
+        try:
+            current = {e["name"]: e for e in storage.list_indexes(db, coll)}
+        except Exception:  # noqa: BLE001
+            continue
+        target = {e["name"]: e for e in snap}
+        for name in current.keys() - target.keys():
+            if name == "_id_":
+                continue
+            with contextlib.suppress(Exception):
+                storage.drop_index(db, coll, name)
+        for name in target.keys() - current.keys():
+            if name == "_id_":
+                continue
+            entry = dict(target[name])
+            key_spec = entry.pop("key", None)
+            if not key_spec:
+                continue
+            for drop in ("v", "name", "multikey", "entryFormat"):
+                entry.pop(drop, None)
+            with contextlib.suppress(Exception):
+                storage.create_index(db, coll, name, key_spec, entry or None)
 
 
 def _capture_savepoint_snapshots(
@@ -753,6 +804,40 @@ def _capture_savepoint_snapshots(
             if snap is None:
                 snap = [copy.deepcopy(d) for d in storage.find_matching(db, coll, {})]
             fr.snapshots[coll] = snap
+    if _is_index_ddl(stmt):
+        _capture_savepoint_indexes(storage, db, catalog, session)
+
+
+def _is_index_ddl(stmt: exp.Expression) -> bool:
+    """CREATE INDEX / DROP INDEX, which the catalog-collection capture misses."""
+    if isinstance(stmt, exp.Create) and (stmt.args.get("kind") or "").upper() == "INDEX":
+        return True
+    return isinstance(stmt, exp.Drop) and (stmt.args.get("kind") or "").upper() == "INDEX"
+
+
+def _capture_savepoint_indexes(storage: Any, db: str, catalog: Catalog, session: Session) -> None:
+    """Snapshot every user table's index list into each open savepoint.
+
+    Every table, not just the statement's target: ``DROP INDEX name`` does not
+    name its table, so resolving ownership from the AST is not possible in
+    general. Index DDL is rare and this mirrors the cost the catalog capture
+    above already accepts for any DDL statement.
+    """
+    try:
+        tables = [t for t in catalog.list_tables(db)]
+    except Exception:  # noqa: BLE001 -- a catalog we cannot read has nothing to restore
+        return
+    for coll in tables:
+        snap: list | None = None
+        for fr in session.savepoints:
+            if coll in fr.indexes:
+                continue
+            if snap is None:
+                try:
+                    snap = copy.deepcopy(storage.list_indexes(db, coll))
+                except Exception:  # noqa: BLE001
+                    snap = []
+            fr.indexes[coll] = snap
 
 
 def _is_ddl(stmt: exp.Expression) -> bool:
@@ -834,6 +919,31 @@ def _declare_cursor(
             f"too many open cursors (limit {MAX_CURSORS_PER_SESSION}); CLOSE some first"
         )
     hold = re.search(r"\bWITH\s+HOLD\b", opts, re.IGNORECASE) is not None
+    # Outside an explicit transaction block a non-holdable cursor would be
+    # discarded the moment the implicit transaction committed, so PostgreSQL
+    # refuses the DECLARE rather than handing back a cursor that cannot be
+    # fetched from. We used to ACCEPT it and then fail the following FETCH with
+    # `34000 cursor "c" does not exist`, which reports the problem one
+    # statement too late and blames the wrong statement. `WITH HOLD` is
+    # deliberately exempt — those survive the commit, and PostgreSQL allows
+    # them here (measured against 14.13; the exemption is the whole reason the
+    # check cannot just be "are we in a transaction").
+    #
+    # Wire sessions only. The rule exists because the wire server's implicit
+    # transaction commits at statement end and takes the cursor with it; the
+    # embedded `run_sql` API has no implicit commit, so a cursor declared there
+    # without a transaction stays usable across calls, and 16 tests in
+    # `test_sql_cursors.py` document exactly that. The two session states are
+    # otherwise INDISTINGUISHABLE — measured: both show `txn_handle=None,
+    # txn_is_implicit=False` at this point — so the flag is the only signal.
+    if (
+        session.on_the_wire
+        and not hold
+        and not (session.txn_handle is not None and not session.txn_is_implicit)
+    ):
+        raise errors.no_active_sql_transaction(
+            "DECLARE CURSOR can only be used in transaction blocks"
+        )
     if re.search(r"\bNO\s+SCROLL\b", opts, re.IGNORECASE):
         scrollable: bool | None = False
     elif re.search(r"\bSCROLL\b", opts, re.IGNORECASE):
@@ -1090,7 +1200,13 @@ def _run_merge(
 
     if not isinstance(stmt.this, exp.Table):
         raise errors.feature_not_supported("MERGE target must be a table")
-    target = _require_table(catalog, db, planner.qualified_table_name(stmt.this), storage)
+    target = _require_table(
+        catalog,
+        db,
+        planner.qualified_table_name(stmt.this),
+        storage,
+        planner.written_table_name(stmt.this),
+    )
     target_alias = (stmt.this.alias or stmt.this.name).lower()
     src_alias, source_rows, source_cols = _merge_source(
         stmt.args["using"], db, catalog, session, storage
@@ -1325,7 +1441,13 @@ def _run_delete_using(
 ) -> SQLResult:
     """``DELETE FROM t USING u [, v …] WHERE …`` — delete each target row that
     joins a source row satisfying the WHERE (a semi-join)."""
-    target = _require_table(catalog, db, planner.qualified_table_name(stmt.this), storage)
+    target = _require_table(
+        catalog,
+        db,
+        planner.qualified_table_name(stmt.this),
+        storage,
+        planner.written_table_name(stmt.this),
+    )
     target_alias = (stmt.this.alias or stmt.this.name).lower()
     sources = _collect_dml_sources(stmt.args["using"], db, catalog, session, storage)
     sctx = scalar.ScalarContext(storage=storage, catalog=catalog, db=db, session=session)
@@ -1430,7 +1552,13 @@ def _run_update_from(
     a source row satisfying the WHERE; the SET right-hand sides may reference the
     source (``SET col = u.col``)."""
     target_node = stmt.this
-    target = _require_table(catalog, db, planner.qualified_table_name(target_node), storage)
+    target = _require_table(
+        catalog,
+        db,
+        planner.qualified_table_name(target_node),
+        storage,
+        planner.written_table_name(target_node),
+    )
     target_alias = (target_node.alias or target_node.name).lower()
     from_node = stmt.args["from_"]
     sources = _collect_dml_sources([from_node.this], db, catalog, session, storage)
@@ -1629,6 +1757,21 @@ def _describe_statement(
         return list(cur.columns) if cur is not None else None
     if isinstance(stmt, exp.Command) and str(stmt.this).upper() == "MOVE":
         return None  # MOVE returns no rows
+    if isinstance(stmt, exp.Command) and str(stmt.this).upper() == "EXPLAIN":
+        # EXPLAIN through the extended protocol — the same protocol violation
+        # the FETCH branch above guards against, and it bites whenever the
+        # explained query carries a parameter, because that is exactly when a
+        # driver stops using the simple protocol. `EXPLAIN SELECT $1::int`
+        # described as NoData and then sent DataRows, which psycopg reports as
+        # `server sent data ("D" message) without prior row description`.
+        #
+        # One text column named `QUERY PLAN`, which is what this server's
+        # Execute emits for every format it supports. PostgreSQL varies the OID
+        # with FORMAT (json -> 114, xml -> 142); we answer 25 for JSON too,
+        # because Execute does, and a Describe that disagrees with its own
+        # Execute is a worse bug than the one it would fix. Recorded in
+        # `tasks/backlog.md`.
+        return [ColumnDesc(name="QUERY PLAN", type_tag="text", pg_oid=25)]
     if isinstance(stmt, exp.Command) and str(stmt.this).upper() == "CALL":
         # A CALL portal describes as its procedure's OUT/INOUT params (a single
         # RowDescription), or NoData when it has none — WITHOUT running the body
@@ -1748,6 +1891,7 @@ def _describe_statement(
         # tables materialize at execution), so derive the shape from the plan.
         try:
             desugared = stmt.copy()
+            planner.desugar_natural_join(desugared, catalog, db)
             planner.desugar_join_using(desugared)
             plan = planner.plan_pipeline_select(desugared, db, catalog, storage, session=session)
             if getattr(plan, "count_star", False):
@@ -1835,7 +1979,14 @@ def _describe_statement(
 #: evaluating them at Describe time would sleep, draw sequence values, or
 #: take locks. Shapes here mirror what Execute actually returns.
 _VOLATILE_FN_TAGS = {
-    "pg_sleep": "text",
+    "pg_sleep": "void",
+    # pg_notify HAS A SIDE EFFECT, so leaving it out of this table did not just
+    # cost a wasted call: Describe evaluated it and Execute evaluated it again,
+    # and the listener received the notification TWICE. Only through the
+    # extended protocol — a parameter is what stops a driver using the simple
+    # one — which is why a literal `SELECT pg_notify('c','p')` looked fine.
+    # PostgreSQL describes it as void (2278).
+    "pg_notify": "void",
     "nextval": "int8",
     "setval": "int8",
     "currval": "int8",
@@ -1843,7 +1994,15 @@ _VOLATILE_FN_TAGS = {
     "set_config": "text",
     "pg_terminate_backend": "bool",
     "pg_cancel_backend": "bool",
-    "pg_advisory_lock": "text",
+    "pg_advisory_lock": "void",
+    "pg_advisory_lock_shared": "void",
+    "pg_advisory_xact_lock": "void",
+    "pg_advisory_xact_lock_shared": "void",
+    "pg_advisory_unlock_all": "void",
+    "pg_advisory_unlock_shared": "bool",
+    "pg_try_advisory_lock_shared": "bool",
+    "pg_try_advisory_xact_lock": "bool",
+    "pg_try_advisory_xact_lock_shared": "bool",
     "pg_advisory_unlock": "bool",
     "pg_try_advisory_lock": "bool",
     "lo_creat": "oid",
@@ -2012,14 +2171,17 @@ def _show_name(stmt: exp.Command) -> str:
     return str(arg.name).strip() if arg is not None else ""
 
 
-def _require_table(catalog: Catalog, db: str, name: str, storage: Any = None) -> Any:
+def _require_table(
+    catalog: Catalog, db: str, name: str, storage: Any = None, written: str | None = None
+) -> Any:
     table = catalog.get(db, name)
     if table is None and storage is not None:
         # Schema-on-read: a write to an un-declared collection reflects its
         # sampled shape, so INSERT/UPDATE/DELETE reach Mongo data with no DDL.
         table = reflect.reflect(storage, db, name)
     if table is None:
-        raise errors.undefined_table(name)
+        # `written` is the user's spelling; `name` is the resolved catalog key.
+        raise errors.undefined_table(written or name)
     return table
 
 
@@ -2051,6 +2213,75 @@ class CopyPlan:
     col_oids: list[int] = field(default_factory=list)
     # Raw (unrendered) query-form values, kept for binary COPY OUT.
     query_raw_rows: list | None = None
+    #: CSV ``FORCE_QUOTE`` (COPY TO): a per-column mask parallel to ``columns``.
+    force_quote: list[bool] = field(default_factory=list)
+    #: CSV ``FORCE_NULL`` / ``FORCE_NOT_NULL`` (COPY FROM): column-name sets.
+    force_null: set[str] = field(default_factory=set)
+    force_not_null: set[str] = field(default_factory=set)
+
+
+def _copy_force_options(
+    stmt: exp.Copy, fmt: str, to_stdout: bool, columns: list[str]
+) -> tuple[list[bool], set[str], set[str]]:
+    """Validate COPY's ``FORCE_*`` options and resolve them against `columns`.
+
+    They arrive via ``planner``'s pre-pass (sqlglot cannot parse them), stamped
+    on the statement as ``secantus_force``. Every rule and message here was
+    measured against PostgreSQL 14.13 — note each option is restricted to ONE
+    direction, and they disagree about which:
+
+    * ``FORCE_QUOTE`` is COPY TO only  -> `COPY force quote only available using COPY TO`
+    * ``FORCE_NULL`` / ``FORCE_NOT_NULL`` are COPY FROM only
+    * all three are CSV-only, and an unknown column is 42703.
+    """
+    forced = stmt.args.get("secantus_force") or {}
+    if not forced:
+        return [], set(), set()
+    known = list(columns or [])
+    lowered = {c.lower(): c for c in known}
+
+    def resolve(key: str, names: object) -> set[str]:
+        if fmt != "csv":
+            raise errors.feature_not_supported(
+                f"COPY {key.lower().replace('_', ' ')} available only in CSV mode"
+            )
+        if names == "*":
+            return set(known)
+        out = set()
+        for n in names or []:
+            col = lowered.get(str(n).lower())
+            if col is None:
+                raise errors.SQLError(
+                    "42703",
+                    f'column "{n}" of relation "{_copy_relation_name(stmt)}" does not exist',
+                )
+            out.add(col)
+        return out
+
+    fq, fn, fnn = set(), set(), set()
+    for key, names in forced.items():
+        if key == "FORCE_QUOTE":
+            if not to_stdout:
+                raise errors.feature_not_supported("COPY force quote only available using COPY TO")
+            fq = resolve(key, names)
+        elif key == "FORCE_NULL":
+            if to_stdout:
+                raise errors.feature_not_supported("COPY force null only available using COPY FROM")
+            fn = resolve(key, names)
+        elif key == "FORCE_NOT_NULL":
+            if to_stdout:
+                raise errors.feature_not_supported(
+                    "COPY force not null only available using COPY FROM"
+                )
+            fnn = resolve(key, names)
+    return [c in fq for c in known], fn, fnn
+
+
+def _copy_relation_name(stmt: exp.Copy) -> str:
+    this = stmt.this
+    if isinstance(this, exp.Schema):
+        this = this.this
+    return getattr(this, "name", "") or ""
 
 
 def copy_plan(
@@ -2083,6 +2314,7 @@ def copy_plan(
         columns, query_rows, raw_rows, tags, oids = _copy_query_rows(
             select, storage, db, catalog, session, render_text=(fmt != "binary")
         )
+        fq, fnull, fnotnull = _copy_force_options(stmt, fmt, True, columns)
         return CopyPlan(
             None,
             columns,
@@ -2093,6 +2325,9 @@ def copy_plan(
             header,
             escape=escape,
             quote=quote,
+            force_quote=fq,
+            force_null=fnull,
+            force_not_null=fnotnull,
             query_rows=query_rows,
             query_raw_rows=raw_rows,
             col_tags=tags,
@@ -2123,6 +2358,7 @@ def copy_plan(
             col_oids.append(114)  # plain json: binary form has no version byte
         else:
             col_oids.append(typemap.PG_OID.get(tag, 25))
+    fq, fnull, fnotnull = _copy_force_options(stmt, fmt, to_stdout, columns)
     return CopyPlan(
         table,
         columns,
@@ -2133,6 +2369,9 @@ def copy_plan(
         header,
         escape=escape,
         quote=quote,
+        force_quote=fq,
+        force_null=fnull,
+        force_not_null=fnotnull,
         col_tags=col_tags,
         col_oids=col_oids,
     )
@@ -2261,6 +2500,9 @@ def _copy_options(
             raise errors.SQLError("22023", "COPY escape must be a single one-byte character")
     if header and fmt != "csv":
         raise errors.feature_not_supported("COPY HEADER available only in CSV mode")
+    if fmt == "csv" and (delimiter or ",") == (quote or '"'):
+        # Accepting this produced output that cannot be parsed back.
+        raise errors.SQLError("22023", "COPY delimiter and quote must be different")
     return fmt, delimiter, null, header, escape, quote
 
 
@@ -2273,6 +2515,20 @@ def copy_insert(
 ) -> int:
     """Insert copy-stream rows (lists of string / None cells) into the target,
     coercing each cell to its column type; returns the number of rows inserted."""
+    if plan.force_null or plan.force_not_null:
+        # FORCE_NULL turns a QUOTED empty field into NULL; FORCE_NOT_NULL turns
+        # an UNQUOTED empty field (which CSV would otherwise read as NULL) into
+        # the empty string. The parser has already resolved quoting into
+        # `''` vs `None`, so the two rules are exactly those two swaps.
+        idx_null = [i for i, c in enumerate(plan.columns) if c in plan.force_null]
+        idx_not = [i for i, c in enumerate(plan.columns) if c in plan.force_not_null]
+        for cells in rows:
+            for i in idx_null:
+                if i < len(cells) and cells[i] == "":
+                    cells[i] = None
+            for i in idx_not:
+                if i < len(cells) and cells[i] is None:
+                    cells[i] = ""
     docs = []
     for cells in rows:
         if len(cells) != len(plan.columns):
@@ -2302,7 +2558,6 @@ def copy_extract(
     storage: Any, db: str, catalog: Catalog, session: Session, plan: CopyPlan
 ) -> list[list]:
     """Read the target's rows as copy-stream cells (string / None) for COPY TO."""
-    from secantus.paths import get_path
 
     if plan.query_rows is not None:  # COPY (SELECT …) TO — already rendered
         return plan.query_rows
@@ -2316,7 +2571,7 @@ def copy_extract(
             tag = col.type_tag if col is not None else "any"
             if col is not None and getattr(col, "json_plain", False):
                 tag = "json_plain"  # plain json renders compact
-            value = get_path(doc, field)
+            value = _copy_cell(doc, col, field)
             if value is None:
                 cells.append(None)
             else:
@@ -2329,7 +2584,6 @@ def copy_extract(
 def copy_extract_raw(storage: Any, db: str, plan: CopyPlan) -> list[list]:
     """Read the COPY TO source as raw (unrendered) values for binary COPY —
     the per-type binary encoders need native values, not text cells."""
-    from secantus.paths import get_path
 
     if plan.query_raw_rows is not None:  # COPY (SELECT …) TO
         return [list(row) for row in plan.query_raw_rows]
@@ -2339,9 +2593,25 @@ def copy_extract_raw(storage: Any, db: str, plan: CopyPlan) -> list[list]:
         for name in plan.columns:
             col = plan.table.column(name)
             field = col.field if col is not None else name
-            cells.append(get_path(doc, field))
+            cells.append(_copy_cell(doc, col, field))
         out.append(cells)
     return out
+
+
+def _copy_cell(doc: dict[str, Any], col: Any, field: str) -> Any:
+    """One stored value for ``COPY <table> TO``, as SELECT would read it.
+
+    A ``timestamp`` keeps its sub-millisecond remainder in a hidden companion
+    field (`secantus.sql.subms`), which SELECT merges back and COPY did not --
+    so ``COPY t TO`` exported ``…00.412`` for a stored ``…00.412661``, in the
+    text AND the binary format, while ``COPY (SELECT …) TO`` was exact. COPY TO
+    is how a table is exported or backed up, so every export was truncated."""
+    from secantus.paths import get_path
+    from secantus.sql import executor as _executor
+
+    if col is None:
+        return get_path(doc, field)
+    return _executor._with_subms(doc, col)
 
 
 def _run_create_table_as(
@@ -2397,7 +2667,46 @@ def _run_create_table_as(
     insert_stmt = exp.Insert(this=exp.to_table(quoted))
     plan = planner.plan_insert_rows(insert_stmt, table, result.rows)
     inserted = executor.execute_insert(plan, storage, db, catalog, session).rowcount
-    return SQLResult(command_tag=f"SELECT {inserted}", rowcount=inserted)
+    # Rows went into the new table, not to the client — no RowDescription.
+    return SQLResult(
+        command_tag=f"SELECT {inserted}", rowcount=inserted, suppress_row_description=True
+    )
+
+
+def _check_drop_kind(kind: str, stmt: exp.Drop, db: str, catalog: Catalog, storage: Any) -> None:
+    """Raise PG's `42809 "x" is not a <kind>` when a DROP names a relation that
+    exists under a DIFFERENT kind.
+
+    Probed against PostgreSQL 14.13: `DROP TABLE <a view>` is
+    `42809 "v" is not a table`, not `42P01 ... does not exist`. Answering
+    "does not exist" for a name that is very much taken sent a client looking
+    for a missing object instead of the right DROP verb — and made
+    `DROP TABLE IF EXISTS v` silently succeed while the view survived.
+    `IF EXISTS` does NOT suppress this: PG raises 42809 either way, because
+    the object is present.
+    """
+    if not isinstance(stmt.this, exp.Table) or not stmt.this.name:
+        return
+    name = planner.qualified_table_name(stmt.this)
+    # The kind this name actually has, if any. A materialized view ALSO carries
+    # an ordinary catalog table entry (that is what gives `SELECT *` its column
+    # shape), so it has to be tested before the table case or every
+    # `DROP MATERIALIZED VIEW` would look like a table/view mismatch.
+    if catalog.get_matview(db, name) is not None:
+        actual = "MATERIALIZED VIEW"
+    elif catalog.get_view(db, name) is not None:
+        actual = "VIEW"
+    elif catalog.get(db, name) is not None:
+        actual = "TABLE"
+    elif catalog.sequence_exists(db, name):
+        actual = "SEQUENCE"
+    else:
+        return  # absent, or an index — the per-kind handler reports it
+    # PG keeps VIEW and MATERIALIZED VIEW strictly distinct: `DROP VIEW <mv>` is
+    # `"mv" is not a view` and `DROP MATERIALIZED VIEW <v>` is `"v" is not a
+    # materialized view` (probed on 14.13), so no aliasing between them.
+    if kind != actual:
+        raise errors.wrong_object_type(name, kind)
 
 
 def _run_statement(
@@ -2405,10 +2714,18 @@ def _run_statement(
 ) -> SQLResult:
     planner.qualify_from_search_path(stmt, catalog, db, session)
     if isinstance(stmt, exp.Select):
+        # Before ANY routing decision: a `COLLATE` wrapper is not a plain
+        # column, so leaving it in the tree sent the statement down the
+        # evaluated-select path, which never consulted it.
+        planner.hoist_collations(stmt)
+    if isinstance(stmt, exp.Select):
         # Star merge must see the USING list — the desugar below rewrites it
         # to ON, after which the join shape is indistinguishable.
         planner.expand_using_star(stmt, catalog, db)
         planner.expand_table_stars(stmt, catalog, db)
+    # NATURAL resolves to USING, which the next call turns into the ON — both
+    # spellings degraded to a CROSS JOIN without them.
+    planner.desugar_natural_join(stmt, catalog, db)
     planner.desugar_join_using(stmt)
     # Postgres resolves comparison operators during parse analysis, so a
     # cross-category comparison (``text_col = 42``) is a 42883 before any row
@@ -2467,6 +2784,10 @@ def _run_statement(
 
     if isinstance(stmt, exp.Drop):
         kind = (stmt.args.get("kind") or "TABLE").upper()
+        if stmt.args.get("materialized"):
+            kind = "MATERIALIZED VIEW" if kind == "VIEW" else kind
+        _check_drop_kind(kind, stmt, db, catalog, storage)
+        kind = "VIEW" if kind == "MATERIALIZED VIEW" else kind
         if kind == "TABLE":
             plan = planner.plan_drop_table(stmt)
             _check_portal_table_pin(session, plan.name)
@@ -2516,6 +2837,22 @@ def _run_statement(
     # into a single-table SELECT / UPDATE / DELETE WHERE before planning.
     _apply_rls_read(stmt, catalog, db, session)
 
+    if isinstance(stmt, exp.Select) and stmt.args.get("into") is not None:
+        # `SELECT … INTO t FROM …` is PG's older spelling of `CREATE TABLE t AS
+        # SELECT …`, and reaches the same handler. Without this the INTO target
+        # was resolved as if it were a SOURCE relation, so every SELECT INTO
+        # failed with `relation "t" does not exist`.
+        into = stmt.args["into"]
+        source = stmt.copy()
+        source.set("into", None)
+        props = (
+            exp.Properties(expressions=[exp.TemporaryProperty()])
+            if into.args.get("temporary")
+            else None
+        )
+        create = exp.Create(this=into.this.copy(), kind="TABLE", properties=props)
+        return _run_create_table_as(create, source, storage, db, catalog, session)
+
     if isinstance(stmt, exp.SetOperation):
         return _run_set_operation(stmt, storage, db, catalog, session)
 
@@ -2540,10 +2877,18 @@ def _run_statement(
             return _run_pg_description_dml(stmt, storage, db, catalog, session)
         if stmt.args.get("from_") is not None:
             return _run_update_from(stmt, storage, db, catalog, session)
+        _t = stmt.find(exp.Table)
         table = _require_table(
-            catalog, db, planner.qualified_table_name(stmt.find(exp.Table)), storage
+            catalog,
+            db,
+            planner.qualified_table_name(_t),
+            storage,
+            planner.written_table_name(_t),
         )
-        plan = planner.plan_update(stmt, table)
+        # A WHERE subquery needs the same context the SELECT planner publishes;
+        # without it `UPDATE … WHERE id IN (SELECT …)` was 0A000.
+        with planner.dml_subquery_context(storage, db, catalog, session):
+            plan = planner.plan_update(stmt, table)
         plan.check_option = check_pred
         return executor.execute_update(plan, storage, db, catalog, session)
 
@@ -2552,12 +2897,17 @@ def _run_statement(
             return _run_pg_description_dml(stmt, storage, db, catalog, session)
         if stmt.args.get("using"):
             return _run_delete_using(stmt, storage, db, catalog, session)
+        _t = stmt.find(exp.Table)
         table = _require_table(
-            catalog, db, planner.qualified_table_name(stmt.find(exp.Table)), storage
+            catalog,
+            db,
+            planner.qualified_table_name(_t),
+            storage,
+            planner.written_table_name(_t),
         )
-        return executor.execute_delete(
-            planner.plan_delete(stmt, table), storage, db, catalog, session
-        )
+        with planner.dml_subquery_context(storage, db, catalog, session):
+            delete_plan = planner.plan_delete(stmt, table)
+        return executor.execute_delete(delete_plan, storage, db, catalog, session)
 
     if isinstance(stmt, exp.Merge):
         return _run_merge(stmt, storage, db, catalog, session)
@@ -2683,7 +3033,7 @@ def _run_statement(
         # NotSupportedError). The expression-shaped COMMANDS sqlglot
         # mis-parses the same way (CLOSE / DISCARD / DEALLOCATE) were
         # already handled above and are exempted by the predicate.
-        raise errors.SQLError("42601", f'syntax error at or near "{stmt.sql()[:40]}"')
+        raise errors.SQLError("42601", f'syntax error at or near "{_leading_token(stmt)[:40]}"')
     if isinstance(stmt, exp.Copy):
         # COPY reaching the generic dispatcher means it wasn't the sole
         # statement of a wire-level copy() (a multi-statement string) or came
@@ -2695,7 +3045,10 @@ def _run_statement(
     raise errors.feature_not_supported(f"unsupported statement: {type(stmt).__name__}")
 
 
-_NOOP_WORDS = {"DISCARD"}
+# CHECKPOINT: Postgres forces a WAL checkpoint; SecantusDB has no user-driven
+# checkpoint to force (durability is the storage engine's), so it answers
+# the command tag, as DISCARD does. Was a 42601.
+_NOOP_WORDS = {"DISCARD", "CHECKPOINT"}
 
 #: Commands sqlglot mis-parses as bare Alias/Column expressions but that ARE
 #: real statements with handlers in this engine. Anything else expression-
@@ -2703,7 +3056,7 @@ _NOOP_WORDS = {"DISCARD"}
 # SAVEPOINT / RELEASE also parse as a bare Alias ("SAVEPOINT AS sp1") and are
 # rescued by dispatch's _savepoint_command — the Parse-time garbage guard
 # (#876) must not reject them (pgjdbc's setSavepoint broke exactly that way).
-_EXPRESSION_COMMAND_WORDS = {"CLOSE", "DISCARD", "DEALLOCATE", "SAVEPOINT", "RELEASE"}
+_EXPRESSION_COMMAND_WORDS = {"CLOSE", "DISCARD", "DEALLOCATE", "SAVEPOINT", "RELEASE", "CHECKPOINT"}
 
 
 def is_nonstatement_expression(stmt: exp.Expression) -> bool:
@@ -2713,10 +3066,26 @@ def is_nonstatement_expression(stmt: exp.Expression) -> bool:
     Parse uses this predicate so pgx's Prepare("SYNTAX ERROR") errors there,
     not silently at Execute."""
     if not isinstance(stmt, (exp.Column, exp.Identifier, exp.Literal, exp.Anonymous, exp.Alias)):
-        return False
+        # Any other bare expression -- ``this is not sql`` parses as
+        # ``NOT (this IS sql)`` -- is garbage too. Measured: no valid statement
+        # parses to a `Condition` other than the bare-column command words
+        # handled below, so the class is a safe test. It answered 0A000
+        # "unsupported statement: Not" at Execute; Postgres says 42601 at Parse.
+        return isinstance(stmt, exp.Condition)
     head = stmt.this if isinstance(stmt, exp.Alias) else stmt
     name = head.name if isinstance(head, exp.Column) else None
     return not (name is not None and name.upper() in _EXPRESSION_COMMAND_WORDS)
+
+
+def _leading_token(stmt: exp.Expression) -> str:
+    """The input token a syntax error points at: the leftmost leaf of the
+    garbage expression. Regenerating SQL from the whole AST reorders it --
+    ``this is not sql`` renders ``NOT this IS sql`` -- where Postgres names the
+    first token it could not use (``"this"``)."""
+    node: exp.Expression = stmt
+    while isinstance(node.args.get("this"), exp.Expression):
+        node = node.args["this"]
+    return node.sql(dialect="postgres") or stmt.sql(dialect="postgres")
 
 
 def _noop_command_word(stmt: exp.Expression) -> str | None:
@@ -2976,20 +3345,21 @@ def _projection_record_srf_spec(stmt: exp.Select) -> dict | None:
             arg = call.expressions[0] if call.expressions else exp.Null()
             key = arg.sql(dialect="postgres")
             keys.setdefault(key, arg)
-            name = alias or str(call.this).rsplit(".", 1)[-1].lower()
-            plan.append(("record", key, name))
+            fname = str(call.this).rsplit(".", 1)[-1].lower()
+            plan.append(("record", key, alias or fname, fname))
             found = True
             continue
         if isinstance(target, exp.Dot) and isinstance(target.this, exp.Paren):
             call = _record_srf_call(target.this.this)
             if call is not None:
+                fname = str(call.this).rsplit(".", 1)[-1].lower()
                 field = target.expression.name.lower()
-                if field not in ("x", "n"):
+                if field not in srf.record_column_names(fname):
                     return None
                 arg = call.expressions[0] if call.expressions else exp.Null()
                 key = arg.sql(dialect="postgres")
                 keys.setdefault(key, arg)
-                plan.append(("field", key, alias or field, field))
+                plan.append(("field", key, alias or field, field, fname))
                 found = True
                 continue
         if list(
@@ -3000,6 +3370,56 @@ def _projection_record_srf_spec(stmt: exp.Select) -> dict | None:
     if not found:
         return None
     return {"stmt": stmt, "plan": plan, "keys": keys}
+
+
+def _sort_selectlist_srf_rows(
+    stmt: exp.Select, columns: list[ColumnDesc], rows: list[tuple]
+) -> None:
+    """Apply ORDER BY to a record-SRF projection's EXPANDED rows, in place.
+
+    This path dropped ORDER BY entirely, in two different ways: an alias or a
+    field reference errored 42703 (the name is not a source column -- it only
+    exists in the expanded output), and an ORDINAL was accepted and then
+    silently ignored, so `ORDER BY 1` returned the array's own order while
+    reporting success. The silent one is the worse half.
+
+    The keys have to come from the expanded rows, not the source row: one input
+    row fans out to many, so a source-row key is identical across all of them
+    and any stable sort leaves the array order untouched. Same reason the
+    `unnest` form needed its own fix.
+    """
+    order = stmt.args.get("order")
+    if order is None or not rows:
+        return
+    names = [c.name for c in columns]
+    specs: list[tuple[int, bool]] = []
+    idxs: list[int] = []
+    for term in order.expressions:
+        node = term.this
+        idx: int | None = None
+        if isinstance(node, exp.Literal) and not node.is_string and str(node.this).isdigit():
+            pos = int(node.this) - 1
+            if 0 <= pos < len(names):
+                idx = pos
+        else:
+            # An alias, a bare name, or the field expression itself -- match on
+            # the projection's own text so `(srf(a)).n` resolves like `n` does.
+            want = node.name if isinstance(node, (exp.Column, exp.Identifier)) else None
+            if want is None:
+                want = node.sql(dialect="postgres")
+            for i, nm in enumerate(names):
+                if nm == want:
+                    idx = i
+                    break
+        if idx is None:
+            return  # a term we cannot resolve onto the output: leave order alone
+        idxs.append(idx)
+        desc = bool(term.args.get("desc"))
+        nulls_first = term.args.get("nulls_first")
+        if nulls_first is None:
+            nulls_first = desc  # PG default: NULLS LAST asc, NULLS FIRST desc
+        specs.append((-1 if desc else 1, bool(nulls_first)))
+    executor._pg_sort(rows, lambda r: tuple(r[i] for i in idxs), specs)
 
 
 def _run_selectlist_srf(
@@ -3024,14 +3444,28 @@ def _run_selectlist_srf(
             exp.Alias(this=arg.copy(), alias=exp.to_identifier(f"__srf_arg{len(key_idx)}"))
         )
     inner.set("expressions", projections)
+    # Drop ORDER BY from the INNER query. Its terms name the OUTPUT of the
+    # expansion -- an alias, or `(srf(a)).n` -- which is not a column of the
+    # source, so resolving it here raised 42703. The ordering is applied to the
+    # expanded rows instead (`_sort_selectlist_srf_rows`), which is also the
+    # only place it can be correct: one source row fans out to many, so a
+    # source-row sort key is identical across all of them.
+    inner.set("order", None)
     res = _run_select(inner, storage, db, catalog, session)
 
     out_rows: list[tuple] = []
     for row in res.rows:
-        elems: dict[str, list] = {}
-        for k, idx in key_idx.items():
-            v = row[idx]
-            elems[k] = list(v) if isinstance(v, (list, tuple)) else []
+        # One expansion per (function, argument) pair: the record shape is the
+        # FUNCTION's, not the argument's. Expanding every argument as an array
+        # here is what made ``SELECT jsonb_each(obj)`` answer zero rows.
+        elems: dict[tuple[str, str], list[tuple]] = {}
+        for op in plan:
+            if op[0] == "copy":
+                continue
+            fname = op[-1]
+            ekey = (fname, op[1])
+            if ekey not in elems:
+                elems[ekey] = srf.record_rows(fname, row[key_idx[op[1]]])[0]
         height = max((len(v) for v in elems.values()), default=0)
         # PG: an SRF returning zero rows eliminates the input row entirely.
         for i in range(height):
@@ -3039,19 +3473,23 @@ def _run_selectlist_srf(
             for pos, op in enumerate(plan):
                 if op[0] == "copy":
                     cells.append(row[copy_idx[pos]])
+                    continue
+                fname = op[-1]
+                items = elems[(fname, op[1])]
+                names = srf.record_column_names(fname)
+                if i >= len(items):
+                    cells.append(None)
                 elif op[0] == "record":
-                    items = elems[op[1]]
-                    if i < len(items):
-                        cells.append(typemap.RecordValue((("x", items[i]), ("n", i + 1))))
-                    else:
-                        cells.append(None)
+                    # Carry each field's oid: without it the composite renders a
+                    # jsonb field by its Python value, so ``jsonb_each`` on a
+                    # string member gave ``(b,x)`` where PG gives ``(b,"x")``.
+                    rec = typemap.RecordValue(tuple(zip(names, items[i], strict=False)))
+                    rec.field_oids = tuple(
+                        typemap.PG_OID.get(t, 0) for t in srf.record_rows(fname, None)[1]
+                    )
+                    cells.append(rec)
                 else:  # field
-                    items = elems[op[1]]
-                    field = op[3]
-                    if i >= len(items):
-                        cells.append(None)
-                    else:
-                        cells.append(items[i] if field == "x" else i + 1)
+                    cells.append(items[i][names.index(op[3])])
             out_rows.append(tuple(cells))
 
     columns: list[ColumnDesc] = []
@@ -3061,11 +3499,26 @@ def _run_selectlist_srf(
         elif op[0] == "record":
             columns.append(ColumnDesc(op[2], "composite", typemap.PG_OID["composite"]))
         else:
-            name = op[2]
-            if op[3] == "n":
-                columns.append(ColumnDesc(name, "int4", typemap.PG_OID["int4"]))
-            else:
-                columns.append(ColumnDesc(name, "any", 0))
+            name, fname = op[2], op[-1]
+            names = srf.record_column_names(fname)
+            tag = srf.record_rows(fname, None)[1][names.index(op[3])]
+            if tag == "any":
+                # ``_pg_expandarray(...).x`` is the ELEMENT of the array
+                # argument, so it types as that element -- int4 for int[], text
+                # for text[], numeric for numeric[]. It used to report `any` /
+                # oid 0, which is not a type a client can do anything with:
+                # psycopg surfaced it as oid 0 where PostgreSQL gives the real
+                # element type.
+                #
+                # The argument's own column is right there: the query was run
+                # with each SRF call REPLACED BY its array argument, so
+                # `res.columns[key_idx[...]]` already carries the array's tag and
+                # the element tag follows from it.
+                src = res.columns[key_idx[op[1]]].type_tag if op[1] in key_idx else None
+                if src and typemap.is_array_tag(src):
+                    tag = typemap.array_element_tag(src)
+            columns.append(ColumnDesc(name, tag, typemap.PG_OID.get(tag, 0) if tag != "any" else 0))
+    _sort_selectlist_srf_rows(spec["stmt"], columns, out_rows)
     return SQLResult(
         command_tag=f"SELECT {len(out_rows)}",
         columns=columns,
@@ -3107,11 +3560,14 @@ def _run_select(
         )
 
     # A WITH NO DATA materialized view is not scannable until its first REFRESH.
+    # Keyed on the resolved catalog key, not a bare name — the old form
+    # required the reference to carry NO schema qualifier, so a matview read
+    # through `schema.mv` skipped the gate entirely.
+    _mv_key = planner.qualified_table_name(table_node) if table_node is not None else None
     if (
-        table_node is not None
-        and not table_node.args.get("db")
-        and catalog.get_matview(db, table_node.name) is not None
-        and not catalog.matview_populated(db, table_node.name)
+        _mv_key is not None
+        and catalog.get_matview(db, _mv_key) is not None
+        and not catalog.matview_populated(db, _mv_key)
     ):
         raise errors.SQLError(
             "55000",
@@ -3133,6 +3589,11 @@ def _run_select(
     schema = table_node.args.get("db")
     schema_name = schema.name if schema is not None else None
     vtable = virtual.lookup(schema_name, table_node.name)
+    if vtable is None:
+        # A sequence read from the FROM clause is a one-row relation in PG.
+        # Served through the same in-memory backend as the catalog tables, so
+        # WHERE / projection / ORDER BY over it need no new query code.
+        vtable = virtual.sequence_relation(planner.qualified_table_name(table_node), db, catalog)
     if vtable is not None:
         rows = vtable.builder(db, session, storage, catalog)
         backend = virtual.MemoryBackend(rows)
@@ -3166,7 +3627,7 @@ def _run_select(
     _qn = planner.qualified_table_name(table_node)
     table = catalog.get(db, _qn) or reflect.reflect(storage, db, _qn)
     if table is None:
-        raise errors.undefined_table(_qn)
+        raise errors.undefined_table(planner.written_table_name(table_node))
     # A WHERE with EXISTS or a correlated subquery can't lower to a pushdown
     # filter — evaluate it per row (the inner query reads through the same
     # storage view, with outer-row references resolved by the scalar evaluator).
@@ -3251,14 +3712,14 @@ def _run_insert(
     its result rows positionally onto the target columns. ``check_option`` is an
     auto-updatable view's WITH CHECK OPTION predicate, enforced per inserted row."""
     target = stmt.this
+    target_tbl = target.this if isinstance(target, exp.Schema) else target
     name = (
-        planner.qualified_table_name(target.this)
-        if isinstance(target, exp.Schema)
-        else planner.qualified_table_name(target)
-        if isinstance(target, exp.Table)
+        planner.qualified_table_name(target_tbl)
+        if isinstance(target_tbl, exp.Table)
         else target.name
     )
-    table = _require_table(catalog, db, name, storage)
+    written = planner.written_table_name(target_tbl) if isinstance(target_tbl, exp.Table) else None
+    table = _require_table(catalog, db, name, storage, written)
     source = stmt.expression
     if isinstance(source, (exp.Select, exp.SetOperation)):
         result = _run_query(source, storage, db, catalog, session)
@@ -3313,6 +3774,32 @@ def _run_query(
 _MATVIEW_NAME_RE = re.compile(r"(?is)^\s*MATERIALIZED\s+VIEW\s+(?:CONCURRENTLY\s+)?(.+?)\s*;?\s*$")
 
 
+def _matview_key(raw: str, db: str, catalog, session) -> str:
+    """The catalog key for a matview named in RAW command text.
+
+    ``REFRESH`` and ``ALTER MATERIALIZED VIEW`` arrive as `exp.Command`s whose
+    tail is unparsed text, so they never pass through
+    `qualify_from_search_path` and have to resolve the name themselves. An
+    explicit qualifier wins; a bare name walks ``search_path`` for the first
+    schema that holds a matview of that name (PG's rule), falling back to the
+    key a CREATE would have used so the "does not exist" error is about the
+    right relation.
+    """
+    raw = raw.strip()
+    if "." in raw:
+        schema, _, bare = raw.partition(".")
+        schema, bare = schema.strip().strip('"'), bare.strip().strip('"')
+        return bare if schema == "public" else f"{schema}.{bare}"
+    bare = raw.strip('"')
+    path = list(getattr(session, "search_path", None) or ["public"])
+    for schema in path:
+        key = bare if schema == "public" else f"{schema}.{bare}"
+        if catalog.get_matview(db, key) is not None:
+            return key
+    first = next((sc for sc in path if sc != "public"), None)
+    return bare if (first is None or "public" in path) else f"{first}.{bare}"
+
+
 def _is_materialized(stmt: exp.Create) -> bool:
     props = stmt.args.get("properties")
     return bool(props) and any(isinstance(p, exp.MaterializedProperty) for p in props.expressions)
@@ -3351,9 +3838,13 @@ def _materialize(name: str, definition: str, storage: Any, db: str, catalog, ses
 def _create_matview(
     stmt: exp.Create, storage: Any, db: str, catalog, session, populate: bool = True
 ) -> SQLResult:
-    name = stmt.this.name
+    # The catalog key, not the bare name: a matview lives in a schema like any
+    # other relation, and reading `.name` created / stored / catalogued every
+    # matview under its unqualified name regardless of the schema the statement
+    # gave or `search_path` said.
+    name = planner.qualified_table_name(stmt.this)
     if catalog.exists(db, name) or catalog.get_matview(db, name) is not None:
-        raise errors.SQLError("42P07", f'relation "{name}" already exists')
+        raise errors.duplicate_table(name)
     definition = stmt.expression.sql(dialect="postgres")
     storage.create_collection(db, name)
     # Run the SELECT for its column shape either way; only write rows for WITH
@@ -3371,7 +3862,11 @@ def _create_matview(
             storage.insert(db, name, docs)
     catalog.put_matview(db, name, definition, populated=populate)
     if populate:
-        return SQLResult(command_tag=f"SELECT {len(result.rows)}", rowcount=len(result.rows))
+        return SQLResult(
+            command_tag=f"SELECT {len(result.rows)}",
+            rowcount=len(result.rows),
+            suppress_row_description=True,
+        )
     return SQLResult(command_tag="CREATE MATERIALIZED VIEW")
 
 
@@ -3383,11 +3878,12 @@ def _refresh_matview(stmt: exp.Command, storage: Any, db: str, catalog, session)
     m = _MATVIEW_NAME_RE.match(text)
     if m is None:
         raise errors.feature_not_supported(f"unsupported REFRESH: {stmt.sql()}")
-    name = m.group(1).strip().strip('"')
+    written = m.group(1).strip().strip('"')
     concurrently = re.search(r"(?i)\bCONCURRENTLY\b", text) is not None
+    name = _matview_key(m.group(1), db, catalog, session)
     definition = catalog.get_matview(db, name)
     if definition is None:
-        raise errors.SQLError("42P01", f'materialized view "{name}" does not exist')
+        raise errors.undefined_relation_of_kind("MATERIALIZED VIEW", written)
     if concurrently:
         # Postgres requires CONCURRENTLY to diff against an existing snapshot keyed
         # by a unique index, so it rejects an unpopulated view and one with no
@@ -3977,6 +4473,10 @@ def _create_matview_command(
         return _run_command(stmt, session)
     populate = m.group(2) is None  # "WITH NO DATA" → don't populate
     inner = sqlglot.parse_one(f"CREATE MATERIALIZED VIEW {m.group(1)}", read="postgres")
+    # This statement arrived as a Command, so the freshly parsed form has not
+    # been through search_path resolution — without this the re-parse would
+    # home the matview in `public` whatever the path said.
+    planner.qualify_from_search_path(inner, catalog, db, session)
     return _create_matview(inner, storage, db, catalog, session, populate=populate)
 
 
@@ -3985,16 +4485,21 @@ def _alter_matview_command(stmt: exp.Command, storage: Any, db: str, catalog, se
     m = _MATVIEW_ALTER_RE.match(_command_text(stmt))
     if m is None:
         return _run_command(stmt, session)
-    old = m.group(1).strip().strip('"')
+    written = m.group(1).strip().strip('"')
+    old = _matview_key(m.group(1), db, catalog, session)
+    # PG renames within the relation's own schema, so the new key carries the
+    # old one's prefix (a qualified new name is a syntax error there).
     new = m.group(2).strip().strip('"')
+    if "." in old:
+        new = f"{old.rsplit('.', 1)[0]}.{new.rsplit('.', 1)[-1]}"
     definition = catalog.get_matview(db, old)
     if definition is None:
-        raise errors.SQLError("42P01", f'materialized view "{old}" does not exist')
+        raise errors.undefined_relation_of_kind("MATERIALIZED VIEW", written)
     if catalog.exists(db, new) or catalog.get_matview(db, new) is not None:
-        raise errors.SQLError("42P07", f'relation "{new}" already exists')
+        raise errors.duplicate_table(new)
     ok, err = storage.rename_collection(db, old, db, new)
     if not ok:
-        raise errors.SQLError("42P07", err or f'relation "{new}" already exists')
+        raise errors.duplicate_table(new)
     populated = catalog.matview_populated(db, old)
     table = catalog.get(db, old)
     if table is not None:
@@ -4006,11 +4511,11 @@ def _alter_matview_command(stmt: exp.Command, storage: Any, db: str, catalog, se
 
 
 def _drop_matview(stmt: exp.Drop, storage: Any, db: str, catalog) -> SQLResult:
-    name = stmt.this.name
+    name = planner.qualified_table_name(stmt.this)
     if not catalog.drop_matview(db, name):
         if stmt.args.get("exists"):
             return SQLResult(command_tag="DROP MATERIALIZED VIEW")
-        raise errors.SQLError("42P01", f'materialized view "{name}" does not exist')
+        raise errors.undefined_relation_of_kind("MATERIALIZED VIEW", name)
     catalog.drop(db, name)
     storage.drop_collection(db, name)
     return SQLResult(command_tag="DROP MATERIALIZED VIEW")
@@ -4051,7 +4556,7 @@ def _create_sequence(stmt: exp.Create, db: str, catalog: Catalog) -> SQLResult:
     if catalog.sequence_exists(db, name):
         if stmt.args.get("exists"):
             return SQLResult(command_tag="CREATE SEQUENCE")
-        raise errors.SQLError("42P07", f'relation "{name}" already exists')
+        raise errors.duplicate_table(name)
     props = stmt.args.get("properties")
     increment = _seq_prop_int(props, "increment") or 1
     start = _seq_prop_int(props, "start")
@@ -4072,7 +4577,7 @@ def _create_sequence(stmt: exp.Create, db: str, catalog: Catalog) -> SQLResult:
 def _drop_sequence(stmt: exp.Drop, db: str, catalog: Catalog) -> SQLResult:
     name = planner.qualified_table_name(stmt.this)
     if not catalog.drop_sequence(db, name) and not stmt.args.get("exists"):
-        raise errors.SQLError("42P01", f'sequence "{name}" does not exist')
+        raise errors.undefined_relation_of_kind("SEQUENCE", name)
     return SQLResult(command_tag="DROP SEQUENCE")
 
 
@@ -4093,7 +4598,14 @@ def _create_schema(stmt: exp.Create, db: str, catalog: Catalog) -> SQLResult:
 
 def _drop_schema(stmt: exp.Drop, db: str, catalog: Catalog, storage: Any = None) -> SQLResult:
     """``DROP SCHEMA [IF EXISTS] name [CASCADE]`` — CASCADE drops the schema's
-    types; without it, a non-empty schema is a 2BP01 dependency error."""
+    types, tables, views, materialized views and sequences; without it, a
+    non-empty schema is a 2BP01 dependency error.
+
+    Views, matviews and sequences used to be counted by NEITHER half: they did
+    not block a bare ``DROP SCHEMA`` (PG raises 2BP01) and CASCADE did not
+    remove them, so they outlived the schema that contained them and then
+    collided with a later ``CREATE`` of the same name in a re-created schema.
+    """
     name = stmt.this.args["db"].name
     if not catalog.schema_exists(db, name):
         if stmt.args.get("exists"):
@@ -4104,7 +4616,12 @@ def _drop_schema(stmt: exp.Drop, db: str, catalog: Catalog, storage: Any = None)
     composites = [n for n in catalog.list_composites(db) if n.startswith(prefix)]
     domains = [n for n in catalog.list_domains(db) if n.startswith(prefix)]
     tables = [n for n in catalog.list_tables(db) if n.startswith(prefix)]
-    if (enums or composites or domains or tables) and not stmt.args.get("cascade"):
+    views = [n for n in catalog.list_views(db) if n.startswith(prefix)]
+    matviews = [n for n in catalog.list_matviews(db) if n.startswith(prefix)]
+    sequences = [n for n in catalog.list_sequences(db) if n.startswith(prefix)]
+    if (
+        enums or composites or domains or tables or views or matviews or sequences
+    ) and not stmt.args.get("cascade"):
         raise errors.SQLError(
             "2BP01", f'cannot drop schema "{name}" because other objects depend on it'
         )
@@ -4114,6 +4631,14 @@ def _drop_schema(stmt: exp.Drop, db: str, catalog: Catalog, storage: Any = None)
         catalog.drop_composite(db, n)
     for n in domains:
         catalog.drop_domain(db, n)
+    for n in views:
+        catalog.drop_view(db, n)
+    for n in matviews:
+        catalog.drop_matview(db, n)
+        if storage is not None:
+            storage.drop_collection(db, n)
+    for n in sequences:
+        catalog.drop_sequence(db, n)
     for n in tables:
         executor.execute_drop_table(
             planner.DropTablePlan(name=n, if_exists=True), catalog, storage, db
@@ -4419,29 +4944,100 @@ def _function_params(udf: exp.Expression) -> list[str | None]:
     return names
 
 
+def _param_mode(p: exp.Expression) -> str:
+    """A parameter's ``pg_proc.proargmodes`` code: ``i`` IN, ``o`` OUT, ``b``
+    INOUT. An unannotated parameter is IN, which is what PostgreSQL assumes."""
+    for c in p.args.get("constraints") or [] if isinstance(p, exp.ColumnDef) else []:
+        if isinstance(c, exp.InOutColumnConstraint):
+            inp = bool(c.args.get("input_"))
+            out = bool(c.args.get("output"))
+            if inp and out:
+                return "b"
+            if out:
+                return "o"
+    return "i"
+
+
+def _function_param_modes(udf: exp.Expression) -> list[str]:
+    """Per-parameter ``proargmodes`` codes, positional."""
+    return [_param_mode(p) for p in udf.expressions or []]
+
+
 def _function_input_nargs(udf: exp.Expression) -> int:
     """The number of INPUT parameters (IN / INOUT / VARIADIC) — PG's function
     identity excludes OUT-only parameters, so ``f3(IN a int, INOUT b varchar,
     OUT c timestamptz)`` is ``f3(int, varchar)`` to DROP FUNCTION and callers."""
-    n = 0
-    for p in udf.expressions or []:
-        out_only = False
-        for c in p.args.get("constraints") or [] if isinstance(p, exp.ColumnDef) else []:
-            if isinstance(c, exp.InOutColumnConstraint):
-                out_only = bool(c.args.get("output")) and not bool(c.args.get("input_"))
-        if not out_only:
-            n += 1
-    return n
+    return sum(1 for p in udf.expressions or [] if _param_mode(p) != "o")
 
 
 def _function_param_types(udf: exp.Expression) -> list[str | None]:
     """Parameter type tags of a ``CREATE FUNCTION`` signature (positional), for
-    ``pg_proc`` / ``information_schema.parameters`` reflection. Unknown → None."""
+    ``pg_proc`` / ``information_schema.parameters`` reflection. Unknown → None.
+
+    An UNNAMED parameter needs its own branch. sqlglot parses ``f(a int)`` as a
+    `ColumnDef` carrying a `DataType`, but bare ``f(int, int)`` as a plain
+    `Identifier` whose name is the type spelling — so the `DataType` test below
+    fails and the tag was `None`, which `_type_oid` maps to **2278 (void)**.
+    `pg_proc.proargtypes` then read ``'2278 2278'`` for ``f1(int, int)``: not
+    merely unknown but an OID this catalog does not even define, so a client
+    resolving it found nothing. Named parameters were unaffected, which is why
+    it survived — `CREATE FUNCTION g(a int, b text)` recorded ``'23 25'``
+    correctly all along.
+
+    Found 2026-09-19 from pgjdbc's `DatabaseMetaDataTest::functionColumns`,
+    which creates `f1(int, int)` and reads the argument rows back.
+    """
     types: list[str | None] = []
     for p in udf.expressions or []:
         dt = p.args.get("kind") if isinstance(p, exp.ColumnDef) else p
-        types.append(typemap.type_tag_for_sql(dt) if isinstance(dt, exp.DataType) else None)
+        if isinstance(dt, exp.DataType):
+            types.append(typemap.type_tag_for_sql(dt))
+        elif dt is not None:
+            # The bare-Identifier case: resolve the spelling as a type name.
+            # Handles multi-word builtins (`double precision` → `float8`).
+            types.append(typemap.builtin_tag_for_name(dt.sql(dialect="postgres")))
+        else:
+            types.append(None)
     return types
+
+
+def _function_param_decl_oids(udf: exp.Expression) -> list[int | None]:
+    """Declared pg_type oids of a ``CREATE FUNCTION`` signature (positional),
+    where the DECLARED type differs from the storage tag's oid — i.e. the
+    ``varchar`` / ``bpchar`` family, which folds to the ``text`` tag.
+
+    Columns already carry this distinction as ``decl_oid``; parameters did not,
+    so ``CREATE FUNCTION f1(int, varchar)`` recorded ``proargtypes = '23 25'``
+    where PostgreSQL 14 records ``'23 1043'`` (measured 2026-09-19). A client
+    reading the argument back was told the parameter was ``text``.
+
+    None where the declared type IS the tag's own type, so a consumer can fall
+    back to the tag and nothing else changes.
+    """
+    oids: list[int | None] = []
+    for p in udf.expressions or []:
+        dt = p.args.get("kind") if isinstance(p, exp.ColumnDef) else p
+        if not isinstance(dt, exp.DataType) and dt is not None:
+            # The bare-Identifier case: re-parse the spelling as a type so the
+            # same identity helper applies to `f(varchar)` and `f(a varchar)`.
+            dt = _datatype_from_name(dt.sql(dialect="postgres"))
+        if isinstance(dt, exp.DataType):
+            ident = typemap.cast_type_identity(dt)
+            oids.append(ident[0] if ident is not None else None)
+        else:
+            oids.append(None)
+    return oids
+
+
+def _datatype_from_name(spelling: str) -> exp.DataType | None:
+    """Parse a bare type spelling (``varchar``, ``double precision``) into a
+    DataType, or None when it isn't one."""
+    try:
+        parsed = sqlglot.parse_one(f"CAST(NULL AS {spelling})", read="postgres")
+    except Exception:
+        return None
+    target = parsed.args.get("to") if isinstance(parsed, exp.Cast) else None
+    return target if isinstance(target, exp.DataType) else None
 
 
 def _create_function(
@@ -4451,24 +5047,60 @@ def _create_function(
     LANGUAGE sql`` — store the parsed body for the scalar evaluator to invoke."""
     udf = stmt.this
     name = udf.this.name
-    # A pg_temp-homed function keys under the session's temp namespace (the
-    # qualify pass already rewrote the ``pg_temp`` qualifier on the Table
-    # node) — CREATE TRIGGER resolves ``pg_temp.fn()`` against the same key.
+    # A schema-homed function keys under that schema (the qualify pass already
+    # rewrote a ``pg_temp`` qualifier to the session's ``pg_temp_N``) — CREATE
+    # TRIGGER resolves ``pg_temp.fn()`` against the same key.
+    #
+    # Only ``pg_temp_`` used to qualify here, so ``CREATE FUNCTION
+    # hasfunctions.addfunction(...)`` silently dropped its schema and reported
+    # ``pronamespace = public``. pgjdbc's getFunctions / getProcedures filter by
+    # schema, so the function existed and was invisible in the one it was
+    # created in. ``public`` stays unqualified: it is the default search_path
+    # schema, so its functions must keep resolving from a bare name.
     fn_schema = udf.this.args.get("db")
-    if fn_schema is not None and fn_schema.name.startswith("pg_temp_"):
+    if fn_schema is not None and fn_schema.name not in ("", "public"):
         name = f"{fn_schema.name}.{name}"
     params = _function_params(udf)
     nargs = _function_input_nargs(udf)
 
     language = "sql"
     return_tag = None
+    # The DECLARED return oid, where it differs from the tag's — `RETURNS
+    # varchar` recorded prorettype 25 where PostgreSQL 14 records 1043
+    # (measured 2026-09-19). Mirror of the parameter-side gap.
+    return_decl_oid = None
     is_table = False
+    table_columns: list[dict] = []
+    return_type_name: str | None = None
     returns_trigger = False
     for prop in stmt.args.get("properties").expressions if stmt.args.get("properties") else []:
         if isinstance(prop, exp.LanguageProperty):
             language = str(prop.this.name if hasattr(prop.this, "name") else prop.this).lower()
         elif isinstance(prop, exp.ReturnsProperty):
             is_table = bool(prop.args.get("is_table"))
+            if is_table and isinstance(prop.this, exp.Schema):
+                # `RETURNS TABLE (i int, ...)`: PostgreSQL records each output
+                # column as a `t`-mode entry in proargmodes / proallargtypes /
+                # proargnames, and prorettype is the single column's type (or
+                # `record` for several). Measured 2026-09-20.
+                for col in prop.this.expressions or []:
+                    if not isinstance(col, exp.ColumnDef):
+                        continue
+                    kind_dt = col.args.get("kind")
+                    ident = (
+                        typemap.cast_type_identity(kind_dt)
+                        if isinstance(kind_dt, exp.DataType)
+                        else None
+                    )
+                    table_columns.append(
+                        {
+                            "name": col.this.name,
+                            "type_tag": typemap.type_tag_for_sql(kind_dt)
+                            if isinstance(kind_dt, exp.DataType)
+                            else None,
+                            "decl_oid": ident[0] if ident is not None else None,
+                        }
+                    )
             if isinstance(prop.this, exp.DataType):
                 kind = prop.this.args.get("kind")
                 if (
@@ -4481,6 +5113,28 @@ def _create_function(
                     returns_trigger = True
                 else:
                     return_tag = typemap.type_tag_for_sql(prop.this)
+                    ident = typemap.cast_type_identity(prop.this)
+                    return_decl_oid = ident[0] if ident is not None else None
+                    if (
+                        return_tag is None
+                        and prop.this.this == exp.DataType.Type.USERDEFINED
+                        and isinstance(kind, exp.Identifier)
+                    ):
+                        # `RETURNS <composite>` / `RETURNS <table>` names a
+                        # user type, which has no storage tag — so prorettype
+                        # read 2278 (void). The NAME is recorded here and
+                        # resolved to the type's oid at reflection time, where
+                        # the catalog is in scope (PostgreSQL 14 reports the
+                        # composite's own oid, measured 2026-09-20).
+                        #
+                        # The `return_tag is None` guard is load-bearing: a
+                        # first version claimed every USERDEFINED name, and
+                        # sqlglot parses `RETURNS refcursor` that way too even
+                        # though `type_tag_for_sql` resolves it perfectly well.
+                        # That dropped refcursor's tag and made `SELECT
+                        # getref()` describe its column as text (25) instead of
+                        # refcursor (1790).
+                        return_type_name = kind.name
 
     if language == "c" and stmt.this.this.name.lower() == "lo_manage":
         # contrib/lo's orphan-cleanup trigger function, created verbatim by
@@ -4515,7 +5169,12 @@ def _create_function(
             "nargs": nargs,
             "params": params,
             "param_types": _function_param_types(udf),
+            "param_decl_oids": _function_param_decl_oids(udf),
+            "param_modes": _function_param_modes(udf),
+            "table_columns": table_columns,
+            "return_type_name": return_type_name,
             "return_tag": return_tag,
+            "return_decl_oid": return_decl_oid,
             "is_table": is_table,
             "body": body,
             "language": language,
@@ -4529,7 +5188,7 @@ _PROC_MODE_KW = {"in", "out", "inout", "variadic"}
 
 
 def _parse_proc_params(params_text: str) -> list[dict]:
-    """Parse a procedure parameter list into ``[{name, mode, type_tag}]``.
+    """Parse a procedure parameter list into ``[{name, mode, type_tag, decl_oid}]``.
     Postgres accepts the argmode before OR after the name (``a INOUT int`` and
     ``INOUT a int`` are both valid); a bare ``type`` is an unnamed IN param."""
     out: list[dict] = []
@@ -4550,14 +5209,26 @@ def _parse_proc_params(params_text: str) -> list[dict]:
         if len(kept) >= 2:
             name, type_toks = kept[0], kept[1:]
         tag = None
+        # The DECLARED oid, where it differs from the tag's — `varchar` and
+        # `bpchar` fold to the `text` tag, so a procedure's `proargtypes` read
+        # 25 where PostgreSQL 14 records 1043 (measured 2026-09-19). Same gap
+        # the function path had, on the same catalog surface.
+        decl_oid = None
         if type_toks:
             try:
                 dt = sqlglot.parse_one(f"CAST(NULL AS {' '.join(type_toks)})", read="postgres").to
                 tag = typemap.type_tag_for_sql(dt)
+                ident = typemap.cast_type_identity(dt)
+                decl_oid = ident[0] if ident is not None else None
             except Exception:  # noqa: BLE001 — unknown type spelling → text
                 tag = None
         out.append(
-            {"name": name.strip('"') if name else None, "mode": mode, "type_tag": tag or "text"}
+            {
+                "name": name.strip('"') if name else None,
+                "mode": mode,
+                "type_tag": tag or "text",
+                "decl_oid": decl_oid,
+            }
         )
     return out
 
@@ -4615,6 +5286,7 @@ def _create_procedure(raw: str, db: str, catalog: Catalog, session: Session | No
             "nargs": nargs,
             "params": [p["name"] for p in params],
             "param_types": [p["type_tag"] for p in params],
+            "param_decl_oids": [p.get("decl_oid") for p in params],
             "param_modes": [p["mode"] for p in params],
             "return_tag": None,
             "is_table": False,
@@ -4690,11 +5362,22 @@ def _procedure_out_columns(func: dict) -> list[ColumnDesc]:
     params = func.get("params") or []
     modes = func.get("param_modes") or []
     types = func.get("param_types") or []
-    return [
-        ColumnDesc(pname or "?column?", tag, typemap.PG_OID.get(tag, 25))
-        for pname, mode, tag in zip(params, modes, types, strict=False)
-        if mode in ("OUT", "INOUT")
-    ]
+    # The DECLARED oid wins over the tag's: an INOUT `varchar` describes its
+    # result column as 1043 on PostgreSQL 14 (measured 2026-09-19), where the
+    # `text` tag it folds to would say 25. This one is WIRE-visible — it is the
+    # RowDescription a client reads for `CALL`.
+    decls = func.get("param_decl_oids") or []
+    out = []
+    for i, (pname, mode, tag) in enumerate(zip(params, modes, types, strict=False)):
+        if mode not in ("OUT", "INOUT"):
+            continue
+        decl = decls[i] if i < len(decls) else None
+        out.append(
+            ColumnDesc(
+                pname or "?column?", tag, decl if decl is not None else typemap.PG_OID.get(tag, 25)
+            )
+        )
+    return out
 
 
 def _call_out_columns(tail: str, db: str, catalog: Catalog) -> list[ColumnDesc] | None:
@@ -5662,9 +6345,11 @@ def _run_set_operation(
     )
 
 
-def _setop_key(row: tuple[Any, ...]) -> tuple[str, ...]:
+def _setop_key(row: tuple[Any, ...]) -> tuple[Any, ...]:
     """A hashable identity for a result row (matches the SELECT DISTINCT dedup)."""
-    return tuple(repr(v) for v in row)
+    from secantus.sql import numeric as _numeric
+
+    return tuple(_numeric.eq_key(v) for v in row)
 
 
 def _dedup_rows(rows: list[tuple[Any, ...]]) -> list[tuple[Any, ...]]:
@@ -5761,7 +6446,7 @@ def _setop_order_limit(
     limit, skip = planner._limit_skip(stmt)
     if skip:
         rows = rows[skip:]
-    if limit:
+    if limit is not None:
         rows = rows[:limit]
     return rows
 

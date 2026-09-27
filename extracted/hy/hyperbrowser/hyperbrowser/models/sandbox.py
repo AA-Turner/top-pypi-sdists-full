@@ -306,6 +306,7 @@ class SandboxImageSummary(SandboxBaseModel):
     source: Optional[str] = None
     image_init: Optional[SandboxImageInit] = Field(default=None, alias="imageInit")
     uploaded: bool
+    ready: Optional[bool] = None
     created_at: datetime = Field(alias="createdAt")
     updated_at: datetime = Field(alias="updatedAt")
 
@@ -520,6 +521,19 @@ class SandboxImageBuild(SandboxBaseModel):
     @classmethod
     def parse_image_build_datetimes(cls, value):
         return _parse_optional_datetime(value)
+
+
+class SandboxImageBuildResolution(SandboxBaseModel):
+    """The result of resolving content-derived image inputs.
+
+    image_id is populated only for a ready image. With wait=False, build
+    identifies the submitted or joined build, which the caller can poll later.
+    """
+
+    outcome: Literal["reused", "joined", "created"]
+    image_name: str
+    image_id: Optional[str] = None
+    build: Optional[SandboxImageBuild] = None
 
 
 class SandboxImageBuildCreateResult(SandboxBaseModel):

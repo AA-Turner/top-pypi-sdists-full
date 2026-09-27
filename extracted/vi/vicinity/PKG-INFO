@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: vicinity
-Version: 0.4.5
+Version: 0.4.6
 Summary: Lightweight Nearest Neighbors with Flexible Backends
 Author-email: Stéphan Tulkens <stephantul@gmail.com>, Thomas van Dongen <thomasvdongen@proton.me>
 License: MIT License

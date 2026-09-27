@@ -34,6 +34,7 @@ from helpers import AppriseURLTester
 import requests
 
 from apprise import Apprise, AppriseAttachment, NotifyType
+from apprise.exception import AppriseImproperlyConfigured
 from apprise.plugins.smtp2go import NotifySMTP2Go
 
 logging.disable(logging.CRITICAL)
@@ -46,20 +47,20 @@ apprise_url_tests = (
     (
         "smtp2go://",
         {
-            "instance": TypeError,
+            "instance": AppriseImproperlyConfigured,
         },
     ),
     (
         "smtp2go://:@/",
         {
-            "instance": TypeError,
+            "instance": AppriseImproperlyConfigured,
         },
     ),
     # No Token specified
     (
         "smtp2go://user@localhost.localdomain",
         {
-            "instance": TypeError,
+            "instance": AppriseImproperlyConfigured,
         },
     ),
     # Token is valid, but no user name specified
@@ -68,7 +69,7 @@ apprise_url_tests = (
             "a" * 32, "b" * 8, "c" * 8
         ),
         {
-            "instance": TypeError,
+            "instance": AppriseImproperlyConfigured,
         },
     ),
     # Invalid from email address
@@ -77,7 +78,7 @@ apprise_url_tests = (
             "a" * 32, "b" * 8, "c" * 8
         ),
         {
-            "instance": TypeError,
+            "instance": AppriseImproperlyConfigured,
         },
     ),
     # No To email address, but everything else is valid
@@ -243,11 +244,13 @@ def test_plugin_smtp2go_attachments(mock_post):
     path = os.path.join(TEST_VAR_DIR, "apprise-test.gif")
     attach = AppriseAttachment(path)
     assert (
-        obj.notify(
-            body="body",
-            title="title",
-            notify_type=NotifyType.INFO,
-            attach=attach,
+        bool(
+            obj.notify(
+                body="body",
+                title="title",
+                notify_type=NotifyType.INFO,
+                attach=attach,
+            )
         )
         is True
     )
@@ -255,11 +258,13 @@ def test_plugin_smtp2go_attachments(mock_post):
     # Test invalid attachment
     path = os.path.join(TEST_VAR_DIR, "/invalid/path/to/an/invalid/file.jpg")
     assert (
-        obj.notify(
-            body="body",
-            title="title",
-            notify_type=NotifyType.INFO,
-            attach=path,
+        bool(
+            obj.notify(
+                body="body",
+                title="title",
+                notify_type=NotifyType.INFO,
+                attach=path,
+            )
         )
         is False
     )
@@ -268,11 +273,13 @@ def test_plugin_smtp2go_attachments(mock_post):
     mock_post.side_effect = OSError()
     # We can't send the message if we can't read the attachment
     assert (
-        obj.notify(
-            body="body",
-            title="title",
-            notify_type=NotifyType.INFO,
-            attach=attach,
+        bool(
+            obj.notify(
+                body="body",
+                title="title",
+                notify_type=NotifyType.INFO,
+                attach=attach,
+            )
         )
         is False
     )
@@ -291,11 +298,13 @@ def test_plugin_smtp2go_attachments(mock_post):
     with mock.patch("builtins.open", side_effect=OSError()):
         # We can't send the message we can't open the attachment for reading
         assert (
-            obj.notify(
-                body="body",
-                title="title",
-                notify_type=NotifyType.INFO,
-                attach=attach,
+            bool(
+                obj.notify(
+                    body="body",
+                    title="title",
+                    notify_type=NotifyType.INFO,
+                    attach=attach,
+                )
             )
             is False
         )
@@ -319,11 +328,13 @@ def test_plugin_smtp2go_attachments(mock_post):
     mock_post.reset_mock()
 
     assert (
-        obj.notify(
-            body="body",
-            title="title",
-            notify_type=NotifyType.INFO,
-            attach=attach,
+        bool(
+            obj.notify(
+                body="body",
+                title="title",
+                notify_type=NotifyType.INFO,
+                attach=attach,
+            )
         )
         is True
     )
@@ -335,11 +346,13 @@ def test_plugin_smtp2go_attachments(mock_post):
     obj.default_batch_size = 2
 
     assert (
-        obj.notify(
-            body="body",
-            title="title",
-            notify_type=NotifyType.INFO,
-            attach=attach,
+        bool(
+            obj.notify(
+                body="body",
+                title="title",
+                notify_type=NotifyType.INFO,
+                attach=attach,
+            )
         )
         is True
     )
@@ -371,3 +384,24 @@ def test_plugin_smtp2go_cc_bcc_invalid_branch():
     # Valid BCC entry was added; invalid one was silently dropped
     assert "bcc@example.com" in obj.bcc
     assert len(obj.bcc) == 1
+
+
+def test_plugin_smtp2go_cc_names():
+    """NotifySMTP2Go() url() keeps the display names of CC addresses."""
+    obj = Apprise.instantiate(
+        "smtp2go://user@localhost.localdomain/apikey/new@example.com"
+        "?cc=Chris<l2g@nuxref.com>,plain@example.com"
+    )
+    assert isinstance(obj, NotifySMTP2Go)
+    assert obj.names["l2g@nuxref.com"] == "Chris"
+    assert obj.names["plain@example.com"] is False
+
+    url = obj.url()
+    assert "Chris%3Al2g%40nuxref.com" in url
+
+    # The names survive a round trip through url()
+    obj2 = Apprise.instantiate(url)
+    assert isinstance(obj2, NotifySMTP2Go)
+    assert obj2.cc == obj.cc
+    assert obj2.names["l2g@nuxref.com"] == "Chris"
+    assert obj2.names["plain@example.com"] is False

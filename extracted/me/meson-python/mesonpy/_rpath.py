@@ -5,46 +5,121 @@
 from __future__ import annotations
 
 import os
+import re
 import subprocess
 import sys
 import typing
 
 
 if typing.TYPE_CHECKING:
-    from typing import Iterable, List, Union
-    Path = Union[str, os.PathLike[str]]
+    Path = str | os.PathLike[str]
+    T = typing.TypeVar('T')
 
 
-if sys.platform == 'win32' or sys.platform == 'cygwin':
+def unique(values: list[T]) -> list[T]:
+    return list(dict.fromkeys(values))
 
-    def fix_rpath(filepath: Path, libs_relative_path: str) -> None:
+
+class RPATH:
+
+    origin = '$ORIGIN'
+
+    @staticmethod
+    def get_rpath(filepath: Path) -> list[str]:
+        raise NotImplementedError
+
+    @staticmethod
+    def set_rpath(filepath: Path, old: list[str], rpath: list[str]) -> None:
+        raise NotImplementedError
+
+    @classmethod
+    def fix_rpath(cls, filepath: Path, install_rpath: list[str], build_rpath: list[str], libs_path: str | None) -> None:
+        old_rpath = cls.get_rpath(filepath)
+
+        # Prepend install_rpath entries.
+        new_rpath = install_rpath
+
+        # Merge with existing entries, excluding build_rpath entries.  Meson
+        # adds a padding entry to RPATH composed of enough ``X`` characters
+        # to reserve enough space in the ELF header to hold the the final
+        # installation RPATH. Remove this entry and empty entries too.
+        new_rpath += [path for path in old_rpath if path.strip('X') and path not in build_rpath]
+
+        # When an executable, library, or Python extension module is
+        # dynamically linked to a library built as part of the project, Meson
+        # adds a build RPATH pointing to the build directory, in the form of a
+        # relative RPATH entry. We can use the presence of any RPATH entries
+        # relative to ``$ORIGIN`` as an indicator that the installed object
+        # depends on shared libraries internal to the project. In this case we
+        # need to add an RPATH entry pointing to the meson-python shared
+        # library install location. This heuristic is not perfect: RPATH
+        # entries relative to ``$ORIGIN`` can exist for other reasons.
+        # However, this only results in harmless additional RPATH entries.
+        if libs_path and any(path.startswith(cls.origin) for path in old_rpath):
+            new_rpath.append(os.path.join(cls.origin, libs_path))
+
+        new_rpath = unique(new_rpath)
+        if new_rpath != old_rpath:
+            cls.set_rpath(filepath, old_rpath, new_rpath)
+
+
+class _Windows(RPATH):
+
+    @classmethod
+    def fix_rpath(cls, filepath: Path, install_rpath: list[str], build_rpath: list[str], libs_path: str | None) -> None:
         pass
 
-elif sys.platform == 'darwin':
 
-    def _get_rpath(filepath: Path) -> List[str]:
+class _MacOS(RPATH):
+
+    origin = '@loader_path'
+
+    @staticmethod
+    def get_rpath(filepath: Path) -> list[str]:
         rpath = []
         r = subprocess.run(['otool', '-l', os.fspath(filepath)], capture_output=True, text=True)
-        rpath_tag = False
-        for line in [x.split() for x in r.stdout.split('\n')]:
-            if line == ['cmd', 'LC_RPATH']:
-                rpath_tag = True
-            elif len(line) >= 2 and line[0] == 'path' and rpath_tag:
-                rpath.append(line[1])
-                rpath_tag = False
+        lines = iter(r.stdout.splitlines())
+        for line in lines:
+            if line.strip().startswith('cmd LC_RPATH'):
+                for line in lines:
+                    if m := re.match(r'^\s*path (.+) \(offset \d+\)$', line):
+                        rpath.append(m.group(1))
+                        break
         return rpath
 
-    def _replace_rpath(filepath: Path, old: str, new: str) -> None:
-        subprocess.run(['install_name_tool', '-rpath', old, new, os.fspath(filepath)], check=True)
+    @staticmethod
+    def set_rpath(filepath: Path, old: list[str], rpath: list[str]) -> None:
+        # ``install_name_tool`` allows to delete, add, or rewrite specific
+        # LC_RPATH entries, however, this operations cannot be combined in
+        # arbitrary order in a single call.  The only robust way to get
+        # entries in a specific order with at max two tool invocations is to
+        # delete the entries that are out of place and re-add them in the
+        # right order.
 
-    def fix_rpath(filepath: Path, libs_relative_path: str) -> None:
-        for path in _get_rpath(filepath):
-            if path.startswith('@loader_path/'):
-                _replace_rpath(filepath, path, '@loader_path/' + libs_relative_path)
+        keep = 0
+        while keep < len(old) and keep < len(rpath) and old[keep] == rpath[keep]:
+            keep += 1
 
-elif sys.platform == 'sunos5':
+        delete = old[keep:]
+        add = rpath[keep:]
 
-    def _get_rpath(filepath: Path) -> List[str]:
+        if delete:
+            # ``install_name_tool`` does not accept repeated ``-delete_rpath``
+            # arguments. There should not be duplicated in the existing RPATH,
+            # but the assert should make this occurrence easier to debug.
+            assert unique(delete) == delete
+            args = [a for p in delete for a in ('-delete_rpath', p)]
+            subprocess.run(['install_name_tool', *args, os.fspath(filepath)], check=True)
+
+        if add:
+            args = [a for p in add for a in ('-add_rpath', p)]
+            subprocess.run(['install_name_tool', *args, os.fspath(filepath)], check=True)
+
+
+class _SunOS5(RPATH):
+
+    @staticmethod
+    def get_rpath(filepath: Path) -> list[str]:
         rpath = []
         r = subprocess.run(['/usr/bin/elfedit', '-r', '-e', 'dyn:rpath', os.fspath(filepath)],
             capture_output=True, check=True, text=True)
@@ -55,35 +130,32 @@ elif sys.platform == 'sunos5':
                         rpath.append(path)
         return rpath
 
-    def _set_rpath(filepath: Path, rpath: Iterable[str]) -> None:
+    @staticmethod
+    def set_rpath(filepath: Path, old: list[str], rpath: list[str]) -> None:
         subprocess.run(['/usr/bin/elfedit', '-e', 'dyn:rpath ' + ':'.join(rpath), os.fspath(filepath)], check=True)
 
-    def fix_rpath(filepath: Path, libs_relative_path: str) -> None:
-        old_rpath = _get_rpath(filepath)
-        new_rpath = []
-        for path in old_rpath:
-            if path.startswith('$ORIGIN/'):
-                path = '$ORIGIN/' + libs_relative_path
-            new_rpath.append(path)
-        if new_rpath != old_rpath:
-            _set_rpath(filepath, new_rpath)
 
-else:
-    # Assume that any other platform uses ELF binaries.
+class _ELF(RPATH):
 
-    def _get_rpath(filepath: Path) -> List[str]:
+    @staticmethod
+    def get_rpath(filepath: Path) -> list[str]:
         r = subprocess.run(['patchelf', '--print-rpath', os.fspath(filepath)], capture_output=True, text=True)
-        return r.stdout.strip().split(':')
+        return [x for x in r.stdout.strip().split(':') if x]
 
-    def _set_rpath(filepath: Path, rpath: Iterable[str]) -> None:
+    @staticmethod
+    def set_rpath(filepath: Path, old: list[str], rpath: list[str]) -> None:
         subprocess.run(['patchelf','--set-rpath', ':'.join(rpath), os.fspath(filepath)], check=True)
 
-    def fix_rpath(filepath: Path, libs_relative_path: str) -> None:
-        old_rpath = _get_rpath(filepath)
-        new_rpath = []
-        for path in old_rpath:
-            if path.startswith('$ORIGIN/'):
-                path = '$ORIGIN/' + libs_relative_path
-            new_rpath.append(path)
-        if new_rpath != old_rpath:
-            _set_rpath(filepath, new_rpath)
+
+if sys.platform == 'win32' or sys.platform == 'cygwin':
+    _cls = _Windows
+elif sys.platform == 'darwin':
+    _cls = _MacOS
+elif sys.platform == 'sunos5':
+    _cls = _SunOS5
+else:
+    _cls = _ELF
+
+get_rpath = _cls.get_rpath
+set_rpath = _cls.set_rpath
+fix_rpath = _cls.fix_rpath

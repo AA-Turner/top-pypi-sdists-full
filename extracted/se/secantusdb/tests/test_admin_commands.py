@@ -12,13 +12,28 @@ from pymongo import MongoClient
 from pymongo.errors import OperationFailure
 
 import secantus
-from secantus import SecantusDBServer
+from secantus import SecantusDBServer, commands
 
 
-@pytest.fixture
-def server(tmp_path):
-    with SecantusDBServer(port=0, storage_path=str(tmp_path)) as srv:
+# Module-scoped: one server for the file, with `_fresh_databases` below
+# giving each test the clean slate a per-test server used to.
+@pytest.fixture(scope="module")
+def server(wt_home_module):
+    with SecantusDBServer(port=0, storage_path=wt_home_module) as srv:
         yield srv
+
+
+@pytest.fixture(autouse=True)
+def _fresh_databases(client):
+    """Drop everything this test made, so the shared server looks new to the next.
+
+    The isolation a per-test server gave for free, without paying for a server.
+    Runs AFTER the test so a failure leaves its data in place for inspection.
+    """
+    yield
+    for _name in client.list_database_names():
+        if _name not in ("admin", "local", "config"):
+            client.drop_database(_name)
 
 
 @pytest.fixture
@@ -35,9 +50,14 @@ def client(server: SecantusDBServer):
 
 def test_build_info_reports_secantus_version(client: MongoClient) -> None:
     out = client.admin.command("buildInfo")
-    # Driver-facing `version` stays at the MongoDB-compatibility value so
-    # pymongo / mongo-go-driver / etc. enable the right feature flags.
-    assert out["version"] == "7.0.0"
+    # Driver-facing `version` is the MongoDB-compatibility value so pymongo /
+    # mongo-go-driver / etc. enable the right feature flags. It moved 7.0.0 ->
+    # 8.2.11 when the 8.0 features it promises landed (`bulkWrite`, `sort` on
+    # updateOne/replaceOne) -- the version is a capability contract, so it
+    # follows the features rather than leading them.
+    assert out["version"] == commands.SERVER_VERSION
+    assert out["version"].startswith("8.")
+    assert out["versionArray"][:1] == [8]
     # SecantusDB-specific marker lets admin tools tell which build they're
     # actually talking to.
     assert out["secantusVersion"] == secantus.__version__

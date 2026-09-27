@@ -46,6 +46,25 @@ from matrx_scraper.server.app import create_app, _configure_standalone_filesyste
 from matrx_scraper.server.config import ServerConfig
 
 
+@pytest.fixture
+def wired_source_landing(monkeypatch: pytest.MonkeyPatch) -> list[dict]:
+    """Every crawled page lands as a Source through the injected door (SOURCE-CONVERGENCE §4.7;
+    pinned in test_crawl_lands_as_source.py). These tests pin storage, so the door records."""
+    from matrx_scraper import _ext
+
+    calls: list[dict] = []
+
+    async def hook(landing: dict) -> dict:
+        calls.append(landing)
+        return {"processed_document_id": "44913054-1933-44b8-ba94-f592f362b8c3", "source_id": "p", "notices": []}
+
+    monkeypatch.setitem(_ext._registry, "source_landing", hook)
+    monkeypatch.setattr(
+        "matrx_scraper.web_crawl.persistence.WebSnapshot.update_where", AsyncMock(return_value=1)
+    )
+    return calls
+
+
 @pytest.fixture(autouse=True)
 def _stub_canonical_identity(monkeypatch: pytest.MonkeyPatch) -> None:
     async def resolve_identity(**kwargs: object) -> CrawlIdentityResolution:
@@ -416,6 +435,7 @@ async def test_site_editor_check_rejects_false_public_iam_result(
         )
 
 
+@pytest.mark.usefixtures("wired_source_landing")
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     ("page_mime", "has_html_metrics"),
@@ -605,6 +625,7 @@ def test_crawl_persistence_error_exposes_only_safe_stream_message() -> None:
     assert "\x1b" not in str(error)
 
 
+@pytest.mark.usefixtures("wired_source_landing")
 @pytest.mark.asyncio
 async def test_canonical_persister_archives_xml_with_its_real_format_and_mime(
     monkeypatch: pytest.MonkeyPatch,
@@ -713,6 +734,7 @@ async def test_canonical_persister_never_deletes_an_access_denied_duplicate(
     purge.assert_not_awaited()
 
 
+@pytest.mark.usefixtures("wired_source_landing")
 @pytest.mark.asyncio
 async def test_failed_persistence_purges_every_new_artifact_by_exact_identity() -> None:
     body = SyncResult(

@@ -23,6 +23,7 @@ import trustme
 from secantus.sql import pgwire
 from secantus.sql.pgserver import SecantusPGServer
 from secantus.storage import Storage
+from tests.net_timeouts import CONNECT_TIMEOUT_S
 
 pg8000 = pytest.importorskip("pg8000.dbapi")
 
@@ -1450,7 +1451,8 @@ def test_money_and_to_char_via_driver(server):
 
     # numeric to_char.
     cur.execute("SELECT to_char(1234.5, 'FM$9,999.99')")
-    assert cur.fetchone()[0] == "$1,234.50"
+    # FM drops trailing fractional zeros (re-probed against PG 14.13).
+    assert cur.fetchone()[0] == "$1,234.5"
 
     # equality lowers to a Mongo filter.
     cur.execute("SELECT id FROM items WHERE price = '19.99'")
@@ -2395,7 +2397,7 @@ def test_string_agg_and_bool_aggregates_via_driver(server):
 def test_ssl_request_declined_without_tls(server):
     # Sanity: a raw SSLRequest is declined when TLS isn't configured.
     host, port = server.address
-    s = socket.create_connection((host, port), timeout=5)
+    s = socket.create_connection((host, port), timeout=CONNECT_TIMEOUT_S)
     s.sendall(struct.pack("!ii", 8, pgwire.SSL_REQUEST_CODE))
     assert s.recv(1) == b"N"
     s.close()

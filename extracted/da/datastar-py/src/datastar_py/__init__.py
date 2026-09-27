@@ -4,10 +4,10 @@ import json
 from collections.abc import Mapping
 from typing import Any
 
-from .attributes import attribute_generator
+from .attributes import action_generator, attribute_generator
 from .sse import SSE_HEADERS, ServerSentEventGenerator
 
-__all__ = ["SSE_HEADERS", "ServerSentEventGenerator", "attribute_generator"]
+__all__ = ["SSE_HEADERS", "ServerSentEventGenerator", "action_generator", "attribute_generator"]
 
 
 def _read_signals(

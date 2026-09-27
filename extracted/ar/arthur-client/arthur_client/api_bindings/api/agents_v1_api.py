@@ -4658,7 +4658,7 @@ class AgentsV1Api:
     ) -> PutAgentsResponse:
         """Upsert Agents.
 
-        Create or update agents in the workspace. Deduplicates by (workspace_id, data_plane_id, task_id). Performs full replacement on match. Requires workspace_upsert_agents permission.
+        Create or update agents in the workspace. Deduplicates by (workspace_id, data_plane_id, task_id). Performs full replacement on match. Each agent is validated on its own: one that fails validation, names a data plane outside the workspace, or names a model not in it is returned in `rejected` with the reason, and the rest are stored. Requires workspace_upsert_agents permission.
 
         :param workspace_id: (required)
         :type workspace_id: str
@@ -4733,7 +4733,7 @@ class AgentsV1Api:
     ) -> ApiResponse[PutAgentsResponse]:
         """Upsert Agents.
 
-        Create or update agents in the workspace. Deduplicates by (workspace_id, data_plane_id, task_id). Performs full replacement on match. Requires workspace_upsert_agents permission.
+        Create or update agents in the workspace. Deduplicates by (workspace_id, data_plane_id, task_id). Performs full replacement on match. Each agent is validated on its own: one that fails validation, names a data plane outside the workspace, or names a model not in it is returned in `rejected` with the reason, and the rest are stored. Requires workspace_upsert_agents permission.
 
         :param workspace_id: (required)
         :type workspace_id: str
@@ -4808,7 +4808,7 @@ class AgentsV1Api:
     ) -> RESTResponseType:
         """Upsert Agents.
 
-        Create or update agents in the workspace. Deduplicates by (workspace_id, data_plane_id, task_id). Performs full replacement on match. Requires workspace_upsert_agents permission.
+        Create or update agents in the workspace. Deduplicates by (workspace_id, data_plane_id, task_id). Performs full replacement on match. Each agent is validated on its own: one that fails validation, names a data plane outside the workspace, or names a model not in it is returned in `rejected` with the reason, and the rest are stored. Requires workspace_upsert_agents permission.
 
         :param workspace_id: (required)
         :type workspace_id: str

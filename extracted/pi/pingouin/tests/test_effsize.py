@@ -128,13 +128,13 @@ class TestEffsize(TestCase):
         assert ci_n[0] == -0.7 and ci_n[1] == 0.8
         assert ci_p[0] == -0.7 and ci_p[1] == 0.8
 
-        # 4. Bivariate custom function: paired T-test
+        # 4. Bivariate custom function: paired T-test, applied to all resamples at once
         from scipy.stats import ttest_rel
 
         ci_n = compute_bootci(
             x_m,
             y_m,
-            func=lambda x, y: ttest_rel(x, y)[0],
+            func=lambda x, y, axis=-1: ttest_rel(x, y, axis=axis)[0],
             method="norm",
             paired=True,
             n_boot=n_boot,
@@ -144,7 +144,7 @@ class TestEffsize(TestCase):
         ci_p = compute_bootci(
             x_m,
             y_m,
-            func=lambda x, y: ttest_rel(x, y)[0],
+            func=lambda x, y, axis=-1: ttest_rel(x, y, axis=axis)[0],
             method="per",
             paired=True,
             n_boot=n_boot,
@@ -169,20 +169,20 @@ class TestEffsize(TestCase):
         for m, f in list(product(methods, funcs)):
             compute_bootci(x, func=f, method=m, seed=123, n_boot=100)
 
-        # Using a custom function (use per method to avoid BCa jackknife issues with
-        # element-wise functions and paired=False)
+        # Using a custom function without an axis argument, applied to each resample (use per
+        # method to avoid BCa jackknife issues with element-wise functions and paired=False)
         _, bdist = compute_bootci(
             x,
             y,
             func=lambda x, y: np.sum(np.exp(x) / np.exp(y)),
-            n_boot=10000,
+            n_boot=1000,
             decimals=4,
             confidence=0.68,
             method="per",
             seed=None,
             return_dist=True,
         )
-        assert bdist.size == 10000
+        assert bdist.size == 1000
 
         # ERRORS
         with pytest.raises(ValueError):
@@ -239,6 +239,11 @@ class TestEffsize(TestCase):
             cef(d, "coucou", "hibou")
         with pytest.raises(ValueError):
             cef(d, "AUC", "eta_square")
+        # Effect sizes that require the raw data cannot be converted from a Cohen d
+        with pytest.raises(ValueError):
+            cef(d, "cohen", "cohen_dz")
+        with pytest.raises(ValueError):
+            cef(d, "cohen", "cles")
 
     def test_compute_effsize(self):
         """Test function compute_effsize"""
@@ -290,6 +295,22 @@ class TestEffsize(TestCase):
         # y=0 is a common use-case
         d_zero = compute_effsize(x=x, y=0, eftype="cohen")
         assert np.isclose(d_zero, np.mean(x) / np.std(x, ddof=1))
+        # One-sample: eftype is honored, with the one-sample Hedges correction (df = n - 1)
+        g_zero = compute_effsize(x=x, y=0, eftype="hedges")
+        assert np.isclose(g_zero, d_zero * (1 - 3 / (4 * (len(x) - 1) - 1)))
+        assert np.isclose(compute_effsize(x=x, y=0, eftype="AUC"), cef(d_zero, "cohen", "AUC"))
+        # One-sample CLES = P(X > mu) + .5 * P(X = mu)
+        assert compute_effsize([1, 2, 3, 4, 5], 3, eftype="cles") == 0.5
+        # One-sample correlation is not defined: NaN (so that pairwise_tests does not fail)
+        with pytest.warns(UserWarning):
+            assert np.isnan(compute_effsize(x=x, y=0, eftype="r"))
+
+        # CLES matches the brute-force pairwise definition, including ties
+        rng = np.random.default_rng(0)
+        a, b = rng.integers(0, 10, 50), rng.integers(0, 10, 40)
+        diff = a[:, None] - b
+        cles = np.where(diff == 0, 0.5, diff > 0).mean()
+        assert np.isclose(compute_effsize(a, b, eftype="cles"), cles)
 
         # Cohen's dz for paired samples (issue #450)
         # dz = mean(x - y) / std(x - y, ddof=1) = t / sqrt(n)

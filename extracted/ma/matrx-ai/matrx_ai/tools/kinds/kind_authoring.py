@@ -117,6 +117,9 @@ class KindDefinitionDetail(KindModel):
     surfaces: list[KindSurfaceSummary] = []
     #: The emitted JSON Schema; None when include_schema=false or unset.
     json_schema: dict[str, JsonValue] | None = None
+    #: Set only when a body was cut to the result budget: what, and how to
+    #: get the rest (``bound_kind_bodies``).
+    note: str | None = None
 
 
 # ── the write half of the kind_* family (lead-w2e batch 2) ───────────────────

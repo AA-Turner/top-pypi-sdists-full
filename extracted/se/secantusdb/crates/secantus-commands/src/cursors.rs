@@ -22,6 +22,7 @@ use std::time::{Duration, Instant};
 
 use bson::{doc, Bson, Document};
 
+use crate::argtypes;
 use crate::util::as_i64;
 use crate::{
     CommandContext, CommandError, HandlerResult, DEFAULT_BATCH_SIZE, MAX_GETMORE_BATCH_BYTES,
@@ -101,6 +102,11 @@ struct Entry {
     await_data: bool,
     no_cursor_timeout: bool,
     change_stream: bool,
+    /// True when the result's size is KNOWN up front -- an explicit `limit` /
+    /// `singleBatch`, or a catalog enumeration like `listIndexes`. mongod closes
+    /// such a cursor the moment the bound is reached; without one it cannot know
+    /// and keeps the cursor open past an exact-fill batch.
+    bounded: bool,
     /// Tombstoned by `kill_namespace`: the collection was dropped out from
     /// under a plain tailable cursor, and the next getMore must say so.
     dropped: bool,
@@ -120,6 +126,10 @@ struct Entry {
     /// A fatal projection error (code 280) the producer hit; once set, the next
     /// getMore returns it as an `ok: 0` reply and the cursor is dropped.
     fatal_error: Option<CommandError>,
+    /// The originating `find` / `aggregate` carried a `maxTimeMS`. mongod bounds
+    /// a non-tailable cursor's getMores by it; here it only decides whether the
+    /// `maxTimeAlwaysTimeOut` failpoint applies to a getMore.
+    time_limited: bool,
 }
 
 /// A read-only snapshot of a cursor's routing state, so the getMore handler can
@@ -199,6 +209,16 @@ impl CursorRegistry {
     /// Register an ordinary cursor over already-fetched documents; returns its
     /// id. The remaining docs drain via `getMore`.
     pub fn register(&self, namespace: &str, remaining: Vec<Vec<u8>>) -> Result<i64, CursorError> {
+        self.register_bounded(namespace, remaining, false)
+    }
+
+    /// `register` with an explicit `bounded` flag (see [`Entry::bounded`]).
+    pub fn register_bounded(
+        &self,
+        namespace: &str,
+        remaining: Vec<Vec<u8>>,
+        bounded: bool,
+    ) -> Result<i64, CursorError> {
         let mut inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
         self.prune_locked(&mut inner);
         if inner.cursors.len() >= self.max_cursors {
@@ -213,6 +233,7 @@ impl CursorRegistry {
                 remaining: remaining.into_iter().collect(),
                 last_access: now,
                 tailable: false,
+                bounded,
                 change_stream: false,
                 dropped: false,
                 await_data: false,
@@ -224,6 +245,7 @@ impl CursorRegistry {
                 final_event_pending: false,
                 last_token: None,
                 fatal_error: None,
+                time_limited: false,
             },
         );
         Ok(id)
@@ -251,6 +273,7 @@ impl CursorRegistry {
                 remaining: opts.initial_remaining.into_iter().collect(),
                 last_access: now,
                 tailable: true,
+                bounded: false,
                 change_stream: opts.change_stream,
                 dropped: false,
                 await_data: opts.await_data,
@@ -262,6 +285,7 @@ impl CursorRegistry {
                 final_event_pending: false,
                 last_token: None,
                 fatal_error: None,
+                time_limited: false,
             },
         );
         Ok(id)
@@ -307,6 +331,11 @@ impl CursorRegistry {
                 .cursors
                 .get_mut(&cursor_id)
                 .ok_or(CursorError::NotFound(cursor_id))?;
+            // A non-positive `batchSize` means "server default", i.e. the
+            // client named no size. Probed on mongod 8.3.4: it then drains the
+            // cursor AND closes it, because "the batch exactly filled the
+            // request" is meaningless when nothing was requested.
+            let explicit_request = batch_size > 0;
             let want = if batch_size <= 0 {
                 e.remaining.len()
             } else {
@@ -322,7 +351,15 @@ impl CursorRegistry {
                 take += 1;
             }
             let batch: Vec<Vec<u8>> = e.remaining.drain(..take).collect();
-            let exhausted = e.remaining.is_empty();
+            // mongod closes a cursor only when it KNOWS the result is finished:
+            // the batch came up short, a `limit`/`singleBatch` bounded it, or no
+            // size was requested. A batch that exactly fills `want` proves
+            // nothing, so the cursor stays open and costs one more empty
+            // getMore. We buffer the whole result and could close early -- doing
+            // so made our round-trip count differ from mongod's, which drivers
+            // observe directly (mongo-go-driver asserts on exactly that).
+            let exhausted = e.remaining.is_empty()
+                && (e.bounded || !explicit_request || batch.is_empty() || batch.len() < want);
             if e.tailable || !exhausted {
                 e.last_access = now;
             }
@@ -472,6 +509,24 @@ impl CursorRegistry {
     }
 
     /// Whether this cursor was tombstoned by a drop/rename of its collection.
+    /// Flag a non-tailable cursor as opened under a `maxTimeMS`.
+    pub fn mark_time_limited(&self, cursor_id: i64) {
+        let mut inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
+        if let Some(e) = inner.cursors.get_mut(&cursor_id) {
+            if !e.tailable {
+                e.time_limited = true;
+            }
+        }
+    }
+
+    pub fn is_time_limited(&self, cursor_id: i64) -> bool {
+        let inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
+        inner
+            .cursors
+            .get(&cursor_id)
+            .is_some_and(|e| e.time_limited)
+    }
+
     pub fn was_dropped(&self, cursor_id: i64) -> bool {
         let inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
         inner.cursors.get(&cursor_id).is_some_and(|e| e.dropped)
@@ -571,6 +626,11 @@ fn mint_id(cursors: &HashMap<i64, Entry>, tailable: bool) -> Result<i64, CursorE
 /// `getMore` — pull the next batch from a cursor. Non-tailable path; the
 /// tailable change-stream path is deferred (see the module docs).
 pub fn get_more(doc: &Document, ctx: &mut CommandContext) -> HandlerResult {
+    // mongod PARSES before it looks the cursor up, so a wrong-typed argument is
+    // its own error rather than CursorNotFound about a cursor that exists.
+    argtypes::require_required_string(doc, "collection", "getMore.collection")?;
+    argtypes::require_number(doc, "batchSize", "getMore.batchSize")?;
+    argtypes::require_number(doc, "maxTimeMS", "getMore.maxTimeMS")?;
     let cursor_id = doc
         .get("getMore")
         .and_then(as_i64)
@@ -734,6 +794,9 @@ pub fn get_more(doc: &Document, ctx: &mut CommandContext) -> HandlerResult {
 
 /// `killCursors` — explicitly close cursors.
 pub fn kill_cursors(doc: &Document, ctx: &mut CommandContext) -> HandlerResult {
+    // A non-array `cursors` used to fall through to an empty list and report
+    // ok:1 — the caller was told cursors it named were killed when none were.
+    argtypes::require_required_array(doc, "cursors", "killCursors.cursors")?;
     let cursor_ids: Vec<i64> = match doc.get("cursors") {
         Some(Bson::Array(a)) => a.iter().filter_map(as_i64).collect(),
         _ => Vec::new(),
@@ -1211,5 +1274,62 @@ mod drop_tombstone_tests {
         let other = tailable(&reg, "t.other", false);
         assert_eq!(reg.kill_namespace("t.c"), 0);
         assert!(!reg.was_dropped(other));
+    }
+}
+
+#[cfg(test)]
+mod exhaustion_parity_tests {
+    use super::*;
+
+    fn blobs(n: usize) -> Vec<Vec<u8>> {
+        (0..n).map(|i| vec![i as u8; 4]).collect()
+    }
+
+    fn reg() -> CursorRegistry {
+        CursorRegistry::new()
+    }
+
+    /// A batch that exactly fills the request proves nothing about what follows,
+    /// so mongod keeps the cursor open for one more empty getMore.
+    #[test]
+    fn exact_fill_keeps_an_unbounded_cursor_open() {
+        let r = reg();
+        let id = r.register("db.c", blobs(4)).unwrap();
+        let (b1, done1) = r.next_batch(id, 2, usize::MAX).unwrap();
+        assert_eq!((b1.len(), done1), (2, false));
+        let (b2, done2) = r.next_batch(id, 2, usize::MAX).unwrap();
+        assert_eq!((b2.len(), done2), (2, false), "exact fill must not close");
+        let (b3, done3) = r.next_batch(id, 2, usize::MAX).unwrap();
+        assert_eq!((b3.len(), done3), (0, true), "trailing empty batch closes");
+    }
+
+    /// A short batch tells the client it is finished, so no extra round trip.
+    #[test]
+    fn short_batch_closes_immediately() {
+        let r = reg();
+        let id = r.register("db.c", blobs(3)).unwrap();
+        assert!(!r.next_batch(id, 2, usize::MAX).unwrap().1);
+        let (b2, done2) = r.next_batch(id, 2, usize::MAX).unwrap();
+        assert_eq!((b2.len(), done2), (1, true));
+    }
+
+    /// `limit` / `singleBatch` / catalog enumerations make the size knowable.
+    #[test]
+    fn bounded_cursor_closes_on_exact_fill() {
+        let r = reg();
+        let id = r.register_bounded("db.c", blobs(4), true).unwrap();
+        assert!(!r.next_batch(id, 2, usize::MAX).unwrap().1);
+        let (b2, done2) = r.next_batch(id, 2, usize::MAX).unwrap();
+        assert_eq!((b2.len(), done2), (2, true), "bounded must close on drain");
+    }
+
+    /// A non-positive batchSize means "server default" -- no size was asked
+    /// for, so mongod drains AND closes.
+    #[test]
+    fn unspecified_batch_size_drains_and_closes() {
+        let r = reg();
+        let id = r.register("db.c", blobs(3)).unwrap();
+        let (batch, done) = r.next_batch(id, 0, usize::MAX).unwrap();
+        assert_eq!((batch.len(), done), (3, true));
     }
 }

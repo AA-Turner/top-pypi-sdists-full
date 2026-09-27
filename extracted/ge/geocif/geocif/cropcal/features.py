@@ -59,7 +59,7 @@ logger = logging.getLogger(__name__)
 CATEGORICAL_FEATURES = ("crop", "hemisphere", "climate_zone", "cm_group", "season", "precip_regime")
 
 #: Columns that identify a row and are never features.
-IDENTIFIER_COLUMNS = ("key", "country", "region")
+IDENTIFIER_COLUMNS = ("key", "country", "region", "hemisphere_zone")
 
 #: Calendar flags carried for the evaluation, never features: both are
 #: properties of the calendar row, i.e. of the target.
@@ -809,6 +809,27 @@ def season_block_features(
 # --------------------------------------------------------------------------
 # Row assembly
 # --------------------------------------------------------------------------
+def latitude_hemisphere(lat, fallback: str = "N") -> str:
+    """``"S"`` south of the equator, ``"N"`` on or north of it; ``fallback`` when unknown.
+
+    The zone file's ``hemisphere`` is not geography: it disagrees with the
+    latitude sign for 123 of 1,354 regions (Ethiopia, Sudan, South Sudan,
+    Eritrea... marked S; Kenya, Timor-Leste, Gabon marked N), and 100 of the
+    105 northern regions marked S are seasons that harvest at the very end of
+    the year. As a feature it hands the model a calendar hint; as the
+    climatology null's grouping it put Ethiopia's median in the southern pool,
+    ~180 days off, and inflated every skill score (2026-09-26 experiment,
+    ``geocif.experiments.cropcal_hemisphere``).
+    """
+    try:
+        value = float(lat)
+    except (TypeError, ValueError):
+        return fallback
+    if not np.isfinite(value):
+        return fallback
+    return "S" if value < 0.0 else "N"
+
+
 def build_row(
     *,
     key: str,
@@ -844,19 +865,27 @@ def build_row(
 ) -> dict:
     """One design-matrix row: identifiers, features, metadata, optional targets.
 
+    ``hemisphere`` is the zone file's label. It is kept as ``hemisphere_zone``
+    (an identifier, never a feature); the ``hemisphere`` FEATURE -- and so the
+    climatology null's grouping and the season-block alignment -- is the sign
+    of ``lat`` (see :func:`latitude_hemisphere`), falling back to the zone
+    label only when the latitude is unknown.
+
     ``targets`` maps a :data:`TARGETS` name to a calendar day. Each becomes
     ``target_<name>`` plus its ``_sin``/``_cos`` pair and its ``_anchored``
     offset from :data:`ANCHOR_FEATURE`.
     """
+    geographic = latitude_hemisphere(lat, fallback=str(hemisphere) or "N")
     row = {
         "key": key,
         "country": country,
         "region": region,
+        "hemisphere_zone": hemisphere,
         "crop": crop,
         "season": str(int(season)),
         "cm_group": cm_group,
         "climate_zone": climate_zone,
-        "hemisphere": hemisphere,
+        "hemisphere": geographic,
         "lat": float(lat),
         "lon": float(lon),
         "abs_lat": abs(float(lat)),
@@ -874,7 +903,7 @@ def build_row(
     row["sm_rootzone_available"] = int(sm_rootzone is not None)
     row.update(terrain_features(elevation, slope))
     row.update(dewpoint_features(tdew, tmean))
-    row.update(season_block_features(tmean, precip, tdew, hemisphere))
+    row.update(season_block_features(tmean, precip, tdew, geographic))
     row["terrain_available"] = int(elevation is not None and bool(np.isfinite(elevation)))
     row["tdew_available"] = int(tdew is not None)
 

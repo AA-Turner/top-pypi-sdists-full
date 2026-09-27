@@ -13,10 +13,26 @@ from pymongo.errors import OperationFailure
 from secantus import SecantusDBServer
 
 
-@pytest.fixture
-def server(tmp_path):
-    with SecantusDBServer(port=0, storage_path=str(tmp_path)) as srv:
+# Module-scoped: one server for the file, with `_fresh_databases` below giving
+# each test the clean slate a per-test server used to. Paying the ~236 ms store
+# open once instead of 26 times.
+@pytest.fixture(scope="module")
+def server(wt_home_module):
+    with SecantusDBServer(port=0, storage_path=wt_home_module) as srv:
         yield srv
+
+
+@pytest.fixture(autouse=True)
+def _fresh_databases(client):
+    """Drop everything this test made, so the shared server looks new to the next.
+
+    The isolation a per-test server gave for free, without paying for a server.
+    Runs AFTER the test so a failure leaves its data in place for inspection.
+    """
+    yield
+    for name in client.list_database_names():
+        if name not in ("admin", "local", "config"):
+            client.drop_database(name)
 
 
 @pytest.fixture
@@ -85,7 +101,7 @@ def test_2dsphere_geo_within_index_matches_scan(client: MongoClient) -> None:
     coll.create_index([("loc", "2dsphere")])
     q = {"loc": {"$geoWithin": {"$centerSphere": [[0.0, 0.0], 0.001]}}}
     indexed = sorted(d["_id"] for d in coll.find(q))
-    scanned = sorted(d["_id"] for d in coll.find(q, hint="$natural"))
+    scanned = sorted(d["_id"] for d in coll.find(q, hint={"$natural": 1}))
     assert indexed == scanned
     # Sanity — should pull in the close points but not the far ones.
     assert 4 not in indexed
@@ -105,7 +121,7 @@ def test_2dsphere_near_index_matches_scan(client: MongoClient) -> None:
         }
     }
     indexed = sorted(d["_id"] for d in coll.find(q))
-    scanned = sorted(d["_id"] for d in coll.find(q, hint="$natural"))
+    scanned = sorted(d["_id"] for d in coll.find(q, hint={"$natural": 1}))
     assert indexed == scanned
 
 
@@ -152,7 +168,7 @@ def test_2d_geo_within_box_index(client: MongoClient) -> None:
     coll.create_index([("loc", "2d")])
     q = {"loc": {"$geoWithin": {"$box": [[0.0, 0.0], [10.0, 10.0]]}}}
     indexed = sorted(d["_id"] for d in coll.find(q))
-    scanned = sorted(d["_id"] for d in coll.find(q, hint="$natural"))
+    scanned = sorted(d["_id"] for d in coll.find(q, hint={"$natural": 1}))
     assert indexed == scanned
     assert indexed == [1, 2]
 
@@ -418,7 +434,7 @@ def test_compound_geo_scalar_filters_by_trailing_field(client: MongoClient) -> N
         "loc": {"$geoWithin": {"$centerSphere": [[0, 0], 0.001]}},
     }
     indexed = sorted(d["_id"] for d in coll.find(q))
-    scanned = sorted(d["_id"] for d in coll.find(q, hint="$natural"))
+    scanned = sorted(d["_id"] for d in coll.find(q, hint={"$natural": 1}))
     assert indexed == scanned == [1, 3]
 
 

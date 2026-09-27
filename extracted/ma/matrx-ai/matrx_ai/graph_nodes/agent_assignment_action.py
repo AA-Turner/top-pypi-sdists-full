@@ -39,6 +39,7 @@ from matrx_ai.graph_nodes.agent_action import (
     _resolve_conversation_start_fields,
     resolve_step_agent,
 )
+from matrx_ai.graph_nodes.iteration_limit import resolve_step_iteration_limit
 from matrx_ai.graph_nodes.shared import (
     ALLOW_EMPTY_STRUCTURED_OUTPUT_KEY,
     AiExecutionResult,
@@ -192,6 +193,9 @@ async def run_agent_assignment_batch(
         inputs.agent, consumer=f"ai.agent.assignment_batch:{holder}"
     )
 
+    # ONE limit for the whole batch, resolved once like the agent above.
+    limit = await resolve_step_iteration_limit(app, inputs.agent.max_iterations)
+
     async def execute(claim):
         conversation_id = claim.item.conversation_id
         if not conversation_id:
@@ -206,6 +210,7 @@ async def run_agent_assignment_batch(
             exclude={"agent_id", "mandate_key", "conversation_id", "is_new"},
         )
         payload["is_version"] = agent_is_version
+        payload["max_iterations"] = limit.value
         if agent_mandate_overrides:
             payload["config_overrides"] = {
                 **agent_mandate_overrides,
@@ -251,10 +256,14 @@ async def run_agent_assignment_batch(
         # message, and retried up to ``max_attempts`` (retryable, like the raise it
         # replaces — a second sample of a non-deterministic model is the right
         # response, and the run is not told the row succeeded either way).
-        outcome = await asyncio.to_thread(
-            normalize_completed_result,
-            completed,
-            step_config={ALLOW_EMPTY_STRUCTURED_OUTPUT_KEY: inputs.allow_empty_structured_output},
+        outcome = limit.name_on(
+            await asyncio.to_thread(
+                normalize_completed_result,
+                completed,
+                step_config={
+                    ALLOW_EMPTY_STRUCTURED_OUTPUT_KEY: inputs.allow_empty_structured_output
+                },
+            )
         )
         if isinstance(outcome, Failure):
             raise AssignmentExecutionFailure(

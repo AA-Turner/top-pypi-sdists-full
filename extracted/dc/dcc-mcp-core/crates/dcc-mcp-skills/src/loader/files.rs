@@ -2,6 +2,7 @@ use std::path::Path;
 
 use crate::constants::{
     DEPENDS_FILE, SKILL_METADATA_DIR, SKILL_SCRIPTS_DIR, is_supported_extension,
+    is_valid_skill_name,
 };
 use dcc_mcp_models::SkillMetadata;
 use dcc_mcp_paths::path_to_string;
@@ -57,7 +58,52 @@ pub(crate) fn enumerate_metadata_files(skill_dir: &Path) -> Vec<String> {
     })
 }
 
+/// Extract a dependency name from one line of `metadata/depends.md`.
+///
+/// A dependency is a Markdown list item (`- name`) or a bare name, and it must
+/// additionally look like a skill name: kebab-case, at most 64 characters, no
+/// leading/trailing or consecutive hyphens (see [`crate::constants::is_valid_skill_name`]).
+///
+/// Skill names are slugs, so a line that fails that shape is prose — an
+/// un-commented heading, a stray prose word such as `Optional`, or a list item
+/// with interior whitespace. Treating such lines as names turned one
+/// descriptive sentence into a phantom dependency that failed resolution for
+/// every skill that declared it.
+///
+/// The check is a slug check, not a prose detector: a single lowercase word is
+/// shape-valid, so `optional` is still read as a dependency name. Authors must
+/// keep prose behind a `#` comment marker rather than rely on the shape check.
+fn parse_depends_line(line: &str) -> Option<String> {
+    let trimmed = line.trim();
+    if trimmed.is_empty() || trimmed.starts_with('#') {
+        return None;
+    }
+    let name = trimmed
+        .strip_prefix("- ")
+        .or_else(|| trimmed.strip_prefix("* "))
+        .unwrap_or(trimmed)
+        .trim();
+    if !is_valid_skill_name(name) {
+        // Prose is expected in a file that documents itself, so lines with
+        // interior whitespace stay quiet. A single token, by contrast, reads
+        // like a dependency somebody meant to declare: dropping it silently
+        // would turn a loud resolution failure into a skill that quietly
+        // misses one dependency, so make it visible by default.
+        if name.split_whitespace().count() > 1 {
+            tracing::debug!("Ignoring prose line in {DEPENDS_FILE}: {name:?}");
+        } else {
+            tracing::warn!(
+                "Ignoring {DEPENDS_FILE} entry that is not a valid skill-name slug: {name:?}"
+            );
+        }
+        return None;
+    }
+    Some(name.to_string())
+}
+
 /// Parse metadata/depends.md and merge dependency names into meta.depends.
+///
+/// Blank lines, `#` headings and prose are skipped; see `parse_depends_line`.
 pub(crate) fn merge_depends_from_metadata(skill_dir: &Path, meta: &mut SkillMetadata) {
     let depends_path = skill_dir.join(SKILL_METADATA_DIR).join(DEPENDS_FILE);
     if !depends_path.is_file() {
@@ -73,13 +119,12 @@ pub(crate) fn merge_depends_from_metadata(skill_dir: &Path, meta: &mut SkillMeta
     };
 
     for line in content.lines() {
-        let trimmed = line.trim();
-        if trimmed.is_empty() || trimmed.starts_with('#') {
-            continue;
-        }
-        let dep_name = trimmed.strip_prefix("- ").unwrap_or(trimmed).trim();
-        if !dep_name.is_empty() && !meta.depends.iter().any(|dep| dep == dep_name) {
-            meta.depends.push(dep_name.to_string());
+        let dep_name = match parse_depends_line(line) {
+            Some(dep_name) => dep_name,
+            None => continue,
+        };
+        if !meta.depends.iter().any(|dep| dep == &dep_name) {
+            meta.depends.push(dep_name);
         }
     }
 }

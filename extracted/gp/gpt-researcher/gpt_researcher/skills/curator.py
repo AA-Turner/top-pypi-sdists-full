@@ -4,12 +4,17 @@ This module provides the SourceCurator class that evaluates and ranks
 research sources based on relevance, credibility, and reliability.
 """
 
-import json
+import logging
 from typing import Dict, List, Optional
+
+import json_repair
+from langchain_core.utils.json import parse_json_markdown
 
 from ..actions import stream_output
 from ..config.config import Config
 from ..utils.llm import create_chat_completion
+
+logger = logging.getLogger(__name__)
 
 
 class SourceCurator:
@@ -46,7 +51,7 @@ class SourceCurator:
         Returns:
             str: Ranked list of source URLs with reasoning
         """
-        print(f"\n\nCurating {len(source_data)} sources: {source_data}")
+        logger.debug(f"Curating {len(source_data)} sources")
         if self.researcher.verbose:
             await stream_output(
                 "logs",
@@ -71,8 +76,21 @@ class SourceCurator:
                 cost_callback=self.researcher.add_costs,
             )
 
-            curated_sources = json.loads(response)
-            print(f"\n\nFinal Curated sources {len(source_data)} sources: {curated_sources}")
+            # LLMs frequently wrap the JSON in ```json fences or add prose
+            # despite the prompt's instructions, which plain json.loads cannot
+            # parse. Recover the payload the same way the rest of the codebase
+            # does (see actions/query_processing.py, multi_agents/agents/utils/
+            # llms.py) so a well-formed-but-fenced response is not discarded.
+            curated_sources = parse_json_markdown(response, parser=json_repair.loads)
+            # json_repair never raises: on unusable output it returns "" or a
+            # dict rather than a list. Guard so such a result still falls back
+            # to the uncurated sources below instead of emptying the context.
+            if not isinstance(curated_sources, list):
+                raise ValueError(
+                    f"expected a JSON list of sources, got "
+                    f"{type(curated_sources).__name__}"
+                )
+            logger.debug(f"Curated {len(curated_sources)} of {len(source_data)} sources")
 
             if self.researcher.verbose:
                 await stream_output(
@@ -85,7 +103,7 @@ class SourceCurator:
             return curated_sources
 
         except Exception as e:
-            print(f"Error in curate_sources from LLM response: {response}")
+            logger.error(f"Error in curate_sources: {e}")
             if self.researcher.verbose:
                 await stream_output(
                     "logs",

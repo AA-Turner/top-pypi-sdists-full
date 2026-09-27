@@ -799,6 +799,7 @@ MessagePart = (
     | CodeExecPart
     | CodeResultPart
     | WebSearchPart
+    | HostedToolPart
     | WebpageInputPart
     | NotesInputPart
     | TaskInputPart
@@ -1076,6 +1077,7 @@ MESSAGE_PART_MODELS: list[type[_MessagePartBase]] = [
     CodeExecPart,
     CodeResultPart,
     WebSearchPart,
+    HostedToolPart,
     WebpageInputPart,
     NotesInputPart,
     TaskInputPart,

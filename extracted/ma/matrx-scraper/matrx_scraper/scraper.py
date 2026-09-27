@@ -296,6 +296,49 @@ CHALLENGE_FAILURE_REASONS = (
 
 CHALLENGE_TITLE_MARKERS = ("cloudflare", "attention required", "just a moment")
 
+# THE CHALLENGE CENSUS (2026-09-26: a Reddit "Prove your humanity" page landed as a Source).
+# Every interstitial below is a wall, whatever status it is served with. Titles are exact
+# phrases a vendor's challenge page uses; body phrases are matched only on a SHORT page (a real
+# article that happens to embed a captcha on its comment form is not a wall).
+BLOCK_TITLE_MARKERS = (
+    "prove your humanity",          # Reddit
+    "verify you are human",         # Cloudflare Turnstile / generic
+    "are you a robot",              # generic
+    "robot or human",               # Walmart / PerimeterX variants
+    "human verification",           # generic
+    "pardon our interruption",      # Imperva / Distil
+    "one more step",                # Cloudflare (legacy captcha)
+    "checking your browser",        # Cloudflare (legacy) / DDoS-Guard
+    "ddos-guard",                   # DDoS-Guard
+    "access denied",                # Akamai edge refusal ("Reference #…")
+    "security check",               # generic
+)
+BLOCK_BODY_MARKERS = (
+    "prove your humanity",
+    "let us know you're a real person",
+    "let us know you’re a real person",
+    "verify you are human",
+    "checking if the site connection is secure",   # Cloudflare
+    "enable javascript and cookies to continue",   # Cloudflare
+    "press & hold",                                # PerimeterX
+    "please verify you are a human",               # PerimeterX
+    "why have i been blocked",                     # Cloudflare block page
+    "you don't have permission to access",         # Akamai "Access Denied … Reference #"
+    "request unsuccessful. incapsula incident id", # Imperva
+)
+BLOCK_WIDGET_SELECTORS = (
+    'iframe[src*="hcaptcha.com"]',
+    "div.h-captcha",
+    'iframe[src*="google.com/recaptcha"]',
+    "div.g-recaptcha",
+    "#px-captcha",                                  # PerimeterX
+    'script[src*="captcha-delivery.com"]',          # DataDome
+    'iframe[src*="captcha-delivery.com"]',
+)
+#: A page at or under this much visible text that shows a challenge phrase or widget is the
+#: wall itself, not an article with a captcha somewhere on it.
+SHORT_PAGE_CHARS = 2000
+
 
 def detect_challenge_reasons(
     *,
@@ -326,6 +369,19 @@ def detect_challenge_reasons(
                 reasons.append({reason: f"Selector matched: {selector}"})
     if title and any(marker in title.lower() for marker in CHALLENGE_TITLE_MARKERS):
         reasons.append({FailureReason.CLOUDFLARE_BLOCK: f"Title indicates block: {title}"})
+    elif title and any(marker in title.lower() for marker in BLOCK_TITLE_MARKERS):
+        reasons.append({FailureReason.BLOCKED: f"Title is a bot challenge: {title}"})
+    if not reasons and soup is not None:
+        body = soup.body
+        text = " ".join((body.text(separator=" ") if body is not None else "").split()).lower()
+        if len(text) <= SHORT_PAGE_CHARS:
+            phrase = next((m for m in BLOCK_BODY_MARKERS if m in text), None)
+            if phrase:
+                reasons.append({FailureReason.BLOCKED: f"Page is a bot challenge: {phrase!r}"})
+            else:
+                widget = next((sel for sel in BLOCK_WIDGET_SELECTORS if soup.css_first(sel)), None)
+                if widget:
+                    reasons.append({FailureReason.BLOCKED: f"Short page is a captcha: {widget}"})
     return reasons
 
 
@@ -857,7 +913,9 @@ async def fetch(
         content = ""
         title = None
         response_url = url
-        status_code = 500
+        # No answer came back, so there is no HTTP status to report (0), never a made-up 500:
+        # a misspelled host read as "the site answered 500" (matrx_scraper.unreachable).
+        status_code = 0
         headers = {}
         content_type_raw = ""
         # A failed fetch measured nothing — never carry a partial timing.

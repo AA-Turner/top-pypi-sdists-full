@@ -37,6 +37,13 @@ GUC_DEFAULTS: dict[str, str] = {
     "server_version_num": "150000",
     "server_encoding": "UTF8",
     "client_encoding": "UTF8",
+    # SecantusDB sorts text by BYTES, which is exactly what a `C`-collation
+    # PostgreSQL does, so this is the truth rather than a placeholder — a
+    # database initdb'd with `C` gives byte-identical ORDER BY. Reported so a
+    # client that introspects the collation is not told an empty string (the
+    # previous answer, which is not a collation name at all).
+    "lc_collate": "C",
+    "lc_ctype": "C",
     "DateStyle": "ISO, MDY",
     "IntervalStyle": "postgres",
     "TimeZone": "UTC",
@@ -245,6 +252,13 @@ class _Savepoint:
 
     name: str
     snapshots: dict[str, list] = field(default_factory=dict)
+    #: Collection -> `list_indexes()` output at this savepoint's establishment,
+    #: captured lazily on the first INDEX DDL while it is open. Indexes are not
+    #: a catalog COLLECTION -- they live in the storage engine's own index
+    #: catalog -- so the `snapshots` capture above does not see them, and a
+    #: CREATE INDEX after a savepoint used to survive ROLLBACK TO SAVEPOINT
+    #: where PostgreSQL removes it.
+    indexes: dict[str, list] = field(default_factory=dict)
     #: Every GUC's value when this savepoint was established. ROLLBACK TO
     #: SAVEPOINT reverts GUCs set after it and re-reports the GUC_REPORT ones
     #: (pgtest param_status), exactly like PG's per-subtransaction GUC stack.
@@ -360,6 +374,16 @@ class Session:
     database: str = "postgres"
     user: str = "secantus"
     backend_pid: int = 0
+
+    #: True when this session belongs to a wire-protocol connection rather than
+    #: an embedded ``run_sql`` caller. The two differ in one behaviour that
+    #: matters: outside an explicit transaction block the wire server wraps each
+    #: statement in an implicit transaction that COMMITS at statement end, so a
+    #: non-holdable cursor declared there would be discarded before the client
+    #: could fetch from it -- which is why PostgreSQL refuses that DECLARE with
+    #: 25P01. The embedded API has no implicit commit, so a cursor declared
+    #: without a transaction stays usable and the rule does not apply to it.
+    on_the_wire: bool = False
     settings: dict[str, str] = field(default_factory=dict)
     # Server-config GUC defaults (postgresql.conf tier). Sits between the
     # session's ``SET`` overrides and the built-in ``GUC_DEFAULTS``: an explicit
@@ -714,6 +738,19 @@ class Session:
         explicit session setting always wins — PG's precedence order."""
         for key, value in defaults.items():
             self.settings.setdefault(canonical_guc_name(key), value)
+
+    def has_setting(self, name: str) -> bool:
+        """Whether the GUC is one this server knows — set in the session, a
+        server GUC, or a documented default. `current_setting` needs to tell an
+        unknown parameter (42704, or NULL under `missing_ok`) from one that is
+        merely empty."""
+        key = canonical_guc_name(name)
+        return (
+            key in self.settings
+            or key in self.server_gucs
+            or key in GUC_DEFAULTS
+            or key in ("transaction_isolation", "transaction_read_only", "transaction_deferrable")
+        )
 
     def get_setting(self, name: str) -> str:
         key = canonical_guc_name(name)

@@ -35,6 +35,11 @@ from matrx_graph.types.result import Failure, NodeResult, success
 from matrx_graph.types.usl import field_extras
 from pydantic import BaseModel, ConfigDict, Field, JsonValue
 
+from matrx_ai.graph_nodes.iteration_limit import (
+    AGENT_MAX_ITERATIONS_CEILING,
+    MAX_ITERATIONS_DESCRIPTION,
+    resolve_step_iteration_limit,
+)
 from matrx_ai.graph_nodes.mandates import (
     WORKFLOW_STEP_INTELLIGENCE_MANDATE,
     hold_step,
@@ -86,11 +91,11 @@ class AgentLoopInput(BaseModel):
         json_schema_extra=field_extras(widget="slider"),
     )
     max_tokens: int | None = Field(default=None, ge=1)
-    max_iterations: int = Field(
-        default=100,
+    max_iterations: int | None = Field(
+        default=None,
         ge=1,
-        le=500,
-        description="Cap on agent-loop iterations (tool-call rounds).",
+        le=AGENT_MAX_ITERATIONS_CEILING,
+        description=MAX_ITERATIONS_DESCRIPTION,
     )
     max_retries_per_iteration: int = Field(default=2, ge=0, le=10)
     metadata: dict[str, JsonValue] = Field(default_factory=dict)
@@ -116,12 +121,13 @@ class AgentLoopInput(BaseModel):
 async def agent_tool_calling(
     ctx: NodeExecutionContext, inputs: AgentLoopInput
 ) -> NodeResult[AiExecutionResult]:
-    _ = ctx
     config, metadata = await _build_config(inputs, system_instruction=inputs.system_instruction)
+    limit = await resolve_step_iteration_limit(ctx, inputs.max_iterations)
+    inputs.max_iterations = limit.value
     completed = await _execute(config, inputs, metadata)
     # Node Result System: a failed turn becomes a structured Failure
     # (code='ai_turn_failed', billed usage in details) instead of a raise.
-    return await asyncio.to_thread(normalize_completed_result, completed)
+    return limit.name_on(await asyncio.to_thread(normalize_completed_result, completed))
 
 
 # ============================================================================
@@ -205,16 +211,17 @@ class AgentReactResult(BaseModel):
 async def agent_react(
     ctx: NodeExecutionContext, inputs: AgentLoopInput
 ) -> NodeResult[AgentReactResult]:
-    _ = ctx
     system = REACT_SYSTEM_FRAMING
     if inputs.system_instruction:
         system = f"{system}\n\nAdditional context:\n{inputs.system_instruction}"
 
     config, metadata = await _build_config(inputs, system_instruction=system)
+    limit = await resolve_step_iteration_limit(ctx, inputs.max_iterations)
+    inputs.max_iterations = limit.value
     completed = await _execute(config, inputs, metadata)
     # Node Result System: a failed turn is a structured Failure carrying the
     # billed usage in details — propagate it unchanged (no trace to build).
-    normalized = await asyncio.to_thread(normalize_completed_result, completed)
+    normalized = limit.name_on(await asyncio.to_thread(normalize_completed_result, completed))
     if isinstance(normalized, Failure):
         return normalized
     underlying = normalized.result

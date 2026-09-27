@@ -5,6 +5,8 @@
 
 #include "namepath.h"
 
+#include <functional>
+
 NamePath::NamePath(std::vector<PathComponent> components)
     : components_(std::move(components))
 {
@@ -121,6 +123,51 @@ void init_namepath(py::module_ &m)
         // __getitem__ for array index syntax: path[0]
         .def("__getitem__",
             [](NamePath const &p, int index) { return p.append_index(index); })
+        // Equality by value, so that paths can be compared, deduplicated and
+        // used as dictionary keys. A name component never equals an index
+        // component: NamePath('/1') != NamePath[1].
+        .def("__eq__",
+            [](NamePath const &p, py::handle other) -> py::object {
+                if (!py::isinstance<NamePath>(other))
+                    return py::borrow<py::object>(py::handle(Py_NotImplemented));
+                auto const &q = py::cast<NamePath const &>(other);
+                return py::cast(p.components() == q.components());
+            })
+        .def("__hash__",
+            [](NamePath const &p) {
+                size_t seed = p.size();
+                for (auto const &component : p.components()) {
+                    size_t h;
+                    if (std::holds_alternative<std::string>(component)) {
+                        h = std::hash<std::string>{}(std::get<std::string>(component));
+                    } else {
+                        // Offset the index hashes so that a name component and
+                        // an index component never collide by construction.
+                        h = std::hash<int>{}(std::get<int>(component)) ^
+                            static_cast<size_t>(0x9e3779b9);
+                    }
+                    seed ^= h + static_cast<size_t>(0x9e3779b97f4a7c15ULL) +
+                            (seed << 6) + (seed >> 2);
+                }
+                return static_cast<Py_hash_t>(seed);
+            })
+        // Iterate the components: str for names (with leading /), int for
+        // indices. Without this, Python would fall back to the legacy
+        // __getitem__ protocol, which appends indices forever.
+        .def("__iter__",
+            [](NamePath const &p) {
+                py::list items;
+                for (auto const &component : p.components()) {
+                    if (std::holds_alternative<std::string>(component))
+                        items.append(py::cast(std::get<std::string>(component)));
+                    else
+                        items.append(py::cast(std::get<int>(component)));
+                }
+                PyObject *it = PyObject_GetIter(items.ptr());
+                if (it == nullptr)
+                    throw py::python_error(); // LCOV_EXCL_LINE
+                return py::steal(it);
+            })
         // __getattr__ for name syntax: path.Resources
         .def("__getattr__", [](NamePath const &p, std::string const &name) {
             if (name.empty() || name[0] == '_') {
@@ -164,6 +211,25 @@ void init_namepath(py::module_ &m)
         },
         py::is_method(),
         py::arg("item"));
+    // isinstance(x, NamePath) / issubclass(t, NamePath): the facade stands in
+    // for the C++ _NamePath class that instances actually have.
+    meta_ns["__instancecheck__"] = py::cpp_function(
+        [](py::handle cls, py::handle instance) -> bool {
+            return py::isinstance<NamePath>(instance);
+        },
+        py::is_method(),
+        py::arg("instance").none());
+    meta_ns["__subclasscheck__"] = py::cpp_function(
+        [NamePathT](py::handle cls, py::handle sub) -> bool {
+            if (sub.is(cls))
+                return true;
+            int r = PyObject_IsSubclass(sub.ptr(), NamePathT.ptr());
+            if (r < 0)
+                throw py::python_error();
+            return r == 1;
+        },
+        py::is_method(),
+        py::arg("sub"));
     // NamePath() / NamePath('/A', '/B') -> _NamePath(*args)
     meta_ns["__call__"] = py::cpp_function(
         [NamePathT](py::handle cls, py::args args) -> py::object {
@@ -187,42 +253,6 @@ void init_namepath(py::module_ &m)
     py::dict ns;
     ns["__module__"] = py::str("pikepdf._core");
     ns["__qualname__"] = py::str("NamePath");
-    ns["__doc__"] = py::str(R"(Path for accessing nested Dictionary/Stream values.
-
-    NamePath provides ergonomic access to deeply nested PDF structures with a
-    single access operation and helpful error messages when keys are not found.
-
-    Usage examples::
-
-        # Shorthand syntax - most common
-        obj[NamePath.Resources.Font.F1]
-
-        # With array indices
-        obj[NamePath.Pages.Kids[0].MediaBox]
-
-        # Chained access - supports non Python-identifier names
-        NamePath['/A']('/B').C[0]  # equivalent to NamePath.A.B.C[0]
-
-        # Alternate syntax to support lists
-        obj[NamePath(Name.Resources, Name.Font)]
-
-        # Using string objects
-        obj[NamePath('/Resources', '/Weird-Name')]
-
-        # Empty path returns the object itself
-        obj[NamePath()]
-
-        # Setting nested values (all parents must exist)
-        obj[NamePath.Root.Info.Title] = pikepdf.String("Test")
-
-        # With default value
-        obj.get(NamePath.Root.Metadata, None)
-
-    When a key is not found, the KeyError message identifies the exact failure
-    point, e.g.: "Key /C not found; traversed NamePath.A.B"
-
-    .. versionadded:: 10.1
-    )");
     py::tuple bases = py::make_tuple(py::handle((PyObject *)&PyBaseObject_Type));
     py::object NamePathFacade = py::steal(PyObject_CallFunction(
         namepath_meta.ptr(), "sOO", "NamePath", bases.ptr(), ns.ptr()));

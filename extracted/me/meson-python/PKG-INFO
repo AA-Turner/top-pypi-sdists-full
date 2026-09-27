@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: meson-python
-Version: 0.21.1
+Version: 0.22.0
 Summary: The Python build backend for Meson projects
 Keywords: meson,build,backend,pep517,package
 Maintainer-Email: Ralf Gommers <ralf.gommers@gmail.com>, Daniele Nicolodi <daniele@grinta.net>, Henry Schreiner <HenrySchreinerIII@gmail.com>
@@ -13,7 +13,7 @@ Project-URL: homepage, https://github.com/mesonbuild/meson-python
 Project-URL: repository, https://github.com/mesonbuild/meson-python
 Project-URL: documentation, https://mesonbuild.com/meson-python/
 Project-URL: changelog, https://mesonbuild.com/meson-python/changelog.html
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Requires-Dist: meson>=0.64.0; python_version < "3.12"
 Requires-Dist: meson>=1.2.3; python_version >= "3.12"
 Requires-Dist: packaging>=23.2; sys_platform != "ios"

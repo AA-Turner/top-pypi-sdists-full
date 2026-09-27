@@ -7,6 +7,7 @@ import sys
 import zlib
 from collections.abc import Sequence
 from contextlib import contextmanager, nullcontext
+from decimal import Decimal
 from io import BytesIO
 from math import ceil
 from os import fspath
@@ -257,6 +258,25 @@ def test_inline_extract(inline):
 def test_inline_read(inline):
     iimage, _pdf = inline
     assert iimage.read_bytes()[0:6] == b'\xff\xff\xff\x00\x00\x00'
+
+
+@pytest.mark.parametrize(
+    'content, raw',
+    [
+        (b'q BI /W 1 /H 1 /BPC 8 /CS /G ID \x00 EI Q', b'\x00 '),
+        (b'q BI /W 1 /H 1 /BPC 8 /CS /G ID\n\x00\nEI Q', b'\x00\n'),
+        (b'q BI /W 2 /H 1 /BPC 8 /CS /G /F /AHx ID 00ff> EI Q', b'00ff> '),
+    ],
+)
+def test_inline_read_raw_bytes(content, raw):
+    pdf = pikepdf.new()
+    instructions = pikepdf.parse_content_stream(pdf.make_stream(content))
+    iimage = next(
+        inst.iimage
+        for inst in instructions
+        if isinstance(inst, pikepdf.ContentStreamInlineImage)
+    )
+    assert iimage.read_raw_bytes() == raw
 
 
 def test_inline_to_pil(inline):
@@ -628,6 +648,123 @@ def test_image_palette(resources, filename, bpc, rgb):
     im_pal = pim.as_pil_image()
     im = im_pal.convert('RGB')
     assert im.getpixel((1, 1)) == rgb
+
+
+def test_image_palette_explicit_mode(resources):
+    """PdfImage returns native Python types no matter the conversion mode.
+
+    Its metadata is read from PDF objects; in explicit mode those arrive as
+    pikepdf.Integer and friends, which the extraction code must accept.
+    """
+    with pikepdf.explicit_conversion():
+        pdf = Pdf.open(resources / 'pal.pdf')
+        pim = PdfImage(next(iter(pdf.pages[0].get_images(recursive=False).values())))
+
+        assert pim.palette[0] == 'RGB'
+        assert pim.colorspace == '/DeviceRGB'
+        assert pim.mode == 'P'
+        assert pim.bits_per_component == 8
+        assert pim.as_pil_image().convert('RGB').getpixel((1, 1)) == (0, 0, 255)
+
+
+@pytest.mark.parametrize('mode', ['implicit', 'explicit'])
+def test_image_metadata_independent_of_mode(mode):
+    """Image metadata reads the same whether values arrive native or boxed.
+
+    A number stored with a nearby type -- a real /Width, a boolean
+    /BitsPerComponent, a real inside the /ColorSpace array -- must convert the
+    same way in explicit mode as in implicit mode.
+    """
+    with pikepdf.new(conversion_mode=mode) as pdf:
+        obj = Stream(
+            pdf,
+            b'',
+            pikepdf.Object.parse(
+                b'<< /Type /XObject /Subtype /Image /Width 100.0 /Height 50 '
+                b'/BitsPerComponent true '
+                b'/ColorSpace [/Indexed /DeviceGray 1.0 <0000ff>] >>'
+            ),
+        )
+        pim = PdfImage(obj)
+        assert pim.size == (100, 50)
+        assert pim._bpc == 1
+        assert pim._colorspaces == [
+            '/Indexed',
+            '/DeviceGray',
+            Decimal('1.0'),
+            b'\0\0\xff',
+        ]
+        assert type(pim._colorspaces[2]) is Decimal
+
+
+@pytest.mark.parametrize('mode', ['implicit', 'explicit'])
+@pytest.mark.parametrize('width', [b'(1024)', b'/1024', b'[1024]'])
+def test_image_metadata_wrong_type_raises_type_error(mode, width):
+    """A metadata value of the wrong PDF type raises TypeError.
+
+    It also remains a NotImplementedError, which is what this raised
+    before, so existing handlers keep working.
+    """
+    with pikepdf.new(conversion_mode=mode) as pdf:
+        obj = Stream(
+            pdf,
+            b'',
+            pikepdf.Object.parse(
+                b'<< /Type /XObject /Subtype /Image /Width '
+                + width
+                + b' /Height 50 /BitsPerComponent 8 /ColorSpace /DeviceGray >>'
+            ),
+        )
+        pim = PdfImage(obj)
+        with pytest.raises(TypeError, match='/Width'):
+            pim.width  # noqa: B018
+        with pytest.raises(NotImplementedError):
+            pim.width  # noqa: B018
+
+
+@pytest.mark.parametrize('mode', ['implicit', 'explicit'])
+@pytest.mark.parametrize(
+    'decode_parms', [b'5', b'1.5', b'true', b'null', b'/Foo', b'(bar)']
+)
+def test_image_scalar_decodeparms_ignored(mode, decode_parms):
+    """A /DecodeParms that is neither a dictionary nor an array is ignored.
+
+    qpdf reads such a value as a dictionary with no keys, so every filter
+    gets empty parameters rather than an exception.
+    """
+    with pikepdf.new(conversion_mode=mode) as pdf:
+        obj = Stream(
+            pdf,
+            b'',
+            pikepdf.Object.parse(
+                b'<< /Type /XObject /Subtype /Image /Width 1 /Height 1 '
+                b'/BitsPerComponent 8 /ColorSpace /DeviceGray '
+                b'/Filter /FlateDecode /DecodeParms ' + decode_parms + b' >>'
+            ),
+        )
+        pim = PdfImage(obj)
+        assert pim.decode_parms == []
+        assert pim.filter_decodeparms == [('/FlateDecode', {})]
+
+
+@pytest.mark.parametrize('mode', ['implicit', 'explicit'])
+@pytest.mark.parametrize('decode', [b'5', b'1.5', b'true', b'/Foo', b'<< /K 1 >>'])
+def test_image_non_array_decode_ignored(mode, decode):
+    """A /Decode that is not an array is ignored in favour of the default."""
+    with pikepdf.new(conversion_mode=mode) as pdf:
+        obj = Stream(
+            pdf,
+            b'\x80',
+            pikepdf.Object.parse(
+                b'<< /Type /XObject /Subtype /Image /Width 1 /Height 1 '
+                b'/BitsPerComponent 8 /ColorSpace /DeviceGray /Decode '
+                + decode
+                + b' >>'
+            ),
+        )
+        pim = PdfImage(obj)
+        assert pim._decode_array == (0.0, 1.0)
+        assert pim.as_pil_image().getpixel((0, 0)) == 0x80
 
 
 @contextmanager
@@ -2631,3 +2768,14 @@ def test_both_smask_and_mask_smask_wins():
     im = pim.as_pil_image()
     # SMask (alpha 0x80) takes precedence over the explicit Mask.
     assert im.getpixel((0, 0)) == (0, 0, 255, 0x80)
+
+
+@pytest.mark.parametrize(
+    'name', ['PdfImageBase', 'PdfImage', 'PdfJpxImage', 'PdfInlineImage', 'PaletteData']
+)
+def test_image_classes_report_public_module(name):
+    import pikepdf.models.image as image_module
+
+    cls = getattr(image_module, name)
+    assert cls.__module__ == 'pikepdf.models.image'
+    assert repr(cls) == f"<class 'pikepdf.models.image.{name}'>"

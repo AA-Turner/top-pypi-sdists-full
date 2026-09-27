@@ -22,6 +22,7 @@ from typing import (
     NoReturn,
     TypeVar,
     cast,
+    final,
     overload,
 )
 
@@ -43,8 +44,12 @@ _LOG_RESUME_SLOTS_MINSIZE = 10
 _RESUME_SLOTS_MIN_STEPS = 32
 
 
+@final
 class istr(str):
     """Case insensitive str."""
+
+    def __init_subclass__(cls, **kwargs: object) -> None:
+        raise TypeError(f"type '{istr.__module__}.istr' is not an acceptable base type")
 
     # Implementation note:
     # The class doesn't use __slots__ because slot-based memory model
@@ -644,10 +649,11 @@ class _CSMixin:
         return key
 
     def _identity(self, key: str) -> str:
-        if isinstance(key, str):
+        if type(key) is str:
             return key
-        else:
-            raise TypeError("MultiDict keys should be either str or subclasses of str")
+        if isinstance(key, str):
+            return str.__str__(key)
+        raise TypeError("MultiDict keys should be either str or subclasses of str")
 
 
 class _CIMixin:
@@ -667,7 +673,10 @@ class _CIMixin:
                 key.__istr_identity__ = ret
             return ret
         if isinstance(key, str):
-            return key.lower()
+            ret = key.lower()
+            if type(ret) is not str:
+                return str.__str__(ret)
+            return ret
         else:
             raise TypeError("MultiDict keys should be either str or subclasses of str")
 
@@ -926,7 +935,7 @@ class MultiDict(_CSMixin, MutableMultiMapping[_V]):
             for idx in restore:
                 entries[idx].hash = hash_  # type: ignore[union-attr]
             return res
-        if not res and default is not sentinel:
+        if default is not sentinel:
             return default
         raise KeyError(f"Key not found: {key!r}")
 
@@ -1217,9 +1226,9 @@ class MultiDict(_CSMixin, MutableMultiMapping[_V]):
     def popone(self, key: str, default: _T) -> _V | _T: ...
     @_locked_always
     def popone(self, key: str, default: _T | _SENTINEL = sentinel) -> _V | _T:
-        """Remove specified key and return the corresponding value.
+        """Remove the first occurrence of key and return the corresponding value.
 
-        If key is not found, d is returned if given, otherwise
+        If key is not found, default is returned if given, otherwise
         KeyError is raised.
 
         """
@@ -1326,7 +1335,7 @@ class MultiDict(_CSMixin, MutableMultiMapping[_V]):
                         e.value = entry.value
                         e.hash = hash_ | HASH_MARK
                     else:
-                        self._del_at_for_upd(e)
+                        self._half_delete_for_upd(e)
             if not found:
                 self._add_with_hash_for_upd(entry)
 
@@ -1433,7 +1442,7 @@ class MultiDict(_CSMixin, MutableMultiMapping[_V]):
         self._keys.indices[slot] = -2
         self._used -= 1
 
-    def _del_at_for_upd(self, entry: _Entry[_V]) -> None:
+    def _half_delete_for_upd(self, entry: _Entry[_V]) -> None:
         entry.key = None  # type: ignore[assignment]
         entry.value = None  # type: ignore[assignment]
 

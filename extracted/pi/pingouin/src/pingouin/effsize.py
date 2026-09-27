@@ -5,7 +5,7 @@ import warnings
 import numpy as np
 from scipy.stats import pearsonr
 
-from .utils import _check_eftype, remove_na
+from .utils import _check_alternative, _check_eftype, remove_na
 
 __all__ = [
     "compute_esci",
@@ -145,11 +145,7 @@ def compute_esci(
     from scipy.stats import norm, t
 
     assert eftype.lower() in ["r", "pearson", "spearman", "cohen", "d", "g", "hedges"]
-    assert alternative in [
-        "two-sided",
-        "greater",
-        "less",
-    ], "Alternative must be one of 'two-sided' (default), 'greater' or 'less'."
+    _check_alternative(alternative)
     assert stat is not None and nx is not None
     assert isinstance(confidence, float)
     assert 0 < confidence < 1, "confidence must be between 0 and 1."
@@ -252,7 +248,11 @@ def compute_bootci(
 
     Notes
     -----
-    This function uses :py:func:`scipy.stats.bootstrap` under the hood. Requires SciPy >= 1.10.
+    This function uses :py:func:`scipy.stats.bootstrap` under the hood.
+
+    If ``func`` accepts an ``axis`` argument (e.g. :py:func:`numpy.mean` or
+    :py:func:`scipy.stats.skew`), it is computed on all the bootstrap samples at once, which is
+    much faster than calling it on each bootstrap sample.
 
     The bias-corrected and accelerated method (``bca``, default) corrects for both bias and
     skewness of the bootstrap distribution using jackknife resampling.
@@ -363,7 +363,6 @@ def compute_bootci(
         "func must be a function (e.g. np.mean, custom function) or a string (e.g. 'pearson'). "
         "See documentation for more details."
     )
-    vectorized = False
 
     # Check x
     x = np.asarray(x)
@@ -386,8 +385,8 @@ def compute_bootci(
         if func == "pearson":
             assert paired, "Paired should be True if using correlation functions."
 
-            def func(x, y):
-                return pearsonr(x, y)[0]  # Faster than np.corrcoef
+            def func(x, y, axis=-1):
+                return pearsonr(x, y, axis=axis)[0]
 
         elif func == "spearman":
             from scipy.stats import spearmanr
@@ -404,19 +403,16 @@ def compute_bootci(
                 return compute_effsize(x, y, paired=paired, eftype=func_str)
 
         elif func == "mean":
-            vectorized = True
 
             def func(x, axis=-1):
                 return np.mean(x, axis=axis)
 
         elif func == "std":
-            vectorized = True
 
             def func(x, axis=-1):
                 return np.std(x, ddof=1, axis=axis)
 
         elif func == "var":
-            vectorized = True
 
             def func(x, axis=-1):
                 return np.var(x, ddof=1, axis=axis)
@@ -424,16 +420,10 @@ def compute_bootci(
         else:
             raise ValueError("Function string not recognized.")
 
-    # Determine scipy bootstrap method
+    # Determine scipy bootstrap method. The normal approximation is computed below from the
+    # bootstrap distribution, which does not depend on the scipy method.
     use_custom_ci = method in ["norm", "normal"]
-    if method in ["bca", "BCa"]:
-        _scipy_method = "BCa"
-    elif method in ["per", "percentile"]:
-        _scipy_method = "percentile"
-    elif method == "basic":
-        _scipy_method = "basic"
-    else:
-        _scipy_method = "percentile"
+    _scipy_method = {"bca": "BCa", "BCa": "BCa", "basic": "basic"}.get(method, "percentile")
 
     # Run scipy bootstrap
     data = (x, y) if y is not None else (x,)
@@ -445,7 +435,8 @@ def compute_bootci(
         confidence_level=confidence,
         method=_scipy_method,
         paired=_paired,
-        vectorized=vectorized,
+        # Functions with an `axis` argument are applied to all the resamples at once
+        vectorized=None,
         random_state=seed,
     )
     bootstat = boot_result.bootstrap_distribution
@@ -626,11 +617,17 @@ def convert_effsize(ef, input_type, output_type, nx=None, ny=None):
             "Using effect size 'r' in `pingouin.convert_effsize` has been deprecated. "
             "Please use 'pointbiserialr' instead."
         )
-    else:  # ['auc']
+    elif ot == "auc":
         # Ruscio 2008
         from scipy.stats import norm
 
         return norm.cdf(d / np.sqrt(2))
+    else:
+        # e.g. 'cohen_dz' or 'cles', which require the raw data
+        raise ValueError(
+            f"Cannot convert a Cohen d to '{output_type}'. Use `pingouin.compute_effsize` "
+            "on the raw data instead."
+        )
 
 
 def compute_effsize(x, y, paired=False, eftype="cohen"):
@@ -706,6 +703,10 @@ def compute_effsize(x, y, paired=False, eftype="cohen"):
     effect size is computed as:
 
     .. math:: d = \\frac{\\overline{X} - \\mu}{\\sigma_X}
+
+    This one-sample Cohen d is then converted to the desired ``eftype`` (e.g. Hedges g). The
+    ``'CLES'`` is the proportion of ``x`` higher than :math:`\\mu`, and ``'r'`` is not defined
+    (NaN is returned).
 
     The Cohen's d is a biased estimate of the population effect size, especially for small samples
     (n < 20). It is often preferable to use the corrected Hedges :math:`g` instead:
@@ -799,18 +800,27 @@ def compute_effsize(x, y, paired=False, eftype="cohen"):
     x, y = remove_na(x, y, paired=paired)
     nx, ny = x.size, y.size
 
-    if ny == 1:
-        # Case 1: One-sample Test
-        d = (x.mean() - y) / x.std(ddof=1)
-        return d
+    if ny == 1 and eftype.lower() == "r":
+        # Do not raise so that pingouin.pairwise_tests does not fail on single-observation groups
+        warnings.warn("The correlation coefficient is not defined for a one-sample test.")
+        return np.nan
+    if ny == 1 and eftype.lower() != "cles":
+        # Case 1: One-sample Test. CLES = P(X > mu) + .5 * P(X = mu) is computed below.
+        d = (x.mean() - y.item()) / x.std(ddof=1)
+        # With ny=1, the Hedges correction reduces to the one-sample 1 - 3 / (4 * (nx - 1) - 1)
+        ot = "cohen" if eftype.lower() == "cohen_dz" else eftype
+        return convert_effsize(d, "cohen", ot, nx=nx, ny=ny)
     if eftype.lower() == "r":
         # Return correlation coefficient (useful for CI bootstrapping)
         r, _ = pearsonr(x, y)
         return r
     elif eftype.lower() == "cles":
-        # Compute exact CLES (see pingouin.wilcoxon)
-        diff = x[:, None] - y
-        return np.where(diff == 0, 0.5, diff > 0).mean()
+        # Compute exact CLES (see pingouin.wilcoxon) = P(X > Y) + .5 * P(X = Y). Counting via
+        # binary search on the sorted y avoids building the nx * ny matrix of differences.
+        ys = np.sort(np.ravel(y))
+        n_less = np.searchsorted(ys, x, side="left")  # Number of y strictly lower than each x
+        n_ties = np.searchsorted(ys, x, side="right") - n_less
+        return (n_less.sum() + 0.5 * n_ties.sum()) / (nx * ny)
     elif eftype.lower() == "cohen_dz":
         # Cohen's dz: uses SD of difference scores (paired samples only)
         if not paired:

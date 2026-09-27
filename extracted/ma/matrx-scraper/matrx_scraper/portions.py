@@ -20,7 +20,9 @@ from typing import Any
 __all__ = [
     "from_markdown",
     "from_article_html",
+    "from_organized_data",
     "from_parsed_page",
+    "plain_markdown_line",
     "section_locator",
     "structured_from_parsed_page",
 ]
@@ -46,6 +48,10 @@ _FENCE = re.compile(r"^ {0,3}(```|~~~)")
 #     gives ['Use'], never ['Versions', 'Use'] for a sibling);
 #   * text is the concatenation of the DOM's text nodes, with a line break at every block element
 #     and whitespace collapsed per line — inline markup never inserts a space ("HTTP (Hypertext").
+#   * PORTION TEXT IS PLAIN TEXT on every path (the plan's rule): no markdown survives into a
+#     portion — a heading is its words, a link is its text, an image is nothing, a list item has
+#     no bullet, a table is one cell per line. ``plain_markdown_line`` is the markdown half of
+#     that rule (the extension's ``portionsFromMarkdown`` ports it line for line).
 
 
 def section_locator(heading_path: list[str], text: str) -> dict[str, Any]:
@@ -83,8 +89,48 @@ def _finish(drafts: list[tuple[list[str], list[str]]], method: str) -> list[dict
     return out
 
 
+_MD_IMAGE = re.compile(r"!\[[^\]]*\]\([^)]*\)")
+_MD_LINK = re.compile(r"\[([^\]]*)\]\([^)]*\)")
+_MD_AUTOLINK = re.compile(r"<((?:https?|mailto):[^>\s]+)>")
+_MD_STRONG = re.compile(r"(\*\*|__)(?=\S)(.+?)(?<=\S)\1")
+_MD_EM = re.compile(r"(?<![\w*])\*(?=\S)(.+?)(?<=\S)\*(?![\w*])")
+_MD_CODE = re.compile(r"`([^`]*)`")
+_MD_BULLET = re.compile(r"^\s*(?:[-*+]|\d{1,9}[.)])\s+")
+_MD_QUOTE = re.compile(r"^\s*(?:>\s?)+")
+_MD_RULE = re.compile(r"^\s*([-*_])(?:\s*\1){2,}\s*$")
+_MD_TABLE_SEP = re.compile(r"^\s*\|?\s*:?-{3,}:?\s*(?:\|\s*:?-{3,}:?\s*)*\|?\s*$")
+_TABULATE_SEP = re.compile(r"^\s*-{2,}(?: {2,}-{2,})+\s*$")
+
+
+def plain_markdown_line(line: str) -> list[str]:
+    """One markdown line as the plain-text line(s) a portion stores (see the rule above).
+
+    A pipe-table row becomes one line per cell; a table separator, a horizontal rule or a code
+    fence becomes nothing. Headings are handled by the caller (their words, no ``#``)."""
+    if _FENCE.match(line) or _MD_RULE.match(line) or _MD_TABLE_SEP.match(line) or _TABULATE_SEP.match(line):
+        return []
+    text = _MD_QUOTE.sub("", line)
+    text = _MD_BULLET.sub("", text)
+    cells = [text]
+    stripped = text.strip()
+    if stripped.startswith("|") and stripped.endswith("|") and len(stripped) > 1:
+        cells = stripped[1:-1].split("|")
+    out: list[str] = []
+    for cell in cells:
+        cell = _MD_IMAGE.sub("", cell)
+        cell = _MD_LINK.sub(r"\1", cell)
+        cell = _MD_AUTOLINK.sub(r"\1", cell)
+        cell = _MD_CODE.sub(r"\1", cell)
+        cell = _MD_STRONG.sub(r"\2", cell)
+        cell = _MD_EM.sub(r"\1", cell)
+        out.append(cell)
+    return out
+
+
 def from_markdown(markdown: str | None, *, method: str = "native") -> list[dict[str, Any]]:
-    """Split markdown at ATX ``#``, ``##``, ``###`` headings (never inside a fenced code block)."""
+    """Split markdown at ATX ``#``, ``##``, ``###`` headings (never inside a fenced code block),
+    into PLAIN-TEXT sections: the markup is dropped by :func:`plain_markdown_line`; the text of a
+    fenced code block is kept as written."""
     if not markdown or not markdown.strip():
         return []
     stack: list[str | None] = []
@@ -95,12 +141,20 @@ def from_markdown(markdown: str | None, *, method: str = "native") -> list[dict[
         if fence_match:
             marker = fence_match.group(1)
             fence = marker if fence is None else (None if fence == marker else fence)
-        heading = _ATX.match(line) if fence is None and not fence_match else None
+            continue
+        if fence is not None:
+            drafts[-1][1].extend(_tidy_lines(line))
+            continue
+        heading = _ATX.match(line)
         if heading:
             level = len(heading.group(1))
-            drafts.append((_next_path(stack, level, heading.group(2).strip()), [line.strip()]))
+            title = " ".join(_tidy_lines(" ".join(plain_markdown_line(heading.group(2).strip()))))
+            if not title:
+                continue
+            drafts.append((_next_path(stack, level, title), [title]))
             continue
-        drafts[-1][1].append(line)
+        for plain in plain_markdown_line(line):
+            drafts[-1][1].extend(_tidy_lines(plain))
     return _finish(drafts, method)
 
 
@@ -187,20 +241,85 @@ def _field(parsed: Any, name: str) -> Any:
     return getattr(parsed, name, None)
 
 
+def _list_lines(content: Any) -> list[str]:
+    if isinstance(content, str):
+        return [content]
+    if isinstance(content, dict):
+        return _list_lines(content.get("content"))
+    lines: list[str] = []
+    for item in content or []:
+        lines.extend(_list_lines(item))
+    return lines
+
+
+def from_organized_data(items: Any, *, method: str = "native") -> list[dict[str, Any]]:
+    """Portion a server parse's ``organized_data`` (the parser's own tree, data form: anchors
+    already removed) into plain-text H1–H3 sections — the server twin of
+    :func:`from_article_html`: a heading is its words, a paragraph its text, a list one item per
+    line, a table its header cells then each row's cells in column order, one per line (the
+    extension's DOM walk gives every ``<th>``/``<td>`` its own line). Media carry no words."""
+    if not isinstance(items, list) or not items:
+        return []
+    stack: list[str | None] = []
+    drafts: list[tuple[list[str], list[str]]] = [([], [])]
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        kind = item.get("type")
+        if kind == "header":
+            level = int(item.get("level") or 0)
+            words = " ".join(_tidy_lines(str(item.get("content") or "")))
+            if level == 0 or not words:
+                continue  # the parser's "unassociated" bucket marker, never a heading
+            if level <= 3:
+                drafts.append((_next_path(stack, level, words), [words]))
+            else:
+                drafts[-1][1].append(words)
+        elif kind in ("text", "quote", "code"):
+            drafts[-1][1].extend(_tidy_lines(str(item.get("content") or "")))
+        elif kind == "list":
+            for entry in _list_lines(item.get("content")):
+                drafts[-1][1].extend(_tidy_lines(entry))
+        elif kind == "table":
+            rows = [r for r in item.get("rows") or [] if isinstance(r, dict)]
+            if not rows:
+                continue
+            columns = list(dict.fromkeys(col for row in rows for col in row))
+            drafts[-1][1].extend(line for col in columns if not _is_generic_column(col) for line in _tidy_lines(col))
+            for row in rows:
+                for col in columns:
+                    drafts[-1][1].extend(_tidy_lines(str(row.get(col) or "")))
+    return _finish(drafts, method)
+
+
+_GENERIC_COLUMN = re.compile(r"^col\d+$")
+
+
+def _is_generic_column(name: str) -> bool:
+    """The parser names header-less columns ``col1``, ``col2``… — a name the page never said."""
+    return bool(_GENERIC_COLUMN.match(name))
+
+
 def from_parsed_page(parsed: Any, *, method: str = "native") -> list[dict[str, Any]]:
     """Portion one server parse (a ``ScrapeResult`` or its ``to_dict()``) by its H1–H3 headings.
 
-    The body is the parser's ``markdown_renderable`` text: it is rendered from the parsed tree
+    The body is the parser's ``organized_data`` tree (:func:`from_organized_data`): it is built
     with ``remove_filtered``, so everything the parser labelled chrome (navigation, footers,
-    sponsor rails) is already gone, and its headers are markdown ``#`` lines — which is exactly
-    what :func:`from_markdown` cuts on. A page the parser could not organize (a PDF, plain text,
-    JSON) falls back to its best flat text as one section. No headings = one section.
+    sponsor rails) is already gone, and it is plain — no markdown reaches a portion. A parse
+    without that tree falls back to ``markdown_renderable`` through the plain markdown path, then
+    to its best flat text (a PDF, plain text, JSON) as one section. No headings = one section.
     """
-    body = str(_field(parsed, "markdown_renderable") or "")
-    portions = from_markdown(body, method=method) if body.strip() else []
+    portions = from_organized_data(_field(parsed, "organized_data"), method=method)
     if portions:
         return portions
-    for name in ("main_content_text", "ai_research_content", "text_data", "ai_content", "raw_text"):
+    for name in (
+        "markdown_renderable",
+        "main_content_text",
+        "ai_research_content",
+        "text_data",
+        "ai_content",
+        "raw_text",
+    ):
         text = str(_field(parsed, name) or "")
         if text.strip():
             return from_markdown(text, method=method)

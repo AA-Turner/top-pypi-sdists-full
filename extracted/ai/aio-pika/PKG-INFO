@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: aio-pika
-Version: 10.0.1
+Version: 10.0.4
 Summary: Wrapper around the aiormq for asyncio and humans
 Keywords: rabbitmq,asyncio,amqp,amqp 0.9.1,aiormq
 Author: Dmitry Orlov

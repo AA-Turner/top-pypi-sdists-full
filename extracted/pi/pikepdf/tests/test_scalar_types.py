@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import locale
 from decimal import Decimal
 
 import pytest
@@ -177,9 +178,9 @@ class TestIntegerType:
     def test_division_by_zero(self):
         with pikepdf.explicit_conversion():
             d = Dictionary(Value=10)
-            with pytest.raises(ValueError, match="division by zero"):
+            with pytest.raises(ZeroDivisionError):
                 d.Value // 0
-            with pytest.raises(ValueError, match="modulo by zero"):
+            with pytest.raises(ZeroDivisionError):
                 d.Value % 0
 
     def test_float_arithmetic_add(self):
@@ -271,14 +272,15 @@ class TestRealArithmetic:
         with pikepdf.explicit_conversion():
             d = Dictionary(Value=Real(3.5))
             result = -d.Value
-            assert abs(result + 3.5) < 0.0001
-            assert type(result) is float
+            assert result == Decimal('-3.5')
+            assert type(result) is Decimal
 
     def test_real_abs(self):
         with pikepdf.explicit_conversion():
             d = Dictionary(Value=Real(-3.5))
             result = abs(d.Value)
-            assert abs(result - 3.5) < 0.0001
+            assert result == Decimal('3.5')
+            assert type(result) is Decimal
 
 
 class TestBooleanType:
@@ -493,9 +495,9 @@ class TestArithmeticErrorCases:
         """Test that arithmetic on non-numeric types raises TypeError."""
         with pikepdf.explicit_conversion():
             d = Dictionary(Name=Name.Foo)
-            with pytest.raises(TypeError, match="not an integer"):
+            with pytest.raises(TypeError, match="not numeric"):
                 d.Name + 1
-            with pytest.raises(TypeError, match="not an integer"):
+            with pytest.raises(TypeError, match="not numeric"):
                 1 + d.Name
             with pytest.raises(TypeError, match="not numeric"):
                 d.Name + 1.5
@@ -505,9 +507,9 @@ class TestArithmeticErrorCases:
     def test_sub_on_non_numeric_raises(self):
         with pikepdf.explicit_conversion():
             d = Dictionary(Name=Name.Foo)
-            with pytest.raises(TypeError, match="not an integer"):
+            with pytest.raises(TypeError, match="not numeric"):
                 d.Name - 1
-            with pytest.raises(TypeError, match="not an integer"):
+            with pytest.raises(TypeError, match="not numeric"):
                 1 - d.Name
             with pytest.raises(TypeError, match="not numeric"):
                 d.Name - 1.5
@@ -517,9 +519,9 @@ class TestArithmeticErrorCases:
     def test_mul_on_non_numeric_raises(self):
         with pikepdf.explicit_conversion():
             d = Dictionary(Name=Name.Foo)
-            with pytest.raises(TypeError, match="not an integer"):
+            with pytest.raises(TypeError, match="not numeric"):
                 d.Name * 2
-            with pytest.raises(TypeError, match="not an integer"):
+            with pytest.raises(TypeError, match="not numeric"):
                 2 * d.Name
             with pytest.raises(TypeError, match="not numeric"):
                 d.Name * 2.5
@@ -541,9 +543,9 @@ class TestArithmeticErrorCases:
     def test_floordiv_on_non_numeric_raises(self):
         with pikepdf.explicit_conversion():
             d = Dictionary(Name=Name.Foo)
-            with pytest.raises(TypeError, match="not an integer"):
+            with pytest.raises(TypeError, match="not numeric"):
                 d.Name // 2
-            with pytest.raises(TypeError, match="not an integer"):
+            with pytest.raises(TypeError, match="not numeric"):
                 2 // d.Name
             with pytest.raises(TypeError, match="not numeric"):
                 d.Name // 2.5
@@ -553,9 +555,9 @@ class TestArithmeticErrorCases:
     def test_mod_on_non_numeric_raises(self):
         with pikepdf.explicit_conversion():
             d = Dictionary(Name=Name.Foo)
-            with pytest.raises(TypeError, match="not an integer"):
+            with pytest.raises(TypeError, match="not numeric"):
                 d.Name % 2
-            with pytest.raises(TypeError, match="not an integer"):
+            with pytest.raises(TypeError, match="not numeric"):
                 2 % d.Name
             with pytest.raises(TypeError, match="not numeric"):
                 d.Name % 2.5
@@ -581,95 +583,46 @@ class TestArithmeticErrorCases:
                 abs(d.Name)
 
 
-class TestNotImplementedFallback:
-    """Tests for NotImplemented return with unsupported operand types.
+class TestDecimalOperands:
+    """Integer and Real combine with Decimal, giving a Decimal."""
 
-    When operations involve types that aren't int or float (like Decimal),
-    the C++ code returns NotImplemented to let Python try the other operand's
-    methods. These tests verify that code path is hit (even though the overall
-    operation may still fail if the other type can't handle it).
-    """
-
-    def test_integer_add_unsupported_type_raises(self):
-        """Integer + Decimal returns NotImplemented, leading to TypeError."""
+    @pytest.mark.parametrize(
+        "op, expected",
+        [
+            (lambda a, b: a + b, Decimal('15')),
+            (lambda a, b: a - b, Decimal('5')),
+            (lambda a, b: a * b, Decimal('50')),
+            (lambda a, b: a / b, Decimal('2')),
+            (lambda a, b: a // b, Decimal('2')),
+            (lambda a, b: a % b, Decimal('0')),
+            (lambda a, b: a**b, Decimal('100000')),
+        ],
+    )
+    def test_integer_op_decimal(self, op, expected):
         with pikepdf.explicit_conversion():
-            d = Dictionary(Value=10)
-            # NotImplemented is returned, but Decimal doesn't handle Object
-            with pytest.raises(TypeError):
-                d.Value + Decimal('5')
+            result = op(Integer(10), Decimal('5'))
+            assert result == expected
+            assert type(result) is Decimal
 
-    def test_integer_radd_unsupported_type_raises(self):
-        """Decimal + Integer triggers __radd__ returning NotImplemented."""
+    def test_decimal_op_integer(self):
         with pikepdf.explicit_conversion():
-            d = Dictionary(Value=10)
-            with pytest.raises(TypeError):
-                Decimal('5') + d.Value
+            assert Decimal('5') + Integer(10) == Decimal('15')
+            assert Decimal('5') - Integer(10) == Decimal('-5')
+            assert Decimal('20') / Integer(10) == Decimal('2')
+            assert type(Decimal('5') + Integer(10)) is Decimal
 
-    def test_integer_sub_unsupported_type_raises(self):
+    def test_real_op_decimal(self):
         with pikepdf.explicit_conversion():
-            d = Dictionary(Value=10)
-            with pytest.raises(TypeError):
-                d.Value - Decimal('5')
-
-    def test_integer_mul_unsupported_type_raises(self):
-        with pikepdf.explicit_conversion():
-            d = Dictionary(Value=10)
-            with pytest.raises(TypeError):
-                d.Value * Decimal('5')
-
-    def test_integer_truediv_unsupported_type_raises(self):
-        with pikepdf.explicit_conversion():
-            d = Dictionary(Value=10)
-            with pytest.raises(TypeError):
-                d.Value / Decimal('5')
-
-    def test_integer_floordiv_unsupported_type_raises(self):
-        with pikepdf.explicit_conversion():
-            d = Dictionary(Value=10)
-            with pytest.raises(TypeError):
-                d.Value // Decimal('5')
-
-    def test_integer_mod_unsupported_type_raises(self):
-        with pikepdf.explicit_conversion():
-            d = Dictionary(Value=10)
-            with pytest.raises(TypeError):
-                d.Value % Decimal('5')
-
-    def test_real_add_unsupported_type_raises(self):
-        with pikepdf.explicit_conversion():
-            d = Dictionary(Value=Real(2.5))
-            with pytest.raises(TypeError):
-                d.Value + Decimal('5')
-
-    def test_real_sub_unsupported_type_raises(self):
-        with pikepdf.explicit_conversion():
-            d = Dictionary(Value=Real(2.5))
-            with pytest.raises(TypeError):
-                d.Value - Decimal('5')
-
-    def test_real_mul_unsupported_type_raises(self):
-        with pikepdf.explicit_conversion():
-            d = Dictionary(Value=Real(2.5))
-            with pytest.raises(TypeError):
-                d.Value * Decimal('5')
-
-    def test_real_truediv_unsupported_type_raises(self):
-        with pikepdf.explicit_conversion():
-            d = Dictionary(Value=Real(2.5))
-            with pytest.raises(TypeError):
-                d.Value / Decimal('5')
-
-    def test_real_floordiv_unsupported_type_raises(self):
-        with pikepdf.explicit_conversion():
-            d = Dictionary(Value=Real(2.5))
-            with pytest.raises(TypeError):
-                d.Value // Decimal('5')
-
-    def test_real_mod_unsupported_type_raises(self):
-        with pikepdf.explicit_conversion():
-            d = Dictionary(Value=Real(2.5))
-            with pytest.raises(TypeError):
-                d.Value % Decimal('5')
+            r = Real('2.5')
+            assert r + Decimal('5') == Decimal('7.5')
+            assert r - Decimal('5') == Decimal('-2.5')
+            assert r * Decimal('2') == Decimal('5.0')
+            assert r / Decimal('2') == Decimal('1.25')
+            assert r // Decimal('2') == Decimal('1')
+            assert r % Decimal('2') == Decimal('0.5')
+            assert Decimal('5') + r == Decimal('7.5')
+            assert Decimal('5') - r == Decimal('2.5')
+            assert type(r + Decimal('5')) is Decimal
 
 
 class TestArithmeticOnNonNumericWithUnsupportedOther:
@@ -780,14 +733,14 @@ class TestUnaryOperators:
         with pikepdf.explicit_conversion():
             d = Dictionary(Value=Real(3.5))
             result = +d.Value
-            assert abs(result - 3.5) < 0.0001
-            assert type(result) is float
+            assert result == Decimal('3.5')
+            assert type(result) is Decimal
 
     def test_real_pos_negative(self):
         with pikepdf.explicit_conversion():
             d = Dictionary(Value=Real(-3.5))
             result = +d.Value
-            assert abs(result + 3.5) < 0.0001
+            assert result == Decimal('-3.5')
 
 
 class TestDivisionByZero:
@@ -796,97 +749,97 @@ class TestDivisionByZero:
     def test_truediv_by_zero_float(self):
         with pikepdf.explicit_conversion():
             d = Dictionary(Value=10)
-            with pytest.raises(ValueError, match="division by zero"):
+            with pytest.raises(ZeroDivisionError):
                 d.Value / 0.0
 
     def test_truediv_by_zero_int(self):
         with pikepdf.explicit_conversion():
             d = Dictionary(Value=10)
-            with pytest.raises(ValueError, match="division by zero"):
+            with pytest.raises(ZeroDivisionError):
                 d.Value / 0
 
     def test_rtruediv_by_zero_integer(self):
         with pikepdf.explicit_conversion():
             d = Dictionary(Value=0)
-            with pytest.raises(ValueError, match="division by zero"):
+            with pytest.raises(ZeroDivisionError):
                 10.0 / d.Value
 
     def test_rtruediv_by_zero_integer_int_operand(self):
         with pikepdf.explicit_conversion():
             d = Dictionary(Value=0)
-            with pytest.raises(ValueError, match="division by zero"):
+            with pytest.raises(ZeroDivisionError):
                 10 / d.Value
 
     def test_floordiv_by_zero_float(self):
         with pikepdf.explicit_conversion():
             d = Dictionary(Value=10)
-            with pytest.raises(ValueError, match="division by zero"):
+            with pytest.raises(ZeroDivisionError):
                 d.Value // 0.0
 
     def test_rfloordiv_by_zero_integer(self):
         with pikepdf.explicit_conversion():
             d = Dictionary(Value=0)
-            with pytest.raises(ValueError, match="division by zero"):
+            with pytest.raises(ZeroDivisionError):
                 10 // d.Value
 
     def test_rfloordiv_by_zero_float(self):
         with pikepdf.explicit_conversion():
             d = Dictionary(Value=0)
-            with pytest.raises(ValueError, match="division by zero"):
+            with pytest.raises(ZeroDivisionError):
                 10.0 // d.Value
 
     def test_mod_by_zero_float(self):
         with pikepdf.explicit_conversion():
             d = Dictionary(Value=10)
-            with pytest.raises(ValueError, match="modulo by zero"):
+            with pytest.raises(ZeroDivisionError):
                 d.Value % 0.0
 
     def test_rmod_by_zero_integer(self):
         with pikepdf.explicit_conversion():
             d = Dictionary(Value=0)
-            with pytest.raises(ValueError, match="modulo by zero"):
+            with pytest.raises(ZeroDivisionError):
                 10 % d.Value
 
     def test_rmod_by_zero_float(self):
         with pikepdf.explicit_conversion():
             d = Dictionary(Value=0)
-            with pytest.raises(ValueError, match="modulo by zero"):
+            with pytest.raises(ZeroDivisionError):
                 10.0 % d.Value
 
     def test_real_truediv_by_zero(self):
         with pikepdf.explicit_conversion():
             d = Dictionary(Value=Real(10.0))
-            with pytest.raises(ValueError, match="division by zero"):
+            with pytest.raises(ZeroDivisionError):
                 d.Value / 0.0
 
     def test_real_rtruediv_by_zero(self):
         with pikepdf.explicit_conversion():
             d = Dictionary(Value=Real(0.0))
-            with pytest.raises(ValueError, match="division by zero"):
+            with pytest.raises(ZeroDivisionError):
                 10.0 / d.Value
 
     def test_real_floordiv_by_zero(self):
         with pikepdf.explicit_conversion():
             d = Dictionary(Value=Real(10.0))
-            with pytest.raises(ValueError, match="division by zero"):
+            with pytest.raises(ZeroDivisionError):
                 d.Value // 0.0
 
     def test_real_rfloordiv_by_zero(self):
         with pikepdf.explicit_conversion():
             d = Dictionary(Value=Real(0.0))
-            with pytest.raises(ValueError, match="division by zero"):
+            with pytest.raises(ZeroDivisionError):
                 10.0 // d.Value
 
     def test_real_mod_by_zero(self):
         with pikepdf.explicit_conversion():
             d = Dictionary(Value=Real(10.0))
-            with pytest.raises(ValueError, match="modulo by zero"):
+            with pytest.raises(ZeroDivisionError):
                 d.Value % 0.0
 
     def test_real_rmod_by_zero(self):
         with pikepdf.explicit_conversion():
             d = Dictionary(Value=Real(0.0))
-            with pytest.raises(ValueError, match="modulo by zero"):
+            with pytest.raises(ZeroDivisionError):
                 10.0 % d.Value
 
 
@@ -920,10 +873,1067 @@ class TestRealTruedivWithInt:
         with pikepdf.explicit_conversion():
             d = Dictionary(Value=Real(10.0))
             result = d.Value / 4
-            assert abs(result - 2.5) < 0.0001
+            assert result == Decimal('2.5')
+            assert type(result) is Decimal
 
     def test_real_rtruediv_int(self):
         with pikepdf.explicit_conversion():
             d = Dictionary(Value=Real(4.0))
             result = 10 / d.Value
-            assert abs(result - 2.5) < 0.0001
+            assert result == Decimal('2.5')
+            assert type(result) is Decimal
+
+
+@pytest.fixture
+def restore_global_mode():
+    """Restore the global conversion mode after a test changes it."""
+    old = 'explicit' if pikepdf._core._get_explicit_conversion_mode() else 'implicit'
+    try:
+        yield
+    finally:
+        pikepdf.set_object_conversion_mode(old)
+
+
+class TestImplicitConversionContext:
+    """Tests for the implicit_conversion() context manager."""
+
+    def test_implicit_inside_explicit(self):
+        with pikepdf.explicit_conversion():
+            d = Dictionary(Value=42)
+            assert isinstance(d.Value, Integer)
+            with pikepdf.implicit_conversion():
+                assert isinstance(d.Value, int)
+                assert not isinstance(d.Value, Integer)
+            assert isinstance(d.Value, Integer)
+
+    def test_explicit_inside_implicit(self):
+        with pikepdf.implicit_conversion():
+            d = Dictionary(Value=42)
+            assert isinstance(d.Value, int)
+            with pikepdf.explicit_conversion():
+                assert isinstance(d.Value, Integer)
+            assert isinstance(d.Value, int)
+
+    def test_implicit_overrides_global(self, restore_global_mode):
+        pikepdf.set_object_conversion_mode('explicit')
+        d = Dictionary(Value=42)
+        assert isinstance(d.Value, Integer)
+        with pikepdf.implicit_conversion():
+            assert isinstance(d.Value, int)
+            assert pikepdf.get_object_conversion_mode() == 'implicit'
+        assert isinstance(d.Value, Integer)
+
+    def test_deeply_nested(self):
+        with pikepdf.explicit_conversion():
+            with pikepdf.implicit_conversion():
+                with pikepdf.explicit_conversion():
+                    assert pikepdf.get_object_conversion_mode() == 'explicit'
+                assert pikepdf.get_object_conversion_mode() == 'implicit'
+            assert pikepdf.get_object_conversion_mode() == 'explicit'
+
+    def test_out_of_order_exit_does_not_corrupt_stack(self):
+        # Exiting an outer context manager before an inner one must not leave
+        # the thread-local stack in a state that leaks into later code.
+        cm1 = pikepdf.explicit_conversion()
+        cm2 = pikepdf.implicit_conversion()
+        cm1.__enter__()
+        cm2.__enter__()
+        cm1.__exit__(None, None, None)
+        assert pikepdf.get_object_conversion_mode() == 'implicit'
+        cm2.__exit__(None, None, None)
+        assert pikepdf.get_object_conversion_mode() == 'implicit'
+
+    def test_suspended_generator_closed_inside_another_scope(self):
+        # A generator suspended inside a scope, and closed inside a scope
+        # entered later, must not cancel that later scope.
+        def gen():
+            with pikepdf.implicit_conversion():
+                yield
+
+        g = gen()
+        next(g)
+        with pikepdf.explicit_conversion():
+            g.close()
+            assert pikepdf.get_object_conversion_mode() == 'explicit'
+            d = Dictionary(Value=42)
+            assert isinstance(d.Value, Integer)
+        assert pikepdf.get_object_conversion_mode() == 'implicit'
+
+
+class TestPerPdfConversionMode:
+    """Tests for the per-Pdf conversion mode."""
+
+    def test_new_default_is_none(self):
+        pdf = pikepdf.Pdf.new()
+        assert pdf.conversion_mode is None
+
+    def test_new_with_mode(self):
+        pdf = pikepdf.Pdf.new(conversion_mode='explicit')
+        assert pdf.conversion_mode == 'explicit'
+        pdf.Root.Test = 42
+        assert isinstance(pdf.Root.Test, Integer)
+
+    def test_open_with_mode(self, resources):
+        pdf = pikepdf.open(
+            resources / 'pal-1bit-trivial.pdf', conversion_mode='explicit'
+        )
+        assert pdf.conversion_mode == 'explicit'
+        assert isinstance(pdf.pages[0].obj.MediaBox[2], Integer | Real)
+
+    def test_open_default_is_none(self, resources):
+        pdf = pikepdf.open(resources / 'pal-1bit-trivial.pdf')
+        assert pdf.conversion_mode is None
+
+    def test_property_set_get(self):
+        pdf = pikepdf.Pdf.new()
+        pdf.Root.Test = 42
+        assert isinstance(pdf.Root.Test, int)
+        pdf.conversion_mode = 'explicit'
+        assert pdf.conversion_mode == 'explicit'
+        assert isinstance(pdf.Root.Test, Integer)
+        pdf.conversion_mode = 'implicit'
+        assert pdf.conversion_mode == 'implicit'
+        assert isinstance(pdf.Root.Test, int)
+        pdf.conversion_mode = None
+        assert pdf.conversion_mode is None
+
+    def test_property_invalid_value(self):
+        pdf = pikepdf.Pdf.new()
+        with pytest.raises(ValueError):
+            pdf.conversion_mode = 'sometimes'
+        with pytest.raises(ValueError):
+            pdf.conversion_mode = 42
+
+    def test_new_invalid_value(self):
+        with pytest.raises(ValueError):
+            pikepdf.Pdf.new(conversion_mode='sometimes')
+
+    def test_open_invalid_value(self, resources):
+        with pytest.raises(ValueError):
+            pikepdf.open(
+                resources / 'pal-1bit-trivial.pdf', conversion_mode='sometimes'
+            )
+
+    def test_set_object_conversion_mode_validates(self, restore_global_mode):
+        with pytest.raises(ValueError):
+            pikepdf.set_object_conversion_mode('sometimes')
+
+    def test_pdf_implicit_overrides_global_explicit(self, restore_global_mode):
+        pikepdf.set_object_conversion_mode('explicit')
+        pdf = pikepdf.Pdf.new(conversion_mode='implicit')
+        pdf.Root.Test = 42
+        assert isinstance(pdf.Root.Test, int)
+        assert pikepdf.get_object_conversion_mode(pdf) == 'implicit'
+        assert pikepdf.get_object_conversion_mode() == 'explicit'
+
+    def test_context_beats_pdf(self):
+        pdf = pikepdf.Pdf.new(conversion_mode='explicit')
+        pdf.Root.Test = 42
+        assert isinstance(pdf.Root.Test, Integer)
+        with pikepdf.implicit_conversion():
+            assert isinstance(pdf.Root.Test, int)
+            assert pikepdf.get_object_conversion_mode(pdf) == 'implicit'
+
+    def test_unowned_object_uses_global(self, restore_global_mode):
+        pdf = pikepdf.Pdf.new(conversion_mode='explicit')
+        assert pdf is not None
+        d = Dictionary(Value=42)  # unowned
+        assert isinstance(d.Value, int)
+        pikepdf.set_object_conversion_mode('explicit')
+        assert isinstance(d.Value, Integer)
+
+    def test_repr_honours_pdf_mode(self):
+        pdf = pikepdf.Pdf.new(conversion_mode='explicit')
+        pdf.Root.Test = 42
+        pdf.Root.Flag = True
+        assert 'pikepdf.Integer(42)' in repr(pdf.Root.Test)
+        assert 'pikepdf.Boolean(True)' in repr(pdf.Root.Flag)
+        pdf.conversion_mode = 'implicit'
+        assert repr(pdf.Root.Test) == '42'
+
+    def test_pdf_mode_visible_from_other_thread(self):
+        import threading
+
+        pdf = pikepdf.Pdf.new(conversion_mode='explicit')
+        pdf.Root.Test = 42
+        results = {}
+
+        def worker():
+            results['pdf_mode'] = isinstance(pdf.Root.Test, Integer)
+            results['unowned'] = isinstance(Dictionary(Value=1).Value, Integer)
+
+        with pikepdf.explicit_conversion():
+            t = threading.Thread(target=worker)
+            t.start()
+            t.join()
+
+        # per-Pdf explicit mode travels across threads
+        assert results['pdf_mode'] is True
+        # but the context manager in the main thread does not
+        assert results['unowned'] is False
+
+    def test_get_object_conversion_mode_with_pdf(self, restore_global_mode):
+        pdf = pikepdf.Pdf.new()
+        assert pikepdf.get_object_conversion_mode(pdf) == 'implicit'
+        pikepdf.set_object_conversion_mode('explicit')
+        assert pikepdf.get_object_conversion_mode(pdf) == 'explicit'
+        pdf.conversion_mode = 'implicit'
+        assert pikepdf.get_object_conversion_mode(pdf) == 'implicit'
+
+
+class TestOwnerAdoption:
+    """Direct objects inserted into a Pdf are adopted by that Pdf.
+
+    Adoption is what makes Pdf.conversion_mode apply to objects created in the
+    current session; qpdf only associates parsed objects with a document.
+    """
+
+    @pytest.fixture
+    def pdf(self):
+        return pikepdf.Pdf.new(conversion_mode='explicit')
+
+    def test_scalar_adopted(self, pdf):
+        pdf.Root.Test = 42
+        assert isinstance(pdf.Root.Test, Integer)
+        assert pdf.Root.get_raw('/Test').is_owned_by(pdf)
+
+    def test_nested_dictionary_adopted(self, pdf):
+        pdf.Root.D = Dictionary(A=1, L=[1, 2.5, True])
+        assert isinstance(pdf.Root.D.A, Integer)
+        assert isinstance(pdf.Root.D.L[1], Real)
+        assert isinstance(pdf.Root.D.L[2], Boolean)
+        assert pdf.Root.get_raw('/D').is_owned_by(pdf)
+        assert pdf.Root.D.get_raw('/A').is_owned_by(pdf)
+        assert pdf.Root.D.L.get_raw(pikepdf.NamePath()[1]).is_owned_by(pdf)
+
+    def test_array_append_adopted(self, pdf):
+        pdf.Root.Arr = pikepdf.Array([1])
+        pdf.Root.Arr.append(2)
+        assert isinstance(pdf.Root.Arr[0], Integer)
+        assert isinstance(pdf.Root.Arr[1], Integer)
+        assert pdf.Root.Arr.get_raw(pikepdf.NamePath()[1]).is_owned_by(pdf)
+
+    def test_make_indirect_adopts_children(self, pdf):
+        obj = pdf.make_indirect(Dictionary(A=1))
+        assert obj.is_owned_by(pdf)
+        assert obj.get_raw('/A').is_owned_by(pdf)
+        assert isinstance(obj.A, Integer)
+
+    def test_stream_dict_adopted(self, pdf):
+        stream = pikepdf.Stream(pdf, b'x', Width=3)
+        assert isinstance(stream.Width, Integer)
+        assert stream.stream_dict.get_raw('/Width').is_owned_by(pdf)
+
+    def test_unowned_objects_unaffected(self, pdf):
+        # Touching the explicit-mode Pdf must not leak its mode to objects
+        # that belong to no document.
+        pdf.Root.Test = 42
+        assert isinstance(pdf.Root.Test, Integer)
+        assert type(pikepdf.Integer(5)) is int  # noqa: E721
+        assert type(Dictionary(Q=7).Q) is int  # noqa: E721
+
+    def test_scalars_are_adopted_by_copy(self, pdf):
+        # A Name or String held in a module-level constant may be inserted into
+        # any number of documents: adoption copies scalars, so the caller's
+        # object stays unowned.
+        name = Name.Foo
+        string = pikepdf.String('x')
+        with pikepdf.explicit_conversion():
+            integer = Integer(5)
+
+        other = pikepdf.Pdf.new()
+        for doc in (pdf, other):
+            doc.Root.X = name
+            doc.Root.Y = string
+            doc.Root.Z = integer
+
+        assert not name.is_owned_by(pdf)
+        assert not name.is_owned_by(other)
+        assert not string.is_owned_by(pdf)
+        assert not integer.is_owned_by(pdf)
+        for doc in (pdf, other):
+            assert doc.Root.get_raw('/X').is_owned_by(doc)
+            assert doc.Root.get_raw('/Y').is_owned_by(doc)
+            assert doc.Root.get_raw('/Z').is_owned_by(doc)
+
+    def test_container_child_scalar_replaced_by_copy(self, pdf):
+        name = Name.Foo
+        d = Dictionary(N=name)
+        pdf.Root.D = d
+        # The child was replaced by an adopted copy...
+        assert d.get_raw('/N').is_owned_by(pdf)
+        assert not name.is_owned_by(pdf)
+        # ...but the container itself is still the caller's object.
+        assert pdf.Root.D.same_owner_as(d)
+        d.More = 7
+        assert isinstance(pdf.Root.D.More, Integer)
+        assert pdf.Root.D.More == 7
+
+    def test_adopted_object_is_foreign_elsewhere(self, pdf):
+        d = Dictionary(A=1)
+        pdf.Root.D = d
+        other = pikepdf.Pdf.new()
+        with pytest.raises(pikepdf.ForeignObjectError):
+            other.Root.D = d
+
+    def test_adoption_does_not_claim_foreign_objects(self, pdf, resources):
+        src = pikepdf.open(resources / 'pal-1bit-trivial.pdf')
+        with pytest.raises(pikepdf.ForeignObjectError):
+            pdf.Root.Page = src.Root.Pages
+        assert not src.Root.Pages.is_owned_by(pdf)
+
+
+class TestBoolOfScalars:
+    """bool() of a scalar Object reports its value, not an internal error."""
+
+    def test_bool_integer(self):
+        with pikepdf.explicit_conversion():
+            assert bool(Integer(0)) is False
+            assert bool(Integer(3)) is True
+            assert bool(Integer(-1)) is True
+
+    def test_bool_real(self):
+        with pikepdf.explicit_conversion():
+            assert bool(Real('0.0')) is False
+            assert bool(Real('0.5')) is True
+            assert bool(Real('-0.5')) is True
+
+    def test_bool_via_get_raw(self):
+        d = Dictionary(Zero=0, Three=3, RealZero=Real('0.000'))
+        assert bool(d.get_raw('/Zero')) is False
+        assert bool(d.get_raw('/Three')) is True
+        assert bool(d.get_raw('/RealZero')) is False
+
+    def test_bool_unchanged_for_other_types(self):
+        assert bool(Dictionary()) is False
+        assert bool(Dictionary(A=1)) is True
+        assert bool(pikepdf.Array()) is False
+        assert bool(pikepdf.String('')) is False
+        assert bool(pikepdf.String('x')) is True
+        assert bool(Name.Foo) is True
+
+
+@pytest.fixture
+def coercibles():
+    """A dictionary of the values in the coercion truth table."""
+    return Dictionary(
+        Int42=42,
+        Real39=Real('3.9'),
+        BoolTrue=True,
+        Int1=1,
+        Str7=pikepdf.String('7'),
+        StrExp=pikepdf.String('1e-5'),
+        StrAbc=pikepdf.String('abc'),
+        StrPadded=pikepdf.String('  12 '),
+        StrHex=pikepdf.String('0x10'),
+        StrInf=pikepdf.String('inf'),
+    )
+
+
+SENTINEL = object()
+
+# key -> (no coerce, coerce) expected results; SENTINEL means "default returned"
+AS_INT_TABLE = {
+    '/Int42': (42, 42),
+    '/Real39': (SENTINEL, 3),
+    '/BoolTrue': (SENTINEL, SENTINEL),
+    '/Int1': (1, 1),
+    '/Str7': (SENTINEL, 7),
+    '/StrExp': (SENTINEL, 0),
+    '/StrAbc': (SENTINEL, SENTINEL),
+    '/StrHex': (SENTINEL, SENTINEL),
+    '/StrInf': (SENTINEL, SENTINEL),
+    '/StrPadded': (SENTINEL, 12),
+}
+
+AS_BOOL_TABLE = {
+    '/Int42': (SENTINEL, True),
+    '/Real39': (SENTINEL, True),
+    '/BoolTrue': (True, True),
+    '/Int1': (SENTINEL, True),
+    '/Str7': (SENTINEL, SENTINEL),
+    '/StrExp': (SENTINEL, SENTINEL),
+    '/StrAbc': (SENTINEL, SENTINEL),
+    '/StrHex': (SENTINEL, SENTINEL),
+    '/StrInf': (SENTINEL, SENTINEL),
+    '/StrPadded': (SENTINEL, SENTINEL),
+}
+
+AS_FLOAT_TABLE = {
+    '/Int42': (42.0, 42.0),
+    '/Real39': (3.9, 3.9),
+    '/BoolTrue': (SENTINEL, SENTINEL),
+    '/Int1': (1.0, 1.0),
+    '/Str7': (SENTINEL, 7.0),
+    '/StrExp': (SENTINEL, 1e-5),
+    '/StrAbc': (SENTINEL, SENTINEL),
+    '/StrHex': (SENTINEL, SENTINEL),
+    '/StrInf': (SENTINEL, SENTINEL),
+    '/StrPadded': (SENTINEL, 12.0),
+}
+
+AS_DECIMAL_TABLE = {
+    '/Int42': (SENTINEL, Decimal(42)),
+    '/Real39': (Decimal('3.9'), Decimal('3.9')),
+    '/BoolTrue': (SENTINEL, SENTINEL),
+    '/Int1': (SENTINEL, Decimal(1)),
+    '/Str7': (SENTINEL, Decimal('7')),
+    '/StrExp': (SENTINEL, Decimal('1e-5')),
+    '/StrAbc': (SENTINEL, SENTINEL),
+    '/StrHex': (SENTINEL, SENTINEL),
+    '/StrInf': (SENTINEL, SENTINEL),
+    '/StrPadded': (SENTINEL, Decimal('12')),
+}
+
+
+class TestCoercionTruthTable:
+    """The coercion behaviour of as_int/as_bool/as_float/as_decimal."""
+
+    @staticmethod
+    def _check(coercibles, accessor, table):
+        marker = object()
+        for key, (plain, coerced) in table.items():
+            obj = coercibles.get_raw(key)
+            for coerce, expected in ((False, plain), (True, coerced)):
+                result = getattr(obj, accessor)(marker, coerce=coerce)
+                if expected is SENTINEL:
+                    assert result is marker, (accessor, key, coerce)
+                else:
+                    assert result == expected, (accessor, key, coerce)
+                    assert type(result) is type(expected), (accessor, key, coerce)
+                # The no-default overload raises instead of returning default
+                if expected is SENTINEL:
+                    with pytest.raises(TypeError):
+                        getattr(obj, accessor)(coerce=coerce)
+                else:
+                    assert getattr(obj, accessor)(coerce=coerce) == expected
+
+    def test_as_int(self, coercibles):
+        self._check(coercibles, 'as_int', AS_INT_TABLE)
+
+    def test_as_bool(self, coercibles):
+        self._check(coercibles, 'as_bool', AS_BOOL_TABLE)
+
+    def test_as_float(self, coercibles):
+        self._check(coercibles, 'as_float', AS_FLOAT_TABLE)
+
+    def test_as_decimal(self, coercibles):
+        self._check(coercibles, 'as_decimal', AS_DECIMAL_TABLE)
+
+    def test_coerce_is_keyword_only(self, coercibles):
+        obj = coercibles.get_raw('/Real39')
+        with pytest.raises(TypeError):
+            obj.as_int(None, True)  # type: ignore[call-arg]
+
+    def test_default_coerce_is_false(self, coercibles):
+        obj = coercibles.get_raw('/Real39')
+        assert obj.as_int(None) is None
+        with pytest.raises(TypeError):
+            obj.as_int()
+
+    def test_as_bool_zero_is_false(self):
+        d = Dictionary(Zero=0, RealZero=Real('0.0'), Neg=-3)
+        assert d.get_raw('/Zero').as_bool(coerce=True) is False
+        assert d.get_raw('/RealZero').as_bool(coerce=True) is False
+        assert d.get_raw('/Neg').as_bool(coerce=True) is True
+
+    def test_as_int_truncates_toward_zero(self):
+        d = Dictionary(A=Real('3.9'), B=Real('-3.9'))
+        assert d.get_raw('/A').as_int(coerce=True) == 3
+        assert d.get_raw('/B').as_int(coerce=True) == -3
+
+    def test_as_decimal_preserves_digits(self):
+        d = Dictionary(A=pikepdf.String('1.100'))
+        assert str(d.get_raw('/A').as_decimal(coerce=True)) == '1.100'
+
+    def test_overflow_from_string(self):
+        d = Dictionary(A=pikepdf.String('99999999999999999999'))
+        with pytest.raises(OverflowError):
+            d.get_raw('/A').as_int(coerce=True)
+        # With a default supplied, an out-of-range value is a value the caller
+        # cannot use, so the default is returned instead of raising.
+        assert d.get_raw('/A').as_int(None, coerce=True) is None
+        assert d.get_raw('/A').as_int(0, coerce=True) == 0
+
+    def test_overflow_with_default_from_get_int(self):
+        d = Dictionary(S=pikepdf.String('99999999999999999999'))
+        assert d.get_int('/S', 0, coerce=True) == 0
+
+    def test_overflow_from_real(self):
+        d = Dictionary(A=Real('1e30'))
+        with pytest.raises(OverflowError):
+            d.get_raw('/A').as_int(coerce=True)
+
+    def test_no_coercion_of_names_and_nulls(self):
+        # A null stored in a dictionary is indistinguishable from an absent
+        # key, so hold both values in an array.
+        d = pikepdf.Object.parse(b'<< /Arr [ /Foo null ] >>')
+        for index in (0, 1):
+            obj = d.get_raw(pikepdf.NamePath('/Arr')[index])
+            for accessor in ('as_int', 'as_bool', 'as_float', 'as_decimal'):
+                assert getattr(obj, accessor)(None, coerce=True) is None
+
+    def test_type_error_messages(self, coercibles):
+        with pytest.raises(TypeError, match='Expected integer, got string'):
+            coercibles.get_raw('/Str7').as_int()
+        with pytest.raises(TypeError, match='Expected boolean, got integer'):
+            coercibles.get_raw('/Int42').as_bool()
+        with pytest.raises(TypeError, match='Expected numeric, got string'):
+            coercibles.get_raw('/Str7').as_float()
+        with pytest.raises(TypeError, match='Expected real, got integer'):
+            coercibles.get_raw('/Int42').as_decimal()
+
+
+class TestAsStrAsBytes:
+    @pytest.mark.parametrize('text', ['hello', 'héllo', '日本', ''])
+    def test_as_str(self, text):
+        value = pikepdf.String(text).as_str()
+        assert value == text
+        assert type(value) is str
+
+    @pytest.mark.parametrize('raw', [b'hello', b'\x80\x81\xff', b'\xfe\xff\x00A', b''])
+    def test_as_bytes(self, raw):
+        value = pikepdf.String(raw).as_bytes()
+        assert value == raw
+        assert type(value) is bytes
+
+    def test_as_str_decodes_utf16(self):
+        assert pikepdf.String(b'\xfe\xff\x00A').as_str() == 'A'
+
+    @pytest.mark.parametrize(
+        'obj', [Name.Foo, pikepdf.Array([1]), Dictionary(A=1), pikepdf.Operator('q')]
+    )
+    def test_type_error(self, obj):
+        with pytest.raises(TypeError, match='Expected string, got'):
+            obj.as_str()
+        with pytest.raises(TypeError, match='Expected string, got'):
+            obj.as_bytes()
+
+    def test_scalar_type_error(self):
+        with pikepdf.explicit_conversion():
+            i = Integer(1)
+            with pytest.raises(TypeError, match='Expected string, got integer'):
+                i.as_str()
+            with pytest.raises(TypeError, match='Expected string, got integer'):
+                i.as_bytes()
+
+    def test_default(self):
+        marker = object()
+        assert Name.Foo.as_str(marker) is marker
+        assert Name.Foo.as_bytes(marker) is marker
+        assert pikepdf.String('x').as_str(marker) == 'x'
+        assert pikepdf.String('x').as_bytes(marker) == b'x'
+        assert pikepdf.String('x').as_str(default=None) == 'x'
+
+    def test_no_coerce(self):
+        with pytest.raises(TypeError):
+            pikepdf.String('x').as_str(coerce=True)  # type: ignore[call-arg]
+        with pytest.raises(TypeError):
+            pikepdf.String('x').as_bytes(coerce=True)  # type: ignore[call-arg]
+
+
+class TestAsDictAsList:
+    def test_as_dict_ok(self):
+        assert dict(Dictionary(A=1).as_dict()) == {'/A': 1}
+
+    def test_as_list_ok(self):
+        assert list(pikepdf.Array([1, 2]).as_list()) == [1, 2]
+
+    def test_as_dict_type_error(self):
+        with pytest.raises(TypeError, match='Expected dictionary, got array'):
+            pikepdf.Array([1]).as_dict()
+
+    def test_as_list_type_error(self):
+        with pytest.raises(TypeError, match='Expected array, got dictionary'):
+            Dictionary(A=1).as_list()
+
+    def test_as_dict_stream_type_error(self):
+        pdf = pikepdf.Pdf.new()
+        stream = pikepdf.Stream(pdf, b'abc')
+        with pytest.raises(TypeError, match='Expected dictionary, got stream'):
+            stream.as_dict()
+        assert stream.as_dict(None) is None
+
+    def test_as_dict_default(self):
+        marker = object()
+        assert pikepdf.Array([1]).as_dict(marker) is marker
+        assert dict(Dictionary(A=1).as_dict(marker)) == {'/A': 1}
+
+    def test_as_list_default(self):
+        marker = object()
+        assert Dictionary(A=1).as_list(marker) is marker
+        assert list(pikepdf.Array([1]).as_list(marker)) == [1]
+
+    def test_scalar_type_errors(self):
+        with pikepdf.explicit_conversion():
+            i = Integer(1)
+        with pytest.raises(TypeError, match='Expected array, got integer'):
+            i.as_list()
+        with pytest.raises(TypeError, match='Expected dictionary, got integer'):
+            i.as_dict()
+
+
+class TestLocaleIndependence:
+    """Number parsing must not depend on LC_NUMERIC."""
+
+    def test_parse_under_comma_decimal_locale(self):
+        candidates = ['de_DE.UTF-8', 'de_DE', 'fr_FR.UTF-8', 'fr_FR']
+        saved = locale.setlocale(locale.LC_NUMERIC)
+        for candidate in candidates:
+            try:
+                locale.setlocale(locale.LC_NUMERIC, candidate)
+            except locale.Error:
+                continue
+            # musl accepts any locale name but always uses '.' as separator.
+            if locale.localeconv()['decimal_point'] == ',':
+                break
+        else:
+            locale.setlocale(locale.LC_NUMERIC, saved)
+            pytest.skip('no comma-decimal locale available')
+        try:
+            with pikepdf.explicit_conversion():
+                assert pikepdf.String('3.5').as_float(coerce=True) == 3.5
+                assert pikepdf.String('3.5').as_decimal(coerce=True) == Decimal('3.5')
+                assert bool(Real('0.5')) is True
+                assert bool(Real('0.0')) is False
+        finally:
+            locale.setlocale(locale.LC_NUMERIC, saved)
+
+
+class TestRealValidation:
+    """Real objects holding non-numeric tokens are rejected consistently."""
+
+    def test_as_decimal_rejects_nan_token(self):
+        with pikepdf.explicit_conversion():
+            nan = Real('nan')
+            assert nan.as_decimal(default=None) is None
+            with pytest.raises(TypeError):
+                nan.as_decimal()
+            assert nan.as_float(default=None) is None
+
+    def test_as_decimal_rejects_inf_token(self):
+        with pikepdf.explicit_conversion():
+            inf = Real('inf')
+            assert inf.as_decimal(default=None) is None
+            assert inf.as_float(default=None) is None
+
+
+class TestOrderingComparisons:
+    """Integer and Real support <, <=, >, >= against numbers and each other."""
+
+    def test_integer_vs_int(self):
+        with pikepdf.explicit_conversion():
+            i = Integer(5)
+            assert i < 6
+            assert i <= 5
+            assert i > 4
+            assert i >= 5
+            assert not (i < 5)
+            assert not (i > 5)
+
+    def test_reflected_int_vs_integer(self):
+        with pikepdf.explicit_conversion():
+            i = Integer(5)
+            assert 4 < i
+            assert 5 <= i
+            assert 6 > i
+            assert 5 >= i
+
+    def test_integer_vs_float_and_decimal(self):
+        with pikepdf.explicit_conversion():
+            i = Integer(5)
+            assert i < 5.5
+            assert i > Decimal('4.5')
+            assert 5.5 > i
+            assert Decimal('4.5') < i
+
+    def test_real_vs_numbers(self):
+        with pikepdf.explicit_conversion():
+            r = Real('3.5')
+            assert r < 4
+            assert r > 3
+            assert r <= 3.5
+            assert r >= 3.5
+            assert r < Decimal('3.51')
+            assert r > Decimal('3.49')
+            assert 3 < r
+            assert 4.0 > r
+            assert Decimal('3.5') <= r
+
+    def test_real_is_compared_exactly(self):
+        # Decimal semantics: no binary float rounding of the token text.
+        with pikepdf.explicit_conversion():
+            r = Real('0.1')
+            assert r == Decimal('0.1')
+            assert not (r < Decimal('0.1'))
+            assert not (r > Decimal('0.1'))
+
+    def test_integer_vs_integer_and_real(self):
+        with pikepdf.explicit_conversion():
+            assert Integer(1) < Integer(2)
+            assert Integer(2) >= Integer(2)
+            assert Integer(3) < Real('3.5')
+            assert Real('3.5') > Integer(3)
+            assert Real('1.25') < Real('1.5')
+            assert Real('1.5') >= Real('1.5')
+
+    def test_bool_operand(self):
+        # bool is an int subclass in Python, so it compares as 0/1.
+        with pikepdf.explicit_conversion():
+            assert Integer(0) >= False
+            assert Integer(2) > True
+            assert Real('0.5') > False
+
+    def test_sorting_and_min_max(self):
+        with pikepdf.explicit_conversion():
+            values = [Integer(3), Real('1.5'), Integer(-1), Real('2.25')]
+            assert [float(v) for v in sorted(values)] == [-1.0, 1.5, 2.25, 3.0]
+            assert min(values) == -1
+            assert max(values) == 3
+
+    def test_via_get_raw_in_implicit_mode(self):
+        d = Dictionary(A=1, B=Real('2.5'))
+        assert d.get_raw('/A') < d.get_raw('/B')
+        assert d.get_raw('/B') > 2
+
+    def test_mediabox_style_use(self, resources):
+        with pikepdf.open(resources / 'graph.pdf', conversion_mode='explicit') as pdf:
+            box = pdf.pages[0].MediaBox
+            assert box[0] < box[2]
+            assert box[1] < box[3]
+            assert box[2] > 0
+
+    @pytest.mark.parametrize('op', ['<', '<=', '>', '>='])
+    def test_non_numeric_object_raises_typeerror(self, op):
+        with pikepdf.explicit_conversion():
+            for obj in (Name.Foo, pikepdf.String('x'), Dictionary(), Boolean(True)):
+                with pytest.raises(TypeError):
+                    eval(f'obj {op} 1', {'obj': obj})
+                with pytest.raises(TypeError):
+                    eval(f'1 {op} obj', {'obj': obj})
+
+    @pytest.mark.parametrize('op', ['<', '<=', '>', '>='])
+    def test_unsupported_other_operand_raises_typeerror(self, op):
+        with pikepdf.explicit_conversion():
+            for other in ('1', None, [1], Name.Foo):
+                with pytest.raises(TypeError):
+                    eval(f'obj {op} other', {'obj': Integer(1), 'other': other})
+                with pytest.raises(TypeError):
+                    eval(f'obj {op} other', {'obj': Real('1.5'), 'other': other})
+
+    def test_unparseable_real_raises_typeerror(self):
+        with pikepdf.explicit_conversion():
+            for r in (Real('nan'), Real('inf')):
+                assert isinstance(r, Real)
+                with pytest.raises(TypeError, match='not a valid number'):
+                    _ = r < 2
+                with pytest.raises(TypeError, match='not a valid number'):
+                    _ = 2 >= r
+
+    def test_equality_unchanged(self):
+        with pikepdf.explicit_conversion():
+            assert Integer(5) == 5
+            assert Integer(5) != 6
+            assert Real('1.5') == 1.5
+
+
+class TestArithmeticBetweenObjects:
+    """Integer and Real combine with each other and with int/bool/Decimal.
+
+    Results are the native Python type that implicit mode would have produced:
+    int for Integer with Integer/int, Decimal whenever a Real is involved,
+    except that a Real combined with a Python float gives a float.
+    """
+
+    def test_integer_integer(self):
+        with pikepdf.explicit_conversion():
+            a, b = Integer(7), Integer(2)
+            assert a + b == 9 and type(a + b) is int
+            assert a - b == 5
+            assert a * b == 14
+            assert a / b == 3.5 and type(a / b) is float
+            assert a // b == 3
+            assert a % b == 1
+            assert a**b == 49 and type(a**b) is int
+
+    def test_real_real(self):
+        with pikepdf.explicit_conversion():
+            a, b = Real('2.5'), Real('4.5')
+            assert a + b == Decimal('7.0')
+            assert type(a + b) is Decimal
+            assert a - b == Decimal('-2.0')
+            assert a * b == Decimal('11.25')
+            assert a / b == Decimal('2.5') / Decimal('4.5')
+            assert b // a == Decimal('1')
+            assert b % a == Decimal('2.0')
+            assert Real('2') ** Real('3') == Decimal('8')
+
+    def test_real_integer_mixed(self):
+        with pikepdf.explicit_conversion():
+            assert Real('2.5') + Integer(3) == Decimal('5.5')
+            assert Integer(3) + Real('2.5') == Decimal('5.5')
+            assert Integer(3) - Real('2.5') == Decimal('0.5')
+            assert Real('2.5') * Integer(2) == Decimal('5.0')
+            assert type(Integer(3) + Real('2.5')) is Decimal
+
+    def test_real_int_and_bool(self):
+        with pikepdf.explicit_conversion():
+            assert Real('2.5') + 1 == Decimal('3.5')
+            assert 1 + Real('2.5') == Decimal('3.5')
+            assert Real('2.5') - 1 == Decimal('1.5')
+            assert 4 - Real('2.5') == Decimal('1.5')
+            assert Real('2.5') * 2 == Decimal('5.0')
+            assert Real('7.5') // 2 == Decimal('3')
+            assert Real('7.5') % 2 == Decimal('1.5')
+            assert Real('2.5') + True == Decimal('3.5')
+            assert Integer(2) + True == 3
+            assert Integer(2) * False == 0
+
+    def test_real_float_stays_float(self):
+        with pikepdf.explicit_conversion():
+            result = Real('2.5') + 1.5
+            assert result == 4.0
+            assert type(result) is float
+            assert type(1.5 * Real('2.5')) is float
+            assert type(Real('2.5') ** 2.0) is float
+
+    def test_real_exact_decimal(self):
+        # 0.1 + 0.2 is exact in Decimal, unlike binary floats.
+        with pikepdf.explicit_conversion():
+            assert Real('0.1') + Real('0.2') == Decimal('0.3')
+
+    def test_pow(self):
+        with pikepdf.explicit_conversion():
+            assert Integer(2) ** 10 == 1024
+            assert 2 ** Integer(10) == 1024
+            assert Integer(2) ** -1 == 0.5
+            assert Real('1.5') ** 2 == Decimal('2.25')
+            assert pow(Integer(3), 4) == 81
+
+    def test_fraction_operand(self):
+        from fractions import Fraction
+
+        with pikepdf.explicit_conversion():
+            assert Integer(2) + Fraction(1, 2) == Fraction(5, 2)
+            assert Fraction(1, 2) * Integer(2) == 1
+
+    def test_mediabox_quick_script(self, resources):
+        with pikepdf.open(resources / 'graph.pdf', conversion_mode='explicit') as pdf:
+            box = pdf.pages[0].MediaBox
+            width = box[2] - box[0]
+            height = box[3] - box[1]
+            assert width > 100
+            assert height > 100
+            assert width * height > 0
+            assert isinstance(width, (int, Decimal))
+
+    def test_non_numeric_other_object(self):
+        with pikepdf.explicit_conversion():
+            with pytest.raises(TypeError, match="not numeric"):
+                Integer(1) + Name.Foo
+            with pytest.raises(TypeError, match="not numeric"):
+                Name.Foo + Integer(1)
+
+    @pytest.mark.parametrize('other', ['1', None, [1]])
+    def test_unsupported_other_type(self, other):
+        with pikepdf.explicit_conversion():
+            with pytest.raises(TypeError):
+                Integer(1) + other
+            with pytest.raises(TypeError):
+                other + Real('1.5')
+
+    def test_invalid_real_token(self):
+        with pikepdf.explicit_conversion():
+            with pytest.raises(TypeError, match='not a valid number'):
+                Real('nan') + 1
+            with pytest.raises(TypeError, match='not a valid number'):
+                -Real('inf')
+
+    def test_division_by_zero_between_objects(self):
+        with pikepdf.explicit_conversion():
+            with pytest.raises(ZeroDivisionError):
+                Integer(1) / Integer(0)
+            with pytest.raises(ZeroDivisionError):
+                Real('1.5') / Integer(0)
+            with pytest.raises(ArithmeticError):
+                Real('1.5') % Real('0')
+
+    def test_unary(self):
+        with pikepdf.explicit_conversion():
+            assert -Integer(5) == -5 and type(-Integer(5)) is int
+            assert +Integer(5) == 5 and type(+Integer(5)) is int
+            assert abs(Integer(-5)) == 5 and type(abs(Integer(-5))) is int
+            assert -Real('1.5') == Decimal('-1.5')
+            assert type(-Real('1.5')) is Decimal
+            assert abs(Real('-1.5')) == Decimal('1.5')
+
+    def test_via_get_raw_in_implicit_mode(self):
+        d = Dictionary(A=1, B=Real('2.5'))
+        assert d.get_raw('/A') + d.get_raw('/B') == Decimal('3.5')
+
+
+class TestStrOfScalars:
+    """``str()`` of a scalar object must give its value, not its repr.
+
+    In implicit mode a PDF scalar arrives as ``int``/``bool``/``Decimal``, so
+    ``str()`` was never called on the object itself. In explicit mode it is,
+    and every f-string, log line and string concatenation in calling code
+    depends on it producing the value.
+    """
+
+    def test_integer(self):
+        with pikepdf.explicit_conversion():
+            assert str(Integer(42)) == '42'
+            assert f'{Integer(-7)}' == '-7'
+
+    def test_boolean(self):
+        with pikepdf.explicit_conversion():
+            assert str(Boolean(True)) == 'True'
+            assert str(Boolean(False)) == 'False'
+
+    def test_real(self):
+        with pikepdf.explicit_conversion():
+            assert str(Real('42.42')) == '42.42'
+            # Trailing zeros are significant to a PDF real, as to a Decimal.
+            assert str(Real('1.50')) == '1.50'
+
+    def test_matches_implicit_mode(self, resources):
+        """The same value must stringify the same way in either mode."""
+        with pikepdf.open(resources / 'graph.pdf') as pdf:
+            box = pdf.pages[0].obj.get_raw('/MediaBox')
+            with pikepdf.implicit_conversion():
+                implicit = [str(v) for v in box.as_list()]
+            with pikepdf.explicit_conversion():
+                explicit = [str(v) for v in box.as_list()]
+        assert implicit == explicit
+
+
+class TestHashOfScalars:
+    """A scalar object must hash like the Python value it compares equal to."""
+
+    def test_integer(self):
+        with pikepdf.explicit_conversion():
+            assert hash(Integer(42)) == hash(42)
+
+    def test_boolean(self):
+        with pikepdf.explicit_conversion():
+            assert hash(Boolean(True)) == hash(True)
+            assert hash(Boolean(False)) == hash(False)
+
+    def test_real(self):
+        with pikepdf.explicit_conversion():
+            assert hash(Real('1.0')) == hash(Decimal('1.0')) == hash(1)
+            assert hash(Real('42.42')) == hash(Decimal('42.42'))
+
+    def test_usable_as_dict_key(self):
+        with pikepdf.explicit_conversion():
+            d = {Integer(1): 'one', Real('2.0'): 'two'}
+            assert d[1] == 'one'
+            assert d[Decimal('2.0')] == 'two'
+
+
+class TestArithmeticResultIsNative:
+    """Arithmetic on a PDF numeric yields a Python number, never an Object.
+
+    A number computed from a document is not itself in the document, so the
+    result is the native type implicit mode would have produced. This is what
+    keeps ``Decimal(width) / max_length`` a ``Decimal`` in explicit mode, so
+    an unmigrated read cannot propagate an Object into code far downstream.
+    """
+
+    def test_explicit_mode_results_are_native(self):
+        with pikepdf.explicit_conversion():
+            d = Dictionary(Value=10, Scale=Real('2.5'))
+            assert type(d.Value + 5) is int
+            assert type(d.Value + 2.5) is float
+            assert type(d.Value / 4) is float
+            assert type(d.Value // 3) is int
+            assert type(d.Scale * d.Value) is Decimal
+            assert type(d.Scale + 1) is Decimal
+            assert type(d.Scale + 1.5) is float
+            assert type(d.Value + d.Value) is int
+            assert type(Decimal('3.5') / d.Value) is Decimal
+
+    def test_result_does_not_depend_on_owner_mode(self, resources):
+        with pikepdf.open(resources / 'graph.pdf', conversion_mode='explicit') as pdf:
+            box = pdf.pages[0].MediaBox
+            assert isinstance(box[2], (Integer, Real))
+            width = box[2] - box[0]
+            assert type(width) in (int, Decimal)
+            assert Decimal(width) == box[2] - box[0]
+
+    def test_decimal_constructor_accepts_result(self):
+        with pikepdf.explicit_conversion():
+            d = Dictionary(W=Real('612.0'), N=12)
+            comb = d.W / d.N
+            assert Decimal(comb) == Decimal('51')
+
+    def test_result_can_be_stored(self):
+        with pikepdf.explicit_conversion():
+            d = Dictionary(Count=3)
+            d.Count = d.Count + 1
+            assert d.Count == 4 and isinstance(d.Count, Integer)
+
+
+class TestUnbox:
+    """``pikepdf.unbox`` gives the native value in either conversion mode."""
+
+    def test_scalars(self):
+        with pikepdf.explicit_conversion():
+            assert pikepdf.unbox(Integer(42)) == 42
+            assert type(pikepdf.unbox(Integer(42))) is int
+            assert pikepdf.unbox(Boolean(True)) is True
+            assert pikepdf.unbox(Real('1.50')) == Decimal('1.50')
+            assert type(pikepdf.unbox(Real('1.50'))) is Decimal
+
+    def test_native_values_pass_through(self):
+        # The migration idiom must accept what implicit mode already hands back.
+        assert pikepdf.unbox(42) == 42 and type(pikepdf.unbox(42)) is int
+        assert pikepdf.unbox(True) is True
+        assert pikepdf.unbox(Decimal('2.5')) == Decimal('2.5')
+        assert pikepdf.unbox(None) is None
+        assert pikepdf.unbox('text') == 'text'
+
+    def test_containers_and_names_pass_through(self):
+        with pikepdf.explicit_conversion():
+            d = Dictionary(A=[1, 2])
+            assert pikepdf.unbox(d) is d
+            assert pikepdf.unbox(d.A) == d.A
+            assert pikepdf.unbox(Name.Foo) == Name.Foo
+            assert pikepdf.unbox(pikepdf.String('s')) == pikepdf.String('s')
+
+    def test_implemented_in_core(self):
+        assert pikepdf.unbox is pikepdf._core.unbox
+
+    def test_other_objects_pass_through_by_identity(self):
+        with pikepdf.explicit_conversion():
+            arr = pikepdf.Array([1])
+            name = Name.Foo
+            assert pikepdf.unbox(arr) is arr
+            assert pikepdf.unbox(name) is name
+        marker = object()
+        assert pikepdf.unbox(marker) is marker
+
+    def test_requires_one_argument(self):
+        with pytest.raises(TypeError):
+            pikepdf.unbox()  # type: ignore[call-arg]
+
+    def test_real_beyond_double_matches_implicit_mode(self):
+        text = '1' + '0' * 400 + '.5'
+        holder = pikepdf.Object.parse(f'[{text}]'.encode())
+        with pikepdf.implicit_conversion():
+            implicit = holder[0]
+        with pikepdf.explicit_conversion():
+            explicit = pikepdf.unbox(holder[0])
+        assert type(explicit) is Decimal
+        assert explicit == implicit == Decimal(text)
+
+    def test_same_value_in_either_mode(self, resources):
+        with pikepdf.open(resources / 'graph.pdf') as pdf:
+            box = pdf.pages[0].obj.get_raw('/MediaBox')
+            with pikepdf.implicit_conversion():
+                implicit = [pikepdf.unbox(v) for v in box.as_list()]
+            with pikepdf.explicit_conversion():
+                explicit = [pikepdf.unbox(v) for v in box.as_list()]
+        assert implicit == explicit
+        assert [type(v) for v in explicit] == [type(v) for v in implicit]

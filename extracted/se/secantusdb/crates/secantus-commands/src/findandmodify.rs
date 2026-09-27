@@ -22,11 +22,57 @@
 
 use bson::{doc, Bson, Document};
 
-use crate::util::{bool_field, collation_of, command_error, doc_field, resolve_let_vars};
+use crate::argtypes;
+use crate::util::{
+    bool_field, collation_of, command_error, command_error_during, doc_field, resolve_let_vars,
+};
 use crate::{CommandContext, CommandError, HandlerResult, StorageError};
 
 /// `findAndModify` / `findandmodify`.
 pub fn find_and_modify(doc: &Document, ctx: &mut CommandContext) -> HandlerResult {
+    // `upsert` takes a bool OR any number here, unlike `update.updates.multi`.
+    argtypes::require_bool_or_number(doc, "upsert", "findAndModify.upsert")?;
+    argtypes::require_object(doc, "let", "findAndModify.let")?;
+    for (field, path) in [
+        ("fields", "findAndModify.fields"),
+        ("sort", "findAndModify.sort"),
+        ("collation", "findAndModify.collation"),
+    ] {
+        argtypes::require_object(doc, field, path)?;
+    }
+    argtypes::require_array(doc, "arrayFilters", "findAndModify.arrayFilters")?;
+    argtypes::require_hint(doc, "hint")?;
+    // An undefined `$$variable` is a PARSE error (17276). The `update` may be a
+    // PIPELINE, whose stages carry mongod's `Invalid $<stage> :: caused by ::`
+    // wrapper; the query filter never does.
+    {
+        let bound: Vec<String> = match doc.get("let") {
+            Some(Bson::Document(d)) => d.keys().cloned().collect(),
+            _ => Vec::new(),
+        };
+        if let Some(Bson::Document(q)) = doc.get("query") {
+            if let Some((code, msg)) = argtypes::expression_problem_in_filter(q, &bound) {
+                return Err(CommandError::new(
+                    code,
+                    crate::util::error_code_name(code),
+                    msg,
+                ));
+            }
+        }
+        if let Some(u) = doc.get("update") {
+            if let Some((code, msg, stage)) = argtypes::expression_problem_in_update(u, &bound) {
+                return Err(CommandError::new(
+                    code,
+                    crate::util::error_code_name(code),
+                    argtypes::wrap_expression_problem(&msg, &stage),
+                ));
+            }
+        }
+    }
+    // `new` and `remove` follow `upsert` above into the bool-OR-number family,
+    // not the strict bool that `update.updates.multi` uses.
+    argtypes::require_bool_or_number(doc, "new", "findAndModify.new")?;
+    argtypes::require_bool_or_number(doc, "remove", "findAndModify.remove")?;
     let coll = match doc
         .get("findAndModify")
         .or_else(|| doc.get("findandmodify"))
@@ -63,17 +109,60 @@ pub fn find_and_modify(doc: &Document, ctx: &mut CommandContext) -> HandlerResul
     let fields = doc.get("fields").and_then(Bson::as_document);
     let return_new = doc.get("new").and_then(Bson::as_bool).unwrap_or(false);
     let upsert = doc.get("upsert").and_then(Bson::as_bool).unwrap_or(false);
-    let is_remove = doc.get("remove").and_then(Bson::as_bool).unwrap_or(false);
+    // `as_bool` is None for a NUMBER, so `remove: 1` / `remove: 1.5` read as
+    // "no remove" and then failed the update-or-remove check. mongod takes the
+    // same bool-OR-number values the validator above accepts and reads a
+    // nonzero one as true.
+    let is_remove = match doc.get("remove") {
+        Some(Bson::Boolean(b)) => *b,
+        Some(Bson::Int32(n)) => *n != 0,
+        Some(Bson::Int64(n)) => *n != 0,
+        Some(Bson::Double(d)) => *d != 0.0,
+        Some(Bson::Decimal128(d)) => d.to_string().parse::<f64>().unwrap_or(0.0) != 0.0,
+        _ => false,
+    };
     let update = doc.get("update");
 
-    // Mutually-exclusive arg validation (FailedToParse, code 9).
+    // Mutually-exclusive arg validation (FailedToParse, code 9). `remove` is
+    // incompatible with all THREE of these; only the first was checked, so
+    // `remove` alongside `new` or `upsert` was accepted and the delete ran --
+    // mongod refuses the command outright. Wordings probed 8.2.11 (2026-09-02),
+    // trailing space in the `upsert` one included.
     if is_remove && update.is_some() {
         return Ok(CommandError::new(
             9,
             "FailedToParse",
-            "Cannot specify both update and remove=true",
+            "Cannot specify both an update and remove=true",
         )
         .into_reply());
+    }
+    if is_remove && bool_field(doc, "new", false) {
+        return Ok(CommandError::new(
+            9,
+            "FailedToParse",
+            "Cannot specify both new=true and remove=true; 'remove' always returns the deleted \
+             document",
+        )
+        .into_reply());
+    }
+    if is_remove && upsert {
+        return Ok(CommandError::new(
+            9,
+            "FailedToParse",
+            "Cannot specify both upsert=true and remove=true ",
+        )
+        .into_reply());
+    }
+    // An `update` that is neither a document nor a pipeline is not an update.
+    if let Some(u) = update {
+        if !matches!(u, Bson::Document(_) | Bson::Array(_)) {
+            return Ok(CommandError::new(
+                9,
+                "FailedToParse",
+                "Update argument must be either an object or an array",
+            )
+            .into_reply());
+        }
     }
     if !is_remove && update.is_none() {
         return Ok(CommandError::new(
@@ -85,6 +174,7 @@ pub fn find_and_modify(doc: &Document, ctx: &mut CommandContext) -> HandlerResul
     }
 
     let storage = ctx.storage()?;
+    crate::util::validate_write_hint(storage, &ctx.db_name, &coll, doc.get("hint"))?;
     // Command `let` (visible to `$expr` in `query`) + `collation` apply to the
     // match. The subsequent update/delete is keyed by the matched doc's `_id`.
     let let_vars = resolve_let_vars(doc.get("let"));
@@ -95,6 +185,11 @@ pub fn find_and_modify(doc: &Document, ctx: &mut CommandContext) -> HandlerResul
         .and_then(Bson::as_array)
         .map(|a| a.iter().filter_map(|b| b.as_document().cloned()).collect())
         .unwrap_or_default();
+    if let Some(Bson::Document(u)) = doc.get("update") {
+        if let Some(e) = argtypes::array_filter_identifier_error(u, &array_filters) {
+            return Ok(e.into_reply());
+        }
+    }
     // Pipeline-form update (`update: [ {$set: …}, … ]`) vs operator/replacement.
     let pipeline = update.and_then(Bson::as_array);
 
@@ -233,8 +328,15 @@ pub fn find_and_modify(doc: &Document, ctx: &mut CommandContext) -> HandlerResul
                     "ok": 1.0,
                 });
             }
+            // `updatedExisting` belongs to an UPDATE; a remove that matched
+            // nothing reports `n` alone.
+            let last_error = if is_remove {
+                doc! { "n": 0 }
+            } else {
+                doc! { "n": 0, "updatedExisting": false }
+            };
             return Ok(doc! {
-                "lastErrorObject": { "n": 0, "updatedExisting": false },
+                "lastErrorObject": last_error,
                 "value": Bson::Null,
                 "ok": 1.0,
             });
@@ -269,8 +371,10 @@ pub fn find_and_modify(doc: &Document, ctx: &mut CommandContext) -> HandlerResul
                 continue;
             }
             let value = project_value(matched_doc, fields, &query)?;
+            // No `updatedExisting`: mongod reports it only for an UPDATE, and
+            // drivers read `lastErrorObject` field by field.
             return Ok(doc! {
-                "lastErrorObject": { "n": 1, "updatedExisting": true },
+                "lastErrorObject": { "n": 1 },
                 "value": value,
                 "ok": 1.0,
             });
@@ -386,12 +490,22 @@ fn project_value(
         Some(spec) if !spec.is_empty() => {
             secantus_core::projection::apply_projection(&value, spec, q)
                 .map(Bson::Document)
-                .map_err(|_| {
-                    CommandError::new(
-                        2,
-                        "BadValue",
-                        "projection is not supported by the Rust server",
-                    )
+                .map_err(|f| {
+                    // A Fallback carrying a mongod code is a real server error
+                    // (51270 empty sub-projection, 31254 mix) and is surfaced
+                    // verbatim; only a bare Defer becomes the generic refusal.
+                    // Same treatment as `find` -- these two share the engine, so
+                    // a projection fix in one is a fix in both.
+                    match f.as_mongo() {
+                        Some((code, msg)) => {
+                            CommandError::new(code, crate::util::error_code_name(code), msg)
+                        }
+                        None => CommandError::new(
+                            2,
+                            "BadValue",
+                            "projection is not supported by the Rust server",
+                        ),
+                    }
                 })
         }
         _ => Ok(Bson::Document(value)),
@@ -415,6 +529,6 @@ fn storage_err_reply(e: StorageError) -> Document {
             }
             r
         }
-        other => command_error(other).into_reply(),
+        other => command_error_during(other, "findAndModify").into_reply(),
     }
 }

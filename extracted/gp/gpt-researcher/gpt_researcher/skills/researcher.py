@@ -47,13 +47,7 @@ class ResearchConductor:
         # Track MCP query count for balanced mode
         self._mcp_query_count = 0
 
-    async def plan_research(self, query, query_domains=None):
-        """Gets the sub-queries from the query
-        Args:
-            query: original query
-        Returns:
-            List of queries
-        """
+    async def _get_initial_search_results(self, query, query_domains=None):
         await stream_output(
             "logs",
             "planning_research",
@@ -69,6 +63,12 @@ class ResearchConductor:
             max_results=self.researcher.cfg.max_search_results_per_query,
         )
         self.logger.info(f"Initial search results obtained: {len(search_results)} results")
+        return search_results
+
+    async def plan_research(self, query, query_domains=None, *, search_results=None):
+        """Plan sub-queries, optionally using results already obtained for this pass."""
+        if search_results is None:
+            search_results = await self._get_initial_search_results(query, query_domains)
 
         await stream_output(
             "logs",
@@ -145,7 +145,9 @@ class ResearchConductor:
         if self.researcher.source_urls:
             self.logger.info("Using provided source URLs")
             research_data = await self._get_context_by_urls(self.researcher.source_urls)
-            if research_data and len(research_data) == 0 and self.researcher.verbose:
+            # `research_data and len(research_data) == 0` can never be true --
+            # a truthy value is never empty -- so this notification never fired.
+            if not research_data and self.researcher.verbose:
                 await stream_output(
                     "logs",
                     "answering_from_memory",
@@ -155,7 +157,9 @@ class ResearchConductor:
             if self.researcher.complement_source_urls:
                 self.logger.info("Complementing with web search")
                 additional_research = await self._get_context_by_web_search(self.researcher.query, [], self.researcher.query_domains)
-                research_data += ' '.join(additional_research)
+                research_data = " ".join(
+                    part for part in (research_data, additional_research) if part
+                )
         elif self.researcher.report_source == ReportSource.Web.value:
             self.logger.info("Using web search with all configured retrievers")
             research_data = await self._get_context_by_web_search(self.researcher.query, [], self.researcher.query_domains)
@@ -358,7 +362,8 @@ class ResearchConductor:
                     self.logger.info(f"MCP results cached: {len(mcp_context)} total context entries")
 
         # Generate Sub-Queries including original query
-        sub_queries = await self.plan_research(query, query_domains)
+        initial_results = await self._get_initial_search_results(query, query_domains)
+        sub_queries = await self.plan_research(query, query_domains, search_results=initial_results)
         self.logger.info(f"Generated sub-queries: {sub_queries}")
         
         # If this is not part of a sub researcher, add original query to research for better results
@@ -377,6 +382,13 @@ class ResearchConductor:
 
         # Using asyncio.gather to process the sub_queries asynchronously
         try:
+            # Read the sources that informed planning before later searches can
+            # lose them. Keep supplied-document and MCP-only paths unchanged.
+            initial_context = ""
+            if not scraped_data and initial_results:
+                initial_context = await self._get_context_from_initial_results(
+                    query, query_domains, initial_results
+                )
             context = await asyncio.gather(
                 *[
                     self._process_sub_query(sub_query, scraped_data, query_domains)
@@ -385,7 +397,7 @@ class ResearchConductor:
             )
             self.logger.info(f"Gathered context from {len(context)} sub-queries")
             # Filter out empty results and join the context
-            context = [c for c in context if c]
+            context = [c for c in [initial_context, *context] if c]
             if context:
                 combined_context = " ".join(context)
                 self.logger.info(f"Combined context size: {len(combined_context)}")
@@ -821,7 +833,22 @@ class ResearchConductor:
 
         return new_urls
 
-    async def _search_relevant_source_urls(self, query, query_domains: list | None = None):
+    async def _get_context_from_initial_results(self, query, query_domains, initial_results):
+        """Fetch planning sources through normal retrieval; never treat snippets as pages."""
+        if "mcpretriever" in self.researcher.retrievers[0].__name__.lower():
+            return ""
+        try:
+            data = await self._scrape_data_by_urls(
+                query, query_domains, initial_results=initial_results
+            )
+            if data:
+                return await self.researcher.context_manager.get_similar_content_by_query(query, data)
+        except Exception as e:
+            # An unavailable planning source must not prevent follow-up research.
+            self.logger.warning(f"Error reading initial search results: {e}")
+        return ""
+
+    async def _search_relevant_source_urls(self, query, query_domains: list | None = None, *, initial_results=None):
         new_search_urls = []
         prefetched_content = []
         if query_domains is None:
@@ -829,7 +856,10 @@ class ResearchConductor:
 
         # Iterate through the currently set retrievers
         # This allows the method to work when retrievers are temporarily modified
-        for retriever_class in self.researcher.retrievers:
+        # Initial results came from the first retriever only. Reuse its content
+        # contract without issuing another search or attributing results to others.
+        retrievers = self.researcher.retrievers if initial_results is None else self.researcher.retrievers[:1]
+        for retriever_class in retrievers:
             # Skip MCP retrievers as they don't provide URLs for scraping
             if "mcpretriever" in retriever_class.__name__.lower():
                 continue
@@ -839,26 +869,60 @@ class ResearchConductor:
                 retriever = retriever_class(query, query_domains=query_domains)
 
                 # Perform the search using the current retriever
-                search_results = await asyncio.to_thread(
-                    retriever.search, max_results=self.researcher.cfg.max_search_results_per_query
-                )
+                if initial_results is None:
+                    search_results = await asyncio.to_thread(
+                        retriever.search, max_results=self.researcher.cfg.max_search_results_per_query
+                    )
+                else:
+                    search_results = initial_results
 
                 if not search_results:
                     continue
+
+                # Does this retriever return URLs to scrape, or content it
+                # already fetched? Prefer an explicit declaration
+                # (BaseRetriever.requires_scraping); fall back to the legacy
+                # length heuristic when the retriever does not declare, so
+                # third-party and user-defined retrievers are unaffected.
+                requires_scraping = getattr(retriever, "requires_scraping", None)
 
                 # Separate results that already have content from those needing scraping
                 for result in search_results:
                     url = result.get("href") or result.get("url")
                     raw_content = result.get("raw_content")
-                    if url and raw_content and len(raw_content) > 100:
-                        # Only raw_content signals that a retriever already fetched the full page.
-                        # body is snippet-sized text for most web retrievers and still needs scraping.
+
+                    if not url:
+                        continue
+
+                    if requires_scraping is True:
+                        # Declared: anything alongside the URL is a preview,
+                        # however long, so the page is still fetched. This is
+                        # what stops a long snippet from being mistaken for
+                        # article text and the citation being lost.
+                        new_search_urls.append(url)
+                    elif requires_scraping is False:
+                        # Declared: the retriever fetched the content itself.
+                        if raw_content:
+                            prefetched_content.append({
+                                "url": url,
+                                "raw_content": raw_content,
+                            })
+                            self.researcher.add_research_sources([{"url": url}])
+                            # #2100: prefetched URLs must join visited_urls like scraped
+                            # ones do in _get_new_urls, or repeats re-merge and references vanish.
+                            self.researcher.visited_urls.add(url)
+                        else:
+                            new_search_urls.append(url)
+                    elif raw_content and len(raw_content) > 100:
+                        # Undeclared: legacy behaviour, unchanged.
                         prefetched_content.append({
                             "url": url,
                             "raw_content": raw_content,
                         })
                         self.researcher.add_research_sources([{"url": url}])
-                    elif url:
+                        # #2100: same visited_urls bookkeeping as above.
+                        self.researcher.visited_urls.add(url)
+                    else:
                         new_search_urls.append(url)
             except Exception as e:
                 self.logger.error(f"Error searching with {retriever_class.__name__}: {e}")
@@ -869,7 +933,7 @@ class ResearchConductor:
 
         return new_search_urls, prefetched_content
 
-    async def _scrape_data_by_urls(self, sub_query, query_domains: list | None = None):
+    async def _scrape_data_by_urls(self, sub_query, query_domains: list | None = None, *, initial_results=None):
         """
         Runs a sub-query across multiple retrievers and scrapes the resulting URLs.
         Retrievers that already provide full content (e.g. PubMed Central) have their
@@ -884,7 +948,9 @@ class ResearchConductor:
         if query_domains is None:
             query_domains = []
 
-        new_search_urls, prefetched_content = await self._search_relevant_source_urls(sub_query, query_domains)
+        new_search_urls, prefetched_content = await self._search_relevant_source_urls(
+            sub_query, query_domains, initial_results=initial_results
+        )
 
         # Log the research process if verbose mode is on
         if self.researcher.verbose:

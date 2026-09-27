@@ -878,6 +878,14 @@ async def kind_get(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         surfaces = [s for s in await KindSurface.filter(kind_definition_id=str(kd.id)).all()
                     if s.deleted_at is None]
         canonical = next((e for e in examples if e.is_canonical), None)
+        from matrx_ai.tools.implementations.kind_shared import bound_kind_bodies
+
+        schema_out, example_out, bodies_note = bound_kind_bodies(
+            kd.emitted_json_schema if include_schema else None,
+            canonical.data if canonical else None,
+            ctx=ctx,
+            tool_name="kind_get",
+        )
         from matrx_ai.tools.kinds.kind_authoring import (
             KindComponentSummary,
             KindDefinitionDetail,
@@ -890,7 +898,7 @@ async def kind_get(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
             success=True,
             output=KindDefinitionDetail(
                 kind=KindDefinitionSummary(**kind_summary(kd)),
-                canonical_example=canonical.data if canonical else None,
+                canonical_example=example_out,
                 examples=[KindExampleSummary(**example_summary(e)) for e in examples],
                 components=[KindComponentSummary(**component_summary(c)) for c in components],
                 surfaces=[
@@ -903,8 +911,10 @@ async def kind_get(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
                     )
                     for s in surfaces
                 ],
-                json_schema=kd.emitted_json_schema if include_schema else None,
+                json_schema=schema_out,
+                note=bodies_note,
             ),
+            output_self_capped=True,
         )
     except Exception as e:
         return _exec_error(e)

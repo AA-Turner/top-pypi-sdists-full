@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: platformdirs
-Version: 4.11.15
+Version: 4.12.0
 Summary: A small Python package for determining appropriate platform-specific dirs, e.g. a `user data dir`.
 Project-URL: Changelog, https://platformdirs.readthedocs.io/en/latest/changelog.html
 Project-URL: Documentation, https://platformdirs.readthedocs.io
@@ -37,7 +37,7 @@ Description-Content-Type: text/markdown
 [![Downloads](https://static.pepy.tech/badge/platformdirs/month)](https://pepy.tech/project/platformdirs)
 
 A Python package for determining platform-specific directories (e.g. user data, config, cache, logs). Handles the
-differences between macOS, Windows, Linux/Unix, and Android so you don't have to.
+differences between macOS, Windows, Linux/Unix, Android, and iOS so you don't have to.
 
 ## Quick start
 

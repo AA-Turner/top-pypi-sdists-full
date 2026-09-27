@@ -5,7 +5,7 @@ use crate::bridge;
 use crate::chem_env::{
     ChemEnv, default_rules, elem_symbols_to_mask, load_rules_from_file, mol_from_smiles,
 };
-use crate::search::{SearchConfig, diagnose, find_routes};
+use crate::search::{SearchConfig, diagnose};
 
 const MAX_FORWARD_INPUT_BYTES: usize = 64 * 1024;
 const MAX_FORWARD_REACTANTS: usize = 32;
@@ -160,6 +160,50 @@ pub fn capabilities_py() -> PyResult<String> {
 ///         not a hard real-time bound -- see ``SearchTermination::
 ///         DeadlineExceeded``'s doc in ``src/search.rs``). ``0`` raises.
 ///         Default: ``None`` (unlimited).
+///     time_limit_seconds (int | None): Standard-mode wall-clock budget
+///         (AiZynthFinder ``time_limit`` parity; cooperative, routes found
+///         before the deadline are kept). Adds ``time_limit_secs`` and
+///         ``termination`` (``"completed"``/``"deadline_exceeded"``) to the
+///         output. ``0`` raises. Default: ``None`` (unlimited).
+///     exclude_target_from_stock (bool): Never treat the target itself as
+///         stock (AiZynthFinder parity), so an in-stock target still gets
+///         synthesis routes and no depth-0 route. Default: ``False``.
+///     max_expansions (int | None): Deterministic expansion budget
+///         (Syntheseus ``limit_iterations`` / AiZynthFinder ``iteration_limit``
+///         parity; standard mode only). Adds ``max_expansions`` and
+///         ``termination`` (``"expansion_limit_reached"`` when hit).
+///     first_route_stats (bool): Add a ``first_route`` receipt: expansions,
+///         expansion calls, and wall time to the first accepted route.
+///     banned_molecules (list[str] | None): Molecules that may never appear
+///         as a precursor (ASKCOS banned chemicals; exact stock identity).
+///         Adds ``banned_molecules`` with ``count``/``candidates_removed``.
+///     search_stats (bool): Add ``search_stats`` (SynPlanner ``Tree.report``
+///         parity): nodes generated/expanded, cache and stock-lookup counts,
+///         first-route receipt, and wall time, also when routes are found.
+///     max_tree_size (int | None): Stop once this many search nodes exist
+///         (SynPlanner ``max_tree_size``; standard mode only). Adds
+///         ``max_tree_size`` and ``termination``.
+///     priority_templates (list[str] | None): Template IDs or rule names
+///         tried ahead of their siblings in every expansion (SynPlanner
+///         ``use_priority``). Adds ``priority_templates``.
+///     small_molecule_terminal (int | None): Treat molecules with at most N
+///         heavy atoms as route terminals even when not in stock (SynPlanner
+///         ``min_mol_size``; opt-in). Adds ``small_molecule_terminal`` with
+///         the non-stock leaves of each returned route.
+///     max_branching (int | None): Keep at most N distinct precursor sets per
+///         expanded molecule, cheapest first (ASKCOS ``max_branching`` /
+///         AiZynthFinder ``cutoff_number``). Adds ``max_branching``.
+///     route_diversity (bool): Add ``route_set_diversity``: the packing
+///         number of pairwise-distinct routes under reaction-Jaccard distance
+///         (Syntheseus parity). Default ``False``.
+///     diversity_radius (float): Distinctness radius in [0,1); the default
+///         0.999 counts reaction-disjoint routes.
+///     cluster (bool): Add ``route_clusters`` (structural tree-edit
+///         distance matrix + average-linkage labels; AiZynthFinder route
+///         clustering parity, see ``src/route_distance.rs``). Default ``False``.
+///     n_clusters (int | None): Fix the cluster count (implies ``cluster``);
+///         ``None`` selects it by silhouette.
+///     max_clusters (int): Upper bound for silhouette selection (>= 2).
 ///     coverage_beam_width (int | None): Optional Stage-2-only beam width;
 ///         ``0`` means unlimited. Stage 1 keeps ``beam_width`` unchanged.
 ///         Default: ``None`` (same beam width as Stage 1).
@@ -253,7 +297,7 @@ pub fn capabilities_py() -> PyResult<String> {
 ///     routes = json.loads(renkin.find_routes("CC(=O)Oc1ccccc1C(=O)O", depth=3))
 ///     print(routes["routes_found"])
 #[pyfunction]
-#[pyo3(name = "find_routes", signature = (target, depth=5, max_routes=5, beam_width=0, building_blocks=None, avoid_elements="", require_elements="", verbose=false, bb_prices_path=None, templates_path=None, template_metadata_path=None, reranker_model_path=None, reranker_freq_table_path=None, top_templates=None, search_mode="standard", coverage_templates_path=None, coverage_timeout_seconds=None, coverage_beam_width=None, search_diagnostics=false, spectator_bond_policy="off", element_accounting_policy="off", beam_diversity_policy="off", beam_diversity_slots=0, avoid_building_blocks="", require_building_blocks="", max_route_cost=None, min_confidence=None, min_success_probability=None, require_reaction_families="", avoid_reaction_families="", prefer_reaction_families="", max_steps=None, candidate_trace_limit=None))]
+#[pyo3(name = "find_routes", signature = (target, depth=5, max_routes=5, beam_width=0, building_blocks=None, avoid_elements="", require_elements="", verbose=false, bb_prices_path=None, templates_path=None, template_metadata_path=None, reranker_model_path=None, reranker_freq_table_path=None, top_templates=None, search_mode="standard", coverage_templates_path=None, coverage_timeout_seconds=None, coverage_beam_width=None, search_diagnostics=false, spectator_bond_policy="off", element_accounting_policy="off", beam_diversity_policy="off", beam_diversity_slots=0, avoid_building_blocks="", require_building_blocks="", max_route_cost=None, min_confidence=None, min_success_probability=None, require_reaction_families="", avoid_reaction_families="", prefer_reaction_families="", max_steps=None, candidate_trace_limit=None, time_limit_seconds=None, exclude_target_from_stock=false, cluster=false, n_clusters=None, max_clusters=5, max_expansions=None, first_route_stats=false, banned_molecules=None, route_diversity=false, diversity_radius=0.999, max_branching=None, small_molecule_terminal=None, max_tree_size=None, priority_templates=None, search_stats=false))]
 #[allow(clippy::too_many_arguments)]
 pub fn find_routes_py(
     target: &str,
@@ -289,7 +333,87 @@ pub fn find_routes_py(
     prefer_reaction_families: &str,
     max_steps: Option<usize>,
     candidate_trace_limit: Option<usize>,
+    time_limit_seconds: Option<u64>,
+    exclude_target_from_stock: bool,
+    cluster: bool,
+    n_clusters: Option<usize>,
+    max_clusters: usize,
+    max_expansions: Option<u64>,
+    first_route_stats: bool,
+    banned_molecules: Option<Vec<String>>,
+    route_diversity: bool,
+    diversity_radius: f64,
+    max_branching: Option<usize>,
+    small_molecule_terminal: Option<usize>,
+    max_tree_size: Option<u64>,
+    priority_templates: Option<Vec<String>>,
+    search_stats: bool,
 ) -> PyResult<String> {
+    let search_started = std::time::Instant::now();
+    if max_tree_size == Some(0) {
+        return Err(PyValueError::new_err(
+            "max_tree_size must be a positive integer (got 0)",
+        ));
+    }
+    if max_tree_size.is_some() && search_mode != "standard" {
+        return Err(PyValueError::new_err(
+            "max_tree_size requires search_mode=\"standard\"",
+        ));
+    }
+    let priority_set: Option<std::collections::HashSet<String>> =
+        priority_templates.as_ref().map(|names| {
+            names
+                .iter()
+                .map(|n| n.trim().to_owned())
+                .filter(|n| !n.is_empty())
+                .collect()
+        });
+    if max_branching == Some(0) {
+        return Err(PyValueError::new_err(
+            "max_branching must be a positive integer (got 0)",
+        ));
+    }
+    if !(0.0..1.0).contains(&diversity_radius) {
+        return Err(PyValueError::new_err(format!(
+            "diversity_radius must be in [0,1) (got {diversity_radius})"
+        )));
+    }
+    if max_expansions == Some(0) {
+        return Err(PyValueError::new_err(
+            "max_expansions must be a positive integer (got 0)",
+        ));
+    }
+    if max_expansions.is_some() && search_mode != "standard" {
+        return Err(PyValueError::new_err(
+            "max_expansions requires search_mode=\"standard\"",
+        ));
+    }
+    let banned_set = match banned_molecules {
+        Some(ref list) => {
+            let set = crate::search::banned_molecule_set(list.iter().map(String::as_str))
+                .map_err(|e| PyValueError::new_err(format!("{e:#}")))?;
+            let target_key = crate::search::banned_molecule_set([target])
+                .map_err(|e| PyValueError::new_err(format!("{e:#}")))?;
+            if target_key.iter().any(|key| set.contains(key)) {
+                return Err(PyValueError::new_err(
+                    "the target itself is in banned_molecules",
+                ));
+            }
+            Some(set)
+        }
+        None => None,
+    };
+    if n_clusters == Some(0) {
+        return Err(PyValueError::new_err(
+            "n_clusters must be a positive integer (got 0)",
+        ));
+    }
+    if max_clusters < 2 {
+        return Err(PyValueError::new_err(format!(
+            "max_clusters must be an integer >= 2 (got {max_clusters})"
+        )));
+    }
+    let cluster = cluster || n_clusters.is_some();
     crate::constraints::validate_route_thresholds(
         max_route_cost,
         min_confidence,
@@ -356,6 +480,17 @@ pub fn find_routes_py(
             ));
         }
     }
+    if time_limit_seconds.is_some() && search_mode != "standard" {
+        return Err(PyValueError::new_err(
+            "time_limit_seconds requires search_mode=\"standard\"; use \
+             coverage_timeout_seconds in coverage mode",
+        ));
+    }
+    if time_limit_seconds == Some(0) {
+        return Err(PyValueError::new_err(
+            "time_limit_seconds must be a positive integer (got 0)",
+        ));
+    }
     if search_mode == "coverage" && coverage_timeout_seconds == Some(0) {
         return Err(PyValueError::new_err(
             "coverage_timeout_seconds must be a positive integer (got 0)",
@@ -369,6 +504,10 @@ pub fn find_routes_py(
         }
         None => ChemEnv::load("data/building_blocks.smi")
             .unwrap_or_else(|_| ChemEnv::in_memory(crate::DEFAULT_BUILDING_BLOCKS)),
+    };
+    let env = match small_molecule_terminal {
+        Some(max_heavy_atoms) => env.with_small_molecule_terminal(max_heavy_atoms),
+        None => env,
     };
 
     let mut rules = default_rules();
@@ -453,8 +592,15 @@ pub fn find_routes_py(
         beam_diversity_policy,
         beam_diversity_slots,
         candidate_trace_cap: candidate_trace_limit,
+        exclude_target_from_stock,
+        max_expansions,
+        banned_molecules: banned_set.clone().map(std::sync::Arc::new),
+        max_branching,
+        max_tree_size,
+        priority_templates: priority_set.clone().map(std::sync::Arc::new),
         ..Default::default()
     };
+    let mut standard_termination: Option<crate::search::SearchTermination> = None;
 
     struct CoverageModeMeta {
         selected_stage: &'static str,
@@ -503,9 +649,17 @@ pub fn find_routes_py(
         };
         (result.routes, result.stats, Some(meta))
     } else {
-        let (routes, stats) = find_routes(target, &env, &rules, &config)
-            .map_err(|e| PyValueError::new_err(e.to_string()))?;
-        (routes, stats, None)
+        let control = match time_limit_seconds {
+            Some(secs) => {
+                crate::search::SearchControl::with_timeout(std::time::Duration::from_secs(secs))
+            }
+            None => crate::search::SearchControl::unlimited(),
+        };
+        let result =
+            crate::search::find_routes_with_control(target, &env, &rules, &config, &control)
+                .map_err(|e| PyValueError::new_err(e.to_string()))?;
+        standard_termination = Some(result.termination);
+        (result.routes, result.stats, None)
     };
 
     let avoided_building_blocks: Vec<&str> = avoid_building_blocks
@@ -649,8 +803,232 @@ pub fn find_routes_py(
             .map_err(|e| PyValueError::new_err(e.to_string()))?;
         output["total_elapsed_ms"] = serde_json::Value::from(m.total_elapsed_ms);
     }
+    // AiZynthFinder-parity fields: absent unless requested, so legacy
+    // callers keep byte-identical output.
+    if let Some(secs) = time_limit_seconds {
+        output["time_limit_secs"] = serde_json::Value::from(secs);
+    }
+    if time_limit_seconds.is_some() || max_expansions.is_some() || max_tree_size.is_some() {
+        output["termination"] = match standard_termination {
+            None => serde_json::Value::Null,
+            Some(_) if stats.expansion_limit_reached => {
+                serde_json::Value::from("expansion_limit_reached")
+            }
+            Some(_) if stats.tree_size_limit_reached => {
+                serde_json::Value::from("tree_size_limit_reached")
+            }
+            Some(termination) => serde_json::to_value(termination)
+                .map_err(|e| PyValueError::new_err(e.to_string()))?,
+        };
+    }
+    if let Some(n) = max_expansions {
+        output["max_expansions"] = serde_json::Value::from(n);
+    }
+    if first_route_stats {
+        output["first_route"] = serde_json::json!({
+            "found": stats.first_route_nodes_expanded.is_some(),
+            "nodes_expanded": stats.first_route_nodes_expanded,
+            "expansion_calls": stats.first_route_expansion_calls,
+            "elapsed_ms": stats.first_route_elapsed_us.map(|us| us as f64 / 1000.0),
+            "total_nodes_expanded": stats.nodes_expanded,
+            "total_expansion_calls": stats.retro_cache_misses,
+        });
+    }
+    if search_stats {
+        let mut value =
+            serde_json::to_value(&stats).map_err(|e| PyValueError::new_err(e.to_string()))?;
+        if let Some(object) = value.as_object_mut() {
+            object.remove("crowd_out");
+            object.insert("nodes_generated".into(), stats.nodes_generated.into());
+            object.insert(
+                "search_elapsed_ms".into(),
+                (search_started.elapsed().as_secs_f64() * 1000.0).into(),
+            );
+            object.insert("routes_returned".into(), routes.len().into());
+        }
+        output["search_stats"] = value;
+    }
+    if let Some(limit) = max_tree_size {
+        output["max_tree_size"] = serde_json::json!({
+            "limit": limit,
+            "reached": stats.tree_size_limit_reached,
+            "nodes_generated": stats.nodes_generated,
+        });
+    }
+    if let Some(ref names) = priority_set {
+        let mut unknown: Vec<&String> = names
+            .iter()
+            .filter(|name| {
+                !rules
+                    .iter()
+                    .any(|r| r.template_id == **name || r.name == **name)
+            })
+            .collect();
+        unknown.sort();
+        output["priority_templates"] = serde_json::json!({
+            "count": names.len(),
+            "unknown": unknown,
+            "candidates_promoted": stats.priority_candidates_promoted,
+        });
+    }
+    if let Some(max_heavy_atoms) = small_molecule_terminal {
+        let non_stock_leaves: Vec<Vec<String>> = routes
+            .iter()
+            .map(|route| {
+                route
+                    .building_blocks
+                    .iter()
+                    .filter(|smiles| {
+                        !env.is_building_block_smiles(smiles)
+                            && !mol_from_smiles(smiles).is_ok_and(|mol| env.is_building_block(&mol))
+                    })
+                    .cloned()
+                    .collect()
+            })
+            .collect();
+        output["small_molecule_terminal"] = serde_json::json!({
+            "max_heavy_atoms": max_heavy_atoms,
+            "routes_with_non_stock_leaves": non_stock_leaves.iter().filter(|l| !l.is_empty()).count(),
+            "non_stock_leaves": non_stock_leaves,
+        });
+    }
+    if let Some(limit) = max_branching {
+        output["max_branching"] = serde_json::json!({
+            "limit": limit,
+            "candidates_pruned": stats.branching_pruned_candidates,
+        });
+    }
+    if route_diversity {
+        output["route_set_diversity"] = serde_json::to_value(
+            crate::diversity::route_packing_number(&routes, diversity_radius),
+        )
+        .map_err(|e| PyValueError::new_err(e.to_string()))?;
+    }
+    if let Some(ref set) = banned_set {
+        output["banned_molecules"] = serde_json::json!({
+            "count": set.len(),
+            "candidates_removed": stats.banned_precursor_candidates,
+        });
+    }
+    if exclude_target_from_stock {
+        output["exclude_target_from_stock"] = serde_json::Value::from(true);
+    }
+    if cluster {
+        output["route_clusters"] = serde_json::to_value(crate::route_distance::cluster_routes(
+            &routes,
+            target,
+            n_clusters,
+            max_clusters,
+        ))
+        .map_err(|e| PyValueError::new_err(e.to_string()))?;
+    }
 
     serde_json::to_string(&output).map_err(|e| PyValueError::new_err(e.to_string()))
+}
+
+/// Single-step retrosynthetic expansion (AiZynthFinder ``AiZynthExpander``
+/// parity): every one-step disconnection of ``target`` under the default
+/// rules (plus ``templates_path``), merged by canonical precursor set.
+///
+/// Args:
+///     target (str): Target SMILES.
+///     building_blocks (list[str] | None): Stock SMILES; ``None`` uses the
+///         repository stock file or the compiled-in fallback.
+///     templates_path (str | None): Extra extracted SMIRKS templates.
+///     top_templates (int | None): Keep only the K highest-weight extra
+///         templates.
+///     max_candidates (int): Candidates to return after ordering; ``0`` = all.
+///     bond_index (bool): Select rules with the reaction-center bond index.
+///
+/// Returns:
+///     str: JSON with ``schema_version``, ``target``, ``target_in_stock``,
+///     ``candidates_total``, ``candidates_returned``, ``candidates`` (each
+///     with ``rank``, ``reaction_smiles``, ``precursors[{smiles,in_stock}]``,
+///     ``all_in_stock``, ``step_cost``, ``template_ids``, ``rule_names``) and
+///     ``stats``. Ordering is ascending heuristic step cost, then more
+///     in-stock precursors; it is not a feasibility or yield claim.
+#[pyfunction]
+#[pyo3(name = "expand", signature = (target, building_blocks=None, templates_path=None, top_templates=None, max_candidates=0, bond_index=false))]
+pub fn expand_py(
+    target: &str,
+    building_blocks: Option<Vec<String>>,
+    templates_path: Option<&str>,
+    top_templates: Option<usize>,
+    max_candidates: usize,
+    bond_index: bool,
+) -> PyResult<String> {
+    if target.len() > crate::search::MAX_TARGET_SMILES_BYTES {
+        return Err(PyValueError::new_err(format!(
+            "target exceeds {} bytes",
+            crate::search::MAX_TARGET_SMILES_BYTES
+        )));
+    }
+    let env = match building_blocks {
+        Some(ref list) => {
+            let refs: Vec<&str> = list.iter().map(String::as_str).collect();
+            ChemEnv::in_memory(&refs)
+        }
+        None => ChemEnv::load("data/building_blocks.smi")
+            .unwrap_or_else(|_| ChemEnv::in_memory(crate::DEFAULT_BUILDING_BLOCKS)),
+    };
+    let mut rules = crate::chem_env::default_rules();
+    if let Some(path) = templates_path {
+        crate::chem_env::validate_template_file(path)
+            .map_err(|e| PyValueError::new_err(e.to_string()))?;
+        let mut extra = crate::chem_env::load_rules_from_file(path);
+        if let Some(k) = top_templates {
+            extra = crate::chem_env::top_templates_by_weight(extra, k);
+        }
+        rules.extend(extra);
+    } else if top_templates.is_some() {
+        return Err(PyValueError::new_err(
+            "top_templates requires templates_path",
+        ));
+    }
+    let result = crate::expand::expand_one_step(
+        target,
+        &env,
+        &rules,
+        &crate::expand::ExpansionOptions {
+            max_candidates,
+            bond_index,
+        },
+    )
+    .map_err(|e| PyValueError::new_err(e.to_string()))?;
+    serde_json::to_string(&result).map_err(|e| PyValueError::new_err(e.to_string()))
+}
+
+/// Render a ``find_routes()`` JSON result as a self-contained HTML route
+/// report with 2D molecule depictions (SynPlanner route-visualisation parity).
+///
+/// Args:
+///     result_json (str): The string returned by ``find_routes()``.
+///     building_blocks (list[str] | None): Stock used to badge each leaf as
+///         exact ``stock``/``not in stock``; ``None`` shows every leaf of a
+///         completed route as a terminal.
+///     small_molecule_terminal (int | None): Label leaves with at most N
+///         heavy atoms that are not stock as ``size terminal``.
+///
+/// Returns:
+///     str: One HTML document with no scripts or external resources.
+#[cfg(feature = "depict")]
+#[pyfunction]
+#[pyo3(name = "routes_html", signature = (result_json, building_blocks=None, small_molecule_terminal=None))]
+pub fn routes_html_py(
+    result_json: &str,
+    building_blocks: Option<Vec<String>>,
+    small_molecule_terminal: Option<usize>,
+) -> PyResult<String> {
+    let env = building_blocks.map(|list| {
+        let refs: Vec<&str> = list.iter().map(String::as_str).collect();
+        let env = ChemEnv::in_memory(&refs);
+        match small_molecule_terminal {
+            Some(n) => env.with_small_molecule_terminal(n),
+            None => env,
+        }
+    });
+    crate::report::routes_html_from_result_json(result_json, env.as_ref())
+        .map_err(|e| PyValueError::new_err(format!("{e:#}")))
 }
 
 // ── Forward prediction helpers (inlined to avoid circular dep with renkin-forward) ──────
@@ -899,6 +1277,9 @@ pub fn renkin(_py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(predict_forward_py, m)?)?;
     m.add_function(wrap_pyfunction!(validate_forward_py, m)?)?;
     m.add_function(wrap_pyfunction!(audit_route_py, m)?)?;
+    m.add_function(wrap_pyfunction!(expand_py, m)?)?;
+    #[cfg(feature = "depict")]
+    m.add_function(wrap_pyfunction!(routes_html_py, m)?)?;
     m.add("__version__", env!("CARGO_PKG_VERSION"))?;
     Ok(())
 }

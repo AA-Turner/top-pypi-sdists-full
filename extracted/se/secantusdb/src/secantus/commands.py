@@ -6,6 +6,7 @@ import os
 import random as _random
 import sys
 import time as _time
+import uuid as _uuid
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, replace
 from typing import Any
@@ -13,13 +14,19 @@ from typing import Any
 import bson
 
 from secantus import changestreams
+from secantus import deadline as _deadline
+from secantus import explain as _explain_mod
 from secantus.aggregate import (
     SEARCH_INDEX_ATLAS_MSG,
     AggregateError,
     PipelineContext,
+    _fmt_stage_val,
     _geo_near_index_filter,
     apply_pipeline,
+    expression_problem_in_filter,
+    expression_problem_in_pipeline,
     validate_stage_names,
+    wrap_expression_problem,
 )
 from secantus.auth import (
     MONGODB_X509,
@@ -36,10 +43,23 @@ from secantus.auth import (
 from secantus.connreg import ConnectionRegistry
 from secantus.cursors import MAX_GETMORE_BATCH_BYTES, CursorNotFound, CursorRegistry
 from secantus.expressions import ExpressionError, UnknownExpressionOperatorError
+
+# CONFORMANCE TARGET: mongod 8.2.1 (retargeted from 6.0.16 on 2026-08-29).
+#
+# `tests/test_mongod_differential.py` is the gate: it runs every supported
+# operation against a real mongod and asserts an exact match, and it SKIPS off
+# the probed series rather than reporting version differences as bugs.
+#
+# Comments in this tree that say "probed 6.0.16" without also naming 8.x record
+# a probe taken against the OLD target and NOT re-verified against the new one.
+# They are not known to be wrong -- most of the surface is version-stable -- but
+# they are not evidence for current behaviour either. Re-probe before relying on
+# one, and update it to name 8.2.1 when you do. See tasks/backlog.md.
 from secantus.failpoints import FailPointRegistry, is_resumable_change_stream_code
 from secantus.geo import GeoError
 from secantus.logbuf import LogBuffer
-from secantus.metrics import Metrics
+from secantus.metrics import TOP_SECTIONS, Metrics
+from secantus.ordering import AmbiguousSortPathError
 from secantus.projection import ProjectionError, apply_projection
 from secantus.query import QueryError, matches
 from secantus.rbac import (
@@ -126,9 +146,15 @@ _USER_FACING_EXCEPTIONS: tuple[type[BaseException], ...] = (
     UpdateError,
 )
 
-WIRE_VERSION = 17
-SERVER_VERSION = "7.0.0"
-SERVER_VERSION_ARRAY = [7, 0, 0, 0]
+# The version we ADVERTISE is a capability contract, not a label: drivers gate
+# features on it, and the spec suites gate tests on it in both directions
+# (`maxServerVersion: "7.99"` asserts a feature is REJECTED, `minServerVersion:
+# "8.0"` that it works). So this moves only when the 8.0 features it promises
+# actually exist -- `bulkWrite` and `sort` on updateOne/replaceOne, both added
+# alongside this bump. Wire 27 and 8.2.x match the probed server (8.2.11).
+WIRE_VERSION = 27
+SERVER_VERSION = "8.2.11"
+SERVER_VERSION_ARRAY = [8, 2, 11, 0]
 DEFAULT_BATCH_SIZE = 101
 
 # ``topologyVersion.processId`` identifies the *server process* and is fixed for
@@ -167,11 +193,25 @@ _ERROR_CODE_NAMES: dict[int, str] = {
     14: "TypeMismatch",
     18: "AuthenticationFailed",
     26: "NamespaceNotFound",
+    28: "PathNotViable",
+    40: "ConflictingUpdateOperators",
     43: "CursorNotFound",
     50: "MaxTimeMSExpired",
     59: "CommandNotFound",
+    66: "ImmutableField",
     100: "UnsatisfiableWriteConcern",
     136: "CappedPositionLost",
+    # Every unknown-expression error carries this one, and a table miss renders
+    # the generic `Location168` instead -- measured 8.2.11 (2026-09-17) across
+    # 13 shapes in `tools/probes/unknown_expression_errors.py`, where it was
+    # the ONLY thing wrong in four of them. `expressions._CODE_NAMES` already
+    # knew the name; errors raised as `AggregateError` never reached it.
+    168: "InvalidPipelineOperator",
+    # A CONSTANT `$convert` / `$toX` failure folds at optimization time and
+    # reaches the client through this table, which lacked it: `{$toInt: "abc"}`
+    # written as a literal said `Location241` where mongod says
+    # `ConversionFailure` (measured 8.2.11, 2026-09-19).
+    241: "ConversionFailure",
 }
 
 
@@ -201,9 +241,16 @@ def _validate_write_concern(doc: Mapping[str, Any]) -> dict[str, Any] | None:
     if wc is None:
         return None
     if not isinstance(wc, Mapping):
+        # mongod names the command in the path (`insert.writeConcern`), and
+        # every command that takes a write concern puts its own name there.
+        # The first key of the request document IS the command name.
+        command = next(iter(doc), "writeConcern")
         return {
             "ok": 0.0,
-            "errmsg": "writeConcern must be a document",
+            "errmsg": (
+                f"BSON field '{command}.writeConcern' is the wrong type "
+                f"'{_bson_type_of(wc)}', expected type 'object'"
+            ),
             "code": 14,
             "codeName": "TypeMismatch",
         }
@@ -566,7 +613,19 @@ def _split_into_cursor(
     batch_size: int,
     namespace: str,
     cursors: CursorRegistry,
+    *,
+    bounded: bool = False,
 ) -> tuple[list[dict[str, Any]], int]:
+    """Split ``docs`` into a first batch plus a cursor for the rest.
+
+    ``bounded`` says the result's size is knowable to the server up front, so a
+    batch that exactly drains it closes the cursor. Probed on mongod 8.3.4 and
+    the answer is NOT uniform across commands: ``listIndexes`` / ``listCollections``
+    close on an exact-fill batch (they enumerate a known catalog), while ``find``
+    and ``aggregate`` keep the cursor open and spend one more empty ``getMore``
+    (they cannot know a collection scan is finished until it comes up short).
+    A ``find`` with ``limit`` / ``singleBatch`` is bounded again.
+    """
     # ``batch_size == 0`` is a real value, not a "use default":
     # MongoDB defines it as "open the cursor with an empty
     # firstBatch and let the client pull via getMore". A cursor id
@@ -594,13 +653,45 @@ def _split_into_cursor(
         take = fitted
     first = docs[:take]
     remaining = docs[take:]
-    if not remaining:
+    # A batch that exactly fills the requested size proves nothing about what
+    # follows, so an unbounded cursor stays open even with nothing left -- the
+    # client spends one more getMore to see the empty batch, exactly as against
+    # mongod. Closing early made our round-trip counts differ, which drivers
+    # observe directly.
+    filled_exactly = batch_size > 0 and len(first) == batch_size
+    if not remaining and (bounded or not filled_exactly):
         return first, 0
-    cursor_id = cursors.register(namespace, remaining)
+    cursor_id = cursors.register(namespace, remaining, bounded=bounded)
     return first, cursor_id
 
 
 CommandHandler = Callable[[dict[str, Any], CommandContext], dict[str, Any]]
+
+
+_HANDSHAKE_COMMANDS = frozenset({"hello", "isMaster", "ismaster"})
+
+
+def _failpoint_app_name(name: str, doc: Mapping[str, Any], ctx: CommandContext) -> str | None:
+    """The application name a ``failCommand`` ``appName`` filter compares against.
+
+    A handshake ``hello`` carries ``client.application.name`` itself, and that
+    wins: it is the FIRST command on a new connection, before any metadata is
+    recorded, and the SDAM spec tests fail exactly that command
+    (``minPoolSize-error.json`` skips three ``hello``s, then fails the one a
+    freshly opened pool connection sends). Later commands use what the
+    connection's handshake recorded.
+    """
+    client = doc.get("client") if name in _HANDSHAKE_COMMANDS else None
+    if not isinstance(client, Mapping) and ctx.connections is not None:
+        conn = ctx.connections.get(ctx.connection_id)
+        client = conn.client_metadata if conn is not None else None
+    if not isinstance(client, Mapping):
+        return None
+    application = client.get("application")
+    if not isinstance(application, Mapping):
+        return None
+    name = application.get("name")
+    return name if isinstance(name, str) else None
 
 
 def _hello(doc: dict[str, Any], ctx: CommandContext) -> dict[str, Any]:
@@ -1639,6 +1730,26 @@ def _server_status(_doc: dict[str, Any], ctx: CommandContext) -> dict[str, Any]:
     return base
 
 
+def _top_namespace_target(name: str, doc: Mapping[str, Any]) -> str | None:
+    """Collection this command acts on, or ``None`` if it isn't namespaced.
+
+    For most commands the first key's value IS the collection name. ``getMore``
+    is the exception: its first value is the cursor id and the collection rides
+    in ``collection``.
+    """
+    if name == "getMore":
+        # getMore's own value is the cursor id; the namespace rides alongside.
+        target = doc.get("collection")
+    elif name == "explain":
+        # mongod attributes an explain to the namespace of the explained
+        # command, which is nested one level down.
+        inner = doc.get("explain")
+        target = next(iter(inner.values()), None) if isinstance(inner, Mapping) else None
+    else:
+        target = doc.get(name)
+    return target if isinstance(target, str) and target else None
+
+
 def _top(_doc: dict[str, Any], ctx: CommandContext) -> dict[str, Any]:
     """mongod-shaped ``top``: one entry per existing namespace.
 
@@ -1656,23 +1767,13 @@ def _top(_doc: dict[str, Any], ctx: CommandContext) -> dict[str, Any]:
             "code": 13,
             "codeName": "Unauthorized",
         }
+    recorded = ctx.metrics.top_snapshot() if ctx.metrics is not None else {}
+    zero = {section: {"time": 0, "count": 0} for section in TOP_SECTIONS}
     totals: dict[str, Any] = {"note": "all times in microseconds"}
     for db in ctx.storage.list_databases():
         for coll in ctx.storage.list_collections(db):
-            totals[f"{db}.{coll}"] = {
-                section: {"time": 0, "count": 0}
-                for section in (
-                    "total",
-                    "readLock",
-                    "writeLock",
-                    "queries",
-                    "getmore",
-                    "insert",
-                    "update",
-                    "remove",
-                    "commands",
-                )
-            }
+            ns = f"{db}.{coll}"
+            totals[ns] = recorded.get(ns, zero)
     return {"totals": totals, "ok": 1.0}
 
 
@@ -1693,7 +1794,11 @@ def _get_parameter(doc: dict[str, Any], _ctx: CommandContext) -> dict[str, Any]:
     """
     params: dict[str, Any] = {
         "featureCompatibilityVersion": {"version": "7.0"},
-        "enableTestCommands": False,
+        # True because the test commands drivers gate on ARE implemented --
+        # ``configureFailPoint`` above all. pymongo's harness reads this flag
+        # and, while it said False, skipped ~1,080 unified-spec failpoint tests
+        # this server can run (measured 2026-09-25).
+        "enableTestCommands": True,
         "logLevel": 0,
         "quiet": False,
         # Real ``mongod`` exposes the list of enabled auth mechanisms
@@ -1872,6 +1977,29 @@ def _validate(doc: dict[str, Any], ctx: CommandContext) -> dict[str, Any]:
 
 def _explain(doc: dict[str, Any], ctx: CommandContext) -> dict[str, Any]:
     inner = doc.get("explain") or {}
+    # A non-document ``explain`` argument, and an unknown or absent wrapped
+    # command, all used to produce a FABRICATED plan: a plausible-looking
+    # ``COLLSCAN`` over a namespace we invented, ``ok: 1``. That is worse than
+    # an error -- a client explaining a mistyped command name got a confident
+    # answer about a query that could never run.
+    if not isinstance(inner, Mapping):
+        return {
+            "ok": 0.0,
+            "errmsg": (
+                f"BSON field 'explain.explain' is the wrong type "
+                f"'{_bson_type_of(doc.get('explain'))}', expected type 'object'"
+            ),
+            "code": 14,
+            "codeName": "TypeMismatch",
+        }
+    _inner_name = next(iter(inner), "")
+    if _inner_name not in _HANDLERS:
+        return {
+            "ok": 0.0,
+            "errmsg": f"Explain failed due to unknown command: {_inner_name}",
+            "code": 59,
+            "codeName": "CommandNotFound",
+        }
     coll = ""
     filter_: dict[str, Any] = {}
     sort = None
@@ -1940,22 +2068,39 @@ def _explain(doc: dict[str, Any], ctx: CommandContext) -> dict[str, Any]:
     # invalid verbosity (``'invalid'``) and assert the response is a
     # ``MongoServerError`` — they fail silently if we accept the bad
     # value and return a normal explain doc.
-    if not isinstance(verbosity, str) or verbosity not in (
-        "queryPlanner",
-        "executionStats",
-        "allPlansExecution",
-    ):
+    # A NON-STRING verbosity is a type error, not a bad enum value -- mongod
+    # separates the two, and only the enum case is BadValue. We reported our
+    # own wording for both.
+    if not isinstance(verbosity, str):
         return {
             "ok": 0.0,
             "errmsg": (
-                f"verbosity {verbosity!r} not recognized; expected one of "
-                "['queryPlanner', 'executionStats', 'allPlansExecution']"
+                f"BSON field 'explain.verbosity' is the wrong type "
+                f"'{_bson_type_of(verbosity)}', expected type 'string'"
+            ),
+            "code": 14,
+            "codeName": "TypeMismatch",
+        }
+    if verbosity not in ("queryPlanner", "executionStats", "allPlansExecution"):
+        return {
+            "ok": 0.0,
+            "errmsg": (
+                f"Enumeration value '{verbosity}' for field "
+                "'explain.verbosity' is not a valid value."
             ),
             "code": 2,
             "codeName": "BadValue",
         }
     namespace = _ns(ctx.db_name, coll) if coll else f"{ctx.db_name}.$cmd"
     if coll:
+        # A hint that names no index is fatal to the plan, and explain is the
+        # one command where that mattered most: it is what you run to CHECK a
+        # hint. `find` / `count` / `aggregate` all rejected it already, while
+        # explain quietly reported a COLLSCAN -- telling the caller their hint
+        # was fine AND that it was being ignored, in the same breath.
+        hint_err = _unresolvable_hint_error(ctx, coll, hint)
+        if hint_err is not None:
+            return _bad_value(hint_err)
         plan = ctx.storage.explain_plan(
             ctx.db_name, coll, filter_, sort=sort, hint=hint, collation=collation
         )
@@ -1990,42 +2135,92 @@ def _explain(doc: dict[str, Any], ctx: CommandContext) -> dict[str, Any]:
             docs_examined = n_returned
         else:
             docs_examined = ctx.storage.count_matching(ctx.db_name, coll, {})
+    parsed_query = _explain_mod.canonical_match(filter_)
     if plan["kind"] == "IXSCAN":
+        index_spec = {}
+        if coll:
+            index_spec = next(
+                (
+                    ix
+                    for ix in ctx.storage.list_indexes(ctx.db_name, coll)
+                    if ix.get("name") == plan["index_name"]
+                ),
+                {},
+            )
+        key_pattern = plan["key_pattern"]
+        # mongod's IXSCAN key order, verbatim -- drivers and Compass read the
+        # node positionally in places, and a reordered document is a needless
+        # difference. ``multiKeyPaths`` names, per indexed field, the array
+        # paths that made it multikey; we do not track WHICH path did, so a
+        # non-multikey index reports the empty list mongod reports and a
+        # multikey one reports the field itself.
         input_stage: dict[str, Any] = {
             "stage": "IXSCAN",
+            "keyPattern": key_pattern,
             "indexName": plan["index_name"],
-            "keyPattern": plan["key_pattern"],
-            "direction": plan["direction"],
             # mongod always reports whether the scanned index is multikey;
             # planners (Compass, aggregation optimisers) read it to decide
             # what the index can be trusted for.
             "isMultiKey": bool(plan.get("multikey")),
+            "multiKeyPaths": {
+                field: ([field] if plan.get("multikey") else []) for field in key_pattern
+            },
+            "isUnique": bool(index_spec.get("unique")),
+            "isSparse": bool(index_spec.get("sparse")),
+            # mongod flags an IXSCAN over a partial index with ``isPartial``,
+            # and reports the key as ``false`` otherwise rather than omitting
+            # it -- a client testing for the key finds it either way.
+            "isPartial": "partialFilterExpression" in index_spec,
+            "indexVersion": int(index_spec.get("v", 2)),
+            "direction": plan["direction"],
         }
-        # mongod flags an IXSCAN over a partial index with ``isPartial``.
-        if coll:
-            partial = any(
-                ix.get("name") == plan["index_name"] and "partialFilterExpression" in ix
-                for ix in ctx.storage.list_indexes(ctx.db_name, coll)
-            )
-            if partial:
-                input_stage["isPartial"] = True
-        winning_plan = {
-            "stage": "FETCH",
-            "filter": filter_,
-            "inputStage": input_stage,
-        }
+        # The FETCH stage carries only the RESIDUAL filter -- the predicate the
+        # index bounds did not already satisfy. mongod omits the key entirely
+        # when the bounds cover the whole filter, which is how a reader tells a
+        # fully-index-served query from one that re-checks documents.
+        residual = {k: v for k, v in filter_.items() if k not in key_pattern}
+        winning_plan = {"stage": "FETCH"}
+        if residual:
+            winning_plan["filter"] = _explain_mod.canonical_match(residual)
+        winning_plan["inputStage"] = input_stage
         execution_stage = {
             "stage": "FETCH",
             "nReturned": n_returned,
             "inputStage": {"stage": "IXSCAN", "nReturned": n_returned},
         }
     else:
-        winning_plan = {"stage": "COLLSCAN", "filter": filter_}
+        winning_plan = {"stage": "COLLSCAN"}
+        if parsed_query:
+            winning_plan["filter"] = parsed_query
+        # A ``$natural: -1`` hint is the only thing that walks the collection
+        # backwards; every other collection scan is forward.
+        winning_plan["direction"] = (
+            "backward" if isinstance(hint, Mapping) and hint.get("$natural") == -1 else "forward"
+        )
         execution_stage = {"stage": "COLLSCAN", "nReturned": n_returned}
+    # mongod wraps the scan in the stages that describe the rest of the query.
+    # Only ``find`` is done here: ``count`` and ``distinct`` use a different
+    # vocabulary (``COUNT`` / ``COUNT_SCAN`` / ``DISTINCT_SCAN``) that has not
+    # been measured, and inventing stages for them would be worse than the flat
+    # node they get today.
+    if _inner_name == "find":
+        winning_plan = _explain_mod.build_stage_tree(
+            winning_plan,
+            sort=sort if isinstance(sort, Mapping) else None,
+            sort_served_by_index=bool(plan.get("sorted_by_index")),
+            projection=(
+                inner.get("projection") if isinstance(inner.get("projection"), Mapping) else None
+            ),
+            skip=inner.get("skip"),
+            limit=inner.get("limit"),
+        )
+    # ``isCached`` sits on the OUTERMOST plan node only (the plan cache is a
+    # whole-plan property). We never cache plans, so it is always false.
+    winning_plan = {"isCached": False, **winning_plan}
     query_planner = {
         "namespace": namespace,
         "indexFilterSet": False,
-        "parsedQuery": filter_,
+        "parsedQuery": parsed_query,
         "winningPlan": winning_plan,
         "rejectedPlans": [],
     }
@@ -2089,6 +2284,7 @@ def _explain(doc: dict[str, Any], ctx: CommandContext) -> dict[str, Any]:
             reply_agg["executionStats"] = execution_stats
         return reply_agg
     reply: dict[str, Any] = {
+        "explainVersion": "1",
         "queryPlanner": query_planner,
         "command": inner if isinstance(inner, dict) else {},
         "serverInfo": server_info,
@@ -2119,23 +2315,34 @@ def _insert(doc: dict[str, Any], ctx: CommandContext) -> dict[str, Any]:
     wc_err = _validate_write_concern(doc)
     if wc_err is not None:
         return wc_err
+    _err = _require_typed_bson_field(
+        doc.get("ordered"), "insert.ordered", expected="bool", ok=lambda v: isinstance(v, bool)
+    )
+    if _err is not None:
+        return _err
     coll = doc["insert"]
     oplog_err = _reject_oplog_rs_write(ctx, coll, "insert")
     if oplog_err is not None:
         return oplog_err
     documents = doc.get("documents", [])
     if not isinstance(documents, list) or len(documents) == 0:
-        # mongod rejects an empty `documents` array with code 4
-        # (InvalidLength). Drivers (mongo-go-driver, mongo-java-driver)
-        # have command-error tests that check for this specific code
-        # / codeName combo, so it's load-bearing for the gauge.
+        # mongod rejects an empty ``documents`` array with InvalidLength, which
+        # is code **16** -- this said 4 (NoSuchKey) under a comment asserting
+        # the drivers gate on "this specific code / codeName combo". They gate
+        # on the codeName; the code was wrong, and ``bulkWrite`` below already
+        # answered 16. Probed on mongod 8.2.11.
         return {
             "ok": 0.0,
             "errmsg": "Write batch sizes must be between 1 and 100000. Got 0 operations.",
-            "code": 4,
+            "code": 16,
             "codeName": "InvalidLength",
         }
     ordered = doc.get("ordered", True)
+    _err = _require_bool_or_number_bson_field(
+        doc.get("bypassDocumentValidation"), "insert.bypassDocumentValidation"
+    )
+    if _err is not None:
+        return _err
     bypass_validation = bool(doc.get("bypassDocumentValidation", False))
     # Collection-level ``validator`` (set via ``create`` / ``collMod``)
     # is enforced unless the caller passed ``bypassDocumentValidation:
@@ -2219,7 +2426,58 @@ def _find(doc: dict[str, Any], ctx: CommandContext) -> dict[str, Any]:
     from secantus.query import QueryError
     from secantus.storage import BadHint, MinMaxKeyError
 
+    # An undefined `$$variable` or a wrong argument count is a PARSE error to
+    # mongod -- it fires on an EMPTY collection, where nothing is evaluated, so
+    # relying on the evaluator to raise was never enough.
+    _uv_bound = frozenset(_l) if isinstance(_l := doc.get("let"), Mapping) else frozenset()
+    _uv = expression_problem_in_filter(doc.get("filter"), _uv_bound)
+    if _uv is not None:
+        return {
+            "ok": 0.0,
+            "errmsg": _uv[1],
+            "code": _uv[0],
+            "codeName": _code_name_for(_uv[0]),
+        }
     coll = doc["find"]
+    _err = _require_hint_type(doc)
+    if _err is not None:
+        return _err
+    _err = _require_object_bson_field(doc.get("readConcern"), "FindCommandRequest.readConcern")
+    if _err is not None:
+        return _err
+    _err = _require_collation_spec(doc.get("collation"))
+    if _err is not None:
+        return _err
+    for _fld in ("limit", "skip", "batchSize"):
+        # mongod reports these under its IDL name, `FindCommandRequest.limit`,
+        # not `find.limit` -- probed, not guessed.
+        _err = _require_number_bson_field(doc.get(_fld), f"FindCommandRequest.{_fld}")
+        if _err is not None:
+            return _err
+        # ... and then the RANGE, which is a different code and the bare name.
+        _err = _require_non_negative_number(doc.get(_fld), _fld)
+        if _err is not None:
+            return _err
+    # `min` / `max` are the same family: mongod type-checks them at parse time
+    # and answers 14 BEFORE any hint validation, where we reached the index
+    # bound-checker and answered 51174.
+    for _fld in ("filter", "sort", "projection", "collation", "min", "max"):
+        _err = _require_object_expected_field(doc, _fld)
+        if _err is not None:
+            return _err
+    # `let` is the OTHER object family on this same command, reported under
+    # mongod's IDL name like limit/skip/batchSize above -- `find.let` is not
+    # what it calls itself.
+    _err = _require_object_bson_field(doc.get("let"), "FindCommandRequest.let")
+    if _err is not None:
+        return _err
+    _err = _require_bool_value_field(doc, "singleBatch")
+    if _err is not None:
+        return _err
+    for _bfld in ("tailable", "awaitData", "returnKey", "showRecordId", "allowDiskUse"):
+        _err = _require_bool_value_field(doc, _bfld)
+        if _err is not None:
+            return _err
     filter_ = doc.get("filter") or {}
     skip = int(doc.get("skip", 0) or 0)
     limit = int(doc.get("limit", 0) or 0)
@@ -2330,8 +2588,33 @@ def _find(doc: dict[str, Any], ctx: CommandContext) -> dict[str, Any]:
         return {"ok": 0.0, "errmsg": str(exc), "code": 2, "codeName": "BadValue"}
     except MinMaxKeyError as exc:
         return {"ok": 0.0, "errmsg": str(exc), "code": 51174, "codeName": "Location51174"}
+    except AmbiguousSortPathError as exc:
+        # An EXECUTION-time refusal: mongod discovers it per document, so it
+        # carries the executor wrapper naming the command and namespace.
+        return {
+            "ok": 0.0,
+            "errmsg": (
+                f"Executor error during find command: {ctx.db_name}.{coll} :: caused by :: {exc}"
+            ),
+            "code": 16746,
+            "codeName": "Location16746",
+        }
     except QueryError as exc:
         return {"ok": 0.0, "errmsg": str(exc), "code": exc.code, "codeName": exc.code_name}
+    except ExpressionError as exc:
+        # A COMPUTED projection is evaluated per document, so a bad operand is
+        # an execution-time failure and mongod wraps it with the command and
+        # namespace: `Executor error during find command: <db>.<coll> :: caused
+        # by :: The argument to $size must be an array…` (probed 8.2.11,
+        # 2026-09-06). The wrapper names both, so only this layer can add it.
+        return {
+            "ok": 0.0,
+            "errmsg": (
+                f"Executor error during find command: {ctx.db_name}.{coll} :: caused by :: {exc}"
+            ),
+            "code": exc.code or 2,
+            "codeName": exc.code_name or "BadValue",
+        }
     # ``returnKey`` replaces each result with just the keys of the index that
     # serves the query (filter + sort): the index's key-pattern fields, plus
     # the sort fields (mongod serves a sort from an index — the ``_id`` order
@@ -2367,6 +2650,17 @@ def _find(doc: dict[str, Any], ctx: CommandContext) -> dict[str, Any]:
     # is separate — it goes through the ``aggregate``/``$changeStream``
     # pipeline, not ``find``.
     tailable = bool(doc.get("tailable", False))
+    # ``awaitData`` only means anything on a tailable cursor, and mongod
+    # refuses the pair rather than ignoring the orphan. We accepted it and ran
+    # an ordinary find, so a client that asked to block got a plain batch back
+    # and no indication its option had been dropped.
+    if doc.get("awaitData") and not tailable:
+        return {
+            "ok": 0.0,
+            "errmsg": "Cannot set 'awaitData' without also setting 'tailable'",
+            "code": 9,
+            "codeName": "FailedToParse",
+        }
     if tailable:
         if not ctx.storage.collection_is_capped(ctx.db_name, coll):
             return {
@@ -2398,7 +2692,12 @@ def _find(doc: dict[str, Any], ctx: CommandContext) -> dict[str, Any]:
     if single_batch:
         first_batch, cursor_id = docs, 0
     else:
-        first_batch, cursor_id = _split_into_cursor(docs, batch_size, ns, ctx.cursors)
+        # A positive ``limit`` bounds the result, so mongod closes the cursor
+        # the moment the limit is reached rather than spending a trailing empty
+        # getMore (probed: `4 docs, batchSize 2, limit 4` -> [2, 2], id 0).
+        first_batch, cursor_id = _split_into_cursor(
+            docs, batch_size, ns, ctx.cursors, bounded=limit > 0
+        )
     return {
         # Cursor `id` MUST be int64 — the Go driver hard-fails int32 here.
         "cursor": {"firstBatch": first_batch, "id": bson.Int64(cursor_id), "ns": ns},
@@ -2552,12 +2851,50 @@ def _update(doc: dict[str, Any], ctx: CommandContext) -> dict[str, Any]:
     wc_err = _validate_write_concern(doc)
     if wc_err is not None:
         return wc_err
+    _err = _require_object_bson_field(doc.get("let"), "update.let")
+    if _err is not None:
+        return _err
+    _err = _require_typed_bson_field(
+        doc.get("ordered"), "update.ordered", expected="bool", ok=lambda v: isinstance(v, bool)
+    )
+    if _err is not None:
+        return _err
+    _updates = doc.get("updates")
+    if isinstance(_updates, (list, Mapping)) and not _updates:
+        # An empty batch, whether sent as `[]` or `{}` -- the wire layer merges
+        # a kind-1 document sequence into a list, so both arrive the same way.
+        return {
+            "ok": 0.0,
+            "errmsg": "Write batch sizes must be between 1 and 100000. Got 0 operations.",
+            "code": 16,
+            "codeName": "Location16",
+        }
+    # Parsed up front, like ``delete``: mongod validates every statement before
+    # applying any, so a wrong-typed hint / collation anywhere in the batch is
+    # a command-level error and NOTHING is written.
+    for _stmt in doc.get("updates") or []:
+        if not isinstance(_stmt, Mapping):
+            continue
+        _err = _require_hint_type(_stmt)
+        if _err is not None:
+            return _err
+        _err = _unknown_statement_field(_stmt, _UPDATE_STATEMENT_FIELDS, "update.updates")
+        if _err is not None:
+            return _err
+        _err = _require_object_bson_field(_stmt.get("collation"), "update.updates.collation")
+        if _err is not None:
+            return _err
     coll = doc["update"]
     oplog_err = _reject_oplog_rs_write(ctx, coll, "update")
     if oplog_err is not None:
         return oplog_err
     updates = doc.get("updates", [])
     ordered = bool(doc.get("ordered", True))
+    _err = _require_bool_or_number_bson_field(
+        doc.get("bypassDocumentValidation"), "update.bypassDocumentValidation"
+    )
+    if _err is not None:
+        return _err
     bypass_validation = bool(doc.get("bypassDocumentValidation", False))
     # ``let`` — see ``_delete`` for the wire-shape rationale.
     let = _resolve_let_vars(doc.get("let"))
@@ -2572,23 +2909,120 @@ def _update(doc: dict[str, Any], ctx: CommandContext) -> dict[str, Any]:
     upserted: list[dict[str, Any]] = []
     write_errors: list[dict[str, Any]] = []
     for index, spec in enumerate(updates):
-        # MongoDB 8.0 added a ``sort`` option to update spec entries
-        # (matches in sort order then updates the first). Pre-8.0 the
-        # server rejects it as a parse error. We advertise wire
-        # version 17 (7.0), so mirror mongod's pre-8.0 behaviour: a
-        # command-level FailedToParse. Drivers' ``updateOne-sort`` /
-        # ``replaceOne-sort`` / ``BulkWrite updateOne-sort`` /
-        # ``BulkWrite replaceOne-sort`` tests with
-        # ``maxServerVersion: "7.99"`` assert this.
-        if "sort" in spec:
+        # A wrong-typed `q` used to reach the matcher and a wrong-typed `u` the
+        # update engine, both crashing as "internal server error". mongod names
+        # the dotted argument path.
+        _err = _require_object_bson_field(spec.get("q"), "update.updates.q")
+        if _err is not None:
+            return _err
+        # Strict bool, unlike findAndModify's `upsert` two screens up, which
+        # takes a bool OR any number. Adjacent slots, different rules; probed.
+        _err = _require_typed_bson_field(
+            spec.get("multi"),
+            "update.updates.multi",
+            expected="bool",
+            ok=lambda v: isinstance(v, bool),
+        )
+        if _err is not None:
+            return _err
+        hint_err = _unresolvable_hint_error(ctx, coll, spec.get("hint"))
+        if hint_err is not None:
+            # As on ``delete``: mongod refuses the statement rather than
+            # scanning, and we ignored the field and APPLIED the update.
+            write_errors.append({"index": index, "code": 2, "errmsg": hint_err})
+            if ordered:
+                break
+            continue
+        # An undefined `$$variable` in the filter or in a PIPELINE-form `u` is a
+        # per-statement writeError with mongod's 17276 (probed: an earlier
+        # statement in the batch still applies, `n: 1` with the error at
+        # `index: 1`). We raised it as a COMMAND error, failing the whole batch.
+        # `let` is command-level; `c` is this STATEMENT's own constants, and
+        # mongod binds BOTH (probed 8.2.11, 2026-09-01 -- `c` was not bound at
+        # all, so a pipeline update referring to one was refused outright).
+        if spec.get("c") is not None and not isinstance(spec.get("u"), list):
+            # `c` is only meaningful for a pipeline update; mongod refuses it
+            # outright on an operator or replacement one (probed 8.2.11).
+            write_errors.append(
+                {
+                    "index": index,
+                    "code": 51198,
+                    "errmsg": "Constant values may only be specified for pipeline updates",
+                }
+            )
+            if ordered:
+                break
+            continue
+        _stmt_vars = _merged_statement_vars(doc.get("let"), spec.get("c"))
+        _uv_bound = frozenset(_stmt_vars or {})
+        _uv = expression_problem_in_filter(spec.get("q"), _uv_bound)
+        _uv = (_uv[0], _uv[1], "") if _uv else None
+        if _uv is None and isinstance(spec.get("u"), list):
+            # The real VALUES too, so a constant sub-expression folds the way
+            # mongod's optimizer folds it -- same as `aggregate`.
+            _uv = expression_problem_in_pipeline(spec.get("u"), _uv_bound, _stmt_vars)
+        if _uv is not None:
+            write_errors.append(
+                {
+                    "index": index,
+                    "code": _uv[0],
+                    "errmsg": wrap_expression_problem(_uv[1], _uv[2], in_update="update"),
+                }
+            )
+            if ordered:
+                break
+            continue
+        _u = spec.get("u")
+        if isinstance(_u, list):
+            # An array `u` IS a pipeline, so its elements obey the pipeline rule
+            # -- the same one `aggregate` uses. mongod returns this as a
+            # command-level TypeMismatch, not a per-statement writeError.
+            for _stage in _u:
+                if not isinstance(_stage, Mapping):
+                    return {
+                        "ok": 0.0,
+                        "errmsg": "Each element of the 'pipeline' array must be an object",
+                        "code": 14,
+                        "codeName": "TypeMismatch",
+                    }
+        if _u is not None and not isinstance(_u, (Mapping, list)):
+            # `u` accepts an object OR an array (the pipeline form), so a scalar
+            # is FailedToParse rather than a type mismatch -- the same message
+            # findAndModify gives. An array whose ELEMENTS are wrong is a
+            # pipeline error (14) raised downstream, not here.
             return {
                 "ok": 0.0,
-                "errmsg": (
-                    "The 'sort' option is not supported on update commands before MongoDB 8.0"
-                ),
+                "errmsg": "Update argument must be either an object or an array",
                 "code": 9,
                 "codeName": "FailedToParse",
             }
+        # MongoDB 8.0's ``sort`` on an update spec entry: match in sort order
+        # and update the FIRST one. Probed on 8.2.11 -- `multi: true` is
+        # rejected (code 9), and an upsert whose filter matches nothing still
+        # upserts normally, sort or no sort.
+        #
+        # This used to reject `sort` outright, mirroring pre-8.0 mongod because
+        # we advertised wire 17. Both halves are asserted by driver tests --
+        # `updateOne-sort` / `replaceOne-sort` gate on `maxServerVersion:
+        # "7.99"` for the rejection and `minServerVersion: "8.0"` for the
+        # support -- so this moved together with the advertised version.
+        sort_spec = spec.get("sort")
+        if sort_spec is not None:
+            if bool(spec.get("multi", False)):
+                return {
+                    "ok": 0.0,
+                    "errmsg": "Cannot specify sort with multi=true",
+                    "code": 9,
+                    "codeName": "FailedToParse",
+                }
+            if not isinstance(sort_spec, Mapping):
+                return _bad_value("BSON field 'update.updates.sort' is the wrong type")
+        # A wrong-typed ``arrayFilters`` reached the update engine, which
+        # iterated it and answered ``internal server error``. findAndModify
+        # already routed through this validator; ``update`` never did.
+        _err = _validate_array_filters_field(spec, "arrayFilters", "update.updates.arrayFilters")
+        if _err is not None:
+            return _err
         # Pre-validate the pipeline-update shape upfront so a no-match
         # filter still surfaces parse errors to the client. Real
         # mongod parses the pipeline before scanning the collection
@@ -2624,15 +3058,31 @@ def _update(doc: dict[str, Any], ctx: CommandContext) -> dict[str, Any]:
             # errors even against an empty collection (apply_update only
             # runs per matched doc, which would miss this).
             validate_update_doc(spec.get("u", {}))
+            stmt_filter = spec.get("q", {})
+            if sort_spec:
+                # Resolve WHICH document sorts first, then pin the update to
+                # it. mongod matches in sort order and updates the first; an
+                # upsert with no match still upserts, so leave the filter alone
+                # when nothing matched.
+                first = ctx.storage.find_matching(
+                    ctx.db_name,
+                    coll,
+                    stmt_filter,
+                    sort=sort_spec,
+                    limit=1,
+                    collation=spec.get("collation"),
+                )
+                if first:
+                    stmt_filter = {"_id": first[0]["_id"]}
             result = ctx.storage.update_matching(
                 ctx.db_name,
                 coll,
-                spec.get("q", {}),
+                stmt_filter,
                 spec.get("u", {}),
                 multi=bool(spec.get("multi", False)),
                 upsert=bool(spec.get("upsert", False)),
                 array_filters=spec.get("arrayFilters"),
-                let=let,
+                let=_resolve_let_vars(_stmt_vars) if _stmt_vars else let,
                 collation=spec.get("collation"),
                 validator=validator_spec if validator_active else None,
                 validator_moderate=_validation_is_moderate(coll_opts_for_validation),
@@ -2699,6 +3149,11 @@ def _update(doc: dict[str, Any], ctx: CommandContext) -> dict[str, Any]:
             msg = str(exc)
             default_code = 66 if "immutable field" in msg else 9
             code = exc.code if exc.code is not None else default_code
+            # 8.x wraps EXECUTION-time failures the same way findAndModify
+            # does. On 6.0 only findAndModify carried the wrapper and the
+            # update command reported the bare message.
+            if exc.exec_error:
+                msg = f"Plan executor error during update :: caused by :: {msg}"
             write_errors.append({"index": index, "code": code, "errmsg": msg})
             if ordered:
                 break
@@ -2712,18 +3167,466 @@ def _update(doc: dict[str, Any], ctx: CommandContext) -> dict[str, Any]:
         if result["did_upsert"]:
             upserted.append({"index": index, "_id": result["upserted_id"]})
             n += 1
-    reply: dict[str, Any] = {"n": n, "nModified": n_modified, "ok": 1.0}
+    # Field order is mongod's: ``n``, then ``upserted`` / ``writeErrors`` if
+    # present, then ``nModified``, then ``ok`` (probed 6.0.16 both ways). BSON
+    # keeps the order on the wire, so a client comparing raw reply bytes -- the
+    # PHP library's codec tests do -- sees ours append the optional fields at
+    # the end instead.
+    reply: dict[str, Any] = {"n": n}
     if upserted:
         reply["upserted"] = upserted
     if write_errors:
         reply["writeErrors"] = write_errors
+    reply["nModified"] = n_modified
+    reply["ok"] = 1.0
     return reply
+
+
+# --- bulkWrite (MongoDB 8.0's client-level bulk command) ---------------------
+#
+# Every shape below was probed against a live mongod 8.2.11 (2026-08-30). The
+# command runs ONLY against `admin`, takes a flat `ops` list whose entries name
+# a namespace by index into `nsInfo`, and answers with a CURSOR of per-op
+# results plus summary counters -- not the `{n, writeErrors}` shape the
+# single-collection write commands use.
+#
+# Each op is executed through the ordinary `_insert` / `_update` / `_delete`
+# handler with a context rebound to that op's database, so bulk semantics can
+# never drift from single-write semantics: validation, upsert, oplog and
+# collection options are whatever those handlers already do.
+_BULK_WRITE_KNOWN_FIELDS = frozenset(
+    {
+        "bulkWrite",
+        "ops",
+        "nsInfo",
+        "ordered",
+        "bypassDocumentValidation",
+        # Accepted by mongod 8.2.11 on `bulkWrite`, `insert` AND `update`
+        # (probed 2026-09-18); `insert` / `update` already took it here and only
+        # `bulkWrite` refused, which failed all 17 of the Go driver's
+        # `TestClient_BulkWrite_AddCommandFields` cases. Accepted and IGNORED:
+        # the flag governs whether an empty `Timestamp()` is replaced with the
+        # current cluster time, and that substitution is not implemented on
+        # either server -- the go gauge deselects `TestBypassEmptyTsReplacement`
+        # for exactly that reason. Accepting a field whose semantics we do not
+        # honour is the lesser divergence: the alternative refuses a command
+        # every 8.x driver sends by default.
+        "bypassEmptyTsReplacement",
+        "let",
+        "errorsOnly",
+        "comment",
+        "cursor",
+        "maxTimeMS",
+        "writeConcern",
+        "lsid",
+        "txnNumber",
+        "autocommit",
+        "startTransaction",
+        "$db",
+        "$clusterTime",
+        "$readPreference",
+        "apiVersion",
+        "apiStrict",
+        "apiDeprecationErrors",
+    }
+)
+#: mongod's batch bounds, quoted in its own InvalidLength message.
+_BULK_WRITE_MAX_OPS = 100000
+
+
+# `nsInfo` entries accept only these. An unknown one is 40415, named WITHOUT
+# an index (`bulkWrite.nsInfo.x`) even though a wrong-typed ENTRY is named with
+# one (`bulkWrite.nsInfo.0`) -- probed 8.2.11.
+_NS_INFO_KNOWN_FIELDS = frozenset({"ns", "collectionUUID", "encryptionInformation"})
+
+
+#: `bulkWrite` results live under the admin command namespace, which is also
+#: what `getMore`'s `collection: "$cmd.bulkWrite"` resolves to.
+_BULK_WRITE_NS = "admin.$cmd.bulkWrite"
+
+
+def _bulk_write_batch_size(doc: Mapping[str, Any]) -> int | None:
+    """`cursor.batchSize`, or `None` for "return everything in one batch".
+
+    Absent `cursor` -- or an absent `batchSize` within it -- means unbounded on
+    mongod: five results come back in `firstBatch` with id 0. `batchSize: 0` is
+    NOT unbounded and is not the same as absent; it means "open the cursor and
+    send nothing yet", which is why this returns `None` and `0` distinctly.
+    """
+    spec = doc.get("cursor")
+    if not isinstance(spec, Mapping):
+        return None
+    size = spec.get("batchSize")
+    if isinstance(size, bool) or not isinstance(size, int):
+        return None
+    return max(0, size)
+
+
+def _bulk_write_first_batch_len(results: list[dict[str, Any]], batch_size: int | None) -> int:
+    """How many results fit the first batch: a COUNT limit and a SIZE limit.
+
+    `batchSize` is the obvious half. The other half is why the Go driver's
+    prose test 7 still failed with count-only batching: it sets NO batchSize and
+    sends two upserts whose `_id`s are each `maxBsonObjectSize / 2` bytes, so
+    the two RESULT documents cannot share one reply. mongod answers
+    `firstBatch: 1` plus a cursor, and the driver asserts it made exactly one
+    `getMore` (probed 8.2.11, 2026-09-18). A count-only rule returns both and
+    the driver sees zero getMores.
+
+    An upserted `_id` is the only unbounded field a result carries, which is
+    what makes this reachable at all. At least one result is always taken --
+    mongod does not answer an empty first batch just because the single result
+    is large, and a zero here would mean no progress is ever possible.
+    """
+    budget = MAX_BSON_OBJECT_SIZE
+    used = 0
+    for i, entry in enumerate(results):
+        if batch_size is not None and i >= batch_size:
+            return i
+        used += len(bson.encode(entry))
+        if used > budget:
+            return max(1, i)
+    return len(results)
+
+
+def _bulk_write_missing(field: str) -> dict[str, Any]:
+    """mongod's ``IDLFailedToParse`` for a required op field that is absent."""
+    return {
+        "ok": 0.0,
+        "errmsg": f"BSON field '{field}' is missing but a required field",
+        "code": 40414,
+        "codeName": "IDLFailedToParse",
+    }
+
+
+def _bulk_write_op_error(idx: int, code: int, errmsg: str, extra: Mapping | None = None) -> dict:
+    """A failed op's cursor entry. mongod leads with ``ok``/``idx``/``code``."""
+    out: dict[str, Any] = {"ok": 0.0, "idx": idx, "code": code, "errmsg": errmsg}
+    for key in ("keyPattern", "keyValue"):
+        if extra and key in extra:
+            out[key] = extra[key]
+    out["n"] = 0
+    return out
+
+
+def _bulk_write(doc: dict[str, Any], ctx: CommandContext) -> dict[str, Any]:
+    """MongoDB 8.0's ``bulkWrite``: writes across namespaces in one command."""
+    if ctx.db_name != "admin":
+        return {
+            "ok": 0.0,
+            "errmsg": "bulkWrite may only be run against the admin database.",
+            "code": 13,
+            "codeName": "Unauthorized",
+        }
+    unknown = _unknown_command_field(doc, "bulkWrite", _BULK_WRITE_KNOWN_FIELDS)
+    if unknown is not None:
+        return unknown
+
+    # `nsInfo` is validated BEFORE the batch-size check: mongod answers the
+    # nsInfo type error for `{ops: [], nsInfo: 5}`, not "Got 0 operations"
+    # (probed 8.2.11, 2026-08-31). Our order had the batch check first, so a
+    # wrong-typed nsInfo reported a batch-size problem.
+    if "nsInfo" not in doc or doc["nsInfo"] is None:
+        return _bulk_write_missing("bulkWrite.nsInfo")
+    ns_info = doc.get("nsInfo")
+    if not isinstance(ns_info, list):
+        return {
+            "ok": 0.0,
+            "errmsg": (
+                f"BSON field 'bulkWrite.nsInfo' is the wrong type "
+                f"'{_bson_type_of(ns_info)}', expected type 'array'"
+            ),
+            "code": 14,
+            "codeName": "TypeMismatch",
+        }
+    for _i, _entry in enumerate(ns_info):
+        if not isinstance(_entry, Mapping):
+            # The ENTRY error carries its index; the field errors below do not.
+            # mongod's own inconsistency, reproduced.
+            return {
+                "ok": 0.0,
+                "errmsg": (
+                    f"BSON field 'bulkWrite.nsInfo.{_i}' is the wrong type "
+                    f"'{_bson_type_of(_entry)}', expected type 'object'"
+                ),
+                "code": 14,
+                "codeName": "TypeMismatch",
+            }
+        _unknown_ns = next((k for k in _entry if k not in _NS_INFO_KNOWN_FIELDS), None)
+        if _unknown_ns is not None:
+            return {
+                "ok": 0.0,
+                "errmsg": f"BSON field 'bulkWrite.nsInfo.{_unknown_ns}' is an unknown field.",
+                "code": 40415,
+                "codeName": "IDLUnknownField",
+            }
+        if "ns" not in _entry:
+            return _bulk_write_missing("bulkWrite.nsInfo.ns")
+        if not isinstance(_entry["ns"], str):
+            return {
+                "ok": 0.0,
+                "errmsg": (
+                    f"BSON field 'bulkWrite.nsInfo.ns' is the wrong type "
+                    f"'{_bson_type_of(_entry['ns'])}', expected type 'string'"
+                ),
+                "code": 14,
+                "codeName": "TypeMismatch",
+            }
+        _ns = _entry["ns"]
+        if "." not in _ns or not _ns.split(".", 1)[1]:
+            # mongod names the DATABASE half: 'nodot' has no dot so the whole
+            # string is the db, and '.' / '' both report ''.
+            return {
+                "ok": 0.0,
+                "errmsg": (f"Invalid namespace specified for bulkWrite: '{_ns.split('.', 1)[0]}'"),
+                "code": 73,
+                "codeName": "InvalidNamespace",
+            }
+
+    ops = doc.get("ops")
+    if not isinstance(ops, list) or not ops or len(ops) > _BULK_WRITE_MAX_OPS:
+        n = len(ops) if isinstance(ops, list) else 0
+        return {
+            "ok": 0.0,
+            "errmsg": (
+                f"Write batch sizes must be between 1 and {_BULK_WRITE_MAX_OPS}. "
+                f"Got {n} operations."
+            ),
+            "code": 16,
+            "codeName": "InvalidLength",
+        }
+
+    ordered = doc.get("ordered", True)
+    errors_only = bool(doc.get("errorsOnly", False))
+    results: list[dict[str, Any]] = []
+    counts = dict.fromkeys(("nInserted", "nMatched", "nModified", "nUpserted", "nDeleted"), 0)
+    n_errors = 0
+
+    for idx, op in enumerate(ops):
+        if not isinstance(op, Mapping):
+            return _bad_value(f"BulkWrite ops entry {op!r} is not an object")
+        kind = next((k for k in ("insert", "update", "delete") if k in op), None)
+        if kind is None:
+            # mongod names the offending KEY, not the whole entry.
+            unknown_op = next(iter(op), "op")
+            return {
+                "ok": 0.0,
+                "errmsg": f"BSON field 'bulkWrite.{unknown_op}' is an unknown field.",
+                "code": 40415,
+                "codeName": "IDLUnknownField",
+            }
+        ns_index = op.get(kind)
+        if isinstance(ns_index, bool) or not isinstance(ns_index, (int, float, bson.Decimal128)):
+            return {
+                "ok": 0.0,
+                "errmsg": (
+                    f"BSON field 'bulkWrite.ops.{kind}' is the wrong type "
+                    f"'{_bson_type_of(ns_index)}', expected types "
+                    f"'[long, int, decimal, double]'"
+                ),
+                "code": 14,
+                "codeName": "TypeMismatch",
+            }
+        ns_index = _coerce_command_int(ns_index)
+        if ns_index < 0:
+            # The field name here is the op KIND, bare -- not the IDL path.
+            return {
+                "ok": 0.0,
+                "errmsg": f"BSON field '{kind}' value must be >= 0, actual value '{ns_index}'",
+                "code": 2,
+                "codeName": "BadValue",
+            }
+        if ns_index >= len(ns_info):
+            return _bad_value(
+                f"BulkWrite ops entry {_fmt_stage_val(dict(op))} has an invalid nsInfo index."
+            )
+        entry = ns_info[ns_index]
+        ns = entry["ns"]
+        db_name, _, coll = ns.partition(".")
+        sub_ctx = replace(ctx, db_name=db_name)
+
+        if kind == "insert":
+            if "document" not in op:
+                return _bulk_write_missing("bulkWrite.ops.document")
+            _err = _require_object_bson_field(op["document"], "bulkWrite.ops.document")
+            if _err is not None:
+                return _err
+            cmd: dict[str, Any] = {"insert": coll, "documents": [op["document"]]}
+        elif kind == "update":
+            if "updateMods" not in op:
+                return _bulk_write_missing("bulkWrite.ops.updateMods")
+            # `filter` is REQUIRED on update and delete -- we defaulted it to
+            # `{}`, which silently turned a malformed op into a match-all.
+            if "filter" not in op:
+                return _bulk_write_missing("bulkWrite.ops.filter")
+            stmt: dict[str, Any] = {
+                "q": op.get("filter", {}),
+                "u": op["updateMods"],
+                "multi": bool(op.get("multi", False)),
+            }
+            for src, dst in (
+                ("upsert", "upsert"),
+                ("arrayFilters", "arrayFilters"),
+                ("hint", "hint"),
+                ("collation", "collation"),
+                ("sort", "sort"),
+            ):
+                if src in op:
+                    stmt[dst] = op[src]
+            cmd = {"update": coll, "updates": [stmt]}
+        else:
+            if "filter" not in op:
+                return _bulk_write_missing("bulkWrite.ops.filter")
+            stmt = {"q": op["filter"], "limit": 0 if op.get("multi") else 1}
+            for src in ("hint", "collation"):
+                if src in op:
+                    stmt[src] = op[src]
+            cmd = {"delete": coll, "deletes": [stmt]}
+        if doc.get("let") is not None:
+            cmd["let"] = doc["let"]
+        if doc.get("bypassDocumentValidation") is not None:
+            cmd["bypassDocumentValidation"] = doc["bypassDocumentValidation"]
+
+        handler = {"insert": _insert, "update": _update, "delete": _delete}[kind]
+        try:
+            reply = handler(cmd, sub_ctx)
+        except _USER_FACING_EXCEPTIONS as exc:
+            # A per-op failure, NOT a command failure. Letting this escape to
+            # `dispatch` failed the whole batch with `ok: 0`, so a driver saw no
+            # partial result at all -- the unified client-bulkWrite error specs
+            # (`an individual operation fails during an {,un}ordered bulkWrite`)
+            # drive exactly this with an undefined `$$var` in one op's filter
+            # and expect the OTHER ops to have run. Shaped the way `dispatch`
+            # shapes the same exception, then reported against the op.
+            exc_code = getattr(exc, "code", None) or 14
+            results.append(_bulk_write_op_error(idx, int(exc_code), str(exc)))
+            n_errors += 1
+            if ordered:
+                break
+            continue
+        if not reply.get("ok"):
+            # A whole-statement failure (a bad spec rather than a bad document)
+            # is reported against the op, like a write error.
+            results.append(
+                _bulk_write_op_error(
+                    idx, int(reply.get("code", 8)), str(reply.get("errmsg", "")), reply
+                )
+            )
+            n_errors += 1
+            if ordered:
+                break
+            continue
+        write_errors = reply.get("writeErrors") or []
+        if write_errors:
+            werr = write_errors[0]
+            results.append(
+                _bulk_write_op_error(
+                    idx, int(werr.get("code", 8)), str(werr.get("errmsg", "")), werr
+                )
+            )
+            n_errors += 1
+            if ordered:
+                break
+            continue
+
+        n = int(reply.get("n", 0))
+        entry_out: dict[str, Any] = {"ok": 1.0, "idx": idx, "n": n}
+        if kind == "insert":
+            counts["nInserted"] += n
+        elif kind == "update":
+            upserted = reply.get("upserted") or []
+            entry_out["nModified"] = int(reply.get("nModified", 0))
+            if upserted:
+                counts["nUpserted"] += len(upserted)
+                entry_out["upserted"] = {"_id": upserted[0]["_id"]}
+            else:
+                counts["nMatched"] += n
+            counts["nModified"] += int(reply.get("nModified", 0))
+        else:
+            counts["nDeleted"] += n
+        if not errors_only:
+            results.append(entry_out)
+
+    # The results are a real CURSOR when they do not fit the requested batch,
+    # exactly like `find` / `aggregate`. Measured against mongod 8.2.11
+    # (2026-09-18) -- the boundary is STRICTLY "more remain", not ">=":
+    #
+    #     no `cursor` option        id 0, every result in firstBatch
+    #     batchSize 2, 5 results    id SET, firstBatch 2, getMore -> 3
+    #     batchSize 2, 2 results    id 0   (an exact fit keeps no cursor)
+    #     batchSize 5, 2 results    id 0
+    #     batchSize 0, 5 results    id SET, firstBatch EMPTY, getMore -> 5
+    #     errorsOnly, no errors     id 0   (nothing to return, so nothing to page)
+    #
+    # `getMore` addresses it as `{getMore: <id>, collection: "$cmd.bulkWrite"}`
+    # against ADMIN, so the namespace registered here is what `_get_more`
+    # rebuilds from `ctx.db_name` + that collection name.
+    take = _bulk_write_first_batch_len(results, _bulk_write_batch_size(doc))
+    cursor_id = bson.Int64(0)
+    first_batch = results
+    if take < len(results):
+        first_batch = results[:take]
+        cursor_id = bson.Int64(ctx.cursors.register(_BULK_WRITE_NS, results[take:], bounded=True))
+
+    # Field order is mongod's: the cursor first, then the counters, then ``ok``.
+    return {
+        # `bson.Int64`, not a bare `0`. A cursor id is an int64 on the wire and
+        # a permissive driver does not notice the difference -- pymongo accepts
+        # the int32 silently, so the 99.6% pymongo gauge never saw this. The Go
+        # driver type-checks it and answered
+        # `id should be an int64 but it is a BSON 32-bit integer`, failing all
+        # 30 of its `bulkWrite` tests. Every other cursor reply in this file was
+        # already wrapped; this was the one that was not.
+        "cursor": {
+            "id": cursor_id,
+            "firstBatch": first_batch,
+            "ns": _BULK_WRITE_NS,
+        },
+        "nErrors": n_errors,
+        "nInserted": counts["nInserted"],
+        "nMatched": counts["nMatched"],
+        "nModified": counts["nModified"],
+        "nUpserted": counts["nUpserted"],
+        "nDeleted": counts["nDeleted"],
+        "ok": 1.0,
+    }
 
 
 def _delete(doc: dict[str, Any], ctx: CommandContext) -> dict[str, Any]:
     wc_err = _validate_write_concern(doc)
     if wc_err is not None:
         return wc_err
+    _err = _require_object_bson_field(doc.get("let"), "delete.let")
+    if _err is not None:
+        return _err
+    _err = _require_typed_bson_field(
+        doc.get("ordered"), "delete.ordered", expected="bool", ok=lambda v: isinstance(v, bool)
+    )
+    if _err is not None:
+        return _err
+    _deletes = doc.get("deletes")
+    if isinstance(_deletes, (list, Mapping)) and not _deletes:
+        return {
+            "ok": 0.0,
+            "errmsg": "Write batch sizes must be between 1 and 100000. Got 0 operations.",
+            "code": 16,
+            "codeName": "Location16",
+        }
+    # mongod parses every statement before running any, so a wrong-typed hint
+    # or collation in ANY entry is a command-level error, not a writeError on
+    # that entry -- and nothing is deleted. Probed 8.2.11.
+    for _stmt in doc.get("deletes") or []:
+        if not isinstance(_stmt, Mapping):
+            continue
+        _err = _unknown_statement_field(_stmt, _DELETE_STATEMENT_FIELDS, "delete.deletes")
+        if _err is not None:
+            return _err
+        _err = _require_hint_type(_stmt)
+        if _err is not None:
+            return _err
+        _err = _require_object_bson_field(_stmt.get("collation"), "delete.deletes.collation")
+        if _err is not None:
+            return _err
     coll = doc["delete"]
     oplog_err = _reject_oplog_rs_write(ctx, coll, "delete")
     if oplog_err is not None:
@@ -2739,12 +3642,36 @@ def _delete(doc: dict[str, Any], ctx: CommandContext) -> dict[str, Any]:
     n = 0
     write_errors: list[dict[str, Any]] = []
     for index, spec in enumerate(deletes):
+        _err = _require_object_bson_field(spec.get("q"), "delete.deletes.q")
+        if _err is not None:
+            return _err
+        hint_err = _unresolvable_hint_error(ctx, coll, spec.get("hint"))
+        if hint_err is not None:
+            # mongod refuses the STATEMENT -- `n: 0` and a writeError -- rather
+            # than falling back to a collection scan. We ignored the field
+            # entirely and DELETED the documents, so a caller who hinted a
+            # typo'd index name had their delete applied where MongoDB would
+            # have declined to run it.
+            write_errors.append({"index": index, "code": 2, "errmsg": hint_err})
+            if ordered:
+                break
+            continue
+        # As on `update`: an undefined `$$variable` in the filter is a
+        # per-statement writeError carrying mongod's 17276, not a command error
+        # that fails the whole batch.
+        _uv_bound = frozenset(_l) if isinstance(_l := doc.get("let"), Mapping) else frozenset()
+        _uv = expression_problem_in_filter(spec.get("q"), _uv_bound)
+        if _uv is not None:
+            write_errors.append({"index": index, "code": _uv[0], "errmsg": _uv[1]})
+            if ordered:
+                break
+            continue
         try:
             n += ctx.storage.delete_matching(
                 ctx.db_name,
                 coll,
                 spec.get("q", {}),
-                limit=int(spec.get("limit", 0)),
+                limit=_delete_stmt_limit(spec.get("limit")),
                 let=let,
                 collation=spec.get("collation"),
                 journal=_wants_journal(doc),
@@ -2765,7 +3692,37 @@ def _delete(doc: dict[str, Any], ctx: CommandContext) -> dict[str, Any]:
 
 
 def _count(doc: dict[str, Any], ctx: CommandContext) -> dict[str, Any]:
+    # An undefined `$$variable` or a wrong argument count is a PARSE error to
+    # mongod -- it fires on an EMPTY collection, where nothing is evaluated, so
+    # relying on the evaluator to raise was never enough.
+    _uv_bound = frozenset(_l) if isinstance(_l := doc.get("let"), Mapping) else frozenset()
+    _uv = expression_problem_in_filter(doc.get("query"), _uv_bound)
+    if _uv is not None:
+        return {
+            "ok": 0.0,
+            "errmsg": _uv[1],
+            "code": _uv[0],
+            "codeName": _code_name_for(_uv[0]),
+        }
     coll = doc["count"]
+    _err = _require_object_bson_field(doc.get("query"), "count.query")
+    if _err is not None:
+        return _err
+    _err = _require_count_limit(doc)
+    if _err is not None:
+        return _err
+    _err = _require_number_bson_field(doc.get("skip"), "count.skip")
+    if _err is not None:
+        return _err
+    _err = _require_non_negative_number(doc.get("skip"), "skip")
+    if _err is not None:
+        return _err
+    _err = _require_hint_type(doc)
+    if _err is not None:
+        return _err
+    _err = _require_collation_spec(doc.get("collation"))
+    if _err is not None:
+        return _err
     filter_ = doc.get("query") or {}
     # View support: if the collection is a view (``viewOn`` set),
     # run the view's pipeline + the count's query filter via the
@@ -2786,13 +3743,7 @@ def _count(doc: dict[str, Any], ctx: CommandContext) -> dict[str, Any]:
         )
         result_docs = apply_pipeline(docs, pipeline, pipeline_ctx)
         n = len(result_docs)
-        skip = int(doc.get("skip") or 0)
-        if skip > 0:
-            n = max(n - skip, 0)
-        limit = int(doc.get("limit") or 0)
-        if limit > 0:
-            n = min(n, limit)
-        return {"n": n, "ok": 1.0}
+        return {"n": _count_window(n, doc), "ok": 1.0}
     hint = doc.get("hint")
     if hint is not None:
         # A ``hint`` forces a specific index. For an empty filter this still
@@ -2819,13 +3770,7 @@ def _count(doc: dict[str, Any], ctx: CommandContext) -> dict[str, Any]:
     # ``min(max(matches - skip, 0), limit)``. mongo-node-driver's
     # ``crud_api`` integration test asserts this directly: a 4-doc
     # collection, ``.limit(2)``, then ``cursor.count()`` should yield 2.
-    skip = int(doc.get("skip") or 0)
-    if skip > 0:
-        n = max(n - skip, 0)
-    limit = int(doc.get("limit") or 0)
-    if limit > 0:
-        n = min(n, limit)
-    return {"n": n, "ok": 1.0}
+    return {"n": _count_window(n, doc), "ok": 1.0}
 
 
 def _distinct(doc: dict[str, Any], ctx: CommandContext) -> dict[str, Any]:
@@ -2833,19 +3778,73 @@ def _distinct(doc: dict[str, Any], ctx: CommandContext) -> dict[str, Any]:
     from secantus.collation import parse as _parse_collation
     from secantus.paths import get_path
 
+    # An undefined `$$variable` or a wrong argument count is a PARSE error to
+    # mongod -- it fires on an EMPTY collection, where nothing is evaluated, so
+    # relying on the evaluator to raise was never enough.
+    _uv_bound = frozenset(_l) if isinstance(_l := doc.get("let"), Mapping) else frozenset()
+    _uv = expression_problem_in_filter(doc.get("query"), _uv_bound)
+    if _uv is not None:
+        return {
+            "ok": 0.0,
+            "errmsg": _uv[1],
+            "code": _uv[0],
+            "codeName": _code_name_for(_uv[0]),
+        }
     coll = doc["distinct"]
+    _err = _require_object_bson_field(doc.get("collation"), "distinctCommandRequest.collation")
+    if _err is not None:
+        return _err
+    _err = _require_collation_spec(doc.get("collation"))
+    if _err is not None:
+        return _err
+    # 8.x names the IDL STRUCT, not the command: 'distinctCommandRequest.zz',
+    # where 6.0 said 'distinct.zz'.
+    _err = _unknown_command_field(doc, "distinctCommandRequest", _DISTINCT_KNOWN_FIELDS)
+    if _err is not None:
+        return _err
     key = doc.get("key", "")
+    _err = _require_object_bson_field(doc.get("query"), "distinctCommandRequest.query")
+    if _err is not None:
+        return _err
     filter_ = doc.get("query") or {}
+    if doc.get("key") is None:
+        # mongod treats an explicit null as ABSENT for a required field (40414),
+        # not as a type error -- probed 6.0.16.
+        return {
+            "ok": 0.0,
+            "errmsg": "BSON field 'distinctCommandRequest.key' is missing but a required field",
+            "code": 40414,
+            "codeName": "IDLFailedToParse",
+        }
     if not isinstance(key, str):
         return {
             "ok": 0.0,
-            "errmsg": "distinct key must be a string",
+            "errmsg": (
+                f"BSON field 'distinctCommandRequest.key' is the wrong type "
+                f"'{_bson_type_of(key)}', expected type 'string'"
+            ),
             "code": 14,
             "codeName": "TypeMismatch",
         }
     collation = doc.get("collation")
     collation_obj = _parse_collation(collation)
-    matched = ctx.storage.find_matching(ctx.db_name, coll, filter_, collation=collation)
+    # `distinct` takes a hint like every other read, and mongod REFUSES the
+    # command when it names no index rather than falling back to a scan
+    # (probed 8.2.11, 2026-08-31: code 2, where a valid index name or key spec
+    # is accepted). This was the only hint-bearing command that never resolved
+    # the field -- find / count / aggregate / findAndModify / delete / update
+    # all did -- so a bogus hint silently returned full results. Routing
+    # through `find_matching` validates AND honours the hint, which matters for
+    # a sparse index: hinting one distinct-s only the docs present in it, the
+    # same way `count` does.
+    from secantus.storage import BadHint
+
+    try:
+        matched = ctx.storage.find_matching(
+            ctx.db_name, coll, filter_, hint=doc.get("hint"), collation=collation
+        )
+    except BadHint as exc:
+        return {"ok": 0.0, "errmsg": str(exc), "code": 2, "codeName": "BadValue"}
     seen: list[Any] = []
     seen_keys: set[Any] = set()
 
@@ -2883,12 +3882,1162 @@ def _key_present(doc: dict[str, Any], path: str) -> bool:
     return True
 
 
+def _bson_type_of(value: Any) -> str:
+    """mongod's type vocabulary, shared with the update parse errors."""
+    from secantus.update import _bson_type_name
+
+    return _bson_type_name(value)
+
+
+def _require_object_bson_field(value: Any, field_path: str) -> dict[str, Any] | None:
+    """mongod's ``BSON field '<path>' is the wrong type`` reply, or None if OK.
+
+    Used by the commands whose parser reports the full dotted argument path --
+    ``count.query``, ``distinct.query``, ``delete.deletes.q``,
+    ``update.updates.q``, ``findAndModify.query`` / ``.sort`` / ``.fields``.
+    Probed on mongod 6.0.16 and 8.3.4 (identical).
+
+    A wrong-typed argument used to reach code that dereferences it structurally
+    and raised AttributeError / TypeError, surfacing as a bare "internal server
+    error" (code 1). 45 of 56 probed argument slots did this.
+    """
+    if value is None or isinstance(value, Mapping):
+        return None
+    return {
+        "ok": 0.0,
+        "errmsg": (
+            f"BSON field '{field_path}' is the wrong type "
+            f"'{_bson_type_of(value)}', expected type 'object'"
+        ),
+        "code": 14,
+        "codeName": "TypeMismatch",
+    }
+
+
+_NUMERIC_TYPES_MSG = "'[decimal, int, double, long]'"
+
+
+def _delete_stmt_limit(value: Any) -> int:
+    """A ``delete`` statement's ``limit``, mongod-style: 1 or unlimited.
+
+    mongod does NOT type-check this slot -- re-probed on 8.2.11, ``limit: {}`` /
+    ``"x"`` / ``[1]`` / ``0`` / ``true`` all succeed and delete every match, and
+    only a numeric ``1`` limits to one document. ``true`` counts as "not 1" even though
+    Python makes bool an int.
+
+    This is why the surrounding argument validation is per-slot rather than
+    per-class: the analogous ``find.limit`` IS a type error, so a blanket
+    "validate every numeric argument" rule would break this one. We used to call
+    ``int()`` on it and crash with "internal server error".
+    """
+    if isinstance(value, bool):
+        return 0
+    if isinstance(value, (int, float)) and value == 1:
+        return 1
+    return 0
+
+
+def _require_number_bson_field(value: Any, field_path: str) -> dict[str, Any] | None:
+    """mongod's numeric-slot type error, or None if OK / absent.
+
+    The expected-types list is reproduced verbatim, unbalanced quotes and all:
+    mongod 8.2.1 emits ``expected types '[decimal, int, double, long]'``; the
+    order is mongod's own and is not alphabetical or by width.
+
+    ``bool`` is rejected explicitly -- Python makes it a subclass of ``int``, so
+    without the guard ``limit: true`` would be read as ``limit: 1`` where mongod
+    answers "wrong type 'bool'".
+    """
+    if value is None:
+        return None
+    if not isinstance(value, bool) and isinstance(value, (int, float, bson.Decimal128)):
+        return None
+    return {
+        "ok": 0.0,
+        "errmsg": (
+            f"BSON field '{field_path}' is the wrong type "
+            f"'{_bson_type_of(value)}', expected types {_NUMERIC_TYPES_MSG}"
+        ),
+        "code": 14,
+        "codeName": "TypeMismatch",
+    }
+
+
+# Fields the ``distinct`` command accepts. It used to accept ANY field and
+# ignore it, so a misspelled option was silently dropped.
+#
+# ``hint`` is in the set because **mongod 8.2.11 accepts it** (re-probed
+# 2026-08-30 -- `distinct` with `hint: "a_1"` returns the values). 6.0.16
+# rejected it as an unknown field, which is what this comment used to hedge
+# around; 8.x is the target, so there is nothing to hedge. The differential gate
+# still probes an always-unknown field rather than this one, since this slot's
+# status is the thing that changed between versions.
+#
+# Accepting the FIELD is only half of it, and the half this comment used to
+# stop at: mongod also RESOLVES the value, and refuses the command when it
+# names no index (probed 8.2.11, 2026-08-31). Being in this set stops the
+# unknown-field check firing; `_distinct` is what validates the value.
+_DISTINCT_KNOWN_FIELDS = frozenset(
+    {
+        "distinct",
+        "key",
+        "query",
+        "collation",
+        "hint",
+        "comment",
+        "maxTimeMS",
+        "readConcern",
+        "writeConcern",
+        "lsid",
+        "txnNumber",
+        "autocommit",
+        "startTransaction",
+        "stmtId",
+        "apiVersion",
+        "apiStrict",
+        "apiDeprecationErrors",
+    }
+)
+
+
+def _unknown_command_field(
+    doc: Mapping[str, Any], command: str, known: frozenset[str]
+) -> dict[str, Any] | None:
+    """mongod's ``Location40415`` for an unrecognised top-level field, else None.
+
+    ``$``-prefixed keys are accepted unconditionally -- they are the wire
+    envelope, and the same carve-out ``create`` / ``findAndModify`` /
+    ``getMore`` make.
+    """
+    unknown = next((k for k in doc if k not in known and not k.startswith("$")), None)
+    if unknown is None:
+        return None
+    return {
+        "ok": 0.0,
+        "errmsg": f"BSON field '{command}.{unknown}' is an unknown field.",
+        "code": 40415,
+        "codeName": "IDLUnknownField",
+    }
+
+
+def _index_spec_option_error(idx_spec: Mapping[str, Any]) -> dict[str, Any] | None:
+    """Wrong-typed per-index options on ``createIndexes``, or None if OK.
+
+    These do not use the plain ``BSON field '<path>' is the wrong type`` form
+    the other commands share: mongod echoes the OFFENDING SPEC and appends the
+    reason after ``:: caused by ::``. Three distinct shapes, all probed against
+    8.2.11 (2026-08-31), all reproduced verbatim including mongod's own
+    unbalanced quotes:
+
+        collation / partialFilterExpression
+            14  Error in specification <spec> :: caused by ::
+                The field '<name>' must be an object, but got <type>
+            (an explicit null is REJECTED here, unlike most object slots)
+
+        expireAfterSeconds
+            67  . Index spec: <spec> :: caused by :: TTL index
+                'expireAfterSeconds' option must be numeric, but received a
+                type of '<type>
+            (note the leading ". " and the quote that mongod never closes)
+
+        unique / sparse
+            14  Error in specification <spec> :: caused by :: The field
+                '<name> has value <name>: <value>, which is not convertible
+                to bool
+            (again an unclosed quote after ``The field '``. A DOUBLE is
+            ACCEPTED here -- 1.5 converts to bool -- so this is not the same
+            "strictly bool" rule as ``insert.ordered``.)
+
+    The spec is rendered by `bsontypes.render_bson`, which reproduces mongod's
+    shell syntax (``{ key: { a: 1 }, name: "i", collation: 5 }``) rather than
+    Python's repr.
+    """
+    from secantus.bsontypes import render_bson
+
+    rendered = render_bson(idx_spec)
+    for field in ("collation", "partialFilterExpression"):
+        if field in idx_spec and not isinstance(idx_spec[field], Mapping):
+            return {
+                "ok": 0.0,
+                "errmsg": (
+                    f"Error in specification {rendered} :: caused by :: "
+                    f"The field '{field}' must be an object, but got "
+                    f"{_bson_type_of(idx_spec[field])}"
+                ),
+                "code": 14,
+                "codeName": "TypeMismatch",
+            }
+    if "expireAfterSeconds" in idx_spec:
+        value = idx_spec["expireAfterSeconds"]
+        if isinstance(value, bool) or not isinstance(value, (int, float, bson.Decimal128)):
+            return {
+                "ok": 0.0,
+                "errmsg": (
+                    f". Index spec: {rendered} :: caused by :: TTL index "
+                    f"'expireAfterSeconds' option must be numeric, but received a type of "
+                    f"'{_bson_type_of(value)}"
+                ),
+                "code": 67,
+                "codeName": "CannotCreateIndex",
+            }
+    for field in ("unique", "sparse"):
+        if field in idx_spec:
+            value = idx_spec[field]
+            if not isinstance(value, bool) and not (
+                isinstance(value, (int, float, bson.Decimal128))
+            ):
+                from secantus.bsontypes import render_bson as _r
+
+                return {
+                    "ok": 0.0,
+                    "errmsg": (
+                        f"Error in specification {rendered} :: caused by :: "
+                        f"The field '{field} has value {field}: {_r(value)}, "
+                        f"which is not convertible to bool"
+                    ),
+                    "code": 14,
+                    "codeName": "TypeMismatch",
+                }
+    return None
+
+
+_COLLATION_KNOWN_FIELDS = frozenset(
+    {
+        "locale",
+        "caseLevel",
+        "caseFirst",
+        "strength",
+        "numericOrdering",
+        "alternate",
+        "maxVariable",
+        "normalization",
+        "backwards",
+        "version",
+    }
+)
+
+_COLLATION_ENUMS = {
+    "caseFirst": frozenset({"off", "upper", "lower"}),
+    "alternate": frozenset({"non-ignorable", "shifted"}),
+    "maxVariable": frozenset({"punct", "space"}),
+}
+
+
+def _require_collation_spec(spec: Any) -> dict[str, Any] | None:
+    """Validate a ``collation`` argument's CONTENTS, or None if OK.
+
+    The type check (`_require_object_bson_field`) only says it is a document.
+    Everything inside was accepted silently, so a misspelled field or an
+    out-of-range strength produced a query that ran with a DIFFERENT collation
+    than the caller asked for and reported success -- the same shape as the
+    ignored-argument class in `backlog.md` §3.
+
+    Every rule probed against mongod 8.2.11 (2026-08-31), and several are not
+    what symmetry would suggest:
+
+    * an EMPTY ``{}`` is accepted, but any non-empty spec must carry a
+      ``locale``; an explicit ``locale: null`` counts as missing (40414);
+    * ``strength: 0`` is an ENUM error while ``6`` is a RANGE error, with
+      different wording, and ``-1`` is the range error from the other side;
+    * ``strength: 2.5`` is accepted (it truncates) but ``strength: true`` is
+      not (bool is not a number here);
+    * ``caseLevel`` rejects ``1`` -- these are strict bools, not the
+      bool-or-number family;
+    * ``backwards`` uses the ``find``-family bool wording
+      (``Field 'backwards' should be a boolean value``) where its neighbours
+      use the ``BSON field`` form. One spec, two message families.
+
+    NOT validated here, deliberately: whether the ``locale`` NAMES a real ICU
+    locale (mongod answers ``2 Field 'locale' is invalid in: { locale: "xx_YY" }``,
+    sometimes with a "Did you mean" suffix). Enumerating ICU's locales without
+    ICU would mean guessing, and wrongly rejecting a locale mongod accepts is
+    worse than accepting one it rejects. Recorded in `tasks/backlog.md`.
+
+    Applied to ``find`` / ``aggregate`` / ``count`` / ``distinct`` /
+    ``findAndModify`` only. ``update`` and ``delete`` accept ANY spec contents
+    (probed: a missing locale, ``strength: 9`` and a bad enum all run) -- so
+    validating them "for consistency" would reject what mongod accepts.
+    """
+    if not isinstance(spec, Mapping) or not spec:
+        return None
+
+    def _type_err(field: str, value: Any, expected: str) -> dict[str, Any]:
+        return {
+            "ok": 0.0,
+            "errmsg": (
+                f"BSON field 'collation.{field}' is the wrong type "
+                f"'{_bson_type_of(value)}', expected type '{expected}'"
+            ),
+            "code": 14,
+            "codeName": "TypeMismatch",
+        }
+
+    def _enum_err(field: str, value: Any) -> dict[str, Any]:
+        return {
+            "ok": 0.0,
+            "errmsg": (
+                f"Enumeration value '{value}' for field 'collation.{field}' is not a valid value."
+            ),
+            "code": 2,
+            "codeName": "BadValue",
+        }
+
+    unknown = next((k for k in spec if k not in _COLLATION_KNOWN_FIELDS), None)
+    if unknown is not None:
+        return {
+            "ok": 0.0,
+            "errmsg": f"BSON field 'collation.{unknown}' is an unknown field.",
+            "code": 40415,
+            "codeName": "IDLUnknownField",
+        }
+    locale = spec.get("locale")
+    if locale is None:
+        return {
+            "ok": 0.0,
+            "errmsg": "BSON field 'collation.locale' is missing but a required field",
+            "code": 40414,
+            "codeName": "IDLFailedToParse",
+        }
+    if not isinstance(locale, str):
+        return _type_err("locale", locale, "string")
+    if "strength" in spec:
+        strength = spec["strength"]
+        if isinstance(strength, bool) or not isinstance(strength, (int, float, bson.Decimal128)):
+            return {
+                "ok": 0.0,
+                "errmsg": (
+                    f"BSON field 'collation.strength' is the wrong type "
+                    f"'{_bson_type_of(strength)}', expected types "
+                    f"'[double, decimal, long, int]'"
+                ),
+                "code": 14,
+                "codeName": "TypeMismatch",
+            }
+        number = _coerce_command_int(strength) if not isinstance(strength, float) else strength
+        rendered = int(number) if float(number) == int(number) else number
+        if number < 0:
+            return {
+                "ok": 0.0,
+                "errmsg": f"BSON field 'strength' value must be >= 0, actual value '{rendered}'",
+                "code": 2,
+                "codeName": "BadValue",
+            }
+        if number > 5:
+            return {
+                "ok": 0.0,
+                "errmsg": f"BSON field 'strength' value must be <= 5, actual value '{rendered}'",
+                "code": 2,
+                "codeName": "BadValue",
+            }
+        if int(number) == 0:
+            return _enum_err("strength", rendered)
+    for field in ("caseLevel", "normalization", "numericOrdering"):
+        if field in spec and not isinstance(spec[field], bool):
+            return _type_err(field, spec[field], "bool")
+    if "backwards" in spec and not isinstance(spec["backwards"], bool):
+        # mongod's OTHER boolean wording, on this field only.
+        return {
+            "ok": 0.0,
+            "errmsg": (
+                f"Field 'backwards' should be a boolean value, but found: "
+                f"{_bson_type_of(spec['backwards'])}"
+            ),
+            "code": 14,
+            "codeName": "TypeMismatch",
+        }
+    for field, allowed in _COLLATION_ENUMS.items():
+        if field not in spec:
+            continue
+        value = spec[field]
+        if not isinstance(value, str):
+            return _type_err(field, value, "string")
+        if value not in allowed:
+            return _enum_err(field, value)
+    return None
+
+
+def _require_hint_type(container: Mapping[str, Any], key: str = "hint") -> dict[str, Any] | None:
+    """mongod's wrong-typed-``hint`` reply, or None if OK / absent.
+
+    Probed 8.2.11 on find / count / aggregate / update / delete: every
+    non-string, non-object hint answers ``9 FailedToParse`` with this text, and
+    it is a COMMAND-level error (an ``OperationFailure`` with no
+    ``writeErrors``) even on the batch commands, because mongod parses the
+    statements before running any of them.
+
+    ``findAndModify`` already had this check inline. The others reached
+    `Storage.validate_hint`, whose ``BadHint`` surfaced as ``2 invalid hint
+    type: int`` -- our own wording under mongod's generic BadValue code.
+
+    Distinct from `_unresolvable_hint_error`, which is about a hint of the
+    RIGHT type naming an index that does not exist; that stays a per-statement
+    writeError with code 2.
+    """
+    if key not in container:
+        return None
+    hint = container[key]
+    # An explicit `hint: null` is REJECTED, where an absent hint is fine --
+    # re-probed 8.2.11 on find / count / aggregate / delete / findAndModify,
+    # all five answer 9. Taking the value alone could not tell the two apart,
+    # which is why this takes the container.
+    if isinstance(hint, (str, Mapping)):
+        return None
+    return {
+        "ok": 0.0,
+        "errmsg": "Hint must be a string or an object",
+        "code": 9,
+        "codeName": "FailedToParse",
+    }
+
+
+def _unresolvable_hint_error(ctx: CommandContext, coll: str, hint: Any) -> str | None:
+    """The error message for a ``hint`` that names no index, else None.
+
+    ``delete`` and ``update`` take a per-statement ``hint`` and mongod refuses
+    the STATEMENT when it does not resolve -- ``n: 0`` plus a writeError --
+    rather than falling back to a collection scan. Both commands ignored the
+    field outright, so a caller who hinted a typo'd index name had their write
+    APPLIED where MongoDB declines to run it. That is the failure mode worth
+    naming: not a missing error, an operation that should not have happened.
+
+    ``hint: {}`` means "no hint", as on ``find``.
+    """
+    from secantus.storage import BadHint
+
+    if hint is None or (isinstance(hint, Mapping) and not hint):
+        return None
+    if not isinstance(hint, (str, Mapping)):
+        return "Hint must be a string or an object"
+    try:
+        ctx.storage.validate_hint(ctx.db_name, coll, hint)
+    except BadHint as exc:
+        return str(exc)
+    return None
+
+
+def _require_non_negative_number(value: Any, bare_name: str) -> dict[str, Any] | None:
+    """mongod's ``BadValue`` for a negative cursor-sizing value, else None.
+
+    ``batchSize`` / ``limit`` / ``skip`` are all "must be >= 0" on ``find``,
+    ``getMore`` and ``aggregate``'s cursor spec (probed 8.2.1). Every one of
+    them was accepted here: a negative ``batchSize`` fell through Python's
+    ``or DEFAULT`` and silently became the default, and a negative ``limit``
+    returned the whole collection.
+
+    6.0 answered ``51024 Location51024`` here; 8.x answers ``2 BadValue`` with
+    the same message.
+
+    Unlike the type error above, the message uses the BARE field name --
+    ``BSON field 'batchSize'``, not the IDL path -- on all three commands.
+    Call AFTER the type check: a string is a TypeMismatch, not this.
+    """
+    if value is None or isinstance(value, bool):
+        return None
+    if not isinstance(value, (int, float, bson.Decimal128)):
+        return None
+    number = _coerce_command_int(value) if not isinstance(value, float) else value
+    if number >= 0:
+        return None
+    # mongod prints the value as given (``-1``), not the coerced form.
+    rendered = int(value.to_decimal()) if isinstance(value, bson.Decimal128) else value
+    if isinstance(rendered, float) and rendered == int(rendered):
+        rendered = int(rendered)
+    return {
+        "ok": 0.0,
+        "errmsg": f"BSON field '{bare_name}' value must be >= 0, actual value '{rendered}'",
+        "code": 2,
+        "codeName": "BadValue",
+    }
+
+
+def _require_count_limit(doc: Mapping[str, Any]) -> dict[str, Any] | None:
+    """``count.limit``'s own parse errors, or None if OK / absent.
+
+    ``limit`` does **not** take the IDL path ``skip`` does, so the two slots
+    cannot share a validator. Probed 8.2.11, all five wordings are mongod's:
+
+        {}, "x", [1], null, true   2  limit value is not a valid number
+        2.7                        9  Expected an integer: limit: 2.7
+        Decimal128("2.5")          9  Cannot represent as a 64-bit integer: limit: 2.5
+        -3                         accepted -- a negative limit means its
+                                   ABSOLUTE value (-3 over five docs counts 3)
+        Decimal128("2"), 2.0       accepted
+
+    ``skip`` answers ``14`` with the IDL expected-types list for those same
+    wrong types and REJECTS a negative (``2 BSON field 'skip' value must be
+    >= 0``). The asymmetry is mongod's; do not "tidy" it into one call.
+    """
+    if "limit" not in doc:
+        return None
+    value = doc["limit"]
+    if isinstance(value, bool) or not isinstance(value, (int, float, bson.Decimal128)):
+        return {
+            "ok": 0.0,
+            "errmsg": "limit value is not a valid number",
+            "code": 2,
+            "codeName": "BadValue",
+        }
+    if isinstance(value, float) and value != int(value):
+        return {
+            "ok": 0.0,
+            "errmsg": f"Expected an integer: limit: {value}",
+            "code": 9,
+            "codeName": "FailedToParse",
+        }
+    if isinstance(value, bson.Decimal128):
+        as_decimal = value.to_decimal()
+        if as_decimal != int(as_decimal):
+            return {
+                "ok": 0.0,
+                "errmsg": f"Cannot represent as a 64-bit integer: limit: {value}",
+                "code": 9,
+                "codeName": "FailedToParse",
+            }
+    return None
+
+
+def _count_window(n: int, doc: Mapping[str, Any]) -> int:
+    """Apply ``count``'s ``skip`` / ``limit`` to a match count.
+
+    Call only after `_require_count_limit` and the ``skip`` type check: this
+    coerces without guarding, and a wrong-typed value would raise here (which
+    is exactly how this slot used to answer ``internal server error``).
+
+    ``abs`` is mongod's: a negative limit means "at most this many", so
+    ``limit: -3`` counts 3. We used to ignore a negative limit entirely.
+    """
+    skip_value = doc.get("skip")
+    if skip_value is not None:
+        skip = _coerce_command_int(skip_value)
+        if skip > 0:
+            n = max(n - skip, 0)
+    limit_value = doc.get("limit")
+    if limit_value is not None:
+        limit = abs(_coerce_command_int(limit_value))
+        if limit > 0:
+            n = min(n, limit)
+    return n
+
+
+def _require_typed_bson_field(
+    value: Any, field_path: str, *, expected: str, ok: Callable[[Any], bool]
+) -> dict[str, Any] | None:
+    """mongod's singular ``expected type '<x>'`` form for one slot."""
+    if value is None or ok(value):
+        return None
+    return {
+        "ok": 0.0,
+        "errmsg": (
+            f"BSON field '{field_path}' is the wrong type "
+            f"'{_bson_type_of(value)}', expected type '{expected}'"
+        ),
+        "code": 14,
+        "codeName": "TypeMismatch",
+    }
+
+
+def _require_object_expected_field(
+    doc: Mapping[str, Any], field_name: str
+) -> dict[str, Any] | None:
+    """mongod's ``find``-family wording, or None if OK.
+
+    Note the missing space in ``filterto``: that is mongod's own message, not a
+    typo here, and fidelity means reproducing it.
+
+    Takes the command document rather than the value because this family
+    distinguishes ABSENT from an explicit ``null``: mongod accepts
+    ``{find: "c"}`` and rejects ``{find: "c", filter: null}`` (probed 6.0.16).
+    A ``doc.get(...)`` cannot tell those apart, so passing the value alone made
+    us accept the null form.
+    """
+    if field_name not in doc:
+        return None
+    if isinstance(doc[field_name], Mapping):
+        return None
+    return {
+        "ok": 0.0,
+        "errmsg": f"Expected field {field_name}to be of type object",
+        "code": 14,
+        "codeName": "TypeMismatch",
+    }
+
+
+# The per-field IDL type set, verbatim from mongod 8.2.1. The ORDER is mongod's
+# and differs per field (``findAndModify.remove`` and ``getMore.batchSize`` do
+# not agree), so each constant is probed, not derived.
+#
+# 6.0.16 also put the closing quote INSIDE the bracket here
+# (``'[bool, long, int, decimal, double']``); 8.x quotes it properly. If you are
+# reading this against a 6.0 server, that is why it does not match.
+_BOOL_OR_NUMBER_TYPES_MSG = "'[int, decimal, long, bool, double]'"
+
+
+def _require_bool_value_field(doc: Mapping[str, Any], field_name: str) -> dict[str, Any] | None:
+    """mongod's ``find``-IDL boolean wording, or None if OK.
+
+    A third message family for the same class: ``find.singleBatch`` answers
+    ``Field 'singleBatch' should be a boolean value, but found: int`` where
+    ``update.updates.multi`` answers the ``BSON field`` form and
+    ``findAndModify.upsert`` accepts numbers outright. Per-slot, probed.
+
+    An explicit ``null`` is rejected here (``found: null``), unlike the
+    ``BSON field`` slots which accept it.
+    """
+    if field_name not in doc:
+        return None
+    value = doc[field_name]
+    if isinstance(value, bool):
+        return None
+    return {
+        "ok": 0.0,
+        "errmsg": (
+            f"Field '{field_name}' should be a boolean value, but found: {_bson_type_of(value)}"
+        ),
+        "code": 14,
+        "codeName": "TypeMismatch",
+    }
+
+
+def _require_bool_or_number_bson_field(value: Any, field_path: str) -> dict[str, Any] | None:
+    """``findAndModify.upsert``: a bool OR any number, or None if OK / absent.
+
+    mongod really does accept ``upsert: 1`` / ``0`` / ``1.5`` here (probed
+    6.0.16) while the neighbouring ``update.updates.multi`` takes a strict
+    ``bool`` and rejects ``multi: 1``. Two adjacent boolean-looking slots, two
+    different rules -- the reason this class is implemented per-slot.
+    """
+    if value is None or isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float, bson.Decimal128)):
+        return None
+    return {
+        "ok": 0.0,
+        "errmsg": (
+            f"BSON field '{field_path}' is the wrong type "
+            f"'{_bson_type_of(value)}', expected types {_BOOL_OR_NUMBER_TYPES_MSG}"
+        ),
+        "code": 14,
+        "codeName": "TypeMismatch",
+    }
+
+
+# Top-level fields the ``findAndModify`` command accepts. Anything else is
+# rejected with ``Location40415`` (40415, IDLUnknownField) -- probed 6.0.16,
+# which answers ``BSON field 'findAndModify.zz' is an unknown field.`` (with
+# the trailing period). We accepted anything and ran the write, so a
+# misspelled option -- ``fields`` typed as ``field``, ``new`` as ``returnNew``
+# -- was silently dropped and the caller got a correct-looking reply computed
+# under different options than they asked for.
+#
+# ``$``-prefixed keys are accepted unconditionally, as they are on ``create``:
+# mongod does reject those too, but they are the wire envelope and rejecting
+# them risks breaking a driver over a message nobody reads.
+_FIND_AND_MODIFY_KNOWN_FIELDS = frozenset(
+    {
+        "findAndModify",
+        "findandmodify",
+        # The operation itself.
+        "query",
+        "update",
+        "remove",
+        "new",
+        "upsert",
+        "sort",
+        "fields",
+        "arrayFilters",
+        "collation",
+        "let",
+        "hint",
+        "bypassDocumentValidation",
+        # Generic command options.
+        "writeConcern",
+        "comment",
+        "maxTimeMS",
+        # Wire envelope / session fields.
+        "lsid",
+        "txnNumber",
+        "txnRetryCounter",
+        "autocommit",
+        "startTransaction",
+        "stmtId",
+        "readConcern",
+        "apiVersion",
+        "apiStrict",
+        "apiDeprecationErrors",
+        "sampleId",
+        "encryptionInformation",
+        "mayBypassWriteBlocking",
+        "databaseVersion",
+        "shardVersion",
+        "allowImplicitCollectionCreation",
+    }
+)
+
+
+def _bson_flag(value: Any) -> bool:
+    """Truthiness of a validated bool-or-number flag, mongod's way.
+
+    ``bool(Decimal128("0"))`` is True in Python -- ``Decimal128`` has no
+    ``__bool__``, so every instance is truthy and ``new: Decimal128("0")``
+    would mean the opposite of what it says. Numbers compare against zero;
+    an absent or null flag is False.
+    """
+    if value is None:
+        return False
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, bson.Decimal128):
+        return value.to_decimal() != 0
+    if isinstance(value, (int, float)):
+        return value != 0
+    return bool(value)
+
+
+def _unknown_find_and_modify_field(doc: Mapping[str, Any]) -> dict[str, Any] | None:
+    """``Location40415`` for an unrecognised ``findAndModify`` field, else None."""
+    unknown = next(
+        (k for k in doc if k not in _FIND_AND_MODIFY_KNOWN_FIELDS and not k.startswith("$")),
+        None,
+    )
+    if unknown is None:
+        return None
+    return {
+        "ok": 0.0,
+        "errmsg": f"BSON field 'findAndModify.{unknown}' is an unknown field.",
+        "code": 40415,
+        "codeName": "IDLUnknownField",
+    }
+
+
+def _validate_array_filters_field(
+    doc: Mapping[str, Any], field_name: str, field_path: str
+) -> dict[str, Any] | None:
+    """``arrayFilters`` must be an array of documents. Probed 8.2.1::
+
+        {e: 1}   14  BSON field '<path>' is the wrong type 'object', expected type 'array'
+        "x"      14  BSON field '<path>' is the wrong type 'string', expected type 'array'
+        [5]      14  BSON field '<path>.0' is the wrong type 'int', expected type 'object'
+        null     accepted -- an explicit null means ABSENT, and the update runs
+
+    On 6.0 an explicit ``null`` took an older code path and answered
+    ``10065 invalid parameter: expected an object (arrayFilters)``. 8.x treats
+    it as if the field had not been sent.
+
+    We reported a *non-existent field path* here (``update.updates.arrayFilters.0``)
+    naming the wrong type, on a command that has no ``updates`` array at all.
+    """
+    if field_name not in doc:
+        return None
+    value = doc[field_name]
+    if value is None:
+        # 8.x: an explicit null is the same as not sending the field.
+        return None
+    if isinstance(value, list):
+        for i, entry in enumerate(value):
+            if not isinstance(entry, Mapping):
+                return {
+                    "ok": 0.0,
+                    "errmsg": (
+                        f"BSON field '{field_path}.{i}' is the wrong type "
+                        f"'{_bson_type_of(entry)}', expected type 'object'"
+                    ),
+                    "code": 14,
+                    "codeName": "TypeMismatch",
+                }
+        return None
+    return {
+        "ok": 0.0,
+        "errmsg": (
+            f"BSON field '{field_path}' is the wrong type "
+            f"'{_bson_type_of(value)}', expected type 'array'"
+        ),
+        "code": 14,
+        "codeName": "TypeMismatch",
+    }
+
+
+# mongod names the IDL *struct* in a maxTimeMS type error. Probed across 24
+# commands on 8.2.1: for every one of them that struct is simply the command
+# name -- with exactly one exception, which is why this is a lookup table and
+# not an f-string.
+_MAX_TIME_MS_STRUCTS = {"find": "FindCommandRequest"}
+
+# mongod's own ceiling for the slot, reported verbatim in the range message.
+_MAX_TIME_MS_LIMIT = 2**31 - 1
+
+# Beyond this a double cannot round-trip through a 64-bit integer, which mongod
+# reports differently from a merely fractional value.
+_INT64_MAX = 2**63 - 1
+_INT64_MIN = -(2**63)
+
+
+def _max_time_ms_not_integral(value: Any) -> dict[str, Any] | None:
+    """The ``9 FailedToParse`` half of the maxTimeMS contract, or None if OK.
+
+    Four distinct messages, and which one you get depends on the BSON type as
+    well as the value -- a fractional ``double`` and a fractional ``Decimal128``
+    do NOT share wording::
+
+        double 1.5      Expected an integer: maxTimeMS: 1.5
+        double nan      Expected an integer, but found NaN in: maxTimeMS: nan
+        double 1e100    Cannot represent as a 64-bit integer: maxTimeMS: 1e+100
+        double -inf     Cannot represent as a 64-bit integer: maxTimeMS: -inf
+        decimal 1.5     Cannot represent as a 64-bit integer: maxTimeMS: 1.5
+        decimal NaN     Cannot represent as a 64-bit integer: maxTimeMS: NaN
+
+    Python's ``repr`` of a float already matches mongod's rendering for every
+    case probed (``1.5``, ``-0.5``, ``3.25``, ``1e+100``, ``inf``, ``nan``), and
+    ``str`` of a ``Decimal128`` preserves the literal the client sent
+    (``1E+40``, ``Infinity``), which is what mongod echoes.
+    """
+    if isinstance(value, bson.Decimal128):
+        dec = value.to_decimal()
+        if dec.is_nan() or dec.is_infinite() or dec != dec.to_integral_value():
+            return _failed_to_parse(f"Cannot represent as a 64-bit integer: maxTimeMS: {value}")
+        if not _INT64_MIN <= int(dec) <= _INT64_MAX:
+            return _failed_to_parse(f"Cannot represent as a 64-bit integer: maxTimeMS: {value}")
+        return None
+    if isinstance(value, float):
+        if value != value:
+            return _failed_to_parse(f"Expected an integer, but found NaN in: maxTimeMS: {value!r}")
+        if value in (float("inf"), float("-inf")) or not _INT64_MIN <= value <= _INT64_MAX:
+            return _failed_to_parse(f"Cannot represent as a 64-bit integer: maxTimeMS: {value!r}")
+        if value != int(value):
+            return _failed_to_parse(f"Expected an integer: maxTimeMS: {value!r}")
+    return None
+
+
+def _require_max_time_ms(doc: Mapping[str, Any], command: str) -> dict[str, Any] | None:
+    """``maxTimeMS`` on any command, as mongod 8.2.1 validates it.
+
+    Three checks in a fixed order, each with its own code. **The order is
+    load-bearing**: ``-1.5`` is both non-integral and negative, and mongod
+    answers the integral error (9), not the range one (2)::
+
+        "x" / {} / [1] / true   14  BSON field '<struct>.maxTimeMS' is the wrong
+                                    type '<t>', expected types '[decimal, int, double, long]'
+        1.5 / -1.5 / -0.5       9   (see _max_time_ms_not_integral)
+        -1                      2   BSON field 'maxTimeMS' value must be >= 0, actual value '-1'
+        2**31                   2   BSON field 'maxTimeMS' value must be
+                                    <= 2147483647, actual value '2147483648'
+        null / 0 / 2147483647   accepted
+
+    Note the range message carries NO struct prefix where the type message does.
+    That asymmetry is mongod's, not an oversight here.
+
+    This replaces a 6.0-era version whose own docstring called the slot "code 2
+    rather than 14 -- the only slot in this sweep that is not a TypeMismatch".
+    8.x honours none of that: all four of its behaviours changed, an explicit
+    ``null`` is now ACCEPTED (it means absent), and the old version was called
+    from ``find`` alone -- so ``aggregate``, ``count`` and 21 other commands
+    took a wrong-typed value **silently**, which is why this now runs in
+    ``dispatch`` for every command.
+
+    The expected-type list is the same SET on all 24 commands probed, but
+    mongod renders it in 12 different orders across them -- and reorders it
+    between patch builds (see CLAUDE.md). Only the set is meaningful; we emit
+    one fixed order via ``_NUMERIC_TYPES_MSG``.
+    """
+    if "maxTimeMS" not in doc:
+        return None
+    value = doc["maxTimeMS"]
+    if value is None:
+        # 8.x treats an explicit null as the field being absent. 6.0 rejected
+        # it, which is what we used to do.
+        return None
+    if isinstance(value, bool) or not isinstance(value, (int, float, bson.Decimal128)):
+        struct = _MAX_TIME_MS_STRUCTS.get(command, command)
+        return {
+            "ok": 0.0,
+            "errmsg": (
+                f"BSON field '{struct}.maxTimeMS' is the wrong type "
+                f"'{_bson_type_of(value)}', expected types {_NUMERIC_TYPES_MSG}"
+            ),
+            "code": 14,
+            "codeName": "TypeMismatch",
+        }
+    _err = _max_time_ms_not_integral(value)
+    if _err is not None:
+        return _err
+    number = int(value.to_decimal()) if isinstance(value, bson.Decimal128) else int(value)
+    if number < 0:
+        return _bad_value(f"BSON field 'maxTimeMS' value must be >= 0, actual value '{number}'")
+    if number > _MAX_TIME_MS_LIMIT:
+        return _bad_value(
+            f"BSON field 'maxTimeMS' value must be <= {_MAX_TIME_MS_LIMIT}, actual value '{number}'"
+        )
+    return None
+
+
+#: ``getMore`` reads ``maxTimeMS`` as the awaitData WAIT budget, not as a
+#: deadline on the work -- a tailable cursor is supposed to sit there for the
+#: whole of it. Arming a deadline would make every awaitData poll answer
+#: ``MaxTimeMSExpired`` the moment it waited out its budget, which is the normal
+#: case rather than an error. ``_get_more`` handles the value itself.
+_MAX_TIME_MS_NOT_A_DEADLINE = frozenset({"getMore"})
+
+
+def _max_time_ms_budget(doc: Mapping[str, Any], command: str) -> int:
+    """The armed ``maxTimeMS`` budget in whole milliseconds, or 0 for none.
+
+    Reads the already-VALIDATED field (``_require_max_time_ms`` ran first in
+    ``dispatch``), so anything unparseable here means the validator let it
+    through and the right answer is "no limit" rather than an exception from
+    the timing layer.
+    """
+    if command in _MAX_TIME_MS_NOT_A_DEADLINE:
+        return 0
+    value = doc.get("maxTimeMS")
+    if value is None or isinstance(value, bool):
+        return 0
+    try:
+        if isinstance(value, bson.Decimal128):
+            return max(0, int(value.to_decimal()))
+        return max(0, int(value))
+    except (TypeError, ValueError, ArithmeticError):
+        return 0
+
+
+def _max_time_forced_to_expire(
+    command: str, doc: Mapping[str, Any], budget_ms: int, ctx: CommandContext
+) -> bool:
+    """Whether the ``maxTimeAlwaysTimeOut`` failpoint expires this operation.
+
+    mongod's failpoint makes every operation that HAS a time limit time out at
+    its first interrupt check, whatever the budget; one without a limit runs
+    normally. The limit is the command's own ``maxTimeMS`` -- or, for a
+    ``getMore``, the one its cursor inherited from the originating ``find`` /
+    ``aggregate``, since mongod bounds a non-tailable cursor's getMores by it.
+    (A getMore's own ``maxTimeMS`` is the awaitData wait, not a limit.)
+    """
+    fp = ctx.failpoints
+    if fp is None or not fp.max_time_always_times_out_armed():
+        return False
+    if budget_ms:
+        return fp.consume_max_time_always_timeout()
+    if command == "getMore" and ctx.cursors is not None:
+        cursor_id = doc.get("getMore")
+        if (
+            isinstance(cursor_id, int)
+            and not isinstance(cursor_id, bool)
+            and ctx.cursors.is_time_limited(int(cursor_id))
+        ):
+            return fp.consume_max_time_always_timeout()
+    return False
+
+
+def _mark_time_limited_cursor(result: Mapping[str, Any], ctx: CommandContext) -> None:
+    """Remember that the cursor this reply opened carries a ``maxTimeMS``.
+
+    Only read by ``_max_time_forced_to_expire``: SecantusDB serves a
+    non-tailable cursor's remaining batches from memory, so there is no
+    cumulative budget to enforce on its getMores -- but the failpoint has to
+    know one exists.
+    """
+    cursor = result.get("cursor") if isinstance(result, Mapping) else None
+    if not isinstance(cursor, Mapping):
+        return
+    cursor_id = cursor.get("id")
+    if isinstance(cursor_id, int) and cursor_id and ctx.cursors is not None:
+        ctx.cursors.mark_time_limited(int(cursor_id))
+
+
+def _max_time_expired_reply(
+    exc: _deadline.MaxTimeMSExpired,
+    command: str,
+    ctx: CommandContext,
+    doc: Mapping[str, Any],
+) -> dict[str, Any]:
+    """mongod's reply for an operation that outlived its ``maxTimeMS``.
+
+    Bare ``operation exceeded time limit`` on every command probed against
+    8.2.11 (``find`` / ``count`` / ``distinct`` / ``aggregate`` / ``update`` /
+    ``delete``) -- except ``createIndexes``, which wraps it in the index-build
+    failure envelope naming the collection and its UUID.
+    """
+    message = str(exc)
+    if command == "createIndexes":
+        coll = doc.get(command)
+        ns = _ns(ctx.db_name, coll) if isinstance(coll, str) else ctx.db_name
+        uuid = ""
+        if isinstance(coll, str):
+            try:
+                uuid = str(ctx.storage.collection_uuid(ctx.db_name, coll) or "")
+            except Exception:  # pragma: no cover - a missing collection cannot time out
+                uuid = ""
+        suffix = f" ( {uuid} )" if uuid else ""
+        # mongod leads with the BUILD uuid (a fresh one per attempt, distinct
+        # from the collection's) and then names the collection and its uuid:
+        #   Index build failed: <buildUUID>: Collection <ns> ( <collUUID> )
+        #     :: caused by :: operation exceeded time limit
+        build_uuid = _uuid.uuid4()
+        message = (
+            f"Index build failed: {build_uuid}: Collection {ns}{suffix} :: caused by :: {message}"
+        )
+    return {
+        "ok": 0.0,
+        "errmsg": message,
+        "code": exc.code,
+        "codeName": exc.code_name,
+    }
+
+
+#: Everything mongod accepts inside one ``delete`` / ``update`` statement.
+#: Derived by asking mongod 8.2.11 field by field (2026-09-01), not from docs.
+#: Unlike the COMMAND envelope, a nested statement gets NO ``$``-prefix
+#: carve-out -- mongod rejects ``$db`` here as readily as ``zz``.
+_DELETE_STATEMENT_FIELDS = frozenset({"q", "limit", "collation", "hint", "sampleId"})
+_UPDATE_STATEMENT_FIELDS = frozenset(
+    {
+        "q",
+        "u",
+        "c",
+        "multi",
+        "upsert",
+        "upsertSupplied",
+        "arrayFilters",
+        "collation",
+        "hint",
+        "sort",
+        "sampleId",
+    }
+)
+
+
+def _unknown_statement_field(
+    statement: Any, known: frozenset[str], struct: str
+) -> dict[str, Any] | None:
+    """mongod's ``40415`` for an unknown field in a write statement.
+
+    Command-level, not a per-statement ``writeError``: mongod parses every
+    statement before running any, so one bad field means nothing is written.
+    """
+    if not isinstance(statement, Mapping):
+        return None
+    for field in statement:
+        if field not in known:
+            return {
+                "ok": 0.0,
+                "errmsg": f"BSON field '{struct}.{field}' is an unknown field.",
+                "code": 40415,
+                "codeName": _code_name_for(40415),
+            }
+    return None
+
+
+def _merged_statement_vars(command_let: Any, statement_constants: Any) -> dict[str, Any] | None:
+    """The variables one write STATEMENT can see: command ``let`` plus its own
+    ``c``, with the statement's own winning a collision.
+
+    ``c`` is the per-statement constants map on ``update`` / ``delete``. It was
+    never bound, so a pipeline update naming one was refused with
+    ``Use of undefined variable`` -- mongod applies it (probed 8.2.11).
+    """
+    merged: dict[str, Any] = {}
+    if isinstance(command_let, Mapping):
+        merged.update(command_let)
+    if isinstance(statement_constants, Mapping):
+        merged.update(statement_constants)
+    return merged or None
+
+
+def _failed_to_parse(errmsg: str) -> dict[str, Any]:
+    return {"ok": 0.0, "errmsg": errmsg, "code": 9, "codeName": "FailedToParse"}
+
+
+def _bad_value(errmsg: str) -> dict[str, Any]:
+    return {"ok": 0.0, "errmsg": errmsg, "code": 2, "codeName": "BadValue"}
+
+
 def _find_and_modify(doc: dict[str, Any], ctx: CommandContext) -> dict[str, Any]:
-    from secantus.storage import DocumentValidationError, GeoExtractError, IndexConflict
+    """``findAndModify``, with the update errors shaped the way mongod shapes them.
+
+    Update failures used to escape to ``dispatch``'s generic handler, which
+    reported every one of them as ``14 TypeMismatch`` -- so a client saw
+    TypeMismatch for an unknown modifier (mongod: 9) and for a ``_id`` change
+    (mongod: 66), and the driver-canonical handling keyed on those codes never
+    fired. The ``update`` command has had this mapping for a while; this is the
+    same rule, plus the execution-error wrapper that ``findAndModify`` puts in
+    front of its message. On 6.0 findAndModify was alone in doing that; on 8.x
+    the ``update`` command wraps its execution errors too.
+    """
+    try:
+        return _find_and_modify_impl(doc, ctx)
+    except UpdateError as exc:
+        msg = str(exc)
+        code = exc.code if exc.code is not None else (66 if "immutable field" in msg else 9)
+        if exc.exec_error:
+            msg = f"Plan executor error during findAndModify :: caused by :: {msg}"
+        return {"ok": 0.0, "errmsg": msg, "code": code, "codeName": _code_name_for(code)}
+
+
+def _find_and_modify_impl(doc: dict[str, Any], ctx: CommandContext) -> dict[str, Any]:
+    from secantus.storage import BadHint, DocumentValidationError, GeoExtractError, IndexConflict
 
     wc_err = _validate_write_concern(doc)
     if wc_err is not None:
         return wc_err
+    # An undefined `$$variable` is a PARSE error (17276). A PIPELINE-form
+    # `update` carries mongod's `Invalid $<stage> :: caused by ::` wrapper; the
+    # query filter never does. We reported the bare message for both.
+    _uv_bound = frozenset(_l) if isinstance(_l := doc.get("let"), Mapping) else frozenset()
+    _uv = expression_problem_in_filter(doc.get("query"), _uv_bound)
+    _uv = (_uv[0], _uv[1], "") if _uv else None
+    _uv_in_update = ""
+    if _uv is None and isinstance(doc.get("update"), list):
+        _uv = expression_problem_in_pipeline(
+            doc.get("update"), _uv_bound, _l if isinstance(_l, Mapping) else None
+        )
+        # A fold failure in a pipeline UPDATE takes the executor prefix, not
+        # `aggregate`'s optimize one (probed 8.2.11).
+        _uv_in_update = "findAndModify" if _uv is not None else ""
+    if _uv is not None:
+        return {
+            "ok": 0.0,
+            "errmsg": wrap_expression_problem(_uv[1], _uv[2], in_update=_uv_in_update),
+            "code": _uv[0],
+            "codeName": _code_name_for(_uv[0]),
+        }
+    _err = _unknown_find_and_modify_field(doc)
+    if _err is not None:
+        return _err
+    # ``new`` and ``remove`` take the same bool-or-number rule as ``upsert``
+    # (probed 6.0.16: ``new: 1`` / ``1.5`` / ``null`` accepted, ``new: "yes"``
+    # / ``[1]`` / ``{}`` rejected). ``new`` was not checked at all, so a
+    # string went through Python's truthiness and ``new: "no"`` returned the
+    # POST-image -- the opposite of what the word says, with no error.
+    for _bool_field in ("upsert", "new", "remove"):
+        _err = _require_bool_or_number_bson_field(
+            doc.get(_bool_field), f"findAndModify.{_bool_field}"
+        )
+        if _err is not None:
+            return _err
+    _err = _require_object_bson_field(doc.get("let"), "findAndModify.let")
+    if _err is not None:
+        return _err
+    _err = _validate_array_filters_field(doc, "arrayFilters", "findAndModify.arrayFilters")
+    if _err is not None:
+        return _err
+    # ``hint`` was accepted and then dropped on the floor, so a caller who
+    # hinted an index that does not exist got a silent collection scan and an
+    # ``ok: 1`` reply. mongod rejects it (BadValue), and honours it when it
+    # resolves. ``$natural`` is NOT a valid findAndModify hint -- re-probed
+    # 8.2.11, where it is still rejected (unlike ``find``). Note the WORDING
+    # moved: 6.0.16 said "does not correspond to an existing index", 8.2.11
+    # returns a planner error, so assert the rejection rather than the text.
+    _err = _require_hint_type(doc)
+    if _err is not None:
+        return _err
+    hint = doc.get("hint")
+    _err = _require_bool_or_number_bson_field(
+        doc.get("bypassDocumentValidation"), "findAndModify.bypassDocumentValidation"
+    )
+    if _err is not None:
+        return _err
+    if isinstance(hint, Mapping) and not hint:
+        hint = None  # ``hint: {}`` means "no hint", as it does on find
+    if hint == "$natural" or (isinstance(hint, Mapping) and list(hint) == ["$natural"]):
+        return _bad_value("hint provided does not correspond to an existing index")
     coll = doc["findAndModify"]
     oplog_err = _reject_oplog_rs_write(ctx, coll, "findAndModify")
     if oplog_err is not None:
@@ -2896,9 +5045,13 @@ def _find_and_modify(doc: dict[str, Any], ctx: CommandContext) -> dict[str, Any]
     query = doc.get("query") or {}
     sort = doc.get("sort") or None
     fields = doc.get("fields") or None
-    return_new = bool(doc.get("new", False))
-    upsert = bool(doc.get("upsert", False))
-    is_remove = bool(doc.get("remove", False))
+    for _fld in ("query", "sort", "fields"):
+        _err = _require_object_bson_field(doc.get(_fld), f"findAndModify.{_fld}")
+        if _err is not None:
+            return _err
+    return_new = _bson_flag(doc.get("new"))
+    upsert = _bson_flag(doc.get("upsert"))
+    is_remove = _bson_flag(doc.get("remove"))
     update = doc.get("update")
     # ``let`` user-vars threaded into the filter / update predicate.
     let = _resolve_let_vars(doc.get("let"))
@@ -2906,15 +5059,57 @@ def _find_and_modify(doc: dict[str, Any], ctx: CommandContext) -> dict[str, Any]
     # the update's ``$[<id>]`` positional refs resolve against. Used
     # by mongo-java-driver's ``findOneAndUpdate-arrayFilters``
     # tests — without plumbing through, the update raises
-    # ``UpdateError: arrayFilters has no entry for identifier 'i'``
+    # ``No array filter found for identifier 'i' in path '…'``
     # before reaching the actual array element.
     array_filters = doc.get("arrayFilters")
     collation = doc.get("collation")
+    _err = _require_object_bson_field(collation, "findAndModify.collation")
+    if _err is not None:
+        return _err
+    _err = _require_collation_spec(collation)
+    if _err is not None:
+        return _err
 
     if is_remove and update is not None:
         return {
             "ok": 0.0,
-            "errmsg": "Cannot specify both update and remove=true",
+            # Re-probed on 8.2.11 (2026-08-30), the version we now advertise
+            # and target: it uses this exact wording, same as 6.0.16. Only
+            # 8.3.4 differs, quoting the field names ("both an 'update' and
+            # 'remove'=true"). The comment here used to justify the choice by
+            # "we advertise 7.0" and "the gate runs PATH mongod" -- both
+            # premises are now false, though the shipped string is still right.
+            "errmsg": "Cannot specify both an update and remove=true",
+            "code": 9,
+            "codeName": "FailedToParse",
+        }
+    if is_remove and return_new:
+        # mongod rejects this rather than ignoring `new` -- a remove has no
+        # "after" document to return. We used to accept it and remove anyway.
+        return {
+            "ok": 0.0,
+            "errmsg": (
+                "Cannot specify both new=true and remove=true; "
+                "'remove' always returns the deleted document"
+            ),
+            "code": 9,
+            "codeName": "FailedToParse",
+        }
+    if is_remove and upsert:
+        # Likewise: upserting and removing in one command is contradictory.
+        return {
+            "ok": 0.0,
+            "errmsg": "Cannot specify both upsert=true and remove=true ",
+            "code": 9,
+            "codeName": "FailedToParse",
+        }
+    if update is not None and not isinstance(update, (Mapping, list)):
+        # A non-document, non-array `update` reached `apply_update`, which did
+        # `update.keys()` and raised AttributeError -- surfacing as a bare
+        # "internal server error" (code 1). mongod parses the argument first.
+        return {
+            "ok": 0.0,
+            "errmsg": "Update argument must be either an object or an array",
             "code": 9,
             "codeName": "FailedToParse",
         }
@@ -2935,9 +5130,22 @@ def _find_and_modify(doc: dict[str, Any], ctx: CommandContext) -> dict[str, Any]
     # (``return_post_images``), never from a re-``find`` a concurrent writer
     # could land in front of.
     while True:
-        candidates = ctx.storage.find_matching(
-            ctx.db_name, coll, query, sort=sort, limit=1, let=let, collation=collation
-        )
+        try:
+            candidates = ctx.storage.find_matching(
+                ctx.db_name,
+                coll,
+                query,
+                sort=sort,
+                limit=1,
+                hint=hint,
+                let=let,
+                collation=collation,
+            )
+        except BadHint as exc:
+            # Same shape ``find`` and ``count`` already return for a hint that
+            # names no index. (mongod prefixes this with a dump of the parsed
+            # plan; we emit the causal sentence only -- see tasks/backlog.md.)
+            return {"ok": 0.0, "errmsg": str(exc), "code": 2, "codeName": "BadValue"}
 
         if not candidates:
             if upsert and not is_remove:
@@ -3015,8 +5223,11 @@ def _find_and_modify(doc: dict[str, Any], ctx: CommandContext) -> dict[str, Any]
                     "value": value,
                     "ok": 1.0,
                 }
+            # A remove that matched nothing reports only `n`; an update that
+            # matched nothing also reports `updatedExisting: false`. Probed
+            # identical on mongod 6.0.16 and 8.3.4.
             return {
-                "lastErrorObject": {"n": 0, "updatedExisting": False},
+                "lastErrorObject": ({"n": 0} if is_remove else {"n": 0, "updatedExisting": False}),
                 "value": None,
                 "ok": 1.0,
             }
@@ -3048,7 +5259,11 @@ def _find_and_modify(doc: dict[str, Any], ctx: CommandContext) -> dict[str, Any]
             if fields:
                 value = apply_projection(value, fields)
             return {
-                "lastErrorObject": {"n": 1, "updatedExisting": True},
+                # A remove's lastErrorObject carries only `n`. `updatedExisting`
+                # describes an UPDATE and mongod omits it here -- probed
+                # identical on 6.0.16 and 8.3.4. We emitted it, so a driver
+                # reading the field saw an update-shaped reply for a delete.
+                "lastErrorObject": {"n": 1},
                 "value": value,
                 "ok": 1.0,
             }
@@ -3182,7 +5397,32 @@ def _rename_collection(doc: dict[str, Any], ctx: CommandContext) -> dict[str, An
         return wc_err
     src_ns = doc.get("renameCollection")
     dst_ns = doc.get("to")
+    # ``'[binData, bool]'`` is mongod's list verbatim (8.2.11) -- binData is
+    # there because the IDL type is `safeBool`. Reproduced, not tidied.
+    if "to" in doc and doc["to"] is None:
+        return {
+            "ok": 0.0,
+            "errmsg": "BSON field 'renameCollection.to' is missing but a required field",
+            "code": 40414,
+            "codeName": "IDLFailedToParse",
+        }
+    _drop_target = doc.get("dropTarget")
+    if "dropTarget" in doc and not isinstance(_drop_target, (bool, bson.Binary, bytes)):
+        return {
+            "ok": 0.0,
+            "errmsg": (
+                f"BSON field 'renameCollection.dropTarget' is the wrong type "
+                f"'{_bson_type_of(_drop_target)}', expected types '[binData, bool]'"
+            ),
+            "code": 14,
+            "codeName": "TypeMismatch",
+        }
     drop_target = bool(doc.get("dropTarget", False))
+    _err = _require_typed_bson_field(
+        dst_ns, "renameCollection.to", expected="string", ok=lambda v: isinstance(v, str)
+    )
+    if _err is not None:
+        return _err
     if not isinstance(src_ns, str) or not isinstance(dst_ns, str):
         return {
             "ok": 0.0,
@@ -3217,6 +5457,15 @@ def _create(doc: dict[str, Any], ctx: CommandContext) -> dict[str, Any]:
     wc_err = _validate_write_concern(doc)
     if wc_err is not None:
         return wc_err
+    _err = _require_object_bson_field(doc.get("storageEngine"), "create.storageEngine")
+    if _err is not None:
+        return _err
+    _err = _require_object_bson_field(doc.get("validator"), "create.validator")
+    if _err is not None:
+        return _err
+    _err = _require_object_bson_field(doc.get("timeseries"), "create.timeseries")
+    if _err is not None:
+        return _err
     # Reject unknown top-level options on ``create``. Real mongod
     # surfaces unknown fields as ``Location40415`` (40415, IDLUnknownField).
     # mongo-ruby-driver's ``Collection#create ... a failed operation
@@ -3233,34 +5482,66 @@ def _create(doc: dict[str, Any], ctx: CommandContext) -> dict[str, Any]:
             "ok": 0.0,
             "errmsg": f"BSON field 'create.{unknown}' is an unknown field",
             "code": 40415,
-            "codeName": "Location40415",
+            "codeName": "IDLUnknownField",
         }
     coll = doc["create"]
     oplog_err = _reject_oplog_rs_write(ctx, coll, "create")
     if oplog_err is not None:
         return oplog_err
-    capped = bool(doc.get("capped", False))
+    # Types before semantics: mongod parses the command, THEN validates the
+    # capped-collection rules, so a `size: "x"` is a TypeMismatch and never
+    # reaches the "required when capped is true" arm. All four rules below were
+    # re-probed on 8.2.11 (2026-08-31) and each contradicted what we did:
+    #
+    #   size / max wrong type      14, not our 72 with a semantic message
+    #   size or max without capped 72 "the 'capped' field needs to be true ..."
+    #                              -- we ACCEPTED this outright
+    #   capped: true, no size      72 "the 'size' field is required when
+    #                              'capped' is true" -- WITHOUT our trailing
+    #                              "and must be a positive number"
+    #   size < 1                   2 "BSON field 'size' value must be >= 1,
+    #                              actual value '<v>'" -- a bare name, floor 1
+    #   max                        has NO bounds at all: 0, -1 and 2.5 are all
+    #                              accepted, where we rejected anything <= 0
+    #
+    # `capped` takes a number as well as a bool (`capped: 1` is accepted).
+    _err = _require_bool_or_number_bson_field(doc.get("capped"), "create.capped")
+    if _err is not None:
+        return _err
+    _err = _require_number_bson_field(doc.get("size"), "create.size")
+    if _err is not None:
+        return _err
+    _err = _require_number_bson_field(doc.get("max"), "create.max")
+    if _err is not None:
+        return _err
+    capped = bool(doc.get("capped") or False)
+    if (doc.get("size") is not None or doc.get("max") is not None) and not capped:
+        return {
+            "ok": 0.0,
+            "errmsg": (
+                "the 'capped' field needs to be true when either the 'size' "
+                "or 'max' fields are present"
+            ),
+            "code": 72,
+            "codeName": "InvalidOptions",
+        }
     if capped:
         size = doc.get("size")
-        if not isinstance(size, (int, float)) or isinstance(size, bool) or size <= 0:
+        if size is None:
             return {
                 "ok": 0.0,
-                "errmsg": (
-                    "the 'size' field is required when 'capped' is true "
-                    "and must be a positive number"
-                ),
+                "errmsg": "the 'size' field is required when 'capped' is true",
                 "code": 72,
                 "codeName": "InvalidOptions",
             }
-        max_docs = doc.get("max")
-        if max_docs is not None and (
-            not isinstance(max_docs, (int, float)) or isinstance(max_docs, bool) or max_docs <= 0
-        ):
+        size_number = _coerce_command_int(size) if not isinstance(size, float) else size
+        if size_number < 1:
+            rendered = int(size) if float(size) == int(size) else size
             return {
                 "ok": 0.0,
-                "errmsg": "the 'max' field must be a positive integer when set",
-                "code": 72,
-                "codeName": "InvalidOptions",
+                "errmsg": f"BSON field 'size' value must be >= 1, actual value '{rendered}'",
+                "code": 2,
+                "codeName": "BadValue",
             }
     stored: dict[str, Any] = {}
     if capped:
@@ -3352,6 +5633,24 @@ def _coll_mod(doc: dict[str, Any], ctx: CommandContext) -> dict[str, Any]:
     wc_err = _validate_write_concern(doc)
     if wc_err is not None:
         return wc_err
+    # Before the namespace check: mongod parses the command before executing
+    # it, so a wrong-typed `index` on a MISSING collection is still the type
+    # error, not NamespaceNotFound (probed 6.0.16).
+    _err = _require_object_bson_field(doc.get("index"), "collMod.index")
+    if _err is not None:
+        return _err
+    # Same "parse before executing" rule as `index` above: these were silently
+    # accepted, so a `viewOn: 5` reached the catalog. All three take the plain
+    # IDL form and all three accept an explicit null (probed 8.2.11).
+    for _fld in ("validator", "changeStreamPreAndPostImages"):
+        _err = _require_object_bson_field(doc.get(_fld), f"collMod.{_fld}")
+        if _err is not None:
+            return _err
+    _err = _require_typed_bson_field(
+        doc.get("viewOn"), "collMod.viewOn", expected="string", ok=lambda v: isinstance(v, str)
+    )
+    if _err is not None:
+        return _err
     coll = doc["collMod"]
     if not ctx.storage.collection_exists(ctx.db_name, coll):
         return {
@@ -3360,6 +5659,12 @@ def _coll_mod(doc: dict[str, Any], ctx: CommandContext) -> dict[str, Any]:
             "code": 26,
             "codeName": "NamespaceNotFound",
         }
+    # The options as they stand BEFORE anything is mutated below. mongod puts
+    # these on the `modify` change event as `stateBeforeChange`, and stores them
+    # in the oplog entry's `o2.collectionOptions_old` (probed 8.2.11), so they
+    # have to be captured here -- by the time the event is emitted the mutation
+    # has already happened.
+    state_before = ctx.storage.get_collection_options(ctx.db_name, coll)
     # Collect the options this collMod actually changed; the same map
     # becomes the ``modify`` change event's ``operationDescription`` (a bare
     # collMod with no options is a valid no-op that still emits an event).
@@ -3450,7 +5755,7 @@ def _coll_mod(doc: dict[str, Any], ctx: CommandContext) -> dict[str, Any]:
             description["index"] = {"name": target["name"], "unique": True}
     # Emit the collMod command oplog entry so a change stream with
     # ``showExpandedEvents`` surfaces a ``modify`` event.
-    ctx.storage.record_collmod(ctx.db_name, coll, description)
+    ctx.storage.record_collmod(ctx.db_name, coll, description, state_before=state_before)
     return reply
 
 
@@ -3469,6 +5774,12 @@ def _list_collections(doc: dict[str, Any], ctx: CommandContext) -> dict[str, Any
     names = ctx.storage.list_collections(ctx.db_name)
     name_only = bool(doc.get("nameOnly", False))
     filter_doc = doc.get("filter")
+    _err = _require_object_bson_field(filter_doc, "listCollections.filter")
+    if _err is not None:
+        return _err
+    _err = _require_object_bson_field(doc.get("cursor"), "listCollections.cursor")
+    if _err is not None:
+        return _err
 
     # Storage keys that are server-side bookkeeping, not user-facing
     # options. Anything else in the stored map round-trips into the
@@ -3534,9 +5845,21 @@ def _list_collections(doc: dict[str, Any], ctx: CommandContext) -> dict[str, Any
         raw_batch_size: Any = cursor_spec.get("batchSize")
     else:
         raw_batch_size = doc.get("batchSize")
-    batch_size = DEFAULT_BATCH_SIZE if raw_batch_size is None else int(raw_batch_size)
+    # Probed 8.2.11: the TYPE error names the IDL path
+    # (``listCollections.cursor.batchSize``) but the negative-value error uses
+    # the BARE name (``batchSize``) -- mongod's own inconsistency, reproduced.
+    # An explicit ``null`` batchSize, and ``cursor: null``, are both accepted.
+    _err = _require_number_bson_field(raw_batch_size, "listCollections.cursor.batchSize")
+    if _err is not None:
+        return _err
+    _err = _require_non_negative_number(raw_batch_size, "batchSize")
+    if _err is not None:
+        return _err
+    batch_size = (
+        DEFAULT_BATCH_SIZE if raw_batch_size is None else _coerce_command_int(raw_batch_size)
+    )
     ns = f"{ctx.db_name}.$cmd.listCollections"
-    first_batch, cursor_id = _split_into_cursor(batch, batch_size, ns, ctx.cursors)
+    first_batch, cursor_id = _split_into_cursor(batch, batch_size, ns, ctx.cursors, bounded=True)
 
     return {
         "cursor": {
@@ -3599,6 +5922,14 @@ def _list_databases(doc: dict[str, Any], ctx: CommandContext) -> dict[str, Any]:
 
 def _list_indexes(doc: dict[str, Any], ctx: CommandContext) -> dict[str, Any]:
     coll = doc["listIndexes"]
+    _err = _require_typed_bson_field(
+        doc.get("cursor"),
+        "listIndexes.cursor",
+        expected="object",
+        ok=lambda v: isinstance(v, Mapping),
+    )
+    if _err is not None:
+        return _err
     indexes = ctx.storage.list_indexes(ctx.db_name, coll)
     if not indexes:
         return {
@@ -3641,26 +5972,33 @@ def _list_indexes(doc: dict[str, Any], ctx: CommandContext) -> dict[str, Any]:
     cursor_opts = doc.get("cursor") or {}
     raw_bs = cursor_opts.get("batchSize")
     if raw_bs is not None:
-        try:
-            batch_size = int(raw_bs)
-        except (TypeError, ValueError):
-            return {
-                "ok": 0.0,
-                "errmsg": "BSON field 'batchSize' must be a number",
-                "code": 14,
-                "codeName": "TypeMismatch",
-            }
+        # `int()` took a bool happily (True -> 1) where mongod answers 14, and
+        # the fallback message was ours rather than mongod's. Same IDL path as
+        # listCollections: the TYPE error names `listIndexes.cursor.batchSize`,
+        # the value error below uses the bare name.
+        _err = _require_number_bson_field(raw_bs, "listIndexes.cursor.batchSize")
+        if _err is not None:
+            return _err
+        batch_size = _coerce_command_int(raw_bs)
         if batch_size < 0:
             return {
                 "ok": 0.0,
                 "errmsg": f"BSON field 'batchSize' value must be >= 0, actual value {batch_size}",
-                "code": 51024,
+                "code": 2,
                 "codeName": "BadValue",
             }
     else:
         batch_size = DEFAULT_BATCH_SIZE
-    ns = f"{ctx.db_name}.$cmd.listIndexes.{coll}"
-    first_batch, cursor_id = _split_into_cursor(indexes, batch_size, ns, ctx.cursors)
+    # mongod reports a listIndexes cursor under the PLAIN collection namespace
+    # (`db.coll`), not a `$cmd.` pseudo-namespace -- probed on 8.3.4. That is
+    # also what drivers put in the follow-up getMore's `collection` field, so a
+    # `$cmd.listIndexes.<coll>` namespace failed the getMore ownership check and
+    # made the second batch unreachable (CursorNotFound), i.e. listIndexes could
+    # not be paginated at all. Contrast `listCollections`, whose cursor really is
+    # `db.$cmd.listCollections` on mongod, and the collectionless `aggregate: 1`
+    # form, which really is `db.$cmd.aggregate` -- both already correct here.
+    ns = _ns(ctx.db_name, coll)
+    first_batch, cursor_id = _split_into_cursor(indexes, batch_size, ns, ctx.cursors, bounded=True)
     return {
         "cursor": {
             "firstBatch": first_batch,
@@ -3672,6 +6010,14 @@ def _list_indexes(doc: dict[str, Any], ctx: CommandContext) -> dict[str, Any]:
 
 
 def _create_indexes(doc: dict[str, Any], ctx: CommandContext) -> dict[str, Any]:
+    _err = _require_typed_bson_field(
+        doc.get("indexes"),
+        "createIndexes.indexes",
+        expected="array",
+        ok=lambda v: isinstance(v, list),
+    )
+    if _err is not None:
+        return _err
     from secantus.storage import (
         CreateIndexUnsupported,
         GeoExtractError,
@@ -3688,6 +6034,27 @@ def _create_indexes(doc: dict[str, Any], ctx: CommandContext) -> dict[str, Any]:
     if oplog_err is not None:
         return oplog_err
     indexes = doc.get("indexes", [])
+    if indexes is None or "indexes" not in doc:
+        # 8.x treats an explicit null as the required field being ABSENT, and
+        # answers exactly what omitting it answers -- the same null-means-absent
+        # family as findAndModify.arrayFilters and killCursors.cursors. We
+        # answered 10065, the 6.0 form; this slot was missed when the crash here
+        # (it used to reach the `for idx_spec in indexes` loop) was fixed
+        # separately. Re-probed 8.2.1.
+        return {
+            "ok": 0.0,
+            "errmsg": "BSON field 'createIndexes.indexes' is missing but a required field",
+            "code": 40414,
+            "codeName": "IDLFailedToParse",
+        }
+    # There is deliberately no ``not isinstance(indexes, (list, tuple))`` arm
+    # here. ``_require_typed_bson_field`` above already answers 14 for any
+    # non-null non-list and the 40414 arm answers the null/missing case, so only
+    # a list reaches this point. The arm that used to sit here held a 6.0-era
+    # ``10065`` that no input could reach (confirmed 2026-08-30 against the
+    # differential cases for ``indexes`` as null / omitted / ``5`` / ``"x"``);
+    # dead code holding a stale answer comes back the moment the type check
+    # above is refactored.
     # ``commitQuorum`` is a top-level option on ``createIndexes`` (not
     # per-index). MongoDB 4.4+ accepts an integer, ``"majority"``, or
     # ``"votingMembers"``; unknown strings trigger a write-concern-mode
@@ -3727,6 +6094,9 @@ def _create_indexes(doc: dict[str, Any], ctx: CommandContext) -> dict[str, Any]:
                 "codeName": "TypeMismatch",
             }
         options = {k: v for k, v in idx_spec.items() if k not in ("key", "name")}
+        _err = _index_spec_option_error(idx_spec)
+        if _err is not None:
+            return _err
         # Reject unknown options on the index spec itself. Real mongod
         # rejects with ``Location40415`` (40415, IDLUnknownField).
         # mongo-ruby-driver's ``Index::View#create_one when provided a
@@ -3746,7 +6116,7 @@ def _create_indexes(doc: dict[str, Any], ctx: CommandContext) -> dict[str, Any]:
                     f"the field '{unknown_idx}' is an unknown field"
                 ),
                 "code": 40415,
-                "codeName": "Location40415",
+                "codeName": "IDLUnknownField",
             }
         # Canonicalise option-blob shape per mongod: falsy values for
         # ``hidden`` / ``sparse`` / ``unique`` are stripped (mongod stores
@@ -3798,16 +6168,30 @@ def _create_indexes(doc: dict[str, Any], ctx: CommandContext) -> dict[str, Any]:
         # base index`` tests pin both messages via regex.
         wcp = options.get("wildcardProjection")
         if wcp is not None:
-            if not isinstance(wcp, Mapping) or not wcp:
+            # Re-probed 8.2.11 (2026-08-31). All three arms were wrong: the
+            # spec was rendered with Python's repr ({'a': 1}) and without
+            # `name`, and every arm answered 67 where mongod answers three
+            # DIFFERENT codes. A wrong type and an empty object are also
+            # separate errors, not one.
+            from secantus.bsontypes import render_bson as _render
+
+            _spec = f"Error in specification {_render(idx_spec)} :: caused by :: "
+            if not isinstance(wcp, Mapping):
                 return {
                     "ok": 0.0,
                     "errmsg": (
-                        f"Error in specification {{ key: {dict(key_spec)!r}, "
-                        f"wildcardProjection: {wcp!r} }} :: caused by :: "
-                        "wildcardProjection must be a non-empty object"
+                        f"{_spec}The field 'wildcardProjection' must be a non-empty "
+                        f"object, but got {_bson_type_of(wcp)}"
                     ),
-                    "code": 67,
-                    "codeName": "CannotCreateIndex",
+                    "code": 14,
+                    "codeName": "TypeMismatch",
+                }
+            if not wcp:
+                return {
+                    "ok": 0.0,
+                    "errmsg": (f"{_spec}The 'wildcardProjection' field can't be an empty object"),
+                    "code": 9,
+                    "codeName": "FailedToParse",
                 }
             is_wildcard_key = any(
                 isinstance(k, str) and (k == "$**" or k.endswith(".$**")) for k in key_spec
@@ -3816,12 +6200,11 @@ def _create_indexes(doc: dict[str, Any], ctx: CommandContext) -> dict[str, Any]:
                 return {
                     "ok": 0.0,
                     "errmsg": (
-                        f"Error in specification {{ key: {dict(key_spec)!r}, "
-                        f"wildcardProjection: {dict(wcp)!r} }} :: caused by :: "
-                        "wildcardProjection is only allowed on wildcard indexes"
+                        f"{_spec}The field 'wildcardProjection' is only allowed in "
+                        f"'wildcard' indexes"
                     ),
-                    "code": 67,
-                    "codeName": "CannotCreateIndex",
+                    "code": 2,
+                    "codeName": "BadValue",
                 }
         try:
             new = ctx.storage.create_index(ctx.db_name, coll, name, key_spec, options)
@@ -3903,13 +6286,44 @@ def _drop_indexes(doc: dict[str, Any], ctx: CommandContext) -> dict[str, Any]:
         return {
             "ok": 0.0,
             "errmsg": "cannot drop _id index",
-            "code": 67,
+            "code": 72,
             "codeName": "InvalidOptions",
         }
+    if isinstance(target, Mapping):
+        from secantus.bsontypes import render_bson
+
+        _match = next(
+            (
+                i.get("name")
+                for i in ctx.storage.list_indexes(ctx.db_name, coll)
+                if dict(i.get("key") or {}) == dict(target)
+            ),
+            None,
+        )
+        if _match is None:
+            return {
+                "ok": 0.0,
+                "errmsg": f"can't find index with key: {render_bson(target)}",
+                "code": 27,
+                "codeName": "IndexNotFound",
+            }
+        if _match == "_id_":
+            return {
+                "ok": 0.0,
+                "errmsg": "cannot drop _id index",
+                "code": 72,
+                "codeName": "InvalidOptions",
+            }
+        ctx.storage.drop_index(ctx.db_name, coll, _match)
+        return {"nIndexesWas": num_before, "ok": 1.0}
     if not isinstance(target, str):
+        _expected = "'[string]'" if isinstance(target, list) else "'[object, string]'"
         return {
             "ok": 0.0,
-            "errmsg": "index must be a string name or '*'",
+            "errmsg": (
+                f"BSON field 'dropIndexes.index' is the wrong type "
+                f"'{_bson_type_of(target)}', expected types {_expected}"
+            ),
             "code": 14,
             "codeName": "TypeMismatch",
         }
@@ -3942,8 +6356,84 @@ def _search_index_not_supported(_doc: dict[str, Any], _ctx: CommandContext) -> d
     }
 
 
+_KILL_CURSORS_KNOWN_FIELDS = frozenset(
+    {
+        "killCursors",
+        "cursors",
+        "comment",
+        "maxTimeMS",
+        "lsid",
+        "txnNumber",
+        "autocommit",
+        "readConcern",
+        "apiVersion",
+        "apiStrict",
+        "apiDeprecationErrors",
+    }
+)
+
+
 def _kill_cursors(doc: dict[str, Any], ctx: CommandContext) -> dict[str, Any]:
-    cursor_ids = [int(c) for c in doc.get("cursors", [])]
+    # Two of the shapes below were CRASHES: ``cursors: 5`` raised TypeError
+    # ('int' object is not iterable) and ``cursors: ["x"]`` raised ValueError,
+    # both escaping as "internal server error" (code 1). A MISSING ``cursors``
+    # answered a cheerful all-empty success reply where mongod requires the
+    # field. Probed 6.0.16.
+    unknown = next(
+        (k for k in doc if k not in _KILL_CURSORS_KNOWN_FIELDS and not k.startswith("$")),
+        None,
+    )
+    if unknown is not None:
+        return {
+            "ok": 0.0,
+            "errmsg": f"BSON field 'killCursors.{unknown}' is an unknown field.",
+            "code": 40415,
+            "codeName": "IDLUnknownField",
+        }
+    if "cursors" not in doc:
+        return {
+            "ok": 0.0,
+            "errmsg": "BSON field 'killCursors.cursors' is missing but a required field",
+            "code": 40414,
+            "codeName": "IDLFailedToParse",
+        }
+    raw_cursors = doc["cursors"]
+    if raw_cursors is None:
+        # 8.x treats an explicit null as the field being absent, so this lands
+        # on the required-field error rather than 6.0's older 10065 path.
+        return {
+            "ok": 0.0,
+            "errmsg": "BSON field 'killCursors.cursors' is missing but a required field",
+            "code": 40414,
+            "codeName": "IDLFailedToParse",
+        }
+    if not isinstance(raw_cursors, list):
+        return {
+            "ok": 0.0,
+            "errmsg": (
+                f"BSON field 'killCursors.cursors' is the wrong type "
+                f"'{_bson_type_of(raw_cursors)}', expected type 'array'"
+            ),
+            "code": 14,
+            "codeName": "TypeMismatch",
+        }
+    cursor_ids = []
+    for i, c in enumerate(raw_cursors):
+        # A null ELEMENT is silently skipped -- mongod answers an all-empty
+        # success reply for ``cursors: [null]`` rather than rejecting it.
+        if c is None:
+            continue
+        if not isinstance(c, bson.Int64):
+            return {
+                "ok": 0.0,
+                "errmsg": (
+                    f"BSON field 'killCursors.cursors.{i}' is the wrong type "
+                    f"'{_bson_type_of(c)}', expected type 'long'"
+                ),
+                "code": 14,
+                "codeName": "TypeMismatch",
+            }
+        cursor_ids.append(int(c))
     # Wake any in-flight `_get_more` on these cursors BEFORE removing them
     # from the registry. The tailable getMore handler holds an `entry`
     # reference fetched at command start and sleeps in
@@ -3976,17 +6466,21 @@ def _kill_cursors(doc: dict[str, Any], ctx: CommandContext) -> dict[str, Any]:
 
 
 def _change_stream_fatal_reply(exc: changestreams.ChangeStreamFatalError) -> dict[str, Any]:
-    """mongod's reply shape for fatal change-stream conditions: the
-    error code plus the ``NonResumableChangeStreamError`` label so
-    drivers know not to auto-resume (asserted by the unified
-    change-streams-errors specs)."""
-    return {
+    """mongod's reply shape for fatal change-stream conditions.
+
+    The labels come from the exception rather than being hard-coded:
+    projecting out ``_id`` carries ``NonResumableChangeStreamError`` (the
+    unified change-streams specs assert it), while a missing required
+    pre-/post-image carries none — measured against mongod 6.0.16."""
+    reply: dict[str, Any] = {
         "ok": 0.0,
         "errmsg": str(exc),
         "code": exc.code,
         "codeName": exc.codeName,
-        "errorLabels": ["NonResumableChangeStreamError"],
     }
+    if exc.error_labels:
+        reply["errorLabels"] = list(exc.error_labels)
+    return reply
 
 
 class _CappedPositionLost(Exception):
@@ -4091,9 +6585,92 @@ def _change_stream_cursor_doc(
     return cursor_doc
 
 
+# Top-level fields ``getMore`` accepts (probed 6.0.16, which answers
+# ``Location40415`` for anything else). ``term`` and
+# ``lastKnownCommittedOpTime`` are the replication-internal pair a secondary
+# sends; they are accepted and ignored.
+_GET_MORE_KNOWN_FIELDS = frozenset(
+    {
+        "getMore",
+        "collection",
+        "batchSize",
+        "maxTimeMS",
+        "comment",
+        "term",
+        "lastKnownCommittedOpTime",
+        "lsid",
+        "txnNumber",
+        "autocommit",
+        "startTransaction",
+        "stmtId",
+        "readConcern",
+        "apiVersion",
+        "apiStrict",
+        "apiDeprecationErrors",
+    }
+)
+
+
 def _get_more(doc: dict[str, Any], ctx: CommandContext) -> dict[str, Any]:
-    cursor_id = int(doc["getMore"])
-    coll = doc.get("collection", "")
+    # Everything in this prologue used to be absent, and three of the shapes it
+    # rejects were CRASHES: ``int(doc["getMore"])`` on a string and
+    # ``int(doc.get("batchSize"))`` on a string both raised a bare ValueError
+    # that escaped as "internal server error" (code 1). The rest answered
+    # ``CursorNotFound`` (43) -- a plausible-looking lie -- for what mongod
+    # reports as a parse error before it ever looks a cursor up.
+    unknown = next(
+        (k for k in doc if k not in _GET_MORE_KNOWN_FIELDS and not k.startswith("$")),
+        None,
+    )
+    if unknown is not None:
+        return {
+            "ok": 0.0,
+            "errmsg": f"BSON field 'getMore.{unknown}' is an unknown field.",
+            "code": 40415,
+            "codeName": "IDLUnknownField",
+        }
+    # The cursor id must be a LONG -- an int32 is refused, which is the same
+    # int64-strictness the Go and C drivers enforce on the reply side.
+    raw_id = doc.get("getMore")
+    if not isinstance(raw_id, bson.Int64):
+        return {
+            "ok": 0.0,
+            "errmsg": (
+                f"BSON field 'getMore.getMore' is the wrong type "
+                f"'{_bson_type_of(raw_id)}', expected type 'long'"
+            ),
+            "code": 14,
+            "codeName": "TypeMismatch",
+        }
+    if "collection" not in doc or doc["collection"] is None:
+        # An explicit null counts as MISSING for a required IDL field (40414),
+        # not as a wrong type -- probed 8.2.11, and the same rule holds for
+        # `renameCollection.to`. An OPTIONAL field with a declared type is the
+        # other way round: `renameCollection.dropTarget: null` is a 14.
+        return {
+            "ok": 0.0,
+            "errmsg": "BSON field 'getMore.collection' is missing but a required field",
+            "code": 40414,
+            "codeName": "IDLFailedToParse",
+        }
+    if not isinstance(doc["collection"], str):
+        return {
+            "ok": 0.0,
+            "errmsg": (
+                f"BSON field 'getMore.collection' is the wrong type "
+                f"'{_bson_type_of(doc['collection'])}', expected type 'string'"
+            ),
+            "code": 14,
+            "codeName": "TypeMismatch",
+        }
+    _err = _require_number_bson_field(doc.get("batchSize"), "getMore.batchSize")
+    if _err is not None:
+        return _err
+    _err = _require_non_negative_number(doc.get("batchSize"), "batchSize")
+    if _err is not None:
+        return _err
+    cursor_id = int(raw_id)
+    coll = doc["collection"]
     # mongod's 101-document default applies only to a find/aggregate FIRST
     # batch: an unspecified getMore batchSize means "as many documents as fit
     # in 16MB", so a full scan drains in ~2 round trips, not count/101. Only
@@ -4138,6 +6715,12 @@ def _get_more(doc: dict[str, Any], ctx: CommandContext) -> dict[str, Any]:
             "code": 43,
             "codeName": "CursorNotFound",
         }
+    # ``maxTimeMS`` on a getMore is the awaitData wait budget, so mongod
+    # refuses it outright on a cursor that cannot wait. We accepted and
+    # ignored it, which is the shape that hides a client bug: a caller who
+    # thinks it has bounded a blocking read has in fact bounded nothing.
+    if "maxTimeMS" in doc and not entry.await_data:
+        return _bad_value("cannot set maxTimeMS on getMore command for a non-awaitData cursor")
     if not entry.tailable:
         try:
             batch, exhausted = ctx.cursors.next_batch(
@@ -4327,7 +6910,94 @@ def _aggregate(doc: dict[str, Any], ctx: CommandContext) -> dict[str, Any]:
     from secantus.storage import BadHint, IndexConflict
 
     coll = doc["aggregate"]
+    _err = _require_object_bson_field(doc.get("let"), "aggregate.let")
+    if _err is not None:
+        return _err
+    _err = _require_object_bson_field(doc.get("collation"), "aggregate.collation")
+    if _err is not None:
+        return _err
+    _err = _require_collation_spec(doc.get("collation"))
+    if _err is not None:
+        return _err
+    _err = _require_object_bson_field(doc.get("readConcern"), "aggregate.readConcern")
+    if _err is not None:
+        return _err
+    _err = _require_hint_type(doc)
+    if _err is not None:
+        return _err
+    _err = _require_bool_value_field(doc, "allowDiskUse")
+    if _err is not None:
+        return _err
+    _cursor_opt = doc.get("cursor")
+    if "cursor" in doc and not isinstance(_cursor_opt, Mapping):
+        # mongod's own wording for this slot -- not the BSON-field form. The
+        # message says "missing or an object", and it means it: an explicit
+        # `cursor: null` is rejected where an absent one is fine, so this tests
+        # membership rather than `is not None`.
+        return {
+            "ok": 0.0,
+            "errmsg": "cursor field must be missing or an object",
+            "code": 14,
+            "codeName": "TypeMismatch",
+        }
+    if isinstance(_cursor_opt, Mapping):
+        _err = _require_number_bson_field(_cursor_opt.get("batchSize"), "cursor.batchSize")
+        if _err is not None:
+            return _err
+        _err = _require_non_negative_number(_cursor_opt.get("batchSize"), "batchSize")
+        if _err is not None:
+            return _err
+        # ``batchSize`` is the only key the cursor spec takes.
+        _unknown_cursor_key = next((k for k in _cursor_opt if k != "batchSize"), None)
+        if _unknown_cursor_key is not None:
+            return {
+                "ok": 0.0,
+                "errmsg": f"BSON field 'cursor.{_unknown_cursor_key}' is an unknown field.",
+                "code": 40415,
+                "codeName": "IDLUnknownField",
+            }
+    elif "explain" not in doc:
+        # ``cursor`` is REQUIRED, and its absence is a parse error rather than
+        # "use the default" -- the one exception is an explain, which returns a
+        # plan instead of a cursor. We ran the pipeline and answered a cursor
+        # anyway, so a client that forgot the option never learned it had.
+        return {
+            "ok": 0.0,
+            "errmsg": (
+                "The 'cursor' option is required, except for aggregate with the explain argument"
+            ),
+            "code": 9,
+            "codeName": "FailedToParse",
+        }
     pipeline = doc.get("pipeline", [])
+    if not isinstance(pipeline, list):
+        # A non-array pipeline reached the stage walker and crashed as
+        # "internal server error"; mongod names it as an option error.
+        return {
+            "ok": 0.0,
+            "errmsg": "A pipeline must be an array of objects",
+            "code": 14,
+            "codeName": "TypeMismatch",
+        }
+    # An undefined `$$variable` is a PARSE error for mongod -- it fires on an
+    # EMPTY collection, where nothing is ever evaluated, so the evaluator alone
+    # could not produce it. Checked here, once, before the pipeline runs.
+    _cmd_let = doc.get("let")
+    _found = expression_problem_in_pipeline(
+        pipeline,
+        frozenset(_cmd_let) if isinstance(_cmd_let, Mapping) else frozenset(),
+        # The real `let` VALUES, so a constant sub-expression folds the way
+        # mongod's optimizer folds it.
+        _cmd_let if isinstance(_cmd_let, Mapping) else None,
+    )
+    if _found is not None:
+        _code, _msg, _stage = _found
+        return {
+            "ok": 0.0,
+            "errmsg": wrap_expression_problem(_msg, _stage),
+            "code": _code,
+            "codeName": _code_name_for(_code),
+        }
     hint = doc.get("hint")
     # ``let`` user-vars threaded into the pipeline context so
     # ``$expr`` clauses inside ``$match`` and the aggregation
@@ -4341,6 +7011,21 @@ def _aggregate(doc: dict[str, Any], ctx: CommandContext) -> dict[str, Any]:
 
     first_stage = pipeline[0] if pipeline else {}
     is_change_stream = isinstance(first_stage, Mapping) and "$changeStream" in first_stage
+    # ``$changeStream`` is only valid as the FIRST stage. Anywhere else we
+    # silently built an ordinary aggregation and answered an exhausted cursor,
+    # so a client asking to watch got a stream that never yielded an event and
+    # never said why.
+    if not is_change_stream and any(
+        isinstance(_s, Mapping) and "$changeStream" in _s for _s in pipeline[1:]
+    ):
+        return {
+            "ok": 0.0,
+            "errmsg": (
+                "$_internalChangeStreamOplogMatch is only valid as the first stage in a pipeline"
+            ),
+            "code": 40602,
+            "codeName": "Location40602",
+        }
 
     if is_change_stream:
         # Change streams require a replica-set deployment (real mongod
@@ -4427,6 +7112,11 @@ def _aggregate(doc: dict[str, Any], ctx: CommandContext) -> dict[str, Any]:
             initial_filter: dict[str, Any] = {}
             if (
                 isinstance(first_stage, Mapping)
+                # Exactly one key: a malformed multi-key stage such as
+                # ``{"$match": {...}, "$count": "n"}`` must NOT be lifted --
+                # doing so dropped the whole stage, silently discarding the
+                # other operator and skipping the arity check that rejects it.
+                and len(first_stage) == 1
                 and "$match" in first_stage
                 and isinstance(first_stage["$match"], Mapping)
             ):
@@ -4454,6 +7144,23 @@ def _aggregate(doc: dict[str, Any], ctx: CommandContext) -> dict[str, Any]:
                 )
             except BadHint as exc:
                 return {"ok": 0.0, "errmsg": str(exc), "code": 2, "codeName": "BadValue"}
+            except ExpressionError as exc:
+                # A leading ``$match`` is LIFTED into this fetch, so an ``$expr``
+                # that fails at runtime raises HERE rather than inside the
+                # pipeline -- outside the block below that adds mongod's
+                # executor prefix. It reached the client bare, and only for the
+                # first stage: the same ``$match`` anywhere else in the pipeline
+                # was wrapped correctly. Probed 8.2.11, 2026-09-01.
+                _code = getattr(exc, "code", None) or 14
+                return {
+                    "ok": 0.0,
+                    "errmsg": (
+                        f"Executor error during aggregate command on namespace: "
+                        f"{ctx.db_name}.{base_coll} :: caused by :: {exc}"
+                    ),
+                    "code": _code,
+                    "codeName": getattr(exc, "code_name", None) or _code_name_for(_code),
+                }
         ns = _ns(ctx.db_name, coll)
     else:
         docs = []
@@ -4474,6 +7181,68 @@ def _aggregate(doc: dict[str, Any], ctx: CommandContext) -> dict[str, Any]:
     )
     try:
         docs = apply_pipeline(docs, pipeline, pipeline_ctx)
+    except AmbiguousSortPathError as exc:
+        # Same per-document refusal as ``find``'s, under this command's own
+        # executor wrapper. Without this clause it escaped as a bare code 1.
+        return {
+            "ok": 0.0,
+            "errmsg": (
+                f"Executor error during aggregate command on namespace: "
+                f"{ctx.db_name}.{coll} :: caused by :: {exc}"
+            ),
+            "code": 16746,
+            "codeName": "Location16746",
+        }
+    except (AggregateError, ExpressionError) as exc:
+        # Only EXECUTION-time failures take the executor prefix; parse errors
+        # stay bare (probed 8.2.1 -- see AggregateError.exec_error).
+        #
+        # An ExpressionError does NOT qualify, though this used to assert it did
+        # ("evaluation by definition, so it always qualifies"). Probed on
+        # 8.2.11: mongod gives an undefined-variable error inside `$project` /
+        # `$addFields` / `$set` the wrapper `Invalid $<stage> :: caused by ::`,
+        # and inside `$group` / `$replaceRoot` / `$redact` / `$bucket` /
+        # `$sortByCount` / `$match` no wrapper at all. We applied the executor
+        # prefix to all of them. `aggregate._apply_stage` tags the stage.
+        #
+        # Deliberately applied HERE and not in ``dispatch``: the prefix names
+        # the namespace, and ``$expr`` in a plain ``find`` must not pick it up.
+        if isinstance(exc, ExpressionError) and getattr(exc, "code", None) == 17276:
+            # An UNDEFINED VARIABLE is decidable without a document, so mongod
+            # reports it at parse time and never gives it the executor prefix:
+            # `Invalid $<stage> :: caused by ::` inside `$project` / `$addFields`
+            # / `$set`, and a bare message everywhere else. Probed on 8.2.11.
+            #
+            # Narrow to 17276 on purpose. The other expression failures are
+            # decided by WHEN mongod could evaluate them -- an all-constant
+            # `$switch` folds at optimization time (`Failed to optimize pipeline
+            # :: caused by ::`) while one reading a field fails at execution
+            # (the executor prefix). Modelling that split is the constant-folding
+            # item deferred in `tasks/remaining-work-plan.md` §1b; a first cut of
+            # this branch covered every ExpressionError and broke the `$switch`
+            # differential case doing it.
+            stage_name = getattr(exc, "stage_name", "") or ""
+            _code = 17276
+            errmsg = f"Invalid {stage_name} :: caused by :: {exc}" if stage_name else str(exc)
+            return {
+                "ok": 0.0,
+                "errmsg": errmsg,
+                "code": _code,
+                "codeName": getattr(exc, "code_name", None) or _code_name_for(_code),
+            }
+        # Every other ExpressionError keeps the executor prefix it had.
+        if not (isinstance(exc, ExpressionError) or getattr(exc, "exec_error", False)):
+            raise
+        _code = getattr(exc, "code", None) or 14
+        return {
+            "ok": 0.0,
+            "errmsg": (
+                f"Executor error during aggregate command on namespace: "
+                f"{ctx.db_name}.{coll} :: caused by :: {exc}"
+            ),
+            "code": _code,
+            "codeName": getattr(exc, "code_name", None) or _code_name_for(_code),
+        }
     except IndexConflict as exc:
         # ``$merge whenMatched=fail`` raises this — surface mongod's
         # dup-key shape (code 11000 + keyPattern + keyValue) so the
@@ -4513,9 +7282,9 @@ def _aggregate_change_stream(
     if not isinstance(spec, Mapping):
         return {
             "ok": 0.0,
-            "errmsg": "$changeStream spec must be a document",
-            "code": 2,
-            "codeName": "BadValue",
+            "errmsg": (f"$changeStream must take a nested object but found: $changeStream: {spec}"),
+            "code": 6188500,
+            "codeName": "Location6188500",
         }
     cs_spec = changestreams.parse_spec(spec)
 
@@ -4547,7 +7316,7 @@ def _aggregate_change_stream(
         except (ValueError, KeyError) as exc:
             return {
                 "ok": 0.0,
-                "errmsg": f"invalid resume token: {exc}",
+                "errmsg": str(exc),
                 "code": 9,
                 "codeName": "FailedToParse",
             }
@@ -4736,7 +7505,7 @@ def _aggregate_change_stream(
             # The resume tokens going in, to compare against what comes out.
             tokens_in = [ev.get("_id") for ev in events if isinstance(ev, Mapping)]
             events = apply_pipeline(events, pipeline_after_cs, pipeline_ctx)
-            for ev in events:
+            for idx, ev in enumerate(events):
                 if not isinstance(ev, Mapping):
                     continue
                 # mongod 4.1.8+ allows "only transformations that retain the
@@ -4754,6 +7523,13 @@ def _aggregate_change_stream(
                 # position, since the pipeline may reorder or drop events.
                 token = ev.get("_id")
                 if token is None or not any(token == t for t in tokens_in):
+                    # mongod ends the message with the token it expected and
+                    # what the pipeline left behind — `but found: {}` when the
+                    # token was dropped, `{ _id: <value> }` when it was
+                    # rewritten (both measured against 6.0.16).
+                    expected = tokens_in[idx] if idx < len(tokens_in) else None
+                    found = "{}" if token is None else _fmt_stage_val({"_id": token})
+                    detail = f" Expected: {_fmt_stage_val({'_id': expected})} but found: {found}"
                     raise changestreams.ChangeStreamFatalError(
                         # mongod's exact wording. libmongoc's
                         # `_test_resume_token_error` asserts on the final
@@ -4761,11 +7537,15 @@ def _aggregate_change_stream(
                         # this message was the Python server's own paraphrase,
                         # which ended "unusable for resuming" and so failed the
                         # C gauge's /change_stream/live/{missing,invalid}_resume_token.
+                        # The wrapper prefix is mongod's too: the condition is
+                        # detected while draining a getMore, so it surfaces
+                        # wrapped (measured against 6.0.16).
+                        "Executor error during getMore :: caused by :: "
                         "Encountered an event whose _id field, which contains the "
                         "resume token, was modified by the pipeline. Modifying the "
                         "_id field of an event makes it impossible to resume the "
                         "stream from that point. Only transformations that retain "
-                        "the unmodified _id field are allowed."
+                        "the unmodified _id field are allowed." + detail
                     )
         return events
 
@@ -4813,6 +7593,12 @@ def _aggregate_change_stream(
             # getMore). PyMongo does not cache the PBRT off a *non-empty*
             # firstBatch, so an uniterated resumed stream still reports
             # resume_token == the token the caller passed (prose test #14).
+            if batch_size == 0:
+                # Nothing is sent, and the cursor doc only re-pins the token
+                # to the last SENT event, so without this the reply's
+                # postBatchResumeToken sat on the last BACKLOG event and a
+                # resume from it skipped the whole backlog (2026-09-25).
+                entry.last_token = initial_token
             return {
                 "cursor": _change_stream_cursor_doc(
                     entry, cursor_id, batch_size, ns, batch_key="firstBatch"
@@ -6040,6 +8826,7 @@ _HANDLERS: dict[str, CommandHandler] = {
     "dbstats": _db_stats,
     "collStats": _coll_stats,
     "validate": _validate,
+    "bulkWrite": _bulk_write,
     "insert": _insert,
     "find": _find,
     "update": _update,
@@ -7004,6 +9791,22 @@ def dispatch(doc: dict[str, Any], ctx: CommandContext) -> dict[str, Any]:
             "code": 59,
             "codeName": "CommandNotFound",
         }
+    # ``maxTimeMS`` is a generic command field -- mongod's IDL validates it on
+    # every command, not just the ones that honour the timeout, so it belongs
+    # here beside readConcern / apiVersion rather than in 24 handlers. It used
+    # to be checked in ``find`` alone, and every other command took a
+    # wrong-typed value silently.
+    #
+    # The two neighbours it sits between were both settled by probing an
+    # auth-enabled mongod 8.2.1, because guessing either way was plausible:
+    #
+    #   * CommandNotFound WINS over it -- an unknown command with a bad
+    #     maxTimeMS answers 59, so this must stay below the handler lookup.
+    #   * It WINS over authorization -- an unauthorized `find` with a bad
+    #     maxTimeMS answers 14, not 13, so it must stay above the auth checks.
+    _err = _require_max_time_ms(doc, name)
+    if _err is not None:
+        return _err
     if (
         ctx.require_auth
         and name not in _PRE_AUTH_COMMANDS
@@ -7080,7 +9883,7 @@ def dispatch(doc: dict[str, Any], ctx: CommandContext) -> dict[str, Any]:
     failpoint_wce: dict[str, Any] | None = None
     failpoint_labels: tuple[str, ...] = ()
     if ctx.failpoints is not None and name != "configureFailPoint":
-        match = ctx.failpoints.match(name)
+        match = ctx.failpoints.match(name, _failpoint_app_name(name, doc, ctx))
         if match is not None:
             if match.close_connection:
                 # The failpoint asked us to abruptly drop the TCP
@@ -7126,10 +9929,18 @@ def dispatch(doc: dict[str, Any], ctx: CommandContext) -> dict[str, Any]:
                     result["errorLabels"] = labels
                 return result
             if match.write_concern_error is not None:
-                wce = dict(match.write_concern_error)
-                wce.setdefault("errmsg", "failCommand failpoint")
-                wce.setdefault("codeName", _code_name_for(int(wce.get("code", 0))))
-                failpoint_wce = wce
+                # Echo the failpoint's writeConcernError VERBATIM. mongod does
+                # not synthesise anything here -- probed on 8.3.4, a failpoint
+                # carrying `{code: 91}` yields exactly `{code: 91}`, and one
+                # carrying `{code: 91, errmsg: "custom"}` yields both fields.
+                #
+                # We used to add `errmsg` and `codeName`, which the unified-spec
+                # matcher rejects: it compares nested documents by exact key
+                # count, so libmongoc's /command_monitoring/unified/
+                # writeConcernError failed with "expected 1 keys in document,
+                # got: 3". The synthesised `codeName` was wrong anyway -- it
+                # rendered 91 as "Location91" where 91 is ShutdownInProgress.
+                failpoint_wce = dict(match.write_concern_error)
                 failpoint_labels = match.error_labels
 
     # Multi-document transaction envelope. ``autocommit: false`` +
@@ -7171,12 +9982,34 @@ def dispatch(doc: dict[str, Any], ctx: CommandContext) -> dict[str, Any]:
             else:
                 ctx.transactions.on_retryable_write(lsid_bytes, txn_number)
     profile_eligible = _profile_eligible_command(name, doc)
-    start_ns = _time.monotonic_ns() if profile_eligible else 0
+    # Timed for the profiler and/or ``top``'s per-namespace counters.
+    _timed = profile_eligible or ctx.metrics is not None
+    # `perf_counter_ns`, not `monotonic_ns`: on Windows before 3.11,
+    # `time.monotonic()` is GetTickCount64 with ~15.6 ms granularity, so a fast
+    # command measures ZERO elapsed and `// 1_000` reports 0 microseconds. That
+    # made `top`'s times useless on that platform and failed
+    # `test_time_is_recorded_in_microseconds` intermittently on the
+    # windows/3.10 CI lane. `perf_counter` is the highest-resolution monotonic
+    # clock on every platform, which is what measuring an interval wants.
+    start_ns = _time.perf_counter_ns() if _timed else 0
     try:
-        if txn is not None:
-            result = _run_txn_statement(txn, handler, doc, ctx)
-        else:
-            result = handler(doc, ctx)
+        # ``maxTimeMS`` is armed HERE, around the whole handler, because that is
+        # the span mongod bounds: the operation, not any one loop inside it.
+        # ``_max_time_ms_budget`` already knows the value is a valid
+        # non-negative integer -- the validator ran above -- and returns 0 for
+        # the "no limit" encodings mongod uses (absent, or an explicit 0).
+        budget_ms = _max_time_ms_budget(doc, name)
+        with _deadline.arm(budget_ms):
+            if _max_time_forced_to_expire(name, doc, budget_ms, ctx):
+                raise _deadline.MaxTimeMSExpired()
+            if txn is not None:
+                result = _run_txn_statement(txn, handler, doc, ctx)
+            else:
+                result = handler(doc, ctx)
+            if budget_ms and ctx.cursors is not None:
+                _mark_time_limited_cursor(result, ctx)
+    except _deadline.MaxTimeMSExpired as exc:
+        result = _max_time_expired_reply(exc, name, ctx, doc)
     except WriteConflictError:
         result = _write_conflict_reply(label=txn is not None)
     except TransactionTooLargeError as exc:
@@ -7205,11 +10038,18 @@ def dispatch(doc: dict[str, Any], ctx: CommandContext) -> dict[str, Any]:
         # AggregateError: 40324 for an unrecognized pipeline stage —
         # which leaves ``code`` as None when unset, hence the ``or``);
         # 14 TypeMismatch stays the default.
+        # ``codeName`` follows the ``code`` rather than being pinned to
+        # TypeMismatch. An exception that named its own code (9 FailedToParse,
+        # 66 ImmutableField, 40 ConflictingUpdateOperators) was reported with
+        # that code and the WRONG name -- ``code=9 codeName=TypeMismatch``,
+        # a pair mongod never sends. Only the default (no code at all) is
+        # 14/TypeMismatch.
+        _exc_code = getattr(exc, "code", None) or 14
         result = {
             "ok": 0.0,
             "errmsg": str(exc),
-            "code": getattr(exc, "code", None) or 14,
-            "codeName": getattr(exc, "code_name", None) or "TypeMismatch",
+            "code": _exc_code,
+            "codeName": getattr(exc, "code_name", None) or _code_name_for(_exc_code),
         }
     except Exception as exc:
         if _is_wt_rollback(exc):
@@ -7239,6 +10079,21 @@ def dispatch(doc: dict[str, Any], ctx: CommandContext) -> dict[str, Any]:
         _finish_txn_statement(ctx, txn, result)
     if profile_eligible:
         _maybe_record_profile(ctx, name, doc, result, start_ns)
+    if ctx.metrics is not None:
+        # ``top`` attributes work to a namespace, so only commands that name a
+        # collection count. mongod does the same -- ``ping`` / ``hello`` /
+        # ``serverStatus`` / ``listCollections`` never appear in its output.
+        _coll = _top_namespace_target(name, doc)
+        if _coll:
+            _ns = f"{ctx.db_name}.{_coll}"
+            ctx.metrics.record_namespace_op(
+                _ns, name, (_time.perf_counter_ns() - start_ns) // 1_000
+            )
+            # A successful drop resets the namespace's counters -- probed on
+            # mongod 8.3.4, where a dropped-and-recreated collection restarts
+            # from zero rather than carrying its history forward.
+            if name == "drop" and result.get("ok", 0.0):
+                ctx.metrics.forget_namespace(_ns)
     if failpoint_wce is not None and result.get("ok", 0.0):
         result["writeConcernError"] = failpoint_wce
         if failpoint_labels:

@@ -12,12 +12,11 @@ from django.db.models.functions import Cast
 from django.http import HttpResponse, JsonResponse
 from django.utils import timezone
 
-from archivebox.config import CONSTANTS
 from archivebox.config.common import get_config
 from archivebox.core.permissions import can_view_snapshot, is_admin_user
-from archivebox.core.routes_util import build_snapshot_url, build_web_url, get_api_base_url
+from archivebox.core.routes_util import build_snapshot_detail_url, build_snapshot_url, get_api_base_url
 from archivebox.misc.logging_util import printable_filesize
-from archivebox.plugins.discovery import discover_plugin_configs
+from archivebox.plugins.discovery import discover_plugin_configs, get_plugin_default_output_path, get_snapshot_role_result
 
 
 def progress_endpoint(scope: Literal["crawl", "snapshot"] | None = None, object_id: object | None = None) -> str:
@@ -152,68 +151,25 @@ def live_progress_view(request, *, authorized_snapshot=None):
 
             return hook_details(Path(hook_path).name, plugin=Path(hook_path).parent.name or "setup")
 
-        def archiveresult_output_path(ar) -> str | None:
-            output_file_map = ar.output_files if isinstance(ar.output_files, dict) else {}
-
-            def is_root_relative(path: str) -> bool:
-                metadata = output_file_map.get(path) or {}
-                return bool(isinstance(metadata, dict) and metadata.get("root_relative"))
-
-            if ar.output_str:
-                raw_output = str(ar.output_str).strip()
-                if ar._looks_like_output_path(raw_output, ar.plugin):
-                    output_path = Path(raw_output)
-                    if output_path.is_absolute():
-                        return None
-
-                    if raw_output.startswith(f"{ar.plugin}/"):
-                        candidates = [raw_output]
-                    elif len(output_path.parts) == 1:
-                        candidates = [f"{ar.plugin}/{raw_output}", raw_output]
-                    else:
-                        candidates = [raw_output]
-
-                    if raw_output in output_file_map and is_root_relative(raw_output):
-                        return raw_output
-
-                    for relative_path in candidates:
-                        plugin_relative = relative_path.removeprefix(f"{ar.plugin}/")
-                        if relative_path in output_file_map:
-                            return f"{ar.plugin}/{relative_path}" if not relative_path.startswith(f"{ar.plugin}/") else relative_path
-                        if plugin_relative in output_file_map:
-                            return f"{ar.plugin}/{plugin_relative}"
-
-            output_file_paths = list(output_file_map.keys())
-            if output_file_paths:
-                fallback_path = ArchiveResult._fallback_output_file_path(output_file_paths, ar.plugin, output_file_map)
-                if fallback_path:
-                    if is_root_relative(fallback_path):
-                        return fallback_path
-                    return f"{ar.plugin}/{fallback_path}"
-
-            return None
-
         def snapshot_output_url(snapshot, output_path: str) -> str:
             return build_snapshot_url(str(snapshot["id"]), output_path, request=request, config=request_config)
 
         def snapshot_archive_path(snapshot) -> str:
-            if snapshot["fs_version"] in ("0.7.0", "0.8.0"):
-                return f"{CONSTANTS.ARCHIVE_DIR_NAME}/{snapshot['timestamp']}"
             crawl = crawls_by_id.get(str(snapshot["crawl_id"]))
-            username = "web"
-            if crawl is not None and crawl["created_by_id"]:
-                username = crawl["created_by__username"]
-            if username == "system":
-                username = "web"
-            date_base = snapshot["bookmarked_at"] or snapshot["created_at"]
-            date_str = date_base.strftime("%Y%m%d") if date_base else "unknown"
-            domain = Snapshot.extract_domain_from_url(snapshot["url"])
-            return f"{username}/{date_str}/{domain}/{snapshot['id']}"
+            return Snapshot.archive_path_for_values(
+                fs_version=snapshot["fs_version"],
+                timestamp=snapshot["timestamp"],
+                snapshot_id=snapshot["id"],
+                url=snapshot["url"],
+                username=crawl["created_by__username"] if crawl is not None and crawl["created_by_id"] else "web",
+                bookmarked_at=snapshot["bookmarked_at"],
+                created_at=snapshot["created_at"],
+            )
 
         def snapshot_view_url(snapshot, output_path: str = "") -> str:
-            anchor = f"#{output_path}" if output_path else ""
-            return build_web_url(
-                f"/{snapshot_archive_path(snapshot)}/index.html{anchor}",
+            return build_snapshot_detail_url(
+                snapshot_archive_path(snapshot),
+                output_path=output_path,
                 request=request,
                 config=request_config,
             )
@@ -684,20 +640,21 @@ def live_progress_view(request, *, authorized_snapshot=None):
                 snapshot_screencast_url = ""
                 snapshot_screencast_link = ""
                 snapshot_fallback_urls: list[str] = []
-                result_by_plugin = {result.plugin: result for result in snapshot_results}
-                title_result = result_by_plugin.get("title")
-                if not snapshot_title and title_result is not None and title_result.status == ArchiveResult.StatusChoices.SUCCEEDED:
+                title_result = get_snapshot_role_result(snapshot_results, "title_source")
+                if not snapshot_title and title_result is not None:
                     snapshot_title = Snapshot._normalize_title_candidate(title_result.output_str, snapshot_url=snapshot["url"])
-                favicon_result = result_by_plugin.get("favicon")
-                if favicon_result is not None and favicon_result.status == ArchiveResult.StatusChoices.SUCCEEDED:
-                    favicon_path = archiveresult_output_path(favicon_result) or "favicon/favicon.ico"
-                    snapshot_favicon_url = snapshot_output_url(snapshot, favicon_path)
-                screenshot_result = result_by_plugin.get("screenshot")
-                if screenshot_result is not None and screenshot_result.status == ArchiveResult.StatusChoices.SUCCEEDED:
+                favicon_result = get_snapshot_role_result(snapshot_results, "list_icon")
+                if favicon_result is not None:
+                    favicon_path = favicon_result.embed_path_db() or get_plugin_default_output_path(favicon_result.plugin)
+                    if favicon_path:
+                        snapshot_favicon_url = snapshot_output_url(snapshot, favicon_path)
+                screenshot_result = get_snapshot_role_result(snapshot_results, "primary_preview")
+                if screenshot_result is not None:
                     snapshot_preview_link = snapshot_view_url(snapshot)
-                    screenshot_path = archiveresult_output_path(screenshot_result) or "screenshot/screenshot.png"
-                    snapshot_preview_url = snapshot_output_url(snapshot, screenshot_path)
-                    snapshot_preview_link = snapshot_view_url(snapshot, screenshot_path)
+                    screenshot_path = screenshot_result.embed_path_db() or get_plugin_default_output_path(screenshot_result.plugin)
+                    if screenshot_path:
+                        snapshot_preview_url = snapshot_output_url(snapshot, screenshot_path)
+                        snapshot_preview_link = snapshot_view_url(snapshot, screenshot_path)
                     if snapshot_favicon_url:
                         snapshot_fallback_urls.append(snapshot_favicon_url)
                 elif snapshot_favicon_url:
@@ -752,7 +709,7 @@ def live_progress_view(request, *, authorized_snapshot=None):
                         "process_id": str(process.id) if process else None,
                         "admin_url": f"/admin/core/archiveresult/{ar.id}/change/",
                     }
-                    output_path = archiveresult_output_path(ar)
+                    output_path = ar.embed_path_db()
                     if output_path:
                         plugin_payload["output_path"] = output_path
                         plugin_payload["output_url"] = snapshot_view_url(snapshot, output_path)

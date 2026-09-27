@@ -26,12 +26,16 @@ on the order key share the value).
 from __future__ import annotations
 
 import datetime as _dt
+import functools
+from collections.abc import Mapping
+from decimal import Decimal as _Decimal
 from typing import Any
 
 from sqlglot import exp
 
 from secantus.paths import get_path
-from secantus.sql import errors
+from secantus.sql import errors, typemap
+from secantus.sql import numeric as _numeric
 
 # func node -> aggregate name, for the aggregate windows.
 _AGG_WINDOWS: dict[type, str] = {
@@ -40,6 +44,11 @@ _AGG_WINDOWS: dict[type, str] = {
     exp.Avg: "avg",
     exp.Min: "min",
     exp.Max: "max",
+    # `string_agg` / `array_agg` are ordinary aggregates in an OVER clause too;
+    # without these two they answered `0A000 window function ... is not
+    # supported`.
+    exp.GroupConcat: "string_agg",
+    exp.ArrayAgg: "array_agg",
 }
 
 
@@ -90,8 +99,15 @@ def _eval_window(w: exp.Window, docs: list[dict[str, Any]], scope_of: Any, sctx:
     spec = w.args.get("spec")
     partition_by = w.args.get("partition_by") or []
     order_node = w.args.get("order")
+    # ``nulls_first`` is the THIRD component and was dropped: the sort below
+    # placed NULLs by DIRECTION alone (last for ASC, first for DESC -- Postgres'
+    # defaults), so an explicit ``NULLS FIRST`` on an ascending window ORDER BY
+    # was accepted and ignored, and every rank in the partition came out wrong.
     order_terms = (
-        [(o.this, -1 if o.args.get("desc") else 1) for o in order_node.expressions]
+        [
+            (o.this, -1 if o.args.get("desc") else 1, bool(o.args.get("nulls_first")))
+            for o in order_node.expressions
+        ]
         if order_node is not None
         else []
     )
@@ -99,10 +115,18 @@ def _eval_window(w: exp.Window, docs: list[dict[str, Any]], scope_of: Any, sctx:
     result: dict[int, Any] = {}
     for part in _partitions(docs, partition_by, scope_of, sctx):
         ordered = _order_partition(part, order_terms, scope_of, sctx)
-        okeys = [
-            tuple(scalar.evaluate(oe, scope_of(d), sctx) for oe, _ in order_terms) for d in ordered
+        # Normalised for the same reason `_null_key` is — and here equality
+        # matters as much as ordering: these keys decide who are PEERS, and
+        # `Decimal128` compares its BID encoding, so `1.0` and `1.00` ranked as
+        # two rows rather than one tie.
+        # Per-term keying, so a structured column is ordered consistently here
+        # too — these keys decide peers and frame bounds.
+        per_term = [
+            _window_comparable([scalar.evaluate(oe, scope_of(d), sctx) for d in ordered])
+            for oe, _, _ in order_terms
         ]
-        order_dirs = [d for _, d in order_terms]
+        okeys = [tuple(term[i] for term in per_term) for i in range(len(ordered))]
+        order_dirs = [d for _, d, _ in order_terms]
         values = _window_values(
             func, spec, ordered, okeys, bool(order_terms), order_dirs, scope_of, sctx
         )
@@ -114,6 +138,7 @@ def _eval_window(w: exp.Window, docs: list[dict[str, Any]], scope_of: Any, sctx:
 def _partitions(
     docs: list[dict[str, Any]], partition_by: list[exp.Expression], scope_of: Any, sctx: Any
 ) -> list[list[dict[str, Any]]]:
+    from secantus.sql import numeric as _numeric
     from secantus.sql import scalar
 
     if not partition_by:
@@ -122,7 +147,7 @@ def _partitions(
     order: list[tuple] = []
     for doc in docs:
         scope = scope_of(doc)
-        key = tuple(repr(scalar.evaluate(p, scope, sctx)) for p in partition_by)
+        key = tuple(_numeric.eq_key(scalar.evaluate(p, scope, sctx)) for p in partition_by)
         if key not in groups:
             groups[key] = []
             order.append(key)
@@ -132,25 +157,56 @@ def _partitions(
 
 def _order_partition(
     part: list[dict[str, Any]],
-    order_terms: list[tuple[exp.Expression, int]],
+    order_terms: list[tuple[exp.Expression, int, bool]],
     scope_of: Any,
     sctx: Any,
 ) -> list[dict[str, Any]]:
     from secantus.sql import scalar
 
     ordered = list(part)
-    # Stable multi-key sort: apply each key from least to most significant. NULLs
-    # sort last for ASC (Postgres default NULLS LAST), reversed for DESC.
-    for oe, direction in reversed(order_terms):
+    # Stable multi-key sort: apply each key from least to most significant.
+    for oe, direction, nulls_first in reversed(order_terms):
+        keys = _window_comparable([scalar.evaluate(oe, scope_of(d), sctx) for d in ordered])
+        by_id = dict(zip((id(d) for d in ordered), keys, strict=True))
+        # The whole list is reversed for DESC, so the NULL group's rank has to be
+        # chosen POST-reversal: it lands where `nulls_first` asks only if the flag
+        # is inverted whenever the sort is. (Defaults still fall out of this --
+        # ASC/NULLS LAST gives 1, DESC/NULLS FIRST gives 1 -- which is why
+        # ignoring the flag looked right until someone wrote it explicitly.)
+        null_rank = int(nulls_first == (direction == -1))
         ordered.sort(
-            key=lambda d, oe=oe: _null_key(scalar.evaluate(oe, scope_of(d), sctx)),
+            key=lambda d, nr=null_rank: (
+                nr if by_id[id(d)] is None else 1 - nr,
+                by_id[id(d)],
+            ),
             reverse=(direction == -1),
         )
     return ordered
 
 
+def _window_comparable(values: list[Any]) -> list[Any]:
+    """One ORDER BY term's values, made comparable, decided for the TERM.
+
+    A `jsonb` column holds bare Python values, so `OVER (ORDER BY <jsonb>)` was
+    an `XX000` internal error. The choice cannot be made per value: keying only
+    the ones that fail to compare gives an order that is not even transitive,
+    because Python compares `False < 1` quite happily. So if ANY value in the
+    partition is structured, every value in it goes through Postgres' own total
+    order.
+
+    Returns bare values, not sort keys — these also serve as the PEER and frame
+    keys, where a RANGE offset does arithmetic on them."""
+    # A wide `numeric` is a document too (`secantus.sql.numeric`), but it is a
+    # NUMBER: routed through the jsonb order it ranked below every Decimal128.
+    if any(isinstance(v, (Mapping, list)) and not _numeric.is_wide(v) for v in values):
+        return [None if v is None else typemap.total_order_key(v) for v in values]
+    return [typemap.sort_key_value(v) for v in values]
+
+
 def _null_key(v: Any) -> tuple[int, Any]:
-    return (v is None, v)
+    # Normalised: a `numeric` value is a `Decimal128`, which has no `<` at all,
+    # so `OVER (ORDER BY <numeric>)` was an internal error.
+    return (v is None, typemap.sort_key_value(v))
 
 
 def _window_values(
@@ -164,24 +220,36 @@ def _window_values(
     sctx: Any,
 ) -> list[Any]:
     n = len(ordered)
+    # ``agg(...) FILTER (WHERE cond) OVER (...)`` — the predicate sits between
+    # the aggregate and its window; peel it here and let the aggregate path
+    # apply it per row.
+    filter_where = None
+    if isinstance(func, exp.Filter):
+        where = func.args.get("expression")
+        filter_where = where.this if isinstance(where, exp.Where) else where
+        func = func.this
     # Rank-like functions are frame-insensitive (Postgres ignores any frame on
     # them), so they don't consult the frame at all.
     if isinstance(func, exp.RowNumber):
         return [i + 1 for i in range(n)]
     if isinstance(func, (exp.Rank, exp.DenseRank)):
         return _rank_values(func, okeys)
+    if isinstance(func, (exp.CumeDist, exp.PercentRank)):
+        return _dist_values(func, okeys)
     if isinstance(func, exp.Ntile):
         return _ntile_values(func, n, scope_of, sctx)
     if isinstance(func, (exp.Lag, exp.Lead)):
         return _lag_lead_values(func, ordered, scope_of, sctx)
 
-    # Everything else is frame-sensitive: build each row's frame [lo, hi].
-    frames = _frames(spec, n, okeys, has_order, order_dirs)
+    # Everything else is frame-sensitive: build each row's frame, as an explicit
+    # index list (EXCLUDE punches a hole in the middle, which an [lo, hi] pair
+    # cannot express).
+    frames = _frame_indexes(_frames(spec, n, okeys, has_order, order_dirs), spec, okeys, n)
     if isinstance(func, (exp.FirstValue, exp.LastValue, exp.NthValue)):
         return _value_window(func, ordered, frames, scope_of, sctx)
     agg = _AGG_WINDOWS.get(type(func))
     if agg is not None:
-        return _agg_window_values(agg, func, ordered, frames, scope_of, sctx)
+        return _agg_window_values(agg, func, ordered, frames, scope_of, sctx, filter_where)
     raise errors.feature_not_supported(f"window function {type(func).__name__} is not supported")
 
 
@@ -228,11 +296,46 @@ def _frames(
         if kind == "ROWS":
             lo = _rows_bound(start, start_side, i, n, is_start=True)
             hi = _rows_bound(end, end_side, i, n, is_start=False)
+        elif kind == "GROUPS":
+            lo = _groups_bound(start, start_side, i, n, okeys, is_start=True)
+            hi = _groups_bound(end, end_side, i, n, okeys, is_start=False)
         else:
             lo = _range_bound(start, start_side, i, n, okeys, order_dirs, is_start=True)
             hi = _range_bound(end, end_side, i, n, okeys, order_dirs, is_start=False)
         frames.append((max(0, lo), min(n - 1, hi)))
     return frames
+
+
+def _frame_indexes(
+    frames: list[tuple[int, int]], spec: exp.Expression | None, okeys: list[tuple], n: int
+) -> list[list[int]]:
+    """Each row's frame as the list of row indexes it contains, after ``EXCLUDE``.
+
+    ``EXCLUDE`` was parsed and then dropped: sqlglot keeps it on the frame spec
+    as ``args["exclude"]``, but nothing read it, so
+    ``ROWS ... EXCLUDE CURRENT ROW`` silently answered the *unexcluded* frame --
+    a running sum that still counted the current row. The four spellings, per
+    the standard: ``CURRENT ROW`` drops this row, ``GROUP`` drops its whole peer
+    group, ``TIES`` drops the peer group but keeps this row, and ``NO OTHERS``
+    (the default) drops nothing.
+
+    Note that with no ORDER BY every row is a peer of every other, so ``EXCLUDE
+    GROUP`` empties the frame -- which is what Postgres does.
+    """
+    exclude = spec.args.get("exclude") if spec is not None else None
+    kind = str(exclude.this if isinstance(exclude, exp.Expression) else exclude or "").upper()
+    if kind in ("", "NO OTHERS"):
+        return [list(range(lo, hi + 1)) for lo, hi in frames]
+    out: list[list[int]] = []
+    for i, (lo, hi) in enumerate(frames):
+        if kind == "CURRENT ROW":
+            drop = {i}
+        else:  # GROUP / TIES — the current row's peer group
+            drop = set(range(_peer_start(okeys, i), _peer_end(okeys, i, n) + 1))
+            if kind == "TIES":
+                drop.discard(i)
+        out.append([j for j in range(lo, hi + 1) if j not in drop])
+    return out
 
 
 def _peer_end(okeys: list[tuple], i: int, n: int) -> int:
@@ -247,6 +350,44 @@ def _peer_start(okeys: list[tuple], i: int) -> int:
     while j > 0 and okeys[j - 1] == okeys[i]:
         j -= 1
     return j
+
+
+def _peer_group_bounds(okeys: list[tuple], n: int) -> tuple[list[int], list[int], list[int]]:
+    """Peer groups of the partition: each row's group index, and each group's
+    first and last row."""
+    gids: list[int] = []
+    starts: list[int] = []
+    ends: list[int] = []
+    for i in range(n):
+        if i == 0 or okeys[i] != okeys[i - 1]:
+            starts.append(i)
+            if ends or i:
+                ends.append(i - 1)
+        gids.append(len(starts) - 1)
+    ends.append(n - 1)
+    return gids, starts, ends[1:] if len(ends) > len(starts) else ends
+
+
+def _groups_bound(
+    val: Any, side: Any, i: int, n: int, okeys: list[tuple], *, is_start: bool
+) -> int:
+    """A `GROUPS` frame bound: the offset counts PEER GROUPS, not rows.
+
+    `GROUPS` was not handled at all — it fell through to the RANGE branch and
+    reported `RANGE with a numeric offset requires a numeric ORDER BY key`, an
+    error about a clause the user had not written. `GROUPS BETWEEN CURRENT ROW
+    AND 1 FOLLOWING` over `a, a, b` frames the first two rows across both
+    groups (3 rows) and the last across its own (1)."""
+    gids, starts, ends = _peer_group_bounds(okeys, n)
+    g = gids[i]
+    if val is None or val == "CURRENT ROW":
+        return starts[g] if is_start else ends[g]
+    if val == "UNBOUNDED":
+        return 0 if side == "PRECEDING" else n - 1
+    offset = int(val.this) if isinstance(val, exp.Literal) else int(val)
+    target = g - offset if side == "PRECEDING" else g + offset
+    target = max(0, min(target, len(starts) - 1))
+    return starts[target] if is_start else ends[target]
 
 
 def _rows_bound(val: Any, side: Any, i: int, n: int, *, is_start: bool) -> int:
@@ -401,7 +542,7 @@ def _range_offset_bound(
 def _value_window(
     func: exp.Expression,
     ordered: list[dict[str, Any]],
-    frames: list[tuple[int, int]],
+    frames: list[list[int]],
     scope_of: Any,
     sctx: Any,
 ) -> list[Any]:
@@ -414,17 +555,16 @@ def _value_window(
     if isinstance(func, exp.NthValue):
         nth = int(scalar.evaluate(func.args["offset"], scope_of(ordered[0]), sctx))
     out: list[Any] = []
-    for lo, hi in frames:
-        if lo > hi:
+    for idxs in frames:
+        if not idxs:
             out.append(None)
             continue
         if isinstance(func, exp.FirstValue):
-            out.append(vals[lo])
+            out.append(vals[idxs[0]])
         elif isinstance(func, exp.LastValue):
-            out.append(vals[hi])
+            out.append(vals[idxs[-1]])
         else:  # NthValue — 1-based within the frame
-            idx = lo + nth - 1
-            out.append(vals[idx] if lo <= idx <= hi else None)
+            out.append(vals[idxs[nth - 1]] if 0 < nth <= len(idxs) else None)
     return out
 
 
@@ -441,6 +581,31 @@ def _rank_values(func: exp.Expression, okeys: list[tuple]) -> list[Any]:
             prev = key
         out.append(dense_rank if dense else rank)
     return out
+
+
+def _dist_values(func: exp.Expression, okeys: list[tuple]) -> list[Any]:
+    """``cume_dist()`` and ``percent_rank()`` — both double precision in PG.
+
+        percent_rank = (rank - 1) / (rows - 1)      0 when there is one row
+        cume_dist    = (rows at or before this PEER GROUP) / rows
+
+    Both are peer-aware: rows that tie under the ORDER BY share a value, which
+    is what makes them different from `row_number() / n`. Frame-insensitive,
+    like the other rank-likes, so they never consult the frame.
+    """
+    n = len(okeys)
+    if n == 0:
+        return []
+    ranks = _rank_values(exp.Rank(), okeys)
+    if isinstance(func, exp.PercentRank):
+        if n == 1:
+            return [0.0]
+        return [(r - 1) / (n - 1) for r in ranks]
+    # cume_dist: every row in a peer group gets the group's LAST position / n.
+    last_of_peer: dict[Any, int] = {}
+    for i, key in enumerate(okeys):
+        last_of_peer[key] = i + 1
+    return [last_of_peer[key] / n for key in okeys]
 
 
 def _lag_lead_values(
@@ -466,30 +631,83 @@ def _agg_window_values(
     agg: str,
     func: exp.Expression,
     ordered: list[dict[str, Any]],
-    frames: list[tuple[int, int]],
+    frames: list[list[int]],
     scope_of: Any,
     sctx: Any,
+    filter_where: exp.Expression | None = None,
 ) -> list[Any]:
     from secantus.sql import scalar
 
-    arg = None if isinstance(func.this, (exp.Star, type(None))) else func.this
+    arg = func.this
+    sep = ","
+    if agg == "string_agg":
+        sep_node = func.args.get("separator")
+        sep = sep_node.name if isinstance(sep_node, exp.Literal) else ""
+    if isinstance(arg, exp.Order):  # an in-call ORDER BY is not modelled here
+        arg = arg.this
+    arg = None if isinstance(arg, (exp.Star, type(None))) else arg
     count_star = agg == "count" and arg is None
     raw = [None if count_star else scalar.evaluate(arg, scope_of(d), sctx) for d in ordered]
-    return [_reduce(agg, raw[lo : hi + 1], count_star) for lo, hi in frames]
+    # A FILTER'd row contributes nothing to any frame containing it. Evaluated
+    # once per row, not once per frame.
+    keep = [True] * len(ordered)
+    if filter_where is not None:
+        keep = [bool(scalar.evaluate(filter_where, scope_of(d), sctx)) for d in ordered]
+    if agg == "array_agg":
+        return [[raw[j] for j in idxs if keep[j]] or None for idxs in frames]
+    if agg == "string_agg":
+        out: list[Any] = []
+        for idxs in frames:
+            parts = [str(raw[j]) for j in idxs if keep[j] and raw[j] is not None]
+            out.append(sep.join(parts) if parts else None)
+        return out
+    return [_reduce(agg, [raw[j] for j in idxs if keep[j]], count_star) for idxs in frames]
 
 
 def _reduce(agg: str, values: list[Any], count_star: bool) -> Any:
+    """Reduce one frame's values.
+
+    The arithmetic here is Python's, and the values are as stored — so a
+    `numeric` arrives as a `Decimal128` (no numeric protocol at all, so `+`,
+    `<` and `>` all raise) and an interval as a subdocument. EVERY window
+    aggregate over either type was an `XX000 internal error`; only `count`,
+    which never touches the value, worked."""
+    from secantus.sql import intervals as _intervals
+
     if agg == "count":
         return len(values) if count_star else sum(1 for v in values if v is not None)
     nonnull = [v for v in values if v is not None]
     if not nonnull:
         return None
-    if agg == "sum":
-        return sum(nonnull)
-    if agg == "avg":
-        return sum(nonnull) / len(nonnull)
-    if agg == "min":
-        return min(nonnull)
-    if agg == "max":
-        return max(nonnull)
+    if agg in ("min", "max"):
+        # Compare through the normalised key but return the value as stored, so
+        # an interval keeps its subdocument shape.
+        #
+        # Later wins a tie, which `min()` / `max()` get backwards: PG folds with
+        # `numeric_smaller(a, b) = cmp(a, b) < 0 ? a : b`, so an equal value
+        # REPLACES the running one. It shows up whenever equal numerics carry
+        # different scales — over 2.5, 1.0, 1.00 PG's `min` is `1.00`.
+        keep_when = (lambda c: c < 0) if agg == "min" else (lambda c: c > 0)
+        best = nonnull[0]
+        best_key = typemap.sort_key_value(best)
+        for value in nonnull[1:]:
+            key = typemap.sort_key_value(value)
+            if not keep_when(-1 if best_key < key else (0 if best_key == key else 1)):
+                best, best_key = value, key
+        return best
+    if _intervals.is_interval(nonnull[0]):
+        total = functools.reduce(_intervals.add, nonnull)
+        return total if agg == "sum" else _intervals.mul(total, 1 / len(nonnull))
+    if agg in ("sum", "avg"):
+        vals = [typemap.unwrap_numeric(v) for v in nonnull]
+        total = sum(vals)
+        if agg == "sum":
+            return total
+        # Postgres finishes `avg` over an EXACT input (integer / numeric) in
+        # numeric arithmetic at `select_div_scale`'s scale; Python's `/` is a
+        # float and lost the last digits -- `avg` over 10, 20, 20 rendered
+        # 16.666666666666668 where PG gives 16.6666666666666667.
+        if all(isinstance(v, (int, _Decimal)) and not isinstance(v, bool) for v in vals):
+            return typemap.numeric_div(_Decimal(total), _Decimal(len(vals)))
+        return total / len(vals)
     raise errors.feature_not_supported(f"window aggregate {agg} is not supported")

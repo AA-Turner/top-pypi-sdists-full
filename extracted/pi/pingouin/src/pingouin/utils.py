@@ -1,7 +1,6 @@
 """Helper functions."""
 
 import collections.abc
-import itertools as it
 import numbers
 
 import numpy as np
@@ -18,11 +17,19 @@ __all__ = [
     "remove_na",
     "_flatten_list",
     "_check_dataframe",
-    "_is_sklearn_installed",
-    "_is_sklearn_version_compatible",
-    "_is_statsmodels_installed",
+    "_check_alternative",
+    "_format_pairwise_matrix",
     "_is_mpmath_installed",
 ]
+
+
+def _check_alternative(alternative):
+    """Check that ``alternative`` is one of 'two-sided', 'greater' or 'less'."""
+    assert alternative in [
+        "two-sided",
+        "greater",
+        "less",
+    ], "Alternative must be one of 'two-sided' (default), 'greater' or 'less'."
 
 
 def _perm_pval(bootstat, estimate, alternative="two-sided"):
@@ -43,18 +50,21 @@ def _perm_pval(bootstat, estimate, alternative="two-sided"):
     p : float
         P-value.
     """
-    assert alternative in ["two-sided", "greater", "less"], "Wrong tail argument."
-    assert isinstance(estimate, (int, float))
+    _check_alternative(alternative)
+    assert isinstance(estimate, numbers.Real)
     bootstat = np.asarray(bootstat)
     assert bootstat.ndim == 1, "bootstat must be a 1D array."
     n_boot = bootstat.size
     assert n_boot >= 1, "bootstat must have at least one value."
+    # Relative tolerance so that permuted values that are theoretically equal to the estimate
+    # but differ by floating-point error are counted as ties (same as scipy.stats.permutation_test)
+    gamma = abs(estimate) * np.finfo(float).eps * 100
     if alternative == "greater":
-        p = np.greater_equal(bootstat, estimate).sum() / n_boot
+        p = np.greater_equal(bootstat, estimate - gamma).sum() / n_boot
     elif alternative == "less":
-        p = np.less_equal(bootstat, estimate).sum() / n_boot
+        p = np.less_equal(bootstat, estimate + gamma).sum() / n_boot
     else:
-        p = np.greater_equal(np.fabs(bootstat), abs(estimate)).sum() / n_boot
+        p = np.greater_equal(np.fabs(bootstat), abs(estimate) - gamma).sum() / n_boot
     return p
 
 
@@ -120,31 +130,68 @@ def _postprocess_dataframe(df):
         Dataframe with post-processing applied
     """
     df = df.copy()
-    for row, col in it.product(df.index, df.columns):
-        round_option = _get_round_setting_for(row, col)
-        if round_option is None:
+    # Fast path: without row- or cell-specific options, the rounding only depends on the column
+    per_cell = any(k.startswith(("round.cell.", "round.row.")) for k in options)
+    for col in df.columns:
+        if per_cell:
+            round_options = [_get_round_setting_for(row, col) for row in df.index]
+        else:
+            round_options = [options.get(f"round.column.{col}", options["round"])] * len(df)
+        if all(opt is None for opt in round_options):
             continue
-        if callable(round_option):
-            newval = round_option(df.at[row, col])
-            # ensure that dtype changes are processed
-            df[col] = df[col].astype(type(newval))
-            df.at[row, col] = newval
-            continue
-        if isinstance(df.at[row, col], bool):
-            # No rounding if value is a boolean
-            continue
-        is_number = isinstance(df.at[row, col], numbers.Number)
-        is_array = isinstance(df.at[row, col], np.ndarray)
-        if not any([is_number, is_array]):
-            # No rounding if value is not a Number or an array
-            continue
-        if is_array:
-            is_float_array = issubclass(df.at[row, col].dtype.type, np.floating)
-            if not is_float_array:
-                # No rounding if value is not a float array
-                continue
-        df.at[row, col] = np.round(df.at[row, col], decimals=round_option)
+        values = [_round_value(val, opt) for val, opt in zip(df[col], round_options)]
+        if any(callable(opt) for opt in round_options):
+            # A formatter can change the type of the values (e.g. float -> str)
+            df[col] = pd.Series(values, index=df.index, dtype=object).infer_objects()
+        else:
+            df[col] = pd.Series(values, index=df.index, dtype=df[col].dtype)
     return df
+
+
+def _round_value(val, round_option):
+    """Round (int option) or format (callable option) a single value of a DataFrame."""
+    if round_option is None:
+        return val
+    if callable(round_option):
+        return round_option(val)
+    if isinstance(val, bool):
+        # No rounding if value is a boolean
+        return val
+    if isinstance(val, np.ndarray):
+        # Only float arrays are rounded
+        return np.round(val, decimals=round_option) if val.dtype.kind == "f" else val
+    if isinstance(val, numbers.Number):
+        return np.round(val, decimals=round_option)
+    return val
+
+
+def _format_pairwise_matrix(mat, mat_upper, decimals=3, stars=True, pval_stars=None):
+    """Combine two square matrices into a single pairwise matrix of str.
+
+    Used by :py:func:`pingouin.rcorr` and :py:func:`pingouin.ptests`. The output has the lower
+    triangle of ``mat``, "-" on the diagonal, and the strict upper triangle of ``mat_upper``.
+
+    If ``pval_stars`` is a dict, ``mat_upper`` contains p-values, which are displayed as stars
+    (``stars=True``, the smallest matching threshold of ``pval_stars`` is used regardless of the
+    dict order), or as str with ``decimals`` decimals (``stars=False``). Otherwise,
+    ``mat_upper`` is displayed as-is.
+    """
+    if pval_stars is not None:
+        if stars:
+            thresholds = sorted(pval_stars.items())
+
+            def fmt(p):
+                return next((value for key, value in thresholds if p < key), "")
+
+        else:
+
+            def fmt(p):
+                return np.format_float_positional(p, precision=decimals)
+
+        mat_upper = mat_upper.map(fmt)
+    upper = np.triu(np.ones(mat.shape, dtype=bool), k=1)
+    diagonal = np.eye(mat.shape[0], dtype=bool)
+    return mat.astype(str).where(~upper, mat_upper).where(~diagonal, "-")
 
 
 def _get_round_setting_for(row, col):
@@ -166,23 +213,21 @@ def _get_round_setting_for(row, col):
 ###############################################################################
 
 
+def _nan_mask(x, axis="rows"):
+    """Return the mask of the rows (or columns) of ``x`` without NaN, and the axis to compress."""
+    if x.ndim == 1:
+        return ~np.isnan(x), 0
+    if axis == "rows":
+        return ~np.isnan(x).any(axis=1), 0
+    return ~np.isnan(x).any(axis=0), 1
+
+
 def _remove_na_single(x, axis="rows"):
     """Remove NaN in a single array.
     This is an internal Pingouin function.
     """
-    if x.ndim == 1:
-        # 1D arrays
-        x_mask = ~np.isnan(x)
-    else:
-        # 2D arrays
-        ax = 1 if axis == "rows" else 0
-        x_mask = ~np.any(np.isnan(x), axis=ax)
-    # Check if missing values are present
-    if ~x_mask.all():
-        ax = 0 if axis == "rows" else 1
-        ax = 0 if x.ndim == 1 else ax
-        x = x.compress(x_mask, axis=ax)
-    return x
+    mask, ax = _nan_mask(x, axis=axis)
+    return x if mask.all() else x.compress(mask, axis=ax)
 
 
 def remove_na(x, y=None, paired=False, axis="rows"):
@@ -248,21 +293,10 @@ def remove_na(x, y=None, paired=False, axis="rows"):
             return x_no_nan, y_no_nan
 
     # At this point, we assume that x and y are paired and have same dimensions
-    if x.ndim == 1:
-        # 1D arrays
-        x_mask = ~np.isnan(x)
-        y_mask = ~np.isnan(y)
-    else:
-        # 2D arrays
-        ax = 1 if axis == "rows" else 0
-        x_mask = ~np.any(np.isnan(x), axis=ax)
-        y_mask = ~np.any(np.isnan(y), axis=ax)
-
-    # Check if missing values are present
-    if ~x_mask.all() or ~y_mask.all():
-        ax = 0 if axis == "rows" else 1
-        ax = 0 if x.ndim == 1 else ax
-        both = np.logical_and(x_mask, y_mask)
+    x_mask, ax = _nan_mask(x, axis=axis)
+    y_mask, _ = _nan_mask(y, axis=axis)
+    both = x_mask & y_mask
+    if not both.all():
         x = x.compress(both, axis=ax)
         y = y.compress(both, axis=ax)
     return x, y
@@ -301,30 +335,20 @@ def _flatten_list(x, include_tuple=False):
     # If x is not iterable, return x
     if not isinstance(x, collections.abc.Iterable):
         return x
-    # Initialize empty output variable
     result = []
-    # Loop over items in x
     for el in x:
-        # Check if element is iterable
-        el_is_iter = isinstance(el, collections.abc.Iterable)
-        if el_is_iter:
-            if not isinstance(el, (str, tuple)):
-                result.extend(_flatten_list(el))
-            else:
-                if isinstance(el, tuple) and include_tuple:
-                    result.extend(_flatten_list(el))
-                else:
-                    result.append(el)
-        else:
+        is_nested = isinstance(el, collections.abc.Iterable) and not isinstance(el, str)
+        if is_nested and (include_tuple or not isinstance(el, tuple)):
+            result.extend(_flatten_list(el, include_tuple=include_tuple))
+        elif el is not None:
+            # None are removed from the output
             result.append(el)
-    # Remove None from output
-    result = [r for r in result if r is not None]
     return result
 
 
 def _check_eftype(eftype):
     """Check validity of eftype"""
-    if eftype.lower() in [
+    return eftype.lower() in [
         "none",
         "hedges",
         "cohen",
@@ -335,10 +359,7 @@ def _check_eftype(eftype):
         "odds_ratio",
         "auc",
         "cles",
-    ]:
-        return True
-    else:
-        return False
+    ]
 
 
 def _check_dataframe(data=None, dv=None, between=None, within=None, subject=None, effects=None):
@@ -346,30 +367,26 @@ def _check_dataframe(data=None, dv=None, between=None, within=None, subject=None
     If successful, a dataframe is returned. If not successful, a ValueError is
     raised.
     """
-    # Check that data is a dataframe
+    # Check that data is a dataframe. DataMatrix objects can be safely converted to DataFrame
+    # objects. By first checking the name of the class, we avoid having to actually import
+    # DataMatrix unless it is necessary.
     if not isinstance(data, pd.DataFrame):
-        # DataMatrix objects can be safely convert to DataFrame objects. By
-        # first checking the name of the class, we avoid having to actually
-        # import DataMatrix unless it is necessary.
-        if data.__class__.__name__ == "DataMatrix":  # noqa
-            try:
-                from datamatrix import DataMatrix, convert as cnv  # noqa
-            except ImportError:
-                raise ValueError(
-                    "Failed to convert object to pandas dataframe (DataMatrix not available)"  # noqa
-                )
-            else:
-                if isinstance(data, DataMatrix):
-                    data = cnv.to_pandas(data)
-                else:
-                    raise ValueError("Data must be a pandas dataframe or compatible object.")
-        else:
+        if data.__class__.__name__ != "DataMatrix":
             raise ValueError("Data must be a pandas dataframe or compatible object.")
-    # Check that both dv and data are provided.
-    if any(v is None for v in [dv, data]):
+        try:
+            from datamatrix import DataMatrix, convert as cnv  # noqa
+        except ImportError:
+            raise ValueError(
+                "Failed to convert object to pandas dataframe (DataMatrix not available)"
+            )
+        if not isinstance(data, DataMatrix):
+            raise ValueError("Data must be a pandas dataframe or compatible object.")
+        data = cnv.to_pandas(data)
+    # Check that dv is provided.
+    if dv is None:
         raise ValueError("DV and data must be specified")
     # Check that dv is a numeric variable
-    if data[dv].dtype.kind not in "fi":
+    if data[dv].dtype.kind not in "fiu":
         raise ValueError("DV must be numeric.")
     # Check that effects is provided
     if effects not in ["within", "between", "interaction", "all"]:
@@ -396,70 +413,13 @@ def _check_dataframe(data=None, dv=None, between=None, within=None, subject=None
 ###############################################################################
 
 
-def _is_statsmodels_installed(raise_error=False):
-    """Check if statsmodels is installed."""
-    try:
-        import statsmodels  # noqa
-
-        is_installed = True
-    except OSError:  # pragma: no cover
-        is_installed = False
-    # Raise error (if needed) :
-    if raise_error and not is_installed:  # pragma: no cover
-        raise OSError("statsmodels needs to be installed. Please use `pip install statsmodels`.")
-    return is_installed
-
-
-def _is_sklearn_installed(raise_error=False):
-    """Check if sklearn is installed."""
-    try:
-        import sklearn  # noqa
-
-        is_installed = True
-    except OSError:  # pragma: no cover
-        is_installed = False
-    # Raise error (if needed) :
-    if raise_error and not is_installed:  # pragma: no cover
-        raise OSError("sklearn needs to be installed. Please use `pip install scikit-learn`.")
-    return is_installed
-
-
-def _is_sklearn_version_compatible(max_compatible_version):
-    """
-    Checks if installed scikit-learn version is compatible.
-    Requires that scikit-learn is installed.
-
-    Args:
-        max_compatible_version (str): Maximum compatible version of sklearn.
-
-    Returns:
-        bool: True if sklearn version is compatible, False otherwise.
-
-    Raises:
-        Exception if sklearn version is not compatible
-    """
-    import sklearn  # noqa
-    from packaging import version
-
-    installed_version = version.parse(sklearn.__version__)
-    max_compatible_version = version.parse(max_compatible_version)
-    version_compatible = installed_version <= max_compatible_version
-
-    if version_compatible is False:
-        raise Exception(
-            f"sklearn version {sklearn.__version__} is installed and is not compatible."
-            f"Please install scikit-learn version <= {max_compatible_version}."
-        )
-    return version_compatible
-
-
 def _is_mpmath_installed(raise_error=False):
     """Check if mpmath is installed."""
     try:
         import mpmath  # noqa
 
         is_installed = True
-    except OSError:  # pragma: no cover
+    except ImportError:  # pragma: no cover
         is_installed = False
     # Raise error (if needed) :
     if raise_error and not is_installed:  # pragma: no cover

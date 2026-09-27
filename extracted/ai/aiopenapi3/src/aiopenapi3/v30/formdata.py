@@ -1,15 +1,15 @@
 import base64
-import quopri
-from typing import TYPE_CHECKING, NamedTuple
-from email.mime import multipart, nonmultipart
-from email.message import Message
 import collections
+import quopri
+from email.message import Message
+from email.mime import multipart, nonmultipart
+from typing import TYPE_CHECKING, NamedTuple
 
 from .parameter import encode_parameter
 
-
 if TYPE_CHECKING:
     from pydantic import BaseModel
+
     from .._types import MediaTypeType, SchemaType
 
 
@@ -40,7 +40,7 @@ class MultipartParameter(NamedTuple):
 def parameters_from_multipart(
     data: "BaseModel", media: "MediaTypeType", mph: dict[str, str]
 ) -> list[MultipartParameter]:
-    params: list[MultipartParameter] = list()
+    params: list[MultipartParameter] = []
     for k in data.model_fields_set:
         v = getattr(data, k)
         ct = "text/plain"
@@ -59,14 +59,14 @@ def parameters_from_multipart(
         if (e := media.encoding.get(k, None)) is not None:
             ct = e.contentType or ct
             style = e.style or "form"
-            explode = e.explode if e.explode is not None else (True if style == "form" else False)
+            explode = e.explode if e.explode is not None else (style == "form")
             allowReserved = e.allowReserved or False
-            headers = {name: mph[name] for name in e.headers.keys() if name in mph}
+            headers = {name: mph[name] for name in e.headers if name in mph}
         else:
             allowReserved = False
             style = "form"
             explode = True
-            headers = dict()
+            headers = {}
 
         m = media.schema_.properties[k]
         """
@@ -165,7 +165,6 @@ def encode_multipart_parameters(
                     f.headers["Content-Encoding"] = codec
             else:
                 """OpenAPI 3.0"""
-                pass
 
             data = encode_content(v, codec)
 

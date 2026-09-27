@@ -2,12 +2,17 @@ from __future__ import annotations
 
 import copy
 import datetime as _dt
+import math
 import re
 from collections.abc import Mapping
 from typing import Any
 
-from secantus.numerics import bson_add, bson_mul
-from secantus.paths import get_path, has_path, set_path, unset_path
+from bson import Code, Int64, Regex
+
+from secantus.bsontypes import Int64CoercionError, bson_value_repr, coerce_int64_argument
+from secantus.numerics import IntegerOverflowError, bson_add, bson_mul
+from secantus.paths import get_path, has_path, path_block, set_path, unset_path
+from secantus.query import terminal_value
 
 _ARRAY_FILTER_TOKEN = re.compile(r"\$\[([^\]]*)\]")
 # An arrayFilter identifier: begins with a lowercase letter, then alphanumeric.
@@ -47,9 +52,69 @@ def _extract_af_identifiers(f: Mapping[str, Any]) -> tuple[list[str], bool]:
 
 
 class UpdateError(Exception):
-    def __init__(self, message: str, *, code: int | None = None) -> None:
+    def __init__(self, message: str, *, code: int | None = None, exec_error: bool = False) -> None:
         super().__init__(message)
         self.code = code
+        # Whether this is an EXECUTION-time error (see ``_exec_error``). The
+        # ``findAndModify`` command wraps these in a prefix and leaves
+        # parse-time errors bare, so the distinction has to survive the raise.
+        self.exec_error = exec_error
+
+
+# Update errors that depend on the STORED DOCUMENT -- discoverable only while
+# applying the update to a particular doc, as opposed to parse errors readable
+# from the update spec alone.
+#
+# mongod 8.x wraps these in "Plan executor error during <command> :: caused by
+# ::" -- re-probed on 8.2.11, for BOTH ``update`` and ``findAndModify``, and we
+# emit it for both.
+#
+# This comment used to say the wrapper was "deliberately NOT emitted" for
+# ``update``, because 6.0.16 did not wrap there and adopting 8.3's form broke
+# five live differential cases. That reasoning died with the retarget to 8.x
+# (CLAUDE.md: when 8.x and 6.0 disagree, 8.x is right by definition), and the
+# code moved with it -- only the comment lagged. Parse errors are still the
+# other half of the finding: unknown modifier, path conflict, $rename onto
+# itself and array-filter problems come back BARE, so the execution-vs-parse
+# classification stays load-bearing and ``exec_error`` carries it to the
+# command layer.
+def _render_arith_operand(v: Any) -> str:
+    """The type-tagged rendering mongod puts in an overflow message:
+    ``(NumberLong)9223372036854775807``. Only a long can reach it -- an int32
+    that outgrows its width widens to long rather than overflowing."""
+    if isinstance(v, Int64):
+        return f"(NumberLong){int(v)}"
+    return _render_bson_scalar(v)
+
+
+def _arith_or_overflow(
+    op: str,
+    doc: Mapping[str, Any],
+    current: Any,
+    operand: Any,
+    combine: Any,
+) -> Any:
+    """Apply `$inc` / `$mul`, turning a 64-bit overflow into mongod's error.
+
+    mongod fails the write here rather than widening to a double the way the
+    *aggregation* operators do (probed 8.2.11 -- see
+    `numerics.IntegerOverflowError`). Without this the unbounded Python int
+    reached `bson.encode` inside the storage layer's update transaction, where
+    the `OverflowError` it raised escaped as an internal server error.
+    """
+    try:
+        return combine(current, operand)
+    except IntegerOverflowError:
+        raise _exec_error(
+            f"Failed to apply {op} operations to current value "
+            f"({_render_arith_operand(current)}) for document {_render_doc_id(doc)}",
+            code=2,
+        ) from None
+
+
+def _exec_error(message: str, code: int) -> UpdateError:
+    """An execution-time update error (see the note above on the wrappers)."""
+    return UpdateError(message, code=code, exec_error=True)
 
 
 def _is_inc_numeric(v: Any) -> bool:
@@ -79,50 +144,47 @@ def _addtoset_equal(a: Any, b: Any) -> bool:
 
 
 def _bson_type_name(v: Any) -> str:
-    """mongod's type vocabulary for update parse-error messages."""
-    from bson import Decimal128, Int64
+    """mongod's type vocabulary for update parse-error messages.
 
-    if isinstance(v, bool):
-        return "bool"
-    if isinstance(v, Int64):
-        return "long"
-    if isinstance(v, int):
-        return "int" if -(2**31) <= v < 2**31 else "long"
-    if isinstance(v, float):
-        return "double"
-    if isinstance(v, Decimal128):
-        return "decimal"
-    if isinstance(v, str):
-        return "string"
-    if v is None:
-        return "null"
-    if isinstance(v, Mapping):
-        return "object"
-    if isinstance(v, (list, tuple)):
-        return "array"
-    return type(v).__name__
+    Delegates to `secantus.bsontypes`, which is the single probed copy. This
+    one used to stop at Mapping / list and fall through to the Python class
+    name, so an ObjectId reached the wire as ``'ObjectId'`` for ``objectId``.
+    """
+    from secantus.bsontypes import bson_type_name
+
+    return bson_type_name(v)
 
 
-def _render_bson_scalar(v: Any) -> str:
-    """A mongod-ish rendering of a scalar for an error message: ``true`` /
-    ``false`` / ``null`` lowercase, strings double-quoted, ObjectId in its
-    constructor form, else ``str()``."""
-    from bson import ObjectId
+#: mongod echoes an offending value in its own shell-ish rendering, and this
+#: module used to carry TWO partial copies of that: `_render_bson_scalar`
+#: (scalars only) and `_render_bson_value` (containers, delegating to the
+#: first). `$inc` / `$mul` / `$pop` / `$rename` all called the SCALAR one, so an
+#: array argument printed Python's `[1]` where mongod prints `[ 1 ]` and a
+#: sub-document printed `{'a': 1}` where mongod prints `{ a: 1 }`. Both names
+#: now point at the one canonical renderer in `bsontypes`, which is where this
+#: kind of vocabulary lives precisely because it had already drifted into
+#: several copies once.
+_render_bson_scalar = bson_value_repr
+_render_bson_value = bson_value_repr
 
-    if v is True:
-        return "true"
-    if v is False:
-        return "false"
-    if v is None:
-        return "null"
-    if isinstance(v, str):
-        return f'"{v}"'
-    if isinstance(v, ObjectId):
-        # `str(ObjectId)` is the bare hex; mongod prints `ObjectId('…')`, and
-        # this is the *default* `_id` type, so it's the common case in the
-        # `$inc`/`$mul` type-error message below.
-        return f"ObjectId('{v}')"
-    return str(v)
+
+def _set_path(doc: dict[str, Any], path: str, value: Any) -> None:
+    """``set_path``, but refusing a path mongod would refuse.
+
+    ``$set: {"n.x": 1}`` against ``{n: 5}`` cannot create ``x`` -- ``n`` is not
+    a document. mongod answers ``PathNotViable`` (28); ``set_path`` returned
+    silently, so the update reported success and changed nothing, which is the
+    worst of both (no data written, no error raised).
+
+    Only *creation* is refused. ``$unset`` down the same path stays a no-op,
+    and an out-of-range array index still pads with nulls -- both probed 6.0.16.
+    """
+    block = path_block(doc, path)
+    if block is not None:
+        key, container, field = block
+        element = f"{{{key}: {_render_bson_value(container)}}}" if key is not None else "{}"
+        raise _exec_error(f"Cannot create field '{field}' in element {element}", code=28)
+    set_path(doc, path, value)
 
 
 def _render_doc_id(doc: Mapping[str, Any]) -> str:
@@ -185,6 +247,46 @@ def _is_each_modifier(value: Any) -> bool:
     return isinstance(value, Mapping) and "$each" in value
 
 
+def _is_zero_number(v: Any) -> bool:
+    """A double or Decimal128 zero, of either sign (not an int -- see `$mul`)."""
+    from bson import Decimal128 as _Decimal128
+
+    if isinstance(v, float):
+        return v == 0.0
+    if isinstance(v, _Decimal128):
+        d = v.to_decimal()
+        return d.is_finite() and d == 0
+    return False
+
+
+def _order_lt(a: Any, b: Any) -> bool:
+    """`a < b` in mongod's BSON SORT order, which is what `$min` / `$max` use.
+
+    NOT `ordering._bson_lt`, which keeps IEEE semantics where every NaN
+    comparison is false. mongod's sort order places NaN BELOW -Infinity, and
+    `$min` / `$max` follow the sort order rather than the comparison one:
+    `{$min: {a: NaN}}` over `a: 5` sets the field to NaN, and over `a: -Infinity`
+    it still does. Both servers left the field untouched -- a wrong value in a
+    WRITE path (probed 8.2.11, 2026-09-03).
+
+    The two semantics genuinely differ and both are mongod's: the RANGE
+    operators exclude NaN entirely (`{$lt: 0}` does not match it, nor does
+    `{$gt: -Infinity}`), while sorting places it first. `sortkey.encode_value`
+    is the sort order and already encodes NaN correctly, so this defers to it
+    rather than re-deriving the rule.
+    """
+    from secantus.sortkey import encode_value
+
+    try:
+        return encode_value(a) < encode_value(b)
+    except Exception:
+        # Anything the sort key cannot encode falls back to the comparison
+        # order, which is what this used before.
+        from secantus.ordering import _bson_lt
+
+        return _bson_lt(a, b)
+
+
 def _apply_push(arr: list[Any], value: Any) -> list[Any]:
     """Apply one `$push` to `arr` (a fresh copy). A plain value is appended; the
     `{$each: [...]}` modifier form appends each element, honouring `$position`
@@ -201,7 +303,11 @@ def _apply_push(arr: list[Any], value: Any) -> list[Any]:
         raise UpdateError(f"Unrecognized $push modifier: {next(iter(unknown))!r}")
     each = value["$each"]
     if not isinstance(each, list):
-        raise UpdateError("$each must be an array")
+        raise UpdateError(
+            "The argument to $each in $push must be an array but it was of "
+            f"type: {_bson_type_name(each)}",
+            code=2,
+        )
     position = value.get("$position")
     if position is not None:
         if not isinstance(position, int) or isinstance(position, bool):
@@ -268,6 +374,39 @@ def _push_slice(arr: list[Any], n: Any) -> list[Any]:
     return arr[:n] if n > 0 else arr[n:]
 
 
+def _traverse_problem(doc: Mapping[str, Any], path: str) -> UpdateError | None:
+    """mongod's ``28`` for a dotted path whose intermediate is not a document.
+
+    ``{$rename: {"v.k": "v.j"}}`` over any non-document ``v`` -- a scalar, an
+    array, a string, or a **null** -- is
+    ``cannot use the part (v of v.k) to traverse the element ({v: 1})``. Both
+    servers silently no-opped, so an invalid update reported success. Measured
+    8.2.11, 2026-09-08.
+
+    Execution-time -- mongod can only find it in a particular document, so it
+    carries the `Plan executor error during <command> :: caused by ::` wrapper.
+    Every code-28 traverse failure does (`$set` / `$inc` / `$push` measured
+    alongside it, 2026-09-09); ours reached the client bare.
+    """
+    parts = path.split(".")
+    current: Any = doc
+    for part in parts[:-1]:
+        if isinstance(current, Mapping):
+            if part not in current:
+                return None  # absent is a no-op, not an error
+            current = current[part]
+        else:
+            return None
+        if not isinstance(current, Mapping):
+            return UpdateError(
+                f"cannot use the part ({part} of {path}) to traverse the element "
+                f"({{{part}: {bson_value_repr(current)}}})",
+                code=28,
+                exec_error=True,
+            )
+    return None
+
+
 def _pull_matches(matches: Any, element: Any, criterion: Any) -> bool:
     """Whether an array element should be removed by ``$pull`` under mongod's
     query semantics (verified three-way vs mongod 6.0):
@@ -277,37 +416,78 @@ def _pull_matches(matches: Any, element: Any, criterion: Any) -> bool:
     - any other document criterion (``{x: {$gte: 5}}``, ``{y: "b"}``, ``{b.c: 2}``)
       is a **sub-document match** against the element (a scalar element never
       matches, so it stays);
-    - a scalar criterion is equality (BSON-aware, via the same query engine).
+    - a scalar criterion is EXACT equality -- no implicit array traversal, so
+      ``{$pull: {v: 1}}`` leaves ``{v: [[1, 2]]}`` untouched even though ``1``
+      is inside the element. An OPERATOR or REGEX criterion does traverse:
+      ``{$pull: {v: {$gt: 1}}}`` empties that same document. Both measured
+      against 8.2.11 on 2026-09-08; routing the scalar case through the query
+      engine gave it membership and silently emptied arrays of arrays.
     """
     if isinstance(criterion, Mapping):
         if criterion and all(isinstance(k, str) and k.startswith("$") for k in criterion):
             return matches({"__e": element}, {"__e": criterion})
         return matches(element, criterion) if isinstance(element, Mapping) else False
-    return matches({"__e": element}, {"__e": criterion})
+    if isinstance(criterion, (Regex, re.Pattern)):
+        # A regex criterion traverses, like the operator form.
+        return matches({"__e": element}, {"__e": criterion})
+    return matches({"__e": terminal_value(element)}, {"__e": criterion})
+
+
+def _unknown_modifier(name: str) -> UpdateError:
+    """mongod's one message for BOTH malformed-operator shapes (probed 6.0.16).
+
+    An unrecognised ``$``-operator and a document that mixes operators with
+    replacement fields are, to mongod, the same complaint: the offending key
+    is not a modifier it knows. ``{$set: {n: 1}, z: 2}`` answers
+    ``Unknown modifier: z`` -- naming the bare field, with no ``$``.
+
+    We had a separate hand-written sentence for the mixed case ("update
+    document cannot mix operators with replacement fields") and a differently
+    worded one for the unknown operator, so a client matching on either got
+    text no real server emits.
+    """
+    return UpdateError(
+        f"Unknown modifier: {name}. Expected a valid update modifier or "
+        "pipeline-style update specified as an array",
+        code=9,
+    )
 
 
 def validate_update_doc(update: Any) -> None:
-    """Parse-time validation of an update document's top-level operators.
+    """Parse-time validation of an update document's operators and paths.
 
-    Raises ``UpdateError`` for an unknown modifier or a mix of operators
-    and replacement fields. Does NOT apply the update (so positional /
-    arrayFilter operators don't need a match context here). Pipeline
-    (list) updates and pure replacements are accepted — their own
-    validation happens elsewhere.
+    Raises ``UpdateError`` for an unknown modifier, a mix of operators and
+    replacement fields, an empty update path, or a path conflict. Does NOT
+    apply the update (so positional / arrayFilter operators don't need a match
+    context here). Pipeline (list) updates and pure replacements are accepted —
+    their own validation happens elsewhere.
+
+    All of these are genuinely parse-time on mongod: it reports every one even
+    when the filter matches NOTHING (probed 8.2.11, 2026-09-06), which is why
+    they belong here and not only in ``apply_update``. It also decides between
+    them by document order — see ``_validate_update_paths``, which does the one
+    interleaved walk this delegates to. This used to check only the operator
+    names, in a pass of its own, so an unknown modifier ANYWHERE preempted an
+    empty path or a conflict that mongod reports first.
     """
     if isinstance(update, list) or not isinstance(update, Mapping):
         return
-    keys = list(update)
-    if not any(k.startswith("$") for k in keys):
-        return  # replacement-style update
-    for op in keys:
-        if not op.startswith("$"):
-            raise UpdateError("update document cannot mix operators with replacement fields")
-        if op not in _KNOWN_UPDATE_OPS:
-            raise UpdateError(
-                f"Unknown modifier: {op}. Expected a valid update modifier "
-                "(e.g. $set, $unset, $inc, ...)"
-            )
+    if not is_operator_form(update):
+        # A replacement's fields are DATA, not paths -- including any
+        # `$`-prefixed one, whose refusal is execution-time (see
+        # `_replacement_dollar_field`), not parse-time.
+        return
+    # A bare field among the operators is NOT checked up front: mongod reaches
+    # it in document order like everything else, so `{$set: {"": 1}, z: 2}` is
+    # the empty path (56) and `{$set: {a: 1}, z: 2}` is `Unknown modifier: z`
+    # (9). `_validate_update_paths` names a non-`$` key as it walks.
+    conflict = _validate_update_paths(update)
+    if conflict is not None:
+        offending, at = conflict
+        raise UpdateError(
+            f"Updating the path '{offending}' would create a conflict at '{at}'",
+            code=40,
+        )
 
 
 def apply_update_batch(
@@ -324,6 +504,175 @@ def apply_update_batch(
     return [apply_update(d, update, is_upsert=is_upsert) for d in docs]
 
 
+def arith_wrote_nan(new: Mapping[str, Any], update: Any) -> bool:
+    """Did an ``$inc`` / ``$mul`` write a NaN into ``new``?
+
+    The half of mongod's ``nModified`` rule that the stored bytes cannot show.
+    mongod counts an arithmetic write whose result is a NaN as a modification
+    even though the bytes are unchanged, and does NOT count an operator that
+    declined to write (probed 8.2.11, 2026-09-06)::
+
+        {$inc: {a: 1}}  over a: NaN   -> nModified 1   (wrote a fresh NaN)
+        {$inc: {a: 0}}  over a: NaN   -> nModified 1   (same)
+        {$min: {a: 5}}  over a: NaN   -> nModified 0   ($min declined; NaN is smaller)
+        {$set: {a: NaN}} over a: NaN  -> nModified 0   ($set writes an equal value)
+        {$inc: {a: 0}}  over a: 1     -> nModified 0   (wrote, but nothing changed)
+
+    So the discriminator is exactly "an arithmetic operator produced a NaN".
+    Everything else is visible in the encoded document and is
+    :func:`secantus.storage._doc_changed`'s business.
+
+    Takes the POST-image because that is where the result already sits -- the
+    caller has it, and re-deriving the arithmetic here would be a second
+    implementation of it. Positional / arrayFilter paths are skipped: they
+    expand per document and this is a narrow tiebreak, so it errs toward "no",
+    leaving the byte comparison to decide.
+    """
+    if not isinstance(update, Mapping):
+        # A PIPELINE update (a list). mongod diffs those by value, so there is
+        # no per-operator half to answer and the byte comparison is the rule.
+        # Reaching `.get` on a list raised, which the command layer surfaced as
+        # an InternalError -- caught by the mongod differential gate's
+        # `fam-empty-pipeline-is-a-no-op` case.
+        return False
+    for op in ("$inc", "$mul"):
+        payload = update.get(op)
+        if not isinstance(payload, Mapping):
+            continue
+        for path in payload:
+            if "$[" in path or ".$" in path:
+                continue
+            value = get_path(new, path)
+            if isinstance(value, float) and math.isnan(value):
+                return True
+    return False
+
+
+def is_operator_form(update: Mapping[str, Any]) -> bool:
+    """Is this an operator update, or a replacement document?
+
+    mongod decides on the **first key alone** (probed 8.2.11, 2026-09-06), and
+    then complains in that form's vocabulary::
+
+        {$set: {a: 1}, z: 2}   ->  9  Unknown modifier: z
+        {z: 2, $set: {a: 1}}   -> 52  The dollar ($) prefixed field '$set' ...
+                                      is not allowed in the context of an
+                                      update's replacement document.
+
+    We used to ask ``any(k.startswith("$"))``, which made the second one an
+    operator update too and answered 9 for it. An empty update is a
+    replacement (of nothing), which is how ``{}`` reduces a document to its
+    ``_id``.
+    """
+    for key in update:
+        return key.startswith("$")
+    return False
+
+
+def _replacement_dollar_field(update: Mapping[str, Any]) -> str | None:
+    """The FIRST top-level ``$``-prefixed key of a replacement document.
+
+    Only the TOP level: mongod 8.x stores ``{a: {$bad: 1}}`` and
+    ``{a: [{$bad: 1}]}`` happily, and stores a dotted key like ``{"a.b": 1}``
+    literally too. Probed 8.2.11 (2026-09-06).
+    """
+    for key in update:
+        if key.startswith("$"):
+            return key
+    return None
+
+
+def _validate_update_paths(update: Mapping[str, Any]) -> tuple[str, str] | None:
+    """Walk every operator path once, raising on an empty one and returning
+    ``(offending_path, conflict_point)`` if two operators target the same path.
+
+    THREE checks share this walk -- the operator NAME, then each of its paths
+    for emptiness, then for a conflict -- because mongod interleaves all three
+    and the FIRST offender in document order wins (probed 8.2.11, 2026-09-06)::
+
+        {$inc: {"": 1},  $set: {a: 1, a.b: 1}}   -> 56, the empty path
+        {$set: {a: 1, a.b: 1},  $inc: {"": 1}}   -> 40, the conflict
+        {$nope: {a: 1}, $set: {"": 1}}           ->  9, the unknown modifier
+        {$set: {"": 1}, $nope: {a: 1}}           -> 56, the empty path
+        {$nope: {x: 1}, $set: {a: 1, a.b: 1}}    ->  9, the unknown modifier
+        {$set: {a: 1, a.b: 1}, $nope: {x: 1}}    -> 40, the conflict
+
+    Any of them as a separate earlier pass gets one of those pairs backwards.
+
+    mongod rejects an update whose operators touch paths where one is EQUAL TO or
+    a PREFIX OF another -- ``{$set: {a: 2}, $inc: {a.b: 1}}`` cannot be applied
+    because ``$set`` replaces the very subtree ``$inc`` wants to walk into.
+    Sibling and disjoint paths are fine.
+
+    Probed on mongod 8.3.4; the message names the SECOND path encountered and the
+    common prefix::
+
+        {$set: {a: 2},   $inc: {a: 1}}       path 'a'     conflict at 'a'
+        {$set: {a: 2},   $inc: {a.b: 1}}     path 'a.b'   conflict at 'a'
+        {$set: {a.b: 2}, $inc: {a: 1}}       path 'a'     conflict at 'a'
+        {$set: {a.b: 2}, $inc: {a.b.c: 1}}   path 'a.b.c' conflict at 'a.b'
+        {$rename: {a: b}, $set: {b: 9}}      path 'b'     conflict at 'b'
+
+    ``$rename`` claims BOTH its source and its destination -- it writes one and
+    removes the other, so either colliding with another operator is a conflict.
+
+    We used to apply every operator regardless and return a document mongod
+    would have refused to produce: ``{$set: {a: 2}, $inc: {a: 1}}`` yielded
+    ``{a: 3}``. Silently wrong, with no error to notice.
+    """
+    seen: list[tuple[str, tuple[str, ...]]] = []
+    for op, payload in update.items():
+        # The operator's NAME is checked before its paths: mongod reaches
+        # `$nope` in `{$nope: {a: 1}, $set: {"": 1}}` first and reports 9, but
+        # reports 56 when the two are the other way round.
+        if not op.startswith("$") or op not in _KNOWN_UPDATE_OPS:
+            raise _unknown_modifier(op)
+        if not isinstance(payload, Mapping):
+            continue
+        for field in payload:
+            paths = [field]
+            if op == "$rename":
+                dest = payload.get(field)
+                # A self-rename is not a path conflict -- mongod has a dedicated
+                # error for it ("The source and target field for $rename must
+                # differ", code 2). Claiming both ends here would preempt that
+                # with a code-40 conflict instead.
+                if isinstance(dest, str) and dest != field:
+                    paths.append(dest)
+            # Check every path of this field against paths claimed EARLIER, then
+            # claim them all. A ``$rename``'s source and destination must not be
+            # compared with each other: mongod gives an overlapping pair its own
+            # error ("The source and target field for $rename must not be on the
+            # same path", code 2), not the code-40 conflict.
+            claimed = []
+            for path in paths:
+                # mongod rejects an empty path before it considers conflicts,
+                # with two distinct messages (probed 8.2.11, uniform across
+                # $set / $unset / $inc / $mul / $min / $max / $push / $addToSet
+                # / $pop / $bit and both ends of a $rename). Without this both
+                # servers ACCEPTED `{$set: {"": 1}}` and stored a document with
+                # an empty field name -- one mongod cannot produce.
+                if path == "":
+                    raise UpdateError("An empty update path is not valid.", code=56)
+                parts = tuple(path.split("."))
+                if "" in parts:
+                    raise UpdateError(
+                        f"The update path '{path}' contains an empty field name, "
+                        "which is not allowed.",
+                        code=56,
+                    )
+                for prev_path, prev_parts in seen:
+                    if prev_parts == parts:
+                        return path, prev_path
+                    n = min(len(parts), len(prev_parts))
+                    if parts[:n] == prev_parts[:n]:
+                        shorter = prev_path if len(prev_parts) <= len(parts) else path
+                        return path, shorter
+                claimed.append((path, parts))
+            seen.extend(claimed)
+    return None
+
+
 def apply_update(
     doc: dict[str, Any],
     update: Mapping[str, Any] | list[Mapping[str, Any]],
@@ -334,17 +683,25 @@ def apply_update(
     let: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     if isinstance(update, list):
+        # An EMPTY pipeline is a genuine no-op -- mongod leaves the document
+        # untouched and still reports it modified. An empty *document* is not:
+        # see below.
         return _apply_pipeline_update(doc, update, let=let)
-    if not update:
-        return copy.deepcopy(doc)
     keys = list(update.keys())
-    has_op = any(k.startswith("$") for k in keys)
+    has_op = is_operator_form(update)
     _validate_array_filters(array_filters or [], update)
     filter_map = _index_array_filters(array_filters or [])
     pos = dict(positional_matches) if positional_matches else {}
     if has_op:
         if not all(k.startswith("$") for k in keys):
-            raise UpdateError("update document cannot mix operators with replacement fields")
+            raise _unknown_modifier(next(k for k in keys if not k.startswith("$")))
+        conflict = _validate_update_paths(update)
+        if conflict is not None:
+            offending, at = conflict
+            raise UpdateError(
+                f"Updating the path '{offending}' would create a conflict at '{at}'",
+                code=40,
+            )
         result = copy.deepcopy(doc)
         for op, payload in update.items():
             if op == "$setOnInsert" and not is_upsert:
@@ -357,15 +714,39 @@ def apply_update(
         # asserts mongod's error code 66 (ImmutableField) when an
         # operator update tries to change ``_id``.
         if "_id" in doc and result.get("_id") != doc.get("_id"):
-            raise UpdateError(
-                "Performing an update on the path '_id' would modify the immutable field '_id'"
+            raise _exec_error(
+                "Performing an update on the path '_id' would modify the immutable field '_id'",
+                code=66,
             )
         return result
+    # Replacement-style, INCLUDING the empty document. ``update: {}`` is a
+    # replacement with nothing in it, so the stored document is reduced to its
+    # ``_id`` -- mongod reports ``nModified: 1`` for it. We used to short-circuit
+    # on a falsy update and return the document untouched, which silently kept
+    # every field the client had asked to drop. (An empty *pipeline*, ``[]``, is
+    # the genuine no-op; it returns above.)
+    # A `$`-prefixed TOP-LEVEL key in a replacement is mongod's
+    # `DollarPrefixedFieldName` (52) -- and it is an EXECUTION-time error, not a
+    # parse-time one: with no matching document the statement is a silent no-op
+    # (`n: 0`), and an UPSERT inserts the document verbatim, `$`-key and all
+    # (probed 8.2.11, 2026-09-06). So this fires only on a real replacement,
+    # which `is_upsert` distinguishes -- the upsert path calls us with the seed
+    # document it is about to insert.
+    if not is_upsert:
+        dollar = _replacement_dollar_field(update)
+        if dollar is not None:
+            raise _exec_error(
+                f"The dollar ($) prefixed field '{dollar}' in '{dollar}' is not allowed "
+                "in the context of an update's replacement document. Consider using an "
+                "aggregation pipeline with $replaceWith.",
+                code=52,
+            )
     new = copy.deepcopy(dict(update))
     if "_id" in doc:
         if "_id" in new and new["_id"] != doc["_id"]:
-            raise UpdateError(
-                "Performing an update on the path '_id' would modify the immutable field '_id'"
+            raise _exec_error(
+                "Performing an update on the path '_id' would modify the immutable field '_id'",
+                code=66,
             )
         # ``_id`` leads the stored document, as it does in mongod. Assigning
         # into ``new`` would APPEND it when the replacement omits ``_id``,
@@ -521,9 +902,36 @@ def _expand_path(
     parts = path.split(".")
     if not any(_is_positional_token(p) for p in parts):
         return [path]
+    _check_array_filter_identifiers(path, array_filters)
     out: list[str] = []
     _walk_positional(doc, parts, [], out, array_filters, positional_matches)
     return out
+
+
+def _check_array_filter_identifiers(
+    path: str, array_filters: Mapping[str, Mapping[str, Any]]
+) -> None:
+    """Raise mongod's parse error for a `$[id]` with no matching arrayFilter.
+
+    ``No array filter found for identifier 'e' in path 'arr.$[e]'``, BadValue
+    (2). mongod decides it from the update document ALONE, so it is checked
+    before any walk -- which is what lets the message name the ORIGINAL dotted
+    path, and what makes it fire even when the field is not an array. We used
+    to raise a hand-written "arrayFilters has no entry for identifier 'e'" with
+    code 9 from inside the walk: wrong code, wrong words, no path.
+
+    Split out of :func:`_expand_path` so `$rename` can run it before its own
+    checks: mongod reports the missing identifier before it reports the path as
+    dynamic (measured 8.2.11, 2026-09-09).
+    """
+    for part in path.split("."):
+        if part.startswith("$[") and part.endswith("]"):
+            name = part[2:-1]
+            if name and name not in array_filters:
+                raise UpdateError(
+                    f"No array filter found for identifier '{name}' in path '{path}'",
+                    code=2,
+                )
 
 
 def _is_positional_token(part: str) -> bool:
@@ -567,7 +975,14 @@ def _walk_positional(
             return
         sub_filter = array_filters.get(name)
         if sub_filter is None:
-            raise UpdateError(f"arrayFilters has no entry for identifier {name!r}")
+            # Unreachable in practice -- ``_expand_path`` pre-checks every
+            # identifier so the message can name the original path. Kept as a
+            # backstop, worded the same way.
+            raise UpdateError(
+                f"No array filter found for identifier '{name}' in path "
+                f"'{'.'.join([*prefix, head, *rest])}'",
+                code=2,
+            )
         from secantus.query import matches as _matches
 
         for i, elem in enumerate(cur):
@@ -631,8 +1046,9 @@ def _apply_pipeline_update(
         if "_id" not in new:
             new["_id"] = doc["_id"]
         elif new["_id"] != doc["_id"]:
-            raise UpdateError(
-                "Performing an update on the path '_id' would modify the immutable field '_id'"
+            raise _exec_error(
+                "Performing an update on the path '_id' would modify the immutable field '_id'",
+                code=66,
             )
     return new
 
@@ -654,21 +1070,48 @@ def _rename_same_path(a: str, b: str) -> bool:
     return ap[:n] == bp[:n]
 
 
-def _rename_traverses_array(doc: dict[str, Any], path: str) -> bool:
-    """True if the *literal* `path` indexes into an array with a numeric index
-    (e.g. `arr.0`) — the "array element" mongod forbids in a $rename source /
-    destination (it silently corrupted the array here). A positional token
-    (`$` / `$[]` / `$[id]`) into an array is NOT flagged: those are a SecantusDB
-    $rename extension resolved element-wise elsewhere."""
+def _is_dynamic_component(part: str) -> bool:
+    """True for `$`, `$[]` and `$[id]` -- mongod's "dynamic" path components."""
+    return part == "$" or (part.startswith("$[") and part.endswith("]"))
+
+
+def _rename_dynamic_path(path: str) -> bool:
+    """True if any component of `path` is dynamic.
+
+    mongod refuses a dynamic component in a `$rename` source or destination at
+    PARSE time -- before it looks at the document, so an absent source field
+    still raises (`{$rename: {"nope.$[].x": "q"}}` errors even though there is
+    no `nope`). Measured 8.2.11, 2026-09-09. The identified form `$[e]` is
+    refused too, but only once its array filter EXISTS: without one, the
+    general `No array filter found for identifier 'e'` check fires first.
+    """
+    return any(_is_dynamic_component(part) for part in path.split("."))
+
+
+def _rename_array_field(doc: dict[str, Any], path: str) -> str | None:
+    """The name of the array `path` indexes into, or None.
+
+    `deep.n.0.a` over `{deep: {n: [{a: 1}]}}` answers `"n"` -- mongod's message
+    names the field that HOLDS the array, not the whole path. This is the
+    "array element" it forbids in a `$rename` source / destination (it silently
+    corrupted the array here).
+
+    Caller-gated on the source path resolving: mongod treats a `$rename` whose
+    source is absent as a no-op and never runs either array check, so
+    `{$rename: {"v.9.a": "q"}}` and `{$rename: {"v.0.zz": "q"}}` succeed while
+    `{$rename: {"v.0.a": "q"}}` is refused (measured 8.2.11, 2026-09-09).
+    """
     cur: Any = doc
+    holder: str | None = None
     for part in path.split("."):
         if isinstance(cur, list):
-            return part.isdigit()
+            return holder if part.isdigit() else None
         if isinstance(cur, Mapping) and part in cur:
+            holder = part
             cur = cur[part]
         else:
-            return False
-    return False
+            return None
+    return None
 
 
 def _apply_op(
@@ -681,7 +1124,7 @@ def _apply_op(
     if op == "$set" or op == "$setOnInsert":
         for path, value in payload.items():
             for concrete in _expand(doc, path, array_filters, positional_matches):
-                set_path(doc, concrete, value)
+                _set_path(doc, concrete, value)
     elif op == "$unset":
         for path in payload:
             for concrete in _expand(doc, path, array_filters, positional_matches):
@@ -694,6 +1137,14 @@ def _apply_op(
             if isinstance(opts, bool):
                 stamp: Any = _dt.datetime.now(_dt.timezone.utc)
             elif isinstance(opts, Mapping):
+                # An unrecognized KEY is reported before the `$type` value is
+                # looked at -- `{$type: "date", a: 1}` names `a` even though the
+                # `$type` is perfectly valid (probed 8.2.11, 2026-09-01). This
+                # answered the generic "'$type' string field is required"
+                # message for every one of those.
+                for key in opts:
+                    if key != "$type":
+                        raise UpdateError(f"Unrecognized $currentDate option: {key}", code=2)
                 kind = opts.get("$type")
                 if kind == "date":
                     stamp = _dt.datetime.now(_dt.timezone.utc)
@@ -716,7 +1167,7 @@ def _apply_op(
                     code=2,
                 )
             for concrete in _expand(doc, path, array_filters, positional_matches):
-                set_path(doc, concrete, stamp)
+                _set_path(doc, concrete, stamp)
     elif op == "$inc":
         for path, delta in payload.items():
             _require_numeric_operand("increment", path, delta)
@@ -737,7 +1188,7 @@ def _apply_op(
                     # where mongod refuses. bool is checked explicitly because
                     # Python makes it a subclass of int.
                     if not _is_inc_numeric(current):
-                        raise UpdateError(
+                        raise _exec_error(
                             f"Cannot apply $inc to a value of non-numeric type. "
                             f"{_render_doc_id(doc)} has the field '{concrete.split('.')[-1]}' "
                             f"of non-numeric type {_bson_type_name(current)}",
@@ -746,7 +1197,7 @@ def _apply_op(
                 # bson_add preserves the BSON numeric type (mongod widens
                 # int32 < int64 < double < decimal128) — Int64(5) + 3 → Int64(8),
                 # not a bare int that narrows to int32 on the wire.
-                set_path(doc, concrete, bson_add(current, delta))
+                _set_path(doc, concrete, _arith_or_overflow("$inc", doc, current, delta, bson_add))
     elif op == "$mul":
         for path, factor in payload.items():
             _require_numeric_operand("multiply", path, factor)
@@ -759,57 +1210,93 @@ def _apply_op(
                     # string reach `bson_mul` (bare ValueError -> "internal server
                     # error") and silently multiplied a bool.
                     if not _is_inc_numeric(current):
-                        raise UpdateError(
+                        raise _exec_error(
                             f"Cannot apply $mul to a value of non-numeric type. "
                             f"{_render_doc_id(doc)} has the field '{concrete.split('.')[-1]}' "
                             f"of non-numeric type {_bson_type_name(current)}",
                             code=14,
                         )
-                set_path(doc, concrete, bson_mul(current, factor))
+                product = _arith_or_overflow("$mul", doc, current, factor, bson_mul)
+                # A stored DOUBLE zero keeps its own sign: mongod's `$mul`
+                # leaves `0.0` as `0.0` and `-0.0` as `-0.0` whatever the
+                # multiplier, where IEEE would flip it (`0.0 * -1` is `-0.0`).
+                # Measured across 8 shapes on 8.2.11 (2026-09-05): negative,
+                # positive, zero and non-finite multipliers. A non-zero RESULT
+                # (`0.0 * inf` is NaN) still writes, and an INT zero promotes
+                # and follows IEEE, so the rule is narrow -- stored double zero,
+                # zero result.
+                #
+                # This surfaced only once the write guard stopped treating
+                # `-0.0` and `0.0` as equal: the wrong product was previously
+                # computed and then silently dropped by that same comparison,
+                # so two bugs were cancelling.
+                if _is_zero_number(current) and _is_zero_number(product):
+                    product = current
+                _set_path(doc, concrete, product)
     elif op == "$min":
         # A missing field is set unconditionally; otherwise compare by MongoDB's
-        # BSON cross-type order (`_bson_lt`), not Python `<` — so a cross-type
-        # pair (e.g. a string vs a number) orders like mongod instead of raising
-        # a TypeError, and an explicit-null current is a real value (rank 2), not
-        # "no current".
-        from secantus.ordering import _bson_lt
-
+        # BSON cross-type order -- so a cross-type pair (e.g. a string vs a
+        # number) orders like mongod instead of raising a TypeError, and an
+        # explicit-null current is a real value (rank 2), not "no current".
         for path, value in payload.items():
             for concrete in _expand(doc, path, array_filters, positional_matches):
-                if not has_path(doc, concrete) or _bson_lt(value, get_path(doc, concrete)):
-                    set_path(doc, concrete, value)
+                if not has_path(doc, concrete) or _order_lt(value, get_path(doc, concrete)):
+                    _set_path(doc, concrete, value)
     elif op == "$max":
-        from secantus.ordering import _bson_lt
-
         for path, value in payload.items():
             for concrete in _expand(doc, path, array_filters, positional_matches):
-                if not has_path(doc, concrete) or _bson_lt(get_path(doc, concrete), value):
-                    set_path(doc, concrete, value)
+                if not has_path(doc, concrete) or _order_lt(get_path(doc, concrete), value):
+                    _set_path(doc, concrete, value)
     elif op == "$push":
         for path, value in payload.items():
             for concrete in _expand(doc, path, array_filters, positional_matches):
                 arr = get_path(doc, concrete, default=None)
-                if arr is None:
+                # MISSING and NULL are different: mongod creates the array for an
+                # absent field and REFUSES a present null. `get_path` returns
+                # `None` for both, so a null field was silently replaced by a
+                # one-element array -- a wrong WRITE, not a missing error
+                # (measured 8.2.11, 2026-09-08).
+                if arr is None and not has_path(doc, concrete):
                     arr = []
                 elif isinstance(arr, list):
                     arr = list(arr)
                 else:
-                    raise UpdateError(f"$push on non-array at {concrete!r}")
-                set_path(doc, concrete, _apply_push(arr, value))
+                    raise _exec_error(
+                        f"The field '{concrete}' must be an array but is of type "
+                        f"{_bson_type_name(arr)} in document {{_id: "
+                        f"{_render_bson_scalar(doc.get('_id'))}}}",
+                        code=2,
+                    )
+                _set_path(doc, concrete, _apply_push(arr, value))
     elif op == "$addToSet":
         for path, value in payload.items():
             for concrete in _expand(doc, path, array_filters, positional_matches):
                 arr = get_path(doc, concrete, default=None)
-                if arr is None:
+                # As `$push` above: a present null is a non-array, not an absence.
+                if arr is None and not has_path(doc, concrete):
                     arr = []
                 elif isinstance(arr, list):
                     arr = list(arr)
                 else:
-                    raise UpdateError(f"$addToSet on non-array at {concrete!r}")
+                    raise _exec_error(
+                        f"Cannot apply $addToSet to non-array field. Field named "
+                        f"'{concrete}' has non-array type {_bson_type_name(arr)}",
+                        code=2,
+                    )
                 # `$each` adds each element (deduped); otherwise the value itself.
                 to_add = value["$each"] if _is_each_modifier(value) else [value]
                 if _is_each_modifier(value) and not isinstance(value["$each"], list):
-                    raise UpdateError("$each must be an array")
+                    # `$addToSet` words this differently from `$push`: it names
+                    # itself, omits the colon before the type, AND answers a
+                    # different code -- 14 where `$push` answers 2. mongod's own
+                    # inconsistency, reproduced verbatim; the code was measured
+                    # against 8.2.11 (2026-09-06) and used to be 2 here, copied
+                    # from its `$push` sibling.
+                    raise UpdateError(
+                        "The argument to $each in $addToSet must be an array but "
+                        f"it was of type {_bson_type_name(value['$each'])}",
+                        code=14,
+                    )
                 for elem in to_add:
                     # `elem not in arr` uses Python `==`, which compares dicts
                     # ORDER-INSENSITIVELY. mongod does not: `{y: 2, x: 1}` is a
@@ -822,7 +1309,7 @@ def _apply_op(
                     # an element mongod keeps.
                     if not any(_addtoset_equal(elem, existing) for existing in arr):
                         arr.append(elem)
-                set_path(doc, concrete, arr)
+                _set_path(doc, concrete, arr)
     elif op == "$pull":
         from secantus.query import matches
 
@@ -834,7 +1321,7 @@ def _apply_op(
                 elif has_path(doc, concrete):
                     # mongod: a present but non-array target errors; a missing
                     # field is a silent no-op.
-                    raise UpdateError("Cannot apply $pull to a non-array value", code=2)
+                    raise _exec_error("Cannot apply $pull to a non-array value", code=2)
     elif op == "$pullAll":
         for path, values in payload.items():
             if not isinstance(values, list):
@@ -844,23 +1331,40 @@ def _apply_op(
                 if isinstance(arr, list):
                     arr[:] = [e for e in arr if not any(e == v for v in values)]
                 elif has_path(doc, concrete):
-                    raise UpdateError("Cannot apply $pull to a non-array value", code=2)
+                    raise _exec_error("Cannot apply $pull to a non-array value", code=2)
     elif op == "$pop":
         for path, direction in payload.items():
             # mongod validates the $pop argument (probed 7.0.12): a bool is
             # "not a number" (code 9), and a number other than ±1 is
             # "$pop expects 1 or -1" (code 9). Python's bool-is-int would treat
             # `True` as `1` (pop last) without this guard.
-            if isinstance(direction, bool) or not isinstance(direction, (int, float)):
+            try:
+                direction = coerce_int64_argument(direction, path)
+            except TypeError:
                 raise UpdateError(
-                    f"Expected a number in: {path}: {_render_bson_scalar(direction)}", code=9
-                )
+                    f"Expected a number in: {path}: {bson_value_repr(direction)}", code=9
+                ) from None
+            except Int64CoercionError as exc:
+                # NaN / out-of-range / fractional each have their own message,
+                # and this used to answer "$pop expects 1 or -1" for all three.
+                raise UpdateError(exc.message, code=exc.code) from None
             if direction not in (1, -1):
                 raise UpdateError(
-                    f"$pop expects 1 or -1, found: {_render_bson_scalar(direction)}", code=9
+                    f"$pop expects 1 or -1, found: {bson_value_repr(direction)}", code=9
                 )
             for concrete in _expand(doc, path, array_filters, positional_matches):
                 arr = get_path(doc, concrete, default=None)
+                # A PRESENT non-array is an error; a missing field or an empty
+                # array are no-ops. Probed on mongod 8.3.4: `$pop` against
+                # `{a: 5}` is code 14, while a missing `a` or `a: []` return
+                # nModified 0. We silently skipped all three, so an invalid
+                # update reported success.
+                if (arr is not None or has_path(doc, concrete)) and not isinstance(arr, list):
+                    raise _exec_error(
+                        f"Path '{concrete}' contains an element of non-array type "
+                        f"'{_bson_type_name(arr)}'",
+                        code=14,
+                    )
                 if isinstance(arr, list) and arr:
                     if direction == 1:
                         arr.pop()
@@ -871,10 +1375,10 @@ def _apply_op(
             # mongod validates the whole $rename spec before touching the doc —
             # otherwise several of these silently corrupt data or leak a raw
             # Python exception (e.g. a non-string target hit `new.split`).
-            if not isinstance(new, str):
-                tgt = "true" if new is True else "false" if new is False else str(new)
+            if not isinstance(new, str) or isinstance(new, Code):
                 raise UpdateError(
-                    f"The 'to' field for $rename must be a string: {old}: {tgt}", code=2
+                    f"The 'to' field for $rename must be a string: {old}: {bson_value_repr(new)}",
+                    code=2,
                 )
             if old == "" or new == "":
                 raise UpdateError("An empty update path is not valid.", code=56)
@@ -889,18 +1393,43 @@ def _apply_op(
                     f'path: {old}: "{new}"',
                     code=2,
                 )
-            if _rename_traverses_array(doc, old):
+            # An identifier with no arrayFilter is reported FIRST -- that check
+            # is not specific to `$rename`, and mongod runs it before deciding
+            # the path is dynamic (measured 8.2.11, 2026-09-09).
+            for rename_path in (old, new):
+                _check_array_filter_identifiers(rename_path, array_filters)
+            # Parse-time, and BEFORE the array checks below: a dynamic source
+            # outranks a dynamic destination, and a dynamic destination
+            # outranks an array-element SOURCE (measured 8.2.11, 2026-09-09).
+            if _rename_dynamic_path(old):
+                raise UpdateError(f"The source field for $rename may not be dynamic: {old}", code=2)
+            if _rename_dynamic_path(new):
                 raise UpdateError(
-                    f"The source field cannot be an array element, '{old}' in doc "
-                    f"with _id: {doc.get('_id')} has an array field",
-                    code=2,
+                    f"The destination field for $rename may not be dynamic: {new}", code=2
                 )
-            if _rename_traverses_array(doc, new):
-                raise UpdateError(
-                    f"The destination field cannot be an array element, '{new}' in doc "
-                    f"with _id: {doc.get('_id')} has an array field",
-                    code=2,
-                )
+            # Execution-time: mongod discovers these while applying the rename
+            # to a particular document, so they carry the executor wrapper --
+            # and it skips both when the source field is absent, because then
+            # the `$rename` is a no-op.
+            source_array_field = _rename_array_field(doc, old)
+            if has_path(doc, old):
+                if source_array_field is not None:
+                    raise UpdateError(
+                        f"The source field cannot be an array element, '{old}' in doc "
+                        f"with _id: {bson_value_repr(doc.get('_id'))} has an array "
+                        f"field called '{source_array_field}'",
+                        code=2,
+                        exec_error=True,
+                    )
+                array_field = _rename_array_field(doc, new)
+                if array_field is not None:
+                    raise UpdateError(
+                        f"The destination field cannot be an array element, '{new}' in "
+                        f"doc with _id: {bson_value_repr(doc.get('_id'))} has an array "
+                        f"field called '{array_field}'",
+                        code=2,
+                        exec_error=True,
+                    )
             old_paths = _expand(doc, old, array_filters, positional_matches)
             new_paths = _expand(doc, new, array_filters, positional_matches)
             if len(old_paths) != len(new_paths):
@@ -909,6 +1438,22 @@ def _apply_op(
                     "the same number of concrete paths"
                 )
             for op_path, np_path in zip(old_paths, new_paths, strict=True):
+                # A source path that cannot be TRAVERSED is an error, not a
+                # silent skip -- checked before `has_path`, which cannot tell
+                # "absent" from "blocked by a non-document".
+                # Every path reaching here is STATIC -- the dynamic forms were
+                # refused above -- so the predicate cannot mistake a positional
+                # expansion's array step for a blocked one.
+                #
+                # Skipped for a path that indexes into an ARRAY: mongod refuses
+                # that outright when the source resolves (above) and treats it
+                # as a plain no-op when it does not, so `{$rename: {"v.9.a":
+                # "q"}}` and `{$rename: {"v.0.zz": "q"}}` both succeed rather
+                # than reporting a 28 traverse failure.
+                if source_array_field is None:
+                    problem = _traverse_problem(doc, op_path)
+                    if problem is not None:
+                        raise problem
                 # `_id` is immutable in mongod (error code 66
                 # ImmutableField). $rename targeting (or sourcing from)
                 # _id would silently overwrite it without this guard.
@@ -920,28 +1465,60 @@ def _apply_op(
                 if has_path(doc, op_path):
                     value = get_path(doc, op_path)
                     unset_path(doc, op_path)
-                    set_path(doc, np_path, value)
+                    _set_path(doc, np_path, value)
     elif op == "$bit":
         for path, ops in payload.items():
             # mongod applies every listed operation to the field in order
             # (e.g. {and: X, or: Y} is (v & X) | Y), not just a single op.
-            if not isinstance(ops, Mapping) or not ops:
-                raise UpdateError("$bit requires a document with at least one bitwise operation")
+            # mongod separates "that is not a document at all" from "that is
+            # an EMPTY document"; this answered one generic FailedToParse (9)
+            # for both, where mongod uses BadValue (2) with two different texts.
+            # The unbalanced braces in both are mongod's own.
+            if not isinstance(ops, Mapping):
+                raise UpdateError(
+                    f"The $bit modifier is not compatible with a {_bson_type_name(ops)}. "
+                    "You must pass in an embedded document: "
+                    "{$bit: {field: {and/or/xor: #}}",
+                    code=2,
+                )
+            if not ops:
+                raise UpdateError(
+                    "You must pass in at least one bitwise operation. The format is: "
+                    "{$bit: {field: {and/or/xor: #}}",
+                    code=2,
+                )
             parsed_ops: list[tuple[str, int]] = []
             for bit_op, mask in ops.items():
                 if bit_op not in ("and", "or", "xor"):
-                    raise UpdateError(f"$bit unsupported sub-op: {bit_op}")
+                    raise UpdateError(
+                        f"The $bit modifier only supports 'and', 'or', and 'xor', not "
+                        f"'{bit_op}' which is an unknown operator: "
+                        f"{{{bit_op}: {bson_value_repr(mask)}}}",
+                        code=2,
+                    )
                 if not isinstance(mask, int) or isinstance(mask, bool):
+                    # mongod echoes the offending sub-document and ends with a
+                    # colon, not a full stop.
                     raise UpdateError(
                         "The $bit modifier field must be an Integer(32/64 bit); a "
-                        f"'{_bson_type_name(mask)}' is not supported here.",
+                        f"'{_bson_type_name(mask)}' is not supported here: "
+                        f"{{{bit_op}: {bson_value_repr(mask)}}}",
                         code=2,
                     )
                 parsed_ops.append((bit_op, mask))
             for concrete in _expand(doc, path, array_filters, positional_matches):
-                current = get_path(doc, concrete, default=0) or 0
+                # NOT `... or 0`: that turned every FALSY present value into the
+                # integer 0, so a null, a `-0.0` and an empty array all passed
+                # the integral check below and were overwritten with a number.
+                # An ABSENT field still starts at 0, which is mongod's rule.
+                current = get_path(doc, concrete, default=0) if has_path(doc, concrete) else 0
                 if not isinstance(current, int) or isinstance(current, bool):
-                    raise UpdateError(f"$bit on non-integer at {concrete!r}")
+                    raise _exec_error(
+                        "Cannot apply $bit to a value of non-integral type."
+                        f"_id: {bson_value_repr(doc.get('_id'))} has the field "
+                        f"{concrete} of non-integer type {_bson_type_name(current)}",
+                        code=2,
+                    )
                 for bit_op, mask in parsed_ops:
                     if bit_op == "and":
                         current = current & mask
@@ -949,6 +1526,10 @@ def _apply_op(
                         current = current | mask
                     else:
                         current = current ^ mask
-                set_path(doc, concrete, current)
+                _set_path(doc, concrete, current)
     else:
-        raise UpdateError(f"unsupported update operator: {op}")
+        # Same complaint, same words as the parse-time check -- mongod has one
+        # message for "that is not a modifier I know", and reaching it from the
+        # apply path rather than from ``validate_update_doc`` doesn't change
+        # what the client is told.
+        raise _unknown_modifier(op)

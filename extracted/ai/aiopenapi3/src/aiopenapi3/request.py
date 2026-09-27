@@ -1,47 +1,45 @@
 import abc
 import collections
 import contextlib
-import typing
 import json
 import logging
-from contextlib import closing
+import typing
+from collections.abc import AsyncGenerator, AsyncIterator, Generator, Iterator
+from contextlib import aclosing, closing
 from typing import Any, NamedTuple, Optional, Union, cast
-from collections.abc import AsyncIterator, AsyncGenerator, Generator
-from collections.abc import Iterator
-from contextlib import aclosing
 
-import httpx
+import httpx2
 import pydantic
 import yarl
 
 from aiopenapi3.errors import ContentLengthExceededError
 
-
 from .base import HTTP_METHODS, ReferenceBase
+from .errors import OperationIdDuplicationError, RequestError
 from .version import __version__
-from .errors import RequestError, OperationIdDuplicationError
 
 if typing.TYPE_CHECKING:
+    from aiopenapi3 import OpenAPI
+
     from ._types import (
-        RequestParameters,
-        RequestData,
-        RequestFiles,
-        RequestContent,
-        RequestType,
+        JSON,
         AuthTypes,
-        SchemaType,
+        HTTPMethodType,
+        OperationType,
         ParameterType,
         PathItemType,
-        OperationType,
-        JSON,
-        RootType,
-        ServerType,
+        RequestContent,
+        RequestData,
+        RequestFiles,
+        RequestParameters,
+        RequestType,
         ResponseDataType,
         ResponseHeadersType,
-        HTTPMethodType,
+        RootType,
+        SchemaType,
+        ServerType,
         TagType,
     )
-    from aiopenapi3 import OpenAPI
 
 log = logging.getLogger("aiopenapi3.request")
 
@@ -49,14 +47,14 @@ log = logging.getLogger("aiopenapi3.request")
 class RequestParameter:
     def __init__(self, url: yarl.URL | str):
         self.url: str = str(url)
-        self.auth: Optional["AuthTypes"] = None
+        self.auth: AuthTypes | None = None
         self.cookies: dict[str, str] = {}
         #        self.path = {}
         self.params: dict[str, str] = {}
-        self.content: Optional["RequestContent"] = None
+        self.content: RequestContent | None = None
         self.headers: dict[str, str] = {}
         self.data: dict[str, str] = {}  # form-data
-        self.files: Optional["RequestFiles"] = {}  # form-data files
+        self.files: RequestFiles | None = {}  # form-data files
         self.cert: Any = None
 
 
@@ -64,13 +62,13 @@ class RequestBase:
     class StreamResponse(NamedTuple):
         headers: "ResponseHeadersType"
         schema: Optional["SchemaType"]
-        session: httpx.Client
-        result: httpx.Response
+        session: httpx2.Client
+        result: httpx2.Response
 
     class Sequencer:
         def __init__(self, headers: "ResponseHeadersType", stream: Iterator["JSON"], model: pydantic.BaseModel) -> None:
             self.headers: ResponseHeadersType = headers
-            self.stream: Iterator["JSON"] = stream
+            self.stream: Iterator[JSON] = stream
             self.model = model
 
         def __iter__(self) -> Iterator:
@@ -86,7 +84,7 @@ class RequestBase:
     class Response(NamedTuple):
         headers: "ResponseHeadersType"
         data: Any
-        result: httpx.Response
+        result: httpx2.Response
 
     class Vars(NamedTuple):
         parameters: dict[str, str] | None
@@ -115,7 +113,7 @@ class RequestBase:
         operation: "OperationType",
         servers: list["ServerType"] | None,
     ):
-        self.api: "OpenAPI" = api
+        self.api: OpenAPI = api
         """
         OpenAPI object
         """
@@ -125,7 +123,7 @@ class RequestBase:
         API document root
         """
 
-        self.method: "HTTPMethodType" = method
+        self.method: HTTPMethodType = method
         """
         HTTP method
         """
@@ -135,12 +133,12 @@ class RequestBase:
         HTTP path
         """
 
-        self.vars: Optional["RequestBase.Vars"] = None
+        self.vars: RequestBase.Vars | None = None
         """
         Parameter & Data
         """
 
-        self.operation: "OperationType" = operation
+        self.operation: OperationType = operation
         """
         associated OpenAPI Operation
         """
@@ -150,7 +148,7 @@ class RequestBase:
         RequestParameter
         """
 
-        self.servers: list["ServerType"] | None = servers
+        self.servers: list[ServerType] | None = servers
         """
         Servers to use for this request
         """
@@ -164,7 +162,7 @@ class RequestBase:
         :param kwargs:
         :return: body or (header, body)
         """
-        headers, data, result = self.request(*args, context=context, **kwargs)  # type: ignore[misc]
+        headers, data, _result = self.request(*args, context=context, **kwargs)  # type: ignore[misc]
         if return_headers:
             return headers, data
         return data
@@ -173,16 +171,16 @@ class RequestBase:
     def _session_factory_default_args(self) -> dict[str, Any]:
         """
         this is the session factory default arguments,
-        the arguments passed to httpx.Async/Client()
+        the arguments passed to httpx2.Async/Client()
 
-        if you need to pass your own parameters to httpx.Async/Client use a session factory
+        if you need to pass your own parameters to httpx2.Async/Client use a session factory
         and pass your pararmters to the constructor in addition to these default arguments
         """
         return {"cert": self.req.cert, "auth": self.req.auth, "headers": {"user-agent": f"aiopenapi3/{__version__}"}}
 
     def _send(
-        self, session: httpx.Client, data: Optional["RequestData"], parameters: Optional["RequestParameters"]
-    ) -> httpx.Response:
+        self, session: httpx2.Client, data: Optional["RequestData"], parameters: Optional["RequestParameters"]
+    ) -> httpx2.Response:
         req = self._build_req(session)
         try:
             result = session.send(req, stream=True)
@@ -191,7 +189,7 @@ class RequestBase:
         return result
 
     @abc.abstractmethod
-    def _process_stream(self, result: httpx.Response) -> tuple["ResponseHeadersType", Optional["SchemaType"]]:
+    def _process_stream(self, result: httpx2.Response) -> tuple["ResponseHeadersType", Optional["SchemaType"]]:
         """
         process response headers
         lookup the schema for the stream
@@ -199,7 +197,7 @@ class RequestBase:
         ...
 
     @abc.abstractmethod
-    def _process_request(self, result: httpx.Response) -> tuple["ResponseHeadersType", "ResponseDataType"]:
+    def _process_request(self, result: httpx2.Response) -> tuple["ResponseHeadersType", "ResponseDataType"]:
         """
         process response headers
         lookup Model
@@ -207,7 +205,7 @@ class RequestBase:
         ...
 
     @abc.abstractmethod
-    def _process_sequence(self, result: httpx.Response) -> tuple["ResponseHeadersType", "ResponseDataType", Any]:
+    def _process_sequence(self, result: httpx2.Response) -> tuple["ResponseHeadersType", "ResponseDataType", Any]:
         """
         process response headers
         lookup Model
@@ -217,11 +215,11 @@ class RequestBase:
     @abc.abstractmethod
     def _prepare(self, data: Optional["RequestData"], parameters: Optional["RequestParameters"]) -> None: ...
 
-    def _build_req(self, session: httpx.Client | httpx.AsyncClient) -> httpx.Request:
+    def _build_req(self, session: httpx2.Client | httpx2.AsyncClient) -> httpx2.Request:
         url: yarl.URL = self.api.url
 
         if self.servers:
-            server: "ServerType" = self.api._server_select(self.servers)
+            server: ServerType = self.api._server_select(self.servers)
             url = self.api._base_url.join(yarl.URL(server.createUrl(self.api._server_variables)))
 
         req = session.build_request(
@@ -281,7 +279,7 @@ class RequestBase:
     ) -> "RequestBase.StreamResponse":
         """
         Sends an HTTP request as described by this Path - but do not process the result
-          * returns a tuple of Schema, httpx.Client, httpx.Response
+          * returns a tuple of Schema, httpx2.Client, httpx2.Response
           * requires closing the Client when done processing the response
           * requires manual processing of the data
           * intended for use with of large results
@@ -311,17 +309,18 @@ class RequestBase:
     ) -> Generator["RequestBase.Sequencer", None, None]:
         self.vars = RequestBase.Vars(parameters, data, context)
         self._prepare(data, parameters)
-        session: httpx.Client = self.api._session_factory(**self._session_factory_default_args)
+        session: httpx2.Client = self.api._session_factory(**self._session_factory_default_args)
         result = self._send(session, data, parameters)
-        headers, schema_, content_type = self._process_sequence(result)
+        headers, expected_media, content_type = self._process_sequence(result)
 
         if content_type in ["application/jsonl", "application/x-ndjson"]:
             """
             https://jsonlines.org/
             https://github.com/ndjson/ndjson-spec
             """
+            schema_ = expected_media.itemSchema
 
-            def iter_json(response: httpx.Response) -> Iterator["JSON"]:
+            def iter_json(response: httpx2.Response) -> Iterator["JSON"]:
                 for i in response.iter_lines():
                     yield json.loads(i)
 
@@ -330,10 +329,10 @@ class RequestBase:
             JSON Text Sequence
             https://datatracker.ietf.org/doc/html/rfc7464
             """
-
+            schema_ = expected_media.itemSchema
             import jsonseq.decode
 
-            def iter_json(response: httpx.Response) -> Iterator["JSON"]:
+            def iter_json(response: httpx2.Response) -> Iterator["JSON"]:
                 decoder = jsonseq.decode.JSONSeqDecoder()
                 for text in response.iter_text():
                     yield from decoder.decode(text)
@@ -343,8 +342,9 @@ class RequestBase:
             Server-Sent Events (SSE)
             https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events/Using_server-sent_events
             """
+            schema_ = expected_media.itemSchema
 
-            def iter_json(response: httpx.Response) -> Iterator["JSON"]:
+            def iter_json(response: httpx2.Response) -> Iterator["JSON"]:
                 for chunk in response.iter_text():
                     data_ = ""
                     for line in chunk.splitlines(keepends=True):
@@ -352,7 +352,7 @@ class RequestBase:
                         if not data_.endswith(("\r\r", "\n\n", "\r\n\r\n")):
                             continue
 
-                        v = dict()
+                        v = {}
                         for l in data_.splitlines(keepends=False):
                             if l == "":
                                 continue
@@ -363,7 +363,11 @@ class RequestBase:
                             v[cmd or "comment"] = value.lstrip()
                         data_ = ""
                         yield v
-        elif False:
+        elif content_type == "application/json":
+            """
+            this will iter arrays for OpenAPI 3.x
+            """
+            schema_ = expected_media.schema_.items
             import ijson
 
             class ReadEventStream:
@@ -371,16 +375,19 @@ class RequestBase:
                 Using a AsyncIterator input to feed a coroutine
                 """
 
-                def __init__(self, response: httpx.Response) -> None:
+                def __init__(self, response: httpx2.Response) -> None:
                     self._iter_bytes = response.iter_bytes()
 
                 def read(self, num_bytes: int) -> bytes:
                     if num_bytes == 0:
                         return b""
 
-                    return next(self._iter_bytes)
+                    try:
+                        return next(self._iter_bytes)
+                    except StopIteration:
+                        return b""
 
-            def iter_json(response: httpx.Response) -> Iterator["JSON"]:
+            def iter_json(response: httpx2.Response) -> Iterator["JSON"]:
                 reader = ReadEventStream(response)
                 yield from ijson.items(reader, "item")
         else:
@@ -416,15 +423,15 @@ class AsyncRequestBase(RequestBase):
     class StreamResponse(NamedTuple):
         headers: "ResponseHeadersType"
         schema: Optional["SchemaType"]
-        session: httpx.AsyncClient
-        result: httpx.Response
+        session: httpx2.AsyncClient
+        result: httpx2.Response
 
     class Sequencer:
         def __init__(
             self, headers: "ResponseHeadersType", stream: AsyncIterator["JSON"], model: pydantic.BaseModel
         ) -> None:
-            self.headers: "ResponseHeadersType" = headers
-            self.stream: AsyncIterator["JSON"] = stream
+            self.headers: ResponseHeadersType = headers
+            self.stream: AsyncIterator[JSON] = stream
             self.model = model
 
         def __aiter__(self) -> AsyncIterator:
@@ -440,19 +447,19 @@ class AsyncRequestBase(RequestBase):
     async def __call__(  # type: ignore[override]
         self, *args, return_headers: bool = False, context: Any = None, **kwargs
     ) -> Union["JSON", tuple[dict[str, str], "JSON"]]:
-        headers, data, result = await self.request(*args, context=context, **kwargs)  # type: ignore [misc]
+        headers, data, _result = await self.request(*args, context=context, **kwargs)  # type: ignore [misc]
         if return_headers:
             return headers, data
         return data
 
     async def _send(
-        self, session: httpx.AsyncClient, data: Optional["RequestData"], parameters: Optional["RequestParameters"]
-    ) -> httpx.Response:  # type: ignore[override]
+        self, session: httpx2.AsyncClient, data: Optional["RequestData"], parameters: Optional["RequestParameters"]
+    ) -> httpx2.Response:  # type: ignore[override]
         req = self._build_req(session)
         try:
             result = await session.send(req, stream=True)
         except Exception as e:
-            raise RequestError(self.operation, self, data, parameters or dict()) from e
+            raise RequestError(self.operation, self, data, parameters or {}) from e
         return result
 
     async def request(  # type: ignore[override]
@@ -500,15 +507,16 @@ class AsyncRequestBase(RequestBase):
         self._prepare(data, parameters)
         session = self.api._session_factory(**self._session_factory_default_args)
         result = await self._send(session, data, parameters)
-        headers, schema_, content_type = self._process_sequence(result)
+        headers, expected_media, content_type = self._process_sequence(result)
 
         if content_type in ["application/jsonl", "application/x-ndjson"]:
             """
             https://jsonlines.org/
             https://github.com/ndjson/ndjson-spec
             """
+            schema_ = expected_media.itemSchema
 
-            async def aiter_json(response: httpx.Response) -> AsyncIterator["JSON"]:
+            async def aiter_json(response: httpx2.Response) -> AsyncIterator["JSON"]:
                 async for i in response.aiter_lines():
                     yield json.loads(i)
 
@@ -517,10 +525,10 @@ class AsyncRequestBase(RequestBase):
             JSON Text Sequence
             https://datatracker.ietf.org/doc/html/rfc7464
             """
-
+            schema_ = expected_media.itemSchema
             import jsonseq.decode
 
-            async def aiter_json(response: httpx.Response) -> AsyncIterator["JSON"]:
+            async def aiter_json(response: httpx2.Response) -> AsyncIterator["JSON"]:
                 decoder = jsonseq.decode.JSONSeqDecoder()
                 async for text in response.aiter_text():
                     for obj in decoder.decode(text):
@@ -533,8 +541,9 @@ class AsyncRequestBase(RequestBase):
             https://html.spec.whatwg.org/multipage/server-sent-events.html#parsing-an-event-stream
             https://github.com/mpetazzoni/sseclient/blob/main/sseclient/__init__.py#L36
             """
+            schema_ = expected_media.itemSchema
 
-            async def aiter_json(response: httpx.Response) -> AsyncIterator["JSON"]:
+            async def aiter_json(response: httpx2.Response) -> AsyncIterator["JSON"]:
 
                 async for chunk in response.aiter_text():
                     data_ = ""
@@ -543,7 +552,7 @@ class AsyncRequestBase(RequestBase):
                         if not data_.endswith(("\r\r", "\n\n", "\r\n\r\n")):
                             continue
 
-                        v = dict()
+                        v = {}
                         for l in data_.splitlines(keepends=False):
                             if l == "":
                                 continue
@@ -554,7 +563,12 @@ class AsyncRequestBase(RequestBase):
                             v[cmd or "comment"] = value.lstrip()
                         data_ = ""
                         yield v
-        elif False:
+        elif content_type == "application/json":
+            """
+            this will iter arrays for OpenAPI 3.x
+            """
+
+            schema_ = expected_media.schema_.items
             import ijson
 
             class ReadEventStream:
@@ -562,16 +576,19 @@ class AsyncRequestBase(RequestBase):
                 Using a AsyncIterator input to feed a coroutine
                 """
 
-                def __init__(self, response: httpx.Response) -> None:
+                def __init__(self, response: httpx2.Response) -> None:
                     self._aiter_bytes = response.aiter_bytes()
 
                 async def read(self, num_bytes: int) -> bytes:
                     if num_bytes == 0:
                         return b""
 
-                    return await anext(self._aiter_bytes)
+                    try:
+                        return await anext(self._aiter_bytes)
+                    except StopAsyncIteration:
+                        return b""
 
-            async def aiter_json(response: httpx.Response) -> AsyncIterator["JSON"]:
+            async def aiter_json(response: httpx2.Response) -> AsyncIterator["JSON"]:
                 reader = ReadEventStream(response)
                 async for item in ijson.items(reader, "item"):
                     yield item
@@ -591,10 +608,8 @@ class OperationIndex:
     class OperationTag:
         def __init__(self, oi: "OperationIndex") -> None:
             self._oi = oi
-            self._operations: dict[str, tuple["HTTPMethodType", str, "OperationType", list["ServerType"] | None]] = (
-                dict()
-            )
-            self._tags: dict[str, "OperationIndex.OperationTag"] = dict()
+            self._operations: dict[str, tuple[HTTPMethodType, str, OperationType, list[ServerType] | None]] = {}
+            self._tags: dict[str, OperationIndex.OperationTag] = {}
 
         def __getattr__(self, item) -> RequestBase:
             if item in self._operations:
@@ -607,9 +622,9 @@ class OperationIndex:
         def __init__(self, api: "OpenAPI", use_operation_tags: bool):
             self.operations = []
             self.r: Iterator[int]
-            pi: "PathItemType"
-            for path, pi in api.paths.items():
-                op: "OperationType"
+            pi: PathItemType
+            for pi in api.paths.values():
+                op: OperationType
                 if pi.ref:
                     #                    pi = pi.ref._target
                     pi = cast("PathItemType", cast(ReferenceBase, pi.ref)._target)
@@ -620,7 +635,7 @@ class OperationIndex:
                         continue
                     if use_operation_tags and op.tags:
                         for tag in op.tags:
-                            tags = list()
+                            tags = []
                             while tag:
                                 tags.append(tag)
                                 tag = api._operationindex.tag(tag)
@@ -629,12 +644,12 @@ class OperationIndex:
                     else:
                         self.operations.append(op.operationId)
 
-                if hasattr(pi, "additionalOperations"):  # v32
+                if hasattr(pi, "additionalOperations"):  # v32 # noqa: SIM102
                     if pi.additionalOperations:
                         for method, op in pi.additionalOperations.items():
                             if use_operation_tags and op.tags:
                                 for tag in op.tags:
-                                    tags = list()
+                                    tags = []
                                     while tag:
                                         tags.append(tag)
                                         tag = api._operationindex.tag(tag)
@@ -653,17 +668,17 @@ class OperationIndex:
             return self.operations[next(self.r)]
 
     def __init__(self, api: "OpenAPI", use_operation_tags: bool):
-        self._api: "OpenAPI" = api
-        self._root: "RootType" = api._root
+        self._api: OpenAPI = api
+        self._root: RootType = api._root
 
-        self._operations: dict[str, tuple["HTTPMethodType", str, "OperationType", list["ServerType"] | None]] = dict()
-        self._tags: dict[str, "OperationIndex.OperationTag"] = collections.defaultdict(
+        self._operations: dict[str, tuple[HTTPMethodType, str, OperationType, list[ServerType] | None]] = {}
+        self._tags: dict[str, OperationIndex.OperationTag] = collections.defaultdict(
             lambda: OperationIndex.OperationTag(self)
         )
-        pi: "PathItemType"
+        pi: PathItemType
         for path, pi in self._root.paths.items():
-            op: "OperationType"
-            servers: list["ServerType"] | None
+            op: OperationType
+            servers: list[ServerType] | None
             if pi.ref:
                 pi = pi.ref._target
             for method in pi.model_fields_set & HTTP_METHODS:
@@ -680,7 +695,7 @@ class OperationIndex:
 
                 if use_operation_tags and op.tags:
                     for tag in op.tags:
-                        tree: list[str] = list()
+                        tree: list[str] = []
                         t: str | None = tag
                         v: TagType | None
                         while t:
@@ -706,7 +721,7 @@ class OperationIndex:
                         raise OperationIdDuplicationError(operationId, [item, other])
                     self._operations[operationId] = item
 
-            if hasattr(pi, "additionalOperations"):  # v32
+            if hasattr(pi, "additionalOperations"):  # v32 # noqa: SIM102
                 if pi.additionalOperations:
                     for method, op in pi.additionalOperations.items():
                         if op.operationId is None:

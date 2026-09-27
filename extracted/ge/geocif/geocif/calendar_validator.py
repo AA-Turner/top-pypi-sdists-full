@@ -390,6 +390,7 @@ def run(path_config_files):
                 "cv_scheme_models": {k: list(v) for k, v in obj.scheme_models.items()},
                 "feature_groups": {k: len(v) for k, v in features.FEATURE_GROUPS.items()},
                 "n_features": len(features.FEATURE_NAMES),
+                "hemisphere_source": "latitude sign (zone-file label kept as hemisphere_zone; rule-based port uses the zone label)",
                 "doy_convention": obj.convention,
                 "legacy_wrap_gate": obj.legacy_wrap_gate,
                 "circular_peak_distance": obj.circular_peak_distance,

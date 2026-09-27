@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: nonebot-adapter-qq
-Version: 1.7.2
+Version: 1.7.3
 Summary: QQ adapter for nonebot2
 Keywords: bot,qq,qqbot,qqguild
 Author: yanyongyu
@@ -11,7 +11,7 @@ Classifier: Framework :: Robot Framework
 Classifier: Framework :: Robot Framework :: Library
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Requires-Dist: yarl>=1.9.0,<2
+Requires-Dist: yarl>=1.23.0,<2
 Requires-Dist: nonebot2>=2.5.0,<3
 Requires-Dist: cryptography>=43.0.3,<49.0.0
 Requires-Dist: typing-extensions>=4.4.0,<5.0.0
@@ -63,7 +63,7 @@ QQ_IS_SANDBOX=true
 
 ### QQ_BOTS
 
-配置机器人帐号 `id` `token` `secret`，intent 需要根据机器人类型以及需要的事件进行配置。
+配置机器人帐号 `id` `secret`，intent 需要根据机器人类型以及需要的事件进行配置。
 
 #### Webhook / WebSocket
 
@@ -115,7 +115,6 @@ QQ_BOTS='
 [
   {
     "id": "xxx",
-    "token": "xxx",
     "secret": "xxx",
     "intent": {
       "guild_messages": true,
@@ -134,7 +133,6 @@ QQ_BOTS='
 [
   {
     "id": "xxx",
-    "token": "xxx",
     "secret": "xxx",
     "intent": {
       "c2c_group_at_messages": true,

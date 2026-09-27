@@ -1,0 +1,80 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pyunormalize"
+dynamic = ["version"]
+description = """\
+A library for Unicode normalization (NFC, NFD, NFKC, NFKD) \
+independent of Python's core Unicode database.\
+"""
+readme = "README.md"
+requires-python = ">=3.9"
+license = "MIT"
+license-files = ["LICENSE", "UNICODE-LICENSE"]
+
+authors = [
+    { name = "Marc Lodewijck", email = "mlodewijck@gmail.com" }
+]
+
+keywords = [
+    "nfc",
+    "nfd",
+    "nfkc",
+    "nfkd",
+    "normalization forms",
+    "normalize",
+    "hangul",
+    "text",
+    "text processing",
+    "unicode",
+    "unicode normalization",
+    "i18n",
+    "python",
+    "pure-python",
+]
+
+classifiers = [
+    # Development status
+    "Development Status :: 5 - Production/Stable",
+
+    # Target audience and platform compatibility
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+
+    # Python version compatibility
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+
+    # PyPI topics
+    "Topic :: Software Development :: Internationalization",
+    "Topic :: Software Development :: Localization",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Text Processing",
+    "Topic :: Text Processing :: Linguistic",
+    "Topic :: Utilities",
+]
+
+[project.urls]
+Homepage = "https://github.com/mlodewijck/pyunormalize"
+Source = "https://github.com/mlodewijck/pyunormalize"
+Issues = "https://github.com/mlodewijck/pyunormalize/issues"
+Changelog = "https://github.com/mlodewijck/pyunormalize/blob/main/CHANGELOG.md"
+
+[project.optional-dependencies]
+dev = ["nox"]
+
+[tool.setuptools.dynamic]
+version = { attr = "pyunormalize._version.__version__" }
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["pyunormalize*"]
+exclude = ["docs*", "tests*", "tools*"]

@@ -15,6 +15,37 @@ from multidict import (
 
 _SENTINEL = object()
 
+_HEADER_NAMES = (
+    "Accept",
+    "Accept-Encoding",
+    "Accept-Language",
+    "Cache-Control",
+    "Connection",
+    "Content-Length",
+    "Content-Type",
+    "Cookie",
+    "Host",
+    "If-None-Match",
+    "Origin",
+    "Referer",
+    "Sec-Fetch-Mode",
+    "Server",
+    "Set-Cookie",
+    "Transfer-Encoding",
+    "Upgrade",
+    "User-Agent",
+    "X-Forwarded-For",
+    "X-Request-ID",
+)
+
+# A plain ``str`` key makes CIMultiDict compute the identity on every call,
+# the step ``istr`` skips via its cached canonical form.  The two spellings
+# are kept separate because lowering an already-lowercase key and lowering a
+# mixed-case one are different amounts of work.
+_MIXED_CASE_KEYS = [f"{name}-{i}" for i in range(10) for name in _HEADER_NAMES]
+_LOWER_CASE_KEYS = [key.lower() for key in _MIXED_CASE_KEYS]
+_NON_ASCII_KEYS = [f"Ключ-{i}" for i in range(200)]
+
 
 def test_multidict_insert_str(
     benchmark: BenchmarkFixture, any_multidict_class: type[MultiDict[str]]
@@ -826,3 +857,208 @@ def test_iterate_multidict_items(
     def _run() -> None:
         for _, _ in md.items():
             pass
+
+
+def test_multidict_getall_str_hit_large_table(
+    benchmark: BenchmarkFixture, any_multidict_class: type[MultiDict[str]]
+) -> None:
+    md = any_multidict_class(
+        (f"key{j}", f"{i}-{j}") for i in range(8) for j in range(8192)
+    )
+
+    keys = [f"key{j}" for j in range(128)]
+
+    @benchmark
+    def _run() -> None:
+        for key in keys:
+            md.getall(key)
+
+
+def test_multidict_getall_str_hit_large_table_many_values(
+    benchmark: BenchmarkFixture, any_multidict_class: type[MultiDict[str]]
+) -> None:
+    md = any_multidict_class(
+        (f"key{j}", f"{i}-{j}") for i in range(16) for j in range(4096)
+    )
+
+    keys = [f"key{j}" for j in range(128)]
+
+    @benchmark
+    def _run() -> None:
+        for key in keys:
+            md.getall(key)
+
+
+def test_multidict_getall_str_hit_many_values(
+    benchmark: BenchmarkFixture, any_multidict_class: type[MultiDict[str]]
+) -> None:
+    md = any_multidict_class(
+        (f"key{j}", f"{i}-{j}") for i in range(64) for j in range(16)
+    )
+
+    keys = [f"key{j}" for j in range(16)]
+
+    @benchmark
+    def _run() -> None:
+        for i in range(8):
+            for key in keys:
+                md.getall(key)
+
+
+def test_cimultidict_getall_istr_hit_many_values(
+    benchmark: BenchmarkFixture,
+    case_insensitive_multidict_class: type[CIMultiDict[istr]],
+    case_insensitive_str_class: type[istr],
+) -> None:
+    md = case_insensitive_multidict_class(
+        (f"key{j}", case_insensitive_str_class(f"{i}-{j}"))
+        for i in range(64)
+        for j in range(16)
+    )
+
+    keys = [case_insensitive_str_class(f"key{j}") for j in range(16)]
+
+    @benchmark
+    def _run() -> None:
+        for i in range(8):
+            for key in keys:
+                md.getall(key)
+
+
+def test_multidict_update_str_with_duplicates(
+    benchmark: BenchmarkFixture, any_multidict_class: type[MultiDict[str]]
+) -> None:
+    base_md = any_multidict_class((str(i % 50), str(i)) for i in range(150))
+    items = [(str(i % 75), str(i)) for i in range(100)]
+
+    @benchmark
+    def _run() -> None:
+        for _ in range(100):
+            md = base_md.copy()
+            md.update(items)
+
+
+def test_cimultidict_update_istr_with_duplicates(
+    benchmark: BenchmarkFixture,
+    case_insensitive_multidict_class: type[CIMultiDict[istr]],
+    case_insensitive_str_class: type[istr],
+) -> None:
+    base_md = case_insensitive_multidict_class(
+        (case_insensitive_str_class(i % 50), case_insensitive_str_class(i))
+        for i in range(150)
+    )
+    items = [
+        (case_insensitive_str_class(i % 75), case_insensitive_str_class(i))
+        for i in range(100)
+    ]
+
+    @benchmark
+    def _run() -> None:
+        for _ in range(100):
+            md = base_md.copy()
+            md.update(items)
+
+
+def test_multidict_merge_str(
+    benchmark: BenchmarkFixture, any_multidict_class: type[MultiDict[str]]
+) -> None:
+    base_md = any_multidict_class((str(i), str(i)) for i in range(150))
+    items = {str(i): str(i) for i in range(100, 200)}
+
+    @benchmark
+    def _run() -> None:
+        for _ in range(100):
+            md = base_md.copy()
+            md.merge(items)
+
+
+def test_multidict_to_dict_str(
+    benchmark: BenchmarkFixture, any_multidict_class: type[MultiDict[str]]
+) -> None:
+    md = any_multidict_class((str(i % 50), str(i)) for i in range(150))
+
+    @benchmark
+    def _run() -> None:
+        for _ in range(100):
+            md.to_dict()
+
+
+def test_cimultidict_insert_str_mixed_case(
+    benchmark: BenchmarkFixture,
+    case_insensitive_multidict_class: type[CIMultiDict[str]],
+) -> None:
+    base_md = case_insensitive_multidict_class()
+
+    @benchmark
+    def _run() -> None:
+        for _ in range(100):
+            md = base_md.copy()
+            for i in _MIXED_CASE_KEYS:
+                md[i] = i
+
+
+def test_cimultidict_insert_str_lower_case(
+    benchmark: BenchmarkFixture,
+    case_insensitive_multidict_class: type[CIMultiDict[str]],
+) -> None:
+    base_md = case_insensitive_multidict_class()
+
+    @benchmark
+    def _run() -> None:
+        for _ in range(100):
+            md = base_md.copy()
+            for i in _LOWER_CASE_KEYS:
+                md[i] = i
+
+
+def test_cimultidict_add_str_mixed_case(
+    benchmark: BenchmarkFixture,
+    case_insensitive_multidict_class: type[CIMultiDict[str]],
+) -> None:
+    base_md = case_insensitive_multidict_class()
+
+    @benchmark
+    def _run() -> None:
+        for _ in range(100):
+            md = base_md.copy()
+            for i in _MIXED_CASE_KEYS:
+                md.add(i, i)
+
+
+def test_cimultidict_fetch_str_mixed_case(
+    benchmark: BenchmarkFixture,
+    case_insensitive_multidict_class: type[CIMultiDict[str]],
+) -> None:
+    md = case_insensitive_multidict_class((i, i) for i in _MIXED_CASE_KEYS)
+
+    @benchmark
+    def _run() -> None:
+        for _ in range(8):
+            for i in _MIXED_CASE_KEYS:
+                md[i]
+
+
+def test_cimultidict_fetch_str_lower_case(
+    benchmark: BenchmarkFixture,
+    case_insensitive_multidict_class: type[CIMultiDict[str]],
+) -> None:
+    md = case_insensitive_multidict_class((i, i) for i in _LOWER_CASE_KEYS)
+
+    @benchmark
+    def _run() -> None:
+        for _ in range(8):
+            for i in _LOWER_CASE_KEYS:
+                md[i]
+
+
+def test_cimultidict_fetch_str_non_ascii(
+    benchmark: BenchmarkFixture,
+    case_insensitive_multidict_class: type[CIMultiDict[str]],
+) -> None:
+    md = case_insensitive_multidict_class((i, i) for i in _NON_ASCII_KEYS)
+
+    @benchmark
+    def _run() -> None:
+        for _ in range(8):
+            for i in _NON_ASCII_KEYS:
+                md[i]

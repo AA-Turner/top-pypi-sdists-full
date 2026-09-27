@@ -11,9 +11,12 @@ range types, and range GiST indexes are out of scope.
 from __future__ import annotations
 
 import datetime as _dt
+from decimal import Decimal
 from typing import Any
 
 import bson
+
+from secantus.sql import numeric as _numeric
 
 # type tag -> (element tag, is_discrete). Discrete ranges canonicalise to ``[)``.
 RANGE_TYPES: dict[str, tuple[str, bool]] = {
@@ -28,8 +31,17 @@ RANGE_TYPES: dict[str, tuple[str, bool]] = {
 
 def _cv(v: Any) -> Any:
     """A bound value made comparable: ``bson.Decimal128`` (a ``numrange`` bound's
-    storage form) has no ordering operators, so unwrap it to ``Decimal``."""
-    return v.to_decimal() if isinstance(v, bson.Decimal128) else v
+    storage form) has no ordering operators, so unwrap it to ``Decimal``; and a
+    naive datetime reads as UTC. A STORED bound decodes naive from BSON while a
+    constructed one (``tsrange(a, b)``) is aware, and Python refuses to order
+    the two -- so ``stored && tsrange(…)`` was an XX000. `_canonical_bound`
+    already applied the same UTC rule for equality."""
+    if isinstance(v, bson.Decimal128) or _numeric.is_wide(v):
+        # A numrange bound past Decimal128 is the wide numeric document.
+        return _numeric.to_decimal(v)
+    if isinstance(v, _dt.datetime) and v.tzinfo is None:
+        return v.replace(tzinfo=_dt.timezone.utc)
+    return v
 
 
 def is_range_tag(tag: str | None) -> bool:
@@ -67,6 +79,13 @@ def make_range(
         lower = _typemap.coerce(lower, _elem)
     if upper is not None:
         upper = _typemap.coerce(upper, _elem)
+    if tag == "tsrange":
+        # A tsrange holds timestamp WITHOUT time zone. Its element coerces
+        # through timestamptz (aware, UTC), so a constructed bound was aware
+        # while a stored one decodes naive -- and an intersection that kept a
+        # constructed bound rendered `2020-01-02 00:00:00+00:00` where Postgres
+        # renders `2020-01-02 00:00:00` (caught by the pg-oracle comparison).
+        lower, upper = _naive_utc(lower), _naive_utc(upper)
     if discrete:
         # Canonicalise to [): a lower exclusive bound steps up; an upper inclusive
         # bound steps up (so [1,10] -> [1,11), (1,10] -> [2,11)).
@@ -87,16 +106,88 @@ def make_range(
     return {"lower": lower, "upper": upper, "lower_inc": lower_inc, "upper_inc": upper_inc}
 
 
+# The TYPE a bound has, as ``lower()`` / ``upper()`` report it. Not the storage
+# element: tsrange and daterange bounds coerce through timestamptz for storage,
+# but Postgres types ``lower(tsrange)`` as timestamp WITHOUT time zone and
+# ``lower(daterange)`` as date (measured: both were reported timestamptz).
+_BOUND_RESULT_TAG = {"tsrange": "timestamp", "tstzrange": "timestamptz", "daterange": "date"}
+
+
+def bound_result_tag(tag: str) -> str:
+    """The SQL type of ``lower(<tag>)`` / ``upper(<tag>)``."""
+    return _BOUND_RESULT_TAG.get(tag, RANGE_TYPES[tag][0])
+
+
+def _naive_utc(v: Any) -> Any:
+    """An aware datetime as naive UTC (a tsrange bound's form); else unchanged."""
+    if isinstance(v, _dt.datetime) and v.tzinfo is not None:
+        return v.astimezone(_dt.timezone.utc).replace(tzinfo=None)
+    return v
+
+
 def is_empty(rng: Any) -> bool:
     return isinstance(rng, dict) and bool(rng.get("empty"))
 
 
+# Sub-millisecond precision for ``tsrange`` / ``tstzrange`` bounds.
+#
+# A bound is a datetime, and BSON dates hold whole MILLISECONDS, so a stored
+# ``[…49.338943, …)`` came back as ``[…49.338000, …)`` -- silently, and only on
+# the storage path (an expression never reaches BSON). Scalar ``timestamp``
+# columns solve this with a hidden top-level companion field (`secantus.sql.subms`);
+# a range bound is nested inside the range's own subdocument, so its remainder
+# rides INSIDE that subdocument instead. The value then carries its own
+# microseconds through every write path, join and projection, and only reads
+# need to add them back -- which `_bound` does, for every accessor here.
+_US_KEY = {"lower": "__us_lower", "upper": "__us_upper"}
+
+
+def _bound(rng: dict, side: str) -> Any:
+    """``rng``'s ``side`` bound with any stored sub-millisecond remainder added
+    back. Idempotent: an in-memory bound already carries its microseconds, and
+    flooring to the millisecond before adding the remainder gives the same
+    value either way."""
+    v = rng.get(side)
+    us = rng.get(_US_KEY[side])
+    if us and isinstance(v, _dt.datetime):
+        return v.replace(microsecond=v.microsecond - v.microsecond % 1000 + int(us))
+    return v
+
+
+def pack(rng: Any) -> Any:
+    """A range subdocument ready for BSON storage: each datetime bound's
+    sub-millisecond remainder recorded beside it (and a stale one cleared).
+
+    Keys are emitted in ONE fixed order, because a pushed-down ``WHERE r = …``
+    compares whole subdocuments and BSON subdocument equality is
+    order-sensitive. Anything that is not a non-empty range passes through."""
+    if not isinstance(rng, dict) or rng.get("empty") or "multirange" in rng:
+        return rng
+    out: dict[str, Any] = {}
+    for side in ("lower", "upper"):
+        out[side] = _bound(rng, side)
+    out["lower_inc"] = rng.get("lower_inc")
+    out["upper_inc"] = rng.get("upper_inc")
+    for side in ("lower", "upper"):
+        v = out[side]
+        if isinstance(v, _dt.datetime) and v.microsecond % 1000:
+            out[_US_KEY[side]] = v.microsecond % 1000
+    return out
+
+
+def pack_multirange(mr: Any) -> Any:
+    """`pack` for every member of a multirange subdocument."""
+    if isinstance(mr, dict) and isinstance(mr.get("multirange"), list):
+        return {**mr, "multirange": [pack(r) for r in mr["multirange"]]}
+    return mr
+
+
 def lower_bound(rng: Any) -> Any:
-    return None if is_empty(rng) else (rng or {}).get("lower")
+    return None if is_empty(rng) else _bound(rng or {}, "lower")
 
 
 def upper_bound(rng: Any) -> Any:
-    return None if is_empty(rng) else (rng or {}).get("upper")
+    return None if is_empty(rng) else _bound(rng or {}, "upper")
 
 
 def contains_value(rng: Any, value: Any) -> bool:
@@ -104,7 +195,7 @@ def contains_value(rng: Any, value: Any) -> bool:
     if value is None or is_empty(rng) or not isinstance(rng, dict):
         return False
     value = _cv(value)
-    lo, hi = _cv(rng.get("lower")), _cv(rng.get("upper"))
+    lo, hi = _cv(_bound(rng, "lower")), _cv(_bound(rng, "upper"))
     if lo is not None and (value < lo or (value == lo and not rng.get("lower_inc"))):
         return False
     return not (hi is not None and (value > hi or (value == hi and not rng.get("upper_inc"))))
@@ -112,7 +203,7 @@ def contains_value(rng: Any, value: Any) -> bool:
 
 def _lower_le(a: dict, b: dict) -> bool:
     """Is a's lower bound <= b's lower bound (unbounded lower is smallest)?"""
-    la, lb = _cv(a.get("lower")), _cv(b.get("lower"))
+    la, lb = _cv(_bound(a, "lower")), _cv(_bound(b, "lower"))
     if la is None:
         return True
     if lb is None:
@@ -124,7 +215,7 @@ def _lower_le(a: dict, b: dict) -> bool:
 
 def _upper_ge(a: dict, b: dict) -> bool:
     """Is a's upper bound >= b's upper bound (unbounded upper is largest)?"""
-    ua, ub = _cv(a.get("upper")), _cv(b.get("upper"))
+    ua, ub = _cv(_bound(a, "upper")), _cv(_bound(b, "upper"))
     if ua is None:
         return True
     if ub is None:
@@ -152,7 +243,7 @@ def overlaps(a: Any, b: Any) -> bool:
 
 def _after_lower(hi_side: dict, lo_side: dict) -> bool:
     """Does ``hi_side``'s upper bound reach ``lo_side``'s lower bound?"""
-    up, lo = _cv(hi_side.get("upper")), _cv(lo_side.get("lower"))
+    up, lo = _cv(_bound(hi_side, "upper")), _cv(_bound(lo_side, "lower"))
     if up is None or lo is None:
         return True
     if up != lo:
@@ -163,8 +254,10 @@ def _after_lower(hi_side: dict, lo_side: dict) -> bool:
 def _fmt(value: Any, tag: str | None = None) -> str:
     if value is None:
         return ""
-    if isinstance(value, bson.Decimal128):
-        return str(value.to_decimal())
+    if isinstance(value, (bson.Decimal128, Decimal)) or _numeric.is_wide(value):
+        # Postgres' plain notation: `str(Decimal)` switches to exponent form
+        # (`1E+40`) where Postgres prints every digit.
+        return _numeric.canonical(_numeric.to_decimal(value))
     if isinstance(value, _dt.datetime):
         # A ``daterange`` bound is stored as a datetime (BSON has no date-only
         # value) but renders as its date, the way Postgres prints it.
@@ -198,7 +291,7 @@ def render(rng: Any, tag: str | None = None) -> str:
         return "empty"
     lb = "[" if rng.get("lower_inc") else "("
     ub = "]" if rng.get("upper_inc") else ")"
-    lo, hi = rng.get("lower"), rng.get("upper")
+    lo, hi = _bound(rng, "lower"), _bound(rng, "upper")
     lo_s = _quote_bound(_fmt(lo, tag)) if lo is not None else ""
     hi_s = _quote_bound(_fmt(hi, tag)) if hi is not None else ""
     return f"{lb}{lo_s},{hi_s}{ub}"
@@ -209,7 +302,7 @@ def _pick_lower(a: dict, b: dict, *, smallest: bool) -> dict[str, Any]:
     bounds. An unbounded lower is the smallest possible."""
     a_le = _lower_le(a, b)
     src = a if (a_le == smallest) else b
-    return {"lower": src.get("lower"), "lower_inc": bool(src.get("lower_inc"))}
+    return {"lower": _bound(src, "lower"), "lower_inc": bool(src.get("lower_inc"))}
 
 
 def _pick_upper(a: dict, b: dict, *, largest: bool) -> dict[str, Any]:
@@ -217,7 +310,7 @@ def _pick_upper(a: dict, b: dict, *, largest: bool) -> dict[str, Any]:
     bounds. An unbounded upper is the largest possible."""
     a_ge = _upper_ge(a, b)
     src = a if (a_ge == largest) else b
-    return {"upper": src.get("upper"), "upper_inc": bool(src.get("upper_inc"))}
+    return {"upper": _bound(src, "upper"), "upper_inc": bool(src.get("upper_inc"))}
 
 
 def merge(a: Any, b: Any) -> dict[str, Any]:
@@ -250,7 +343,7 @@ def adjacent(a: Any, b: Any) -> bool:
 def _touches(left: dict, right: dict) -> bool:
     """Does ``left``'s upper bound meet ``right``'s lower bound with exactly one
     side inclusive (so they abut without overlapping or leaving a gap)?"""
-    up, lo = _cv(left.get("upper")), _cv(right.get("lower"))
+    up, lo = _cv(_bound(left, "upper")), _cv(_bound(right, "lower"))
     if up is None or lo is None or up != lo:
         return False
     return bool(left.get("upper_inc")) != bool(right.get("lower_inc"))
@@ -279,16 +372,16 @@ def difference(a: Any, b: Any) -> dict[str, Any]:
         raise RangeError("result of range difference would not be contiguous")
     if left_open:  # keep a's lower up to b's lower
         return {
-            "lower": a.get("lower"),
+            "lower": _bound(a, "lower"),
             "lower_inc": bool(a.get("lower_inc")),
-            "upper": b.get("lower"),
+            "upper": _bound(b, "lower"),
             "upper_inc": not b.get("lower_inc"),
         }
     if right_open:  # keep b's upper up to a's upper
         return {
-            "lower": b.get("upper"),
+            "lower": _bound(b, "upper"),
             "lower_inc": not b.get("upper_inc"),
-            "upper": a.get("upper"),
+            "upper": _bound(a, "upper"),
             "upper_inc": bool(a.get("upper_inc")),
         }
     return {"empty": True}  # b covers a
@@ -332,7 +425,7 @@ def make_multirange(rngs: list) -> dict[str, Any]:
 
 
 def _lower_sort_key(rng: dict):
-    lo = _cv(rng.get("lower"))
+    lo = _cv(_bound(rng, "lower"))
     return (0,) if lo is None else (1, lo, 0 if rng.get("lower_inc") else 1)
 
 
@@ -512,8 +605,8 @@ def _canonical_bound(v: Any) -> Any:
     """A comparison-stable form of a range bound: ``Decimal128`` unwraps to
     ``Decimal`` (so int / Decimal / Decimal128 spellings of the same number
     compare equal), naive datetimes read as UTC, date objects as ISO text."""
-    if isinstance(v, bson.Decimal128):
-        return v.to_decimal()
+    if isinstance(v, bson.Decimal128) or _numeric.is_wide(v):
+        return _numeric.to_decimal(v)
     if isinstance(v, _dt.datetime):
         return v.replace(tzinfo=_dt.timezone.utc) if v.tzinfo is None else v
     if isinstance(v, _dt.date):
@@ -529,8 +622,8 @@ def canonical(rng: Any) -> tuple:
     if r.get("empty"):
         return ("empty",)
     return (
-        _canonical_bound(r.get("lower")),
-        _canonical_bound(r.get("upper")),
+        _canonical_bound(_bound(r, "lower")),
+        _canonical_bound(_bound(r, "upper")),
         bool(r.get("lower_inc")),
         bool(r.get("upper_inc")),
     )

@@ -43,6 +43,7 @@ from pikepdf.models.image._shared import (
     PaletteData,
     T,
     _array_str,
+    _decodeparms_list,
     _ensure_list,
     _metadata_from_obj,
 )
@@ -122,7 +123,7 @@ class PdfImageBase(ABC, metaclass=_PdfImageMeta):
     @property
     def decode_parms(self) -> list:
         """List of the /DecodeParms, arguments to filters."""
-        return self._metadata('DecodeParms', _ensure_list, [])
+        return self._metadata('DecodeParms', _decodeparms_list, [])
 
     def _lab_range(self) -> tuple[float, float, float, float]:
         """Return the /Lab colour space's (amin, amax, bmin, bmax) Range.
@@ -305,7 +306,7 @@ class PdfImage(PdfImageBase):
         return cls(imstream)
 
     def _metadata(self, name: str, type_: Callable[[Any], T], default: Any) -> T:
-        return cast(T, _metadata_from_obj(self.obj, name, type_, default))
+        return _metadata_from_obj(self.obj, name, type_, default)
 
     @property
     def _iccstream(self) -> Object:
@@ -758,10 +759,7 @@ class PdfInlineImage(PdfImageBase):
         return (
             self.obj == other.obj
             and isinstance(other, PdfInlineImage)
-            and (
-                self._data._inline_image_raw_bytes()
-                == other._data._inline_image_raw_bytes()
-            )
+            and (self.read_raw_bytes() == other.read_raw_bytes())
         )
 
     @staticmethod
@@ -823,7 +821,7 @@ class PdfInlineImage(PdfImageBase):
         raise NotImplementedError(repr(obj))
 
     def _metadata(self, name: str, type_: Callable[[Any], T], default: Any) -> T:
-        return cast(T, _metadata_from_obj(self.obj, name, type_, default))
+        return _metadata_from_obj(self.obj, name, type_, default)
 
     def _resolve_named_colorspace(self, name: str) -> Object | None:
         """Resolve a named colour space against the in-scope /Resources.
@@ -880,7 +878,7 @@ class PdfInlineImage(PdfImageBase):
             yield b'BI\n'
             yield b' '.join(m for m in metadata_tokens())
             yield b'\nID\n'
-            yield self._data._inline_image_raw_bytes()
+            yield self.read_raw_bytes()
             yield b'EI'
 
         return b''.join(inline_image_tokens())
@@ -1000,6 +998,16 @@ class PdfInlineImage(PdfImageBase):
             apply_decode_array=apply_decode_array,
             apply_mask=apply_mask,
         )
+
+    def read_raw_bytes(self) -> bytes:
+        """Return the image data exactly as it appears in the content stream.
+
+        The data is still encoded with the image's filters, if any. It is the
+        span qpdf took from the content stream: it begins after the single
+        whitespace byte that follows ``ID`` and ends immediately before
+        ``EI``, so it includes any whitespace that precedes ``EI``.
+        """
+        return self._data._inline_image_raw_bytes()
 
     def read_bytes(self) -> bytes:
         """Return decompressed image bytes."""

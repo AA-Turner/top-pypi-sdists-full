@@ -204,7 +204,6 @@ def test_user_args(package_user_args, tmp_path, monkeypatch):
         'dist-args': ('cli-dist',),
         'setup-args': ('cli-setup',),
         'compile-args': ('cli-compile',),
-        'install-args': ('--skip-subprojects=cli',),
     }
 
     with in_git_repo_context():
@@ -228,12 +227,11 @@ def test_user_args(package_user_args, tmp_path, monkeypatch):
         # sdist: calls to 'meson setup' and 'meson dist'
         {'config-setup', 'cli-setup'},
         {'config-dist', 'cli-dist'},
-        # wheel: calls to 'meson setup', 'meson compile', and 'meson install'
+        # wheel: calls to 'meson setup' and 'meson compile'
         {'config-setup', 'cli-setup'},
         {'config-compile', 'cli-compile'},
-        {'--skip-subprojects=config', '--skip-subprojects=cli'},
     ]
-    for expected_args, cmd_args in zip(expected, args):
+    for expected_args, cmd_args in zip(expected, args, strict=True):
         assert expected_args.issubset(cmd_args)
 
 

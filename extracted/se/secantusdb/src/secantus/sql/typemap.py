@@ -27,11 +27,14 @@ import json as _json
 import math as _math
 import re as _re
 import struct as _struct
+from collections.abc import Mapping
 from decimal import Decimal
 from typing import Any
 
 import bson
 from sqlglot import exp
+
+from secantus.sql import numeric as _numeric
 
 # Internal type tags -> Postgres type OID. Stable across the codebase; the wire
 # layer reads these for RowDescription.
@@ -47,6 +50,10 @@ PG_OID: dict[str, int] = {
     "int4": 23,
     # oid: an unsigned int4-like object identifier (psycopg's Oid wrapper).
     "oid": 26,
+    # regtype: a type's OID that INPUTS and PRINTS as the type's name. The value
+    # is the name text, so it renders exactly like ``text`` — only the declared
+    # oid differs, which is the whole point (``pg_typeof`` returns one).
+    "regtype": 2206,
     "text": 25,
     "float4": 700,
     "float8": 701,
@@ -654,7 +661,10 @@ def number_literal(text: str) -> Any:
             with _decimal.localcontext() as ctx:
                 ctx.prec = 40
                 d = d.quantize(Decimal(1))
-        return to_decimal128(d)
+        # Exact: a Decimal128 when one holds it, else the wide form (see
+        # `secantus.sql.numeric`). Was `to_decimal128`, which rounded a literal
+        # past 34 digits before any expression saw it.
+        return _numeric.stored(d)
     return int(text)
 
 
@@ -705,6 +715,46 @@ def numeric_div(left: Decimal, right: Decimal) -> Decimal:
         return q.quantize(Decimal(1).scaleb(-rscale), rounding=_decimal.ROUND_HALF_UP)
 
 
+#: The statistical aggregates that use a SAMPLE denominator (N-1) and answer
+#: NULL for a single row; the rest are population forms with denominator N.
+_SAMPLE_STATS = frozenset({"stddev", "stddev_samp", "variance", "var_samp"})
+
+
+def numeric_stat(kind: str, count: int, sum_x: Decimal, sum_x2: Decimal) -> Decimal | None:
+    """`stddev` / `variance` and their `_samp` / `_pop` forms, computed EXACTLY.
+
+    Postgres accumulates N, sum(X) and sum(X**2) as numerics and finishes in
+    numeric arithmetic, so an integer or numeric input gets an exact numeric
+    answer at `select_div_scale`'s scale. Going through a float — which is what
+    Mongo's `$stdDevSamp` gives, and what squaring its result gave for the
+    variances — lost the last digits AND reported the wrong type: PG answers
+    `numeric` here, not `float8`.
+
+    `numeric_stddev_internal` clamps a negative numerator to zero (roundoff on
+    a constant column) and takes the square root at the division's own scale."""
+    if count == 0:
+        return None
+    sample = kind in _SAMPLE_STATS
+    if sample and count == 1:
+        return None
+    n = Decimal(count)
+    numerator = n * sum_x2 - sum_x * sum_x
+    if numerator <= 0:
+        # PG returns `const_zero` outright rather than dividing — a plain `0`,
+        # scale 0. It matters: over a constant column the division's scale rule
+        # would have answered `0.00000000000000000000`. The clamp also covers a
+        # numerator driven negative by roundoff.
+        return Decimal(0)
+    variance = numeric_div(numerator, n * (n - 1) if sample else n * n)
+    if kind.startswith("var"):
+        return variance
+    rscale = max(0, -variance.as_tuple().exponent)
+    with _decimal.localcontext() as ctx:
+        ctx.prec = rscale + 30
+        root = variance.sqrt()
+    return root.quantize(Decimal(1).scaleb(-rscale), rounding=_decimal.ROUND_HALF_UP)
+
+
 def unwrap_numeric(value: Any) -> Any:
     """A ``Decimal128`` as a plain ``Decimal``; anything else unchanged.
 
@@ -712,14 +762,130 @@ def unwrap_numeric(value: Any) -> Any:
     / arithmetic / comparison all reject it. Any code that takes a value which
     might be a ``numeric`` and does arithmetic on it needs this first.
     """
-    return value.to_decimal() if isinstance(value, bson.Decimal128) else value
+    if isinstance(value, bson.Decimal128):
+        return value.to_decimal()
+    if isinstance(value, dict) and _numeric.WIDE_KEY in value:
+        return Decimal(value[_numeric.WIDE_KEY])
+    return value
+
+
+#: Postgres' jsonb btree type order (`Object > Array > Boolean > Number >
+#: String > Null`), as ascending ranks. Measured on 14.13.
+_JSONB_NULL, _JSONB_STR, _JSONB_NUM, _JSONB_BOOL, _JSONB_ARRAY, _JSONB_OBJECT = range(6)
+
+
+def _jsonb_key(value: Any, *, top: bool = False) -> tuple:
+    """One jsonb value as a comparable tuple, in Postgres' btree order.
+
+    The ordering was measured against 14.13 rather than taken from the manual,
+    which is worth saying because a TOP-LEVEL empty array sorts before
+    everything — including `null`. That is not a documented rule but a
+    consequence of storage: a top-level scalar is held as a one-element array,
+    so `[]` is simply the shorter container. Nested, `[]` is an ordinary array
+    and sorts with the others.
+
+    Object pairs are walked in Postgres' STORAGE order — shorter keys first,
+    then bytewise — which is not the insertion order a Python dict preserves.
+    Key strings themselves compare plainly."""
+    if top and isinstance(value, list) and not value:
+        return (-1,)
+    if value is None:
+        return (_JSONB_NULL,)
+    if isinstance(value, bool):
+        return (_JSONB_BOOL, value)
+    if isinstance(value, str):
+        return (_JSONB_STR, value)
+    if isinstance(value, (int, float, Decimal, bson.Decimal128)):
+        return (_JSONB_NUM, Decimal(str(unwrap_numeric(value))))
+    if isinstance(value, list):
+        return (_JSONB_ARRAY, len(value), tuple(_jsonb_key(v) for v in value))
+    if isinstance(value, Mapping):
+        pairs = sorted(value.items(), key=lambda kv: (len(str(kv[0])), str(kv[0])))
+        return (
+            _JSONB_OBJECT,
+            len(pairs),
+            tuple((str(k), _jsonb_key(v)) for k, v in pairs),
+        )
+    return (_JSONB_OBJECT + 1, str(value))
+
+
+def _range_key(value: Mapping) -> tuple:
+    """A range subdocument as a comparable tuple: empty first, then by lower
+    bound (unbounded lowest), then by upper (unbounded highest). Measured on
+    14.13: `empty < (,3) < [0,3) < [1,5) < [1,9) < [1,) < [2,4)`."""
+    if value.get("empty"):
+        return (0,)
+    from secantus.sql import ranges as _ranges
+
+    lower, upper = _ranges.lower_bound(value), _ranges.upper_bound(value)
+    return (
+        1,
+        (0,) if lower is None else (1, _jsonb_key(lower)),
+        (1,) if upper is None else (0, _jsonb_key(upper)),
+        bool(value.get("lower_inc")),
+        bool(value.get("upper_inc")),
+    )
+
+
+def total_order_key(value: Any) -> tuple:
+    """A tuple that totally orders values Python itself cannot compare.
+
+    Used only as a FALLBACK, when a direct `<` has already raised: a `jsonb`
+    column holds bare Python values, so ordering one was
+    `TypeError: '<' not supported between instances of 'dict' and 'dict'` — an
+    `XX000` to the client. Ranges have the same shape and the same problem.
+
+    Because it only runs where the direct comparison failed, a well-typed
+    column never reaches it, and a schema-on-read column holding genuinely
+    mixed types gets jsonb's type order rather than an internal error."""
+    if isinstance(value, Mapping) and ("empty" in value or ("lower" in value and "upper" in value)):
+        return (0, _range_key(value))
+    return (1, _jsonb_key(value, top=True))
+
+
+def sort_key_value(value: Any) -> Any:
+    """Normalise one ORDER BY key value so Python can compare it.
+
+    Sorting compares stored values directly, and two of the types this engine
+    stores have no ``<`` at all. `Decimal128` — which is EVERY `numeric` and
+    `money` value — implements no Python numeric protocol, so `ORDER BY` on a
+    numeric column was an `XX000 internal error` (`'<' not supported between
+    instances of 'Decimal128' and 'Decimal128'`) on every sort path that does
+    not delegate to Mongo: a plain `ORDER BY`, a window's `OVER (ORDER BY …)`,
+    `array_agg(x ORDER BY x)` and `WITHIN GROUP (ORDER BY …)`. An interval
+    rides as a subdocument and has the same problem.
+
+    Decimal128 would be wrong here even where it did not raise: its equality
+    compares the BID encoding, so `1.0` and `1.00` are different values and a
+    `rank()` over them made two peers into two ranks.
+
+    Still unnormalised, and so still an internal error: `jsonb` and the range
+    types, both of which ride as subdocuments. Postgres has a documented total
+    order over each, and reproducing it is a slice of its own rather than a
+    coercion — see `tasks/backlog.md`."""
+    d = _numeric.to_decimal(value) if not isinstance(value, Decimal) else value
+    if d is not None:
+        # A plain Decimal (callers such as percentile_cont use the result as the
+        # VALUE too), except NaN: `Decimal('NaN') < x` raises, so a NaN gets a
+        # key in Postgres' total order -- equal to itself, above every number.
+        # Decimal-vs-SortKey comparisons fall through to SortKey's reflection.
+        return _numeric.SortKey(d) if d.is_nan() else d
+    from secantus.sql import intervals as _intervals
+
+    if _intervals.is_interval(value):
+        return _intervals.total_micros(value)
+    return value
 
 
 def negate(value: Any) -> Any:
     """Arithmetic negation that also handles BSON ``Decimal128`` (which has no
     Python operators of its own)."""
-    if isinstance(value, bson.Decimal128):
-        return bson.Decimal128(-value.to_decimal())
+    if isinstance(value, bson.Decimal128) or _numeric.is_wide(value):
+        # copy_negate, never unary minus: `-d` rounds in Python's default
+        # 28-digit context, which cut even a 34-digit Decimal128 short.
+        return _numeric.stored(_numeric.to_decimal(value).copy_negate())
+    if isinstance(value, Decimal):
+        return value.copy_negate()
     return -value
 
 
@@ -782,9 +948,12 @@ def type_tag_for_sql(datatype: exp.DataType) -> str | None:
     if base == "name":
         return "name"
     # ``oid`` parses as an ``exp.ObjectIdentifier`` (whose ``.sql()`` is "OID"),
-    # not a DataType enum member — match on the rendered name.
+    # not a DataType enum member — match on the rendered name. ``regtype`` parses
+    # the same way.
     if base == "oid":
         return "oid"
+    if base == "regtype":
+        return "regtype"
     return None
 
 
@@ -1000,6 +1169,41 @@ def _parse_pg_array_body(s: str, i: int) -> tuple[list, int]:
         i += 1
 
 
+#: Postgres names date/time types differently in a COERCION error than in a
+#: type-mismatch one: the input-syntax message says bare ``timestamp`` where
+#: `_PG_NAME`-style spellings say ``timestamp without time zone`` (probed on
+#: 14.13). Coercion of these is also `22007 invalid_datetime_format`, NOT the
+#: `22P02` the numeric types use.
+_DATETIME_INPUT_NAME = {
+    "date": "date",
+    "time": "time",
+    "timetz": "time with time zone",
+    "timestamp": "timestamp",
+    "timestamptz": "timestamp with time zone",
+}
+
+
+def _datetime_coercion_error(tag: str, value: Any) -> Exception:
+    """The date/time counterpart of `_coercion_error`: `22007`, not `22P02`.
+
+    Also a ValueError for the same reason — callers that soft-catch ValueError
+    around ``coerce`` keep their fallbacks.
+    """
+    from secantus.sql import errors as _sql_errors
+
+    class _DateTimeCoercionError(_sql_errors.SQLError, ValueError):
+        pass
+
+    from secantus.sql.datetimes import field_out_of_range
+
+    if field_out_of_range(value):
+        # Postgres splits these: a datetime-SHAPED literal whose field is out
+        # of range is 22008, not the 22007 an unparseable one gets.
+        return _DateTimeCoercionError("22008", f'date/time field value out of range: "{value}"')
+    name = _DATETIME_INPUT_NAME.get(tag, SQL_TYPE_NAME.get(tag, tag))
+    return _DateTimeCoercionError("22007", f'invalid input syntax for type {name}: "{value}"')
+
+
 def _coercion_error(tag: str, value: Any) -> Exception:
     """A 22P02 that is ALSO a ValueError: paths that soft-catch ValueError
     around ``coerce`` keep their fallbacks, while an uncaught failure reaches
@@ -1014,11 +1218,76 @@ def _coercion_error(tag: str, value: Any) -> Exception:
     )
 
 
+#: Inclusive range of each integer type, and PG's spelling in the overflow
+#: message ("integer out of range", not "int4 out of range").
+_INT_RANGES: dict[str, tuple[int, int, str]] = {
+    "int2": (-(2**15), 2**15 - 1, "smallint"),
+    "int4": (-(2**31), 2**31 - 1, "integer"),
+    "int8": (-(2**63), 2**63 - 1, "bigint"),
+}
+
+
+def int_range_error(tag: str) -> Exception:
+    """PG's `22003 <type> out of range`."""
+    from secantus.sql import errors as _sql_errors
+
+    name = _INT_RANGES[tag][2] if tag in _INT_RANGES else SQL_TYPE_NAME.get(tag, tag)
+    return _sql_errors.SQLError("22003", f"{name} out of range")
+
+
+def check_int_range(value: int, tag: str) -> int:
+    """Reject an integer outside ``tag``'s range, as Postgres does.
+
+    Without this a value that no `int` can hold was accepted AND STORED in an
+    `int` column: `INSERT INTO t (i) VALUES (2147483648)` succeeded, so the
+    column's declared type and its contents disagreed and the RowDescription
+    advertised oid 23 for a value that does not fit four bytes. Probed against
+    PG 14.13, which answers `22003 integer out of range` for the cast, the
+    INSERT and the arithmetic alike.
+    """
+    rng = _INT_RANGES.get(tag)
+    if rng is not None and not (rng[0] <= value <= rng[1]):
+        raise int_range_error(tag)
+    return value
+
+
 def _int_or_22p02(value: Any, tag: str) -> int:
     try:
-        return int(value)
+        out = int(value)
     except (TypeError, ValueError) as e:
         raise _coercion_error(tag, value) from e
+    return check_int_range(out, tag)
+
+
+def _trim_fractional_zeros(text: str) -> str:
+    """Strip trailing zeros from a timestamp's fractional seconds, as PG does.
+
+    Python's ``isoformat`` pads to six digits (``00:00:00.123100``); Postgres
+    prints the shortest form (``00:00:00.1231``) and omits the fraction
+    entirely when it is zero -- probed on 14.13. ``isoformat`` already omits a
+    zero fraction, so only the trailing zeros need removing.
+
+    Only the FRACTION is touched: the offset, if any, is appended after it and
+    is handled by the caller, so this runs before the offset is trimmed.
+    """
+    head, dot, rest = text.partition(".")
+    if not dot:
+        return text
+    # The fraction runs to the first non-digit (an offset sign, or the end).
+    digits = ""
+    for ch in rest:
+        if not ch.isdigit():
+            break
+        digits += ch
+    tail = rest[len(digits) :]
+    trimmed = digits.rstrip("0")
+    return f"{head}.{trimmed}{tail}" if trimmed else f"{head}{tail}"
+
+
+def render_timestamp_text(value: _dt.datetime) -> str:
+    """Public spelling of `_render_timestamp_iso`, for callers outside this
+    module that must render a timestamp exactly as a ``::text`` cast does."""
+    return _render_timestamp_iso(value)
 
 
 def _render_timestamp_iso(value: _dt.datetime) -> str:
@@ -1029,7 +1298,7 @@ def _render_timestamp_iso(value: _dt.datetime) -> str:
     the rendered text — pgjdbc's TimezoneTest asserts ``12:00:00+00`` — so the
     trailing ``:00`` is not cosmetic.
     """
-    text = value.isoformat(sep=" ")
+    text = _trim_fractional_zeros(value.isoformat(sep=" "))
     if value.tzinfo is None:
         return text
     head, sign, offset = text.rpartition("+") if "+" in text[10:] else text.rpartition("-")
@@ -1137,21 +1406,25 @@ def coerce(value: Any, tag: str) -> Any:
         return value
     if tag in _RANGE_TAGS:
         # Already-built subdocument (from a range constructor) passes through; a
-        # text literal (``'[1,10)'``) is parsed to the subdocument form.
-        if isinstance(value, dict):
-            return value
+        # text literal (``'[1,10)'``) is parsed to the subdocument form. Either
+        # way it is `pack`ed: a timestamp bound's sub-millisecond remainder rides
+        # inside the subdocument, because BSON dates hold whole milliseconds.
         from secantus.sql import ranges as _ranges
 
+        if isinstance(value, dict):
+            return _ranges.pack(value)
         elem, _discrete = _ranges.RANGE_TYPES[tag]
-        return _ranges.parse_literal(str(value), tag, lambda tok: coerce(tok, elem))
+        return _ranges.pack(_ranges.parse_literal(str(value), tag, lambda tok: coerce(tok, elem)))
     if tag in _MULTIRANGE_TAGS:
-        if isinstance(value, dict):
-            return value
         from secantus.sql import ranges as _ranges
 
+        if isinstance(value, dict):
+            return _ranges.pack_multirange(value)
         range_tag = _ranges.MULTIRANGE_TYPES[tag]
         elem, _discrete = _ranges.RANGE_TYPES[range_tag]
-        return _ranges.parse_multirange(str(value), tag, lambda tok: coerce(tok, elem))
+        return _ranges.pack_multirange(
+            _ranges.parse_multirange(str(value), tag, lambda tok: coerce(tok, elem))
+        )
     if tag in _FTS_TAGS:
         if isinstance(value, dict):
             return value
@@ -1211,17 +1484,18 @@ def coerce(value: Any, tag: str) -> Any:
         except (TypeError, ValueError) as e:
             raise _coercion_error(tag, value) from e
     if tag == "numeric":
-        d = value if isinstance(value, Decimal) else Decimal(str(value))
-        try:
-            return bson.Decimal128(d)
-        except _decimal.DecimalException:
-            # Decimal128 holds 34 significant digits; a longer Decimal (from a
-            # binary numeric parameter) rounds into range rather than erroring —
-            # see tasks/backlog.md (numeric precision beyond Decimal128).
-            from bson.decimal128 import create_decimal128_context
-
-            with _decimal.localcontext(create_decimal128_context()) as ctx:
-                return bson.Decimal128(ctx.create_decimal(d))
+        d = _numeric.to_decimal(value)  # already a numeric of either form
+        if d is None:
+            try:
+                d = Decimal(str(value).strip())
+            except (_decimal.DecimalException, TypeError, ValueError) as e:
+                # `Decimal("abc")` raises InvalidOperation, which reached the
+                # wire as a raw `[<class 'decimal.ConversionSyntax'>]`.
+                raise _coercion_error(tag, value) from e
+        # Exact at any width: a Decimal128 when one holds the value exactly,
+        # else the wide form. This used to ROUND past 34 significant digits
+        # and clamp an exponent below -6176 to a different number.
+        return _numeric.stored(d)
     if tag in ("text", "citext"):
         # citext stores the original text verbatim (case preserved for display);
         # the case-insensitivity is applied by the query planner, not on write.
@@ -1325,16 +1599,26 @@ def coerce(value: Any, tag: str) -> Any:
                 # An unparseable timestamp reached the wire as "internal
                 # error" — Python's ValueError escaped uncaught. Postgres
                 # reports invalid input syntax, and so does this now.
-                raise _coercion_error(tag, value) from exc
+                raise _datetime_coercion_error(tag, value) from exc
         return dt.replace(tzinfo=None) if dt.tzinfo is not None else dt
     if tag in ("date", "time", "timetz"):
         from secantus.sql import datetimes as _datetimes
+        from secantus.sql import errors as _sql_errors
 
-        if tag == "date":
-            return _datetimes.parse_date(value)
-        if tag == "time":
-            return _datetimes.parse_time(value)
-        return _datetimes.parse_timetz(value)
+        try:
+            if tag == "date":
+                return _datetimes.parse_date(value)
+            if tag == "time":
+                return _datetimes.parse_time(value)
+            return _datetimes.parse_timetz(value)
+        except _sql_errors.SQLError:
+            raise  # already a typed error; do not re-wrap
+        except Exception as exc:
+            # The parsers raise their own `DateTimeError` ("invalid date value:
+            # 'nope'"), which is neither Postgres's wording nor a SQLSTATE the
+            # wire layer can classify. Postgres answers 22007 with the input it
+            # could not read.
+            raise _datetime_coercion_error(tag, value) from exc
     if tag == "json":
         parsed = _json.loads(value) if isinstance(value, str) else value
         return _bson_safe_json(parsed)
@@ -1409,6 +1693,132 @@ BPCHAR_OID = 1042
 VARCHAR_OID = 1043
 
 
+#: Declared types that have no storage tag of their own, as
+#: ``(oid, typname, array_oid)``.
+#:
+#: ``varchar`` and ``bpchar`` both fold to the ``text`` tag for storage, so the
+#: tag-keyed ``PG_TYPENAME`` — which is what ``pg_type`` is built from — can
+#: only ever name ONE of the three. Columns still record the declared oid
+#: (``decl_oid``, 1043/1042), so before this table every ``varchar`` and
+#: ``char(n)`` column in the catalog pointed at an oid with NO ``pg_type`` row:
+#: a dangling reference that a client joining ``pg_attribute`` to ``pg_type``
+#: resolves to nothing.
+#:
+#: Values measured against PostgreSQL 14 on 2026-09-19. ``typarray`` matters:
+#: ``virtual._pg_type`` synthesises an ``_<typname>`` array row for every row
+#: that carries one, so these two get ``_varchar`` (1015) and ``_bpchar``
+#: (1014) for free.
+#:
+#: (An earlier version of this comment claimed the catalog emits no ``_<type>``
+#: rows at all. That was inferred from ``PG_TYPENAME`` holding no ``_`` names
+#: and is false — the array rows are synthesised from ``typarray``, not listed
+#: here. Checked 2026-09-19: ``_text`` (1009) has always been served.)
+DECLARED_ONLY_TYPES: tuple[tuple[int, str, int], ...] = (
+    (VARCHAR_OID, "varchar", 1015),
+    (BPCHAR_OID, "bpchar", 1014),
+)
+
+
+#: ``pg_type.typlen`` by TYPNAME: the fixed byte width of a type, or -1 for a
+#: varlena. Keyed by name rather than storage tag because the types that need
+#: it most have no tag — ``varchar`` / ``bpchar`` fold to ``text``, and ``name``
+#: is never stored at all.
+#:
+#: pgjdbc reads this in two places, so an absent column is not cosmetic:
+#: ``getMaxNameLength()`` selects ``typlen`` for ``name`` and raises "Unable to
+#: find name datatype in the system catalogs" without it, and TypeInfoCache's
+#: array lookup filters on ``typlen = -1``.
+#:
+#: Measured against PostgreSQL 14 on 2026-09-19.
+PG_TYPLEN: dict[str, int] = {
+    "bit": -1,
+    "bool": 1,
+    "box": 32,
+    "bpchar": -1,
+    "bytea": -1,
+    "cidr": -1,
+    "circle": 24,
+    "date": 4,
+    "datemultirange": -1,
+    "daterange": -1,
+    "float4": 4,
+    "float8": 8,
+    "inet": -1,
+    "int2": 2,
+    "int4": 4,
+    "int4multirange": -1,
+    "int4range": -1,
+    "int8": 8,
+    "int8multirange": -1,
+    "int8range": -1,
+    "interval": 16,
+    "jsonb": -1,
+    "line": 24,
+    "lseg": 32,
+    "macaddr": 6,
+    "money": 8,
+    "name": 64,
+    "numeric": -1,
+    "nummultirange": -1,
+    "numrange": -1,
+    "oid": 4,
+    "path": -1,
+    "point": 16,
+    "polygon": -1,
+    "record": -1,
+    "text": -1,
+    "time": 8,
+    "timestamp": 8,
+    "timestamptz": 8,
+    "timetz": 12,
+    "tsmultirange": -1,
+    "tsquery": -1,
+    "tsrange": -1,
+    "tstzmultirange": -1,
+    "tstzrange": -1,
+    "tsvector": -1,
+    "uuid": 16,
+    "varbit": -1,
+    "varchar": -1,
+    "xml": -1,
+}
+
+
+#: pg_type rows for types this server never STORES but a client's catalog query
+#: still has to resolve, as ``(oid, typname, array_oid)``. Distinct from
+#: :data:`DECLARED_ONLY_TYPES`, which are types a user really can declare;
+#: nothing here is a column type.
+#:
+#: ``name`` (19) is here because pgjdbc's ``getMaxNameLength()`` looks it up by
+#: name in ``pg_catalog`` and treats a missing row as a fatal error.
+CATALOG_ONLY_TYPES: tuple[tuple[int, str, int], ...] = ((19, "name", 1003),)
+
+
+#: ``pg_type.typtype`` by TYPNAME for every built-in that is not a plain base
+#: type ``b``. Ranges are ``r``, multiranges ``m``, and ``record`` is the
+#: pseudo-type ``p``.
+#:
+#: ``typtype`` is not decorative: pgjdbc's ``getProcedureColumns`` decides
+#: whether to emit a ``returnValue`` row by switching on it, so reporting
+#: ``record`` as ``b`` made a function with OUT parameters grow a spurious
+#: leading row. Measured against PostgreSQL 14 on 2026-09-20.
+PG_TYPTYPE: dict[str, str] = {
+    "record": "p",
+    "daterange": "r",
+    "int4range": "r",
+    "int8range": "r",
+    "numrange": "r",
+    "tsrange": "r",
+    "tstzrange": "r",
+    "datemultirange": "m",
+    "int4multirange": "m",
+    "int8multirange": "m",
+    "nummultirange": "m",
+    "tsmultirange": "m",
+    "tstzmultirange": "m",
+}
+
+
 def enforce_declared_length(value: Any, pg_oid: int | None, typmod: int, column: str = "") -> Any:
     """Apply a ``char(n)`` / ``varchar(n)`` declared length, Postgres-style.
 
@@ -1441,6 +1851,51 @@ def enforce_declared_length(value: Any, pg_oid: int | None, typmod: int, column:
     )
 
 
+#: pg_type oid of ``numeric`` / ``decimal``.
+NUMERIC_OID = 1700
+
+
+def enforce_numeric_typmod(value: Any, pg_oid: int | None, typmod: int, column: str = "") -> Any:
+    """Apply a ``numeric(p, s)`` declared precision and scale, Postgres-style.
+
+    Postgres ROUNDS a stored value to the declared scale: `0.12345` into a
+    `numeric(10,3)` column is stored as `0.123`, and a bare `1` as `1.000`.
+    Without this the column kept whatever scale the literal happened to carry,
+    so the STORED VALUE was wrong — not merely its rendering — and every `sum`,
+    `min` / `max` and arithmetic result over the column inherited the error.
+
+    A value whose integer part still does not fit is `22003 numeric field
+    overflow`, never a truncation. `NaN` and the infinities have no scale and
+    are stored as they are.
+
+    ``atttypmod`` is ``((p << 16) | s) + 4``; anything without one is an
+    unconstrained ``numeric`` and keeps its own scale, as Postgres does."""
+    if pg_oid != NUMERIC_OID or typmod < 4 or value is None:
+        return value
+    dec = value.to_decimal() if isinstance(value, bson.Decimal128) else value
+    if not isinstance(dec, Decimal) or not dec.is_finite():
+        return value
+    packed = typmod - 4
+    precision, scale = (packed >> 16) & 0xFFFF, packed & 0xFFFF
+    with _decimal.localcontext() as ctx:
+        ctx.prec = max(precision, len(dec.as_tuple().digits)) + scale + 10
+        rounded = dec.quantize(Decimal(1).scaleb(-scale), rounding=_decimal.ROUND_HALF_UP)
+    if abs(rounded) >= Decimal(10) ** (precision - scale):
+        from secantus.sql import errors
+
+        # `D` is the wire's DETAIL field, which is where PG puts the limit.
+        diag = {
+            "D": (
+                f"A field with precision {precision}, scale {scale} must round "
+                f"to an absolute value less than 10^{precision - scale}."
+            )
+        }
+        if column:
+            diag["c"] = column
+        raise errors.SQLError("22003", "numeric field overflow", diag=diag)
+    return bson.Decimal128(rounded)
+
+
 def blank_pad(value: Any, pg_oid: int, typmod: int) -> Any:
     """Blank-pad a ``character(n)`` value to its declared width for output.
 
@@ -1468,6 +1923,10 @@ def to_pg_text(value: Any, tag: str | None = None) -> bytes | None:
     """
     if value is None:
         return None
+    if _numeric.is_wide(value):
+        # FIRST: a wide numeric is a document, and every dict branch below
+        # (json, ranges, the generic JSON fallback) would claim it.
+        return value[_numeric.WIDE_KEY].encode("utf-8")
     if isinstance(value, RegClassValue):
         return value.relname.encode("utf-8")
     if tag == "float4" and isinstance(value, float):
@@ -1501,6 +1960,11 @@ def to_pg_text(value: Any, tag: str | None = None) -> bytes | None:
         return b"t" if value else b"f"
     if isinstance(value, (bytes, bytearray)):
         return b"\\x" + bytes(value).hex().encode("ascii")
+    if isinstance(value, _dt.datetime) and tag == "date":
+        # A ``daterange`` bound is stored as a datetime (BSON has no date-only
+        # value), so ``lower(daterange)`` -- typed ``date`` -- arrives as one.
+        # Render the date, not a midnight timestamp.
+        return to_pg_text(value.date().isoformat(), "date")
     if isinstance(value, _dt.datetime):
         # Postgres renders timestamptz space-separated with a UTC offset. A stored
         # timestamptz decodes tz-naive UTC from BSON, so tag it UTC before
@@ -1628,8 +2092,31 @@ def _render_pg_float(value: float) -> str:
     efd = _extra_float_digits()
     if efd < 1:
         return f"{value:.{max(1, 15 + efd)}g}"
-    s = repr(value)
-    return s[:-2] if s.endswith(".0") else s
+    return _shortest_round_trip(value, float, 18, 15)
+
+
+def _shortest_round_trip(value: float, back: Any, max_digits: int, sci_at: int) -> str:
+    """Postgres' shortest-round-trip float text: the fewest significant digits
+    that reproduce ``value`` through ``back``, rendered fixed or scientific by
+    the EXPONENT alone.
+
+    Keeping the digit count and the notation separate is the point. ``%g``
+    picks scientific whenever ``exp >= precision``, so a value needing few
+    digits flipped to exponent form far too early — float4 80 printed as
+    ``8e+01``. And Python's ``repr`` (which float8 used) has its own threshold
+    of 16 where Postgres switches at 15, so 1e15 printed as ``1000000000000000``
+    where PG prints ``1e+15``. Postgres keys off the exponent only: scientific
+    iff ``exp < -4 or exp >= sci_at`` — 6 for float4, 15 for float8. Both
+    thresholds probed against PG 14 over the type's whole range."""
+    digits = max_digits - 1
+    for p in range(1, max_digits):
+        if back(float(f"{value:.{p - 1}e}")) == back(value):
+            digits = p
+            break
+    exponent = int(f"{value:.{digits - 1}e}".split("e")[1])
+    if -4 <= exponent < sci_at:
+        return f"{value:.{max(0, digits - 1 - exponent)}f}"
+    return f"{value:.{digits - 1}e}"
 
 
 def _render_pg_float4(value: float) -> str:
@@ -1643,12 +2130,10 @@ def _render_pg_float4(value: float) -> str:
     efd = _extra_float_digits()
     if efd < 1:
         return f"{value:.{max(1, 6 + efd)}g}"
-    packed = _struct.pack("!f", value)
-    for p in range(1, 10):
-        s = f"{value:.{p}g}"
-        if _struct.pack("!f", float(s)) == packed:
-            return s
-    return f"{value:.9g}"
+    # Round-trip through single precision, and switch to scientific at exp 6 —
+    # which is why 16777216 (8 digits, exp 7) is ``1.6777216e+07`` while 100000
+    # (1 digit, exp 5) is ``100000``.
+    return _shortest_round_trip(value, lambda v: _struct.pack("!f", v), 10, 6)
 
 
 def parse_pg_record_literal(text: str) -> list[str | None]:
@@ -1707,16 +2192,23 @@ def _render_pg_composite(value: dict) -> str:
     double-quoted when empty or containing a comma / paren / quote / backslash /
     whitespace, with internal ``"`` and ``\\`` doubled."""
     parts: list[str] = []
-    for field_val in value.values():
+    # A ``RecordValue`` knows its fields' declared oids. Without them a field is
+    # rendered from its Python value alone, which cannot tell a jsonb string from
+    # a text one: ``jsonb_each('{"b":"x"}')`` gave ``(b,x)`` where PG, rendering
+    # the field AS jsonb, gives ``(b,"x")``.
+    field_tags = [OID_TO_TAG.get(o) for o in getattr(value, "field_oids", ())]
+    for i, field_val in enumerate(value.values()):
         if field_val is None:
             parts.append("")
             continue
+        tag = field_tags[i] if i < len(field_tags) else None
         # A dict-valued field is itself a composite (nested composite type) — render
-        # it recursively as a ``(…)`` record rather than as JSON.
-        if isinstance(field_val, dict):
+        # it recursively as a ``(…)`` record rather than as JSON. A dict under a
+        # json/jsonb oid is a JSON object, so it renders as JSON.
+        if isinstance(field_val, dict) and tag not in ("json", "jsonb"):
             text = _render_pg_composite(field_val)
         else:
-            rendered = to_pg_text(field_val)
+            rendered = to_pg_text(field_val, tag) if tag else to_pg_text(field_val)
             text = rendered.decode("utf-8") if rendered is not None else ""
         if text == "" or any(ch in text for ch in ',()"\\') or any(ch.isspace() for ch in text):
             text = '"' + text.replace("\\", "\\\\").replace('"', '""') + '"'
@@ -1740,6 +2232,8 @@ def to_py(value: Any, tag: str) -> Any:
         return int(value)
     if isinstance(value, bson.Decimal128):
         return value.to_decimal()
+    if _numeric.is_wide(value):
+        return Decimal(value[_numeric.WIDE_KEY])
     if isinstance(value, bson.ObjectId):
         return str(value)
     if isinstance(value, bson.Binary):
@@ -1767,6 +2261,16 @@ def infer_elem_tag(items: Any) -> str:
         return "float8"
     if isinstance(elem, _dt.datetime):
         return "timestamptz"
+    if isinstance(elem, dict):
+        # An interval rides as a subdocument, so the plain `dict` test below
+        # typed it `json` and `ARRAY[interval '1 day']::text` rendered the raw
+        # `{"interval": {"months": 0, …}}` where PG gives `{"1 day"}`. The
+        # element renderer already knows the `interval` tag; only this
+        # inference did not.
+        from secantus.sql import intervals as _intervals
+
+        if _intervals.is_interval(elem):
+            return "interval"
     if isinstance(elem, (dict, list)):
         return "json"
     if isinstance(elem, (bson.Decimal128, _decimal.Decimal)):
@@ -1810,3 +2314,57 @@ def _render_pg_array(items: Any, elem_tag: str) -> str:
         else:
             parts.append(text)
     return "{" + delim.join(parts) + "}"
+
+
+def regr_stat(func: str, n: int, sx: float, sy: float, sxx: float, syy: float, sxy: float) -> Any:
+    """Finish a two-argument statistical aggregate from its six sums.
+
+    Every rule here was measured against PostgreSQL 14.13, including the ones
+    that resist derivation:
+
+    * `regr_count` is the ONLY one defined over an empty input — it is 0 where
+      the others are NULL.
+    * `covar_samp` needs two pairs, not one.
+    * `corr` is NULL when EITHER `sxx` or `syy` is zero (no variation to
+      correlate), but **`regr_r2` is 1.0 when `syy` is zero** and only NULL
+      when `sxx` is — a constant Y is perfectly "explained", a constant X
+      explains nothing. Those two differ, and guessing gets one of them wrong.
+    """
+    if func == "regr_count":
+        return n
+    if n == 0:
+        return None
+    avgx, avgy = sx / n, sy / n
+    # The centred sums of squares and cross-products.
+    cxx = sxx - sx * sx / n
+    cyy = syy - sy * sy / n
+    cxy = sxy - sx * sy / n
+    if func == "regr_avgx":
+        return avgx
+    if func == "regr_avgy":
+        return avgy
+    if func == "regr_sxx":
+        return cxx
+    if func == "regr_syy":
+        return cyy
+    if func == "regr_sxy":
+        return cxy
+    if func == "covar_pop":
+        return cxy / n
+    if func == "covar_samp":
+        return None if n < 2 else cxy / (n - 1)
+    if func == "corr":
+        return None if cxx == 0 or cyy == 0 else cxy / _math.sqrt(cxx * cyy)
+    if func == "regr_slope":
+        return None if cxx == 0 else cxy / cxx
+    if func == "regr_intercept":
+        return None if cxx == 0 else avgy - (cxy / cxx) * avgx
+    if func == "regr_r2":
+        if cxx == 0:
+            return None
+        if cyy == 0:
+            return 1.0
+        return (cxy * cxy) / (cxx * cyy)
+    from secantus.sql import errors as _errors
+
+    raise _errors.feature_not_supported(f"unsupported statistical aggregate: {func}")

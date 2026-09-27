@@ -1,5 +1,8 @@
+import functools
+import itertools
 import string
 import sys
+from collections import deque
 
 import pytest
 
@@ -96,6 +99,28 @@ class TestMutableMultiDict:
         d.add(value="4", key="k4")
         assert d.getall("k2") == ["2"]
         assert d.getall("k4") == ["4"]
+
+    def test_non_interned_keyword_names(
+        self,
+        any_multidict_class: type[MultiDict[str]],
+    ) -> None:
+        # The C parser matches kwnames by identity first, which only settles
+        # names the compiler interned.  Names built at run time never reach
+        # the intern table, so they take the comparison fallback.
+        key = "".join(["k", "e", "y"])
+        value = "".join(["v", "a", "l", "u", "e"])
+        default = "".join(["d", "e", "f", "a", "u", "l", "t"])
+        assert key is not sys.intern("key")
+        assert value is not sys.intern("value")
+        assert default is not sys.intern("default")
+
+        d = any_multidict_class()
+        d.add(**{key: "k1", value: "v1"})
+        assert d.getall("k1") == ["v1"]
+        assert d.get("missing", **{default: "D"}) == "D"
+        assert d.getall("missing", **{default: ["D"]}) == ["D"]
+        with pytest.raises(TypeError, match="multiple values"):
+            d.get("k1", **{key: "other"})
 
     def test_extend(
         self,
@@ -263,6 +288,23 @@ class TestMutableMultiDict:
 
         with pytest.raises(KeyError):
             d.popitem()
+
+    def test_popitem_then_add_reuses_the_tail(
+        self,
+        case_sensitive_multidict_class: type[MultiDict[str]],
+    ) -> None:
+        d = case_sensitive_multidict_class()
+        for i in range(8):
+            d.add(f"key{i}", f"val{i}")
+        del d["key6"]
+        del d["key7"]
+        assert d.popitem() == ("key5", "val5")
+        d.add("new", "val8")
+        assert list(d.items()) == [(f"key{i}", f"val{i}") for i in range(5)] + [
+            ("new", "val8")
+        ]
+        assert d.popitem() == ("new", "val8")
+        assert len(d) == 5
 
     def test_pop(
         self,
@@ -763,6 +805,30 @@ class TestCIMutableMultiDict:
         with pytest.raises(KeyError):
             d.popitem()
 
+    @pytest.mark.skipif(
+        sys.implementation.name == "pypy",
+        reason="__del__ does not run promptly on PyPy",
+    )
+    def test_popitem_add_from_key_finalizer(
+        self,
+        case_insensitive_multidict_class: type[CIMultiDict[str]],
+    ) -> None:
+        # The popped entry's key is released inside popitem() (the result
+        # carries a fresh istr), so its __del__ mutates the mapping while
+        # popitem() is still tidying up after itself.
+        d = case_insensitive_multidict_class()
+
+        class Key(str):
+            def __del__(self) -> None:
+                d.add("added", "late")
+
+        d.add("a", "1")
+        d.add(Key("b"), "2")
+        assert d.popitem() == ("b", "2")
+        assert list(d.items()) == [("a", "1"), ("added", "late")]
+        assert d.popitem() == ("added", "late")
+        assert list(d.items()) == [("a", "1")]
+
     def test_pop(
         self,
         case_insensitive_multidict_class: type[CIMultiDict[str]],
@@ -954,6 +1020,72 @@ class TestCIMutableMultiDict:
 
         assert [("a", "a2"), ("b", "b"), ("c", "c")] == list(d.items())
 
+    @pytest.mark.parametrize("op", ["init", "extend", "update", "merge"])
+    @pytest.mark.parametrize("source", ["multidict", "dict"])
+    def test_key_lower_mutates_source(
+        self,
+        case_sensitive_multidict_class: type[MultiDict[object]],
+        case_insensitive_multidict_class: type[CIMultiDict[object]],
+        op: str,
+        source: str,
+    ) -> None:
+        """The source's entries must stay alive across a key's lower()."""
+
+        class Key(str):
+            def lower(self) -> str:
+                src.clear()
+                for i in range(100):
+                    src[f"x{i}"] = object()
+                return str.lower(self)
+
+        # Built at runtime so that only the source owns a reference.
+        pairs = [(Key("A"), "".join(["val", "ue"])), (Key("B"), object())]
+        src: MultiDict[object] | dict[str, object]
+        if source == "multidict":
+            src = case_sensitive_multidict_class(pairs)
+        else:
+            src = dict(pairs)
+        del pairs
+        if op == "init":
+            d = case_insensitive_multidict_class(src)
+        else:
+            d = case_insensitive_multidict_class()
+            getattr(d, op)(src)
+
+        assert d.getone("a") == "value"
+
+    @pytest.mark.parametrize("source", ["multidict", "dict"])
+    def test_value_finalizer_mutates_source(
+        self,
+        case_sensitive_multidict_class: type[MultiDict[object]],
+        case_insensitive_multidict_class: type[CIMultiDict[object]],
+        source: str,
+    ) -> None:
+        """merge() drops a value for a present key, whose __del__ runs."""
+
+        class Key(str):
+            def lower(self) -> str:
+                src.clear()
+                src["y0"] = src["y1"] = object()
+                return str.lower(self)
+
+        class Value:
+            def __del__(self) -> None:
+                for i in range(100):
+                    src[f"x{i}"] = object()
+
+        pairs = [(Key("A"), Value()), (Key("B"), object())]
+        src: MultiDict[object] | dict[str, object]
+        if source == "multidict":
+            src = case_sensitive_multidict_class(pairs)
+        else:
+            src = dict(pairs)
+        del pairs
+        d = case_insensitive_multidict_class(a="kept")
+        d.merge(src)
+
+        assert d.getone("a") == "kept"
+
 
 def test_multidict_shrink_regression() -> None:
     """
@@ -1055,3 +1187,84 @@ def test_duplicate_key_hints_only_allocated_when_needed(
     distinct_drop = sys.getsizeof(distinct) - sys.getsizeof(distinct.copy())
     duplicates_drop = sys.getsizeof(duplicates) - sys.getsizeof(duplicates.copy())
     assert duplicates_drop > distinct_drop
+
+
+@pytest.mark.c_extension
+@pytest.mark.skipif(
+    sys.implementation.name == "pypy" or "free-threading" in sys.version,
+    reason="getrefcount is not reliable",
+)
+@pytest.mark.parametrize("cls", (MultiDict, CIMultiDict))
+@pytest.mark.parametrize(
+    "method", ("update", "merge", "extend", "add", "setdefault", "__setitem__")
+)
+def test_no_refleak_on_memory_error(cls: type[MultiDict[object]], method: str) -> None:
+    """A table resize failing with MemoryError must not leak the key or
+    value.  Items arrive one by one (an iterator defeats the up-front
+    reservation), so the table grows mid-insert.  C-extension only: the
+    pure-Python version has no manual refcounting, and failing allocations
+    in interpreted code hits CPython's own unraisable-error paths."""
+    testcapi = pytest.importorskip("_testcapi")
+    c_ext = pytest.importorskip("multidict._multidict")
+    keys = [f"Key-{i}" for i in range(20)]
+    values = [object() for _ in range(20)]
+    pairs = list(zip(keys, values))
+    baseline = [sys.getrefcount(obj) for obj in keys + values]
+
+    # Fail the n-th allocation, for each n, until the call gets through.
+    n = 0
+    while True:
+        md = cls()
+        bound = getattr(md, method)
+        if method in ("update", "merge", "extend"):
+            call = functools.partial(bound, map(tuple, pairs))
+        else:
+            call = functools.partial(deque, itertools.starmap(bound, pairs), 0)
+        # A pooled hash table would let the call allocate nothing at all,
+        # and the injected failure would never fire.
+        c_ext._freelist_clear()
+        try:
+            # One line, so no tracer line event can take the failure.
+            testcapi.set_nomemory(n, n + 1), call(), testcapi.remove_mem_hooks()
+        except MemoryError:
+            testcapi.remove_mem_hooks()
+            failed = True
+        else:
+            failed = False
+        del md, bound, call
+        assert [sys.getrefcount(obj) for obj in keys + values] == baseline
+        if not failed:
+            break
+        n += 1
+    assert n > 0
+
+
+@pytest.mark.parametrize("method", ["popone", "pop"])
+def test_pop_docstring_matches_behaviour(
+    any_multidict_class: type[MultiDict[str]], method: str
+) -> None:
+    md = any_multidict_class([("a", "1"), ("a", "2")])
+    assert getattr(md, method)("a") == "1"
+    assert list(md.items()) == [("a", "2")]
+    doc = getattr(any_multidict_class, method).__doc__
+    assert doc is not None
+    assert doc.startswith("Remove the first occurrence of key")
+
+
+@pytest.mark.parametrize("side", ("left", "right"))
+def test_eq_value_mutates_dict(
+    any_multidict_class: type[MultiDict[object]], side: str
+) -> None:
+    class Value:
+        def __eq__(self, other: object) -> bool:
+            target.clear()
+            target.extend((f"k{i}", i) for i in range(100))
+            return True
+
+        __hash__ = None  # type: ignore[assignment]
+
+    lft = any_multidict_class([("a", Value()), ("b", Value())])
+    rht = any_multidict_class([("a", Value()), ("b", Value())])
+    target = lft if side == "left" else rht
+    # The result is unspecified, as for dict; it must just not crash.
+    assert isinstance(lft == rht, bool)

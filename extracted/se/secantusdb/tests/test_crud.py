@@ -13,10 +13,11 @@ from secantus import SecantusDBServer
 
 
 @pytest.fixture
-def server(tmp_path):
-    # Real on-disk WiredTiger storage. `tmp_path` is unique per test +
-    # parallel worker (xdist), and pytest cleans it up after teardown.
-    with SecantusDBServer(port=0, storage_path=str(tmp_path)) as srv:
+def server(wt_home):
+    # Real on-disk WiredTiger storage, cloned from this worker's prebuilt
+    # template rather than created from scratch (see the `wt_home` fixture in
+    # conftest.py). Unique per test + parallel worker, cleaned up by pytest.
+    with SecantusDBServer(port=0, storage_path=wt_home) as srv:
         yield srv
 
 
@@ -587,14 +588,21 @@ def test_projection_meta_unknown_arg_is_17308(coll) -> None:
     with pytest.raises(OperationFailure) as exc:
         coll.find_one({}, {"score": {"$meta": "bogus"}})
     assert exc.value.code == 17308
-    assert "Unsupported argument to $meta: bogus" in str(exc.value)
+    # mongod's exact wording, re-probed on 8.2.11 (2026-09-01). This asserted
+    # our own phrasing ("Unsupported argument to $meta: bogus"), which the code
+    # matched -- so the suite was green over a string mongod never sends.
+    assert "Unsupported $meta field: bogus" in str(exc.value)
 
 
 def test_projection_meta_recognized_arg_omits_field(coll) -> None:
     coll.insert_one({"_id": 1, "a": 1, "b": 2})
     doc = coll.find_one({}, {"m": {"$meta": "indexKey"}})
-    # Recognized-but-unsupported $meta arg: field omitted, inclusion keeps _id.
-    assert doc == {"_id": 1}
+    # `indexKey` has no value under a COLLECTION SCAN, and mongod omits the
+    # field entirely rather than reporting null (re-probed 8.2.11, 2026-09-01).
+    # The document is otherwise untouched -- `$meta` is a value re-shaper, not
+    # an inclusion. When an index IS used the field is now computed; see
+    # tests/test_meta_projection.py.
+    assert doc == {"_id": 1, "a": 1, "b": 2}
 
 
 def test_small_batch_size_paginates_via_getmore(coll, server: SecantusDBServer) -> None:
@@ -2228,7 +2236,7 @@ def test_date_misc_typeguard_codes_via_pymongo(coll) -> None:
         ({"$dateFromString": {"dateString": "$n"}}, 241),
         ({"$switch": {"branches": []}}, 40068),
         ({"$ifNull": ["$n"]}, 1257300),
-        ({"$getField": {"field": "$n", "input": {}}}, 5654602),
+        ({"$getField": {"field": "$n", "input": {}}}, 3041704),
         ({"$dateDiff": {"startDate": "$$NOW"}}, 5166304),
     ]:
         with pytest.raises(OperationFailure) as exc:
@@ -2376,9 +2384,14 @@ def test_sparse_unique_index_via_pymongo(coll) -> None:
 def test_create_indexes_rejects_invalid_wildcard_projection(client: MongoClient) -> None:
     # mongo-ruby-driver's `create_one ... invalid wildcardProjection`
     # / `wildcard projection to an invalid base index` specs match
-    # the error messages by regex. Real mongod rejects with
-    # CannotCreateIndex (67) when the option is malformed or applied
-    # to a non-wildcard base index.
+    # the error messages by regex.
+    #
+    # Re-probed against mongod 8.2.11 (2026-08-31): the three shapes are three
+    # DIFFERENT errors, not one CannotCreateIndex (67). A wrong type is 14, an
+    # empty object is 9 with its own wording ("can't be an empty object", NOT
+    # "non-empty object" -- this assertion pinned our old message, not
+    # mongod's), and a non-wildcard base index is 2. All three now quote the
+    # spec in mongod's shell syntax rather than Python's repr.
     from pymongo.errors import OperationFailure
 
     db = client["wcp_validation_db"]
@@ -2391,8 +2404,10 @@ def test_create_indexes_rejects_invalid_wildcard_projection(client: MongoClient)
                 "indexes": [{"key": {"$**": 1}, "name": "wild_int", "wildcardProjection": 5}],
             }
         )
-    assert "wildcardProjection" in str(exc.value)
-    assert "non-empty object" in str(exc.value)
+    assert exc.value.code == 14
+    assert "The field 'wildcardProjection' must be a non-empty object, but got int" in str(
+        exc.value
+    )
 
     # Empty doc wildcardProjection.
     with pytest.raises(OperationFailure) as exc:
@@ -2402,7 +2417,8 @@ def test_create_indexes_rejects_invalid_wildcard_projection(client: MongoClient)
                 "indexes": [{"key": {"$**": 1}, "name": "wild_empty", "wildcardProjection": {}}],
             }
         )
-    assert "non-empty object" in str(exc.value)
+    assert exc.value.code == 9
+    assert "The 'wildcardProjection' field can't be an empty object" in str(exc.value)
 
     # wildcardProjection on a non-wildcard base index.
     with pytest.raises(OperationFailure) as exc:
@@ -2418,7 +2434,8 @@ def test_create_indexes_rejects_invalid_wildcard_projection(client: MongoClient)
                 ],
             }
         )
-    assert "only allowed" in str(exc.value)
+    assert exc.value.code == 2
+    assert "The field 'wildcardProjection' is only allowed in 'wildcard' indexes" in str(exc.value)
 
     # Valid wildcardProjection on a wildcard key — accepted.
     db.command(
@@ -2987,7 +3004,7 @@ def test_find_by_id_returns_correct_doc(coll) -> None:
 def test_explain_find_with_hint_uses_hinted_index(coll) -> None:
     coll.create_index("n")
     coll.insert_many([{"_id": i, "n": i} for i in range(5)])
-    plan = coll.find({"n": 2}).hint("$natural").explain()["queryPlanner"]["winningPlan"]
+    plan = coll.find({"n": 2}).hint([("$natural", 1)]).explain()["queryPlanner"]["winningPlan"]
     assert plan["stage"] == "COLLSCAN"
 
 
@@ -3498,11 +3515,29 @@ def test_graph_lookup_max_depth(client: MongoClient) -> None:
 
 
 def test_documents_stage(client: MongoClient) -> None:
+    """`$documents` is a COLLECTION-LESS stage: `db.aggregate`, not
+    `db.coll.aggregate`.
+
+    This test used to run it against a collection, with a comment saying it
+    "need[ed] some collection to attach to" -- a workaround for our own
+    behaviour, not mongod's. mongod refuses that form outright with
+    InvalidNamespace, before it even looks at the argument (probed 8.2.11).
+    """
     db = client["documents_db"]
-    db["any"].insert_one({"x": 1})  # need some collection to attach to
     pipeline = [{"$documents": [{"_id": 1, "n": 10}, {"_id": 2, "n": 20}]}]
-    out = list(db["any"].aggregate(pipeline))
+    out = list(db.aggregate(pipeline))
     assert sorted(d["_id"] for d in out) == [1, 2]
+
+
+def test_documents_stage_refuses_a_collection(client: MongoClient) -> None:
+    from pymongo.errors import OperationFailure
+
+    db = client["documents_db2"]
+    db["any"].insert_one({"x": 1})
+    with pytest.raises(OperationFailure) as exc:
+        list(db["any"].aggregate([{"$documents": [{"_id": 1}]}]))
+    assert exc.value.code == 73
+    assert "'$documents' can only be run with {aggregate: 1}" in str(exc.value)
 
 
 def test_coll_stats_aggregation_stage(client: MongoClient) -> None:
@@ -3531,11 +3566,25 @@ def test_bucket_auto_via_pymongo(coll) -> None:
     assert sum(b["count"] for b in out) == 10
 
 
-def test_rename_with_positional_via_pymongo(coll) -> None:
+def test_rename_rejects_a_positional_path_via_pymongo(coll) -> None:
+    """mongod refuses a dynamic component in a `$rename` path -- it does not
+    apply it element-wise.
+
+    This test asserted the opposite for months: that `items.$[].a` renames every
+    element. Nothing here could have caught that -- it drives our own server,
+    the only one it can reach -- and the server was simply doing what the test
+    said. mongod answers `2 The source field for $rename may not be dynamic`
+    (measured 8.2.11, 2026-09-09), and the document is left untouched.
+    """
     coll.insert_one({"_id": 1, "items": [{"a": 1}, {"a": 2}]})
-    coll.update_one({"_id": 1}, {"$rename": {"items.$[].a": "items.$[].b"}})
-    out = coll.find_one({"_id": 1})
-    assert out["items"] == [{"b": 1}, {"b": 2}]
+    with pytest.raises(pymongo.errors.WriteError) as excinfo:
+        coll.update_one({"_id": 1}, {"$rename": {"items.$[].a": "items.$[].b"}})
+    assert excinfo.value.code == 2
+    assert (
+        excinfo.value.details["errmsg"]
+        == "The source field for $rename may not be dynamic: items.$[].a"
+    )
+    assert coll.find_one({"_id": 1})["items"] == [{"a": 1}, {"a": 2}]
 
 
 def test_lookup_pipeline_form_with_let(client: MongoClient) -> None:
@@ -3605,10 +3654,52 @@ def test_find_with_unknown_hint_returns_bad_value(coll) -> None:
 
 
 def test_find_with_natural_hint_is_collection_scan(coll) -> None:
+    """The DOCUMENT form is what mongod takes -- see the string case below."""
     coll.create_index("x")
     coll.insert_many([{"_id": i, "x": i} for i in range(3)])
-    docs = list(coll.find({"x": 1}, hint="$natural"))
+    docs = list(coll.find({"x": 1}, hint={"$natural": 1}))
     assert [d["_id"] for d in docs] == [1]
+
+
+def test_natural_hint_reversed_walks_backwards(coll) -> None:
+    """`{$natural: -1}` is reverse insertion order, not forward.
+
+    The direction is part of the hint. Both servers collapsed the two onto one
+    token at some point, which returned forward order for a caller who asked
+    for reverse -- silently wrong data rather than an error. Probed 8.2.11.
+    """
+    coll.insert_many([{"_id": i} for i in range(5)])
+    assert [d["_id"] for d in coll.find({}, hint={"$natural": -1})] == [4, 3, 2, 1, 0]
+    assert [d["_id"] for d in coll.find({}, hint={"$natural": 1})] == [0, 1, 2, 3, 4]
+
+
+def test_natural_hint_as_a_string_is_rejected(coll) -> None:
+    """mongod takes only the document form; the string is a BadValue.
+
+    `pymongo`'s `.hint("$natural")` produces exactly this string, so accepting
+    it meant the natural call scanned here and errored against a real server.
+    Re-probed 8.2.11 (2026-08-31) across every command that takes a hint.
+    """
+    coll.insert_many([{"_id": i, "x": i} for i in range(3)])
+    with pytest.raises(pymongo.errors.OperationFailure) as exc:
+        list(coll.find({"x": 1}, hint="$natural"))
+    assert exc.value.code == 2
+
+
+def test_distinct_rejects_a_hint_naming_no_index(coll) -> None:
+    """`distinct` resolves its hint like every other read.
+
+    It was the one hint-bearing command that never did, so a bogus hint
+    silently returned full results where mongod refuses the command. A VALID
+    hint is still accepted -- that half was already right. Probed 8.2.11.
+    """
+    coll.create_index("x")
+    coll.insert_many([{"_id": i, "x": i % 2} for i in range(4)])
+    assert sorted(coll.distinct("x", hint="x_1")) == [0, 1]
+    assert sorted(coll.distinct("x", hint={"x": 1})) == [0, 1]
+    with pytest.raises(pymongo.errors.OperationFailure) as exc:
+        coll.distinct("x", hint="nonexistent_1")
+    assert exc.value.code == 2
 
 
 def test_aggregate_with_hint(coll) -> None:
@@ -3801,21 +3892,31 @@ def test_create_capped_without_size_rejected(client: MongoClient) -> None:
 
 
 def test_create_capped_negative_size_rejected(client: MongoClient) -> None:
+    """A negative ``size`` is BadValue (2) with a floor of ONE, not 72.
+
+    Re-probed 8.2.11 (2026-08-31). This asserted 72 with our own semantic
+    wording; mongod answers ``2 BSON field 'size' value must be >= 1, actual
+    value '-1'`` -- a bare field name, and a minimum of 1 rather than 0.
+    """
     from pymongo.errors import OperationFailure
 
     db = client["capped_negsize_db"]
     with pytest.raises(OperationFailure) as exc:
         db.create_collection("logs", capped=True, size=-1)
-    assert exc.value.code == 72
+    assert exc.value.code == 2
+    assert "BSON field 'size' value must be >= 1, actual value '-1'" in str(exc.value)
 
 
-def test_create_capped_zero_max_rejected(client: MongoClient) -> None:
-    from pymongo.errors import OperationFailure
+def test_create_capped_zero_max_is_accepted(client: MongoClient) -> None:
+    """``max`` has NO lower bound -- 0, -1 and a non-integral double all pass.
 
+    This test used to assert a 72 rejection, which was our behaviour and not
+    mongod's (re-probed 8.2.11, 2026-08-31: all three are accepted).
+    """
     db = client["capped_zeromax_db"]
-    with pytest.raises(OperationFailure) as exc:
-        db.create_collection("logs", capped=True, size=4096, max=0)
-    assert exc.value.code == 72
+    db.create_collection("logs", capped=True, size=4096, max=0)
+    info = next(c for c in db.list_collections() if c["name"] == "logs")
+    assert info["options"]["capped"] is True
 
 
 def test_create_uncapped_options_absent(client: MongoClient) -> None:
@@ -4163,7 +4264,17 @@ def test_tailable_drop_closes_pymongo_cursor_cleanly(client: MongoClient) -> Non
     db.create_collection("cap", capped=True, size=1024 * 1024)
     db.cap.insert_many([{"_id": i} for i in (1, 2, 3)])
 
-    cursor = db.cap.find(cursor_type=pymongo.CursorType.TAILABLE).max_await_time_ms(50)
+    # No ``max_await_time_ms`` here, and it is not an omission. mongod refuses
+    # ``maxTimeMS`` on a getMore for any cursor that is not **awaitData** --
+    # a plain TAILABLE one included (probed 6.0.16, both a tailable and a
+    # non-tailable cursor answer ``2 BadValue: cannot set maxTimeMS on getMore
+    # command for a non-awaitData cursor``). pymongo sends it anyway, because
+    # its guard is a BITMASK test -- ``_query_flags & CursorType.TAILABLE_AWAIT``
+    # is 2 & 6 == 2, truthy, for a plain TAILABLE cursor -- so the option it
+    # documents as "ignored ... for other types of cursor" reaches the wire.
+    # This test used to set it and pass only because we accepted it; the same
+    # code against a real mongod raises instead of draining.
+    cursor = db.cap.find(cursor_type=pymongo.CursorType.TAILABLE)
     drained = [cursor.next()["_id"] for _ in range(3)]
     assert drained == [1, 2, 3]
 
@@ -5143,7 +5254,7 @@ def test_aggregation_expr_bool_argument_rejected(coll) -> None:
         ({"$range": [True, 5]}, 34443),
         ({"$range": [0, True]}, 34445),
         ({"$range": [0, 5, True]}, 34447),
-        ({"$indexOfArray": [[1, 2, 3], 2, True]}, 40096),
+        ({"$indexOfArray": [[1, 2, 3], 2, True]}, 9711600),
     ]:
         with pytest.raises(OperationFailure) as exc:
             list(coll.aggregate([{"$project": {"r": expr, "_id": 0}}]))
@@ -5173,7 +5284,7 @@ def test_aggregation_whole_double_index_accepted(coll) -> None:
         ({"$arrayElemAt": [[10, 20, 30], 2.7]}, 28691),
         ({"$slice": [[1, 2, 3, 4], 2.7]}, 28726),
         ({"$slice": [[1, 2, 3, 4], 1, 1.7]}, 28728),
-        ({"$indexOfArray": [[1, 2, 3], 2, 0.7]}, 40096),
+        ({"$indexOfArray": [[1, 2, 3], 2, 0.7]}, 9711600),
         ({"$substrCP": ["hello", 1.7, 2]}, 34451),
         ({"$range": [0, 5.7]}, 34446),
         ({"$round": [3.14159, 2.7]}, 51082),
@@ -5185,15 +5296,21 @@ def test_aggregation_whole_double_index_accepted(coll) -> None:
 
 
 def test_split_argument_validation_via_pymongo(coll) -> None:
-    """$split: empty separator 40087, non-string first/second 40085/40086, wrong
-    arg count 16020; a null string / separator yields null. mongod 7.0.12-verified."""
+    """$split: empty separator 40087, non-string first/second 40085/10503900,
+    wrong arg count 16020; a null string / separator yields null.
+
+    Re-probed against 8.2.11 (2026-09-02): the SECOND argument's code moved to
+    10503900 while the first kept 40085. The 40086 recorded here was correct for
+    the 7.0.12 this was originally verified against, and survived the 8.x
+    retarget unchecked -- a stale citation, not a regression.
+    """
     from pymongo.errors import OperationFailure
 
     coll.insert_one({"_id": 1})
     for expr, code in [
         ({"$split": ["a,b", ""]}, 40087),
         ({"$split": [5, ","]}, 40085),
-        ({"$split": ["a,b", 5]}, 40086),
+        ({"$split": ["a,b", 5]}, 10503900),
         ({"$split": ["a,b"]}, 16020),
     ]:
         with pytest.raises(OperationFailure) as exc:

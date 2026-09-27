@@ -380,7 +380,13 @@ def test_text_model_gets_prose_and_a_schema_bound_to_the_same_questions():
     assert "Which surface owns this?" in prose
     assert "- data: a row that is wrong" in prose
     assert "- 3: data or money at risk" in prose
-    assert REPORT_TEXT in prose
+    # The report stays the message's own text part and is NOT repeated inside
+    # the rendered state (sent once — test_decision_wire_sends_each_fact_once).
+    assert REPORT_TEXT not in prose
+    assert any(
+        getattr(block, "text", None) == REPORT_TEXT for block in config.messages[0].content
+    )
+    assert "about the message above" in prose
 
     # A PLAIN DICT. Every translator reads this field with isinstance(...,
     # dict) — Anthropic's `_build_anthropic_output_format` returns None on its

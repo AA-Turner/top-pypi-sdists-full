@@ -81,6 +81,153 @@ struct Output {
     /// standard output remains byte-compatible with pre-profile callers.
     #[serde(skip_serializing_if = "Option::is_none")]
     search_profile: Option<SearchProfileMetadata>,
+    /// AiZynthFinder `time_limit` parity: present only when
+    /// `--time-limit-secs` was given, so legacy output stays byte-identical.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    time_limit_secs: Option<u64>,
+    /// `completed` or `deadline_exceeded`; present only with
+    /// `--time-limit-secs`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    termination: Option<&'static str>,
+    /// Present (always `true`) only with `--exclude-target-from-stock`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    exclude_target_from_stock: Option<bool>,
+    /// AiZynthFinder route clustering parity: present only with `--cluster`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    route_clusters: Option<renkin::route_distance::RouteClustering>,
+    /// Present only with `--max-expansions` (Syntheseus/AiZynthFinder
+    /// iteration-limit parity).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    max_expansions: Option<u64>,
+    /// Present only with `--first-route-stats`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    first_route: Option<FirstRouteReceipt>,
+    /// Present only with `--ban-molecules`/`--ban-smiles`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    banned_molecules: Option<BannedMoleculesReceipt>,
+    /// Present only with `--max-bb-price`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    stock_price_filter: Option<StockPriceFilterReceipt>,
+    /// Present only with `--small-molecule-terminal`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    small_molecule_terminal: Option<SmallMoleculeTerminalReceipt>,
+    /// Present only with `--search-stats`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    search_stats: Option<serde_json::Value>,
+    /// Present only with `--max-tree-size`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    max_tree_size: Option<TreeSizeReceipt>,
+    /// Present only with `--priority-templates`/`--priority-rules`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    priority_templates: Option<PriorityReceipt>,
+    /// Present only with `--max-branching`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    max_branching: Option<BranchingReceipt>,
+    /// Present only with `--route-diversity`/`--diversity-radius`
+    /// (Syntheseus packing-number parity).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    route_set_diversity: Option<renkin::diversity::PackingEstimate>,
+}
+
+/// Syntheseus-style "time / calls to first solution" receipt for the
+/// selected search run. `elapsed_ms` is wall-clock and machine-dependent;
+/// the two counts are deterministic for identical inputs.
+#[derive(Clone, Debug, Serialize)]
+struct FirstRouteReceipt {
+    found: bool,
+    nodes_expanded: Option<u64>,
+    expansion_calls: Option<u64>,
+    elapsed_ms: Option<f64>,
+    total_nodes_expanded: u64,
+    total_expansion_calls: u64,
+}
+
+impl FirstRouteReceipt {
+    fn from_stats(stats: &search::SearchStats) -> Self {
+        Self {
+            found: stats.first_route_nodes_expanded.is_some(),
+            nodes_expanded: stats.first_route_nodes_expanded,
+            expansion_calls: stats.first_route_expansion_calls,
+            elapsed_ms: stats.first_route_elapsed_us.map(|us| us as f64 / 1000.0),
+            total_nodes_expanded: stats.nodes_expanded,
+            total_expansion_calls: stats.retro_cache_misses,
+        }
+    }
+}
+
+/// SynPlanner `min_mol_size` receipt: which leaves of each returned route are
+/// size terminals rather than purchasable stock.
+#[derive(Clone, Debug, Serialize)]
+struct SmallMoleculeTerminalReceipt {
+    max_heavy_atoms: usize,
+    routes_with_non_stock_leaves: usize,
+    /// One entry per returned route, in route order.
+    non_stock_leaves: Vec<Vec<String>>,
+}
+
+impl SmallMoleculeTerminalReceipt {
+    fn build(env: &chem_env::ChemEnv, max_heavy_atoms: usize, routes: &[search::Route]) -> Self {
+        let non_stock_leaves: Vec<Vec<String>> = routes
+            .iter()
+            .map(|route| {
+                route
+                    .building_blocks
+                    .iter()
+                    .filter(|smiles| {
+                        !env.is_building_block_smiles(smiles)
+                            && !chem_env::mol_from_smiles(smiles)
+                                .is_ok_and(|mol| env.is_building_block(&mol))
+                    })
+                    .cloned()
+                    .collect()
+            })
+            .collect();
+        Self {
+            max_heavy_atoms,
+            routes_with_non_stock_leaves: non_stock_leaves.iter().filter(|l| !l.is_empty()).count(),
+            non_stock_leaves,
+        }
+    }
+}
+
+/// SynPlanner `max_tree_size` receipt.
+#[derive(Clone, Debug, Serialize)]
+struct TreeSizeReceipt {
+    limit: u64,
+    reached: bool,
+    nodes_generated: u64,
+}
+
+/// SynPlanner `use_priority` receipt.
+#[derive(Clone, Debug, Serialize)]
+struct PriorityReceipt {
+    count: usize,
+    unknown: Vec<String>,
+    candidates_promoted: u64,
+}
+
+/// ASKCOS `max_branching` receipt.
+#[derive(Clone, Debug, Serialize)]
+struct BranchingReceipt {
+    limit: usize,
+    candidates_pruned: u64,
+}
+
+/// ASKCOS banned-chemicals receipt.
+#[derive(Clone, Debug, Serialize)]
+struct BannedMoleculesReceipt {
+    count: usize,
+    candidates_removed: u64,
+}
+
+/// ASKCOS `max_ppg`-style stock price cap receipt. Prices use the stock
+/// CSV's own price column and unit.
+#[derive(Clone, Debug, Serialize)]
+struct StockPriceFilterReceipt {
+    max_price: f64,
+    entries_kept: usize,
+    entries_excluded: usize,
+    unpriced_entries_kept: usize,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize)]
@@ -199,6 +346,8 @@ fn dispatch_subcommand(args: &[String]) -> Option<Result<()>> {
         Some("audit-route") => run_audit_route(command_args),
         Some("doctor") => run_doctor(command_args),
         Some("capabilities") => run_capabilities(command_args),
+        Some("expand") => run_expand(command_args),
+        Some("batch") => run_batch(command_args),
         _ => return None,
     };
     Some(result)
@@ -259,6 +408,24 @@ fn run_search_cli(args: &[String]) -> Result<()> {
     let mut coverage_beam_width_arg: Option<String> = None;
     let mut recovery_depth_arg: Option<String> = None;
     let mut search_profile_arg: Option<String> = None;
+    let mut time_limit_secs_arg: Option<String> = None;
+    let mut max_expansions: Option<u64> = None;
+    let mut first_route_stats = false;
+    let mut ban_molecules_path: Option<String> = None;
+    let mut ban_smiles_arg: Option<String> = None;
+    let mut max_bb_price: Option<f64> = None;
+    let mut route_diversity = false;
+    let mut max_branching: Option<usize> = None;
+    let mut small_molecule_terminal: Option<usize> = None;
+    let mut max_tree_size: Option<u64> = None;
+    let mut search_stats = false;
+    let mut priority_templates_path: Option<String> = None;
+    let mut priority_rules_arg: Option<String> = None;
+    let mut diversity_radius = renkin::diversity::DEFAULT_PACKING_RADIUS;
+    let mut exclude_target_from_stock = false;
+    let mut cluster = false;
+    let mut n_clusters: Option<usize> = None;
+    let mut max_clusters: usize = 5;
 
     let mut i = 1;
     while i < args.len() {
@@ -371,6 +538,121 @@ fn run_search_cli(args: &[String]) -> Result<()> {
             }
             "--bond-index" => {
                 bond_index = true;
+            }
+            "--time-limit-secs" => {
+                time_limit_secs_arg =
+                    Some(required_flag_value(args, &mut i, "--time-limit-secs")?.to_owned());
+            }
+            "--exclude-target-from-stock" => {
+                exclude_target_from_stock = true;
+            }
+            "--max-expansions" => {
+                let raw = required_flag_value(args, &mut i, "--max-expansions")?;
+                let n: u64 = raw.parse().map_err(|_| {
+                    anyhow::anyhow!("--max-expansions must be a positive integer, got {raw:?}")
+                })?;
+                if n == 0 {
+                    bail!("--max-expansions must be a positive integer (got 0)");
+                }
+                max_expansions = Some(n);
+            }
+            "--first-route-stats" => {
+                first_route_stats = true;
+            }
+            "--search-stats" => {
+                search_stats = true;
+            }
+            "--max-tree-size" => {
+                let raw = required_flag_value(args, &mut i, "--max-tree-size")?;
+                let n: u64 = raw.parse().map_err(|_| {
+                    anyhow::anyhow!("--max-tree-size must be a positive integer, got {raw:?}")
+                })?;
+                if n == 0 {
+                    bail!("--max-tree-size must be a positive integer (got 0)");
+                }
+                max_tree_size = Some(n);
+            }
+            "--priority-templates" => {
+                priority_templates_path =
+                    Some(required_flag_value(args, &mut i, "--priority-templates")?.to_owned());
+            }
+            "--priority-rules" => {
+                priority_rules_arg =
+                    Some(required_flag_value(args, &mut i, "--priority-rules")?.to_owned());
+            }
+            "--small-molecule-terminal" => {
+                let raw = required_flag_value(args, &mut i, "--small-molecule-terminal")?;
+                small_molecule_terminal = Some(raw.parse().map_err(|_| {
+                    anyhow::anyhow!(
+                        "--small-molecule-terminal must be a non-negative integer, got {raw:?}"
+                    )
+                })?);
+            }
+            "--max-branching" => {
+                let raw = required_flag_value(args, &mut i, "--max-branching")?;
+                let n: usize = raw.parse().map_err(|_| {
+                    anyhow::anyhow!("--max-branching must be a positive integer, got {raw:?}")
+                })?;
+                if n == 0 {
+                    bail!("--max-branching must be a positive integer (got 0)");
+                }
+                max_branching = Some(n);
+            }
+            "--route-diversity" => {
+                route_diversity = true;
+            }
+            "--diversity-radius" => {
+                let raw = required_flag_value(args, &mut i, "--diversity-radius")?;
+                let radius: f64 = raw.parse().map_err(|_| {
+                    anyhow::anyhow!("--diversity-radius must be a number in [0,1), got {raw:?}")
+                })?;
+                if !(0.0..1.0).contains(&radius) {
+                    bail!("--diversity-radius must be a number in [0,1) (got {raw})");
+                }
+                diversity_radius = radius;
+                route_diversity = true;
+            }
+            "--ban-molecules" => {
+                ban_molecules_path =
+                    Some(required_flag_value(args, &mut i, "--ban-molecules")?.to_owned());
+            }
+            "--ban-smiles" => {
+                ban_smiles_arg =
+                    Some(required_flag_value(args, &mut i, "--ban-smiles")?.to_owned());
+            }
+            "--max-bb-price" => {
+                let raw = required_flag_value(args, &mut i, "--max-bb-price")?;
+                let price: f64 = raw.parse().map_err(|_| {
+                    anyhow::anyhow!("--max-bb-price must be a non-negative number, got {raw:?}")
+                })?;
+                if !price.is_finite() || price < 0.0 {
+                    bail!("--max-bb-price must be a finite non-negative number (got {raw})");
+                }
+                max_bb_price = Some(price);
+            }
+            "--cluster" => {
+                cluster = true;
+            }
+            "--n-clusters" => {
+                let raw = required_flag_value(args, &mut i, "--n-clusters")?;
+                let k: usize = raw.parse().map_err(|_| {
+                    anyhow::anyhow!("--n-clusters must be a positive integer, got {raw:?}")
+                })?;
+                if k == 0 {
+                    bail!("--n-clusters must be a positive integer (got 0)");
+                }
+                n_clusters = Some(k);
+                cluster = true;
+            }
+            "--max-clusters" => {
+                let raw = required_flag_value(args, &mut i, "--max-clusters")?;
+                max_clusters = raw.parse().map_err(|_| {
+                    anyhow::anyhow!("--max-clusters must be an integer >= 2, got {raw:?}")
+                })?;
+                if max_clusters < 2 {
+                    bail!("--max-clusters must be an integer >= 2 (got {max_clusters})");
+                }
+                cluster = true;
             }
             "--speed-profile" => {
                 // Explicit speed arm: keep the legacy default unchanged,
@@ -572,7 +854,10 @@ fn run_search_cli(args: &[String]) -> Result<()> {
              --value-model-manifest <path>  Hash-pinned value-model manifest\n  \
              --value-model-artifact <path>  Static value-model artifact\n  \
              --retro-generator-slots <N>  Extra beam capacity for direct-generator proposals\n  \
-             --format / -f      Output format: json (default), tree, mermaid\n  \
+             --format / -f      Output format: json (default), tree, mermaid, aizynth \
+             (AiZynthFinder trees.json-shaped route list; unmapped reactions), synplanner \
+             (SynPlanner write_routes_json-shaped object; unmapped reactions), html \
+             (self-contained route report with 2D depictions; needs the default `depict` feature)\n  \
              --avoid-elements / -e  Comma-separated elements to ban from BBs (e.g. \"Br,I\")\n  \
              --require-elements / -r  Comma-separated elements each route must supply (e.g. \"B\")\n  \
              --verbose / -v         Print search statistics to stderr\n  \
@@ -580,6 +865,40 @@ fn run_search_cli(args: &[String]) -> Result<()> {
              cross-template dedup, branching factor -- Issue #101) to JSON output\n  \
              --candidate-trace-limit <N>  Also collect up to N per-candidate trace records \
              (implies --search-diagnostics; offline diagnostic use, competitive program Phase 1B)\n  \
+             --time-limit-secs <N>  Standard-search wall-clock budget in seconds (cooperative; \
+             routes found before the deadline are kept; JSON reports \"termination\")\n  \
+             --exclude-target-from-stock  Never treat the target itself as stock, so an \
+             in-stock target still gets synthesis routes (no depth-0 route)\n  \
+             --cluster              Add \"route_clusters\" (structural tree-edit distance matrix + \
+             average-linkage cluster labels, AiZynthFinder route-clustering parity) to JSON output\n  \
+             --n-clusters <K>       Fix the cluster count (implies --cluster); default: silhouette\n  \
+             --max-clusters <N>     Upper bound for silhouette selection (default 5; implies --cluster)\n  \
+             --max-expansions <N>   Deterministic expansion budget for standard search \
+             (Syntheseus/AiZynthFinder iteration limit); JSON reports \"termination\"\n  \
+             --first-route-stats    Add a \"first_route\" receipt (expansions, expansion calls, \
+             and wall time to the first accepted route; Syntheseus parity)\n  \
+             --search-stats         Add \"search_stats\": nodes generated/expanded, cache and \
+             stock-lookup counts, first-route receipt, termination, and wall time (SynPlanner \
+             Tree.report parity), also when routes are found\n  \
+             --max-tree-size <N>    Stop once N search nodes exist (SynPlanner max_tree_size; \
+             deterministic memory bound)\n  \
+             --priority-templates <path>  Template IDs or rule names (one per line) tried ahead \
+             of their siblings in every expansion (SynPlanner use_priority)\n  \
+             --priority-rules <a,b> Same, comma-separated\n  \
+             --small-molecule-terminal <N>  Treat molecules with <= N heavy atoms as route \
+             terminals even when not in stock (SynPlanner min_mol_size; opt-in). JSON reports \
+             which leaves are size terminals rather than stock\n  \
+             --max-branching <N>    Keep at most N distinct precursor sets per expanded \
+             molecule, cheapest first (ASKCOS max_branching / AiZynthFinder cutoff_number)\n  \
+             --route-diversity      Add \"route_set_diversity\": the packing number of \
+             pairwise-distinct routes under reaction-Jaccard distance (Syntheseus parity)\n  \
+             --diversity-radius <r> Distinctness radius in [0,1) (default 0.999 = reaction-\
+             disjoint; implies --route-diversity)\n  \
+             --ban-molecules <path> SMILES file of molecules that may never appear as a \
+             precursor (ASKCOS banned chemicals; exact stock identity)\n  \
+             --ban-smiles <A,B,..>  Comma-separated banned molecules (same semantics)\n  \
+             --max-bb-price <X>     Drop --stock CSV entries priced above X (ASKCOS max price; \
+             same unit as the CSV price column; unpriced entries are kept and counted)\n  \
              --bond-index           Bond-center template index: ~24%% faster, no accuracy loss\n  \
              --speed-profile        Explicit speed arm; currently enables --bond-index\n  \
              --bb-prices <path>     CSV (SMILES,price_per_gram) for route cost scoring\n  \
@@ -655,11 +974,29 @@ fn run_search_cli(args: &[String]) -> Result<()> {
 
     if !matches!(
         format.as_str(),
-        "json" | "tree" | "mermaid" | "explain" | "compare" | "table" | "compare-json" | "pareto"
+        "json"
+            | "tree"
+            | "mermaid"
+            | "explain"
+            | "compare"
+            | "table"
+            | "compare-json"
+            | "pareto"
+            | "aizynth"
+            | "aizynthfinder"
+            | "synplanner"
+            | "html"
     ) {
         bail!(
-            "unsupported --format {format:?} (expected json|tree|mermaid|explain|compare|table|compare-json|pareto)"
+            "unsupported --format {format:?} (expected json|tree|mermaid|explain|compare|table|compare-json|pareto|aizynth|synplanner|html)"
         );
+    }
+
+    if route_diversity && format != "json" {
+        bail!("--route-diversity/--diversity-radius require --format json");
+    }
+    if cluster && format != "json" {
+        bail!("--cluster/--n-clusters/--max-clusters require --format json");
     }
 
     let requested_search_profile = search_profile_arg.clone();
@@ -851,6 +1188,84 @@ fn run_search_cli(args: &[String]) -> Result<()> {
             }
         }
     }
+    if max_expansions.is_some() && search_mode != SearchMode::Standard {
+        bail!("--max-expansions applies to --search-mode standard only");
+    }
+    if max_tree_size.is_some() && search_mode != SearchMode::Standard {
+        bail!("--max-tree-size applies to --search-mode standard only");
+    }
+    let priority_templates: Option<std::collections::HashSet<String>> =
+        if priority_templates_path.is_some() || priority_rules_arg.is_some() {
+            let mut names = std::collections::HashSet::new();
+            if let Some(ref path) = priority_templates_path {
+                let content = read_bounded_text_file(path, "--priority-templates")?;
+                names.extend(
+                    content
+                        .lines()
+                        .map(str::trim)
+                        .filter(|l| !l.is_empty() && !l.starts_with('#'))
+                        .filter_map(|l| l.split_whitespace().next())
+                        .map(str::to_owned),
+                );
+            }
+            if let Some(ref raw) = priority_rules_arg {
+                names.extend(
+                    raw.split(',')
+                        .map(str::trim)
+                        .filter(|n| !n.is_empty())
+                        .map(str::to_owned),
+                );
+            }
+            if names.is_empty() {
+                bail!("--priority-templates/--priority-rules contained no names");
+            }
+            Some(names)
+        } else {
+            None
+        };
+    if max_bb_price.is_some() && stock_path.is_none() {
+        bail!("--max-bb-price requires --stock <csv> (the price column it filters on)");
+    }
+    let banned_molecules: Option<std::collections::HashSet<String>> =
+        if ban_molecules_path.is_some() || ban_smiles_arg.is_some() {
+            let mut lines: Vec<String> = Vec::new();
+            if let Some(ref path) = ban_molecules_path {
+                let content = read_bounded_text_file(path, "--ban-molecules")?;
+                lines.extend(content.lines().map(str::to_owned));
+            }
+            if let Some(ref raw) = ban_smiles_arg {
+                lines.extend(raw.split(',').map(|s| s.trim().to_owned()));
+            }
+            let set = search::banned_molecule_set(lines.iter().map(String::as_str))?;
+            if set.is_empty() {
+                bail!("--ban-molecules/--ban-smiles contained no molecules");
+            }
+            let target_key = search::banned_molecule_set([target_smiles.as_str()])?;
+            if target_key.iter().any(|key| set.contains(key)) {
+                bail!("the target itself is in the banned-molecule list");
+            }
+            Some(set)
+        } else {
+            None
+        };
+    if time_limit_secs_arg.is_some() && search_mode != SearchMode::Standard {
+        bail!(
+            "--time-limit-secs applies to --search-mode standard; use \
+             --coverage-timeout-secs or --recovery-timeout-secs for the other modes"
+        );
+    }
+    let time_limit: Option<std::time::Duration> = match time_limit_secs_arg.as_deref() {
+        None => None,
+        Some(raw) => {
+            let n: u64 = raw.parse().map_err(|_| {
+                anyhow::anyhow!("--time-limit-secs must be a positive integer, got {raw:?}")
+            })?;
+            if n == 0 {
+                bail!("--time-limit-secs must be a positive integer (got 0)");
+            }
+            Some(std::time::Duration::from_secs(n))
+        }
+    };
     let coverage_timeout: Option<std::time::Duration> = match coverage_timeout_secs_arg {
         None => None,
         Some(ref s) => {
@@ -872,8 +1287,20 @@ fn run_search_cli(args: &[String]) -> Result<()> {
         .transpose()?;
 
     // --stock overrides --building-blocks and --bb-prices
+    let mut stock_price_filter: Option<StockPriceFilterReceipt> = None;
     let (env, bb_price_map) = if let Some(ref path) = stock_path {
-        let entries = load_stock_csv(path)?;
+        let mut entries = load_stock_csv(path)?;
+        if let Some(cap) = max_bb_price {
+            let before = entries.len();
+            let unpriced = entries.iter().filter(|e| e.price_jpy.is_none()).count();
+            entries.retain(|e| e.price_jpy.is_none_or(|price| price <= cap));
+            stock_price_filter = Some(StockPriceFilterReceipt {
+                max_price: cap,
+                entries_kept: entries.len(),
+                entries_excluded: before - entries.len(),
+                unpriced_entries_kept: unpriced,
+            });
+        }
         let smiles_owned: Vec<String> = entries.iter().map(|e| e.smiles.clone()).collect();
         let smiles_refs: Vec<&str> = smiles_owned.iter().map(|s| s.as_str()).collect();
         let stock_env = chem_env::ChemEnv::in_memory(&smiles_refs);
@@ -890,6 +1317,10 @@ fn run_search_cli(args: &[String]) -> Result<()> {
         };
         let prices = bb_prices_path.as_deref().map(load_prices).transpose()?;
         (env, prices)
+    };
+    let env = match small_molecule_terminal {
+        Some(max_heavy_atoms) => env.with_small_molecule_terminal(max_heavy_atoms),
+        None => env,
     };
 
     let mut rules = chem_env::default_rules();
@@ -1364,8 +1795,21 @@ fn run_search_cli(args: &[String]) -> Result<()> {
         element_accounting_policy,
         beam_diversity_policy,
         beam_diversity_slots,
+        exclude_target_from_stock,
+        max_expansions,
+        banned_molecules: banned_molecules.clone().map(std::sync::Arc::new),
+        max_branching,
+        max_tree_size,
+        priority_templates: priority_templates.clone().map(std::sync::Arc::new),
         ..Default::default()
     };
+    // Built after all input loading so the budget covers the search itself,
+    // matching AiZynthFinder's `time_limit` (search wall time only).
+    let standard_control = match time_limit {
+        Some(limit) => search::SearchControl::with_timeout(limit),
+        None => search::SearchControl::unlimited(),
+    };
+    let mut standard_termination: Option<search::SearchTermination> = None;
 
     struct CoverageModeMeta {
         selected_stage: &'static str,
@@ -1387,6 +1831,7 @@ fn run_search_cli(args: &[String]) -> Result<()> {
         Option<renkin::recovery_mode::RecoveryAudit>,
     );
 
+    let search_started = std::time::Instant::now();
     let (
         mut routes,
         stats,
@@ -1405,8 +1850,9 @@ fn run_search_cli(args: &[String]) -> Result<()> {
                     &env,
                     &rules,
                     &config,
-                    &search::SearchControl::unlimited(),
+                    &standard_control,
                 )?;
+                standard_termination = Some(result.selected.termination);
                 let selected = result.selected;
                 (selected.routes, selected.stats, None, None, None, None)
             } else if element_accounting_retry {
@@ -1415,8 +1861,9 @@ fn run_search_cli(args: &[String]) -> Result<()> {
                     &env,
                     &rules,
                     &config,
-                    &search::SearchControl::unlimited(),
+                    &standard_control,
                 )?;
+                standard_termination = Some(result.selected.termination);
                 let invoked = result.initial.is_some();
                 let source = result.initial.as_ref().unwrap_or(&result.selected);
                 let meta = ElementAccountingRetryMeta {
@@ -1444,8 +1891,9 @@ fn run_search_cli(args: &[String]) -> Result<()> {
                     &env,
                     &rules,
                     &config,
-                    &search::SearchControl::unlimited(),
+                    &standard_control,
                 )?;
+                standard_termination = Some(result.selected.termination);
                 let invoked = result.initial.is_some();
                 let source = result.initial.as_ref().unwrap_or(&result.selected);
                 let meta = BeamDiversityRetryMeta {
@@ -1464,8 +1912,15 @@ fn run_search_cli(args: &[String]) -> Result<()> {
                     None,
                 )
             } else {
-                let (routes, stats) = search::find_routes(&target_smiles, &env, &rules, &config)?;
-                (routes, stats, None, None, None, None)
+                let result = search::find_routes_with_control(
+                    &target_smiles,
+                    &env,
+                    &rules,
+                    &config,
+                    &standard_control,
+                )?;
+                standard_termination = Some(result.termination);
+                (result.routes, result.stats, None, None, None, None)
             }
         }
         SearchMode::Coverage => {
@@ -1540,7 +1995,98 @@ fn run_search_cli(args: &[String]) -> Result<()> {
             )
         }
     };
+    let search_elapsed_ms = search_started.elapsed().as_secs_f64() * 1000.0;
     apply_constraints(&mut routes, &constraints);
+    if standard_termination == Some(search::SearchTermination::DeadlineExceeded) {
+        eprintln!(
+            "warning: --time-limit-secs budget exhausted; returning the {} route(s) found \
+             before the deadline",
+            routes.len()
+        );
+    }
+    if stats.tree_size_limit_reached {
+        eprintln!(
+            "warning: --max-tree-size limit reached; returning the {} route(s) found before \
+             the limit",
+            routes.len()
+        );
+    }
+    if stats.expansion_limit_reached {
+        eprintln!(
+            "warning: --max-expansions budget exhausted; returning the {} route(s) found \
+             before the limit",
+            routes.len()
+        );
+    }
+    let report_termination =
+        time_limit.is_some() || max_expansions.is_some() || max_tree_size.is_some();
+    let termination_label: Option<&'static str> =
+        standard_termination.map(|termination| match termination {
+            _ if stats.expansion_limit_reached => "expansion_limit_reached",
+            _ if stats.tree_size_limit_reached => "tree_size_limit_reached",
+            search::SearchTermination::Completed => "completed",
+            search::SearchTermination::DeadlineExceeded => "deadline_exceeded",
+        });
+    let first_route_receipt = first_route_stats.then(|| FirstRouteReceipt::from_stats(&stats));
+    let search_stats_receipt: Option<serde_json::Value> = if search_stats {
+        // SynPlanner Tree.report()/TreeStats parity: the full deterministic
+        // SearchStats (minus the bulky crowd-out block, which stays behind
+        // --search-diagnostics) plus tree size and wall time.
+        let mut value = serde_json::to_value(&stats)?;
+        if let Some(object) = value.as_object_mut() {
+            object.remove("crowd_out");
+            object.insert("nodes_generated".into(), stats.nodes_generated.into());
+            object.insert("search_elapsed_ms".into(), search_elapsed_ms.into());
+            object.insert("routes_returned".into(), routes.len().into());
+            if let Some(label) = termination_label {
+                object.insert("termination".into(), label.into());
+            }
+        }
+        Some(value)
+    } else {
+        None
+    };
+    let small_terminal_receipt = small_molecule_terminal
+        .map(|max_heavy_atoms| SmallMoleculeTerminalReceipt::build(&env, max_heavy_atoms, &routes));
+    let tree_size_receipt = max_tree_size.map(|limit| TreeSizeReceipt {
+        limit,
+        reached: stats.tree_size_limit_reached,
+        nodes_generated: stats.nodes_generated,
+    });
+    let priority_receipt = priority_templates.as_ref().map(|names| {
+        let mut unknown: Vec<String> = names
+            .iter()
+            .filter(|name| {
+                !rules
+                    .iter()
+                    .any(|r| r.template_id == **name || r.name == **name)
+            })
+            .cloned()
+            .collect();
+        unknown.sort();
+        PriorityReceipt {
+            count: names.len(),
+            unknown,
+            candidates_promoted: stats.priority_candidates_promoted,
+        }
+    });
+    if let Some(ref receipt) = priority_receipt
+        && !receipt.unknown.is_empty()
+    {
+        eprintln!(
+            "warning: {} priority name(s) match no loaded rule or template: {}",
+            receipt.unknown.len(),
+            receipt.unknown.join(", ")
+        );
+    }
+    let branching_receipt = max_branching.map(|limit| BranchingReceipt {
+        limit,
+        candidates_pruned: stats.branching_pruned_candidates,
+    });
+    let banned_receipt = banned_molecules.as_ref().map(|set| BannedMoleculesReceipt {
+        count: set.len(),
+        candidates_removed: stats.banned_precursor_candidates,
+    });
 
     match format.as_str() {
         "tree" => {
@@ -1569,6 +2115,37 @@ fn run_search_cli(args: &[String]) -> Result<()> {
         }
         "compare" | "table" => {
             println!("{}", display::format_route_table(&routes));
+        }
+        "html" => {
+            #[cfg(feature = "depict")]
+            {
+                print!(
+                    "{}",
+                    renkin::report::routes_html_report(&target_smiles, &routes, Some(&env))
+                );
+            }
+            #[cfg(not(feature = "depict"))]
+            bail!("--format html requires a build with the `depict` feature (on by default)");
+        }
+        "synplanner" => {
+            // SynPlanner `write_routes_json` shape: {"<route_id>": RouteNode}.
+            let export =
+                renkin::bridge::synplanner::routes_to_synplanner_export(&routes, &target_smiles);
+            println!("{}", serde_json::to_string_pretty(&export)?);
+        }
+        "aizynth" | "aizynthfinder" => {
+            // Same top-level shape as `aizynthcli --output trees.json`: a
+            // JSON array of ReactionTree dicts (empty when nothing solved).
+            let trees: Vec<serde_json::Value> = routes
+                .iter()
+                .map(|route| {
+                    renkin::bridge::aizynthfinder::route_to_aizynthfinder_tree(
+                        route,
+                        &target_smiles,
+                    )
+                })
+                .collect();
+            println!("{}", serde_json::to_string_pretty(&trees)?);
         }
         "compare-json" => {
             #[derive(serde::Serialize)]
@@ -1700,6 +2277,56 @@ fn run_search_cli(args: &[String]) -> Result<()> {
                 if let Some(ref profile) = search_profile_metadata {
                     out["search_profile"] = serde_json::to_value(profile)?;
                 }
+                if let Some(limit) = time_limit {
+                    out["time_limit_secs"] = serde_json::Value::from(limit.as_secs());
+                }
+                if report_termination {
+                    out["termination"] = serde_json::to_value(termination_label)?;
+                }
+                if let Some(n) = max_expansions {
+                    out["max_expansions"] = serde_json::Value::from(n);
+                }
+                if let Some(ref receipt) = first_route_receipt {
+                    out["first_route"] = serde_json::to_value(receipt)?;
+                }
+                if let Some(ref receipt) = banned_receipt {
+                    out["banned_molecules"] = serde_json::to_value(receipt)?;
+                }
+                if let Some(ref receipt) = stock_price_filter {
+                    out["stock_price_filter"] = serde_json::to_value(receipt)?;
+                }
+                if let Some(ref receipt) = branching_receipt {
+                    out["max_branching"] = serde_json::to_value(receipt)?;
+                }
+                if let Some(ref receipt) = tree_size_receipt {
+                    out["max_tree_size"] = serde_json::to_value(receipt)?;
+                }
+                if let Some(ref value) = search_stats_receipt {
+                    out["search_stats"] = value.clone();
+                }
+                if let Some(ref receipt) = priority_receipt {
+                    out["priority_templates"] = serde_json::to_value(receipt)?;
+                }
+                if let Some(ref receipt) = small_terminal_receipt {
+                    out["small_molecule_terminal"] = serde_json::to_value(receipt)?;
+                }
+                if route_diversity {
+                    out["route_set_diversity"] = serde_json::to_value(
+                        renkin::diversity::route_packing_number(&routes, diversity_radius),
+                    )?;
+                }
+                if exclude_target_from_stock {
+                    out["exclude_target_from_stock"] = serde_json::Value::from(true);
+                }
+                if cluster {
+                    out["route_clusters"] =
+                        serde_json::to_value(renkin::route_distance::cluster_routes(
+                            &routes,
+                            &target_smiles,
+                            n_clusters,
+                            max_clusters,
+                        ))?;
+                }
                 println!("{}", serde_json::to_string_pretty(&out)?);
             } else {
                 let joint_success_probability = 1.0
@@ -1707,6 +2334,16 @@ fn run_search_cli(args: &[String]) -> Result<()> {
                         .iter()
                         .map(|r| 1.0 - r.success_probability)
                         .product::<f64>();
+                let route_set_diversity = route_diversity
+                    .then(|| renkin::diversity::route_packing_number(&routes, diversity_radius));
+                let route_clusters = cluster.then(|| {
+                    renkin::route_distance::cluster_routes(
+                        &routes,
+                        &target_smiles,
+                        n_clusters,
+                        max_clusters,
+                    )
+                });
                 let output = Output {
                     target: target_smiles,
                     routes_found: routes.len(),
@@ -1731,11 +2368,534 @@ fn run_search_cli(args: &[String]) -> Result<()> {
                     beam_diversity_retry: beam_diversity_retry_meta,
                     recovery: recovery_meta,
                     search_profile: search_profile_metadata,
+                    time_limit_secs: time_limit.map(|d| d.as_secs()),
+                    termination: termination_label.filter(|_| report_termination),
+                    exclude_target_from_stock: exclude_target_from_stock.then_some(true),
+                    route_clusters,
+                    max_expansions,
+                    first_route: first_route_receipt,
+                    banned_molecules: banned_receipt,
+                    stock_price_filter,
+                    search_stats: search_stats_receipt,
+                    max_tree_size: tree_size_receipt,
+                    priority_templates: priority_receipt,
+                    small_molecule_terminal: small_terminal_receipt,
+                    max_branching: branching_receipt,
+                    route_set_diversity,
                     routes,
                 };
                 println!("{}", serde_json::to_string_pretty(&output)?);
             }
         }
+    }
+    Ok(())
+}
+
+const BATCH_USAGE: &str = "Usage: renkin batch --input <targets.smi> --output-dir <dir> \
+[--jobs <N>] [--html] [--overwrite] [-- <search options>...]\n\
+\n\
+Plan every target in a SMILES file (one per line, optional name after whitespace,\n\
+'#' comments) with the normal `renkin` search, writing per-target results and a\n\
+summary (SynPlanner `synplan planning` parity):\n\
+  <dir>/routes/<NNNN>_<name>.json   full JSON result (always with --search-stats)\n\
+  <dir>/routes/<NNNN>_<name>.html   depicted route report (with --html)\n\
+  <dir>/summary.csv                 one row per target, input order\n\
+  <dir>/manifest.json               version, input, search options, counts\n\
+Everything after `--` is passed to each search unchanged (e.g. --depth 5\n\
+--beam-width 100 --time-limit-secs 60 --building-blocks stock.smi). --target and\n\
+--format are set by batch and may not be passed. --jobs defaults to 1 so a batch\n\
+does not saturate the machine; each search still uses its own internal parallelism.";
+
+/// One batch target.
+struct BatchTarget {
+    index: usize,
+    smiles: String,
+    name: String,
+}
+
+/// One summary row, in input order.
+struct BatchRow {
+    index: usize,
+    name: String,
+    smiles: String,
+    status: String,
+    error: String,
+    routes_found: Option<u64>,
+    best_depth: Option<u64>,
+    best_score: Option<f64>,
+    best_route_cost: Option<f64>,
+    nodes_expanded: Option<u64>,
+    first_route_nodes_expanded: Option<u64>,
+    search_elapsed_ms: Option<f64>,
+    termination: String,
+    json_path: String,
+    html_path: String,
+}
+
+fn batch_file_stem(target: &BatchTarget) -> String {
+    let safe: String = target
+        .name
+        .chars()
+        .map(|c| {
+            if c.is_ascii_alphanumeric() || c == '-' || c == '_' {
+                c
+            } else {
+                '_'
+            }
+        })
+        .take(40)
+        .collect();
+    if safe.is_empty() {
+        format!("{:04}", target.index)
+    } else {
+        format!("{:04}_{safe}", target.index)
+    }
+}
+
+fn csv_field(value: &str) -> String {
+    if value.contains([',', '"', '\n', '\r']) {
+        format!("\"{}\"", value.replace('"', "\"\""))
+    } else {
+        value.to_owned()
+    }
+}
+
+fn run_batch_target(
+    exe: &std::path::Path,
+    target: &BatchTarget,
+    passthrough: &[String],
+    routes_dir: &std::path::Path,
+    html: bool,
+) -> BatchRow {
+    let stem = batch_file_stem(target);
+    let mut row = BatchRow {
+        index: target.index,
+        name: target.name.clone(),
+        smiles: target.smiles.clone(),
+        status: "error".into(),
+        error: String::new(),
+        routes_found: None,
+        best_depth: None,
+        best_score: None,
+        best_route_cost: None,
+        nodes_expanded: None,
+        first_route_nodes_expanded: None,
+        search_elapsed_ms: None,
+        termination: String::new(),
+        json_path: String::new(),
+        html_path: String::new(),
+    };
+    let output = std::process::Command::new(exe)
+        .arg("--target")
+        .arg(&target.smiles)
+        .args(["--format", "json", "--search-stats"])
+        .args(passthrough)
+        .env("RUST_BACKTRACE", "0")
+        .output();
+    let output = match output {
+        Ok(output) => output,
+        Err(e) => {
+            row.error = format!("failed to start search: {e}");
+            return row;
+        }
+    };
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        let line = stderr
+            .lines()
+            .rev()
+            .find(|line| line.starts_with("Error:"))
+            .or_else(|| stderr.lines().rev().find(|line| !line.trim().is_empty()))
+            .unwrap_or("");
+        row.error = line.trim_start_matches("Error:").trim().to_owned();
+        if row.error.is_empty() {
+            row.error = format!("search exited with {}", output.status);
+        }
+        return row;
+    }
+    let json_path = routes_dir.join(format!("{stem}.json"));
+    if let Err(e) = std::fs::write(&json_path, &output.stdout) {
+        row.error = format!("could not write {}: {e}", json_path.display());
+        return row;
+    }
+    row.json_path = format!("routes/{stem}.json");
+    let value: serde_json::Value = match serde_json::from_slice(&output.stdout) {
+        Ok(value) => value,
+        Err(e) => {
+            row.error = format!("search output was not JSON: {e}");
+            return row;
+        }
+    };
+    row.status = "ok".into();
+    row.routes_found = value["routes_found"].as_u64();
+    let best = &value["routes"][0];
+    row.best_depth = best["depth"].as_u64();
+    row.best_score = best["score"].as_f64();
+    row.best_route_cost = best["route_cost"].as_f64();
+    let stats = &value["search_stats"];
+    row.nodes_expanded = stats["nodes_expanded"].as_u64();
+    row.first_route_nodes_expanded = stats["first_route_nodes_expanded"].as_u64();
+    row.search_elapsed_ms = stats["search_elapsed_ms"].as_f64();
+    row.termination = stats["termination"]
+        .as_str()
+        .unwrap_or("completed")
+        .to_owned();
+    if html {
+        #[cfg(feature = "depict")]
+        {
+            let text = String::from_utf8_lossy(&output.stdout);
+            match renkin::report::routes_html_from_result_json(&text, None) {
+                Ok(page) => {
+                    let html_path = routes_dir.join(format!("{stem}.html"));
+                    match std::fs::write(&html_path, page) {
+                        Ok(()) => row.html_path = format!("routes/{stem}.html"),
+                        Err(e) => {
+                            row.status = "error".into();
+                            row.error = format!("could not write HTML: {e}");
+                        }
+                    }
+                }
+                Err(e) => {
+                    row.status = "error".into();
+                    row.error = format!("could not render HTML: {e:#}");
+                }
+            }
+        }
+    }
+    row
+}
+
+/// `renkin batch`: plan many targets with per-target outputs and a summary.
+fn run_batch(args: &[String]) -> Result<()> {
+    let (own, passthrough): (&[String], &[String]) = match args.iter().position(|a| a == "--") {
+        Some(split) => (&args[..split], &args[split + 1..]),
+        None => (args, &[]),
+    };
+    let mut input: Option<String> = None;
+    let mut output_dir: Option<String> = None;
+    let mut jobs: usize = 1;
+    let mut html = false;
+    let mut overwrite = false;
+    let mut i = 0;
+    while i < own.len() {
+        match own[i].as_str() {
+            "--help" | "-h" => {
+                println!("{BATCH_USAGE}");
+                return Ok(());
+            }
+            "--input" | "-i" => {
+                input = Some(required_flag_value(own, &mut i, "--input")?.to_owned())
+            }
+            "--output-dir" | "-o" => {
+                output_dir = Some(required_flag_value(own, &mut i, "--output-dir")?.to_owned())
+            }
+            "--jobs" | "-j" => {
+                let raw = required_flag_value(own, &mut i, "--jobs")?;
+                jobs = raw.parse().map_err(|_| {
+                    anyhow::anyhow!("--jobs must be a positive integer, got {raw:?}")
+                })?;
+                if jobs == 0 {
+                    bail!("--jobs must be a positive integer (got 0)");
+                }
+            }
+            "--html" => html = true,
+            "--overwrite" => overwrite = true,
+            other => bail!(
+                "renkin batch: unknown option {other:?} (search options go after `--`)\n\n{BATCH_USAGE}"
+            ),
+        }
+        i += 1;
+    }
+    let Some(input) = input else {
+        bail!("renkin batch: --input is required\n\n{BATCH_USAGE}");
+    };
+    let Some(output_dir) = output_dir else {
+        bail!("renkin batch: --output-dir is required\n\n{BATCH_USAGE}");
+    };
+    for forbidden in ["--target", "-t", "--format", "-f"] {
+        if passthrough.iter().any(|a| a == forbidden) {
+            bail!("renkin batch: {forbidden} is set by batch and cannot be passed after `--`");
+        }
+    }
+    if html && !cfg!(feature = "depict") {
+        bail!("renkin batch: --html requires a build with the `depict` feature (on by default)");
+    }
+
+    let content = read_bounded_text_file(&input, "--input")?;
+    let targets: Vec<BatchTarget> = content
+        .lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty() && !line.starts_with('#'))
+        .enumerate()
+        .map(|(index, line)| {
+            let mut parts = line.split_whitespace();
+            let smiles = parts.next().unwrap_or_default().to_owned();
+            let name = parts.collect::<Vec<_>>().join(" ");
+            BatchTarget {
+                index: index + 1,
+                smiles,
+                name,
+            }
+        })
+        .collect();
+    if targets.is_empty() {
+        bail!("renkin batch: --input {input} contains no targets");
+    }
+
+    let out = std::path::Path::new(&output_dir);
+    let summary_path = out.join("summary.csv");
+    let manifest_path = out.join("manifest.json");
+    let routes_dir = out.join("routes");
+    let has_route_artifacts = routes_dir
+        .read_dir()
+        .map(|mut entries| entries.next().is_some())
+        .unwrap_or(false);
+    if !overwrite && (summary_path.exists() || manifest_path.exists() || has_route_artifacts) {
+        bail!(
+            "renkin batch: {} already contains batch results (use --overwrite to replace results)",
+            out.display()
+        );
+    }
+    std::fs::create_dir_all(&routes_dir)
+        .with_context(|| format!("could not create {}", routes_dir.display()))?;
+    let exe = std::env::current_exe().context("could not locate the renkin executable")?;
+
+    let started = std::time::Instant::now();
+    let rows: Vec<BatchRow> = {
+        let next = std::sync::atomic::AtomicUsize::new(0);
+        let results = std::sync::Mutex::new(Vec::with_capacity(targets.len()));
+        std::thread::scope(|scope| {
+            for _ in 0..jobs.min(targets.len()) {
+                scope.spawn(|| {
+                    loop {
+                        let k = next.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                        let Some(target) = targets.get(k) else {
+                            break;
+                        };
+                        let row = run_batch_target(&exe, target, passthrough, &routes_dir, html);
+                        eprintln!(
+                            "  [{}/{}] {} -> {} ({} route(s))",
+                            target.index,
+                            targets.len(),
+                            target.smiles,
+                            row.status,
+                            row.routes_found.unwrap_or(0)
+                        );
+                        results.lock().expect("batch results lock").push(row);
+                    }
+                });
+            }
+        });
+        let mut rows = results.into_inner().expect("batch results lock");
+        rows.sort_by_key(|row| row.index);
+        rows
+    };
+
+    let mut csv = String::from(
+        "index,name,smiles,status,routes_found,solved,best_depth,best_score,best_route_cost,\
+         nodes_expanded,first_route_nodes_expanded,search_elapsed_ms,termination,json,html,error\n",
+    );
+    let opt_u = |v: Option<u64>| v.map(|n| n.to_string()).unwrap_or_default();
+    let opt_f = |v: Option<f64>| v.map(|n| format!("{n:.6}")).unwrap_or_default();
+    for row in &rows {
+        let solved = row
+            .routes_found
+            .map(|n| (n > 0).to_string())
+            .unwrap_or_default();
+        let fields = [
+            row.index.to_string(),
+            csv_field(&row.name),
+            csv_field(&row.smiles),
+            row.status.clone(),
+            opt_u(row.routes_found),
+            solved,
+            opt_u(row.best_depth),
+            opt_f(row.best_score),
+            opt_f(row.best_route_cost),
+            opt_u(row.nodes_expanded),
+            opt_u(row.first_route_nodes_expanded),
+            opt_f(row.search_elapsed_ms),
+            row.termination.clone(),
+            row.json_path.clone(),
+            row.html_path.clone(),
+            csv_field(&row.error),
+        ];
+        csv.push_str(&fields.join(","));
+        csv.push('\n');
+    }
+    std::fs::write(&summary_path, csv)
+        .with_context(|| format!("could not write {}", summary_path.display()))?;
+
+    let solved = rows
+        .iter()
+        .filter(|row| row.routes_found.is_some_and(|n| n > 0))
+        .count();
+    let errors = rows.iter().filter(|row| row.status != "ok").count();
+    let manifest = serde_json::json!({
+        "schema_version": 1,
+        "renkin_version": env!("CARGO_PKG_VERSION"),
+        "input": input,
+        "targets": rows.len(),
+        "solved": solved,
+        "errors": errors,
+        "jobs": jobs,
+        "html": html,
+        "search_options": passthrough,
+        "elapsed_ms": started.elapsed().as_secs_f64() * 1000.0,
+    });
+    std::fs::write(&manifest_path, serde_json::to_string_pretty(&manifest)?)?;
+    eprintln!(
+        "renkin batch: {solved}/{} solved, {errors} error(s); summary at {}",
+        rows.len(),
+        summary_path.display()
+    );
+    println!("{}", serde_json::to_string_pretty(&manifest)?);
+    Ok(())
+}
+
+const EXPAND_USAGE: &str = "Usage: renkin expand --target <SMILES> [--templates <path>] \
+[--top-templates <K>] [--building-blocks <path> | --stock <csv>] [--max-candidates <N>] \
+[--bond-index] [--output json|human]\n\
+\n\
+Single-step retrosynthetic expansion (AiZynthFinder AiZynthExpander parity):\n\
+list every one-step disconnection of the target under the loaded rules,\n\
+merged by canonical precursor set, with exact stock membership per precursor.\n\
+Ordering: ascending heuristic step cost, then more in-stock precursors.\n\
+The cost is not a policy probability, feasibility, or yield claim.";
+
+/// `renkin expand`: one-step disconnections without a multi-step search.
+fn run_expand(args: &[String]) -> Result<()> {
+    let mut target: Option<String> = None;
+    let mut templates_path: Option<String> = None;
+    let mut top_templates: Option<usize> = None;
+    let mut bb_path: Option<String> = None;
+    let mut stock_path: Option<String> = None;
+    let mut max_candidates: usize = 0;
+    let mut bond_index = false;
+    let mut output = "json".to_owned();
+    let mut i = 0;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--help" | "-h" => {
+                println!("{EXPAND_USAGE}");
+                return Ok(());
+            }
+            "--target" | "-t" => {
+                target = Some(required_flag_value(args, &mut i, "--target")?.to_owned());
+            }
+            "--templates" => {
+                templates_path = Some(required_flag_value(args, &mut i, "--templates")?.to_owned());
+            }
+            "--top-templates" => {
+                let raw = required_flag_value(args, &mut i, "--top-templates")?;
+                top_templates = Some(raw.parse().map_err(|_| {
+                    anyhow::anyhow!("--top-templates must be a non-negative integer, got {raw:?}")
+                })?);
+            }
+            "--building-blocks" | "-b" => {
+                bb_path = Some(required_flag_value(args, &mut i, "--building-blocks")?.to_owned());
+            }
+            "--stock" => {
+                stock_path = Some(required_flag_value(args, &mut i, "--stock")?.to_owned());
+            }
+            "--max-candidates" | "-n" => {
+                let raw = required_flag_value(args, &mut i, "--max-candidates")?;
+                max_candidates = raw.parse().map_err(|_| {
+                    anyhow::anyhow!("--max-candidates must be a non-negative integer, got {raw:?}")
+                })?;
+            }
+            "--bond-index" => bond_index = true,
+            "--output" | "--format" | "-f" => {
+                output = required_flag_value(args, &mut i, "--output")?.to_owned();
+            }
+            other => bail!("renkin expand: unknown option {other:?}\n\n{EXPAND_USAGE}"),
+        }
+        i += 1;
+    }
+    let Some(target) = target else {
+        bail!("renkin expand: --target is required\n\n{EXPAND_USAGE}");
+    };
+    if output != "json" && output != "human" {
+        bail!("renkin expand: --output must be json or human (got {output:?})");
+    }
+    if target.len() > search::MAX_TARGET_SMILES_BYTES {
+        bail!(
+            "renkin expand: --target exceeds {} bytes",
+            search::MAX_TARGET_SMILES_BYTES
+        );
+    }
+    if bb_path.is_some() && stock_path.is_some() {
+        bail!("renkin expand: --building-blocks and --stock are mutually exclusive");
+    }
+    let env = if let Some(ref path) = stock_path {
+        let entries = load_stock_csv(path)?;
+        let smiles: Vec<&str> = entries.iter().map(|e| e.smiles.as_str()).collect();
+        chem_env::ChemEnv::in_memory(&smiles)
+    } else {
+        match bb_path {
+            Some(ref path) => chem_env::ChemEnv::load(path)?,
+            None => chem_env::ChemEnv::load("data/building_blocks.smi")
+                .unwrap_or_else(|_| chem_env::ChemEnv::in_memory(DEFAULT_BUILDING_BLOCKS)),
+        }
+    };
+    let mut rules = chem_env::default_rules();
+    if let Some(ref path) = templates_path {
+        chem_env::validate_template_file(path)?;
+        let mut extra = chem_env::load_rules_from_file(path);
+        if let Some(k) = top_templates {
+            extra = chem_env::top_templates_by_weight(extra, k);
+        }
+        eprintln!("Loaded {} templates from {path}", extra.len());
+        rules.extend(extra);
+    } else if top_templates.is_some() {
+        bail!("renkin expand: --top-templates requires --templates");
+    }
+    let result = renkin::expand::expand_one_step(
+        &target,
+        &env,
+        &rules,
+        &renkin::expand::ExpansionOptions {
+            max_candidates,
+            bond_index,
+        },
+    )?;
+    if output == "json" {
+        println!("{}", serde_json::to_string_pretty(&result)?);
+        return Ok(());
+    }
+    println!(
+        "Target: {}{}",
+        result.target,
+        if result.target_in_stock {
+            "  (in stock)"
+        } else {
+            ""
+        }
+    );
+    println!(
+        "One-step candidates: {} shown / {} total\n",
+        result.candidates_returned, result.candidates_total
+    );
+    for candidate in &result.candidates {
+        let precursors = candidate
+            .precursors
+            .iter()
+            .map(|p| {
+                if p.in_stock {
+                    format!("{} ✓", p.smiles)
+                } else {
+                    p.smiles.clone()
+                }
+            })
+            .collect::<Vec<_>>()
+            .join(" + ");
+        println!(
+            "{:>3}. cost={:.2}  [{}]  {}",
+            candidate.rank,
+            candidate.step_cost,
+            candidate.rule_names.join(","),
+            precursors
+        );
     }
     Ok(())
 }
@@ -1752,7 +2912,7 @@ fn run_capabilities(args: &[String]) -> Result<()> {
         println!("Print the root CLI's machine-readable capability and resource contract.");
         return Ok(());
     }
-    if !args.is_empty() && !(args.len() == 2 && args[0] == "--output" && args[1] == "json") {
+    if !(args.is_empty() || args.len() == 2 && args[0] == "--output" && args[1] == "json") {
         bail!("renkin capabilities: only --output json is supported");
     }
 
@@ -1775,6 +2935,28 @@ fn run_capabilities(args: &[String]) -> Result<()> {
             "search_modes": ["standard", "coverage", "recovery"],
             "cooperative_cancel": false,
             "coverage_stage2_timeout": true,
+            "standard_time_limit": true,
+            "exclude_target_from_stock": true,
+            "max_expansions": true,
+            "first_route_stats": true,
+            "banned_molecules": true,
+            "max_bb_price": true,
+            "route_packing_number": "reaction_jaccard",
+            "max_branching": true,
+            "small_molecule_terminal": true,
+            "max_tree_size": true,
+            "priority_templates": true,
+            "route_clustering": renkin::route_distance::ROUTE_DISTANCE_METHOD,
+            "export_formats": ["aizynthfinder", "synplanner"],
+            "html_report": cfg!(feature = "depict"),
+            "search_stats": true,
+            "batch": true,
+        },
+        "expand": {
+            "stability": "experimental",
+            "command": "expand",
+            "schema_version": renkin::expand::EXPANSION_SCHEMA_VERSION,
+            "ordering": "step_cost_then_in_stock_count",
         },
         "audit": {
             "stability": "stable",
@@ -2420,7 +3602,7 @@ fn template_ids(args: &[String]) -> Result<()> {
     let path = args
         .iter()
         .enumerate()
-        .find(|(i, a)| !a.starts_with("--") && !(*i > 0 && args[*i - 1] == "--format"))
+        .find(|(i, a)| !(a.starts_with("--") || *i > 0 && args[*i - 1] == "--format"))
         .map(|(_, a)| a.as_str())
         .unwrap_or("data/templates_extracted_5000.smi");
     // load_rules_from_file warns-and-returns-empty on a read error (matching its

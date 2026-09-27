@@ -180,7 +180,8 @@ def test_chat_manual_input_accepts_minimal_payload():
     from matrx_ai.graph_nodes.chat_action import ChatManualInput
 
     inputs = ChatManualInput(model="claude-opus-4-7")
-    assert inputs.max_iterations == 100
+    # Unset = the organization's workflow.run_limits/agent_max_iterations, read per run.
+    assert inputs.max_iterations is None
     assert inputs.messages == []
 
 

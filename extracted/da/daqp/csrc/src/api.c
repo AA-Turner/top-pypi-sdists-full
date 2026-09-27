@@ -1,4 +1,5 @@
 #include "api.h"
+#include "auxiliary.h"
 #include "utils.h"
 #include <stdlib.h>
 #include <stdio.h>
@@ -14,7 +15,7 @@ void daqp_solve(DAQPResult *res, DAQPWorkspace *work){
     tic(&timer);
     if(work->settings->time_limit > 0)  work->timer = &timer;
 #endif
-    if(work->sing_ind != DAQP_UNCONSTRAINED_OPTIMAL){
+    if(!(work->state & DAQP_STATE_UNCONSTRAINED)){
         // Select algorithm
         if(work->n_prox==0){
             if(work->avi == NULL || work->avi->is_symmetric){
@@ -64,9 +65,9 @@ void daqp_quadprog(DAQPResult *res, DAQPProblem* qp, DAQPSettings *settings){
 
     DAQPWorkspace work;
     work.settings = settings;
-    const int init_mask =
-        DAQP_UPDATE_unconstrained | DAQP_UPDATE_eliminate;
-    setup_flag = setup_daqp_main(qp,&work,&(res->setup_time),init_mask);
+    // The problem is solved once, so automatic equality reduction applies
+    setup_flag = setup_daqp_main(qp,&work,&(res->setup_time),
+            DAQP_UPDATE_unconstrained | DAQP_UPDATE_eliminate);
     res->exitflag = setup_flag;
 
     if(setup_flag >= 0){
@@ -236,6 +237,8 @@ int setup_daqp_bnb(DAQPWorkspace* work, int* sense, int nb, int ns){
         work->bnb->n_nodes = 0;
         work->bnb->nWS= 0;
         work->bnb->fixed_ids= malloc((nb+1)*sizeof(int));
+        work->bnb->root_WS= malloc((work->n+ns+1)*sizeof(int));
+        work->bnb->n_root_WS= 0;
     }
     return 1;
 }
@@ -262,14 +265,13 @@ void free_daqp_ldp(DAQPWorkspace *work){
         free(work->dlower);
     }
 
-#ifdef SOFT_WEIGHTS
-    if(work->d_ls != NULL){
-        free(work->d_ls);
-        free(work->d_us);
-        free(work->rho_ls);
-        free(work->rho_us);
-    }
+#ifdef DAQP_SOFT_WEIGHTS
+    free(work->rho_ls); // Single block for all the weights
 #endif
+    work->rho_ls = NULL;
+    work->rho_us = NULL;
+    work->w_ls = NULL;
+    work->w_us = NULL;
 
     work->sense = NULL;
 }
@@ -287,6 +289,7 @@ void free_daqp_bnb(DAQPWorkspace* work){
         free(work->bnb->tree);
         free(work->bnb->tree_WS);
         free(work->bnb->fixed_ids);
+        free(work->bnb->root_WS);
         free(work->bnb);
         work->bnb = NULL;
     }
@@ -321,13 +324,13 @@ void allocate_daqp_workspace(DAQPWorkspace *work, int n, int ns){
 
     work->prox_mask = calloc(work->n, sizeof(int)); // all zeros initially
     work->n_prox = 0;
+    work->state = 0;
+    work->soft_slack = 0;
 
-#ifdef SOFT_WEIGHTS
-    work->d_ls= NULL;
-    work->d_us= NULL;
     work->rho_ls= NULL;
     work->rho_us= NULL;
-#endif
+    work->w_ls= NULL;
+    work->w_us= NULL;
 
     work->bnb = NULL;
     work->nh = 1;
@@ -355,20 +358,80 @@ void allocate_daqp_ldp(DAQPWorkspace *work, int n, int m, int ms, int alloc_R, i
     // Allocate memory for v
     work->v = (alloc_v == 1) ? malloc(n*sizeof(c_float)) :  NULL;
 
-#ifdef SOFT_WEIGHTS
-    // Allocate memory for soft weights
-    work->d_ls = malloc(m*sizeof(c_float));
-    work->d_us = malloc(m*sizeof(c_float));
-    work->rho_ls= malloc(m*sizeof(c_float));
-    work->rho_us= malloc(m*sizeof(c_float));
-    for(i = 0; i< m; i++){
-        work->d_ls[i] = 0;
-        work->d_us[i] = 0;
-        work->rho_ls[i] = DAQP_DEFAULT_RHO_SOFT;
-        work->rho_us[i] = DAQP_DEFAULT_RHO_SOFT;
-    }
+}
+
+// Weights of the soft constraints, in one block (zero selects the default).
+// They are only allocated on request, so that a solve that uses the uniform
+// weights in settings neither spends the memory nor reads the arrays.
+int daqp_allocate_soft_weights(DAQPWorkspace *work){
+#ifdef DAQP_SOFT_WEIGHTS
+    if(work->rho_ls != NULL) return 1; // Already allocated
+    // The weights are indexed by the original problem, whose size is kept in
+    // eq->m while equalities are eliminated. A larger work->m is kept, since
+    // an interface may set it to allocate for a later, larger problem.
+    int m = work->m;
+    if(work->eq != NULL && work->eq->installed && work->eq->m > m) m = work->eq->m;
+    if(m == 0) return 0;
+    work->rho_ls = calloc(4*m,sizeof(c_float));
+    if(work->rho_ls == NULL) return 0;
+    work->rho_us = work->rho_ls + m;
+    work->w_ls = work->rho_ls + 2*m;
+    work->w_us = work->rho_ls + 3*m;
+    return 1;
+#else
+    (void)work; return 0; // Built without support for individual weights
 #endif
 }
+
+// Refresh the cached active set after uniform or individual soft weights change.
+void daqp_refresh_soft_weights(DAQPWorkspace *work){
+    int i, rebuild = 0;
+    const int reduced_pending = work->eq != NULL && work->eq->neq != 0
+        && !work->eq->installed;
+    // A restored equality-reduced problem is reactivated by daqp_eq_reinstall.
+    // Otherwise, only an active soft constraint makes the factorization stale.
+    if(reduced_pending){
+        if(work->n_prox == 0) rebuild = 1;
+    }
+    else
+        for(i = 0; i < work->n_active; i++)
+            if(DAQP_IS_SOFT(work->WS[i])){
+                rebuild = 1;
+                break;
+            }
+    // Reset the factorization
+    if(rebuild){
+        reset_daqp_workspace(work);
+        if(reduced_pending) return;
+        if(DAQP_IS_HIERARCHICAL(work)){
+            const int m = work->m;
+            work->m = work->break_points[0];
+            daqp_activate_constraints(work);
+            work->m = m;
+        }
+        else
+            daqp_activate_constraints(work);
+    }
+}
+
+// Set the weights of the soft constraints, one entry per constraint of the
+// original problem (NULL leaves that weight untouched). Returns 0 if the
+// weights are unavailable, i.e. if the build has no support for them.
+int daqp_set_soft_weights(DAQPWorkspace *work, c_float *rho_l, c_float *rho_u,
+        c_float *w_l, c_float *w_u){
+    int i;
+    if(!daqp_allocate_soft_weights(work)) return 0;
+    const int m = (work->eq != NULL && work->eq->installed) ? work->eq->m : work->m;
+    for(i = 0; i < m; i++){
+        if(rho_l != NULL) work->rho_ls[i] = rho_l[i];
+        if(rho_u != NULL) work->rho_us[i] = rho_u[i];
+        if(w_l != NULL) work->w_ls[i] = w_l[i];
+        if(w_u != NULL) work->w_us[i] = w_u[i];
+    }
+    daqp_refresh_soft_weights(work);
+    return 1;
+}
+
 void allocate_daqp_avi(DAQPAVI* avi, const int n){
     avi->is_symmetric = 0;
     avi->retry_rho_needed = 0;
@@ -517,6 +580,7 @@ void daqp_default_settings(DAQPSettings* settings){
     settings->eta_prox = DAQP_DEFAULT_ETA;
 
     settings->rho_soft = DAQP_DEFAULT_RHO_SOFT;
+    settings->w_soft = DAQP_DEFAULT_W_SOFT;
 
     settings->rel_subopt = DAQP_DEFAULT_REL_SUBOPT;
     settings->abs_subopt = DAQP_DEFAULT_ABS_SUBOPT;
@@ -524,6 +588,7 @@ void daqp_default_settings(DAQPSettings* settings){
     settings->sing_tol = DAQP_DEFAULT_SING_TOL;
     settings->refactor_tol = DAQP_DEFAULT_REFACTOR_TOL;
     settings->time_limit = 0;
+    settings->eq_reduction = DAQP_EQ_REDUCTION_AUTO;
 }
 
 /* Remove redundant constraints*/
@@ -581,6 +646,10 @@ void daqp_primal_init_active(DAQPProblem* qp, c_float* x){
     c_float Ax, slack;
     c_float tol= 1e-9;
 
+    // For MIQPs, x is only used as an incumbent (see daqp_set_primal_start)
+    for(i=0; i < qp->m; i++)
+        if(qp->sense[i] & DAQP_BINARY) return;
+
     // Simple constraints
     for(i=0; i < qp->ms; i++){
         if(qp->sense[i] & DAQP_IMMUTABLE) continue;
@@ -634,8 +703,9 @@ void daqp_dual_init_active(DAQPProblem* qp, c_float* lam){
 
 // Set the starting iterate
 void daqp_set_primal_start(DAQPWorkspace* work, c_float* x){
-    if(work->sing_ind != DAQP_UNCONSTRAINED_OPTIMAL){
+    if(!(work->state & DAQP_STATE_UNCONSTRAINED)){
         int i;
         for(i = 0; i < work->n; i++) work->x[i] = x[i];
+        if(work->bnb != NULL) work->state |= DAQP_STATE_INCUMBENT;
     }
 }

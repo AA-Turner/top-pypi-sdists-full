@@ -14,12 +14,15 @@ import operator
 import re
 import threading
 import weakref
+from decimal import Decimal
 from typing import Any
 
 import bson
 
+from secantus import collation as _collation
 from secantus.paths import get_path, has_path
 from secantus.sql import errors, planner, subms, typemap
+from secantus.sql import numeric as _numeric
 from secantus.sql.catalog import USER_TYPE_ARRAY_OID_OFFSET, Catalog
 from secantus.sql.result import ColumnDesc, SQLResult
 
@@ -61,6 +64,11 @@ def _serialized_write(fn: Any) -> Any:
     return wrapper
 
 
+#: The collation an explicit `COLLATE "<locale>"` gets. Strength 3 is
+#: PostgreSQL's own default level (case and accents both significant).
+_LOCALE_COLLATION = _collation.Collation(strength=3)
+
+
 def _pg_sort(items: list[Any], key_of: Any, specs: list[tuple[int, bool]]) -> None:
     """Stable in-place sort with Postgres ORDER BY semantics.
 
@@ -68,10 +76,14 @@ def _pg_sort(items: list[Any], key_of: Any, specs: list[tuple[int, bool]]) -> No
     parallel list of ``(direction, nulls_first)`` (direction 1 asc / -1 desc).
     NULLs sort to the front or back per ``nulls_first`` independent of direction —
     Postgres orders NULL as though it were the largest value, so this can't be
-    delegated to Mongo's sort (which treats NULL/missing as the smallest)."""
+    delegated to Mongo's sort (which treats NULL/missing as the smallest).
 
-    def cmp(a: Any, b: Any) -> int:
-        ka, kb = key_of(a), key_of(b)
+    Keys are computed ONCE per item rather than on every comparison, which is
+    also where each value is normalised into something comparable."""
+    keyed = [(tuple(typemap.sort_key_value(v) for v in key_of(it)), it) for it in items]
+
+    def cmp(a: tuple, b: tuple) -> int:
+        ka, kb = a[0], b[0]
         for i, (direction, nulls_first) in enumerate(specs):
             x, y = ka[i], kb[i]
             if x is None and y is None:
@@ -82,17 +94,30 @@ def _pg_sort(items: list[Any], key_of: Any, specs: list[tuple[int, bool]]) -> No
                 return 1 if nulls_first else -1
             if x == y:
                 continue
-            base = -1 if x < y else 1
+            try:
+                base = -1 if x < y else 1
+            except TypeError:
+                # A `jsonb` column holds bare Python values, so two objects have
+                # no `<` at all and ordering one was an `XX000` internal error.
+                # Only values the fast path could not compare reach here, so a
+                # well-typed column pays nothing.
+                kx, ky = typemap.total_order_key(x), typemap.total_order_key(y)
+                if kx == ky:
+                    continue
+                base = -1 if kx < ky else 1
             return -base if direction == -1 else base
         return 0
 
-    items.sort(key=functools.cmp_to_key(cmp))
+    keyed.sort(key=functools.cmp_to_key(cmp))
+    items[:] = [it for _, it in keyed]
 
 
 def _order_key_fn(
     order: list[tuple[str, int, bool]],
     enum_orders: dict[str, list[str]] | None = None,
     citext_orders: set[str] | None = None,
+    collate_orders: dict[str, str] | None = None,
+    structured_orders: set[str] | None = None,
 ) -> Any:
     """Build the ``key_of(doc)`` used by ``_pg_sort`` for a list of ORDER BY field
     paths. An enum-typed order field maps its label value to the label's ordinal in
@@ -106,16 +131,34 @@ def _order_key_fn(
             f: {lbl: i for i, lbl in enumerate(labels)} for f, labels in enum_orders.items()
         }
     citext_fields = citext_orders or set()
+    collate_fields = collate_orders or {}
+    structured_fields = structured_orders or set()
 
     def key_of(doc: Any) -> tuple:
         out = []
         for field_path, _, _ in order:
-            value = get_path(doc, field_path)
+            # A timestamp's microseconds live in a hidden companion (see
+            # `secantus.sql.subms`); without them the sort key is only
+            # millisecond-granular and rows inside one millisecond come back in
+            # storage order.
+            value = _subms(doc, field_path)
             omap = ordinals.get(field_path)
             if omap is not None and value is not None:
                 value = omap.get(value, len(omap))  # unknown label sorts last
             elif field_path in citext_fields and isinstance(value, str):
                 value = value.lower()
+            elif field_path in structured_fields and value is not None:
+                # A jsonb or range column: Postgres' own btree order, keyed off
+                # the COLUMN rather than the value (see
+                # `planner._structured_order_set`). NULL is left alone so the
+                # NULLS FIRST / LAST placement still sees it.
+                value = typemap.total_order_key(value)
+            elif field_path in collate_fields and isinstance(value, str):
+                # An explicit `COLLATE "<locale>"`. The three-level key is
+                # computed WITHOUT ICU (`collation.sort_levels`); the two
+                # documented limits are `ß` (PG expands it to `ss`) and the
+                # relative weight of `-` versus `_`.
+                value = _collation.sort_levels(value, _LOCALE_COLLATION)
             out.append(value)
         return tuple(out)
 
@@ -238,10 +281,9 @@ def execute_create_table(
     if catalog.exists(db, plan.table.name):
         if plan.if_not_exists:
             return SQLResult(command_tag="CREATE TABLE")
-        # A temp table's catalog key carries its session namespace; the error
-        # names the bare relation like real PG ('relation "foo" already exists').
-        name = plan.table.name
-        raise errors.duplicate_table(name.split(".", 1)[1] if plan.table.temp else name)
+        # `duplicate_table` strips the schema/temp-namespace prefix a catalog
+        # key carries — PG names the bare relation.
+        raise errors.duplicate_table(plan.table.name)
     if "." in plan.table.name and not plan.table.temp:
         schema = plan.table.name.split(".", 1)[0]
         if not catalog.schema_exists(db, schema):
@@ -274,7 +316,9 @@ def execute_drop_table(
     if table is None:
         if plan.if_exists:
             return SQLResult(command_tag="DROP TABLE")
-        raise errors.undefined_table(plan.name)
+        # PG says `table "x" does not exist` here, not `relation "x"` — the
+        # noun follows the DROP verb (probed on 14.13).
+        raise errors.undefined_relation_of_kind("TABLE", plan.name)
     catalog.drop_triggers_for_table(db, plan.name)  # triggers die with the table
     catalog.drop(db, plan.name)
     storage.drop_collection(db, table.collection)
@@ -297,10 +341,10 @@ def execute_alter_table(
     if table is None:
         if plan.if_exists:
             return SQLResult(command_tag="ALTER TABLE")
-        raise errors.undefined_table(plan.name)
+        raise errors.undefined_table(plan.written or plan.name)
     old_name = table.name
     for action in plan.actions:
-        _apply_alter_action(action, table, storage, db)
+        _apply_alter_action(action, table, storage, db, catalog)
     catalog.replace(db, table, old_name=old_name)
     return SQLResult(command_tag="ALTER TABLE")
 
@@ -536,9 +580,9 @@ def execute_create_view(
     name = planner.qualified_table_name(name_node)
     replace = bool(stmt.args.get("replace"))
     if catalog.exists(db, name):
-        raise errors.SQLError("42P07", f'relation "{name}" already exists')
+        raise errors.duplicate_table(name)
     if not replace and catalog.get_view(db, name) is not None:
-        raise errors.SQLError("42P07", f'relation "{name}" already exists')
+        raise errors.duplicate_table(name)
     body = stmt.expression
     if column_names:
         if not isinstance(body, _exp.Select):
@@ -553,11 +597,34 @@ def execute_create_view(
 def execute_drop_view(stmt: Any, catalog: Catalog, storage: Any, db: str) -> SQLResult:
     name = planner.qualified_table_name(stmt.this)
     if not catalog.drop_view(db, name) and not stmt.args.get("exists"):
-        raise errors.SQLError("42P01", f'view "{name}" does not exist')
+        raise errors.undefined_relation_of_kind("VIEW", name)
     return SQLResult(command_tag="DROP VIEW")
 
 
-def _apply_alter_action(action: Any, table: Any, storage: Any, db: str) -> None:
+def _backfill_added_column(column: Any, table: Any, storage: Any, db: str) -> None:
+    """Fill an added column's DEFAULT into the rows that already exist.
+
+    Postgres materialises the default for every existing row, so the column
+    reads as its default rather than NULL. A non-literal default (`now()`,
+    `gen_random_uuid()`) is evaluated once, which is what PG does too — the
+    value is computed at ALTER time, not per row."""
+    from secantus.sql import scalar
+
+    value = column.default
+    if not column.has_default and column.default_expr is not None:
+        import sqlglot
+
+        node = sqlglot.parse_one(column.default_expr, read="postgres")
+        ctx = scalar.ScalarContext(storage=storage, catalog=None, db=db, session=None)
+        value = typemap.coerce(scalar.evaluate(node, lambda _n: None, ctx), column.type_tag)
+    if value is None:
+        return
+    storage.update_matching(db, table.collection, {}, {"$set": {column.field: value}}, multi=True)
+
+
+def _apply_alter_action(
+    action: Any, table: Any, storage: Any, db: str, catalog: Catalog | None = None
+) -> None:
     from sqlglot import exp
 
     from secantus.sql.catalog import Column
@@ -577,15 +644,28 @@ def _apply_alter_action(action: Any, table: Any, storage: Any, db: str) -> None:
                 f"unsupported column type: {action.args['kind'].sql()}"
             )
         cons = [type(c.kind).__name__ for c in (action.args.get("constraints") or [])]
-        table.columns.append(
-            Column(
-                name=name,
-                type_tag=tag,
-                field=name,
-                pk=False,
-                nullable="NotNullColumnConstraint" not in cons,
-            )
+        # A DEFAULT on ADD COLUMN was dropped on the floor: the column went in
+        # with no default at all, so EXISTING rows kept NULL (PG backfills) and
+        # — worse — a later INSERT that omitted the column got NULL too, which
+        # for `NOT NULL DEFAULT 7` left a NOT NULL column holding NULL.
+        from secantus.sql import planner as _planner
+
+        has_default, default = _planner._column_default(action, tag)
+        default_expr = None if has_default else _planner._default_expr(action)
+        column = Column(
+            name=name,
+            type_tag=tag,
+            field=name,
+            pk=False,
+            nullable="NotNullColumnConstraint" not in cons,
+            has_default=has_default,
+            default=default,
+            default_expr=default_expr,
+            **_planner._decl_identity(action.args["kind"]),
         )
+        table.columns.append(column)
+        if has_default or default_expr is not None:
+            _backfill_added_column(column, table, storage, db)
         return
     if (
         isinstance(action, exp.Drop)
@@ -613,7 +693,7 @@ def _apply_alter_action(action: Any, table: Any, storage: Any, db: str) -> None:
         if col is None:
             if action.args.get("exists"):
                 return
-            raise errors.undefined_column(name)
+            raise errors.undefined_column(name, table.name)
         if col.pk:
             raise errors.feature_not_supported("dropping the PRIMARY KEY column is not supported")
         table.columns = [c for c in table.columns if c.name != name]
@@ -640,14 +720,29 @@ def _apply_alter_action(action: Any, table: Any, storage: Any, db: str) -> None:
             storage.update_matching(db, coll, {}, {"$rename": {col.field: new_field}}, multi=True)
         return
     if isinstance(action, exp.AlterRename):  # RENAME TO newname
+        # PG renames WITHIN the relation's schema and rejects a qualified new
+        # name outright (`RENAME TO s.t` is a 42601 syntax error, probed on
+        # 14.13), so the new catalog key carries the OLD name's schema. Taking
+        # the bare name moved a renamed `s.t` to `public.t`.
+        if action.this.args.get("db") is not None:
+            raise errors.SQLError("42601", 'syntax error at or near "."')
         new_name = action.this.name
+        schema = table.name.rsplit(".", 1)[0] if "." in table.name else None
+        if schema is not None:
+            new_name = f"{schema}.{new_name}"
+        # Includes RENAME TO <its own name>, which PG also answers 42P07.
+        # Checked before any storage move: `rename_collection` onto an
+        # occupied name is not guaranteed to fail, so a rename could
+        # otherwise land one relation on top of another.
+        if new_name == table.name or (catalog is not None and catalog.exists(db, new_name)):
+            raise errors.duplicate_table(new_name)
         if table.collection == table.name:
             # A declared table maps 1:1 to a same-named collection — move the
             # collection too, so the old name stops resolving (a leftover
             # collection would otherwise reflect as a phantom table).
             ok, err = storage.rename_collection(db, table.collection, db, new_name)
             if not ok:
-                raise errors.SQLError("42P07", err or f'relation "{new_name}" already exists')
+                raise errors.duplicate_table(new_name)
             table.collection = new_name
         table.name = new_name
         return
@@ -758,7 +853,7 @@ def _apply_alter_action(action: Any, table: Any, storage: Any, db: str) -> None:
                 f'ALTER TABLE "{table.name}" DROP COLUMN {ie}{m.group("col")}'
             )[0]
             for sub in reparsed.args.get("actions") or []:
-                _apply_alter_action(sub, table, storage, db)
+                _apply_alter_action(sub, table, storage, db, catalog)
             return
     raise errors.feature_not_supported(f"unsupported ALTER TABLE action: {action.sql()}")
 
@@ -770,7 +865,7 @@ def execute_create_index(
     if plan.name in existing:
         if plan.if_not_exists:
             return SQLResult(command_tag="CREATE INDEX")
-        raise errors.SQLError("42P07", f'relation "{plan.name}" already exists')
+        raise errors.duplicate_table(plan.name)
     # An expression index materialises the indexed expression into a hidden field
     # (registered on the table, recomputed on every write); backfill it into every
     # existing row *before* building the B-tree so the entries are populated.
@@ -835,7 +930,7 @@ def execute_drop_index(
             return SQLResult(command_tag="DROP INDEX")
     if plan.if_exists:
         return SQLResult(command_tag="DROP INDEX")
-    raise errors.SQLError("42704", f'index "{plan.name}" does not exist')
+    raise errors.undefined_relation_of_kind("INDEX", plan.name)
 
 
 def _drop_expr_index(table: Any, index_name: str, catalog: Catalog, storage: Any, db: str) -> None:
@@ -886,6 +981,16 @@ def _view_oid(name: str, storage: Any, db: str | None) -> int:
         return 0
 
 
+def _subms(doc: dict[str, Any], field: str) -> Any:
+    """``doc``'s value at ``field`` with its sub-millisecond remainder restored.
+
+    The companion only exists for timestamp columns with a non-zero remainder,
+    and `subms.merge` ignores anything that is not a datetime, so this is a
+    no-op everywhere else.
+    """
+    return subms.merge(get_path(doc, field), doc.get(subms.companion_field(field)))
+
+
 def _with_subms(doc: dict[str, Any], col: Any) -> Any:
     """``col``'s stored value with its sub-millisecond remainder added back.
 
@@ -895,7 +1000,7 @@ def _with_subms(doc: dict[str, Any], col: Any) -> Any:
     projected through the aggregation pipeline has lost the companion.
     """
     value = get_path(doc, col.field)
-    if getattr(col, "type_tag", None) not in subms.SUBMS_TAGS:
+    if not subms.carries_subms(getattr(col, "type_tag", None)):
         return value
     return subms.merge(value, doc.get(subms.companion_field(col.field)))
 
@@ -1073,6 +1178,8 @@ def _returning_result(
     table: Any = None,
     storage: Any = None,
     db: str | None = None,
+    catalog: Any = None,
+    session: Any = None,
 ) -> SQLResult:
     """Shape a write statement's ``RETURNING`` rows the same way a SELECT does —
     so the wire layer emits a RowDescription + DataRows ahead of CommandComplete.
@@ -1085,7 +1192,11 @@ def _returning_result(
     if any(expr is not None for _, _, expr in returning):
         from secantus.sql import scalar
 
-        ctx = scalar.ScalarContext(storage=storage, catalog=None, db=db, session=None)
+        # The catalog and session were hardcoded to None, so a RETURNING item
+        # containing a SUBQUERY -- `INSERT ... RETURNING id, (SELECT count(*)
+        # FROM t)` -- reached `_lookup_table_def` with no catalog and raised
+        # AttributeError, which the wire reported as `XX000 internal error`.
+        ctx = scalar.ScalarContext(storage=storage, catalog=catalog, db=db, session=session)
 
     def cell(doc: dict[str, Any], col: Any, expr: Any) -> Any:
         if expr is None:
@@ -1175,6 +1286,7 @@ def execute_insert(
         for doc in plan.docs:
             doc.setdefault("_id", bson.ObjectId())
     enforce_insert_rows(plan.docs, plan.table, storage, db, catalog, session)
+    _check_numeric_pk_values(plan.docs, plan.table, storage, db)
     inserted, write_errors = storage.insert(db, plan.table.collection, plan.docs)
     if write_errors:
         _raise_write_error(write_errors[0], plan.table)
@@ -1187,8 +1299,47 @@ def execute_insert(
             plan.table,
             storage,
             db,
+            catalog,
+            session,
         )
     return SQLResult(command_tag=f"INSERT 0 {inserted}", rowcount=inserted)
+
+
+def _check_numeric_pk_values(
+    docs: list[dict[str, Any]], table: planner.TableDef, storage: Any, db: str
+) -> None:
+    """Raise 23505 when a numeric PRIMARY KEY duplicates one by VALUE.
+
+    A numeric wider than Decimal128 is stored as a ``{__numeric, __numkey}``
+    document (`secantus.sql.numeric`), and the ``_id`` index compares documents
+    field by field -- so ``1e40`` and ``1e40.0``, equal in Postgres, looked
+    distinct, and so did a wide ``1.5000…0`` beside a plain ``1.5``. The index
+    still catches every duplicate between two Decimal128s; this only runs a
+    value probe when a wide key is involved (the new one, or one already
+    stored), so an ordinary numeric-keyed bulk insert pays one extra query.
+    Ported from the Rust server's ``wide_numeric_pk_conflict``."""
+    pk = table.pk_columns
+    if len(pk) != 1 or pk[0].type_tag != "numeric" or pk[0].field != "_id":
+        return
+    keys = [_numeric.to_decimal(d.get("_id")) for d in docs]
+    new_wide = any(_numeric.is_wide(d.get("_id")) for d in docs)
+    stored_wide = new_wide or bool(
+        storage.find_matching(
+            db, table.collection, {f"_id.{_numeric.SORT_KEY}": {"$exists": True}}, limit=1
+        )
+    )
+    if not stored_wide:
+        return
+    seen: set[tuple] = set()
+    for key in keys:
+        if key is None:
+            continue
+        ident = _numeric.order_key(key.normalize(_numeric.EXACT) if key.is_finite() else key)
+        if ident in seen or storage.find_matching(
+            db, table.collection, _numeric.filter_for("_id", "$eq", key), limit=1
+        ):
+            _raise_write_error({"code": 11000, "errmsg": "index: _id_ dup key"}, table)
+        seen.add(ident)
 
 
 def _raise_write_error(err: dict[str, Any], table: planner.TableDef) -> None:
@@ -1574,7 +1725,14 @@ def enforce_parent_delete(
 def _hashable_id(value: Any) -> Any:
     """A hashable key for an ``_id`` value. A composite PK's ``_id`` is a
     subdocument (dict) — unhashable — so canonicalize it to a sorted tuple of
-    items; a scalar ``_id`` passes through."""
+    items; a scalar ``_id`` passes through.
+
+    A ``numeric`` key hashes by VALUE, through its sort key: a Decimal128 is
+    not hashable at all (``UPDATE pk SET n = n + 10`` on a numeric PRIMARY KEY
+    was an XX000), and a wide one is a document whose text carries its scale,
+    so ``1e40`` and ``1e40.0`` -- the same key in Postgres -- differed."""
+    if isinstance(value, bson.Decimal128) or _numeric.is_wide(value):
+        return ("__numeric", _numeric.sort_key(_numeric.canonical(_numeric.to_decimal(value))))
     if isinstance(value, dict):
         return tuple(sorted((k, _hashable_id(v)) for k, v in value.items()))
     if isinstance(value, list):
@@ -1709,7 +1867,7 @@ def _execute_insert_on_conflict(
     tag = f"INSERT 0 {affected}"
     if plan.returning is not None:
         return _returning_result(
-            result_docs, plan.returning, tag, affected, plan.table, storage, db
+            result_docs, plan.returning, tag, affected, plan.table, storage, db, catalog, session
         )
     return SQLResult(command_tag=tag, rowcount=affected)
 
@@ -1724,9 +1882,15 @@ def _find_conflict(
     # subdocument, so probe with has_path / get_path, not flat dict access.
     if not oc.conflict_fields or any(not has_path(doc, f) for f in oc.conflict_fields):
         return None
-    found = storage.find_matching(
-        db, coll, {f: get_path(doc, f) for f in oc.conflict_fields}, limit=1
-    )
+    parts: list[dict[str, Any]] = []
+    for f in oc.conflict_fields:
+        v = get_path(doc, f)
+        d = _numeric.to_decimal(v) if isinstance(v, (bson.Decimal128, dict)) else None
+        # A numeric key is equal by VALUE (`1e40` = `1e40.0`), which a stored
+        # wide document's field-by-field equality cannot see.
+        parts.append(_numeric.filter_for(f, "$eq", d) if d is not None else {f: v})
+    flt = parts[0] if len(parts) == 1 else {"$and": parts}
+    found = storage.find_matching(db, coll, flt, limit=1)
     return found[0] if found else None
 
 
@@ -1797,15 +1961,25 @@ def execute_select(plan: planner.SelectPlan, storage: Any, db: str) -> SQLResult
         # NULL placement follows Postgres, not Mongo sort order, so order in
         # Python; that also pulls OFFSET/LIMIT off the storage fetch.
         docs = storage.find_matching(db, plan.table.collection, plan.filter)
-        key_of = _order_key_fn(plan.order, plan.enum_orders, getattr(plan, "citext_orders", None))
+        key_of = _order_key_fn(
+            plan.order,
+            plan.enum_orders,
+            getattr(plan, "citext_orders", None),
+            getattr(plan, "collate_orders", None),
+            getattr(plan, "structured_orders", None),
+        )
         _pg_sort(docs, key_of, [(direction, nf) for _, direction, nf in plan.order])
         if plan.skip:
             docs = docs[plan.skip :]
-        if plan.limit:
+        if plan.limit is not None:
             docs = docs[: plan.limit]
+    elif plan.limit == 0:
+        # `limit=0` means NO LIMIT to the storage layer (Mongo's convention), so
+        # a real `LIMIT 0` must never reach it — it would return the whole table.
+        docs = []
     else:
         docs = storage.find_matching(
-            db, plan.table.collection, plan.filter, skip=plan.skip, limit=plan.limit
+            db, plan.table.collection, plan.filter, skip=plan.skip, limit=plan.limit or 0
         )
     columns = _out_column_descs(plan.out_columns, storage, db, getattr(plan, "table", None))
     rows: list[tuple[Any, ...]] = []
@@ -1839,7 +2013,11 @@ def execute_correlated_select(
         # Only outer-table columns reach this scope; a correlated subquery's own
         # inner columns are resolved inside scalar._inner_row_scopes.
         def scope(node: Any) -> Any:
-            return get_path(doc, table.field_for(node.name))
+            # With the sub-millisecond companion merged back (scalar timestamp
+            # AND timestamp-array columns): a bare get_path compared the
+            # truncated stored date, so a per-row WHERE on a timestamp matched
+            # nothing its microseconds distinguished.
+            return _subms(doc, table.field_for(node.name))
 
         return scope
 
@@ -1867,7 +2045,7 @@ def execute_correlated_select(
         )
     if plan.skip:
         matched = matched[plan.skip :]
-    if plan.limit:
+    if plan.limit is not None:
         matched = matched[: plan.limit]
 
     columns = _out_column_descs(plan.out_columns, storage, db, getattr(plan, "table", None))
@@ -1930,6 +2108,34 @@ def _run_subplan_to_docs(
         names = [n for n, _ in plan.out_columns]
         return [dict(zip(names, row, strict=True)) for row in rows]
     raise errors.feature_not_supported("unsupported derived-table plan")
+
+
+def _whole_row_value(node: Any, resolve: Any, doc: dict[str, Any]) -> Any:
+    """A bare relation reference — the `t` in `row_to_json(t)` or `SELECT t
+    FROM t` — as a composite of that relation's columns, or None when `node`
+    is not one.
+
+    Postgres lets a table or sub-select ALIAS stand for the whole row. Without
+    this the name went to the column resolver and answered
+    `42703 column "t" does not exist`, which is what `row_to_json(t) FROM (…) t`
+    — a very common idiom — hit.
+
+    A real column of the same name WINS, which is what PostgreSQL does: given
+    `SELECT t FROM t` where `t` also has a column `t`, the column is meant.
+    """
+    from sqlglot import exp as _exp
+
+    if not isinstance(node, _exp.Column) or node.table:
+        return None
+    table = getattr(resolve, "table", None)
+    if table is None or not getattr(table, "columns", None):
+        return None
+    name = node.name
+    if name != getattr(table, "name", None):
+        return None
+    if any(c.name == name for c in table.columns):
+        return None  # a real column shadows the whole-row reading
+    return typemap.RecordValue((c.name, _subms(doc, c.field)) for c in table.columns)
 
 
 def _expand_lateral(
@@ -2006,6 +2212,11 @@ def _evaluated_value_rows(
         synthesized = _empty_implicit_aggregate_row(tail, ctx)
         if synthesized is not None:
             docs = synthesized
+    # Aggregates the pipeline could not finish — an `array_agg(x ORDER BY y)`
+    # that is not the whole projection pushes `{v, k}` pairs, and the sort
+    # happens here. Same helper the pipeline path uses; without it a nested
+    # `array_agg` silently returned insertion order.
+    docs = _apply_post_aggregates(plan, docs)
     # A correlated / EXISTS WHERE that couldn't push into the pipeline is applied
     # per joined row here (before windows / projection see the survivors); the
     # scope resolves outer columns via the join resolver, and the subquery reads
@@ -2032,11 +2243,20 @@ def _evaluated_value_rows(
 
     def make_scope(doc: dict[str, Any]):
         def scope(node: Any) -> Any:
+            # `_subms` restores the microseconds a timestamp's hidden companion
+            # carries. This scope feeds ORDER BY keys, the DISTINCT ON key AND
+            # the projected values (`_expand_srf` evaluates through it), and
+            # unlike the plain-column path it never goes through `_with_subms`
+            # -- so without this, `select id, ts ... order by 2` both sorted at
+            # millisecond granularity and RETURNED truncated times.
             field = win_field.get(id(node))
             if field is not None:
-                return get_path(doc, field)
+                return _subms(doc, field)
+            whole = _whole_row_value(node, plan.resolve, doc)
+            if whole is not None:
+                return whole
             path, _ = plan.resolve(node)
-            return get_path(doc, path)
+            return _subms(doc, path)
 
         # Optional protocol: lets ``scalar._eval_cast`` learn a column's type
         # tag (a naive datetime from storage is a ``timestamp`` or a decoded
@@ -2063,17 +2283,34 @@ def _evaluated_value_rows(
         omap = enum_ordinals.get(i)
         return omap.get(v, len(omap)) if omap is not None and v is not None else v
 
+    # ORDER BY terms that name an SRF-produced output are resolved against the
+    # EXPANDED tuple, not the source row: one row fans out to many, so a
+    # source-row key is identical across every expanded row and a stable sort
+    # leaves them in array order. `ORDER BY 1` over `unnest` used to do exactly
+    # that, and `ORDER BY <alias>` raised 0A000 instead.
+    srf_out = getattr(plan, "order_srf_output", {}) or {}
     scored: list[tuple[tuple[Any, ...], tuple[Any, ...], tuple[Any, ...]]] = []
     for doc in docs:
         scope = make_scope(doc)
-        keys = tuple(_order_key(oe, i, scope) for i, (oe, _, _) in enumerate(plan.order))
-        # DISTINCT ON key (row-level, evaluated before any SRF expansion).
+        base_keys = tuple(
+            None if i in srf_out else _order_key(oe, i, scope)
+            for i, (oe, _, _) in enumerate(plan.order)
+        )
+        # DISTINCT ON key (row-level, evaluated before any SRF expansion —
+        # deliberately NOT resolved against the expanded tuple).
         don_key = (
-            tuple(repr(scalar.evaluate(e, scope, sctx)) for e in plan.distinct_on)
+            tuple(_numeric.eq_key(scalar.evaluate(e, scope, sctx)) for e in plan.distinct_on)
             if plan.distinct_on
             else ()
         )
         for vt in _expand_srf(plan, scope, sctx):
+            if srf_out:
+                keys = tuple(
+                    vt[srf_out[i]] if i in srf_out and srf_out[i] < len(vt) else base_keys[i]
+                    for i in range(len(base_keys))
+                )
+            else:
+                keys = base_keys
             scored.append((keys, don_key, vt))
 
     _pg_sort(scored, lambda r: r[0], [(direction, nf) for _, direction, nf in plan.order])
@@ -2092,14 +2329,14 @@ def _evaluated_value_rows(
             seen: set = set()
             deduped: list[tuple[Any, ...]] = []
             for row in rows:
-                key = tuple(repr(v) for v in row)
+                key = tuple(_numeric.eq_key(v) for v in row)
                 if key not in seen:
                     seen.add(key)
                     deduped.append(row)
             rows = deduped
     if plan.skip:
         rows = rows[plan.skip :]
-    if plan.limit:
+    if plan.limit is not None:
         rows = rows[: plan.limit]
     return rows
 
@@ -2141,6 +2378,14 @@ def _expand_srf(plan: planner.EvaluatedSelectPlan, scope: Any, sctx: Any) -> lis
         val = scalar.evaluate(arr_expr, scope, sctx)
         if kind == "jsonb_object_keys":
             items = list(val.keys()) if isinstance(val, dict) else []
+        elif kind == "unnest":
+            # A multidimensional array is ONE array in Postgres, unnested
+            # row-major; taking only the top level handed the inner lists out as
+            # elements (`srf._unnest_values` is the same rule for the other two
+            # routes into unnest).
+            from secantus.sql import srf as _srf
+
+            items = _srf._unnest_values(val)
         elif isinstance(val, (list, tuple)):
             items = list(val)
         else:
@@ -2219,6 +2464,60 @@ def _pipeline_input_docs(
     return [d for d in docs if keep(d)], remaining
 
 
+def _hypothetical_set_value(kind: str, payload: Any, values: Any) -> Any:
+    """`rank(v) WITHIN GROUP (ORDER BY expr)` and friends — what `v` would rank
+    if it were inserted into the group.
+
+    Every rule measured against PostgreSQL 14.13:
+
+    * `rank` counts rows sorting strictly BEFORE the hypothetical, plus one;
+      `dense_rank` counts distinct values instead.
+    * `percent_rank` is `(rank - 1) / N`, and `cume_dist` is
+      `(rows sorting at or before it, including itself) / (N + 1)` — note the
+      different denominators, and that cume_dist counts the hypothetical row
+      while percent_rank does not.
+    * NULLs take part in the ordering rather than being skipped, so the sort
+      direction and NULLS placement change the answer: `rank(20) ORDER BY v`
+      is 2 where `ORDER BY v DESC` is 3 on the same data.
+    * On an EMPTY group they are 1, 1, 0.0 and 1.0 — not NULL.
+    """
+    hypothetical, descending, nulls_first = payload
+    rows = list(values or [])
+    n = len(rows)
+
+    def key(v: Any) -> tuple[int, Any]:
+        # (null-bucket, value). The bucket records where NULLs sit in the FINAL
+        # order — 0 first, 2 last — and is therefore absolute; only the value
+        # comparison flips with the direction. Encoding NULLs as an extreme
+        # value and letting the direction flip decide instead gets `DESC` and
+        # `DESC NULLS LAST` exactly backwards, because reversing the comparison
+        # also reverses where the NULLs went.
+        if v is None:
+            return (0 if nulls_first else 2, 0)
+        return (1, typemap.sort_key_value(v))
+
+    hk = key(hypothetical)
+
+    def before(k: tuple[int, Any]) -> bool:
+        if k[0] != hk[0]:
+            return k[0] < hk[0]
+        if k[0] != 1:
+            return False  # both NULL: neither sorts before the other
+        return (k[1] > hk[1]) if descending else (k[1] < hk[1])
+
+    keys = [key(v) for v in rows]
+    rank = 1 + sum(1 for k in keys if before(k))
+    if kind == "hs_rank":
+        return rank
+    if kind == "hs_dense_rank":
+        return 1 + len({k for k in keys if before(k)})
+    if kind == "hs_percent_rank":
+        return 0.0 if n == 0 else (rank - 1) / n
+    # cume_dist: the hypothetical row counts itself, over N + 1.
+    at_or_before = sum(1 for k in keys if before(k) or k == hk)
+    return (at_or_before + 1) / (n + 1)
+
+
 def _ordered_set_value(kind: str, fraction: float | None, values: Any) -> Any:
     """Compute an ordered-set aggregate from the pushed ORDER BY values (NULLs
     dropped, then sorted ascending):
@@ -2231,7 +2530,11 @@ def _ordered_set_value(kind: str, fraction: float | None, values: Any) -> Any:
     Returns NULL when the (non-NULL) set is empty."""
     import math
 
-    vals = sorted(v for v in (values or []) if v is not None)
+    # Normalised for the same reason `_pg_sort` normalises: a `numeric` value is
+    # a `Decimal128`, which cannot be compared — `percentile_cont` and `mode`
+    # over a numeric column were an internal error — and the interpolation
+    # below needs a value it can do arithmetic on.
+    vals = sorted(typemap.sort_key_value(v) for v in (values or []) if v is not None)
     if not vals:
         return None
     n = len(vals)
@@ -2266,19 +2569,136 @@ def _apply_post_aggregates(plan: Any, result: list[dict[str, Any]]) -> list[dict
     (Python-side, since the aggregation engine can't sort). Shared by the top-level
     pipeline executor and derived-table materialization so the ``{v, k}`` push
     pairs never leak past either path."""
+    # A timestamp min/max accumulates a `{__subms_d, __subms_u}` composite (a
+    # BSON date cannot carry the remainder), so merge it back before anything
+    # downstream sees it.
+    for doc in result:
+        for key, value in doc.items():
+            # An exact numeric sum / min / max arrives as a pushed marker list
+            # (`numeric.AGG_MARKERS`); fold it before anything reads it --
+            # `numeric_avg` below divides the folded sum.
+            numeric_func = _numeric.marked_func(value)
+            if numeric_func is not None:
+                doc[key] = _numeric.fold(numeric_func, value)
+                continue
+            if not isinstance(value, dict):
+                continue
+            if subms.COMPOSITE_DATE in value:
+                doc[key] = subms.unwrap_composite(value)
+                continue
+            # `_id` is a dict of grouping column -> key, and a timestamp key is
+            # itself a composite (grouping on the truncated date merges rows
+            # that differ only in microseconds).
+            for inner_key, inner in value.items():
+                if isinstance(inner, dict) and subms.COMPOSITE_DATE in inner:
+                    value[inner_key] = subms.unwrap_composite(inner)
     for field_name, kind, payload in getattr(plan, "post_aggregates", ()) or ():
+        if kind == "py_sort":
+            # Last: ORDER BY / OFFSET / LIMIT deferred from the pipeline because
+            # a sort term is a numeric (`planner._defer_numeric_sort`).
+            result = _py_sort(result, payload)
+            continue
         for doc in result:
             if kind in ("sorted_array", "sorted_string"):
                 doc[field_name] = _sorted_agg_value(kind, payload, doc.get(field_name))
             elif kind in ("variance", "bit_and", "bit_or", "bit_xor"):
                 doc[field_name] = _stat_bit_value(kind, doc.get(field_name))
+            elif kind == "numeric_stat":
+                func, n_field, sx_field, sx2_field = payload
+                doc[field_name] = typemap.numeric_stat(
+                    func,
+                    int(doc.get(n_field) or 0),
+                    _as_exact(doc.get(sx_field)),
+                    _as_exact(doc.get(sx2_field)),
+                )
+            elif kind == "regr_stat":
+                func, n_field, sx_f, sy_f, sxx_f, syy_f, sxy_f = payload
+                doc[field_name] = typemap.regr_stat(
+                    func,
+                    int(doc.get(n_field) or 0),
+                    float(doc.get(sx_f) or 0),
+                    float(doc.get(sy_f) or 0),
+                    float(doc.get(sxx_f) or 0),
+                    float(doc.get(syy_f) or 0),
+                    float(doc.get(sxy_f) or 0),
+                )
+            elif kind == "numeric_avg":
+                n_field, sx_field = payload
+                count = int(doc.get(n_field) or 0)
+                doc[field_name] = (
+                    None
+                    if count == 0
+                    else typemap.numeric_div(_as_exact(doc.get(sx_field)), Decimal(count))
+                )
+            elif kind in ("interval_sum", "interval_avg"):
+                doc[field_name] = _interval_agg_value(kind, doc.get(field_name))
             elif kind == "range_agg":
                 from secantus.sql import ranges as _ranges
 
                 doc[field_name] = _ranges.make_multirange(doc.get(field_name) or [])
             else:
-                doc[field_name] = _ordered_set_value(kind, payload, doc.get(field_name))
+                doc[field_name] = (
+                    _hypothetical_set_value(kind, payload, doc.get(field_name))
+                    if kind.startswith("hs_")
+                    else _ordered_set_value(kind, payload, doc.get(field_name))
+                )
     return result
+
+
+def _py_sort(result: list[dict[str, Any]], payload: Any) -> list[dict[str, Any]]:
+    """Postgres ORDER BY over pipeline output, then OFFSET / LIMIT, then drop
+    the hidden sort-only fields. An enum term sorts by its declared order."""
+    terms, enum_labels, skip, limit, drop = payload
+
+    def key_of(doc: dict[str, Any]) -> tuple[Any, ...]:
+        out = []
+        for name, _direction, _nulls_first in terms:
+            v = doc.get(name)
+            labels = enum_labels.get(name)
+            out.append(labels.index(v) if labels is not None and v in labels else v)
+        return tuple(out)
+
+    rows = list(result)
+    _pg_sort(rows, key_of, [(direction, nf) for _name, direction, nf in terms])
+    if skip:
+        rows = rows[skip:]
+    if limit is not None:
+        rows = rows[:limit]
+    for doc in rows:
+        for name in drop:
+            doc.pop(name, None)
+    return rows
+
+
+def _as_exact(value: Any) -> Decimal:
+    """A `$sum` result as an exact `Decimal`.
+
+    The accumulator gives back a Python int for integer columns and a
+    `Decimal128` for numeric ones; `str` is the lossless bridge for both (a
+    `Decimal128` has no numeric protocol of its own)."""
+    if value is None:
+        return Decimal(0)
+    return Decimal(str(typemap.unwrap_numeric(value)))
+
+
+def _interval_agg_value(kind: str, values: Any) -> Any:
+    """Finish `sum(interval)` / `avg(interval)` from the pushed values.
+
+    Mongo's `$sum` over interval SUBDOCUMENTS answered `0` and its `$avg`
+    answered NULL — silently wrong data rather than an error, and for `sum` a
+    plain zero where PG gives `3 days`. Both are folded here instead.
+
+    `intervals.add` is componentwise, which is what PG's `interval_pl` does;
+    the average divides the total, carrying months into days and days into
+    micros, which a per-field divide would get wrong. Zero non-NULL values is
+    NULL for both, as every SQL aggregate is."""
+    from secantus.sql import intervals as _intervals
+
+    nonnull = [v for v in (values or []) if v is not None]
+    if not nonnull:
+        return None
+    total = functools.reduce(_intervals.add, nonnull)
+    return total if kind == "interval_sum" else _intervals.mul(total, 1 / len(nonnull))
 
 
 def _stat_bit_value(kind: str, value: Any) -> Any:
@@ -2306,6 +2726,24 @@ def _sorted_agg_value(kind: str, payload: Any, pairs: Any) -> Any:
     return the ``v`` values as a list (``sorted_array``) or joined with the
     separator, skipping NULLs (``sorted_string`` — NULL when all values are NULL)."""
     items = list(pairs or [])
+    # A timestamp sort key rides as the sub-millisecond composite; merge it back
+    # so the keys are comparable datetimes (and microsecond-exact) before sorting.
+    for p in items:
+        keys = p.get("k")
+        if isinstance(keys, list) and any(
+            isinstance(k, dict) and subms.COMPOSITE_DATE in k for k in keys
+        ):
+            p["k"] = [subms.unwrap_composite(k) for k in keys]
+        # ... and the VALUE, which rides as a composite when it is itself a
+        # timestamp column (`array_agg(t ORDER BY t)`).
+        value = p.get("v")
+        if isinstance(value, dict) and subms.COMPOSITE_AS_TEXT in value:
+            merged = subms.unwrap_composite(value[subms.COMPOSITE_AS_TEXT])
+            # Rendered through the same helper as `t::text`, so the two agree
+            # (Postgres trims trailing fractional zeros).
+            p["v"] = typemap.render_timestamp_text(merged) if merged is not None else None
+        elif isinstance(value, dict) and subms.COMPOSITE_DATE in value:
+            p["v"] = subms.unwrap_composite(value)
     if kind == "sorted_array":
         specs = payload
         _pg_sort(items, lambda p: tuple(p.get("k") or []), specs)
@@ -2463,7 +2901,15 @@ def execute_update(
     if plan.returning is not None:
         post = storage.find_matching(db, coll, {"_id": {"$in": ids}}) if ids else []
         return _returning_result(
-            post, plan.returning, f"UPDATE {matched}", matched, plan.table, storage, db
+            post,
+            plan.returning,
+            f"UPDATE {matched}",
+            matched,
+            plan.table,
+            storage,
+            db,
+            catalog,
+            session,
         )
     return SQLResult(command_tag=f"UPDATE {matched}", rowcount=matched)
 
@@ -2615,7 +3061,9 @@ def _execute_update_materialized_body(
 
     n = len(matched)
     if plan.returning is not None:
-        return _returning_result(posts, plan.returning, f"UPDATE {n}", n, table, storage, db)
+        return _returning_result(
+            posts, plan.returning, f"UPDATE {n}", n, table, storage, db, catalog, session
+        )
     return SQLResult(command_tag=f"UPDATE {n}", rowcount=n)
 
 
@@ -2915,5 +3363,7 @@ def execute_delete(
         _enforce_fk_on_parent_delete(victims, plan.table, storage, db, catalog)
     n = storage.delete_matching(db, coll, plan.filter)
     if plan.returning is not None:
-        return _returning_result(victims, plan.returning, f"DELETE {n}", n, plan.table, storage, db)
+        return _returning_result(
+            victims, plan.returning, f"DELETE {n}", n, plan.table, storage, db, catalog, session
+        )
     return SQLResult(command_tag=f"DELETE {n}", rowcount=n)

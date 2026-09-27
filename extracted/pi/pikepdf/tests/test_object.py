@@ -58,7 +58,7 @@ def test_booleans():
 @example('')
 def test_ascii_involution(ascii_):
     b = ascii_.encode('ascii')
-    assert encode(b) == b
+    assert bytes(encode(b)) == b
 
 
 @given(
@@ -162,7 +162,8 @@ def test_bytes():
     qs = String(s)
     assert str(qs) == s
 
-    assert Name('/xyz') == b'/xyz'
+    assert Name('/xyz') != b'/xyz'
+    assert bytes(Name('/xyz')) == b'/xyz'
     with pytest.raises(TypeError, match='should be str'):
         Name(b'/bytes')
 
@@ -276,12 +277,11 @@ def test_no_len():
 
 class TestName:
     def test_name_equality(self):
-        # Who needs transitivity? :P
-        # While this is less than ideal ('/Foo' != b'/Foo') it allows for slightly
-        # sloppy tests like if colorspace == '/Indexed' without requiring
-        # Name('/Indexed') everywhere
+        # A Name equals the str of its UTF-8 bytes, so that
+        # colorspace == '/Indexed' works without Name('/Indexed') everywhere.
+        # It does not also equal bytes, since '/Foo' != b'/Foo'.
         assert Name('/Foo') == '/Foo'
-        assert Name('/Foo') == b'/Foo'
+        assert Name('/Foo') != b'/Foo'
         assert Name.Foo == Name('/Foo')
 
     def test_unslashed_name(self):
@@ -341,8 +341,65 @@ class TestHashViolation:
         utf16 = b'\xfe\xff' + 'hello'.encode('utf-16be')
         self.check(String(utf16), String('hello'))
 
+    @pytest.mark.parametrize('text', ['hello', 'héllo', '日本', '•†ÿ'])
+    def test_string_and_str(self, text):
+        self.check(String(text), text)
+
+    def test_binary_string_and_its_text(self):
+        s = String(b'\x80\x81\xff')
+        self.check(s, str(s))
+
+    def test_string_found_by_str_key(self):
+        assert {String('héllo'): 1}['héllo'] == 1
+        assert {'héllo': 1}[String('héllo')] == 1
+        assert len({String('日本'), '日本'}) == 1
+
+    @pytest.mark.parametrize(
+        'raw', [b'hello', b'h\xe9llo', b'\x80\x81\xff', b'\xfe\xff\x00A', b'']
+    )
+    def test_string_never_equals_bytes(self, raw):
+        s = String(raw)
+        assert bytes(s) == raw
+        assert not (s == raw)
+        assert s != raw
+        assert not (raw == s)
+        assert raw != s
+
+    def test_string_equality_is_transitive(self):
+        s = String(b'\x80')
+        assert s == str(s)
+        assert s != b'\x80'
+
     def test_name(self):
         self.check(Name.This, Name('/This'))
+
+    @pytest.mark.parametrize('text', ['/Foo', '/héllo', '/日本', '/Lime Green'])
+    def test_name_and_str(self, text):
+        self.check(Name(text), text)
+
+    def test_name_found_by_str_key(self):
+        assert {Name('/héllo'): 1}['/héllo'] == 1
+        assert {'/héllo': 1}[Name('/héllo')] == 1
+        assert len({Name('/日本'), '/日本'}) == 1
+
+    def test_parsed_escaped_name_and_str(self):
+        self.check(Object.parse(b'/Lime#20Green'), '/Lime Green')
+        self.check(Object.parse(b'/h#C3#A9llo'), '/héllo')
+
+    @pytest.mark.parametrize('raw', [b'/Foo', b'/h\xc3\xa9llo'])
+    def test_name_never_equals_bytes(self, raw):
+        n = Name(raw.decode('utf-8'))
+        assert bytes(n) == raw
+        assert not (n == raw)
+        assert n != raw
+        assert raw != n
+
+    def test_name_not_utf8(self):
+        n = Object.parse(b'/Bad#FF#FE')
+        assert bytes(n) == b'/Bad\xff\xfe'
+        self.check(n, Object.parse(b'/Bad#FF#FE'))
+        assert n != '/Bad\xff\xfe'
+        assert n != b'/Bad\xff\xfe'
 
     def test_operator(self):
         self.check(Operator('q'), Operator('q'))
@@ -675,6 +732,18 @@ class TestStreamReadWrite:
         with pytest.raises(TypeError, match="decode_parms must be"):
             stream_object.write(
                 compress(b'foo'), filter=Name.FlateDecode, decode_parms=[42]
+            )
+
+    @pytest.mark.parametrize('filter_', [42, '/FlateDecode', {'/K': 1}])
+    def test_invalid_filter_scalar(self, stream_object, filter_):
+        with pytest.raises(TypeError, match="filter must be"):
+            stream_object.write(b'foo', filter=filter_)
+
+    @pytest.mark.parametrize('decode_parms', [42, '/Foo', {'/K': 1}])
+    def test_invalid_decodeparms_scalar(self, stream_object, decode_parms):
+        with pytest.raises(TypeError, match="decode_parms must be"):
+            stream_object.write(
+                compress(b'foo'), filter=Name.FlateDecode, decode_parms=decode_parms
             )
 
     def test_filter_decodeparms_mismatch(self, stream_object):

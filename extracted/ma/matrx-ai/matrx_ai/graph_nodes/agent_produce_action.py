@@ -67,6 +67,7 @@ from matrx_ai.graph_nodes.agent_action import (
     resolve_step_agent_full,
     run_step_agent,
 )
+from matrx_ai.graph_nodes.iteration_limit import resolve_step_iteration_limit
 from matrx_ai.graph_nodes.shared import (
     AiExecutionResult,
     ai_output_failure,
@@ -244,6 +245,8 @@ async def agent_produce(
     resolved = await resolve_step_agent_full(inputs, consumer=f"{_NODE_TYPE}:{node_id}")
     _assert_declarations_agree(ctx, kind, resolved.declared_output_kind)
 
+    limit = await resolve_step_iteration_limit(ctx, inputs.max_iterations)
+    inputs.max_iterations = limit.value
     request = build_agent_request(
         ctx,
         inputs,
@@ -262,7 +265,7 @@ async def agent_produce(
     if isinstance(completed, AiExecutionResult):
         outcome: NodeResult[AiExecutionResult] = success(completed)
     else:
-        outcome = await asyncio.to_thread(normalize_completed_result, completed)
+        outcome = limit.name_on(await asyncio.to_thread(normalize_completed_result, completed))
     if outcome.status == "error":
         # A failed paid turn already carries its billed usage in
         # error.details['usage'] — the scheduler settles cost from there.

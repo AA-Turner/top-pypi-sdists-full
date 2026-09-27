@@ -40,11 +40,15 @@ cdef extern from "types.h":
         double refactor_tol;
         double time_limit;
 
+        double w_soft;
+        int eq_reduction;
+
     ctypedef struct DAQPWorkspace:
         int n
         int m
         int ms
         int nh
+        int* sense
         DAQPSettings* settings
 
 cdef extern from "api.h":
@@ -82,10 +86,18 @@ cdef extern from "api.h":
         void free_daqp_ldp(DAQPWorkspace *work)
     cdef extern nogil:
         void allocate_daqp_settings(DAQPWorkspace *work)
+    cdef extern nogil:
+        int daqp_set_soft_weights(DAQPWorkspace *work, double *rho_l, double *rho_u,
+                double *w_l, double *w_u)
+    cdef extern nogil:
+        void daqp_refresh_soft_weights(DAQPWorkspace *work)
 
 cdef extern from "utils.h":
     cdef extern nogil:
         int daqp_update_ldp(int mask, DAQPWorkspace *work, DAQPProblem *qp)
+
+cdef extern from "eq_elim.h":
+    void daqp_eq_restore(DAQPWorkspace *work) noexcept nogil
 
 cdef extern from "constants.h":
     cdef double DAQP_INF
@@ -98,6 +110,7 @@ cdef extern from "constants.h":
     cdef double DAQP_DEFAULT_ETA
     cdef int DAQP_DEFAULT_ITER_LIMIT
     cdef double DAQP_DEFAULT_RHO_SOFT
+    cdef double DAQP_DEFAULT_W_SOFT
     cdef double  DAQP_DEFAULT_REL_SUBOPT
     cdef double  DAQP_DEFAULT_ABS_SUBOPT
     cdef double  DAQP_DEFAULT_SING_TOL
@@ -111,3 +124,6 @@ cdef extern from "constants.h":
     cdef int DAQP_UPDATE_hierarchy
     cdef int DAQP_UPDATE_unconstrained
     cdef int DAQP_UPDATE_eliminate
+    cdef int DAQP_EQ_REDUCTION_OFF
+    cdef int DAQP_EQ_REDUCTION_AUTO
+    cdef int DAQP_EQ_REDUCTION_ON

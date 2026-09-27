@@ -1,6 +1,6 @@
 [package]
 name = "secantus-core"
-version = "0.5.3-beta.163"
+version = "0.5.3-beta.165"
 edition = "2021"
 description = "Pure-Rust operator engines for SecantusDB (sort keys, query matcher, update operators, aggregation-expression evaluator, projection, change-stream diff, aggregation pipeline)."
 license = "GPL-2.0-only"
@@ -27,6 +27,11 @@ geo = "0.28"
 # backtrack; it's tried first for every pattern. Patterns it can't compile
 # (backreferences / lookaround) fall back to `fancy-regex` below.
 regex = "1"
+# NFKD decomposition for accent-insensitive collation (strength 1). Already in
+# the lock tree transitively, so this is a direct edge rather than a new crate.
+# `char::is_combining_mark` is the `category == Mn` test `collation.py` uses.
+unicode-normalization = "0.1"
+unicode-properties = { version = "0.1", default-features = false, features = ["general-category"] }
 # Backtracking regex with lookaround + backreference support (Python `re`-style),
 # used only when the linear `regex` engine above can't compile a pattern — e.g.
 # the negative-lookahead `^(?!system\.)` pymongo emits for listCollections name
@@ -45,5 +50,21 @@ rand = "0.9"
 # stays on post-2007 dates in decade-stable major zones to stay clear of tzdb
 # release skew). `chrono` is the trait provider; default features off — no
 # `clock` / `std::time::SystemTime` needed.
-chrono = { version = "0.4", default-features = false, features = ["alloc"] }
+# `clock` is enabled for ONE behaviour: `$toLower`/`$toUpper` of a Timestamp,
+# which mongod renders in the server process's LOCAL time (see
+# `expressions::coerce_to_string`). mongod resolves a real tz database at the
+# instant -- DST included -- so a fixed offset or a UTC render is simply wrong,
+# and Rust's `std` exposes no timezone database. `clock` is what supplies
+# `chrono::Local`; without it the standalone Rust server had to error 16007 on
+# an operator the Python server has always answered. On WINDOWS that same render
+# goes through the CRT instead (see the `libc` edge below) -- `chrono::Local`
+# ignores `TZ` there -- so `clock` carries the Unix half only.
+chrono = { version = "0.4", default-features = false, features = ["alloc", "clock"] }
 chrono-tz = { version = "0.10", default-features = false }
+
+[target.'cfg(windows)'.dependencies]
+# `_tzset` + `_localtime64_s`, the MSVC CRT's local-time resolution -- the same
+# pair mongod and CPython's `time.localtime` reach on Windows, and the only way
+# to honour `TZ` there. See `expressions::render_local_asctime` for the measured
+# mongod 8.2.11 divergence that put it here.
+libc = "0.2"

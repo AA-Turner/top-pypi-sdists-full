@@ -139,8 +139,8 @@ class CrawlPresetRepository:
         site and belongs wherever the site belongs. Until 2026-09-17 this payload
         carried no organization at all and the row was filled in by the
         ``public._stamp_org_default`` BEFORE-INSERT trigger from whoever happened
-        to be saving, so a preset saved by a collaborator landed in that person's
-        personal workspace instead of the site's organization. Migration 0765
+        to be saving, so a preset saved by a collaborator landed in an
+        organization picked for that person instead of the site's organization. Migration 0765
         stops ``web.conform`` from ever attaching that trigger again; the
         attachment standing on ``web.crawl_preset`` is now a no-op, because this
         payload names the organization before it ever runs.

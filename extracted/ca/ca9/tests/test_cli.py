@@ -38,6 +38,102 @@ class TestCLI:
         assert "summary" in data
         assert data["summary"]["total"] == 4
 
+    def test_grype_json_runs_through_auto_detection_and_analysis(self, sample_repo):
+        report_path = Path(__file__).parent / "fixtures" / "grype_sample.json"
+        result = CliRunner().invoke(
+            main,
+            [
+                str(report_path),
+                "--repo",
+                str(sample_repo),
+                "-f",
+                "json",
+                "--no-auto-coverage",
+            ],
+        )
+
+        assert result.exit_code in (0, 1, 2)
+        data = json.loads(result.output)
+        assert data["summary"]["total"] == 3
+        lodash = next(item for item in data["results"] if item["package"] == "lodash")
+        assert lodash["verdict"] == "inconclusive"
+        assert "npm package reachability was not evaluated" in lodash["reason"]
+
+    def test_empty_grype_report_honors_json_output(self, tmp_path, sample_repo):
+        report_path = tmp_path / "clean-grype.json"
+        report_path.write_text(
+            json.dumps({"matches": [], "descriptor": {"name": "grype", "version": "0.110.0"}})
+        )
+
+        result = CliRunner().invoke(
+            main,
+            [
+                str(report_path),
+                "--repo",
+                str(sample_repo),
+                "-f",
+                "json",
+                "--no-auto-coverage",
+            ],
+        )
+
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert data["summary"] == {
+            "total": 0,
+            "reachable": 0,
+            "unreachable": 0,
+            "inconclusive": 0,
+            "ignored": 0,
+        }
+        assert data["results"] == []
+
+    def test_empty_grype_report_writes_requested_json_file(self, tmp_path, sample_repo):
+        report_path = tmp_path / "clean-grype.json"
+        output_path = tmp_path / "reports" / "clean.json"
+        report_path.write_text(
+            json.dumps({"matches": [], "descriptor": {"name": "grype", "version": "0.110.0"}})
+        )
+
+        result = CliRunner().invoke(
+            main,
+            [
+                str(report_path),
+                "--repo",
+                str(sample_repo),
+                "-f",
+                "json",
+                "-o",
+                str(output_path),
+                "--no-auto-coverage",
+            ],
+        )
+
+        assert result.exit_code == 0
+        assert result.output == ""
+        assert json.loads(output_path.read_text())["summary"]["total"] == 0
+
+    def test_osv_scanner_json_runs_through_auto_detection_and_analysis(self, sample_repo):
+        report_path = Path(__file__).parent / "fixtures" / "osv_scanner_sample.json"
+        result = CliRunner().invoke(
+            main,
+            [
+                str(report_path),
+                "--repo",
+                str(sample_repo),
+                "-f",
+                "json",
+                "--no-auto-coverage",
+            ],
+        )
+
+        assert result.exit_code in (0, 1, 2)
+        data = json.loads(result.output)
+        assert data["summary"]["total"] == 2
+        left_pad = next(item for item in data["results"] if item["package"] == "left-pad")
+        assert left_pad["verdict"] == "inconclusive"
+        assert "npm package reachability was not evaluated" in left_pad["reason"]
+
     def test_with_coverage(self, snyk_path, sample_repo, coverage_path):
         runner = CliRunner()
         result = runner.invoke(
@@ -58,7 +154,7 @@ class TestCLI:
         assert verdicts["some-unused-package"] == "unreachable_static"
         assert result.exit_code == 1
 
-    def test_strict_default_downgrades_weak_dynamic_suppression(
+    def test_strict_default_keeps_incomplete_measurement_inconclusive(
         self, snyk_path, sample_repo, coverage_path
     ):
         runner = CliRunner()
@@ -77,9 +173,10 @@ class TestCLI:
         data = json.loads(result.output)
         verdicts = {r["package"]: r for r in data["results"]}
         assert verdicts["PyYAML"]["verdict"] == "inconclusive"
-        assert verdicts["PyYAML"]["original_verdict"] == "unreachable_dynamic"
+        assert verdicts["PyYAML"]["original_verdict"] is None
+        assert verdicts["PyYAML"]["evidence"]["coverage_scope"] == "no_statements"
 
-    def test_balanced_mode_keeps_dynamic_suppression(self, snyk_path, sample_repo, coverage_path):
+    def test_balanced_mode_requires_statement_evidence(self, snyk_path, sample_repo, coverage_path):
         runner = CliRunner()
         result = runner.invoke(
             main,
@@ -97,7 +194,48 @@ class TestCLI:
         )
         data = json.loads(result.output)
         verdicts = {r["package"]: r["verdict"] for r in data["results"]}
-        assert verdicts["PyYAML"] == "unreachable_dynamic"
+        assert verdicts["PyYAML"] == "inconclusive"
+
+    def test_unmeasured_dependency_exits_inconclusive_and_exports_under_investigation(
+        self, tmp_path
+    ):
+        repo = tmp_path / "repo"
+        repo.mkdir()
+        (repo / "app.py").write_text("import samplelib\n")
+        report_path = tmp_path / "audit.json"
+        report_path.write_text(
+            json.dumps(
+                {
+                    "dependencies": [
+                        {
+                            "name": "samplelib",
+                            "version": "1.0.0",
+                            "vulns": [{"id": "TEST-COVERAGE", "description": "Test finding"}],
+                        }
+                    ]
+                }
+            )
+        )
+        coverage_path = tmp_path / "coverage.json"
+        coverage_path.write_text(
+            json.dumps(
+                {
+                    "files": {str(repo / "app.py"): {"executed_lines": [1]}},
+                    "totals": {"percent_covered": 100.0},
+                }
+            )
+        )
+
+        result = CliRunner().invoke(
+            main,
+            [str(report_path), "--repo", str(repo), "--coverage", str(coverage_path), "-f", "vex"],
+        )
+
+        assert result.exit_code == 2, result.output
+        statement = json.loads(result.output)["statements"][0]
+        assert statement["status"] == "under_investigation"
+        assert "justification" not in statement
+        assert statement["ca9"]["evidence_summary"]["coverage_scope"] == "not_reported"
 
     def test_output_to_file(self, snyk_path, sample_repo, tmp_path):
         output_file = tmp_path / "report.json"

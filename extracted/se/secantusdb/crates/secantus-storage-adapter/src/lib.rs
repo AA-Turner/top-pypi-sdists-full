@@ -136,11 +136,14 @@ impl CmdStorage for StorageAdapter {
             // A fatal projection error (e.g. fullDocument: required with
             // changeStreamPreAndPostImages disabled) ends the stream with an
             // ok: 0 reply rather than tearing down the poll — surface it via the
-            // batch so the producer/getMore can report it (code 280).
+            // batch so the producer/getMore can report it. mongod 6.0.16 answers
+            // a missing required pre-/post-image with 47 `NoMatchingDocument`
+            // (measured 2026-08-29), NOT the 280 it uses when a pipeline strips
+            // the resume token — every storage-side fatal here is the former.
             let (event, invalidates) = match projected {
                 Ok(v) => v,
                 Err(WtError::ChangeStreamFatal(m)) => {
-                    fatal = Some((280, m));
+                    fatal = Some((47, m));
                     break;
                 }
                 Err(e) => return Err(map_err(e)),
@@ -499,8 +502,10 @@ impl CmdStorage for StorageAdapter {
                 index_name,
                 key_pattern,
                 direction,
+                sorted_by_index,
             } => {
                 d.insert("kind", "IXSCAN");
+                d.insert("sortedByIndex", sorted_by_index);
                 d.insert(
                     "multikey",
                     self.inner.index_is_multikey(db, coll, &index_name),
@@ -805,7 +810,8 @@ fn to_wt_scope(scope: &ChangeStreamScope) -> WtScope {
 }
 
 /// Convert a raw `hint` value into the storage `Hint`. A string is an index
-/// name (or `"$natural"` / `"_id_"`); a document is a key spec. Anything else
+/// name (or `"_id_"`) -- NOT `"$natural"`, which mongod takes only as
+/// `{$natural: ±1}`; a document is a key spec. Anything else
 /// falls through to an empty name, which `resolve_hint` rejects as `BadHint`
 /// (→ `BadValue` at the command layer), matching mongod.
 fn to_hint(b: RawHint<'_>) -> Hint {
@@ -830,6 +836,7 @@ fn map_err(e: WtError) -> StorageError {
         WtError::DuplicateId => StorageError::WriteError {
             code: 11000,
             errmsg: "E11000 duplicate key error".to_string(),
+            exec: false,
         },
         // A lost WT_ROLLBACK race → mongod's WriteConflict (112). Routed
         // command-level by the write handlers so the txn envelope labels it.
@@ -842,6 +849,7 @@ fn map_err(e: WtError) -> StorageError {
             code: 313,
             errmsg: "Transaction is too large and will not fit in the storage engine cache"
                 .to_string(),
+            exec: false,
         },
         // An over-limit document → mongod's BSONObjectTooLarge (10334).
         WtError::DocumentTooLarge(size) => StorageError::WriteError {
@@ -849,38 +857,66 @@ fn map_err(e: WtError) -> StorageError {
             errmsg: format!(
                 "object to insert too large. size in bytes: {size}, max size: 16777216"
             ),
+            exec: false,
         },
         // Post-apply validator failure → mongod's DocumentValidationFailure (121).
         WtError::DocumentValidationFailure => StorageError::WriteError {
             code: 121,
             errmsg: "Document failed validation".to_string(),
+            exec: false,
         },
         // An update that would change `_id` → mongod's ImmutableField (66).
         WtError::ImmutableField => StorageError::WriteError {
             code: 66,
             errmsg: "Performing an update on the path '_id' would modify the immutable field '_id'"
                 .to_string(),
+            exec: true,
         },
         // Bad hint / unsupported query construct → BadValue (2), the same code
         // the Python server surfaces for these at the command layer.
-        WtError::BadHint(m) => StorageError::WriteError { code: 2, errmsg: m },
+        WtError::BadHint(m) => StorageError::WriteError {
+            code: 2,
+            errmsg: m,
+            exec: false,
+        },
         // A named refusal (non-numeric $inc/$mul) → mongod's TypeMismatch (14),
         // not the generic BadValue the plain defer would produce.
-        WtError::UpdateTypeMismatch(m) => StorageError::WriteError {
+        WtError::UpdateTypeMismatch(m, exec) => StorageError::WriteError {
             code: 14,
             errmsg: m,
+            exec,
+        },
+        // Overlapping operator paths → mongod's ConflictingUpdateOperators (40).
+        WtError::UpdatePathConflict(m) => StorageError::WriteError {
+            code: 40,
+            errmsg: m,
+            exec: false,
+        },
+        // Creating a field under a non-document → mongod's PathNotViable (28).
+        WtError::UpdatePathNotViable(m) => StorageError::WriteError {
+            code: 28,
+            errmsg: m,
+            exec: true,
         },
         WtError::QueryUnsupported => StorageError::WriteError {
             code: 2,
             errmsg: "query uses a construct the Rust server does not support".to_string(),
+            exec: false,
         },
+        // The engine named mongod's error; pass it through rather than
+        // reporting an unsupported construct.
+        WtError::QueryError { code, errmsg, exec } => {
+            StorageError::WriteError { code, errmsg, exec }
+        }
         WtError::UnsupportedId => StorageError::WriteError {
             code: 2,
             errmsg: "_id is of a type the Rust server does not support".to_string(),
+            exec: false,
         },
         WtError::UnsupportedValue => StorageError::WriteError {
             code: 2,
             errmsg: "an indexed value is of a type the Rust server does not support".to_string(),
+            exec: false,
         },
         // Index-create / change-stream faults don't arise on the CRUD path, but
         // map them to a command-level internal error if they ever surface here.
@@ -890,16 +926,28 @@ fn map_err(e: WtError) -> StorageError {
         WtError::IndexOptionsConflict(m) => StorageError::WriteError {
             code: 85,
             errmsg: m,
+            exec: false,
         },
         WtError::IndexKeySpecsConflict(m) => StorageError::WriteError {
             code: 86,
             errmsg: m,
+            exec: false,
         },
         WtError::CreateIndexUnsupported(m) => StorageError::WriteError {
             code: 67,
             errmsg: m,
+            exec: false,
         },
         // Change-stream faults don't arise on the CRUD path; map to internal.
+        // Two-phase commit is a PostgreSQL-server concept; the MongoDB-facing
+        // adapter never prepares a transaction, so these can only arrive as an
+        // internal inconsistency. Carry the message rather than losing it.
+        WtError::PreparedTransactionExists(gid) => StorageError::Internal(format!(
+            "transaction identifier \"{gid}\" is already in use"
+        )),
+        WtError::PreparedTransactionNotFound(gid) => StorageError::Internal(format!(
+            "prepared transaction with identifier \"{gid}\" does not exist"
+        )),
         WtError::ChangeStreamFatal(m) | WtError::Internal(m) => StorageError::Internal(m),
         WtError::Wt(err) => StorageError::Internal(format!("WiredTiger error: {err:?}")),
         WtError::Bson(m) => StorageError::Internal(format!("BSON error: {m}")),

@@ -42,7 +42,8 @@ import requests
 
 from apprise import Apprise, AppriseAttachment, NotifyFormat, NotifyType
 from apprise.common import OverflowMode
-from apprise.plugins.fluxer import NotifyFluxer
+from apprise.exception import AppriseImproperlyConfigured
+from apprise.plugins.fluxer import FluxerMode, NotifyFluxer
 
 logging.disable(logging.CRITICAL)
 
@@ -63,21 +64,21 @@ apprise_url_tests = (
     (
         "fluxer://",
         {
-            "instance": TypeError,
+            "instance": AppriseImproperlyConfigured,
         },
     ),
     # An invalid url
     (
         "fluxer://:@/",
         {
-            "instance": TypeError,
+            "instance": AppriseImproperlyConfigured,
         },
     ),
     # No webhook_token specified
     (
         "fluxer://%s" % ("0" * 10),
         {
-            "instance": TypeError,
+            "instance": AppriseImproperlyConfigured,
         },
     ),
     # Provide both a webhook id and a webhook token
@@ -157,11 +158,28 @@ apprise_url_tests = (
             "requests_response_code": requests.codes.no_content,
         },
     ),
+    # Use /api on a self-hosted instance.
+    (
+        "fluxers://example.ca/api/{}/{}".format(*_tokens()),
+        {
+            "instance": NotifyFluxer,
+            "requests_response_code": requests.codes.no_content,
+            "privacy_url": "fluxers://example.ca/api/0...0/B...B/",
+        },
+    ),
+    # Use a custom path on a self-hosted instance.
+    (
+        "fluxers://example.ca:8443/custom/api/{}/{}".format(*_tokens()),
+        {
+            "instance": NotifyFluxer,
+            "requests_response_code": requests.codes.no_content,
+        },
+    ),
     (
         # Invalid Mode
         "fluxer://jack@{}/{}?mode=invalid".format(*_tokens()),
         {
-            "instance": TypeError,
+            "instance": AppriseImproperlyConfigured,
         },
     ),
     (
@@ -214,14 +232,14 @@ apprise_url_tests = (
         "fluxer://{}/{}?flags=-1".format(*_tokens()),
         {
             # invalid flags specified (variation 1)
-            "instance": TypeError,
+            "instance": AppriseImproperlyConfigured,
         },
     ),
     (
         "fluxer://{}/{}?flags=invalid".format(*_tokens()),
         {
             # invalid flags specified (variation 2)
-            "instance": TypeError,
+            "instance": AppriseImproperlyConfigured,
         },
     ),
     # different format support
@@ -320,6 +338,118 @@ def test_plugin_fluxer_urls() -> None:
 
     # Run our general tests
     AppriseURLTester(tests=apprise_url_tests).run_all()
+
+
+@mock.patch("requests.post")
+def test_plugin_fluxer_self_hosted_path(mock_post: mock.MagicMock) -> None:
+    """Verify a self-hosted base path is honoured end to end."""
+
+    webhook_id, webhook_token = _tokens()
+
+    # Configure a successful response.
+    mock_post.return_value = requests.Request()
+    mock_post.return_value.status_code = requests.codes.ok
+    mock_post.return_value.content = b""
+    mock_post.return_value.headers = {}
+
+    # Map each Apprise URL to its expected request endpoint.
+    tests = (
+        (
+            f"fluxer://{webhook_id}/{webhook_token}",
+            f"https://api.fluxer.app/webhooks/{webhook_id}/{webhook_token}",
+        ),
+        # An omitted path defaults to /api.
+        (
+            f"fluxers://example.ca/{webhook_id}/{webhook_token}",
+            f"https://example.ca/api/webhooks/{webhook_id}/{webhook_token}",
+        ),
+        (
+            f"fluxers://example.ca/api/{webhook_id}/{webhook_token}",
+            f"https://example.ca/api/webhooks/{webhook_id}/{webhook_token}",
+        ),
+        (
+            f"fluxers://example.ca:8443/custom/api"
+            f"/{webhook_id}/{webhook_token}",
+            "https://example.ca:8443/custom/api"
+            f"/webhooks/{webhook_id}/{webhook_token}",
+        ),
+        # path= overrides the path embedded in the URL.
+        (
+            f"fluxers://example.ca/{webhook_id}/{webhook_token}?path=/",
+            f"https://example.ca/webhooks/{webhook_id}/{webhook_token}",
+        ),
+        (
+            f"fluxers://example.ca/api/{webhook_id}/{webhook_token}"
+            "?path=/other",
+            f"https://example.ca/other/webhooks/{webhook_id}/{webhook_token}",
+        ),
+    )
+
+    for url, endpoint in tests:
+        mock_post.reset_mock()
+
+        obj = Apprise.instantiate(url)
+        assert isinstance(obj, NotifyFluxer)
+        assert obj.notify(body="body", title="title") is True
+
+        assert mock_post.call_count == 1
+        assert mock_post.call_args_list[0][0][0] == endpoint
+
+    # Preserve the path through URL serialization and parsing.
+    for url, _endpoint in tests:
+        obj = Apprise.instantiate(url)
+        obj2 = Apprise.instantiate(obj.url())
+        assert isinstance(obj2, NotifyFluxer)
+        assert obj2.fullpath == obj.fullpath
+        assert obj2.url_identifier == obj.url_identifier
+
+    # Treat different paths as different connections.
+    root = Apprise.instantiate(
+        f"fluxers://example.ca/{webhook_id}/{webhook_token}?path=/"
+    )
+    under_api = Apprise.instantiate(
+        f"fluxers://example.ca/api/{webhook_id}/{webhook_token}"
+    )
+    assert root.url_identifier != under_api.url_identifier
+
+    # The implicit and explicit /api paths identify the same connection.
+    assert (
+        Apprise.instantiate(
+            f"fluxers://example.ca/{webhook_id}/{webhook_token}"
+        ).url_identifier
+        == under_api.url_identifier
+    )
+
+    # Normalize leading and trailing slashes.
+    for entry in ("api", "/api", "api/", "/api/"):
+        obj = NotifyFluxer(
+            host="example.ca",
+            mode=FluxerMode.PRIVATE,
+            fullpath=entry,
+            webhook_id=webhook_id,
+            webhook_token=webhook_token,
+        )
+        assert obj.fullpath == "/api/"
+
+    # Cloud mode has no configurable path.
+    obj = Apprise.instantiate(f"fluxer://{webhook_id}/{webhook_token}")
+    assert obj.fullpath == "/"
+
+    # A fluxer.app host forces cloud mode and discards its supplied path.
+    mock_post.reset_mock()
+    obj = Apprise.instantiate(
+        f"fluxers://api.fluxer.app/anything/{webhook_id}/{webhook_token}"
+        "?mode=private"
+    )
+    assert isinstance(obj, NotifyFluxer)
+    assert obj.mode == FluxerMode.CLOUD
+    assert obj.fullpath == "/"
+    assert obj.notify(body="body", title="title") is True
+    assert mock_post.call_count == 1
+    assert (
+        mock_post.call_args_list[0][0][0]
+        == f"https://api.fluxer.app/webhooks/{webhook_id}/{webhook_token}"
+    )
 
 
 @mock.patch("requests.post")
@@ -456,14 +586,14 @@ def test_plugin_fluxer_429(
     webhook_id, webhook_token = _tokens()
 
     # Basic construction checks (keep these, they match plugin validation)
-    with pytest.raises(TypeError):
+    with pytest.raises(AppriseImproperlyConfigured):
         NotifyFluxer(webhook_id=None, webhook_token=webhook_token)
-    with pytest.raises(TypeError):
+    with pytest.raises(AppriseImproperlyConfigured):
         NotifyFluxer(webhook_id="  ", webhook_token=webhook_token)
 
-    with pytest.raises(TypeError):
+    with pytest.raises(AppriseImproperlyConfigured):
         NotifyFluxer(webhook_id=webhook_id, webhook_token=None)
-    with pytest.raises(TypeError):
+    with pytest.raises(AppriseImproperlyConfigured):
         NotifyFluxer(webhook_id=webhook_id, webhook_token="   ")
 
     obj = NotifyFluxer(
@@ -638,18 +768,18 @@ def test_plugin_fluxer_general(
     mock_post.return_value.content = ""
 
     # Invalid webhook id
-    with pytest.raises(TypeError):
+    with pytest.raises(AppriseImproperlyConfigured):
         NotifyFluxer(webhook_id=None, webhook_token=webhook_token)
     # Invalid webhook id (whitespace)
-    with pytest.raises(TypeError):
+    with pytest.raises(AppriseImproperlyConfigured):
         NotifyFluxer(webhook_id="  ", webhook_token=webhook_token)
 
     # Invalid webhook token
-    with pytest.raises(TypeError):
+    with pytest.raises(AppriseImproperlyConfigured):
         NotifyFluxer(webhook_id=webhook_id, webhook_token=None)
 
     # Private mode but no hostname provided
-    with pytest.raises(TypeError):
+    with pytest.raises(AppriseImproperlyConfigured):
         NotifyFluxer(
             webhook_id=webhook_id,
             webhook_token=webhook_token,
@@ -752,11 +882,13 @@ def test_plugin_fluxer_general(
     try:
         NotifyFluxer.fluxer_max_fields = 1
         assert (
-            a.notify(
-                body=test_markdown,
-                title="title",
-                notify_type=NotifyType.INFO,
-                body_format=NotifyFormat.TEXT,
+            bool(
+                a.notify(
+                    body=test_markdown,
+                    title="title",
+                    notify_type=NotifyType.INFO,
+                    body_format=NotifyFormat.TEXT,
+                )
             )
             is True
         )
@@ -790,8 +922,12 @@ def test_plugin_fluxer_general(
         NotifyFluxer.fluxer_max_fields = 1
 
         assert (
-            obj.notify(
-                body=test_markdown, title="title", notify_type=NotifyType.INFO
+            bool(
+                obj.notify(
+                    body=test_markdown,
+                    title="title",
+                    notify_type=NotifyType.INFO,
+                )
             )
             is False
         )
@@ -824,8 +960,10 @@ def test_plugin_fluxer_general(
 
     # Use our test markdown string during a notification
     assert (
-        obj.notify(
-            body=test_markdown, title="title", notify_type=NotifyType.INFO
+        bool(
+            obj.notify(
+                body=test_markdown, title="title", notify_type=NotifyType.INFO
+            )
         )
         is True
     )
@@ -845,21 +983,25 @@ def test_plugin_fluxer_general(
 
     # This call includes an image with it's payload:
     assert (
-        a.notify(
-            body=test_markdown,
-            title="title",
-            notify_type=NotifyType.INFO,
-            body_format=NotifyFormat.TEXT,
+        bool(
+            a.notify(
+                body=test_markdown,
+                title="title",
+                notify_type=NotifyType.INFO,
+                body_format=NotifyFormat.TEXT,
+            )
         )
         is True
     )
 
     assert (
-        a.notify(
-            body=test_markdown,
-            title="title",
-            notify_type=NotifyType.INFO,
-            body_format=NotifyFormat.MARKDOWN,
+        bool(
+            a.notify(
+                body=test_markdown,
+                title="title",
+                notify_type=NotifyType.INFO,
+                body_format=NotifyFormat.MARKDOWN,
+            )
         )
         is True
     )
@@ -867,7 +1009,7 @@ def test_plugin_fluxer_general(
     # Toggle our logo availability
     a.asset.image_url_logo = None
     assert (
-        a.notify(body="body", title="title", notify_type=NotifyType.INFO)
+        bool(a.notify(body="body", title="title", notify_type=NotifyType.INFO))
         is True
     )
 
@@ -883,7 +1025,7 @@ def test_plugin_fluxer_general(
     )
 
     # This call includes an image with it's payload:
-    assert a.notify(body="test", title="title") is True
+    assert bool(a.notify(body="test", title="title")) is True
 
     assert mock_post.call_count == 1
     response = mock_post.call_args_list[0][1]
@@ -959,17 +1101,19 @@ def test_plugin_fluxer_markdown_extra(mock_post):
 
     # This call includes an image with it's payload:
     assert (
-        a.notify(
-            body=test_markdown,
-            title="title",
-            notify_type=NotifyType.INFO,
-            body_format=NotifyFormat.TEXT,
+        bool(
+            a.notify(
+                body=test_markdown,
+                title="title",
+                notify_type=NotifyType.INFO,
+                body_format=NotifyFormat.TEXT,
+            )
         )
         is True
     )
 
     assert (
-        a.notify(body="body", title="title", notify_type=NotifyType.INFO)
+        bool(a.notify(body="body", title="title", notify_type=NotifyType.INFO))
         is True
     )
 
@@ -978,6 +1122,7 @@ def test_plugin_fluxer_markdown_extra(mock_post):
 def test_plugin_fluxer_markdown_attachments(
     mock_post: mock.MagicMock,
 ) -> None:
+    """Verify Markdown delivery with attachments in webhook mode."""
     # Prepare our tokens
     webhook_id, webhook_token = _tokens()
 
@@ -1003,11 +1148,13 @@ def test_plugin_fluxer_markdown_attachments(
     attach = AppriseAttachment(os.path.join(TEST_VAR_DIR, "apprise-test.gif"))
 
     assert (
-        obj.notify(
-            body="body",
-            title="title",
-            notify_type=NotifyType.INFO,
-            attach=attach,
+        bool(
+            obj.notify(
+                body="body",
+                title="title",
+                notify_type=NotifyType.INFO,
+                attach=attach,
+            )
         )
         is True
     )
@@ -1028,10 +1175,12 @@ def test_plugin_fluxer_markdown_attachments(
 
     # Test notifications with mentions and attachments in it
     assert (
-        obj.notify(
-            body="Say hello to <@1234>!",
-            notify_type=NotifyType.INFO,
-            attach=attach,
+        bool(
+            obj.notify(
+                body="Say hello to <@1234>!",
+                notify_type=NotifyType.INFO,
+                attach=attach,
+            )
         )
         is True
     )
@@ -1054,11 +1203,13 @@ def test_plugin_fluxer_markdown_attachments(
     path = os.path.join(TEST_VAR_DIR, "/invalid/path/to/an/invalid/file.jpg")
     attach = AppriseAttachment(path)
     assert (
-        obj.notify(
-            body="body",
-            title="title",
-            notify_type=NotifyType.INFO,
-            attach=path,
+        bool(
+            obj.notify(
+                body="body",
+                title="title",
+                notify_type=NotifyType.INFO,
+                attach=path,
+            )
         )
         is False
     )
@@ -1243,7 +1394,7 @@ def test_plugin_fluxer_threading(mock_post: mock.MagicMock) -> None:
         is True
     )
 
-    assert a.notify(body="test", title="title") is True
+    assert bool(a.notify(body="test", title="title")) is True
 
     kwargs = mock_post.call_args_list[0][1]
     assert "params" in kwargs
@@ -1367,7 +1518,7 @@ def test_plugin_fluxer_attach_memory(mock_post: mock.MagicMock) -> None:
         mimetype="text/html",
     )
 
-    assert obj.notify(body="Test", attach=mem) is True
+    assert bool(obj.notify(body="Test", attach=mem)) is True
     assert mock_post.call_count >= 1
 
 
@@ -1394,9 +1545,11 @@ def test_plugin_fluxer_html_to_markdown_format(mock_post):
     # Notify with an HTML body; the framework should convert it
     # to Markdown before dispatching to Fluxer
     assert (
-        aobj.notify(
-            body="<b>hello</b> <i>world</i>",
-            body_format=NotifyFormat.HTML,
+        bool(
+            aobj.notify(
+                body="<b>hello</b> <i>world</i>",
+                body_format=NotifyFormat.HTML,
+            )
         )
         is True
     )
@@ -1406,3 +1559,35 @@ def test_plugin_fluxer_html_to_markdown_format(mock_post):
     # not as stripped plain text
     payload = loads(mock_post.call_args_list[0][1]["data"])
     assert payload["embeds"][0]["description"] == "**hello** *world*"
+
+
+def test_plugin_fluxer_botname_round_trip() -> None:
+    """NotifyFluxer() bot names survive a URL round trip."""
+
+    webhook_id, webhook_token = _tokens()
+
+    for botname in ("App 1", "a/b:c", "you&me"):
+        obj = Apprise.instantiate(
+            f"fluxer://{NotifyFluxer.quote(botname, safe='')}"
+            f"@{webhook_id}/{webhook_token}/"
+        )
+        assert isinstance(obj, NotifyFluxer)
+        assert obj.user == botname
+
+        # Our generated URL can be loaded back with the bot name intact
+        obj2 = Apprise.instantiate(obj.url())
+        assert isinstance(obj2, NotifyFluxer)
+        assert obj2.user == botname
+        assert obj.url_identifier == obj2.url_identifier
+
+    # The same holds true in self-hosted (private) mode
+    obj = Apprise.instantiate(
+        f"fluxers://a%2Fb@example.ca/{webhook_id}/{webhook_token}/"
+    )
+    assert isinstance(obj, NotifyFluxer)
+    assert obj.mode == FluxerMode.PRIVATE
+    assert obj.user == "a/b"
+
+    obj2 = Apprise.instantiate(obj.url())
+    assert isinstance(obj2, NotifyFluxer)
+    assert obj2.user == "a/b"

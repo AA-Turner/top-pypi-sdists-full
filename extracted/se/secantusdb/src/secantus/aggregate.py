@@ -3,6 +3,7 @@ from __future__ import annotations
 import copy
 import datetime as _dt
 import decimal as _decimal
+import functools
 import math
 import os
 from collections.abc import Callable, Mapping
@@ -10,23 +11,46 @@ from dataclasses import dataclass
 from dataclasses import field as _dc_field
 from typing import TYPE_CHECKING, Any
 
-from bson import Decimal128
+from bson import Binary, Code, Decimal128
 
+from secantus import deadline as _deadline
+from secantus.bsontypes import (
+    bson_value_repr,
+    bson_value_repr_stage,
+    is_bson_string,
+)
 from secantus.expressions import (
     MISSING,
     ExpressionError,
     UnknownExpressionOperatorError,
+    _arity_problem,
+    _bool,
     _bson_type_name,
     _fmt_double,
+    _object_arg_problem,
+    _object_keys_problem,
+    _ranged_arity_problem,
+    _set_eq,
+    check_required_fields,
     evaluate,
     evaluate_or_missing,
+    is_constant_expression,
+    is_known_expression_operator,
 )
 from secantus.numerics import bson_sum
-from secantus.paths import get_path, set_path, unset_path
+from secantus.paths import get_path, has_path, set_path, unset_path
 from secantus.query import QueryError, matches
 
 if TYPE_CHECKING:
     from secantus.storage import Storage
+
+
+# mongod's exact arity error for a stage document that isn't a single
+# ``{operator: spec}`` pair -- both an empty ``{}`` and a multi-key stage.
+# Probed identical on mongod 6.0.16 and 8.3.4. Note the trailing period and
+# the dedicated code: it is Location40323, NOT the generic 14 TypeMismatch
+# that a wrong *element type* gets.
+STAGE_ARITY_MSG = "A pipeline stage specification object must contain exactly one field."
 
 
 class AggregateError(Exception):
@@ -35,19 +59,60 @@ class AggregateError(Exception):
     pin mongod's specific code (e.g. 40324 for unrecognized stages)."""
 
     def __init__(
-        self, message: str, *, code: int | None = None, code_name: str | None = None
+        self,
+        message: str,
+        *,
+        code: int | None = None,
+        code_name: str | None = None,
+        exec_error: bool = False,
     ) -> None:
         super().__init__(message)
         self.code = code
         self.code_name = code_name
+        # EXECUTION-time (per-document) failure rather than a pipeline-parse
+        # one. mongod wraps only these in "Executor error during aggregate
+        # command on namespace: <ns> :: caused by :: " -- probed 8.2.1, where
+        # $densify's field-type check and $divide-by-zero are wrapped but an
+        # unrecognized stage, a bad $sort spec and an unknown group operator
+        # are not. The command layer applies the prefix; it owns the namespace.
+        self.exec_error = exec_error
 
 
-# Atlas Search is an Atlas-only feature. A real non-Atlas mongod rejects the
-# ``$listSearchIndexes`` aggregation stage (and the createSearchIndexes /
-# updateSearchIndex / dropSearchIndex commands, see ``commands.py``) with a
-# message naming Atlas; the driver index-management spec tests assert only that
-# the error mentions "Atlas". Shared with ``commands.py`` so the stage and the
-# commands stay in lockstep.
+#: ``$redact``'s three decision variables, bound ONLY while its expression is
+#: being evaluated -- which is what mongod does. Outside ``$redact`` they are
+#: undefined variables (17276), so they cannot leak into user output, and
+#: because the stage dispatches on the bound marker rather than on the string
+#: ``"$$KEEP"``, a stored string can no longer impersonate a decision.
+#:
+#: The Python stage compares by IDENTITY (``is``), which nothing in a document
+#: can forge. The Rust port compares by value, since its vars live in a BSON
+#: document; the payload is deliberately distinctive so a stored Binary is the
+#: only collision, the same assumption mongod makes about its internal
+#: constants. Keep the two payloads identical.
+_KEEP = Binary(b"$redact.KEEP", 0x80)
+_PRUNE = Binary(b"$redact.PRUNE", 0x80)
+_DESCEND = Binary(b"$redact.DESCEND", 0x80)
+REDACT_SENTINELS: dict[str, Any] = {"KEEP": _KEEP, "PRUNE": _PRUNE, "DESCEND": _DESCEND}
+
+
+def format_value_compact(value: Any) -> str:
+    """mongod's ``Value::toString`` -- the rendering the aggregation STAGE errors
+    use (``$redact``'s 17053, ``$replaceRoot``'s 40228).
+
+    NOT the shell form the query and update parse errors use: no inner spaces in
+    containers (``{k: 1}``, not ``{ k: 1 }``), an ObjectId bare rather than
+    ``ObjectId('...')``, a date as ISO-8601 rather than ``new Date(<ms>)``, a
+    Binary with its hex QUOTED, and a Code as ``Code("x=1")``. Six differences
+    in all, probed side by side on 8.2.11 -- see
+    :func:`~secantus.bsontypes.bson_value_repr_stage`, which this now is.
+
+    It used to be a partial copy that named the types its author had probed and
+    fell through for the rest, so a Regex, a Binary and a MinKey came out in
+    Python's ``repr``.
+    """
+    return bson_value_repr_stage(value)
+
+
 #: Hard ceiling on documents materialized by a single pipeline stage. A join
 #: whose predicates can't be pushed into the ``$lookup`` degenerates into a
 #: cartesian product (an unkeyed comma-join over system catalogs — pgjdbc's
@@ -140,7 +205,16 @@ def apply_pipeline(
     docs: list[dict[str, Any]],
     pipeline: list[dict[str, Any]],
     ctx: PipelineContext | None = None,
+    *,
+    fold_candidates: list[list[Any]] | None = None,
 ) -> list[dict[str, Any]]:
+    """Run ``pipeline`` over ``docs``.
+
+    ``fold_candidates`` is the result of ``_switch_fold_candidates(pipeline)``,
+    for a caller that runs the same pipeline repeatedly and has hoisted that
+    structural scan out of its loop (``$lookup``'s pipeline form). Omit it and
+    the scan runs here.
+    """
     ctx = ctx or _NULL_CTX
     # ``$$NOW``: a Date constant for the whole pipeline execution
     # (mongod semantics). Seeded into vars so it resolves through the
@@ -152,6 +226,11 @@ def apply_pipeline(
             ctx = PipelineContext(vars={"NOW": now})
         else:
             ctx.vars["NOW"] = now
+    # Optimization-time rejections, before any document is touched -- mongod
+    # answers these over an empty collection too.
+    if fold_candidates is None:
+        fold_candidates = _switch_fold_candidates(pipeline, [])
+    _apply_switch_folds(fold_candidates, ctx.vars)
     # ``$out`` / ``$merge`` may only appear as the final stage. mongod
     # rejects a non-terminal write stage with Location40601 before
     # executing anything (mongo-cxx-driver's "out fails when not last").
@@ -167,6 +246,12 @@ def apply_pipeline(
     if ctx.shared_unwind_ok and _pipeline_mutates_in_place(pipeline):
         ctx.shared_unwind_ok = False
     for stage in pipeline:
+        # ``maxTimeMS``: between stages rather than inside them. A pipeline's
+        # cost is dominated by stage count times document count, and the
+        # per-document half is already polled by the storage scan that fed it;
+        # this catches a long pipeline over an already-materialised set without
+        # putting a clock read inside every stage's inner loop.
+        _deadline.check_now()
         docs = _apply_stage(stage, docs, ctx)
         if len(docs) > MAX_PIPELINE_DOCS:
             name = next(iter(stage)) if isinstance(stage, Mapping) and stage else "stage"
@@ -197,13 +282,1020 @@ def _pipeline_mutates_in_place(pipeline: Any) -> bool:
     return False
 
 
+#: Variables mongod defines for every pipeline. Listed rather than inferred so
+#: an unknown name is reported instead of silently accepted. `CLUSTER_TIME`,
+#: `SEARCH_META` and `JS_SCOPE` are DEFINED but answer their own errors
+#: (10071200 / 6347902 / 51144) -- they belong here so the undefined-variable
+#: check leaves them for those paths.
+_SYSTEM_VARS = frozenset(
+    {"ROOT", "CURRENT", "NOW", "REMOVE", "USER_ROLES", "CLUSTER_TIME", "SEARCH_META", "JS_SCOPE"}
+)
+
+#: Stages whose spec is, as a whole, an expression evaluated per document.
+_EXPR_SPEC_STAGES = frozenset({"$redact", "$replaceWith", "$sortByCount"})
+
+#: Stages whose spec is a document of `field: <expression>` pairs. The KEYS are
+#: field names, never expressions.
+_EXPR_MAP_STAGES = frozenset({"$project", "$addFields", "$set", "$group"})
+
+
+def _missing_required_field_problem(op: str, arg: Any) -> tuple[int, str] | None:
+    """A required argument the operator's document form omits.
+
+    mongod checks this at PARSE time like the arity and shape rules above, so it
+    carries the STAGE wrapper (`Invalid $addFields :: caused by ::`) rather than
+    the optimizer's. Reported here so both live in one traversal; the evaluator
+    keeps its own copy of the check for the paths that reach it directly
+    (`$group`, a bare `evaluate()` call), where mongod sends the message bare.
+    """
+    try:
+        check_required_fields(op, arg)
+    except ExpressionError as exc:
+        return (exc.code, str(exc))
+    return None
+
+
+def _expression_problem(expr: Any, bound: frozenset[str]) -> tuple[int, str] | None:
+    """The first problem in ``expr`` that mongod reports at PARSE time.
+
+    Returns ``(code, message)`` -- an undefined `$$variable` (17276) or a
+    fixed-arity operator given the wrong argument count (16020). One traversal
+    reports both: a second walker over the same expression positions is exactly
+    the duplication that let the field-value rule drift.
+
+    Deliberately CONSERVATIVE: it reports only from positions known to be
+    expressions and returns ``None`` for anything it does not recognise. A false
+    negative leaves the old behaviour; a false positive would reject a VALID
+    pipeline, far worse than the wrong error being fixed. Every rule was probed
+    against mongod 8.2.11.
+    """
+    if isinstance(expr, str):
+        if expr.startswith("$$"):
+            base = expr[2:].split(".", 1)[0]
+            if base and base not in bound and base not in _SYSTEM_VARS:
+                return (17276, f"Use of undefined variable: {base}")
+        return None
+    if isinstance(expr, list):
+        for item in expr:
+            found = _expression_problem(item, bound)
+            if found:
+                return found
+        return None
+    if not isinstance(expr, Mapping):
+        return None
+    # An unknown operator, reported at PARSE time. It is otherwise found by the
+    # constant FOLDER, which stamps `Failed to optimize pipeline :: caused by ::`
+    # on it -- where mongod names the stage (`Invalid $addFields :: caused by ::`)
+    # or uses no wrapper at all in `$group` / `$replaceWith` / `$expr`. Same code
+    # and message either way; only the envelope was wrong (probed 8.2.11).
+    #
+    # Single-key only, like `_project_unknown_expression`: a document mixing an
+    # unknown `$key` with others gets a different mongod error that nobody has
+    # measured, and a false positive here would reject a VALID pipeline.
+    #
+    # ACCUMULATORS are excluded, and that exclusion is not cosmetic: whether
+    # `$push` is legal depends on POSITION, not on the name. It is valid in a
+    # `$group` output field and unknown in a `$project`, and the position-aware
+    # gates already decide that. Without this clause `_expression_problem` sees
+    # `{$group: {_id: "$g", p: {$push: "$s"}}}` -- the plainest valid pipeline
+    # there is -- and rejects it; the full suite caught exactly that in four
+    # tests, which is why this walker's docstring calls a false positive far
+    # worse than a wrong error message.
+    if len(expr) == 1:
+        (only,) = expr
+        if (
+            isinstance(only, str)
+            and only.startswith("$")
+            and not is_known_expression_operator(only)
+            and only not in _ACC_DISPATCH
+        ):
+            return (168, f"Unrecognized expression '{only}'")
+    for op, arg in expr.items():
+        # `$literal`'s argument is data, not an expression: `{$literal: "$$x"}`
+        # is the STRING, and mongod does not resolve it. Its ARITY is still
+        # checked, since that is structural.
+        found = (
+            _arity_problem(op, arg)
+            or _ranged_arity_problem(op, arg)
+            or _object_arg_problem(op, arg)
+            or _object_keys_problem(op, arg)
+            or _missing_required_field_problem(op, arg)
+        )
+        if found:
+            return found
+        if op == "$literal":
+            continue
+        if op == "$let":
+            found = _problem_in_let(arg, bound)
+        elif op in ("$map", "$filter"):
+            found = _problem_in_binding(arg, bound, op)
+        elif op == "$reduce":
+            found = _problem_in_reduce(arg, bound)
+        else:
+            found = _expression_problem(arg, bound)
+        if found:
+            return found
+    return None
+
+
+def _problem_in_let(arg: Any, bound: frozenset[str]) -> tuple[int, str] | None:
+    """`$let`: the bindings are evaluated in the OUTER scope (they cannot see
+    each other -- probed), and only ``in`` sees the new names."""
+    if not isinstance(arg, Mapping):
+        return None
+    names = arg.get("vars")
+    if isinstance(names, Mapping):
+        for value in names.values():
+            found = _expression_problem(value, bound)
+            if found:
+                return found
+        bound = bound | set(names)
+    return _expression_problem(arg.get("in"), bound)
+
+
+def _problem_in_binding(arg: Any, bound: frozenset[str], op: str) -> tuple[int, str] | None:
+    """`$map` / `$filter`: ``input`` is outer-scope; the body sees ``as``
+    (default ``this``)."""
+    if not isinstance(arg, Mapping):
+        return None
+    found = _expression_problem(arg.get("input"), bound)
+    if found:
+        return found
+    as_name = arg.get("as")
+    inner = bound | {as_name if isinstance(as_name, str) and as_name else "this"}
+    return _expression_problem(arg.get("cond" if op == "$filter" else "in"), inner)
+
+
+def _problem_in_reduce(arg: Any, bound: frozenset[str]) -> tuple[int, str] | None:
+    """`$reduce` binds ``this`` and ``value`` for its ``in``."""
+    if not isinstance(arg, Mapping):
+        return None
+    for key in ("input", "initialValue"):
+        found = _expression_problem(arg.get(key), bound)
+        if found:
+            return found
+    return _expression_problem(arg.get("in"), bound | {"this", "value"})
+
+
+def expression_problem_in_filter(filter_doc: Any, bound: frozenset[str]) -> tuple[int, str] | None:
+    """The first parse-time expression problem in a QUERY FILTER.
+
+    A filter is query language, not an expression: ``{s: "$$NOPE"}`` matches the
+    literal string. Only ``$expr`` holds an expression, and only ``$and`` /
+    ``$or`` / ``$nor`` nest further filters.
+    """
+    if not isinstance(filter_doc, Mapping):
+        return None
+    for key, value in filter_doc.items():
+        if key == "$expr":
+            found = _expression_problem(value, bound)
+            if found:
+                return found
+        elif key in ("$and", "$or", "$nor") and isinstance(value, list):
+            for sub in value:
+                found = expression_problem_in_filter(sub, bound)
+                if found:
+                    return found
+    return None
+
+
+#: Returned as the wrapper when the failing expression was CONSTANT: mongod
+#: folded it at optimization time and says so instead of naming the stage.
+FOLD_WRAPPER = "\0fold"
+
+
+def wrap_expression_problem(message: str, stage: str, *, in_update: str = "") -> str:
+    """mongod's wrapper: `Invalid $<stage> :: caused by ::` inside `$project` /
+    `$addFields` / `$set`, and nothing anywhere else.
+
+    A CONSTANT-FOLD failure takes `Failed to optimize pipeline :: caused by ::`
+    in an `aggregate`, and the EXECUTOR prefix inside a pipeline update --
+    naming the command, so `update` and `findAndModify` differ from each other
+    (probed 8.2.11, 2026-09-01: `{$abs: "$$cv"}` with `cv: "x"`). Pass the
+    command name as ``in_update`` from those two paths.
+    """
+    if stage == FOLD_WRAPPER:
+        if in_update:
+            return f"Plan executor error during {in_update} :: caused by :: {message}"
+        return f"Failed to optimize pipeline :: caused by :: {message}"
+    return f"Invalid {stage} :: caused by :: {message}" if stage else message
+
+
+def _contains_accumulator_only(expr: Any) -> bool:
+    """Does `expr` mention an accumulator-only operator anywhere?
+
+    Those names (`$count`, `$topN`, `$bottomN`) are legal only in an
+    accumulator POSITION and are not expressions, so the constant folder must
+    leave them alone -- see `_ACCUMULATOR_ONLY`.
+    """
+    if isinstance(expr, Mapping):
+        return any(k in _ACCUMULATOR_ONLY or _contains_accumulator_only(v) for k, v in expr.items())
+    if isinstance(expr, list):
+        return any(_contains_accumulator_only(e) for e in expr)
+    return False
+
+
+def _contains_switch(expr: Any) -> bool:
+    if isinstance(expr, Mapping):
+        return "$switch" in expr or any(_contains_switch(v) for v in expr.values())
+    if isinstance(expr, list):
+        return any(_contains_switch(v) for v in expr)
+    return False
+
+
+_UNDEFINED_VAR_PREFIX = "Use of undefined variable: "
+
+
+def _undefined_but_bound(message: str, bound: frozenset[str]) -> bool:
+    """Is this fold failure just a bound variable with no value supplied?"""
+    if not message.startswith(_UNDEFINED_VAR_PREFIX):
+        return False
+    return message[len(_UNDEFINED_VAR_PREFIX) :].strip() in bound
+
+
+def _fold_problem(
+    expr: Any, bound: frozenset[str], fold_vars: Mapping[str, Any] | None = None
+) -> tuple[int, str] | None:
+    """Evaluate a CONSTANT expression the way mongod's optimizer does.
+
+    mongod folds an expression that does not read the document, so an error in
+    one is reported at optimization time -- `Failed to optimize pipeline ::
+    caused by ::` -- rather than per document. Both servers always used the
+    executor prefix, which was 618 of the Python server's message-only
+    differences and 148 of the Rust server's.
+
+    Only the ERROR is taken from this; a constant that evaluates cleanly is
+    discarded, since the engine will compute it again. Anything unexpected is
+    swallowed: a false "not constant" merely keeps the previous wrapper.
+    """
+    if not is_constant_expression(expr, bound):
+        return None
+    # `$switch` folds to a DIFFERENT error than it raises at execution -- 40069
+    # "Cannot execute a switch statement where all the cases evaluate to false
+    # without a default" rather than 40066 -- and `_apply_switch_folds` already
+    # models that. Folding it here would report the execution-time error under
+    # the optimization-time prefix, which is neither answer.
+    if _contains_switch(expr):
+        return None
+    # An ACCUMULATOR is not an expression, so mongod never folds one. `{$count:
+    # {}}` reads no field and therefore looked constant, so it was handed to
+    # `evaluate`, which does not know `$count` as an expression and answered
+    # `168 Unrecognized expression` -- under the OPTIMIZER's prefix, which is
+    # how this was distinguishable from the parse-time walker's gate. The
+    # accumulator itself existed and evaluated correctly all along; nothing
+    # ever reached it.
+    if _contains_accumulator_only(expr):
+        return None
+    # The REAL `let` values, not placeholders: mongod folds `$$cv` to what the
+    # command bound, so `{$abs: "$$cv"}` with `cv: "x"` fails at optimization
+    # time. `$$NOW` is a pipeline constant and has to be seeded, or folding
+    # reports it as an undefined variable.
+    fold_ctx: dict[str, Any] = dict(fold_vars or {})
+    fold_ctx.setdefault("NOW", _dt.datetime.now(_dt.timezone.utc))
+    try:
+        evaluate(expr, {}, fold_ctx)
+    except ExpressionError as exc:
+        code = getattr(exc, "code", None)
+        if code is None:
+            return None
+        if _undefined_but_bound(str(exc), bound):
+            # The caller told us the name is BOUND but did not give us its
+            # value, so the fold failed for want of a binding rather than
+            # because the query is wrong. Reporting it would answer
+            # `Use of undefined variable: x` for a variable the command
+            # DEFINES -- which is what `update` and `findAndModify` with a
+            # `let` and a pipeline update did, refusing every such write
+            # (found via the pymongo gauge, 2026-09-01). A caller that wants
+            # the fold has to pass `fold_vars`, as `aggregate` does.
+            return None
+        return (code, str(exc))
+    except AggregateError as exc:
+        code = getattr(exc, "code", None)
+        return (code, str(exc)) if code is not None else None
+    except Exception:
+        # Not a mongod-shaped failure: leave it to the engine.
+        return None
+    return None
+
+
+def _project_unknown_expression(value: Any) -> tuple[int, str] | None:
+    """`$project`'s OWN code for an unknown operator at the top of a field.
+
+    mongod does not answer this one way -- the discriminator is POSITION, and
+    the same `$project` gives both codes (probed 8.2.11, 2026-09-17,
+    `tools/probes/unknown_expression_errors.py`):
+
+        {$project: {n: {$nosuch: 1}}}             31325 Unknown expression $nosuch
+        {$project: {n: {$add: [{$nosuch: 1}, 1]}}}  168 Unrecognized expression '$nosuch'
+
+    The top-level value of a `$project` field is parsed by the PROJECTION
+    parser, which has its own code and its own wording -- "Unknown", and the
+    operator UNQUOTED. Anywhere deeper the generic expression parser answers
+    168 with the operator quoted. `$addFields` / `$set` use 168 in both
+    positions, so this is `$project` alone.
+
+    Accumulator-only names land here too: `$count` / `$topN` / `$bottomN` are
+    not expressions at all, so the projection parser does not know them either.
+
+    Conservative like the rest of this walker: a single `$`-key document only.
+    A multi-key one has not been measured, and a false positive would reject a
+    valid pipeline.
+    """
+    if not isinstance(value, Mapping) or len(value) != 1:
+        return None
+    key = next(iter(value))
+    if not isinstance(key, str) or not key.startswith("$"):
+        return None
+    if is_known_expression_operator(key):
+        return None
+    return (31325, f"Unknown expression {key}")
+
+
+def expression_problem_in_pipeline(
+    pipeline: Any, bound: frozenset[str], fold_vars: Mapping[str, Any] | None = None
+) -> tuple[int, str, str] | None:
+    """``(code, message, stage)`` for the first parse-time expression problem.
+
+    mongod reports these BEFORE reading a document -- an empty, or missing,
+    collection still errors -- which is why this runs ahead of the pipeline
+    rather than during it. ``stage`` is the name for the
+    `Invalid $<stage> :: caused by ::` wrapper, or ``""`` where mongod leaves
+    the message bare.
+    """
+    if not isinstance(pipeline, list):
+        return None
+    for stage in pipeline:
+        if not isinstance(stage, Mapping) or len(stage) != 1:
+            continue
+        name, spec = next(iter(stage.items()))
+        wrapper = name if name in _EXPR_WRAPPING_STAGES else ""
+        found: tuple[int, str] | None = None
+        if name in _EXPR_SPEC_STAGES:
+            inner = bound | {"KEEP", "PRUNE", "DESCEND"} if name == "$redact" else bound
+            found = _expression_problem(spec, inner)
+        elif name in _EXPR_MAP_STAGES:
+            if isinstance(spec, Mapping):
+                for field, value in spec.items():
+                    # A `$group` output field is ACCUMULATOR position, which has
+                    # its own spec-shape codes; `_id` is an ordinary expression.
+                    if name == "$group" and field != "_id":
+                        found = _accumulator_shape_problem(value)
+                        if found:
+                            break
+                        # The accumulator NAME is not an expression -- `$topN`
+                        # is unknown as one -- so recurse into its ARGUMENTS
+                        # instead of the operator document itself. Walking the
+                        # whole thing rejected every valid `{$topN: {...}}`.
+                        acc = _accumulator_operand(value)
+                        if acc is not None:
+                            found = next(
+                                (p for p in (_expression_problem(a, bound) for a in acc) if p),
+                                None,
+                            )
+                            if found:
+                                break
+                            continue
+                    if name == "$project":
+                        found = _project_unknown_expression(value)
+                        if found:
+                            break
+                    found = _expression_problem(value, bound)
+                    if found:
+                        break
+        elif name == "$replaceRoot":
+            if isinstance(spec, Mapping):
+                found = _expression_problem(spec.get("newRoot"), bound)
+        elif name == "$match":
+            # The filter is QUERY language; only `$expr` holds an expression.
+            if isinstance(spec, Mapping) and "$expr" in spec:
+                found = _expression_problem(spec["$expr"], bound)
+                if found:
+                    return (found[0], found[1], "")
+        elif name == "$facet":
+            if isinstance(spec, Mapping):
+                for sub in spec.values():
+                    nested = expression_problem_in_pipeline(sub, bound, fold_vars)
+                    if nested:
+                        return nested
+        elif name == "$lookup":
+            # `let` binds only inside this stage's own sub-pipeline -- probed:
+            # referencing it in a LATER stage is undefined.
+            if isinstance(spec, Mapping):
+                let_vars = spec.get("let")
+                inner = bound
+                if isinstance(let_vars, Mapping):
+                    for value in let_vars.values():
+                        found = _expression_problem(value, bound)
+                        if found:
+                            break
+                    inner = bound | set(let_vars)
+                if not found:
+                    nested = expression_problem_in_pipeline(spec.get("pipeline"), inner, fold_vars)
+                    if nested:
+                        return nested
+        # Every other stage is left alone on purpose: see the docstring above.
+        # An expression's ARITY and SPEC SHAPE are parse errors, checked before
+        # anything is folded -- which is why they carry the STAGE wrapper
+        # (`Invalid $addFields :: caused by ::`) and not the optimizer's. We
+        # were folding them first and reporting "Failed to optimize pipeline",
+        # so 279 shapes had both the wrong wrapper and the wrong code.
+        if not found and name != "$facet":
+            # NOT for `$facet`: its values are PIPELINES, already walked as such
+            # by the branch above. Walking them again as EXPRESSIONS treats each
+            # sub-stage document as an operator, so `{$facet: {t: [{$count:
+            # "n"}]}}` -- an ordinary `$count` STAGE -- was rejected as an
+            # accumulator used outside an accumulator position. The name check
+            # is right; running it in a pipeline position was not.
+            found = _expression_shape_problem(spec, name)
+        if found:
+            return (found[0], found[1], wrapper)
+        # No structural problem: mongod would now FOLD the constant
+        # sub-expressions, and an error in one is reported at optimization time
+        # under its own prefix rather than the stage's.
+        # A LITERAL timezone is validated eagerly, before folding. mongod parses
+        # a date operator's `timezone` at optimization time whether or not the
+        # rest of the expression is constant, so `{$hour: {date: "$d",
+        # timezone: "Not/AZone"}}` -- which reads the document and therefore
+        # does not fold -- still reports under the optimizer's prefix. Probed
+        # 8.2.11 (2026-09-01).
+        bad_zone = _literal_timezone_problem(spec)
+        if bad_zone:
+            return (bad_zone[0], bad_zone[1], FOLD_WRAPPER)
+        folded = _fold_in_stage(name, spec, bound, fold_vars)
+        if folded:
+            return (folded[0], folded[1], FOLD_WRAPPER)
+    return None
+
+
+# `(low, high)` argument counts for the expressions mongod range-checks by
+# arity, and the message it uses. A non-array argument counts as ONE.
+_EXPRESSION_ARITY: dict[str, tuple[int, int]] = {
+    "$indexOfArray": (2, 4),
+    "$indexOfBytes": (2, 4),
+    "$indexOfCP": (2, 4),
+    "$range": (2, 3),
+    # `[value]` or `[value, place]`. An empty or 3-element list is 28667 at
+    # PARSE time, which used to reach the evaluator instead: `{$round: [3,1,2]}`
+    # answered 3 (probed 8.2.11, 2026-09-03).
+    "$round": (1, 2),
+    "$slice": (2, 3),
+    "$trunc": (1, 2),
+}
+
+# The date extractors, which accept a bare expression OR a one-element array.
+_DATE_EXTRACTORS = frozenset(
+    {
+        "$dayOfMonth",
+        "$dayOfWeek",
+        "$dayOfYear",
+        "$hour",
+        "$isoDayOfWeek",
+        "$isoWeek",
+        "$isoWeekYear",
+        "$millisecond",
+        "$minute",
+        "$month",
+        "$second",
+        "$week",
+        "$year",
+    }
+)
+
+# Accumulator-style expressions whose spec must be a document, each with its own
+# Location code. Probed 8.2.11 (2026-09-02) -- they do NOT share one.
+#
+# `$sortArray` and `$setField` are deliberately ABSENT: they also take an object
+# spec, but their messages are their own ("requires an object as an argument,
+# found: int" / "only supports an object as its argument") and the existing
+# checks already produce them. Adding them here would have replaced two correct
+# messages with a wrong one.
+_OBJECT_SPEC_EXPRESSIONS: dict[str, int] = {
+    "$firstN": 5787801,
+    "$lastN": 5787801,
+    "$minN": 5787900,
+    "$maxN": 5787900,
+    "$median": 7436201,
+    "$percentile": 7436200,
+    "$topN": 168,
+    "$bottomN": 168,
+}
+
+#: The SAME operators in ACCUMULATOR position -- a `$group` output field -- where
+#: mongod uses DIFFERENT codes. `{$group: {x: {$median: 5}}}` is 7436100 while
+#: `{$addFields: {x: {$median: 5}}}` is 7436201, and `$percentile` runs
+#: 7429703 / 7436200 the same way. Measured across all eight operators in both
+#: positions on 8.2.11 (2026-09-08); the table above had been applied in both,
+#: which was right for four of them and wrong for four.
+_OBJECT_SPEC_ACCUMULATORS: dict[str, int] = {
+    "$firstN": 5787801,
+    "$lastN": 5787801,
+    "$minN": 5787900,
+    "$maxN": 5787900,
+    "$median": 7436100,
+    "$percentile": 7429703,
+    "$topN": 5788001,
+    "$bottomN": 5788001,
+}
+
+#: Accumulator-only operators: in EXPRESSION position mongod does not know them
+#: at all, so the complaint is "Unrecognized expression" rather than anything
+#: about their spec. The other six in the table above ARE expressions.
+_ACCUMULATOR_ONLY = frozenset({"$topN", "$bottomN", "$count"})
+
+#: The stages whose values are ACCUMULATOR positions, where the names in
+#: `_ACCUMULATOR_ONLY` are legal. Everywhere else they are not expressions at
+#: all and mongod does not recognise the name.
+#:
+#: `$setWindowFields` belongs here as much as `$group` does -- measured on
+#: 8.2.11 (2026-09-09), `{$count: {}}` and `$topN` both work in its `output`
+#: and both are refused in `$project` (31325) and `$addFields` (168). The gate
+#: named only `$group`, which is why `$count` in a `$group` was reported as
+#: `168 Unrecognized expression` even though the accumulator exists and the
+#: engine evaluates it correctly: the PARSE-time walker rejected the pipeline
+#: before the engine ever saw it.
+_ACCUMULATOR_STAGES = frozenset({"$group", "$setWindowFields"})
+
+
+def _percentile_field_problem(op: str, spec: Any) -> tuple[int, str] | None:
+    """`$median` / `$percentile` field validation, at PARSE time.
+
+    The codes and wording are identical in both positions -- only the
+    object-SHAPE codes differ -- so one check serves `$group` and `$addFields`
+    alike. It lives here rather than in the evaluator because that is what gets
+    the WRAPPER right: mongod raises these while parsing, so `$addFields` says
+    `Invalid $addFields :: caused by ::` and `$group` says nothing at all, where
+    an evaluator-raised error says "Failed to optimize pipeline" or "Executor
+    error during aggregate". Measured 8.2.11, 2026-09-08.
+
+    Order is the IDL's field declaration order: `input`, then `p`, then
+    `method`.
+    """
+    if not isinstance(spec, Mapping):
+        return None
+
+    def missing(field: str) -> tuple[int, str]:
+        return (40414, f"BSON field '{op}.{field}' is missing but a required field")
+
+    if "input" not in spec:
+        return missing("input")
+    if op == "$percentile":
+        if "p" not in spec:
+            return missing("p")
+        ps = spec["p"]
+        if not isinstance(ps, list) or not ps:
+            return (
+                7750301,
+                "The $percentile 'p' field must be an array of numbers from "
+                f"[0.0, 1.0], but found: {bson_value_repr(ps)}",
+            )
+        for value in ps:
+            numeric = not isinstance(value, bool) and isinstance(value, (int, float))
+            if not numeric or not 0.0 <= value <= 1.0:
+                code = 7750303 if numeric else 7750302
+                return (
+                    code,
+                    "The $percentile 'p' field must be an array of numbers from "
+                    f"[0.0, 1.0], but found: {bson_value_repr(value)}",
+                )
+    if "method" not in spec:
+        return missing("method")
+    if spec["method"] != "approximate":
+        return (2, "Currently only 'approximate' can be used as a percentile 'method'.")
+    return None
+
+
+def _accumulator_operand(value: Any) -> list[Any] | None:
+    """The argument expressions of a `$group` accumulator, or ``None`` when the
+    value is not one of the document-spec accumulators.
+
+    Used so the walker recurses into an accumulator's ARGUMENTS without treating
+    its NAME as an expression: `$topN` and `$bottomN` are accumulator-only, so
+    walking `{$topN: {n: 2, ...}}` as an expression rejected valid pipelines.
+    """
+    if not isinstance(value, Mapping) or len(value) != 1:
+        return None
+    op, spec = next(iter(value.items()))
+    if op not in _OBJECT_SPEC_ACCUMULATORS or not isinstance(spec, Mapping):
+        return None
+    return list(spec.values())
+
+
+def _accumulator_shape_problem(value: Any) -> tuple[int, str] | None:
+    """The spec-shape error for a `$group` output field, in ACCUMULATOR position.
+
+    An ARRAY spec is one message for all eight -- "The <op> accumulator is a
+    unary operator", 40237 -- while every other non-document carries the
+    operator's own code. Measured 8.2.11, 2026-09-08.
+    """
+    if not isinstance(value, Mapping) or len(value) != 1:
+        return None
+    op, spec = next(iter(value.items()))
+    if op not in _OBJECT_SPEC_ACCUMULATORS or isinstance(spec, Mapping):
+        return None
+    if isinstance(spec, list):
+        return (40237, f"The {op} accumulator is a unary operator")
+    return (
+        _OBJECT_SPEC_ACCUMULATORS[op],
+        f"specification must be an object; found {op}: {bson_value_repr(spec)}",
+    )
+
+
+# An unrecognised argument in a date-operator spec, per operator: its known
+# arguments, its Location code, and the tail some of them append naming what
+# they expected. Probed 8.2.11 (2026-09-02) -- the codes are all different, and
+# only `$dateAdd` / `$dateSubtract` / `$dateTrunc` carry the tail.
+_DATE_SPEC_ARGUMENTS: dict[str, tuple[frozenset[str], int, str]] = {
+    "$dateAdd": (
+        frozenset({"startDate", "unit", "amount", "timezone"}),
+        5166401,
+        ". Expected arguments are startDate, unit, amount, and optionally timezone.",
+    ),
+    "$dateSubtract": (
+        frozenset({"startDate", "unit", "amount", "timezone"}),
+        5166401,
+        ". Expected arguments are startDate, unit, amount, and optionally timezone.",
+    ),
+    "$dateDiff": (
+        frozenset({"startDate", "endDate", "unit", "timezone", "startOfWeek"}),
+        5166302,
+        "",
+    ),
+    "$dateFromParts": (
+        frozenset(
+            {
+                "year",
+                "isoWeekYear",
+                "month",
+                "isoWeek",
+                "day",
+                "isoDayOfWeek",
+                "hour",
+                "minute",
+                "second",
+                "millisecond",
+                "timezone",
+            }
+        ),
+        40518,
+        "",
+    ),
+    "$dateToParts": (frozenset({"date", "timezone", "iso8601"}), 40520, ""),
+    "$dateFromString": (
+        frozenset({"dateString", "format", "timezone", "onError", "onNull"}),
+        40541,
+        "",
+    ),
+    "$dateToString": (
+        frozenset({"date", "format", "timezone", "onNull"}),
+        18534,
+        "",
+    ),
+    "$dateTrunc": (
+        frozenset({"date", "unit", "binSize", "timezone", "startOfWeek"}),
+        5439008,
+        ". Expected arguments are date, unit, and optionally, binSize, timezone, startOfWeek",
+    ),
+}
+
+
+#: ``op -> (code, uses_parameter_wording, accepted argument names)``.
+#: See the call site for how this was measured.
+_UNKNOWN_ARGUMENT: dict[str, tuple[int, bool, tuple[str, ...]]] = {
+    "$cond": (17083, True, ("if", "then", "else")),
+    "$filter": (28647, True, ("input", "as", "cond", "limit")),
+    "$let": (16875, True, ("vars", "in")),
+    "$map": (16879, True, ("input", "as", "in")),
+    "$convert": (9, False, ("input", "to", "onError", "onNull", "format", "byteOrder")),
+    "$ltrim": (50694, False, ("input", "chars")),
+    "$rtrim": (50694, False, ("input", "chars")),
+    "$trim": (50694, False, ("input", "chars")),
+    "$reduce": (40076, False, ("input", "initialValue", "in")),
+    "$regexFind": (31024, False, ("input", "regex", "options")),
+    "$regexFindAll": (31024, False, ("input", "regex", "options")),
+    "$regexMatch": (31024, False, ("input", "regex", "options")),
+    "$replaceAll": (51750, False, ("input", "find", "replacement")),
+    "$replaceOne": (51750, False, ("input", "find", "replacement")),
+    "$setField": (4161101, False, ("field", "input", "value")),
+    "$sortArray": (2942501, False, ("input", "sortBy")),
+    "$switch": (40067, False, ("branches", "default")),
+    "$zip": (34464, False, ("inputs", "useLongestLength", "defaults")),
+}
+
+#: The `n`-operator family, which shares one code and one sentence.
+_N_OPERATOR_ARGUMENTS = frozenset({"$firstN", "$lastN", "$minN", "$maxN"})
+
+#: ``$median`` / ``$percentile``, which report the IDL's unknown-field wording.
+_IDL_UNKNOWN_FIELD: dict[str, tuple[str, ...]] = {
+    "$median": ("input", "method"),
+    "$percentile": ("input", "p", "method"),
+}
+
+
+#: Operators whose "not enough arguments" complaint has its OWN code and its own
+#: wording, so they cannot ride `_EXPRESSION_ARITY`'s generic sentence. Both are
+#: PARSE errors on mongod and carry the stage wrapper.
+#:
+#: mongod's two wordings are not consistent with each other and both are
+#: reproduced verbatim: `$ifNull` puts a COMMA before `had:` and `$setEquals`
+#: does not (probed 8.2.11, 2026-09-05). `$setDifference` / `$setIsSubset` are
+#: absent on purpose -- they use the generic "takes exactly 2 arguments" (16020)
+#: and already parse correctly.
+_PARSE_TIME_MIN_ARGS: dict[str, tuple[int, int, str]] = {
+    "$ifNull": (2, 1257300, "$ifNull needs at least two arguments, had: {n}"),
+    "$setEquals": (2, 17045, "$setEquals needs at least two arguments had: {n}"),
+}
+
+#: Operator spec documents with a REQUIRED key. Missing it is a parse error, so
+#: it carries the stage wrapper rather than the optimizer's. Codes measured
+#: individually against 8.2.11 (2026-09-05) -- they share nothing.
+_PARSE_TIME_REQUIRED_KEY: dict[str, tuple[str, int, str]] = {
+    "$convert": ("input", 9, "Missing 'input' parameter to $convert"),
+    "$dateDiff": ("startDate", 5166303, "Missing 'startDate' parameter to $dateDiff"),
+    "$firstN": ("n", 5787906, "Missing value for 'n'"),
+    "$lastN": ("n", 5787906, "Missing value for 'n'"),
+    "$maxN": ("n", 5787906, "Missing value for 'n'"),
+    "$minN": ("n", 5787906, "Missing value for 'n'"),
+}
+
+
+def _expression_shape_problem(spec: Any, stage: str = "") -> tuple[int, str] | None:
+    """The first arity / spec-shape error in `spec`, as mongod parses it.
+
+    These are PARSE errors: mongod raises them while building the expression
+    tree, before it folds anything, so they carry the stage's wrapper. Checked
+    here rather than in the evaluator because the evaluator only runs on values
+    that survived parsing.
+    """
+    if isinstance(spec, Mapping):
+        for key, value in spec.items():
+            # Per-operator minimums, before the generic arity table: these two
+            # carry their own code and wording, and were reaching the EVALUATOR,
+            # which meant the right message under the optimizer's wrapper
+            # instead of the stage's. 76 shapes (probed 8.2.11, 2026-09-05).
+            if (own := _PARSE_TIME_MIN_ARGS.get(key)) is not None:
+                low, code, template = own
+                count = len(value) if isinstance(value, list) else 1
+                if count < low:
+                    return (code, template.format(n=count))
+            if (bounds := _EXPRESSION_ARITY.get(key)) is not None:
+                low, high = bounds
+                count = len(value) if isinstance(value, list) else 1
+                if not low <= count <= high:
+                    return (
+                        28667,
+                        f"Expression {key} takes at least {low} arguments, and at most "
+                        f"{high}, but {count} were passed in.",
+                    )
+            # A document operand is the `{date, timezone}` OPTIONS form -- unless
+            # it is a nested operator expression (`{$year: {$add: [1, 2]}}`),
+            # which is one `$`-key.
+            if (
+                key in _DATE_EXTRACTORS
+                and isinstance(value, Mapping)
+                and not (len(value) == 1 and next(iter(value)).startswith("$"))
+            ):
+                # The unrecognised-key check runs FIRST and reports the first
+                # offender, even when `date` is present and valid; only then
+                # does the missing-`date` check fire. Probed 8.2.11
+                # (2026-09-02) -- both were silently accepted here, so
+                # `{$year: {date: d, k: 1}}` answered the year.
+                for opt in value:
+                    if opt not in ("date", "timezone"):
+                        return (40535, f'unrecognized option to {key}: "{opt}"')
+                if "date" not in value:
+                    # `bson_value_repr`, not the `_stage` form: mongod renders
+                    # the echoed document with INNER SPACES here
+                    # (`{ timezone: "UTC" }`) and WITHOUT them in
+                    # `$replaceRoot`'s "Input document: {n: 1}" -- two message
+                    # families, two renderings, both probed 8.2.11 (2026-09-02).
+                    # An empty document is bare `{}` in both.
+                    rendered = "{}" if not value else bson_value_repr(value)
+                    return (
+                        40539,
+                        f"missing 'date' argument to {key}, provided: {key}: {rendered}",
+                    )
+            # An unrecognised key in an operator's spec document. TWO sentences
+            # and eighteen codes -- they share nothing, not even within a
+            # wording -- so this is a table, probed one operator at a time
+            # against 8.2.11 (2026-09-03) by feeding each candidate key in turn
+            # and keeping the ones it did not reject.
+            if (known := _UNKNOWN_ARGUMENT.get(key)) is not None and isinstance(value, Mapping):
+                code, parameter_form, names = known
+                for opt in value:
+                    if opt not in names:
+                        return (
+                            code,
+                            f"Unrecognized parameter to {key}: {opt}"
+                            if parameter_form
+                            else f"{key} found an unknown argument: {opt}",
+                        )
+            # The `n`-operator family checks the UNKNOWN key before it checks
+            # for a missing `n`, so `{$firstN: {k: 1}}` is "Unknown argument"
+            # rather than "Missing value for 'n'".
+            if key in _N_OPERATOR_ARGUMENTS and isinstance(value, Mapping):
+                for opt in value:
+                    if opt not in ("input", "n"):
+                        return (5787901, f"Unknown argument for 'n' operator: {opt}")
+            # `$median` / `$percentile` report the IDL's own generic complaint.
+            if (names := _IDL_UNKNOWN_FIELD.get(key)) is not None and isinstance(value, Mapping):
+                for opt in value:
+                    if opt not in names:
+                        return (40415, f"BSON field '{key}.{opt}' is an unknown field.")
+                # ... and then its required fields, in declaration order.
+                found = _percentile_field_problem(key, value)
+                if found:
+                    return found
+            # `$getField`'s two OBJECT-form complaints are parse errors: both
+            # fire on an EMPTY collection (probed 8.2.11, 2026-09-02). The bare
+            # form's "must evaluate to type String" is not -- that one runs per
+            # document -- so it stays in the evaluator. A single `$`-key
+            # document is a nested expression, not the options form.
+            if (
+                key == "$getField"
+                and isinstance(value, Mapping)
+                and not (len(value) == 1 and next(iter(value)).startswith("$"))
+            ):
+                for opt in value:
+                    if opt not in ("field", "input"):
+                        return (3041701, f"$getField found an unknown argument: {opt}")
+                if "input" not in value:
+                    return (3041703, "$getField requires 'input' to be specified")
+            if key in _DATE_EXTRACTORS and isinstance(value, list) and len(value) != 1:
+                return (
+                    40536,
+                    f"{key} accepts exactly one argument if given an array, but was "
+                    f"given {len(value)}",
+                )
+            if (known := _DATE_SPEC_ARGUMENTS.get(key)) is not None and isinstance(value, Mapping):
+                fields, code, tail = known
+                for field in value:
+                    if field not in fields:
+                        return (code, f"Unrecognized argument to {key}: {field}{tail}")
+            # `$topN` / `$bottomN` / `$count` are ACCUMULATOR-only: reached as
+            # an expression, mongod does not recognise the name at all and never
+            # looks at the spec. In an ACCUMULATOR POSITION they are valid, and
+            # the stage's own branch has already validated them -- without this
+            # gate every valid `{$group: {x: {$topN: {...}}}}` was rejected.
+            if key in _ACCUMULATOR_ONLY and stage not in _ACCUMULATOR_STAGES:
+                return (168, f"Unrecognized expression '{key}'")
+            if (code := _OBJECT_SPEC_EXPRESSIONS.get(key)) is not None and not isinstance(
+                value, Mapping
+            ):
+                # `bson_value_repr`, not the `_stage` form. mongod renders the
+                # offending value here in its SHELL form -- `ObjectId('...')`,
+                # `new Date(1767323045000)`, `BinData(0, 7A)`, and containers
+                # with inner spaces -- while `$replaceRoot`'s "Input document:"
+                # uses the compact form with none of those. Two message
+                # families, two serializers; probed side by side on 8.2.11
+                # (2026-09-02). One renderer had been standing in for both.
+                return (
+                    code,
+                    f"specification must be an object; found {key}: {bson_value_repr(value)}",
+                )
+            # `$rand` takes no arguments, and BOTH ways of getting that wrong
+            # are parse errors carrying the stage wrapper. Two codes, measured
+            # 8.2.11 (2026-09-05): a non-empty document or array is 3040501,
+            # any scalar is 10065. An EMPTY document or array is valid and
+            # returns a double -- `{$rand: []}` is accepted, which is easy to
+            # miss. The evaluator already produced both codes and both
+            # sentences correctly; only the wrapper was wrong, on 45 shapes.
+            if key == "$rand":
+                if isinstance(value, (Mapping, list)):
+                    if value:
+                        return (3040501, "$rand does not currently accept arguments")
+                else:
+                    return (10065, "invalid parameter: expected an object ($rand)")
+            # A required key missing from an operator's spec document. LAST of
+            # the per-key checks on purpose: mongod reports an UNRECOGNISED key
+            # before a missing required one, so `{$firstN: {k: 1}}` is "Unknown
+            # argument for 'n' operator: k" and only `{$firstN: {}}` is "Missing
+            # value for 'n'". Placing this earlier changed the code on SIX shapes
+            # that were already right -- the same ordering the `$getField` and
+            # date-extractor branches above already document. Probed 8.2.11
+            # (2026-09-05).
+            if (req := _PARSE_TIME_REQUIRED_KEY.get(key)) is not None and isinstance(
+                value, Mapping
+            ):
+                needed, code, message = req
+                if needed not in value:
+                    return (code, message)
+            if (
+                key == "$dateFromParts"
+                and isinstance(value, Mapping)
+                and "year" not in value
+                and "isoWeekYear" not in value
+            ):
+                return (
+                    40516,
+                    "$dateFromParts requires either 'year' or 'isoWeekYear' to be present",
+                )
+            found = _expression_shape_problem(value, stage)
+            if found:
+                return found
+        return None
+    if isinstance(spec, list):
+        for item in spec:
+            found = _expression_shape_problem(item, stage)
+            if found:
+                return found
+    return None
+
+
+# The date operators that take a `timezone`, and the two that name the parameter
+# in the failure message rather than reporting it bare.
+_TIMEZONE_OPERATORS = frozenset(
+    {
+        "$dateAdd",
+        "$dateDiff",
+        "$dateFromParts",
+        "$dateFromString",
+        "$dateSubtract",
+        "$dateToParts",
+        "$dateToString",
+        "$dateTrunc",
+        "$dayOfMonth",
+        "$dayOfWeek",
+        "$dayOfYear",
+        "$hour",
+        "$isoDayOfWeek",
+        "$isoWeek",
+        "$isoWeekYear",
+        "$millisecond",
+        "$minute",
+        "$month",
+        "$second",
+        "$week",
+        "$year",
+    }
+)
+
+
+def _literal_timezone_problem(spec: Any) -> tuple[int, str] | None:
+    """The first date operator in `spec` carrying an unusable literal timezone."""
+    from secantus.expressions import ExpressionError, resolve_timezone_argument
+
+    if isinstance(spec, Mapping):
+        for key, value in spec.items():
+            if (
+                key in _TIMEZONE_OPERATORS
+                and isinstance(value, Mapping)
+                and isinstance(value.get("timezone"), str)
+            ):
+                try:
+                    resolve_timezone_argument(value["timezone"], operator=key)
+                except ExpressionError as exc:
+                    return (exc.code, str(exc))
+            found = _literal_timezone_problem(value)
+            if found:
+                return found
+        return None
+    if isinstance(spec, list):
+        for item in spec:
+            found = _literal_timezone_problem(item)
+            if found:
+                return found
+    return None
+
+
+def _fold_in_stage(
+    name: str, spec: Any, bound: frozenset[str], fold_vars: Mapping[str, Any] | None
+) -> tuple[int, str] | None:
+    """Fold the expressions of one stage, in the same positions the structural
+    walk uses -- a filter is query language, so only its `$expr` is folded."""
+    if name == "$redact":
+        # `$redact`'s decision variables are bound by the stage itself, with
+        # marker VALUES the folding evaluator does not have -- folding it
+        # reported `$$KEEP` as an undefined variable. It reads the document
+        # anyway, so there is nothing to fold.
+        return None
+    if name in _EXPR_SPEC_STAGES:
+        return _fold_problem(spec, bound, fold_vars)
+    if name in _EXPR_MAP_STAGES and isinstance(spec, Mapping):
+        for value in spec.values():
+            found = _fold_problem(value, bound, fold_vars)
+            if found:
+                return found
+        return None
+    if name == "$replaceRoot" and isinstance(spec, Mapping):
+        return _fold_problem(spec.get("newRoot"), bound, fold_vars)
+    if name == "$match" and isinstance(spec, Mapping) and "$expr" in spec:
+        return _fold_problem(spec["$expr"], bound, fold_vars)
+    return None
+
+
 def _apply_stage(
     stage: dict[str, Any],
     docs: list[dict[str, Any]],
     ctx: PipelineContext,
 ) -> list[dict[str, Any]]:
+    if not isinstance(stage, Mapping):
+        # mongod's exact wording and code (14 TypeMismatch); libmongoc's
+        # /change_stream/accepts_array asserts on this string. Without the
+        # type check ``len(stage)`` raised TypeError on e.g. ``pipeline: [42]``
+        # and the client saw a bare "internal server error".
+        raise AggregateError("Each element of the 'pipeline' array must be an object")
     if len(stage) != 1:
-        raise AggregateError("each pipeline stage must have exactly one key")
+        raise AggregateError(STAGE_ARITY_MSG, code=40323, code_name="Location40323")
     name, spec = next(iter(stage.items()))
     if name in _ATLAS_ONLY_STAGES:
         # Atlas-only stage on a non-Atlas deployment — mongod fails it with a
@@ -220,7 +1312,24 @@ def _apply_stage(
             code=40324,
             code_name="Location40324",
         )
-    return handler(spec, docs, ctx)
+    try:
+        return handler(spec, docs, ctx)
+    except ExpressionError as exc:
+        # Tag the stage so the command layer can pick mongod's wrapper. Only the
+        # field-assignment stages get one: probed on 8.2.11, `$project` /
+        # `$addFields` / `$set` answer `Invalid $<stage> :: caused by :: <msg>`
+        # while `$group` / `$replaceRoot` / `$redact` / `$bucket` /
+        # `$sortByCount` / `$match` leave the message BARE. None of them take
+        # the executor wrapper, which is what we used to apply to all of them.
+        if getattr(exc, "stage_name", None) is None:
+            exc.stage_name = name if name in _EXPR_WRAPPING_STAGES else ""
+        raise
+
+
+#: The stages that wrap an expression error in `Invalid $<stage> :: caused by ::`.
+#: Every other stage reports the bare message. `$facet` reports the wrapper of
+#: the INNER stage that failed, which the tag above gives for free.
+_EXPR_WRAPPING_STAGES = frozenset({"$project", "$addFields", "$set"})
 
 
 def _stage_match(
@@ -228,6 +1337,14 @@ def _stage_match(
 ) -> list[dict[str, Any]]:
     from secantus.collation import parse as _parse_collation
 
+    if not isinstance(spec, Mapping):
+        # A non-document $match spec reached the matcher and crashed as
+        # "internal server error"; mongod names it with its own code.
+        raise AggregateError(
+            "the match filter must be an expression in an object",
+            code=15959,
+            code_name="Location15959",
+        )
     coll_obj = _parse_collation(ctx.collation)
     return [d for d in docs if matches(d, spec, vars=ctx.vars, collation=coll_obj)]
 
@@ -237,7 +1354,7 @@ def _stage_count(
 ) -> list[dict[str, Any]]:
     # mongod: the count field must be a non-empty string (40156/40157), not
     # $-prefixed (40158), without a '.' (40160), and not "_id" (15948).
-    if not isinstance(spec, str):
+    if not is_bson_string(spec):
         raise AggregateError(
             "the count field must be a non-empty string", code=40156, code_name="Location40156"
         )
@@ -261,34 +1378,62 @@ def _stage_count(
 
 
 def _fmt_stage_val(v: Any) -> str:
-    """Render a $limit/$skip argument the way mongod prints it in the error."""
-    if isinstance(v, bool):
-        return "true" if v else "false"
-    return repr(v) if isinstance(v, float) else str(v)
+    """Render a `$limit` / `$skip` argument the way mongod prints it.
+
+    This was a seventh partial copy of mongod's value rendering, and it had the
+    same shortfall as the other six: it named the types its author had probed
+    and fell through to `str()` for the rest, so a Regex printed
+    `Regex('a', 0)`, a Binary printed `b'z'` and a MinKey printed `MinKey()` --
+    where mongod prints `/a/`, `BinData(0, 7A)` and `MinKey`. One renderer now.
+    """
+    return bson_value_repr(v)
 
 
 def _stage_nonneg_int(spec: Any, stage: str, code: int) -> int:
     """Validate a $limit/$skip argument like mongod: a whole-number double is
     accepted (coerced to int); a bool / non-number, a fractional double, and a
     negative value each raise `code` with mongod's exact per-case message."""
+    from bson import Decimal128
+
+    # `original` is what the message echoes: mongod prints the value the CLIENT
+    # sent, so a whole-float `-2.0` reports `-2.0` and not the `-2` we coerce it
+    # to below.
+    original = spec
+    is_decimal = isinstance(spec, Decimal128)
+    if is_decimal:
+        # mongod accepts a decimal here — `$skip: Decimal128("2")` runs — and
+        # gives a non-integral one its OWN message, distinct from a double's.
+        spec = float(spec.to_decimal())
     if isinstance(spec, bool) or not isinstance(spec, (int, float)):
         raise AggregateError(
             f"invalid argument to {stage} stage: Expected a number in: "
-            f"{stage}: {_fmt_stage_val(spec)}",
+            f"{stage}: {_fmt_stage_val(original)}",
             code=code,
         )
     if isinstance(spec, float):
-        if not spec.is_integer():
+        if spec != spec:
+            # NaN gets its own sentence, as it does in every other numeric
+            # ladder mongod uses -- this reported the generic "Expected an
+            # integer" instead.
             raise AggregateError(
-                f"invalid argument to {stage} stage: Expected an integer: "
-                f"{stage}: {_fmt_stage_val(spec)}",
+                f"invalid argument to {stage} stage: Expected an integer, but found "
+                f"NaN in: {stage}: nan",
+                code=code,
+            )
+        if not spec.is_integer():
+            # A fourth message family, and only for decimals (probed 6.0.16):
+            #   1.5             -> Expected an integer
+            #   Decimal("1.5")  -> Cannot represent as a 64-bit integer
+            reason = "Cannot represent as a 64-bit integer" if is_decimal else "Expected an integer"
+            raise AggregateError(
+                f"invalid argument to {stage} stage: {reason}: {stage}: {_fmt_stage_val(original)}",
                 code=code,
             )
         spec = int(spec)
     if spec < 0:
         raise AggregateError(
             f"invalid argument to {stage} stage: Expected a non-negative number in: "
-            f"{stage}: {spec}",
+            f"{stage}: {_fmt_stage_val(original)}",
             code=code,
         )
     return spec
@@ -311,22 +1456,27 @@ def _stage_skip(
 
 
 def _sort_val_repr(v: Any) -> str:
-    """mongod renders the offending value in the Location15974 message as
-    shell/JSON (`"asc"`, `true`, `null`), not Python repr."""
-    if isinstance(v, bool):
-        return "true" if v else "false"
-    if isinstance(v, str):
-        return f'"{v}"'
-    if v is None:
-        return "null"
-    return str(v)
+    """The Location15974 rendering -- the query family's, not the stage one.
+
+    A tenth partial copy of mongod's value vocabulary, naming three types and
+    falling through to `str()` for the rest.
+    """
+    return bson_value_repr(v)
 
 
 def _validate_sort_spec(spec: Any) -> None:
     """mongod's `$sort` stage validation: at least one key (15976); each direction
     is 1 / -1 as an int or whole double, else a non-numeric value is "Illegal key"
     (15974) and a numeric non-±1 is "must be 1 … or -1" (15975)."""
-    if not isinstance(spec, Mapping) or not spec:
+    if not isinstance(spec, Mapping):
+        # A wrong-TYPED spec and an EMPTY one are different errors on mongod
+        # (15973 vs 15976); we answered 15976 for both.
+        raise AggregateError(
+            "the $sort key specification must be an object",
+            code=15973,
+            code_name="Location15973",
+        )
+    if not spec:
         raise AggregateError(
             "$sort stage must have at least one sort key",
             code=15976,
@@ -355,17 +1505,21 @@ def _validate_sort_spec(spec: Any) -> None:
 def _stage_sort(
     spec: Any, docs: list[dict[str, Any]], _ctx: PipelineContext
 ) -> list[dict[str, Any]]:
+    from secantus.collation import parse as _parse_collation
     from secantus.ordering import sort_docs
 
     _validate_sort_spec(spec)
-    return sort_docs(list(docs), spec)
+    # The context's collation reaches string ORDERING here, not just the
+    # bucket-key equality ``$group`` uses. Without it a collated aggregation
+    # sorted by codepoint while the same collated ``find().sort()`` did not.
+    return sort_docs(list(docs), spec, collation=_parse_collation(_ctx.collation))
 
 
 def _stage_project(
     spec: Any, docs: list[dict[str, Any]], ctx: PipelineContext
 ) -> list[dict[str, Any]]:
     if not isinstance(spec, Mapping):
-        raise AggregateError("$project requires a document spec")
+        raise AggregateError("$project specification must be an object", code=15969)
     if not spec:
         raise AggregateError(
             "projection specification must have at least one field",
@@ -420,14 +1574,35 @@ def _project_one(
         result: dict[str, Any] = {}
         if id_handling != 0 and "_id" in doc:
             result["_id"] = copy.deepcopy(doc["_id"])
-        for path in inclusions:
-            value = get_path(doc, path)
-            if value is not None or _path_present(doc, path):
-                set_path(result, path, copy.deepcopy(value))
+        if inclusions:
+            from secantus.projection import apply_projection
+
+            # DELEGATED to `find`'s projection, which already implements
+            # mongod's rules for a dotted inclusion exactly: a parent that is a
+            # document survives as `{}` when the leaf is absent
+            # (`{$project: {"sub.k": 1}}` over `{sub: {}}` and over
+            # `{sub: {j: 2}}` both give `sub: {}`), an array of documents is
+            # pruned element-wise (`[{k: 1}, {}]`), an array of scalars becomes
+            # `[]`, and a scalar / null / missing parent drops the field.
+            # Measured 8.2.11 (2026-09-09) -- and `$project` agrees with `find`
+            # on every one of them.
+            #
+            # This loop used to re-implement the rule and only checked the LEAF,
+            # so every surviving parent vanished. Two implementations of one
+            # rule, one of them wrong, is the shape this repo keeps finding; the
+            # fix is to have one.
+            included = apply_projection(dict(doc), {p: 1 for p in inclusions} | {"_id": 0})
+            for key, value in included.items():
+                result[key] = value
         for key, expr in computed.items():
-            value = evaluate(expr, doc, vars)
+            # `evaluate_or_missing`, not `evaluate`: a *direct field path* that
+            # doesn't exist (`{z: "$nope"}`) evaluates to MISSING in mongod and
+            # the key is omitted. Plain `evaluate` answers None, which emitted
+            # `z: null` on every document — an extra key mongod never sends, so
+            # a client testing `"z" in doc` saw the opposite of the truth.
+            value = evaluate_or_missing(expr, doc, vars)
             # A computed field that resolves to the "missing" marker (an
-            # absent field via ``$getField`` / an explicit ``$$REMOVE``) is
+            # absent field path, ``$getField``, or an explicit ``$$REMOVE``) is
             # omitted from the output, matching mongod — never emitted as null.
             if value is MISSING:
                 continue
@@ -454,10 +1629,16 @@ def _path_present(doc: Mapping[str, Any], path: str) -> bool:
 
 
 def _stage_add_fields(
-    spec: Any, docs: list[dict[str, Any]], ctx: PipelineContext
+    spec: Any, docs: list[dict[str, Any]], ctx: PipelineContext, name: str = "$addFields"
 ) -> list[dict[str, Any]]:
     if not isinstance(spec, Mapping):
-        raise AggregateError("$addFields requires a document spec")
+        # mongod names the stage the CALLER wrote. `$set` is an alias of
+        # `$addFields` and shares this handler, so it used to report
+        # "$addFields specification stage must be an object" for a `$set`.
+        raise AggregateError(
+            f"{name} specification stage must be an object, got {_bson_type_name(spec)}",
+            code=40272,
+        )
     return [_add_fields_one(d, spec, ctx.vars) for d in docs]
 
 
@@ -466,8 +1647,10 @@ def _add_fields_one(
 ) -> dict[str, Any]:
     result = copy.deepcopy(doc)
     for path, expr in spec.items():
-        value = evaluate(expr, doc, vars)
-        # A field that resolves to the "missing" marker (absent field via
+        # See `_project_one`: a direct field path that doesn't exist is MISSING,
+        # not null, and mongod omits the key rather than adding it.
+        value = evaluate_or_missing(expr, doc, vars)
+        # A field that resolves to the "missing" marker (absent field path,
         # ``$getField`` / ``$$REMOVE``) is dropped rather than written —
         # matching mongod's ``$addFields``, which removes an existing field
         # when its new value is the missing/``$$REMOVE`` value.
@@ -481,7 +1664,35 @@ def _add_fields_one(
 def _stage_unset(
     spec: Any, docs: list[dict[str, Any]], _ctx: PipelineContext
 ) -> list[dict[str, Any]]:
-    paths = [spec] if isinstance(spec, str) else list(spec)
+    # mongod distinguishes four ways the spec is wrong, each with its own code.
+    # This validated none of them: a non-string, non-array spec reached
+    # `list(spec)` and raised a bare TypeError (`1 internal server error` for an
+    # int, and a silent no-op for a document, whose iteration yields its keys),
+    # while an empty string and an empty array were accepted and did nothing.
+    if is_bson_string(spec):
+        if not spec:
+            raise AggregateError("FieldPath cannot be constructed with empty string", code=40352)
+        paths = [spec]
+    elif isinstance(spec, list):
+        if not spec:
+            raise AggregateError(
+                "$unset specification must be a string or an array with at least one field",
+                code=31119,
+            )
+        for element in spec:
+            if not isinstance(element, str):
+                raise AggregateError(
+                    "$unset specification must be a string or an array containing only "
+                    "string values",
+                    code=31120,
+                )
+            if not element:
+                raise AggregateError(
+                    "FieldPath cannot be constructed with empty string", code=40352
+                )
+        paths = list(spec)
+    else:
+        raise AggregateError("$unset specification must be a string or an array", code=31002)
     out: list[dict[str, Any]] = []
     for d in docs:
         new = copy.deepcopy(d)
@@ -544,7 +1755,14 @@ def _stage_densify(
     enumerating millennia.
     """
     if not isinstance(spec, Mapping):
-        raise AggregateError("$densify requires a document spec")
+        raise AggregateError(
+            f"The $densify stage specification must be an object, found {_bson_type_name(spec)}",
+            code=9,
+        )
+    _reject_unknown_stage_field(
+        spec, frozenset({"field", "range", "partitionByFields"}), "$densify"
+    )
+    _require_stage_field(spec, "field", "$densify")
     field = spec.get("field")
     if not isinstance(field, str):
         raise AggregateError("$densify requires a field name")
@@ -555,7 +1773,8 @@ def _stage_densify(
     if isinstance(raw_step, bool) or not isinstance(raw_step, (int, float)):
         raise AggregateError(
             f"BSON field '$densify.range.step' is the wrong type '{_bson_type_name(raw_step)}', "
-            "expected types '[int, decimal, double, long']",
+            # Probed on mongod 8.2.1; the order is per-field and is mongod's.
+            "expected types '[double, long, int, decimal]'",
             code=14,
             code_name="TypeMismatch",
         )
@@ -670,7 +1889,30 @@ def _stage_densify(
 
     out: list[dict[str, Any]] = []
     for key in insertion_order:
-        partition_docs = sorted(grouped[key], key=lambda d: get_path(d, field))
+        # A doc whose densify field is null or absent does NOT participate:
+        # mongod passes it through at its BSON sort position (null sorts before
+        # numbers) and densifies only the rest. Sorting the raw list crashed
+        # here with a bare `TypeError: '<' not supported between instances of
+        # 'NoneType' and 'int'`, which escaped as "internal server error"
+        # (code 1) — a crash where mongod answers.
+        passthrough = [d for d in grouped[key] if not _densify_participates(d, field)]
+        participants = [d for d in grouped[key] if _densify_participates(d, field)]
+        for d in participants:
+            value = get_path(d, field)
+            if not _densify_value_ok(value):
+                # mongod-probed 6.0.16: a non-numeric, non-date value is
+                # rejected outright rather than skipped.
+                raise AggregateError(
+                    "Densify field type must be numeric or a date",
+                    code=5733201,
+                    code_name="Location5733201",
+                    exec_error=True,
+                )
+        # Null / missing sort before every number and date, so they lead.
+        out.extend(passthrough)
+        if not participants:
+            continue
+        partition_docs = sorted(participants, key=lambda d: get_path(d, field))
         partition_carry = {f: get_path(partition_docs[0], f) for f in partition_fields}
         if isinstance(bounds, list) and len(bounds) == 2:
             lo, hi = bounds[0], bounds[1]
@@ -679,6 +1921,22 @@ def _stage_densify(
             hi = get_path(partition_docs[-1], field)
         out.extend(_densify_partition(field, partition_docs, lo, hi, step, partition_carry))
     return out
+
+
+def _densify_participates(doc: Mapping[str, Any], field: str) -> bool:
+    """Whether a doc takes part in densification at all.
+
+    mongod ignores a doc whose densify field is missing or null — it is emitted
+    unchanged and contributes neither a bound nor a step.
+    """
+    return get_path(doc, field, default=None) is not None
+
+
+def _densify_value_ok(value: Any) -> bool:
+    """mongod's densify domain: numeric or date. `bool` is not numeric here."""
+    if isinstance(value, bool):
+        return False
+    return isinstance(value, (int, float, _dt.datetime, Decimal128))
 
 
 def _densify_fill_range(
@@ -732,15 +1990,30 @@ def _densify_canon(value: Any) -> Any:
     return value
 
 
+_UNWIND_NO_PATH = object()
+"""Absent `path` -- distinct from `path: null`, which is 28808 not 28812."""
+
+_UNWIND_OPTIONS = frozenset({"path", "preserveNullAndEmptyArrays", "includeArrayIndex"})
+
+
 def _stage_unwind(
     spec: Any, docs: list[dict[str, Any]], _ctx: PipelineContext
 ) -> list[dict[str, Any]]:
     include_index: str | None = None
-    if isinstance(spec, str):
+    if is_bson_string(spec):
         raw_path: Any = spec
         preserve_null = False
     elif isinstance(spec, Mapping):
-        raw_path = spec.get("path")
+        unknown = next((k for k in spec if k not in _UNWIND_OPTIONS), None)
+        if unknown is not None:
+            # Ahead of the no-path check: mongod answers 28811 for
+            # `{$unwind: {other: 1}}`, not 28812 (probed).
+            raise AggregateError(
+                f"unrecognized option to $unwind stage: {unknown}",
+                code=28811,
+                code_name="Location28811",
+            )
+        raw_path = spec.get("path", _UNWIND_NO_PATH)
         preserve_raw = spec.get("preserveNullAndEmptyArrays", False)
         if not isinstance(preserve_raw, bool):
             raise AggregateError(
@@ -767,7 +2040,21 @@ def _stage_unwind(
                     code_name="Location28822",
                 )
     else:
-        raise AggregateError("$unwind requires a path string or document spec")
+        raise AggregateError(
+            "expected either a string or an object as specification for "
+            f"$unwind stage, got {_bson_type_name(spec)}",
+            code=15981,
+            code_name="Location15981",
+        )
+    if raw_path is _UNWIND_NO_PATH or raw_path == "":
+        # Both an ABSENT `path` and an empty one are "no path specified" on
+        # mongod; only a path of the wrong TYPE is 28808. An empty string used
+        # to fall through to the missing-`$` check and answer 28818.
+        raise AggregateError(
+            "no path specified to $unwind stage",
+            code=28812,
+            code_name="Location28812",
+        )
     if not isinstance(raw_path, str):
         raise AggregateError(
             f"expected a string as the path for $unwind stage, got {_bson_type_name(raw_path)}",
@@ -903,7 +2190,14 @@ def _stage_fill(
     from secantus.storage import sort_docs
 
     if not isinstance(spec, Mapping):
-        raise AggregateError("$fill requires a document spec")
+        raise AggregateError(
+            f"The $fill stage specification must be an object, found {_bson_type_name(spec)}",
+            code=9,
+        )
+    _reject_unknown_stage_field(
+        spec, frozenset({"output", "partitionBy", "partitionByFields", "sortBy"}), "$fill"
+    )
+    _require_stage_field(spec, "output", "$fill")
     output = spec.get("output")
     if not isinstance(output, Mapping) or not output:
         raise AggregateError("$fill requires a non-empty output object")
@@ -917,7 +2211,14 @@ def _stage_fill(
         elif "method" in action:
             method = action["method"]
             if method not in ("locf", "linear"):
-                raise AggregateError(f"$fill output.{field}.method must be 'locf' or 'linear'")
+                # mongod's own wording and code (probed 8.2.11) -- this used to
+                # be our own phrasing under the generic 14 TypeMismatch, so a
+                # driver could not match on it.
+                raise AggregateError(
+                    "Method must be either locf or linear",
+                    code=6050202,
+                    code_name="Location6050202",
+                )
             fillers.append((method, field, None))
         else:
             raise AggregateError(f"$fill output.{field} requires value or method")
@@ -991,34 +2292,273 @@ def _stage_fill(
     return out
 
 
+def _render_compact(v: Any) -> str:
+    """The ``$replaceRoot`` / ``$replaceWith`` 40228 rendering.
+
+    The same one :func:`format_value_compact` produces -- these were two
+    near-duplicate copies of a single mongod behaviour.
+    """
+    return bson_value_repr_stage(v)
+
+
+# Sentinel: the expression depends on the whole document (a bare ``$$ROOT``),
+# so no pruning is possible.
+_ALL_FIELDS = object()
+
+
+def _expression_field_paths(expr: Any, out: set[str]) -> Any:
+    """Collect the document field paths ``expr`` reads, for ``_input_document``.
+
+    Returns ``_ALL_FIELDS`` if the expression reads the whole document.
+    """
+    if isinstance(expr, str):
+        if expr.startswith("$$"):
+            # ``$$ROOT.a`` / ``$$CURRENT.a`` are path reads like ``$a``; a bare
+            # ``$$ROOT`` (or any other system/user variable) is not prunable.
+            head, _, rest = expr[2:].partition(".")
+            if head in ("ROOT", "CURRENT") and rest:
+                out.add(rest)
+                return None
+            return _ALL_FIELDS if head in ("ROOT", "CURRENT") else None
+        if expr.startswith("$"):
+            out.add(expr[1:])
+        return None
+    if isinstance(expr, Mapping):
+        if len(expr) == 1 and "$literal" in expr:
+            return None
+        for value in expr.values():
+            if _expression_field_paths(value, out) is _ALL_FIELDS:
+                return _ALL_FIELDS
+        return None
+    if isinstance(expr, (list, tuple)):
+        for item in expr:
+            if _expression_field_paths(item, out) is _ALL_FIELDS:
+                return _ALL_FIELDS
+    return None
+
+
+def _input_document(doc: Mapping[str, Any], expr: Any) -> dict[str, Any]:
+    """The document mongod names in ``Input document:`` -- the input pruned to
+    the fields the expression actually reads.
+
+    mongod runs its dependency analysis before the stage, so the message names
+    the *pruned* document, not the stored one: ``{_id: 1, n: 1, s: "hi"}`` with
+    ``newRoot: "$n"`` reports ``{n: 1}``, and ``_id`` appears only when the
+    expression reads it. Probed against mongod 8.2.11 -- field order follows
+    the DOCUMENT, not the order the expression mentions them, an absent path
+    is omitted rather than rendered null, and a referenced parent subsumes a
+    referenced child (``$a.b`` plus ``$a`` reports all of ``a``).
+    """
+    from secantus.projection import apply_projection
+
+    paths: set[str] = set()
+    if _expression_field_paths(expr, paths) is _ALL_FIELDS:
+        return dict(doc)
+    # A path whose ancestor is also read adds nothing -- projecting both would
+    # narrow `a` to `a.b`, where mongod keeps the whole of `a`.
+    pruned = {
+        p for p in paths if not any(other != p and p.startswith(other + ".") for other in paths)
+    }
+    if not pruned:
+        return {}
+    spec: dict[str, Any] = {p: 1 for p in pruned}
+    if "_id" not in pruned:
+        spec["_id"] = 0
+    # ``apply_projection`` emits in SPEC order; mongod's message follows the
+    # DOCUMENT, at every level (`$a.c` before `$a.b` over `{a: {b, c, d}}`
+    # still reports `{a: {b, c}}`). ``pruned`` is a set, so spec order is not
+    # even stable between runs.
+    return _reorder_like(apply_projection(dict(doc), spec), doc)
+
+
+def _reorder_like(projected: Any, source: Any) -> Any:
+    """``projected`` with every object's keys back in ``source``'s order."""
+    if isinstance(projected, Mapping) and isinstance(source, Mapping):
+        position = {key: i for i, key in enumerate(source)}
+        return {
+            key: _reorder_like(projected[key], source.get(key))
+            for key in sorted(projected, key=lambda k: position.get(k, len(position)))
+        }
+    if isinstance(projected, list) and isinstance(source, list):
+        return [
+            _reorder_like(item, source[i] if i < len(source) else None)
+            for i, item in enumerate(projected)
+        ]
+    return projected
+
+
+def _switch_fold_candidates(node: Any, out: list[list[Any]]) -> list[list[Any]]:
+    """Every ``$switch`` in ``node`` that mongod could fold away at parse time,
+    as its list of ``case`` expressions.
+
+    mongod optimizes the pipeline before executing it, so a ``$switch`` whose
+    every ``case`` is constant, that has no ``default``, and whose cases are all
+    falsy is rejected during optimization -- **even over an empty collection**,
+    where no document is ever processed. We used to return an empty cursor and
+    ``ok: 1`` there, swallowing an error the user had earned.
+
+    Probed against mongod 8.2.11: a **document field reference** in any case is
+    what blocks folding. Variables do not -- both ``$$NOW`` and a ``$lookup``
+    ``let`` binding still fold -- and nor does wrapping in ``$literal``. A
+    ``default`` makes it legal outright, and a single field-referencing case
+    defers the whole thing to execution (40066, raised by
+    ``expressions._op_switch``).
+
+    Split from the evaluation half deliberately: this walk is structural and
+    depends only on the pipeline, while the verdict depends on the variables in
+    scope. ``$lookup``'s pipeline form runs its sub-pipeline once per OUTER
+    document, so a combined pass cost ~16us per document there -- several times
+    the deepcopy already on that path -- for a construct almost no pipeline
+    contains. The scan is hoisted out of that loop; only the (usually empty)
+    candidate list is re-evaluated.
+
+    Only ``$switch`` is modelled. mongod folds constants generally, and doing
+    that in full is the deferred item in ``tasks/remaining-work-plan.md`` 1b;
+    this covers the one construct where folding changes the ANSWER rather than
+    just the message.
+    """
+    if isinstance(node, Mapping):
+        if len(node) == 1 and "$literal" in node:
+            return out
+        switch = node.get("$switch")
+        if isinstance(switch, Mapping) and "default" not in switch:
+            branches = switch.get("branches")
+            if isinstance(branches, list) and branches:
+                cases = [b["case"] for b in branches if isinstance(b, Mapping) and "case" in b]
+                if len(cases) == len(branches) and all(_is_constant_expression(c) for c in cases):
+                    out.append(cases)
+        for value in node.values():
+            _switch_fold_candidates(value, out)
+    elif isinstance(node, (list, tuple)):
+        for value in node:
+            _switch_fold_candidates(value, out)
+    return out
+
+
+def _apply_switch_folds(candidates: list[list[Any]], vars: dict[str, Any]) -> None:
+    """Raise mongod's 40069 for any candidate whose cases are all falsy."""
+    for cases in candidates:
+        try:
+            fires = any(_bool(evaluate(c, {}, vars)) for c in cases)
+        except (
+            ExpressionError,
+            QueryError,
+            ValueError,
+            TypeError,
+            ArithmeticError,
+            LookupError,
+        ):
+            # Not foldable after all (an unbound variable, say) -- leave it to
+            # execution rather than reporting an optimization error we invented.
+            fires = True
+        if not fires:
+            raise AggregateError(
+                "Failed to optimize pipeline :: caused by :: Cannot execute a "
+                "switch statement where all the cases evaluate to false "
+                "without a default",
+                code=40069,
+            )
+
+
+def _is_constant_expression(expr: Any) -> bool:
+    """True when ``expr`` reads no document field, so mongod can fold it."""
+    paths: set[str] = set()
+    return _expression_field_paths(expr, paths) is not _ALL_FIELDS and not paths
+
+
+# mongod parses a stage spec field-by-field, so an UNKNOWN field is reported
+# before the generic "requires X and Y" -- `{$bucket: {a: 1}}` names `a` rather
+# than listing what is missing. Each stage has its own code and wording for it,
+# probed 8.2.11 (2026-09-01); the shape is the same everywhere.
+def _reject_unknown_stage_field(spec: Mapping[str, Any], known: frozenset[str], stage: str) -> None:
+    for field in spec:
+        if field in known:
+            continue
+        if stage == "$sample":
+            raise AggregateError(f"unrecognized option to $sample: {field}", code=28748)
+        if stage == "$bucket":
+            raise AggregateError(f"Unrecognized option to $bucket: {field}.", code=40197)
+        if stage == "$bucketAuto":
+            raise AggregateError(f"Unrecognized option to $bucketAuto: {field}", code=40245)
+        raise AggregateError(f"BSON field '{stage}.{field}' is an unknown field.", code=40415)
+
+
+def _require_stage_field(spec: Mapping[str, Any], field: str, stage: str) -> None:
+    """mongod's missing-required-field message, checked AFTER the unknown-field
+    pass so a spec that is wrong in both ways reports the unknown one."""
+    if field not in spec:
+        raise AggregateError(
+            f"BSON field '{stage}.{field}' is missing but a required field", code=40414
+        )
+
+
 def _stage_replace_root(
     spec: Any, docs: list[dict[str, Any]], ctx: PipelineContext
 ) -> list[dict[str, Any]]:
-    if not isinstance(spec, Mapping) or "newRoot" not in spec:
-        raise AggregateError("$replaceRoot requires {newRoot: <expression>}")
-    return [_replace_root_one(d, spec["newRoot"], ctx.vars) for d in docs]
+    if not isinstance(spec, Mapping):
+        raise AggregateError(
+            f"expected an object as specification for $replaceRoot stage, got "
+            f"{_bson_type_name(spec)}",
+            code=40229,
+        )
+    _reject_unknown_stage_field(spec, frozenset({"newRoot"}), "$replaceRoot")
+    _require_stage_field(spec, "newRoot", "$replaceRoot")
+    return [_replace_root_one(d, spec["newRoot"], ctx.vars, "'newRoot' expression") for d in docs]
 
 
 def _stage_replace_with(
     spec: Any, docs: list[dict[str, Any]], ctx: PipelineContext
 ) -> list[dict[str, Any]]:
-    return [_replace_root_one(d, spec, ctx.vars) for d in docs]
+    return [_replace_root_one(d, spec, ctx.vars, "'replacement document'") for d in docs]
 
 
 def _replace_root_one(
-    doc: dict[str, Any], new_root_expr: Any, vars: dict[str, Any]
+    doc: dict[str, Any],
+    new_root_expr: Any,
+    vars: dict[str, Any],
+    subject: str,
 ) -> dict[str, Any]:
     new_root = evaluate(new_root_expr, doc, vars)
     if not isinstance(new_root, Mapping):
-        raise AggregateError("$replaceRoot newRoot must evaluate to a document")
+        # mongod names the stage's own subject -- `'newRoot' expression` for
+        # `$replaceRoot`, `'replacement document'` for `$replaceWith` -- and
+        # the double space after it is mongod's, not a typo here (8.2.11).
+        raise AggregateError(
+            f"{subject}  must evaluate to an object, but resulting value was: "
+            f"{_render_compact(new_root)}. "
+            f"Type of resulting value: '{_bson_type_name(new_root)}'. "
+            f"Input document: {_render_compact(_input_document(doc, new_root_expr))}",
+            code=40228,
+            exec_error=True,
+        )
     return dict(new_root)
 
 
 def _stage_group(
     spec: Any, docs: list[dict[str, Any]], ctx: PipelineContext
 ) -> list[dict[str, Any]]:
-    if not isinstance(spec, Mapping) or "_id" not in spec:
-        raise AggregateError("$group requires an _id expression")
+    if not isinstance(spec, Mapping):
+        raise AggregateError(
+            "a group's fields must be specified in an object",
+            code=15947,
+            code_name="Location15947",
+        )
+    # A non-accumulator field is reported BEFORE the missing `_id`, so
+    # `{$group: {a: 1}}` names `a` rather than asking for an `_id` (probed
+    # 8.2.11).
+    for field, accumulator in spec.items():
+        if field != "_id" and not isinstance(accumulator, Mapping):
+            raise AggregateError(
+                f"The field '{field}' must be an accumulator object",
+                code=40234,
+                code_name="Location40234",
+            )
+    if "_id" not in spec:
+        raise AggregateError(
+            "a group specification must include an _id",
+            code=15955,
+            code_name="Location15955",
+        )
     id_expr = spec["_id"]
     accumulators = {k: v for k, v in spec.items() if k != "_id"}
     # Pre-compile accumulators once: each entry is (field, handler, arg) where
@@ -1061,6 +2601,11 @@ def _stage_group(
 def _hashable_with_collation(value: Any, collation: Any) -> Any:
     from secantus.collation import cmp_key
 
+    # Before the string branch below: `Code` subclasses `str`, and folding a
+    # JavaScript value through the collation would both merge it with an equal
+    # string and (being unhashable) crash on the way.
+    if isinstance(value, Code):
+        return _hashable_scalar(value)
     if isinstance(value, Mapping):
         return tuple(sorted((k, _hashable_with_collation(v, collation)) for k, v in value.items()))
     if isinstance(value, list):
@@ -1103,7 +2648,7 @@ def _std_dev(values: list[Any], *, pop: bool) -> float | None:
         return None
     total = 0.0
     for x in values:
-        total += x  # bool folds to 0.0/1.0, matching the Rust engine
+        total += x  # values are pre-filtered to floats by the accumulator
     mean = total / n
     denom = n if pop else n - 1
     acc = 0.0
@@ -1114,6 +2659,20 @@ def _std_dev(values: list[Any], *, pop: bool) -> float | None:
 
 
 _AccHandler = Callable[[dict[str, Any], str, Any, Mapping[str, Any], dict[str, Any]], None]
+
+
+def _std_dev_operand(v: Any) -> float:
+    """A `$stdDev*` input as the float the fold works on.
+
+    mongod answers a double even for decimal input (probed 6.0.16: `$stdDevPop`
+    over Decimal128 5 and 7 is `1.0`), so decimals convert here rather than
+    widening the accumulator.
+    """
+    if isinstance(v, Decimal128):
+        return float(v.to_decimal())
+    if isinstance(v, _decimal.Decimal):
+        return float(v)
+    return float(v)
 
 
 def _is_acc_number(v: Any) -> bool:
@@ -1244,7 +2803,11 @@ def _acc_add_to_set(
 ) -> None:
     seen = bucket.setdefault(field, [])
     v = evaluate_or_missing(arg, doc, vars)
-    if v is not MISSING and v not in seen:
+    # `not in` uses Python equality, where `False == 0`, so a set containing
+    # both `0` and `false` collapsed to one element. mongod keeps them apart --
+    # they are different BSON types. `_set_eq` is the rule the `$set*` operators
+    # already used; the accumulator did not.
+    if v is not MISSING and not any(_set_eq(v, x) for x in seen):
         seen.append(v)
 
 
@@ -1279,13 +2842,20 @@ def _acc_std(
     pop: bool,
 ) -> None:
     v = evaluate(arg, doc, vars)
-    if v is None:
-        return
+    # Create the state even when this doc contributes nothing: mongod always
+    # emits the field, answering `null` when the group held no numeric value.
+    # Creating it lazily meant an all-non-numeric group *omitted* the field.
     state = bucket.get(field)
     if not isinstance(state, dict) or "_std_vals" not in state:
         state = {"_std_vals": [], "_std_pop": pop}
         bucket[field] = state
-    state["_std_vals"].append(v)
+    # mongod counts only int / long / double / decimal; bool, null, string,
+    # array and document values are silently skipped, not errors. Appending
+    # them raised a bare `TypeError: unsupported operand type(s) for +=:
+    # 'float' and 'str'` in `_std_dev`, which escaped as "internal server
+    # error" (code 1) — a crash where mongod answers.
+    if _is_acc_number(v):
+        state["_std_vals"].append(_std_dev_operand(v))
 
 
 def _percentile_spec(arg: Any, op: str) -> tuple[Any, list[float] | None]:
@@ -1298,50 +2868,80 @@ def _percentile_spec(arg: Any, op: str) -> tuple[Any, list[float] | None]:
             code=7429703,
             code_name="Location7429703",
         )
-    if "method" not in arg:
-        raise AggregateError(
-            f"BSON field '{op}.method' is missing but a required field",
-            code=40414,
-            code_name="Location40414",
-        )
-    if arg["method"] != "approximate":
-        raise AggregateError(
-            "Currently only 'approximate' can be used as percentile 'method'.",
-            code=2,
-            code_name="BadValue",
-        )
+    # mongod validates in its IDL's FIELD DECLARATION order -- ``input``, then
+    # ``p`` (``$percentile`` only), then ``method`` -- so the first complaint is
+    # about the earliest declared field, not the first one this function happens
+    # to test. Checking ``method`` first made ``{$median: {}}`` name ``method``
+    # where 8.2.11 names ``input``, and made a bad ``method`` outrank a bad
+    # ``p``. Re-measured 2026-09-08; the ordering here previously came from a
+    # 7.0.12 probe.
     if "input" not in arg:
         raise AggregateError(
             f"BSON field '{op}.input' is missing but a required field",
             code=40414,
-            code_name="Location40414",
+            code_name="IDLFailedToParse",
         )
+
+    def _check_method() -> None:
+        if "method" not in arg:
+            raise AggregateError(
+                f"BSON field '{op}.method' is missing but a required field",
+                code=40414,
+                code_name="IDLFailedToParse",
+            )
+        if arg["method"] != "approximate":
+            raise AggregateError(
+                # "as A percentile" -- the article is mongod's, and was missing
+                # here (8.2.11, 2026-09-08).
+                "Currently only 'approximate' can be used as a percentile 'method'.",
+                code=2,
+                code_name="BadValue",
+            )
+
     if op == "$median":
+        _check_method()
         return arg["input"], None
     if "p" not in arg:
         raise AggregateError(
             "BSON field '$percentile.p' is missing but a required field",
             code=40414,
-            code_name="Location40414",
+            code_name="IDLFailedToParse",
         )
     ps = arg["p"]
     if not isinstance(ps, list):
         raise AggregateError(
             "The $percentile 'p' field must be an array of numbers from "
-            f"[0.0, 1.0], but found: {ps}",
+            f"[0.0, 1.0], but found: {bson_value_repr(ps)}",
+            code=7750301,
+            code_name="Location7750301",
+        )
+    if not ps:
+        # An EMPTY array is the same complaint as a non-array (7750301), naming
+        # the array itself -- not a per-element error. Measured 8.2.11,
+        # 2026-09-08; this used to be accepted and produced an empty result.
+        raise AggregateError(
+            "The $percentile 'p' field must be an array of numbers from "
+            f"[0.0, 1.0], but found: {bson_value_repr(ps)}",
             code=7750301,
             code_name="Location7750301",
         )
     out: list[float] = []
     for p in ps:
-        if isinstance(p, bool) or not isinstance(p, (int, float)) or not 0.0 <= p <= 1.0:
+        # THREE codes, not one: a non-number element is 7750302 and a number
+        # out of [0, 1] is 7750303. The value renders in mongod's form, so a
+        # string is quoted and a null prints as `null` -- `{p}` gave `a` and
+        # `None`. Measured 8.2.11, 2026-09-08.
+        numeric = not isinstance(p, bool) and isinstance(p, (int, float))
+        if not numeric or not 0.0 <= p <= 1.0:
+            code = 7750303 if numeric else 7750302
             raise AggregateError(
                 "The $percentile 'p' field must be an array of numbers from "
-                f"[0.0, 1.0], but found: {p}",
-                code=7750303,
-                code_name="Location7750303",
+                f"[0.0, 1.0], but found: {bson_value_repr(p)}",
+                code=code,
+                code_name=f"Location{code}",
             )
         out.append(float(p))
+    _check_method()
     return arg["input"], out
 
 
@@ -1631,35 +3231,236 @@ def _accumulate(
     handler(bucket, field, arg, doc, vars)
 
 
+def _is_nan_key(value: Any) -> bool:
+    """A float or Decimal128 NaN, which mongod groups as ONE key."""
+    if isinstance(value, float):
+        return value != value
+    if isinstance(value, Decimal128):
+        return value.to_decimal().is_nan()
+    return False
+
+
 def _hashable(value: Any) -> Any:
+    """A hashable stand-in for a ``$group`` bucket key.
+
+    Containers become tuples; scalars pass through -- except the ones that are
+    not hashable at all. ``bson.Code`` is the live case: it subclasses ``str``
+    but defines ``__eq__`` without ``__hash__``, so grouping a collection that
+    held a JavaScript value raised ``TypeError: unhashable type`` and the
+    client saw ``1 internal server error``.
+
+    The stand-in has to keep Code and an equal STRING apart, because mongod
+    does: grouping ``Code("x=1")`` and ``"x=1"`` yields two buckets, so a bare
+    ``str(value)`` surrogate would wrongly merge them.
+    """
     if isinstance(value, Mapping):
         return tuple(sorted((k, _hashable(v)) for k, v in value.items()))
     if isinstance(value, list):
         return tuple(_hashable(v) for v in value)
+    return _hashable_scalar(value)
+
+
+#: The one bucket key every NaN maps to.
+#:
+#: A float NaN IS hashable (``hash(nan)`` is 0) but compares unequal to itself,
+#: so returning it unchanged gave every NaN its own ``$group`` bucket:
+#: two documents with ``a: NaN`` grouped as two buckets of 1 where mongod
+#: reports one of 2. mongod also merges a float NaN with a ``Decimal128`` NaN
+#: (probed 8.2.11, 2026-09-05), so both map here.
+_NAN_KEY = ("\x00nan",)
+
+
+def _hashable_scalar(value: Any) -> Any:
+    """``value`` itself when hashable, else a type-tagged surrogate."""
+    if isinstance(value, Code):
+        return ("\x00code", str(value), _hashable(value.scope) if value.scope else None)
+    # Before the plain-hashable path below: NaN is hashable and would otherwise
+    # be returned as itself. Nested NaNs come through `_hashable`'s container
+    # recursion, so `{a: [NaN]}` and `{a: {k: NaN}}` group correctly too.
+    if _is_nan_key(value):
+        return _NAN_KEY
+    # A bool is NOT a number to mongod, but `hash(True) == hash(1)` and
+    # `True == 1` in Python, so `$group: {_id: "$v"}` merged them into one
+    # bucket where mongod keeps two. Measured 8.2.11 (2026-09-09):
+    #
+    #     _id=0      <- 0, 0.0, -0.0     (signed zeros DO merge)
+    #     _id=False  <- False            (its own bucket)
+    #     _id=True   <- True             (its own bucket)
+    #     _id=1      <- 1, 1.0           (the numeric types DO merge)
+    #
+    # so only bool has to be separated out -- exactly the rule
+    # `ordering.bson_equal` already carries for the same reason, and the sixth
+    # instance of Python's `==` / `hash()` standing in for a BSON semantic.
+    if isinstance(value, bool):
+        return ("\x00bool", value)
+    # A Decimal128 buckets with the OTHER numerics: mongod merges int `1`,
+    # double `1.0`, `Decimal128("1")` and `Decimal128("1.0")` into one bucket
+    # keyed `1` (measured 8.2.11, 2026-09-09). `Decimal128` is hashable, so it
+    # fell through below and got a bucket of its own. Python's `decimal.Decimal`
+    # hashes consistently with `int` and `float` for the same numeric value,
+    # which is exactly the merge rule needed here.
+    if isinstance(value, Decimal128):
+        try:
+            return value.to_decimal()
+        except (_decimal.InvalidOperation, ValueError):
+            return value
+    try:
+        hash(value)
+    except TypeError:
+        # Anything else unhashable: tag by type so two different types cannot
+        # collide, and fall back to the repr for identity within the type.
+        return ("\x00unhashable", type(value).__name__, repr(value))
     return value
+
+
+def _set_as_field(doc: dict[str, Any], as_field: str, value: Any) -> None:
+    """Write a ``$lookup`` / ``$graphLookup`` result at ``as``.
+
+    ``as`` is a PATH, not a key: ``as: "a.b"`` produces ``{a: {b: [...]}}``.
+    Assigning ``doc[as_field]`` stored a literal key containing a dot -- a
+    document mongod cannot produce and most drivers refuse to send. Same bug,
+    and same fix, as the dotted-equality upsert seed in ``storage.py``: wherever
+    a user-supplied path is used as a key, it has to go through ``set_path``.
+    """
+    if "." in as_field:
+        set_path(doc, as_field, value)
+    else:
+        doc[as_field] = value
+
+
+_LOOKUP_KNOWN_FIELDS = frozenset(
+    {"from", "localField", "foreignField", "as", "let", "pipeline", "unwinding"}
+)
+
+
+def _render_arg(v: Any) -> str:
+    """A value as mongod prints it inside a $lookup argument error."""
+    if isinstance(v, str):
+        return f'"{v}"'
+    if v is True:
+        return "true"
+    if v is False:
+        return "false"
+    if v is None:
+        return "null"
+    return str(v)
+
+
+# mongod 8.x answers one sentence for every localField/foreignField pairing
+# mistake; 6.0 varied it by whether a `pipeline` was present.
+_LOOKUP_FIELD_PAIR_MSG = (
+    "$lookup requires both or neither of 'localField' and 'foreignField' to be specified"
+)
+
+
+def _lookup_wrong_type(field: str, value: Any, expected: str) -> str:
+    """The IDL wrong-type sentence 8.x uses for a $lookup argument."""
+    return (
+        f"BSON field '$lookup.{field}' is the wrong type "
+        f"'{_bson_type_name(value)}', expected type '{expected}'"
+    )
 
 
 def _stage_lookup(
     spec: Any, docs: list[dict[str, Any]], ctx: PipelineContext
 ) -> list[dict[str, Any]]:
     if not isinstance(spec, Mapping):
-        raise AggregateError("$lookup requires a document spec")
+        raise AggregateError(
+            f"the $lookup stage specification must be an object, but found {_bson_type_name(spec)}",
+            code=9,
+            code_name="FailedToParse",
+        )
+    # 8.x parses $lookup through the IDL, so unknown / missing / wrong-typed
+    # arguments get the generic BSON-field wording rather than the hand-written
+    # sentences 6.0 used. `from` is the exception -- both its missing and its
+    # wrong-type errors are still hand-written (probed 8.2.1).
+    #
+    # The unknown-field check runs FIRST: probed with a spec that is both
+    # missing `as` and carries an unknown key, mongod answers 40415.
+    # ... but a spec with NEITHER `from` nor `pipeline` reports that first:
+    # `{$lookup: {a: 1}}` is "must specify 'pipeline' when 'from' is empty", not
+    # the unknown field (probed 8.2.11). With `from` present the unknown-field
+    # check wins, which is what the note above measured.
     from_coll = spec.get("from")
     as_field = spec.get("as")
-    if not (isinstance(from_coll, str) and isinstance(as_field, str)):
-        raise AggregateError("$lookup requires from and as (strings)")
+    sub_pipeline = spec.get("pipeline")
+    if from_coll is None and sub_pipeline is None:
+        raise AggregateError(
+            "must specify 'pipeline' when 'from' is empty", code=9, code_name="FailedToParse"
+        )
+    unknown = next((k for k in spec if k not in _LOOKUP_KNOWN_FIELDS), None)
+    if unknown is not None:
+        raise AggregateError(
+            f"BSON field '$lookup.{unknown}' is an unknown field.",
+            code=40415,
+            code_name="IDLUnknownField",
+        )
+    if not isinstance(from_coll, str):
+        raise AggregateError(
+            f"$lookup 'from' field must be a string, but found {_bson_type_name(from_coll)}",
+            code=9,
+            code_name="FailedToParse",
+        )
+    if as_field is None:
+        raise AggregateError(
+            "BSON field '$lookup.as' is missing but a required field",
+            code=40414,
+            code_name="IDLFailedToParse",
+        )
+    if not isinstance(as_field, str):
+        raise AggregateError(
+            _lookup_wrong_type("as", as_field, "string"),
+            code=14,
+            code_name="TypeMismatch",
+        )
     if ctx.storage is None:
         raise AggregateError("$lookup requires storage context")
 
-    sub_pipeline = spec.get("pipeline")
-    let_spec = spec.get("let") or {}
-    if sub_pipeline is not None:
-        return _stage_lookup_pipeline(ctx, docs, from_coll, as_field, let_spec, sub_pipeline, spec)
-
     local_field = spec.get("localField")
     foreign_field = spec.get("foreignField")
-    if not (isinstance(local_field, str) and isinstance(foreign_field, str)):
-        raise AggregateError("$lookup requires localField+foreignField, or pipeline form")
+    for _name, _value in (("localField", local_field), ("foreignField", foreign_field)):
+        if _value is not None and not isinstance(_value, str):
+            raise AggregateError(
+                _lookup_wrong_type(_name, _value, "string"),
+                code=14,
+                code_name="TypeMismatch",
+            )
+    # 6.0 used two different sentences here depending on whether a `pipeline`
+    # was present. 8.x uses this one for every shape -- half-specified pair with
+    # a pipeline, without one, and neither-pair-nor-pipeline (probed all three).
+    if (local_field is None) != (foreign_field is None):
+        raise AggregateError(
+            _LOOKUP_FIELD_PAIR_MSG,
+            code=9,
+            code_name="FailedToParse",
+        )
+
+    let_spec = spec.get("let")
+    # A wrong-typed `let` reached `.items()` and a wrong-typed `pipeline` was
+    # iterated -- both raised bare exceptions that escaped as
+    # "internal server error" (code 1).
+    if let_spec is not None and not isinstance(let_spec, Mapping):
+        raise AggregateError(
+            _lookup_wrong_type("let", let_spec, "object"),
+            code=14,
+            code_name="TypeMismatch",
+        )
+    if sub_pipeline is not None and not isinstance(sub_pipeline, list):
+        raise AggregateError(
+            "A pipeline must be an array of objects",
+            code=14,
+            code_name="TypeMismatch",
+        )
+    if sub_pipeline is not None:
+        return _stage_lookup_pipeline(
+            ctx, docs, from_coll, as_field, let_spec or {}, sub_pipeline, spec
+        )
+    if local_field is None or foreign_field is None:
+        raise AggregateError(
+            _LOOKUP_FIELD_PAIR_MSG,
+            code=9,
+            code_name="FailedToParse",
+        )
 
     # Index-driven path: when the foreign collection has a non-multikey
     # single-field index on the foreign field, do per-outer-doc lookups
@@ -1675,7 +3476,7 @@ def _stage_lookup(
                 ctx.storage, ctx.db_name, from_coll, foreign_field, local_value
             )
             new = copy.deepcopy(doc)
-            new[as_field] = matches_list
+            _set_as_field(new, as_field, matches_list)
             out.append(new)
         return out
 
@@ -1687,7 +3488,7 @@ def _stage_lookup(
         local_value = get_path(doc, local_field)
         matches_list = _hash_join_lookup(local_value, foreign_docs, foreign_field, join_index)
         new = copy.deepcopy(doc)
-        new[as_field] = matches_list
+        _set_as_field(new, as_field, matches_list)
         out.append(new)
     return out
 
@@ -1722,9 +3523,19 @@ def _stage_lookup_pipeline(
             else None
         )
 
+    # The sub-pipeline runs once per OUTER document, so its structural
+    # constant-fold scan is hoisted here; only the verdict depends on the
+    # per-document `let` bindings.
+    sub_folds = _switch_fold_candidates(sub_pipeline, [])
+
     out: list[dict[str, Any]] = []
     for doc in docs:
-        bound = {name: evaluate(expr, doc, ctx.vars) for name, expr in let_spec.items()}
+        # FIELD-VALUE position: a `let` var bound from an absent field stays
+        # MISSING rather than collapsing to null, so `$eq: ["$f", "$$v"]`
+        # against an explicitly-null foreign value is false the way mongod's
+        # is. Binding null made a document without the local field join rows
+        # mongod excludes.
+        bound = {name: evaluate_or_missing(expr, doc, ctx.vars) for name, expr in let_spec.items()}
         if isinstance(local_field, str) and isinstance(foreign_field, str):
             local_value = get_path(doc, local_field)
             if use_index:
@@ -1742,9 +3553,9 @@ def _stage_lookup_pipeline(
                 foreign_docs = ctx.storage.find_matching(ctx.db_name, from_coll, {})
             candidates = list(foreign_docs)
         sub_ctx = ctx.with_vars(bound)
-        joined = apply_pipeline(candidates, sub_pipeline, sub_ctx)
+        joined = apply_pipeline(candidates, sub_pipeline, sub_ctx, fold_candidates=sub_folds)
         new = copy.deepcopy(doc)
-        new[as_field] = joined
+        _set_as_field(new, as_field, joined)
         out.append(new)
     return out
 
@@ -1802,10 +3613,15 @@ def _index_join_lookup(
     single index lookup covers all elements.
     """
     if isinstance(local_value, list):
-        # Empty list never matches anything (mirrors mongod's $in: []
-        # semantics) — short-circuit instead of a wasted query.
+        # An EMPTY list matches NULL, not nothing. The comment here used to
+        # say "empty list never matches anything (mirrors mongod's $in: []
+        # semantics)" -- but a $lookup's localField is not an $in: mongod
+        # unwinds the array for matching and an empty one still joins against
+        # the null-valued foreign rows (probed 6.0.16). The two code paths
+        # agreed with each other and not with the oracle, which is why the
+        # index and hash-join halves both had it.
         if not local_value:
-            return []
+            return storage.find_matching(db, coll, {foreign_field: None})
         return storage.find_matching(db, coll, {foreign_field: {"$in": list(local_value)}})
     return storage.find_matching(db, coll, {foreign_field: local_value})
 
@@ -1825,6 +3641,24 @@ class _LookupIndex:
         self.unhashable: list[dict[str, Any]] = []
 
 
+def _lookup_key(value: Any) -> Any:
+    """The hash-join key for one scalar ``localField`` / ``foreignField`` value.
+
+    mongod joins by BSON equality, not Python's: ``Decimal128("1.5")`` matches
+    ``Decimal128("1.500")``, and ``2``, ``2.0`` and ``Decimal128("2.0")`` all
+    match each other (measured 8.2.11, 2026-09-19). ``Decimal128`` hashes and
+    compares by its REPRESENTATION, so keying on the raw value joined none of
+    those -- silently, and only when the foreign field had no index (the
+    indexed path goes through the query engine and was right). The ``$group``
+    bucket key already encodes this rule (numerics by value, one NaN, bool
+    apart from 1). A container raises TypeError so the caller keeps it on the
+    unhashable path.
+    """
+    if isinstance(value, (Mapping, list)):
+        raise TypeError("container lookup key")
+    return _hashable_scalar(value)
+
+
 def _build_lookup_index(foreign_docs: list[dict[str, Any]], foreign_field: str) -> _LookupIndex:
     idx = _LookupIndex()
     for fd in foreign_docs:
@@ -1833,7 +3667,7 @@ def _build_lookup_index(foreign_docs: list[dict[str, Any]], foreign_field: str) 
         added = False
         for k in keys:
             try:
-                idx.hashable.setdefault(k, []).append(fd)
+                idx.hashable.setdefault(_lookup_key(k), []).append(fd)
                 added = True
             except TypeError:
                 continue
@@ -1848,13 +3682,18 @@ def _hash_join_lookup(
     foreign_field: str,
     idx: _LookupIndex,
 ) -> list[dict[str, Any]]:
-    lookups = list(local_value) if isinstance(local_value, list) else [local_value]
+    # An EMPTY array matches null, the same way a MISSING localField does --
+    # mongod unwinds the local array for matching, and an array with nothing in
+    # it still has to join against something. We produced no lookup keys at
+    # all, so `tags: []` matched nothing where mongod returns the null-valued
+    # foreign rows.
+    lookups = (list(local_value) or [None]) if isinstance(local_value, list) else [local_value]
     seen: set[int] = set()
     out: list[dict[str, Any]] = []
     local_unhashable = False
     for lv in lookups:
         try:
-            hits = idx.hashable.get(lv)
+            hits = idx.hashable.get(_lookup_key(lv))
         except TypeError:
             local_unhashable = True
             continue
@@ -1883,12 +3722,20 @@ def _hash_join_lookup(
 
 def _lookup_match(local: Any, foreign: Any) -> bool:
     if isinstance(local, list) and isinstance(foreign, list):
-        return any(le == fe for le in local for fe in foreign)
+        return any(_lookup_eq(le, fe) for le in local for fe in foreign)
     if isinstance(local, list):
-        return foreign in local
+        return any(_lookup_eq(le, foreign) for le in local)
     if isinstance(foreign, list):
-        return local in foreign
-    return local == foreign
+        return any(_lookup_eq(local, fe) for fe in foreign)
+    return _lookup_eq(local, foreign)
+
+
+def _lookup_eq(a: Any, b: Any) -> bool:
+    """One pair under the hash join's equality (`_lookup_key`)."""
+    try:
+        return bool(_lookup_key(a) == _lookup_key(b))
+    except TypeError:
+        return bool(a == b)
 
 
 # Optional deterministic RNG for ``$sample``. The env var
@@ -1920,15 +3767,20 @@ def _stage_sample(
 ) -> list[dict[str, Any]]:
     import random
 
-    if not isinstance(spec, Mapping) or "size" not in spec:
-        raise AggregateError("$sample requires {size: N}")
+    if not isinstance(spec, Mapping):
+        raise AggregateError("the $sample stage specification must be an object", code=28745)
+    _reject_unknown_stage_field(spec, frozenset({"size"}), "$sample")
+    if "size" not in spec:
+        raise AggregateError("$sample stage must specify a size", code=28749)
     size_raw = spec["size"]
     # mongod: size must be a number (bool rejected) and non-negative; a
     # fractional double is accepted and truncated (unlike $limit/$skip).
     if isinstance(size_raw, bool) or not isinstance(size_raw, (int, float)):
         raise AggregateError("size argument to $sample must be a number", code=28746)
     if size_raw < 0:
-        raise AggregateError("size argument to $sample must not be negative", code=28747)
+        # mongod's wording (probed 8.2.11); ours said "must not be negative",
+        # which matched the code but not the text a driver may assert on.
+        raise AggregateError("size argument to $sample must be a positive integer", code=28747)
     size = int(size_raw)
     if size >= len(docs):
         return list(docs)
@@ -1940,7 +3792,7 @@ def _validate_sort_by_count_arg(spec: Any) -> None:
     """mongod: the $sortByCount argument is a $-prefixed path string (40148) or an
     expression object — a single `$`-prefixed key (40147); anything else (number,
     bool, array, null) is 40149."""
-    if isinstance(spec, str):
+    if is_bson_string(spec):
         if not spec.startswith("$"):
             raise AggregateError(
                 "the sortByCount field must be defined as a $-prefixed path or an "
@@ -1982,8 +3834,11 @@ def _stage_facet(
     # non-empty object (40171), and no nested $facet (40600). Without this a
     # non-object stage element (`{a: [5]}`) leaks a Python TypeError.
     if not isinstance(spec, Mapping) or not spec:
+        from secantus.bsontypes import render_bson
+
         raise AggregateError(
-            f"the $facet specification must be a non-empty object, but found: $facet: {spec!r}",
+            f"the $facet specification must be a non-empty object, but found: "
+            f"$facet: {render_bson(spec)}",
             code=40169,
             code_name="Location40169",
         )
@@ -2031,12 +3886,19 @@ def _stage_bucket(
     from secantus.ordering import _SortKey
 
     if not isinstance(spec, Mapping):
-        raise AggregateError("$bucket requires a document spec")
+        raise AggregateError(
+            f"Argument to $bucket stage must be an object, but found type: "
+            f"{_bson_type_name(spec)}.",
+            code=40201,
+        )
     group_by = spec.get("groupBy")
     boundaries = spec.get("boundaries")
     # mongod validates the whole spec before bucketing — several of these were
     # silently accepted, and an out-of-range value with no default silently
     # DROPPED the document.
+    _reject_unknown_stage_field(
+        spec, frozenset({"groupBy", "boundaries", "default", "output"}), "$bucket"
+    )
     if group_by is None or boundaries is None:
         raise AggregateError(
             "$bucket requires 'groupBy' and 'boundaries' to be specified.", code=40198
@@ -2049,8 +3911,9 @@ def _stage_bucket(
         )
     if len(boundaries) < 2:
         raise AggregateError(
+            # mongod says "N value(s)." -- ours dropped the unit (probed 8.2.11).
             "The $bucket 'boundaries' field must have at least 2 values, but found "
-            f"{len(boundaries)}.",
+            f"{len(boundaries)} value(s).",
             code=40192,
         )
     ctype0 = _bucket_ctype(boundaries[0])
@@ -2094,26 +3957,45 @@ def _stage_bucket(
     for d in docs:
         value = evaluate(group_by, d, ctx.vars)
         placed = False
+        # `_SortKey`, not Python's `<` -- the same comparison the boundary
+        # VALIDATION above already uses. The raw operators have no ordering
+        # between a `Decimal128` and an `int`, so `1 <= Decimal128("1.5")`
+        # raised `TypeError`, which the `except` below swallowed and dropped the
+        # document into `default`: `{$bucket: {boundaries: [0, 1, 2, 100]}}`
+        # put `Decimal128("1.5")` in `other` where mongod puts it in bucket `1`
+        # alongside `1` and `1.5` (measured 8.2.11, 2026-09-09). A swallowed
+        # comparison error is exactly how a value ends up in the wrong bucket
+        # rather than erroring.
+        vk = _SortKey(value)
         for i in range(len(boundaries) - 1):
             lo, hi = boundaries[i], boundaries[i + 1]
-            try:
-                if lo <= value < hi:
-                    buckets[lo].append(d)
-                    placed = True
-                    break
-            except TypeError:
-                continue
+            # `_SortKey` defines only `__lt__`, so `lo <= value` is spelled as
+            # "value is not below lo".
+            if not (vk < _SortKey(lo)) and vk < _SortKey(hi):
+                buckets[lo].append(d)
+                placed = True
+                break
         if not placed:
             if default is None:
                 raise AggregateError(
                     "$switch could not find a matching branch for an input, and no "
                     "default was specified.",
                     code=7158303,
+                    exec_error=True,
                 )
             buckets[default].append(d)
 
     result: list[dict[str, Any]] = []
     for key, bucket_docs in buckets.items():
+        # mongod emits a bucket only when something landed in it — boundary
+        # buckets and the `default` bucket alike (probed 6.0.16: boundaries
+        # [0,2,4,8] over values 1 and 7 answer `_id: 0` and `_id: 4`, with the
+        # empty `_id: 2` omitted). We pre-create every bucket to keep them in
+        # boundary order, so the empty ones have to be dropped here; otherwise
+        # an unused `default` surfaced as a bare `{_id: "other"}` with no
+        # `count` at all, since the accumulator never ran to seed it.
+        if not bucket_docs:
+            continue
         bucket: dict[str, Any] = {"_id": key}
         for field_name, accumulator in output_spec.items():
             for d in bucket_docs:
@@ -2154,15 +4036,35 @@ def _enforce_target_validator(
 def _stage_out(spec: Any, docs: list[dict[str, Any]], ctx: PipelineContext) -> list[dict[str, Any]]:
     if ctx.storage is None:
         raise AggregateError("$out requires storage context")
-    if isinstance(spec, str):
+    # mongod's four distinct refusals, probed 8.2.11 (2026-09-01). An EMPTY
+    # string used to be accepted and silently wrote to a nameless collection.
+    if is_bson_string(spec):
+        if not spec:
+            raise AggregateError(
+                f"Invalid $out target namespace, {ctx.db_name}",
+                code=73,
+                code_name="InvalidNamespace",
+            )
         target_db, target_coll = ctx.db_name, spec
     elif isinstance(spec, Mapping):
-        target_db = spec.get("db", ctx.db_name)
-        target_coll = spec.get("coll")
+        for key in spec:
+            if key not in ("db", "coll"):
+                raise AggregateError(f"BSON field '$out.{key}' is an unknown field.", code=40415)
+        # `coll` is reported missing before `db`, whichever is absent.
+        for key in ("coll", "db"):
+            if key not in spec:
+                raise AggregateError(
+                    f"BSON field '$out.{key}' is missing but a required field", code=40414
+                )
+        target_db = spec["db"]
+        target_coll = spec["coll"]
         if not isinstance(target_coll, str):
             raise AggregateError("$out requires a coll string")
     else:
-        raise AggregateError("$out requires a string or {db, coll}")
+        raise AggregateError(
+            f"$out only supports a string or object argument, but found {_bson_type_name(spec)}",
+            code=16990,
+        )
     _enforce_target_validator(ctx, target_db, target_coll, docs)
     ctx.storage.drop_collection(target_db, target_coll)
     if docs:
@@ -2219,20 +4121,43 @@ def _validate_on_field_index(
     )
 
 
+#: The fields `$merge` accepts. `$out` takes `{db, coll}`; `$merge` takes
+#: `{into: ...}` and rejects `db` / `coll` at the top level -- probed 8.2.11.
+_MERGE_SPEC_FIELDS = frozenset({"into", "on", "let", "whenMatched", "whenNotMatched"})
+
+
 def _stage_merge(
     spec: Any, docs: list[dict[str, Any]], ctx: PipelineContext
 ) -> list[dict[str, Any]]:
     if ctx.storage is None:
         raise AggregateError("$merge requires storage context")
     let_spec: Mapping[str, Any] = {}
-    if isinstance(spec, str):
+    if is_bson_string(spec):
+        # An EMPTY string used to be accepted and merged into a nameless
+        # collection. Note the message shape differs from `$out`'s -- mongod
+        # quotes the namespace here and does not there.
+        if not spec:
+            raise AggregateError(
+                f"Invalid $merge target namespace: '{ctx.db_name}'",
+                code=73,
+                code_name="InvalidNamespace",
+            )
         target_db, target_coll = ctx.db_name, spec
         on_fields: list[str] = ["_id"]
         when_matched: Any = "merge"
         when_not_matched: str = "insert"
     elif isinstance(spec, Mapping):
+        for key in spec:
+            if key not in _MERGE_SPEC_FIELDS:
+                raise AggregateError(f"BSON field '$merge.{key}' is an unknown field.", code=40415)
+        if "into" not in spec:
+            raise AggregateError(
+                "BSON field '$merge.into' is missing but a required field", code=40414
+            )
         into = spec.get("into")
         if isinstance(into, str):
+            if not into:
+                raise AggregateError("$merge 'into' field cannot be an empty string", code=5786800)
             target_db, target_coll = ctx.db_name, into
         elif isinstance(into, Mapping):
             target_db = into.get("db", ctx.db_name)
@@ -2249,7 +4174,10 @@ def _stage_merge(
         if not isinstance(let_spec, Mapping):
             raise AggregateError("$merge let must be an object")
     else:
-        raise AggregateError("$merge requires a string or document spec")
+        raise AggregateError(
+            f"$merge requires a string or object argument, but found {_bson_type_name(spec)}",
+            code=14,
+        )
 
     if isinstance(when_matched, str) and when_matched not in _VALID_WHEN_MATCHED_STRINGS:
         raise AggregateError(
@@ -3091,6 +5019,18 @@ def _validate_bucket_auto_granularity(granularity: Any) -> None:
         )
 
 
+def _bucket_values_differ(a: Any, b: Any) -> bool:
+    """Do two already-sorted `$bucketAuto` values belong to different buckets?
+
+    BSON equality, not Python's: the numeric types compare across themselves, so
+    `1.5` and `Decimal128("1.5")` are the SAME value here.
+    """
+    from secantus.storage import _SortKey
+
+    ka, kb = _SortKey(a), _SortKey(b)
+    return bool(ka < kb) or bool(kb < ka)
+
+
 def _bucket_auto_granular(
     pairs: list[tuple[Any, dict[str, Any]]],
     n_buckets: int,
@@ -3174,11 +5114,18 @@ def _stage_bucket_auto(
     spec: Any, docs: list[dict[str, Any]], ctx: PipelineContext
 ) -> list[dict[str, Any]]:
     if not isinstance(spec, Mapping):
-        raise AggregateError("$bucketAuto requires a document spec")
+        raise AggregateError(
+            f"The argument to $bucketAuto must be an object, but found type: "
+            f"{_bson_type_name(spec)}",
+            code=40240,
+        )
     # mongod: both groupBy and buckets must be present (40246); buckets must be
     # a non-bool numeric value (40241), representable as a 32-bit integer —
     # a whole double is accepted, a fractional double is not (40242) — and
     # strictly greater than 0 (40243).
+    _reject_unknown_stage_field(
+        spec, frozenset({"groupBy", "buckets", "output", "granularity"}), "$bucketAuto"
+    )
     if "groupBy" not in spec or "buckets" not in spec:
         raise AggregateError(
             "$bucketAuto requires 'groupBy' and 'buckets' to be specified",
@@ -3224,18 +5171,38 @@ def _stage_bucket_auto(
         return []
     if granularity is not None:
         return _bucket_auto_granular(pairs, n_buckets, granularity, output_spec, ctx)
-    bucket_size = max(1, len(pairs) // n_buckets)
     out: list[dict[str, Any]] = []
     i = 0
     while i < len(pairs) and len(out) < n_buckets:
         is_last = len(out) == n_buckets - 1
+        # mongod gives the REMAINDER to the earlier buckets: 8 values into 3
+        # buckets is 3/3/2, not 2/3/3. Recomputed each time from what is left,
+        # so a bucket that grew to keep equal values together does not distort
+        # the ones after it (measured 8.2.11, 2026-09-09, at 2 / 3 / 4 buckets).
+        # A single floor-divided `bucket_size` gave 2/3/3.
+        remaining_buckets = n_buckets - len(out)
+        bucket_size = max(1, -(-(len(pairs) - i) // remaining_buckets))
         chunk = pairs[i:] if is_last else pairs[i : i + bucket_size]
         if not chunk:
             break
-        if not is_last and i + bucket_size < len(pairs):
-            upper = pairs[i + bucket_size][0]
-        else:
-            upper = chunk[-1][0]
+        # Documents sharing a value NEVER straddle a bucket boundary, so the
+        # chunk grows until the next value differs. `pairs` is already sorted,
+        # so equality here is "neither is below the other" under the BSON order
+        # -- which is the point: `1.5` and `Decimal128("1.5")` are equal to
+        # mongod and NOT equal to Python's `==`, so a naive check split them and
+        # the first bucket came back one document short with the decimal as its
+        # `max` (mongod: `{min: NaN, max: 2}, count: 5`; ours:
+        # `{min: NaN, max: Decimal128("1.5")}, count: 4`. Measured 8.2.11,
+        # 2026-09-09).
+        j = i + len(chunk)
+        while j < len(pairs) and not _bucket_values_differ(pairs[j - 1][0], pairs[j][0]):
+            chunk = pairs[i : j + 1]
+            j += 1
+        # `max` is the first value of the NEXT bucket -- computed from the
+        # EXTENDED chunk, not the nominal `bucket_size`, or a bucket that grew
+        # to keep equal values together reports the value it just absorbed.
+        next_i = i + len(chunk)
+        upper = pairs[next_i][0] if not is_last and next_i < len(pairs) else chunk[-1][0]
         bucket: dict[str, Any] = {"_id": {"min": chunk[0][0], "max": upper}}
         for field_name, accumulator in output_spec.items():
             for _, d in chunk:
@@ -3245,11 +5212,55 @@ def _stage_bucket_auto(
     return out
 
 
+_GRAPH_LOOKUP_KNOWN_FIELDS = frozenset(
+    {
+        "from",
+        "startWith",
+        "connectFromField",
+        "connectToField",
+        "as",
+        "maxDepth",
+        "depthField",
+        "restrictSearchWithMatch",
+    }
+)
+
+
 def _stage_graph_lookup(
     spec: Any, docs: list[dict[str, Any]], ctx: PipelineContext
 ) -> list[dict[str, Any]]:
     if not isinstance(spec, Mapping):
-        raise AggregateError("$graphLookup requires a document spec")
+        raise AggregateError(
+            f"the $graphLookup stage specification must be an object, but found "
+            f"{_bson_type_name(spec)}",
+            code=9,
+            code_name="FailedToParse",
+        )
+    # Unknown arguments were accepted and ignored, so a misspelled option ran a
+    # traversal the caller had not asked for. mongod's codes here are its own
+    # Location numbers, not the generic ones.
+    # `from` is checked before anything else, and the message ECHOES the whole
+    # spec in mongod's document rendering -- spaced inside the braces, unlike
+    # the value renderer's compact form (probed 8.2.11).
+    if "from" not in spec:
+        # The SPEC vocabulary, not the value renderer: mongod echoes the stage's
+        # own specification here, so a double keeps its round-trip form
+        # (`startWith: -0.0`, not the value form's `-0`). `bson_value_repr`
+        # already spaces the braces, which is why the manual re-spacing that
+        # stood here is gone.
+        rendered = bson_value_repr(dict(spec))
+        raise AggregateError(
+            f"missing 'from' option to $graphLookup stage specification: {rendered}",
+            code=9,
+            code_name="FailedToParse",
+        )
+    unknown = next((k for k in spec if k not in _GRAPH_LOOKUP_KNOWN_FIELDS), None)
+    if unknown is not None:
+        raise AggregateError(
+            f"Unknown argument to $graphLookup: {unknown}",
+            code=40104,
+            code_name="Location40104",
+        )
     from_coll = spec.get("from")
     start_with = spec.get("startWith")
     connect_from = spec.get("connectFromField")
@@ -3262,8 +5273,26 @@ def _stage_graph_lookup(
     depth_field = spec.get("depthField")
     if not all(isinstance(x, str) for x in (from_coll, connect_from, connect_to, as_field)):
         raise AggregateError(
-            "$graphLookup requires from/connectFromField/connectToField/as as strings"
+            "$graphLookup requires 'from', 'as', 'startWith', 'connectFromField', "
+            "and 'connectToField' to be specified.",
+            code=40105,
+            code_name="Location40105",
         )
+    # A negative maxDepth was accepted and matched NOTHING -- every document got
+    # an empty array, which reads as "no connections" rather than "bad option".
+    if max_depth is not None:
+        if isinstance(max_depth, bool) or not isinstance(max_depth, (int, float)):
+            raise AggregateError(
+                f"maxDepth must be numeric, found type: {_bson_type_name(max_depth)}",
+                code=40100,
+                code_name="Location40100",
+            )
+        if max_depth < 0:
+            raise AggregateError(
+                f"maxDepth requires a nonnegative argument, found: {max_depth}",
+                code=40101,
+                code_name="Location40101",
+            )
     if ctx.storage is None:
         raise AggregateError("$graphLookup requires storage context")
     foreign = ctx.storage.find_matching(ctx.db_name, from_coll, {})
@@ -3280,6 +5309,14 @@ def _stage_graph_lookup(
                 fid = fdoc.get("_id")
                 if fid in seen_ids:
                     continue
+                # The connectTo field must EXIST to match. A document that
+                # simply lacks it is not reachable by a null link -- missing
+                # and null are different values here, and comparing
+                # ``get_path``'s None for both made every field-less document
+                # match a null (probed 6.0.16:
+                # ``null-link-missing-target-field`` returns only the seed).
+                if not has_path(fdoc, connect_to):
+                    continue
                 target = get_path(fdoc, connect_to)
                 if _values_match(value, target):
                     seen_ids.add(fid)
@@ -3287,16 +5324,21 @@ def _stage_graph_lookup(
                     if depth_field:
                         new_doc[depth_field] = depth
                     out_docs.append(new_doc)
-                    next_value = get_path(fdoc, connect_from)
-                    if next_value is not None:
-                        frontier.append((next_value, depth + 1))
+                    # An EXPLICIT null link is followed -- it reaches documents
+                    # whose connectTo field is explicitly null. Only a MISSING
+                    # link ends the walk. We tested the VALUE for None, which
+                    # conflated the two and truncated any chain that passed
+                    # through a null, silently returning a short answer: the
+                    # four-document chain in the probe came back as one.
+                    if has_path(fdoc, connect_from):
+                        frontier.append((get_path(fdoc, connect_from), depth + 1))
         return out_docs
 
     out: list[dict[str, Any]] = []
     for doc in docs:
         seed = evaluate(start_with, doc, ctx.vars)
         new = copy.deepcopy(doc)
-        new[as_field] = _walk(seed)
+        _set_as_field(new, as_field, _walk(seed))
         out.append(new)
     return out
 
@@ -3309,6 +5351,24 @@ def _values_match(a: Any, b: Any) -> bool:
     if isinstance(b, list):
         return a in b
     return a == b
+
+
+_CHANGE_STREAM_KNOWN_FIELDS = frozenset(
+    {
+        "fullDocument",
+        "fullDocumentBeforeChange",
+        "resumeAfter",
+        "startAfter",
+        "startAtOperationTime",
+        "allChangesForCluster",
+        "showExpandedEvents",
+        "showRawUpdateDescription",
+        "splitLargeChangeStreamEvents",
+        "allowToRunOnSystemNS",
+    }
+)
+_FULL_DOCUMENT_MODES = frozenset({"default", "updateLookup", "whenAvailable", "required"})
+_FULL_DOCUMENT_BEFORE_MODES = frozenset({"off", "whenAvailable", "required"})
 
 
 def _stage_change_stream(
@@ -3324,7 +5384,12 @@ def _stage_change_stream(
     from secantus import changestreams
 
     if not isinstance(spec, Mapping):
-        raise AggregateError("$changeStream spec must be a document")
+        raise AggregateError(
+            f"$changeStream must take a nested object but found: $changeStream: "
+            f"{_render_arg(spec)}",
+            code=6188500,
+            code_name="Location6188500",
+        )
     ctx.change_stream = changestreams.parse_spec(spec)
     return []
 
@@ -3359,18 +5424,54 @@ def _stage_change_stream_split_large_event(
 def _stage_documents(
     spec: Any, _docs: list[dict[str, Any]], ctx: PipelineContext
 ) -> list[dict[str, Any]]:
+    # The NAMESPACE check comes first, before the argument is looked at at all:
+    # `$documents` is only legal in a collection-less aggregate (`aggregate: 1`),
+    # and mongod answers 73 for every argument when it is not. This ran happily
+    # against a collection and reported an argument error instead (probed
+    # 8.2.11, 2026-09-01).
+    # ... with ONE exception: an EMPTY document spec is rejected earlier still,
+    # while the stage is being desugared into a projection, so it answers 51270
+    # even against a collection. A non-empty document, or any other type, still
+    # gets the namespace error (probed 8.2.11).
+    if isinstance(spec, Mapping) and not spec:
+        raise AggregateError(
+            "Invalid empty sub-projection: _tempDocumentsField",
+            code=51270,
+            code_name="Location51270",
+        )
+    if ctx.coll_name:
+        raise AggregateError(
+            "'$documents' can only be run with {aggregate: 1}",
+            code=73,
+            code_name="InvalidNamespace",
+        )
     if not isinstance(spec, list):
-        raise AggregateError("$documents requires an array of documents")
+        raise AggregateError(
+            f"error during aggregation :: caused by :: $documents' array argument "
+            f"must be an array, but found type: {_bson_type_name(spec)}",
+            code=5858203,
+            exec_error=True,
+        )
     out: list[dict[str, Any]] = []
     for entry in spec:
         evaluated = evaluate(entry, {}, ctx.vars)
         if not isinstance(evaluated, Mapping):
-            raise AggregateError("$documents entries must evaluate to documents")
+            raise AggregateError(
+                f"$documents entries must be an object, but found type: "
+                f"{_bson_type_name(evaluated)}",
+                code=40228,
+                exec_error=True,
+            )
         out.append(dict(evaluated))
     return out
 
 
 _RANK_FUNCS = frozenset({"$rank", "$denseRank", "$documentNumber"})
+#: `$setWindowFields`'s own fields. Anything else is rejected rather than
+#: ignored -- mongod answers 40415 (probed 8.2.11), and silently accepting a
+#: misspelled option is the shape where a caller believes they asked for
+#: something and got a wrong answer instead of an error.
+_SET_WINDOW_FIELDS_KNOWN = frozenset({"partitionBy", "sortBy", "output"})
 
 
 def _stage_set_window_fields(
@@ -3395,9 +5496,16 @@ def _stage_set_window_fields(
     that row's window (within the row's partition, in the partition's
     sorted order). Window bounds are integer offsets relative to the
     current row, or the strings ``"current"`` / ``"unbounded"``.
-    Missing ``window`` defaults to the whole partition. Original input
-    order is preserved in the result — the partition / sort dance
-    happens only to compute the new fields.
+    Missing ``window`` defaults to the whole partition.
+
+    **The result comes back in PARTITION then SORT order**, not the input
+    order: partitions in first-seen order, and within each the ``sortBy``
+    sequence (stable, so ties keep their input order). This docstring used to
+    claim the opposite -- "original input order is preserved, the partition /
+    sort dance happens only to compute the new fields" -- and the code
+    implemented that. Measured against 8.2.11 (2026-09-09) across five specs,
+    including a partition with no ``sortBy`` (input order WITHIN the partition,
+    partitions still grouped) and a ``sortBy`` with no partition (pure sort).
 
     Supported output functions:
 
@@ -3419,10 +5527,34 @@ def _stage_set_window_fields(
     from secantus.storage import sort_docs as _sort_docs
 
     if not isinstance(spec, Mapping):
-        raise AggregateError("$setWindowFields requires a doc spec")
+        raise AggregateError(
+            f"the $setWindowFields stage specification must be an object, found "
+            f"{_bson_type_name(spec)}",
+            code=9,
+        )
+    # An unknown top-level field was ACCEPTED AND IGNORED, so a caller who
+    # misspelled `partitionBy` -- or put `range` at the top level, where it
+    # looks plausible but belongs inside a window -- got a silent, wrong answer
+    # rather than an error. mongod rejects it (probed 8.2.11).
+    unknown = next(
+        (k for k in spec if k not in _SET_WINDOW_FIELDS_KNOWN and not k.startswith("$")),
+        None,
+    )
+    if unknown is not None:
+        raise AggregateError(
+            f"BSON field '$setWindowFields.{unknown}' is an unknown field.",
+            code=40415,
+            code_name="IDLUnknownField",
+        )
     partition_by = spec.get("partitionBy")
     sort_by = spec.get("sortBy")
     output = spec.get("output")
+    if "output" not in spec:
+        raise AggregateError(
+            "BSON field '$setWindowFields.output' is missing but a required field",
+            code=40414,
+            code_name="IDLFailedToParse",
+        )
     if not isinstance(output, Mapping) or not output:
         raise AggregateError("$setWindowFields requires a non-empty output doc")
 
@@ -3440,6 +5572,18 @@ def _stage_set_window_fields(
         window = field_spec.get("window")
         if window is not None and not isinstance(window, Mapping):
             raise AggregateError(f"$setWindowFields output[{field!r}].window must be a doc")
+        # Same silent-acceptance problem one level down: an unknown key inside
+        # `window` was ignored, so a misspelled `documents` widened the window
+        # to the whole partition without saying so.
+        if isinstance(window, Mapping):
+            bad = next((k for k in window if k not in ("documents", "range", "unit")), None)
+            if bad is not None:
+                raise AggregateError(
+                    "'window' field can only contain 'documents' as the only argument "
+                    "or 'range' with an optional 'unit' field",
+                    code=9,
+                    code_name="FailedToParse",
+                )
         if op in _RANK_FUNCS:
             # Rank functions take no arg and don't accept a window. Mongod
             # surfaces both violations as parse errors; mirror.
@@ -3525,6 +5669,13 @@ def _stage_set_window_fields(
         partitions[hkey].append((i, doc))
 
     out_docs: list[dict[str, Any]] = [dict(d) for d in docs_list]
+    # mongod emits PARTITION BY PARTITION, in first-seen partition order, and
+    # within each partition in `sortBy` order -- not the input order. Measured
+    # 8.2.11 (2026-09-09) across five specs; the docstring above used to claim
+    # the opposite. Wrong order is wrong RESULTS as soon as a `$limit` follows,
+    # so this is not cosmetic. The loop below already walks members in exactly
+    # that sequence, so recording it as it goes costs nothing.
+    emit_order: list[int] = []
 
     for pkey in partition_order:
         members = partitions[pkey]
@@ -3532,6 +5683,7 @@ def _stage_set_window_fields(
             sorted_docs = _sort_docs([doc for _, doc in members], sort_by)
             idx_lookup = {id(doc): orig_i for orig_i, doc in members}
             members = [(idx_lookup[id(doc)], doc) for doc in sorted_docs]
+        emit_order.extend(orig_i for orig_i, _ in members)
         partition_docs = [doc for _, doc in members]
         n = len(partition_docs)
         # Precompute per-partition rank vectors only when a rank function
@@ -3587,7 +5739,7 @@ def _stage_set_window_fields(
                     handler(bucket, field, arg, wdoc, ctx.vars)
                 _finalize(bucket)
                 target[field] = bucket.get(field, _empty_window_value(op))
-    return out_docs
+    return [out_docs[i] for i in emit_order]
 
 
 def _compute_rank_state(
@@ -4011,50 +6163,79 @@ def _stage_redact(
     * Empty list spec, missing expression, or a non-sentinel result
       raises ``AggregateError``.
     """
-    if spec is None or (isinstance(spec, Mapping) and not spec):
-        raise AggregateError("$redact requires an expression")
+    # No "$redact requires an expression" special case: mongod evaluates
+    # `null` / `{}` like any other expression and reports the RESULT as a
+    # non-sentinel (17053), not the spec as missing. Probed on 8.2.11.
+    redact_vars = dict(ctx.vars or {})
+    redact_vars.update(REDACT_SENTINELS)
     out: list[dict[str, Any]] = []
     for doc in docs:
-        result = _redact_subdoc(doc, spec, ctx)
+        result = _redact_subdoc(doc, spec, ctx, redact_vars)
         if result is not None:
             out.append(result)
     return out
 
 
 def _redact_subdoc(
-    doc: Mapping[str, Any], spec: Any, ctx: PipelineContext
+    doc: Mapping[str, Any], spec: Any, ctx: PipelineContext, redact_vars: dict[str, Any]
 ) -> dict[str, Any] | None:
-    decision = evaluate(spec, dict(doc), ctx.vars)
-    if decision == "$$KEEP":
+    decision = evaluate(spec, dict(doc), redact_vars)
+    # Identity against the bound marker, NOT equality against the string
+    # ``"$$KEEP"``. A document field holding that string used to satisfy this
+    # test, so `$redact: "$tag"` over content the caller controls kept a
+    # document mongod rejects -- data disclosure from the stage whose whole
+    # job is to withhold data.
+    if decision == _KEEP:
         return dict(doc)
-    if decision == "$$PRUNE":
+    if decision == _PRUNE:
         return None
-    if decision == "$$DESCEND":
-        return _redact_descend(doc, spec, ctx)
+    if decision == _DESCEND:
+        return _redact_descend(doc, spec, ctx, redact_vars)
     raise AggregateError(
-        f"$redact expression must return $$KEEP, $$PRUNE, or $$DESCEND, got {decision!r}"
+        "$redact's expression should not return anything aside from the variables "
+        f"$$KEEP, $$DESCEND, and $$PRUNE, but returned {format_value_compact(decision)}",
+        code=17053,
+        code_name="Location17053",
+        exec_error=True,
     )
 
 
-def _redact_descend(doc: Mapping[str, Any], spec: Any, ctx: PipelineContext) -> dict[str, Any]:
+def _redact_descend(
+    doc: Mapping[str, Any], spec: Any, ctx: PipelineContext, redact_vars: dict[str, Any]
+) -> dict[str, Any]:
     out: dict[str, Any] = {}
     for k, v in doc.items():
         if isinstance(v, Mapping):
-            sub = _redact_subdoc(v, spec, ctx)
+            sub = _redact_subdoc(v, spec, ctx, redact_vars)
             if sub is not None:
                 out[k] = sub
         elif isinstance(v, list):
-            new_list: list[Any] = []
-            for elem in v:
-                if isinstance(elem, Mapping):
-                    redacted = _redact_subdoc(elem, spec, ctx)
-                    if redacted is not None:
-                        new_list.append(redacted)
-                else:
-                    new_list.append(elem)
-            out[k] = new_list
+            out[k] = _redact_list(v, spec, ctx, redact_vars)
         else:
             out[k] = v
+    return out
+
+
+def _redact_list(
+    values: list[Any], spec: Any, ctx: PipelineContext, redact_vars: dict[str, Any]
+) -> list[Any]:
+    """Redact one array, recursing into NESTED arrays as mongod does.
+
+    The list branch used to walk only the top level, so a sub-document one
+    array deeper -- ``[[{lvl: 9}]]`` -- was passed through untouched and
+    returned to the caller. mongod prunes it and leaves the inner array in
+    place (``[[]]``). Probed on 8.2.11.
+    """
+    out: list[Any] = []
+    for elem in values:
+        if isinstance(elem, Mapping):
+            redacted = _redact_subdoc(elem, spec, ctx, redact_vars)
+            if redacted is not None:
+                out.append(redacted)
+        elif isinstance(elem, list):
+            out.append(_redact_list(elem, spec, ctx, redact_vars))
+        else:
+            out.append(elem)
     return out
 
 
@@ -4079,18 +6260,41 @@ def _stage_union_with(
     implementation. No deduplication — duplicates across the boundary
     survive.
     """
-    if isinstance(spec, str):
+    if is_bson_string(spec):
         from_coll = spec
         sub_pipeline: list[dict[str, Any]] | None = None
     elif isinstance(spec, Mapping):
+        _reject_unknown_stage_field(spec, frozenset({"coll", "pipeline"}), "$unionWith")
         from_coll = spec.get("coll")
         sub_pipeline = spec.get("pipeline")
+        if from_coll is None:
+            # A spec with no `coll` is legal only when the pipeline supplies its
+            # own documents; mongod says so rather than "requires 'coll'".
+            raise AggregateError(
+                "$unionWith stage without explicit collection must have a pipeline "
+                "with $documents as first stage",
+                code=9,
+            )
         if not isinstance(from_coll, str):
-            raise AggregateError("$unionWith requires 'coll' (string)")
+            raise AggregateError(
+                f"BSON field '$unionWith.coll' is the wrong type "
+                f"'{_bson_type_name(from_coll)}', expected type 'string'",
+                code=14,
+            )
         if sub_pipeline is not None and not isinstance(sub_pipeline, list):
             raise AggregateError("$unionWith 'pipeline' must be an array")
     else:
-        raise AggregateError("$unionWith requires a collection name or {coll, pipeline} doc")
+        raise AggregateError(
+            f"the $unionWith stage specification must be an object or string, but found "
+            f"{_bson_type_name(spec)}",
+            code=9,
+        )
+    if not from_coll:
+        # mongod renders the namespace with the collection half empty, which is
+        # why the database name runs straight into "is" (probed 8.2.11 -- the
+        # message really has no space there). We used to return the outer
+        # documents unchanged, i.e. a wrong ANSWER rather than an error.
+        raise AggregateError(f"Namespace {ctx.db_name}is not a valid collection name", code=73)
     if ctx.storage is None:
         raise AggregateError("$unionWith requires storage context")
 
@@ -4126,11 +6330,15 @@ def _stage_geo_near(
 
     from secantus.geo import distance, parse_doc_geometry
 
-    if not isinstance(spec, Mapping):
-        raise AggregateError("$geoNear requires an object")
-    near = spec.get("near")
+    # An ARRAY is a document in BSON -- keys "0", "1", ... -- so mongod's parser
+    # accepts it as the spec object and then reports the missing `near`:
+    # `{$geoNear: []}` and `{$geoNear: [1]}` both answer 5860400, while a SCALAR
+    # is the type error (probed 8.2.11).
+    if not isinstance(spec, (Mapping, list)):
+        raise AggregateError("invalid parameter: expected an object ($geoNear)", code=10065)
+    near = spec.get("near") if isinstance(spec, Mapping) else None
     if near is None:
-        raise AggregateError("$geoNear requires `near`")
+        raise AggregateError("$geoNear requires a 'near' argument", code=5860400)
     distance_field = spec.get("distanceField")
     if not isinstance(distance_field, str) or not distance_field:
         raise AggregateError("$geoNear requires a string `distanceField`")
@@ -4289,7 +6497,7 @@ _STAGES = {
     "$sort": _stage_sort,
     "$project": _stage_project,
     "$addFields": _stage_add_fields,
-    "$set": _stage_add_fields,
+    "$set": functools.partial(_stage_add_fields, name="$set"),
     "$unset": _stage_unset,
     "$unwind": _stage_unwind,
     "$densify": _stage_densify,
@@ -4330,8 +6538,10 @@ def validate_stage_names(pipeline: list[Any]) -> None:
     before any document flows — change streams need the 40324 at
     ``aggregate`` time, not lazily at the first ``getMore``)."""
     for stage in pipeline:
-        if not isinstance(stage, Mapping) or len(stage) != 1:
-            raise AggregateError("each pipeline stage must have exactly one key")
+        if not isinstance(stage, Mapping):
+            raise AggregateError("Each element of the 'pipeline' array must be an object")
+        if len(stage) != 1:
+            raise AggregateError(STAGE_ARITY_MSG, code=40323, code_name="Location40323")
         name = next(iter(stage))
         if name in _ATLAS_ONLY_STAGES:
             # Atlas-only stage — reject with the Atlas message at parse time

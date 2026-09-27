@@ -21,7 +21,7 @@ from reportlab.platypus.flowables import Flowable
 from reportlab.platypus.paraparser import ParaParser
 from reportlab.rl_settings import _FUZZ
 
-from xhtml2pdf.util import drawBoxBackground, drawBoxBorders, getSize
+from xhtml2pdf.util import drawBoxBackground, drawBoxBorders, getSize, roundedClip
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -183,6 +183,22 @@ _56 = 5.0 / 6
 _16 = 1.0 / 6
 
 
+def _maxLeadingExtent(line, leading):
+    """
+    The ascent and descent a line is given with autoLeading "max": the
+    leading split 5/6 above the baseline and 1/6 below, each part widened to
+    the font's own where that is taller.
+
+    One function for drawing (_putFragLine) and for measuring (wrap, split).
+    They used to measure max(ascent - descent, leading) instead, which is
+    less whenever the font's ascent wins above and its descent below -- a
+    TTF taller than 1.2em with a line-height over 1.2 -- so a paragraph was
+    drawn taller than it said it was, and the next block ran over its last
+    lines, by about a point per line.
+    """
+    return max(_56 * leading, line.ascent), max(_16 * leading, -line.descent)
+
+
 def _flush_text_object(tx, x0, cur_y):
     """
     Write what the text object holds so far to the canvas, and start it again.
@@ -217,8 +233,7 @@ def _putFragLine(cur_x, tx, line):
     dal = autoLeading in {"min", "max"}
     if dal:
         if autoLeading == "max":
-            ascent = max(_56 * leading, line.ascent)
-            descent = max(_16 * leading, -line.descent)
+            ascent, descent = _maxLeadingExtent(line, leading)
         else:
             ascent = line.ascent
             descent = -line.descent
@@ -283,12 +298,18 @@ def _putFragLine(cur_x, tx, line):
                 )
                 cur_x_s = cur_x + nSpaces * ws
                 drawing = cbDefn.image.getDrawing(w, h)
-                if drawing:
-                    renderPDF.draw(drawing, tx._canvas, cur_x_s, cur_y + iy0)
-                else:
-                    tx._canvas.drawImage(
-                        cbDefn.image.getImage(), cur_x_s, cur_y + iy0, w, h, mask="auto"
-                    )
+                with roundedClip(tx._canvas, cbDefn.image, cur_x_s, cur_y + iy0, w, h):
+                    if drawing:
+                        renderPDF.draw(drawing, tx._canvas, cur_x_s, cur_y + iy0)
+                    else:
+                        tx._canvas.drawImage(
+                            cbDefn.image.getImage(),
+                            cur_x_s,
+                            cur_y + iy0,
+                            w,
+                            h,
+                            mask="auto",
+                        )
                 cur_x += w
                 cur_x_s += w
                 setXPos(tx, cur_x_s - tx._x0)
@@ -918,7 +939,14 @@ def _do_post_text(tx):
     # ascent and descent. CSS 2.1 10.8: they do not change the line's
     # height, so a tall padding overlaps the neighbouring lines, as in a
     # browser. A box cut by a line break has no edge at the cut.
-    for x1, x2, box_style, first, last in getattr(xs, "inlineBoxSpans", ()):
+    #
+    # A span is recorded when its box closes, so a nested box comes before
+    # the one around it; painted in that order the outer background covered
+    # the inner box. CSS paints them from the outside in: wider first, and
+    # of two alike the one recorded later, which encloses the other.
+    spans = list(getattr(xs, "inlineBoxSpans", ()))
+    order = sorted(range(len(spans)), key=lambda i: (spans[i][0] - spans[i][1], -i))
+    for x1, x2, box_style, first, last in (spans[i] for i in order):
         top = y0 + xs.lineAscent + box_style.paddingTop + box_style.border("Top")
         bottom = (
             y0 + xs.lineDescent - box_style.paddingBottom - box_style.border("Bottom")
@@ -929,7 +957,9 @@ def _do_post_text(tx):
         if last:
             sides.append("Right")
         if box_style.backColor or box_style.backgroundImage:
-            drawBoxBackground(tx._canvas, x1, bottom, x2 - x1, top - bottom, box_style)
+            drawBoxBackground(
+                tx._canvas, x1, bottom, x2 - x1, top - bottom, box_style, sides=sides
+            )
         if any(box_style.border(side) for side in sides):
             drawBoxBorders(
                 tx._canvas, x1, bottom, x2 - x1, top - bottom, box_style, sides=sides
@@ -1277,7 +1307,7 @@ class Paragraph(Flowable):
             height = 0
             if autoLeading == "max":
                 for line in blPara.lines:
-                    height += max(line.ascent - line.descent, leading)
+                    height += sum(_maxLeadingExtent(line, leading))
             elif autoLeading == "min":
                 for line in blPara.lines:
                     height += line.ascent - line.descent
@@ -1339,7 +1369,7 @@ class Paragraph(Flowable):
             s = height = 0
             if autoLeading == "max":
                 for i, line in enumerate(blPara.lines):
-                    h = max(line.ascent - line.descent, leading)
+                    h = sum(_maxLeadingExtent(line, leading))
                     n = height + h
                     if n > availHeight + 1e-8:
                         break

@@ -16,9 +16,11 @@ from ca9 import __version__
 from ca9.config import find_config, load_config
 from ca9.coverage_provider import resolve_coverage
 from ca9.engine import analyze
+from ca9.models import Report
 from ca9.parsers import detect_parser
 from ca9.policy import apply_policy
 from ca9.report import write_html, write_json, write_markdown, write_sarif, write_table
+from ca9.review.cli import review_cmd
 from ca9.vex import write_openvex
 
 
@@ -650,7 +652,12 @@ def run_cmd(
             ) as gateway:
                 completed = subprocess.run(
                     list(gateway_child_command(preflight.command)),
-                    env=npm_gateway_child_env(child_env, gateway.registry_url),
+                    env=npm_gateway_child_env(
+                        child_env,
+                        gateway.registry_url,
+                        user_config_path=gateway.user_config_path,
+                        global_config_path=gateway.global_config_path,
+                    ),
                 )
                 gateway_events = _gateway_ledger_events(gateway.to_dict(), session_id=session_id)
         elif should_start_pypi_gateway(preflight.command.family, package_policy, preflight.feed):
@@ -664,7 +671,12 @@ def run_cmd(
                 policy=package_policy,
             ) as gateway:
                 completed = subprocess.run(
-                    list(gateway_child_command(preflight.command)),
+                    list(
+                        gateway_child_command(
+                            preflight.command,
+                            registry_url=gateway.index_url,
+                        )
+                    ),
                     env=pypi_gateway_child_env(child_env, gateway.index_url),
                 )
                 gateway_events = _gateway_ledger_events(gateway.to_dict(), session_id=session_id)
@@ -716,10 +728,12 @@ def _gateway_ledger_events(gateway_payload: dict[str, Any], *, session_id: str):
     from ca9.runtime.preflight import LedgerEvent
 
     events = [LedgerEvent("gateway_used", gateway_payload, session_id)]
-    for key in ("removed_versions", "removed_links"):
+    for key in ("removed_versions", "removed_links", "evaluation_failures"):
         for decision in gateway_payload.get(key) or []:
             payload = {"action": "block", **decision}
             events.append(LedgerEvent("decision_emitted", payload, session_id))
+    for decision in gateway_payload.get("applied_exceptions") or []:
+        events.append(LedgerEvent("decision_emitted", decision, session_id))
     return events
 
 
@@ -776,6 +790,104 @@ def inventory_cmd(
         output_path.write_text(text)
     else:
         click.echo(text)
+
+
+@main.command(name="protect")
+@click.argument(
+    "path",
+    required=False,
+    type=click.Path(exists=True, file_okay=False, path_type=Path),
+)
+@click.option(
+    "-r",
+    "--repo",
+    "repo_path",
+    type=click.Path(exists=True, file_okay=False, path_type=Path),
+    default=".",
+    help="Path to the project repository.",
+)
+@click.option(
+    "-f",
+    "--format",
+    "output_format",
+    type=click.Choice(["table", "json", "markdown", "sarif"]),
+    default="table",
+    help="Output format.",
+)
+@click.option(
+    "-o",
+    "--output",
+    "output_path",
+    type=click.Path(path_type=Path),
+    default=None,
+    help="Write output to file instead of stdout.",
+)
+@click.option(
+    "--policy",
+    "policy_path",
+    type=click.Path(exists=True, path_type=Path),
+    default=None,
+    help="Path to ca9 package policy TOML.",
+)
+@click.option(
+    "--scan-workflows/--no-scan-workflows",
+    default=True,
+    show_default=True,
+    help="Scan local GitHub Actions workflows for risky trust boundaries.",
+)
+@click.pass_context
+def protect_cmd(
+    ctx: click.Context,
+    path: Path | None,
+    repo_path: Path,
+    output_format: str,
+    output_path: Path | None,
+    policy_path: Path | None,
+    scan_workflows: bool,
+) -> None:
+    """Report whether this repository's dependency installs are protected."""
+    from ca9.package_feed import FeedError
+    from ca9.package_policy import load_effective_package_policy, validate_package_policy
+    from ca9.protect import (
+        build_protect_report,
+        protect_report_to_json,
+        protect_report_to_markdown,
+        protect_report_to_sarif,
+        protect_report_to_table,
+    )
+
+    if path is None:
+        repo_path = _resolve_option(ctx, "repo_path", repo_path)
+    else:
+        repo_path = path
+
+    try:
+        package_policy = (
+            validate_package_policy(policy_path)
+            if policy_path is not None
+            else load_effective_package_policy(cwd=repo_path)
+        )
+        report = build_protect_report(
+            repo_path,
+            package_policy,
+            scan_workflows=scan_workflows,
+        )
+    except (FeedError, ValueError) as exc:
+        raise click.ClickException(str(exc)) from None
+
+    renderers = {
+        "json": protect_report_to_json,
+        "markdown": protect_report_to_markdown,
+        "sarif": protect_report_to_sarif,
+        "table": protect_report_to_table,
+    }
+    text = renderers[output_format](report)
+    if output_path:
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text(text)
+    else:
+        click.echo(text)
+    sys.exit(report.exit_code)
 
 
 @main.command(name="vet")
@@ -836,6 +948,12 @@ def inventory_cmd(
     help="Query OSV for known malicious package advisories.",
 )
 @click.option(
+    "--scan-publisher-changes",
+    is_flag=True,
+    default=False,
+    help="Query public npm metadata for recent publisher changes after release dormancy.",
+)
+@click.option(
     "--scan-artifacts",
     is_flag=True,
     default=False,
@@ -876,7 +994,7 @@ def inventory_cmd(
     "--offline",
     is_flag=True,
     default=False,
-    help="Use only cached OSV data for --malware-query.",
+    help="Use cached OSV data for --malware-query; cannot scan publisher changes.",
 )
 @click.option(
     "--refresh-cache",
@@ -902,6 +1020,7 @@ def vet_cmd(
     private_indexes: tuple[str, ...],
     internal_package_patterns: tuple[str, ...],
     malware_query: bool,
+    scan_publisher_changes: bool,
     scan_artifacts: bool,
     scan_workflows: bool,
     allow_unhashed_downloads: bool,
@@ -938,6 +1057,18 @@ def vet_cmd(
         raise click.ClickException(str(exc)) from None
 
     inventory = build_inventory(repo_path)
+    if offline and scan_publisher_changes:
+        raise click.ClickException(
+            "--scan-publisher-changes requires npm registry access; remove --offline"
+        )
+
+    publisher_findings = []
+    publisher_warnings = []
+    if scan_publisher_changes:
+        from ca9.npm_publisher import scan_npm_publisher_changes
+
+        publisher_findings, publisher_warnings = scan_npm_publisher_changes(inventory.packages)
+
     policy_findings = []
     feed_warnings = []
     if package_policy.package_age.enabled:
@@ -995,7 +1126,7 @@ def vet_cmd(
                 raise click.ClickException(str(e)) from None
 
     artifact_findings = []
-    artifact_warnings = [*policy_warnings, *feed_warnings]
+    artifact_warnings = [*policy_warnings, *feed_warnings, *publisher_warnings]
     artifact_scans = 0
     skipped_artifacts = 0
     workflow_findings = []
@@ -1020,7 +1151,12 @@ def vet_cmd(
             require_known_license=require_known_license,
         )
         artifact_findings.extend(analyze_license_policy(artifact_result.snapshots, license_policy))
-        artifact_warnings = [*policy_warnings, *feed_warnings, *artifact_result.warnings]
+        artifact_warnings = [
+            *policy_warnings,
+            *feed_warnings,
+            *publisher_warnings,
+            *artifact_result.warnings,
+        ]
         artifact_scans = artifact_result.scanned_artifacts
         skipped_artifacts = artifact_result.skipped_artifacts
 
@@ -1039,12 +1175,18 @@ def vet_cmd(
         block_untrusted_direct=package_policy.registries.custom_requires_approval
         if package_policy
         else True,
+        exceptions=package_policy.exceptions if package_policy else (),
     )
     report = build_supply_chain_report(
         inventory,
         policy=policy,
         malware_advisories=malware_advisories,
-        extra_findings=[*policy_findings, *artifact_findings, *workflow_findings],
+        extra_findings=[
+            *policy_findings,
+            *publisher_findings,
+            *artifact_findings,
+            *workflow_findings,
+        ],
         extra_warnings=artifact_warnings,
         artifact_scans=artifact_scans,
         skipped_artifacts=skipped_artifacts,
@@ -1054,6 +1196,144 @@ def vet_cmd(
         text = supply_chain_report_to_json(report)
     else:
         text = supply_chain_report_to_table(report)
+
+    if output_path:
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text(text)
+    else:
+        click.echo(text)
+
+    sys.exit(report.exit_code)
+
+
+@main.group(name="scripts")
+def scripts_group() -> None:
+    """Audit dependency install scripts."""
+
+
+@scripts_group.command(name="audit")
+@click.argument(
+    "path",
+    required=False,
+    type=click.Path(exists=True, file_okay=False, path_type=Path),
+    metavar="[DIRECTORY]",
+)
+@click.option(
+    "-r",
+    "--repo",
+    "repo_path",
+    type=click.Path(exists=True, file_okay=False, path_type=Path),
+    default=".",
+    help="Path to the project repository.",
+)
+@click.option(
+    "-f",
+    "--format",
+    "output_format",
+    type=click.Choice(["table", "json"]),
+    default="table",
+    help="Output format.",
+)
+@click.option(
+    "--emit",
+    "emit",
+    type=click.Choice(["report", "commands"]),
+    default="report",
+    help="Emit the audit report or npm approve-scripts/deny-scripts command lines.",
+)
+@click.option(
+    "-o",
+    "--output",
+    "output_path",
+    type=click.Path(path_type=Path),
+    default=None,
+    help="Write output to file instead of stdout.",
+)
+@click.option(
+    "--policy",
+    "policy_path",
+    type=click.Path(exists=True, path_type=Path),
+    default=None,
+    help="Path to ca9 package, registry, and malware policy TOML.",
+)
+@click.option(
+    "--allow-unhashed-downloads",
+    is_flag=True,
+    default=False,
+    help="Allow artifact downloads when the lockfile has no artifact hash.",
+)
+@click.option(
+    "--max-artifact-mb",
+    type=click.IntRange(min=1),
+    default=100,
+    show_default=True,
+    help="Maximum artifact download size for script resolution.",
+)
+@click.option(
+    "--offline",
+    is_flag=True,
+    default=False,
+    help="Do not download artifacts; unverified packages remain review findings.",
+)
+@click.pass_context
+def scripts_audit_cmd(
+    ctx: click.Context,
+    path: Path | None,
+    repo_path: Path,
+    output_format: str,
+    emit: str,
+    output_path: Path | None,
+    policy_path: Path | None,
+    allow_unhashed_downloads: bool,
+    max_artifact_mb: int,
+    offline: bool,
+) -> None:
+    """Audit dependency install scripts and classify npm allowlist candidates."""
+    from ca9.artifacts.fetch import ArtifactScanConfig
+    from ca9.package_policy import load_effective_package_policy, validate_package_policy
+    from ca9.scripts_audit import (
+        ScriptsAuditError,
+        build_scripts_audit_report,
+        scripts_audit_report_to_commands,
+        scripts_audit_report_to_json,
+        scripts_audit_report_to_table,
+    )
+
+    if path is None:
+        repo_path = _resolve_option(ctx, "repo_path", repo_path)
+    else:
+        repo_path = path
+
+    if emit == "commands" and output_format != "table":
+        raise click.UsageError("--emit commands cannot be combined with --format json")
+
+    try:
+        if policy_path is not None:
+            package_policy = validate_package_policy(policy_path)
+        else:
+            package_policy = load_effective_package_policy(cwd=repo_path)
+    except ValueError as exc:
+        raise click.ClickException(str(exc)) from None
+
+    try:
+        report = build_scripts_audit_report(
+            repo_path,
+            package_policy=package_policy,
+            artifact_config=ArtifactScanConfig(
+                allow_unhashed_downloads=allow_unhashed_downloads,
+                max_artifact_bytes=max_artifact_mb * 1024 * 1024,
+            ),
+            fetch_artifacts=not offline,
+        )
+    except ScriptsAuditError as exc:
+        raise click.ClickException(str(exc)) from None
+
+    if emit == "commands":
+        text = scripts_audit_report_to_commands(report)
+    elif output_format == "json":
+        text = scripts_audit_report_to_json(report)
+    else:
+        text = scripts_audit_report_to_table(report)
 
     if output_path:
         output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -1289,7 +1569,28 @@ def check(
     vulnerabilities = parser.parse(data)
 
     if not vulnerabilities:
-        click.echo("No vulnerabilities found in the report.")
+        if output_format == "table":
+            message = "No vulnerabilities found in the report.\n"
+            if output_path:
+                output_path.parent.mkdir(parents=True, exist_ok=True)
+                output_path.write_text(message)
+            else:
+                click.echo(message, nl=False)
+        else:
+            empty_report = Report(
+                results=[],
+                repo_path=str(repo_path),
+                coverage_path=str(coverage_path) if coverage_path else None,
+                proof_standard=proof_standard,
+            )
+            _output_report(
+                empty_report,
+                output_format,
+                output_path,
+                verbose=verbose,
+                show_confidence=show_confidence,
+                show_evidence_source=show_evidence_source,
+            )
         return
 
     report = analyze(
@@ -2126,6 +2427,9 @@ def enrich_sbom_cmd(
         click.echo(f"Enriched SBOM written to {output_path}", err=True)
     else:
         click.echo(text)
+
+
+main.add_command(review_cmd)
 
 
 if __name__ == "__main__":

@@ -33,6 +33,7 @@ The original provider payload is ALWAYS preserved in ``raw``.
 
 from __future__ import annotations
 
+import re
 from typing import Any, Literal
 
 from matrx_utils import vcprint
@@ -333,6 +334,112 @@ def normalize_google_grounding(
                     raw={"support": _to_plain(support), "chunk": chunk_raw},
                 )
             )
+    return citations
+
+
+# ---------------------------------------------------------------------------
+# Google Interactions API (Deep Research agents) — TextContent annotations
+# ---------------------------------------------------------------------------
+
+
+def normalize_google_interaction_annotations(
+    annotations: list[Any] | None, *, offset: int = 0
+) -> list[NormalizedCitation]:
+    """Normalize the ``annotations`` of ONE Interactions ``text`` content.
+
+    ``url_citation`` / ``file_citation`` carry ``start_index`` / ``end_index``
+    into THAT text part. A research report arrives as several text parts that
+    the adapter concatenates, so ``offset`` (the part's position in the joined
+    answer) is added to make the offsets answer offsets. Speech/word/place
+    annotations are not citations and are skipped; an unknown type is kept
+    best-effort and announced.
+    """
+    citations: list[NormalizedCitation] = []
+    for index, annotation in enumerate(annotations or []):
+        raw = _to_plain(annotation)
+        if not isinstance(raw, dict):
+            continue
+        atype = raw.get("type") or ""
+        if atype in ("speech_metadata", "word_info", "place_citation"):
+            continue
+        if atype == "url_citation":
+            kind: CitationKind = "web"
+            title = raw.get("title")
+            url = raw.get("url")
+        elif atype == "file_citation":
+            kind = "document_page" if raw.get("page_number") else "document_char"
+            title = raw.get("file_name") or raw.get("source")
+            url = raw.get("document_uri")
+        else:
+            kind = "web" if raw.get("url") else "document_char"
+            title = raw.get("title")
+            url = raw.get("url")
+            _loud_unknown("google", raw, kind)
+        start = raw.get("start_index")
+        end = raw.get("end_index")
+        citations.append(
+            NormalizedCitation(
+                kind=kind,
+                provider="google",
+                cited_text=None,
+                title=title,
+                url=url,
+                source_index=index,
+                page=raw.get("page_number") if kind == "document_page" else None,
+                answer_start=start + offset if isinstance(start, int) else None,
+                answer_end=end + offset if isinstance(end, int) else None,
+                raw=raw,
+            )
+        )
+    return citations
+
+
+# ---------------------------------------------------------------------------
+# Inline markdown links written by the model itself
+# ---------------------------------------------------------------------------
+
+#: ``[label](https://…)`` — a model-written source link.
+_MARKDOWN_LINK = re.compile(r"\[([^\[\]\n]{1,300})\]\((https?://[^\s()]+(?:\([^\s()]*\)[^\s()]*)*)\)")
+#: A code span whose whole body is one markdown link, optionally in parentheses:
+#: `` `([NEJM](https://…))` `` — never code, always a citation a model fenced by
+#: copying a backticked example. Unfenced so it renders as a link.
+_CODE_SPAN_LINK = re.compile(r"`(\(?\[[^\[\]\n`]{1,300}\]\(https?://[^\s`]+\)\)?)`")
+
+
+def unfence_code_span_links(text: str) -> str:
+    """Remove backticks around a code span that holds nothing but a markdown link."""
+    return _CODE_SPAN_LINK.sub(lambda m: m.group(1), text or "")
+
+
+def normalize_markdown_link_citations(
+    text: str, *, provider: CitationProvider
+) -> list[NormalizedCitation]:
+    """Structured citations for the source links a model wrote INTO its answer.
+
+    Used when the provider returned no citation annotations for the text (Google
+    Deep Research writes its sources as inline markdown links when its brief asks
+    for them, and then annotates nothing — seen live 2026-09-26, interaction with
+    0 annotations and 20+ inline links). Each link occurrence becomes one ``web``
+    citation whose ``answer_start``/``answer_end`` cover the link in ``text``;
+    ``source_index`` numbers distinct URLs in first-seen order.
+    """
+    citations: list[NormalizedCitation] = []
+    index_of: dict[str, int] = {}
+    for match in _MARKDOWN_LINK.finditer(text or ""):
+        label, url = match.group(1).strip(), match.group(2)
+        source_index = index_of.setdefault(url, len(index_of))
+        citations.append(
+            NormalizedCitation(
+                kind="web",
+                provider=provider,
+                title=label or None,
+                url=url,
+                source_index=source_index,
+                answer_start=match.start(),
+                answer_end=match.end(),
+                raw={"type": "markdown_link"},
+            )
+        )
     return citations
 
 
@@ -811,6 +918,67 @@ CITABLE_SEARCH_TOOLS = frozenset({"document_search", "knowledge_search"})
 # in the metadata block so the model knows recall was bounded.
 MAX_CITABLE_TEXT_CHARS = 24_000
 
+# The metadata block that rides beside the passages (the hits minus their
+# snippets, plus whatever the tool reports) is bounded too. Passages (24K) +
+# metadata (16K) + envelope stay under the tool-result soft cap (50K). Without
+# this, knowledge_search limit=50 shipped ~100K of per-hit metadata on
+# 2026-09-01 — and because the result is a typed block list, the size gate never
+# measured it.
+MAX_SEARCH_METADATA_CHARS = 16_000
+
+# Heavy per-entry fields dropped first (lowest-ranked entries first), before any
+# entry itself is dropped. Identity fields (chunk_id/source_id/page_numbers/...)
+# always stay.
+_METADATA_HEAVY_FIELDS = ("metadata", "entities", "entity_map")
+
+
+def cap_search_metadata(meta: dict[str, Any], *, max_chars: int = MAX_SEARCH_METADATA_CHARS) -> dict[str, Any]:
+    """Bound a citable search result's metadata payload IN PLACE and return it.
+
+    Order: strip heavy fields from the lowest-ranked entries up; then drop whole
+    lowest-ranked entries. Every cut is announced in ``meta['metadata_trimmed']``
+    with the remedy, so nothing disappears silently. Lists considered: ``hits``,
+    ``matches``, ``by_page``; plus a top-level ``entity_map``.
+    """
+    import json as _json
+
+    def size() -> int:
+        return len(_json.dumps(meta, ensure_ascii=False, default=str))
+
+    if size() <= max_chars:
+        return meta
+    stripped = 0
+    dropped = 0
+    if meta.get("entity_map"):
+        meta["entity_map"] = []
+        stripped += 1
+    lists = [meta[k] for k in ("hits", "matches", "by_page") if isinstance(meta.get(k), list)]
+    for entries in lists:
+        for entry in reversed(entries):
+            if size() <= max_chars:
+                break
+            if isinstance(entry, dict):
+                for field in _METADATA_HEAVY_FIELDS:
+                    if entry.pop(field, None) is not None:
+                        stripped += 1
+    for entries in lists:
+        while entries and size() > max_chars:
+            entries.pop()
+            dropped += 1
+    meta["metadata_trimmed"] = {
+        "max_chars": max_chars,
+        "heavy_fields_removed": stripped,
+        "entries_dropped": dropped,
+        "note": (
+            f"This metadata was cut to {max_chars:,} chars: per-hit metadata/entities "
+            f"removed from the lowest-ranked entries first ({stripped} removed)"
+            + (f", then {dropped} lowest-ranked entr(ies) dropped" if dropped else "")
+            + ". The passages above are complete. For full metadata, repeat the search "
+            "with a smaller limit or narrower filters."
+        ),
+    }
+    return meta
+
 
 def _metadata_wire_block(payload: dict[str, Any]) -> dict[str, Any]:
     import json as _json
@@ -969,7 +1137,7 @@ def citable_wire_blocks_from_output(
             "attach automatically). This JSON is the match metadata; snippets were "
             "moved into the passage blocks."
         )
-        kept.append(_metadata_wire_block(meta))
+        kept.append(_metadata_wire_block(cap_search_metadata(meta)))
         return kept
     except Exception as exc:  # pragma: no cover — rebuild is best-effort
         vcprint(

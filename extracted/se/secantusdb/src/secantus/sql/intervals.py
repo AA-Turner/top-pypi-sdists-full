@@ -14,6 +14,7 @@ Out of scope: DST-aware day arithmetic (days are treated as 24h), the ``@`` /
 from __future__ import annotations
 
 import calendar
+import contextlib
 import datetime as _dt
 import re
 from typing import Any
@@ -75,6 +76,20 @@ def make(months: int = 0, days: int = 0, micros: int = 0) -> dict:
 
 
 def _fields(subdoc: Any) -> tuple[int, int, int]:
+    # A `time` coerces to an interval of that length, as Postgres does —
+    # `justify_hours(time '10:20:30')` is legal there and was `42883` here.
+    # A time VALUE rides this engine as ISO TEXT, so both forms are accepted; a
+    # string that is not a time falls through and raises exactly as before.
+    if isinstance(subdoc, str):
+        # `datetimes.parse_time` normalises but returns TEXT, so parse the ISO
+        # form here rather than assuming it hands back a `time`.
+        with contextlib.suppress(ValueError):  # not a time: fall through
+            subdoc = _dt.time.fromisoformat(subdoc)
+    if isinstance(subdoc, _dt.time):
+        micros = (
+            subdoc.hour * 3600 + subdoc.minute * 60 + subdoc.second
+        ) * 1_000_000 + subdoc.microsecond
+        return 0, 0, micros
     iv = subdoc["interval"] if isinstance(subdoc, dict) and "interval" in subdoc else subdoc
     return int(iv.get("months", 0)), int(iv.get("days", 0)), int(iv.get("micros", 0))
 
@@ -136,6 +151,11 @@ def _parse_time(token: str) -> int | None:
     return sign * total
 
 
+#: The ISO year-month interval field, e.g. `1-2` (one year two months). A
+#: leading `-` negates both halves.
+_YEAR_MONTH_RE = re.compile(r"([+-]?)(\d+)-(\d+)")
+
+
 def parse(text: str) -> dict:
     """Parse an interval literal — the Postgres output form (``1 year 2 mons 3 days
     04:05:06``), a verbose form (``1 year 2 months``), a bare unit term (``90
@@ -152,6 +172,15 @@ def parse(text: str) -> dict:
     i = 0
     while i < len(tokens):
         tok = tokens[i]
+        ym = _YEAR_MONTH_RE.fullmatch(tok)
+        if ym is not None:
+            # The ISO year-month form: `1-2` is 1 year 2 months, `-1-2` negates
+            # BOTH fields. Only valid as a leading token, which is where PG puts
+            # it (`1-2 3 4:05:06`). Unparsed, it reached the wire as XX000.
+            sign = -1 if ym.group(1) == "-" else 1
+            months += sign * (int(ym.group(2)) * 12 + int(ym.group(3)))
+            i += 1
+            continue
         clock = _parse_time(tok)
         if clock is not None:
             micros += clock
@@ -176,6 +205,13 @@ def parse(text: str) -> dict:
             # A bare trailing number is seconds (``'0'`` / ``'30'``), matching
             # Postgres' lenient interval input.
             micros += round(value * MICROS_PER_SECOND)
+            i += 1
+            continue
+        if _parse_time(tokens[i + 1]) is not None or _YEAR_MONTH_RE.fullmatch(tokens[i + 1]):
+            # A bare number followed by a CLOCK is the ISO form's days field:
+            # `1-2 3 4:05:06` is 1 year 2 months, 3 DAYS, 4:05:06. Reading the
+            # clock as this number's unit raised "unsupported interval unit".
+            days += int(value)
             i += 1
             continue
         part = from_unit(value, tokens[i + 1])
@@ -352,10 +388,13 @@ def age(end: Any, start: Any) -> dict:
         micros += MICROS_PER_DAY
         days -= 1
     if days < 0:
-        # Borrow the length of the month preceding `end`.
-        prev_month = e.month - 1 or 12
-        prev_year = e.year if e.month > 1 else e.year - 1
-        days += calendar.monthrange(prev_year, prev_month)[1]
+        # Borrow the length of the START date's month, which is what Postgres
+        # does — measured across eight cases on 14.13, including the ones that
+        # discriminate it: `age('2020-04-01','2020-01-15')` is `2 mons 17 days`
+        # (January's 31, not April's 30) while `age('2020-03-01','2020-02-28')`
+        # is `2 days` (February's 29, not a flat 31). Borrowing the month
+        # BEFORE `end` gave 15 where PG gives 17.
+        days += calendar.monthrange(s.year, s.month)[1]
         months -= 1
     if months < 0:
         months += 12

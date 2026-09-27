@@ -37,6 +37,7 @@ import pytest
 import requests
 
 from apprise import Apprise, AppriseAttachment, NotifyType
+from apprise.exception import AppriseImproperlyConfigured
 from apprise.plugins.sparkpost import NotifySparkPost
 
 logging.disable(logging.CRITICAL)
@@ -49,34 +50,34 @@ apprise_url_tests = (
     (
         "sparkpost://",
         {
-            "instance": TypeError,
+            "instance": AppriseImproperlyConfigured,
         },
     ),
     (
         "sparkpost://:@/",
         {
-            "instance": TypeError,
+            "instance": AppriseImproperlyConfigured,
         },
     ),
     # No Token specified
     (
         "sparkpost://user@localhost.localdomain",
         {
-            "instance": TypeError,
+            "instance": AppriseImproperlyConfigured,
         },
     ),
     # Token is valid, but no user name specified
     (
         "sparkpost://localhost.localdomain/{}".format("a" * 32),
         {
-            "instance": TypeError,
+            "instance": AppriseImproperlyConfigured,
         },
     ),
     # Invalid from email address
     (
         'sparkpost://"@localhost.localdomain/{}'.format("b" * 32),
         {
-            "instance": TypeError,
+            "instance": AppriseImproperlyConfigured,
         },
     ),
     # No To email address, but everything else is valid
@@ -218,7 +219,7 @@ apprise_url_tests = (
             "a" * 32
         ),
         {
-            "instance": TypeError,
+            "instance": AppriseImproperlyConfigured,
         },
     ),
     # One 'To' Email address
@@ -356,11 +357,11 @@ def test_plugin_sparkpost_throttling(mock_post):
     targets = f"{user}@{host}"
 
     # Exception should be thrown about the fact no user was specified
-    with pytest.raises(TypeError):
+    with pytest.raises(AppriseImproperlyConfigured):
         NotifySparkPost(apikey=apikey, targets=targets, host=host)
 
     # Exception should be thrown about the fact no private key was specified
-    with pytest.raises(TypeError):
+    with pytest.raises(AppriseImproperlyConfigured):
         NotifySparkPost(apikey=None, targets=targets, user=user, host=host)
 
     okay_response = requests.Request()
@@ -401,13 +402,13 @@ def test_plugin_sparkpost_throttling(mock_post):
 
     # We'll successfully perform the notification as we're within
     # our retry limit
-    assert obj.notify("test") is True
+    assert bool(obj.notify("test")) is True
 
     mock_post.reset_mock()
     mock_post.side_effect = (retry_response, retry_response, retry_response)
 
     # Now we are less than our expected limit check so we will fail
-    assert obj.notify("test") is False
+    assert bool(obj.notify("test")) is False
 
 
 @mock.patch("requests.post")
@@ -443,11 +444,13 @@ def test_plugin_sparkpost_attachments(mock_post):
     path = os.path.join(TEST_VAR_DIR, "apprise-test.gif")
     attach = AppriseAttachment(path)
     assert (
-        obj.notify(
-            body="body",
-            title="title",
-            notify_type=NotifyType.INFO,
-            attach=attach,
+        bool(
+            obj.notify(
+                body="body",
+                title="title",
+                notify_type=NotifyType.INFO,
+                attach=attach,
+            )
         )
         is True
     )
@@ -455,11 +458,13 @@ def test_plugin_sparkpost_attachments(mock_post):
     # Test invalid attachment
     path = os.path.join(TEST_VAR_DIR, "/invalid/path/to/an/invalid/file.jpg")
     assert (
-        obj.notify(
-            body="body",
-            title="title",
-            notify_type=NotifyType.INFO,
-            attach=path,
+        bool(
+            obj.notify(
+                body="body",
+                title="title",
+                notify_type=NotifyType.INFO,
+                attach=path,
+            )
         )
         is False
     )
@@ -467,11 +472,13 @@ def test_plugin_sparkpost_attachments(mock_post):
     with mock.patch("base64.b64encode", side_effect=OSError()):
         # We can't send the message if we fail to parse the data
         assert (
-            obj.notify(
-                body="body",
-                title="title",
-                notify_type=NotifyType.INFO,
-                attach=attach,
+            bool(
+                obj.notify(
+                    body="body",
+                    title="title",
+                    notify_type=NotifyType.INFO,
+                    attach=attach,
+                )
             )
             is False
         )
@@ -493,11 +500,13 @@ def test_plugin_sparkpost_attachments(mock_post):
     mock_post.reset_mock()
 
     assert (
-        obj.notify(
-            body="body",
-            title="title",
-            notify_type=NotifyType.INFO,
-            attach=attach,
+        bool(
+            obj.notify(
+                body="body",
+                title="title",
+                notify_type=NotifyType.INFO,
+                attach=attach,
+            )
         )
         is True
     )
@@ -509,11 +518,13 @@ def test_plugin_sparkpost_attachments(mock_post):
     obj.default_batch_size = 2
 
     assert (
-        obj.notify(
-            body="body",
-            title="title",
-            notify_type=NotifyType.INFO,
-            attach=attach,
+        bool(
+            obj.notify(
+                body="body",
+                title="title",
+                notify_type=NotifyType.INFO,
+                attach=attach,
+            )
         )
         is True
     )
@@ -545,3 +556,24 @@ def test_plugin_sparkpost_cc_bcc_invalid_branch():
     # Valid BCC entry was added; invalid one was silently dropped
     assert "bcc@example.com" in obj.bcc
     assert len(obj.bcc) == 1
+
+
+def test_plugin_sparkpost_cc_names():
+    """NotifySparkPost() url() keeps the display names of CC addresses."""
+    obj = Apprise.instantiate(
+        "sparkpost://user@localhost.localdomain/apikey/new@example.com"
+        "?cc=Chris<l2g@nuxref.com>,plain@example.com"
+    )
+    assert isinstance(obj, NotifySparkPost)
+    assert obj.names["l2g@nuxref.com"] == "Chris"
+    assert obj.names["plain@example.com"] is False
+
+    url = obj.url()
+    assert "Chris%3Al2g%40nuxref.com" in url
+
+    # The names survive a round trip through url()
+    obj2 = Apprise.instantiate(url)
+    assert isinstance(obj2, NotifySparkPost)
+    assert obj2.cc == obj.cc
+    assert obj2.names["l2g@nuxref.com"] == "Chris"
+    assert obj2.names["plain@example.com"] is False

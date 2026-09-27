@@ -69,6 +69,14 @@ from matrx_scraper.events import (
     PageSummary,
 )
 from matrx_scraper.screenshot_dimensions import resolve_screenshot_dimensions
+from matrx_scraper._ext import has_ext
+from matrx_scraper.source_landing import (
+    SOURCE_LANDING_EXT,
+    SourceLandingFailed,
+    SourceLandingNotConfigured,
+    crawl_snapshot_landing,
+    land_result,
+)
 from matrx_scraper.web_crawl.broker import CrawlEventBroker
 from matrx_scraper.web_crawl.candidates import DiscoveredCandidate, SiteIdentity
 from matrx_utils.web_page_class import (
@@ -1932,6 +1940,11 @@ class CanonicalBodyPersister:
             raise ValueError("canonical persistence requires a non-empty response body")
         if self.state.homepage_bootstrap and not request.screenshots:
             raise RuntimeError("homepage bootstrap did not produce a screenshot")
+        # SOURCE-CONVERGENCE §4.7: every crawled page lands as a Source through the injected door.
+        # An unwired door is the host's defect — refused BEFORE any artifact or row is written,
+        # never discovered after the snapshot committed.
+        if not has_ext(SOURCE_LANDING_EXT):
+            raise SourceLandingNotConfigured()
 
         revived_dismissals: list[RevivedDismissal] = []
         identity = await resolve_crawl_page_identity(
@@ -2110,7 +2123,72 @@ class CanonicalBodyPersister:
         except Exception:
             await self._purge_unreferenced(written)
             raise
+        # The snapshot and its files are committed; the page now lands as a Source. A refusal is
+        # announced on the session as a crawl warning — the capture itself stands.
+        await self._land_snapshot(request, result, normalized)
         return result
+
+    async def _land_snapshot(
+        self, request: PersistRequest, result: PersistResult, normalized: str
+    ) -> None:
+        """Land the committed snapshot through the door and point the snapshot at its Source.
+
+        ``web_page`` kind, ``crawl`` origin, ``internal``, unkept (see
+        :func:`matrx_scraper.source_landing.crawl_snapshot_landing`). The door's dedupe decides
+        reuse: a URL a member already captured ``internal``ly with the same text IS that Source."""
+        if not (request.markdown and result.page_id and result.snapshot_id):
+            return
+        summary = request.page_summary
+        landing = crawl_snapshot_landing(
+            markdown=request.markdown,
+            url=normalized,
+            title=summary.title if summary is not None else None,
+            page_id=result.page_id,
+            body_file_id=result.body_file_id,
+            body_mime_type=resolve_body_artifact_format(request.mime_type)[1],
+            organization_id=self.state.organization_id,
+            user_id=self.state.user_id,
+            captured_at=utcnow().isoformat(),
+            final_url=request.final_url or request.url,
+            engine=request.engine,
+            snapshot_id=result.snapshot_id,
+            session_id=self.state.session_id,
+            site_id=self.state.site_id,
+        )
+        if landing is None:
+            return
+        try:
+            landed = await land_result(landing)
+            await WebSnapshot.update_where(
+                {"id": result.snapshot_id},
+                processed_document_id=str(landed["processed_document_id"]),
+            )
+        except SourceLandingNotConfigured:
+            raise
+        except SourceLandingFailed as exc:
+            logger.warning("crawl page did not land as a Source: %s — %s", normalized, exc.message)
+            result.warnings.append(
+                {
+                    "message": f"Captured, but not saved as a Source: {exc.message}",
+                    "context": {"reason": "source_not_landed", "url": normalized, **exc.as_notice()},
+                }
+            )
+        except Exception as exc:  # noqa: BLE001 — announced on the session, never swallowed
+            logger.exception("crawl page landing failed for %s", normalized)
+            result.warnings.append(
+                {
+                    "message": (
+                        "Captured, but not saved as a Source "
+                        f"({type(exc).__name__}: {str(exc)[:200]})."
+                    ),
+                    "context": {
+                        "reason": "source_not_landed",
+                        "url": normalized,
+                        "code": "source_not_landed",
+                        "remedy": "crawl_the_page_again",
+                    },
+                }
+            )
 
     async def _load_previous_snapshot(self, digest: str) -> Any | None:
         """The page's CURRENT capture (``latest_snapshot_id``), if any.

@@ -3433,6 +3433,8 @@ function loadInstalledExtensionsFromCache(extensionsDir = getExtensionsDir()) {
         const enabled = config.properties?.[enabledKey];
         if (enabled && !getEnvBool(enabledKey, enabled.default !== false)) continue;
         if (hasSelection && !selectedPlugins.has(pluginName)) continue;
+        extData.load_on_demand =
+          config["x-chrome-extension-load"] === "on-demand";
       }
       if (!extData.unpacked_path || !fs.existsSync(extData.unpacked_path))
         continue;
@@ -3448,6 +3450,29 @@ function loadInstalledExtensionsFromCache(extensionsDir = getExtensionsDir()) {
     } catch (error) {}
   }
 
+  // Setup hooks may prepare a private copy of an installed extension without
+  // mutating the shared package cache. Only replace extensions selected above:
+  // a preparation file must never enable an otherwise disabled plugin.
+  for (const extension of installedExtensions) {
+    if (!/^[a-z0-9_]+$/.test(extension.name || "")) continue;
+    const preparedPath = path.join(
+      getCrawlDir(), "chrome", "extensions", `${extension.name}.extension.json`
+    );
+    if (!fs.existsSync(preparedPath)) continue;
+    const prepared = JSON.parse(fs.readFileSync(preparedPath, "utf-8"));
+    if (prepared.name !== extension.name || prepared.version !== extension.version ||
+        typeof prepared.unpacked_path !== "string" ||
+        !fs.existsSync(path.join(prepared.unpacked_path, "manifest.json"))) {
+      throw new Error(`Invalid prepared Chrome extension: ${extension.name}`);
+    }
+    const manifest = JSON.parse(fs.readFileSync(
+      path.join(prepared.unpacked_path, "manifest.json"), "utf-8"
+    ));
+    if (manifest.version !== extension.version) {
+      throw new Error(`Prepared Chrome extension version mismatch: ${extension.name}`);
+    }
+    extension.unpacked_path = prepared.unpacked_path;
+  }
   return { installedExtensions };
 }
 
@@ -3788,6 +3813,9 @@ async function ensureChromeSession(options = {}) {
   const { installedExtensions } = loadInstalledExtensionsFromCache(
     extensionsDir
   );
+  const eagerExtensions = installedExtensions.filter(
+    (extension) => !extension.load_on_demand
+  );
 
   const existingSession = await inspectChromeSessionArtifacts(outputDir, {
     processIsLocal,
@@ -3804,7 +3832,7 @@ async function ensureChromeSession(options = {}) {
     !existingSession.stale &&
     existingSession.state?.cdpUrl
   ) {
-    if (installedExtensions.length > 0 || cookiesFile) {
+    if (eagerExtensions.length > 0 || cookiesFile) {
       let browser = null;
       try {
         browser = await connectToBrowserEndpoint(
@@ -3812,8 +3840,8 @@ async function ensureChromeSession(options = {}) {
           existingSession.state.cdpUrl,
           { defaultViewport: null }
         );
-        if (installedExtensions.length > 0) {
-          await loadUnpackedExtensionsIntoBrowser(browser, installedExtensions, timeoutMs);
+        if (eagerExtensions.length > 0) {
+          await loadUnpackedExtensionsIntoBrowser(browser, eagerExtensions, timeoutMs);
         }
         if (cookiesFile) {
           await importCookiesFromFile(browser, cookiesFile, userDataDir);
@@ -3890,9 +3918,9 @@ async function ensureChromeSession(options = {}) {
     if (!resolvedBinary) {
       throw new Error("CHROME_BINARY was not resolved by abxpkg");
     }
-    if (installedExtensions.length > 0) {
+    if (eagerExtensions.length > 0) {
       console.error(
-        `[*] Loading ${installedExtensions.length} extension(s) after Chrome launch with CDP Extensions.loadUnpacked`
+        `[*] Loading ${eagerExtensions.length} extension(s) after Chrome launch with CDP Extensions.loadUnpacked`
       );
     }
 
@@ -3902,7 +3930,7 @@ async function ensureChromeSession(options = {}) {
       ...chromeLaunchOptions,
       CHROME_USER_DATA_DIR: userDataDir,
       enableExtensionDebugging: installedExtensions.length > 0,
-      extensionPaths: getExtensionPaths(installedExtensions),
+      extensionPaths: getExtensionPaths(eagerExtensions),
       timeoutMs,
       onSpawn,
     });
@@ -3973,14 +4001,14 @@ async function ensureChromeSession(options = {}) {
         createPageIfMissing: true,
       });
 
-      if (installedExtensions.length > 0) {
+      if (eagerExtensions.length > 0) {
         // Keep this existing browser connection after Extensions.loadUnpacked.
         // A fresh Puppeteer connect enumerates extension targets and can lose a
         // race against short-lived MV3/archiveweb.page targets that close after
         // Chrome reports them but before Target.attachToTarget runs.
         await loadUnpackedExtensionsIntoBrowser(
           browser,
-          installedExtensions,
+          eagerExtensions,
           timeoutMs
         );
       }
@@ -4125,8 +4153,67 @@ async function getCookiesViaCdp(port, options = {}) {
   );
 }
 
+async function waitForVisibleImages(page, timeoutMs) {
+  // A navigation marker (even `load`) does not include lazy images in nested
+  // frames. Wait for the pixels we are actually about to capture, not all
+  // network traffic: hidden alternatives, tracking images and offscreen lazy
+  // content must not prevent a screenshot. A completed broken image is also a
+  // settled browser state, whose normal error/fallback should remain visible.
+  const deadline = Date.now() + timeoutMs;
+  const remaining = () => {
+    const ms = deadline - Date.now();
+    if (ms <= 0) throw new Error("Timed out waiting for visible screenshot images");
+    return ms;
+  };
+  const visit = async (frame, waitForDocument) => {
+    await frame.waitForFunction(async (needsDocument) => {
+      if (needsDocument && location.href === "about:blank") return false;
+      if (document.readyState === "loading") return false;
+      const images = [...document.images].filter((img) => {
+        const rect = img.getBoundingClientRect();
+        // An image without explicit dimensions has a zero-size box until its
+        // intrinsic size arrives. Excluding that box would declare it ready
+        // precisely while it is still loading.
+        return rect.bottom >= 0 && rect.right >= 0
+          && rect.top < innerHeight && rect.left < innerWidth
+          && img.checkVisibility({checkOpacity: true, checkVisibilityCSS: true});
+      });
+      if (images.some((img) => !img.complete)) return false;
+      // The caller keeps this target paintable during capture. In a hidden
+      // target, decode() can remain pending despite valid natural dimensions.
+      await Promise.all(images.filter((img) => img.naturalWidth > 0).map((img) => img.decode()));
+      return true;
+    }, {timeout: remaining()}, waitForDocument);
+
+    // Inspect each child only after its parent document exists. This includes
+    // cross-origin frames via CDP without changing sandbox or loading policy.
+    const elements = await frame.$$("iframe, frame");
+    await Promise.all(elements.map(async (element) => {
+      try {
+        const state = await element.evaluate((el) => {
+          const rect = el.getBoundingClientRect();
+          return {
+            visible: rect.width > 0 && rect.height > 0 && rect.bottom > 0
+              && rect.right > 0 && rect.top < innerHeight && rect.left < innerWidth
+              && el.checkVisibility({checkOpacity: true, checkVisibilityCSS: true}),
+            waitForDocument: !el.hasAttribute("srcdoc") && Boolean(el.getAttribute("src"))
+              && el.src !== "about:blank",
+          };
+        });
+        if (!state.visible) return;
+        const child = await element.contentFrame();
+        if (child) await visit(child, state.waitForDocument);
+      } finally {
+        await element.dispose();
+      }
+    }));
+  };
+  await visit(page.mainFrame(), false);
+}
+
 // Export all functions
 module.exports = {
+  withTimeout,
   // Environment helpers
   getEnv,
   getEnvBool,
@@ -4194,6 +4281,7 @@ module.exports = {
   getTargetIdFromPage,
   connectToPage,
   waitForNavigationComplete,
+  waitForVisibleImages,
   setBrowserDownloadBehavior,
   waitForBrowserDownload,
   getCookiesViaCdp,

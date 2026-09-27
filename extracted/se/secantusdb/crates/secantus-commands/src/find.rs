@@ -26,6 +26,7 @@ use std::sync::Arc;
 
 use bson::{doc, Bson, Document};
 
+use crate::argtypes;
 use crate::cursors::{CursorProducer, CursorRegistry, TailableOptions};
 use crate::storage::Storage;
 use crate::util::{
@@ -234,6 +235,56 @@ fn build_view_find_aggregate(doc: &Document, coll: &str) -> Document {
 
 pub fn find(doc: &Document, ctx: &mut CommandContext) -> HandlerResult {
     let coll = coll_arg(doc, "find")?;
+    // Argument types, before anything reads them. A wrong-typed slot used to be
+    // silently ignored here (`and_then(as_i64)` yields None -> the default), so
+    // `find.limit: "x"` returned every document and reported success. mongod
+    // reports find's numeric slots under its IDL name, `FindCommandRequest.limit`,
+    // NOT `find.limit` -- probed, not guessed. See `crate::argtypes`.
+    for field in ["filter", "sort", "projection", "collation"] {
+        argtypes::require_object_expected(doc, field)?;
+    }
+    for field in ["limit", "skip", "batchSize"] {
+        argtypes::require_number(doc, field, &format!("FindCommandRequest.{field}"))?;
+    }
+    argtypes::require_object(doc, "let", "FindCommandRequest.let")?;
+    // `min` / `max` are the Expected-field family, which REJECTS an explicit
+    // null -- not the BSON-field family, which accepts it. Probed.
+    argtypes::require_object_expected(doc, "min")?;
+    argtypes::require_object_expected(doc, "max")?;
+    argtypes::require_bool_value(doc, "singleBatch")?;
+    // The `Field '<name>' should be a boolean value` family, which — unlike the
+    // BSON-field family two lines up — REJECTS an explicit null. Five more slots
+    // share `singleBatch`'s rule; before this they were accepted and ignored, so
+    // `tailable: "x"` silently returned a non-tailable cursor.
+    for field in [
+        "tailable",
+        "awaitData",
+        "returnKey",
+        "showRecordId",
+        "allowDiskUse",
+    ] {
+        argtypes::require_bool_value(doc, field)?;
+    }
+    argtypes::require_object(doc, "readConcern", "FindCommandRequest.readConcern")?;
+    argtypes::require_hint(doc, "hint")?;
+    // An undefined `$$variable` is a PARSE error (17276), not the storage
+    // layer's generic "unsupported construct" BadValue.
+    {
+        let bound: Vec<String> = match doc.get("let") {
+            Some(Bson::Document(d)) => d.keys().cloned().collect(),
+            _ => Vec::new(),
+        };
+        if let Some(Bson::Document(f)) = doc.get("filter") {
+            if let Some((code, msg)) = argtypes::expression_problem_in_filter(f, &bound) {
+                return Err(CommandError::new(
+                    code,
+                    crate::util::error_code_name(code),
+                    msg,
+                ));
+            }
+        }
+    }
+
     // A view: translate the find into the equivalent aggregate over the base
     // collection (the find options become pipeline stages after the view's own
     // pipeline) and delegate — the aggregate handler resolves the view. `find` and
@@ -295,19 +346,27 @@ pub fn find(doc: &Document, ctx: &mut CommandContext) -> HandlerResult {
         if let Some(err) = projection_meta_error(spec, &filter) {
             return Ok(err.into_reply());
         }
-        // Positional (`arr.$`) validation is parse-time in mongod, so an invalid
-        // one errors even when nothing matches. The Rust engine can't reproduce
-        // the exact Location code (31276 / 31395 / 51246) — a generic BadValue,
-        // same as its other deferred error paths.
+        // Projection validation is parse-time in mongod, so an invalid spec
+        // errors even when nothing matches.
+        //
+        // A NAMED error is passed through: the path-collision check answers
+        // mongod's own 31249 / 31250, and rewriting it to a generic BadValue
+        // threw that away. Only a `Defer` -- the positional cases whose exact
+        // Location code (31276 / 31395 / 51246) this engine cannot reproduce --
+        // still falls back to the generic message.
         let q = if filter.is_empty() {
             None
         } else {
             Some(&filter)
         };
-        if secantus_core::projection::validate_projection(spec, q).is_err() {
-            return Ok(
-                CommandError::new(2, "BadValue", "invalid positional projection").into_reply(),
-            );
+        if let Err(err) = secantus_core::projection::validate_projection(spec, q) {
+            let reply = match err {
+                secantus_core::fallback::Fallback::Mongo { code, message, .. } => {
+                    CommandError::new(code, crate::util::error_code_name(code), message)
+                }
+                _ => CommandError::new(2, "BadValue", "invalid positional projection"),
+            };
+            return Ok(reply.into_reply());
         }
     }
     let hint = doc.get("hint");
@@ -319,6 +378,9 @@ pub fn find(doc: &Document, ctx: &mut CommandContext) -> HandlerResult {
     // string) is a TypeMismatch — mongod rejects it, and the mongo-c-driver
     // find/batchSize test sends `{batchSize: 'foo'}` expecting a server error.
     let batch_size = match doc.get("batchSize") {
+        // An explicit null is ACCEPTED and means "absent" (probed): `as_i64`
+        // returns None for it, which used to fall into the type error below.
+        Some(Bson::Null) | None => DEFAULT_BATCH_SIZE as i64,
         Some(b) => match as_i64(b) {
             Some(n) => n,
             None => {
@@ -329,7 +391,6 @@ pub fn find(doc: &Document, ctx: &mut CommandContext) -> HandlerResult {
                 ))
             }
         },
-        None => DEFAULT_BATCH_SIZE as i64,
     };
     let single_batch = bool_field(doc, "singleBatch", false);
     let tailable = bool_field(doc, "tailable", false);
@@ -361,7 +422,9 @@ pub fn find(doc: &Document, ctx: &mut CommandContext) -> HandlerResult {
             collation.as_ref(),
             &let_vars,
         )
-        .map_err(command_error)?;
+        .map_err(|e| {
+            crate::util::read_exec_error(e, "find", &format!("{}.{}", ctx.db_name, coll))
+        })?;
 
     // Validate the filter even when nothing matched: against a non-empty
     // collection the storage scan evaluates the filter per doc and an
@@ -520,7 +583,7 @@ pub fn find(doc: &Document, ctx: &mut CommandContext) -> HandlerResult {
             let (first_batch, cursor_id): (Vec<Bson>, i64) = if single_batch {
                 (projected.into_iter().map(Bson::Document).collect(), 0)
             } else {
-                split_docs_into_cursor(projected, batch_size, &ns, cursors)?
+                split_docs_into_cursor(projected, batch_size, &ns, cursors, limit > 0)?
             };
             Ok(doc! {
                 "cursor": {
@@ -536,7 +599,10 @@ pub fn find(doc: &Document, ctx: &mut CommandContext) -> HandlerResult {
             let (first, cursor_id) = if single_batch {
                 (docs, 0)
             } else {
-                split_into_cursor(docs, batch_size, &ns, cursors)?
+                // A positive `limit` bounds the result, so mongod closes the
+                // cursor the moment it is reached rather than spending a
+                // trailing empty getMore.
+                split_into_cursor(docs, batch_size, &ns, cursors, limit > 0)?
             };
             ctx.pending_batch = Some(crate::PendingBatch {
                 batch_field: "firstBatch",
@@ -563,6 +629,7 @@ pub(crate) fn split_into_cursor(
     batch_size: i64,
     ns: &str,
     cursors: &CursorRegistry,
+    bounded: bool,
 ) -> Result<(Vec<Vec<u8>>, i64), CommandError> {
     let mut take = if batch_size < 0 {
         DEFAULT_BATCH_SIZE as usize
@@ -589,11 +656,17 @@ pub(crate) fn split_into_cursor(
     }
     take = fitted;
     let remaining = docs.split_off(take);
-    if remaining.is_empty() {
+    // A batch that exactly fills the requested size proves nothing about what
+    // follows, so an unbounded cursor stays open even with nothing left -- the
+    // client spends one more getMore to see the empty batch, exactly as against
+    // mongod. Closing early made our round-trip count differ, which drivers
+    // observe directly.
+    let filled_exactly = batch_size > 0 && docs.len() == batch_size as usize;
+    if remaining.is_empty() && (bounded || !filled_exactly) {
         return Ok((docs, 0));
     }
     let cursor_id = cursors
-        .register(ns, remaining)
+        .register_bounded(ns, remaining, bounded)
         .map_err(|e| CommandError::new(1, "InternalError", format!("cursor registry: {e:?}")))?;
     Ok((docs, cursor_id))
 }
@@ -608,6 +681,7 @@ pub(crate) fn split_docs_into_cursor(
     batch_size: i64,
     ns: &str,
     cursors: &CursorRegistry,
+    bounded: bool,
 ) -> Result<(Vec<Bson>, i64), CommandError> {
     let take = if batch_size < 0 {
         DEFAULT_BATCH_SIZE as usize
@@ -616,12 +690,13 @@ pub(crate) fn split_docs_into_cursor(
     }
     .min(docs.len());
     let remaining = docs.split_off(take);
+    let filled_exactly = batch_size > 0 && docs.len() == batch_size as usize;
     let first: Vec<Bson> = docs.into_iter().map(Bson::Document).collect();
-    if remaining.is_empty() {
+    if remaining.is_empty() && (bounded || !filled_exactly) {
         return Ok((first, 0));
     }
     let cursor_id = cursors
-        .register(ns, encode_docs(remaining)?)
+        .register_bounded(ns, encode_docs(remaining)?, bounded)
         .map_err(|e| CommandError::new(1, "InternalError", format!("cursor registry: {e:?}")))?;
     Ok((first, cursor_id))
 }
@@ -680,11 +755,16 @@ fn bound_cmp(
         let Some(dval) = secantus_core::get_path(doc, field) else {
             return Ok(None);
         };
+        // ASCENDING encodings compared and then negated, never the INVERTED
+        // bytes: inversion does not reverse a PREFIX relationship, so `""`
+        // (whose key is a strict prefix of every string's) compared as the
+        // LARGEST value on a descending column. See `storage::sort_key`.
         let enc = |v: &Bson| {
-            secantus_core::sortkey::encode_value_directed(v, dir, None)
+            secantus_core::sortkey::encode_value(v, None)
                 .map_err(|_| CommandError::new(2, "BadValue", "min/max value not comparable"))
         };
-        match enc(dval)?.cmp(&enc(bval)?) {
+        let ord = enc(dval)?.cmp(&enc(bval)?);
+        match if dir < 0 { ord.reverse() } else { ord } {
             Ordering::Equal => continue,
             other => return Ok(Some(other)),
         }
@@ -768,7 +848,14 @@ fn projection_mix_error(spec: &Document) -> Option<CommandError> {
             Bson::Int32(0) | Bson::Int64(0) | Bson::Boolean(false) => Some(false),
             Bson::Int32(_) | Bson::Int64(_) | Bson::Boolean(true) => Some(true),
             Bson::Double(d) => Some(*d != 0.0),
-            _ => None, // operator spec ($slice / $elemMatch) — neutral
+            // A COMPUTED field (`"$a"`, `{$add: [...]}`, a literal constant)
+            // forces INCLUSION mode, so a companion `b: 0` is the 31254 mix.
+            // Measured against mongod 8.2.11 (2026-09-07):
+            //   {x: {$add: ["$a", 1]}, b: 0}
+            //     -> Cannot do exclusion on field b in inclusion projection
+            // The three projection operators stay neutral.
+            _ if secantus_core::projection::is_computed_spec(v) => Some(true),
+            _ => None, // operator spec ($slice / $elemMatch / $meta) — neutral
         }
     };
     let mut mode: Option<bool> = None;
@@ -883,12 +970,22 @@ fn project_to_docs(
                     format!("failed to decode document: {e}"),
                 )
             })?;
-            secantus_core::projection::apply_projection(&d, spec, query).map_err(|_| {
-                CommandError::new(
-                    2,
-                    "BadValue",
-                    "projection is not supported by the Rust server",
-                )
+            secantus_core::projection::apply_projection(&d, spec, query).map_err(|f| {
+                // A Fallback carrying a mongod code is a real server error
+                // (e.g. 51270 empty sub-projection, 31254 mix) and must be
+                // surfaced verbatim -- flattening it to BadValue lost both the
+                // code and the message. Only a bare Defer, which has no Python
+                // behind it here, becomes the generic refusal.
+                match f.as_mongo() {
+                    Some((code, msg)) => {
+                        CommandError::new(code, crate::util::error_code_name(code), msg)
+                    }
+                    None => CommandError::new(
+                        2,
+                        "BadValue",
+                        "projection is not supported by the Rust server",
+                    ),
+                }
             })
         })
         .collect()
@@ -912,7 +1009,7 @@ mod first_batch_byte_cap_tests {
         // (15.0 MiB) and a live cursor id.
         let reg = CursorRegistry::new();
         let docs: Vec<Vec<u8>> = (0..25).map(|_| blob(1024 * 1024)).collect();
-        let (first, cursor_id) = split_into_cursor(docs, 25, "t.big", &reg).unwrap();
+        let (first, cursor_id) = split_into_cursor(docs, 25, "t.big", &reg, false).unwrap();
 
         let bytes: usize = first.iter().map(|b| b.len()).sum();
         assert!(
@@ -932,7 +1029,7 @@ mod first_batch_byte_cap_tests {
         // client. Matches CursorRegistry::next_batch's "at least one" rule.
         let reg = CursorRegistry::new();
         let docs: Vec<Vec<u8>> = (0..2).map(|_| blob(12 * 1024 * 1024)).collect();
-        let (first, cursor_id) = split_into_cursor(docs, 2, "t.huge", &reg).unwrap();
+        let (first, cursor_id) = split_into_cursor(docs, 2, "t.huge", &reg, false).unwrap();
         assert_eq!(first.len(), 1);
         assert_ne!(cursor_id, 0);
     }
@@ -941,7 +1038,7 @@ mod first_batch_byte_cap_tests {
     fn small_documents_are_governed_by_the_count_cap() {
         let reg = CursorRegistry::new();
         let docs: Vec<Vec<u8>> = (0..500).map(|_| blob(64)).collect();
-        let (first, cursor_id) = split_into_cursor(docs, 101, "t.small", &reg).unwrap();
+        let (first, cursor_id) = split_into_cursor(docs, 101, "t.small", &reg, false).unwrap();
         assert_eq!(first.len(), 101, "the common path must not change");
         assert_ne!(cursor_id, 0);
     }
@@ -950,7 +1047,7 @@ mod first_batch_byte_cap_tests {
     fn everything_fitting_exhausts_the_cursor() {
         let reg = CursorRegistry::new();
         let docs: Vec<Vec<u8>> = (0..5).map(|_| blob(64)).collect();
-        let (first, cursor_id) = split_into_cursor(docs, 101, "t.small", &reg).unwrap();
+        let (first, cursor_id) = split_into_cursor(docs, 101, "t.small", &reg, false).unwrap();
         assert_eq!(first.len(), 5);
         assert_eq!(cursor_id, 0);
     }

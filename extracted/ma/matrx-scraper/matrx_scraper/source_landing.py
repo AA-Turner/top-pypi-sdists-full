@@ -108,6 +108,38 @@ def capture_method_of(result: Any) -> str:
     return "http"
 
 
+def _clean_title(value: Any) -> str:
+    return " ".join(str(value).split()) if isinstance(value, str) else ""
+
+
+def source_name_of(result: Any, url: str) -> str:
+    """What a person reads as the Source's name: the page's title, else its host and path —
+    never the raw URL (scheme, query string and tracking parameters are noise in a list).
+
+    The title is looked for where each producer puts it: a ``ScrapeResult``'s ``title``, a raw
+    ``parse_html`` dict's ``overview.page_title`` (the agent read path hands the parse through
+    as-is) and the page's own metadata (``og:title``/``title``)."""
+    overview = _get(result, "overview") or {}
+    meta = overview.get("metadata") if isinstance(overview, dict) else None
+    candidates = [
+        _get(result, "title"),
+        _get(result, "page_title"),
+        overview.get("page_title") if isinstance(overview, dict) else None,
+    ]
+    if isinstance(meta, dict):
+        candidates += [meta.get("title"), meta.get("og_title"), meta.get("og:title")]
+    for candidate in candidates:
+        title = _clean_title(candidate)
+        if title:
+            return title[:500]
+    from urllib.parse import urlsplit
+
+    parts = urlsplit(url if "//" in url else f"//{url}")
+    host = (parts.hostname or "").removeprefix("www.")
+    path = (parts.path or "").rstrip("/")
+    return (f"{host}{path}" or url or "Untitled page")[:500]
+
+
 def page_landing(
     result: Any,
     *,
@@ -116,7 +148,7 @@ def page_landing(
     origin_client: str,
     capture_method: str | None = None,
     keep: bool = False,
-    visibility: str = "personal",
+    visibility: str = "internal",
     attach_to: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any] | None:
     """The door's ``SourceLanding`` for one successful server parse, or ``None`` when the parse
@@ -142,7 +174,7 @@ def page_landing(
         "source_kind": "scrape_parsed_page",
         "source_id": None,
         "canonical_identity": canonical_url(url),
-        "name": str(_get(result, "title") or url)[:500],
+        "name": source_name_of(result, url),
         "mime_type": "text/html",
         "portions": portions,
         "original": original,
@@ -176,7 +208,7 @@ async def land_page_result(
     origin_client: str,
     capture_method: str | None = None,
     keep: bool = False,
-    visibility: str = "personal",
+    visibility: str = "internal",
     attach_to: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """Land one scrape result at a route's result boundary.
@@ -250,8 +282,91 @@ async def land_page_result(
         return outcome
     outcome["processed_document_id"] = landed.get("processed_document_id")
     outcome["source_id"] = landed.get("source_id")
+    outcome["kept"] = bool(landed.get("kept"))
     outcome["notices"] = list(landed.get("notices") or [])
     return outcome
+
+
+def crawl_snapshot_landing(
+    *,
+    markdown: str | None,
+    url: str,
+    title: str | None,
+    page_id: str,
+    body_file_id: str | None,
+    body_mime_type: str | None,
+    organization_id: str,
+    user_id: str,
+    captured_at: str | None = None,
+    final_url: str | None = None,
+    engine: str | None = None,
+    snapshot_id: str | None = None,
+    session_id: str | None = None,
+    site_id: str | None = None,
+    origin_client: str = "crawl",
+) -> dict[str, Any] | None:
+    """The door's ``SourceLanding`` for one marketing-crawl snapshot (SOURCE-CONVERGENCE §4.7).
+
+    A ``web_page`` Source whose origin row is the ``web.page`` and whose text is the snapshot's
+    markdown, portioned by :func:`matrx_scraper.portions.from_markdown`. The original is the
+    snapshot's body file BY ID (``original.file_id``), so the door stores no second S3 copy.
+    Always ``internal``: crawl output belongs to the organization, never one person (the same
+    rule ``CanonicalBodyPersister._write_artifact`` enforces on the artifact itself). Never kept:
+    a crawl is not a person's signal, so intelligence waits for one (``on_signal``).
+
+    Filed under its ``web_site`` (``crawled_page``) with ``signal: False``: the edge is structural,
+    never a Keep — a person's filing starts paid intelligence (§3.2 step 9), a crawl's does not.
+
+    Returns ``None`` when the markdown has no words (nothing to land)."""
+    from matrx_scraper.canonical import canonical_url
+    from matrx_scraper.portions import from_markdown
+
+    portions = from_markdown(markdown)
+    if not portions:
+        return None
+    original = (
+        {"bytes_b64": None, "file_id": str(body_file_id), "mime_type": body_mime_type or "text/html"}
+        if body_file_id
+        else None
+    )
+    structured = {
+        k: v
+        for k, v in {
+            "web_page_id": page_id,
+            "web_snapshot_id": snapshot_id,
+            "crawl_session_id": session_id,
+            "web_site_id": site_id,
+        }.items()
+        if v
+    }
+    return {
+        "source_kind": "web_page",
+        "source_id": str(page_id),
+        "canonical_identity": canonical_url(url),
+        "name": source_name_of({"title": title}, url),
+        "mime_type": "text/markdown",
+        "portions": portions,
+        "original": original,
+        "structured": structured or None,
+        "provenance": {
+            "origin_client": origin_client,
+            "capture_method": "browser" if engine == "browser" else "http",
+            "captured_by_rung": engine or None,
+            "rung_trail": [],
+            "captured_at": captured_at or datetime.now(UTC).isoformat(),
+            "final_url": final_url or url or None,
+            "user_id": user_id,
+        },
+        "attach_to": (
+            [{"entity_type": "web_site", "entity_id": str(site_id), "label": "crawled_page", "signal": False}]
+            if site_id
+            else []
+        ),
+        "content_already_clean": False,
+        "keep": False,
+        "visibility": "internal",
+        "organization_id": organization_id,
+    }
 
 
 def stamp_page(page: dict[str, Any], outcome: dict[str, Any]) -> dict[str, Any]:
@@ -259,6 +374,8 @@ def stamp_page(page: dict[str, Any], outcome: dict[str, Any]) -> dict[str, Any]:
     ``notices`` (appended to any the payload already carries)."""
     page["processed_document_id"] = outcome.get("processed_document_id")
     page["source_id"] = outcome.get("source_id")
+    if "kept" in outcome:
+        page["kept"] = bool(outcome["kept"])
     page["notices"] = [*list(page.get("notices") or []), *list(outcome.get("notices") or [])]
     return page
 
@@ -268,8 +385,10 @@ __all__ = [
     "SourceLandingFailed",
     "SourceLandingNotConfigured",
     "capture_method_of",
+    "crawl_snapshot_landing",
     "land_page_result",
     "land_result",
     "page_landing",
+    "source_name_of",
     "stamp_page",
 ]

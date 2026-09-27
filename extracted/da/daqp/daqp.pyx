@@ -3,6 +3,10 @@ cimport daqp
 from libc.stdlib cimport calloc, free
 cimport cython
 
+EQ_REDUCTION_OFF = DAQP_EQ_REDUCTION_OFF
+EQ_REDUCTION_AUTO = DAQP_EQ_REDUCTION_AUTO
+EQ_REDUCTION_ON = DAQP_EQ_REDUCTION_ON
+
 @cython.boundscheck(False)
 @cython.wraparound(False)
 cdef void _solve_warm_start(DAQPProblem* problem, DAQPSettings* settings,
@@ -74,11 +78,11 @@ def solve(double[:, :] H, double[:] f, double[:, :] A,
           progress_tol = DAQP_DEFAULT_PROG_TOL, cycle_tol = DAQP_DEFAULT_CYCLE_TOL,
           iter_limit =  DAQP_DEFAULT_ITER_LIMIT, fval_bound = DAQP_INF,
           eps_prox= DAQP_DEFAULT_EPS_PROX, eta_prox = DAQP_DEFAULT_ETA,
-          rho_soft = DAQP_DEFAULT_RHO_SOFT,
+          rho_soft = DAQP_DEFAULT_RHO_SOFT, w_soft = DAQP_DEFAULT_W_SOFT,
           rel_subopt = DAQP_DEFAULT_REL_SUBOPT, abs_subopt = DAQP_DEFAULT_ABS_SUBOPT,
           sing_tol = DAQP_DEFAULT_SING_TOL, refactor_tol = DAQP_DEFAULT_REFACTOR_TOL,
-          time_limit = 0,
-          primal_start=None, dual_start=None):
+          time_limit = 0, primal_start=None, dual_start=None,
+          eq_reduction = DAQP_EQ_REDUCTION_AUTO):
     """
     Solve the quadratic program      minimize       0.5 x'*H*x + f' x
                                     subject to   blower <= A x <= bupper
@@ -140,6 +144,7 @@ def solve(double[:, :] H, double[:] f, double[:, :] A,
        * primal_tol : Primal feasibility tolerance
        * dual_tol   : Dual feasibility tolerance
        * eps_prox   : Negative selects automatic, zero disables, positive forces
+       * eq_reduction : -1 disables, 0 selects automatic, 1 forces reduction
     See <https://darnstrom.github.io/daqp/parameters>`_ for all available settings.
 
     Returns
@@ -203,7 +208,7 @@ def solve(double[:, :] H, double[:] f, double[:, :] A,
     cdef DAQPSettings settings = [primal_tol, dual_tol, zero_tol, pivot_tol,
             progress_tol, cycle_tol, iter_limit, fval_bound,
             eps_prox, eta_prox, rho_soft, rel_subopt, abs_subopt, sing_tol, refactor_tol,
-            time_limit]
+            time_limit, w_soft, eq_reduction]
     cdef DAQPResult res = [&x[0], lam_ptr, 0, 0, 0, 0, 0, 0, 0]
 
     if primal_start is None and dual_start is None:
@@ -267,6 +272,7 @@ cdef class Model:
     cdef double[::1]    _lam
 
     cdef bint _has_model
+    cdef bint _has_solved
 
     def __cinit__(self):
         self._work = <DAQPWorkspace*>calloc(1, sizeof(DAQPWorkspace))
@@ -274,6 +280,7 @@ cdef class Model:
             raise MemoryError("Failed to allocate DAQPWorkspace")
         allocate_daqp_settings(self._work)
         self._has_model = False
+        self._has_solved = False
 
     def __dealloc__(self):
         if self._work != NULL:
@@ -431,6 +438,7 @@ cdef class Model:
             self._work.settings[0] = old_settings_val
 
         self._has_model = True
+        self._has_solved = False
 
         # ---- set primal iterate ----
         if primal_start is not None:
@@ -466,6 +474,7 @@ cdef class Model:
 
         with nogil:
             daqp_solve(&res, self._work)
+        self._has_solved = True
 
         info = {
             'solve_time': res.solve_time,
@@ -498,7 +507,9 @@ cdef class Model:
         blower : 1-D array_like or None
             Updated lower bounds.
         sense : 1-D int array_like or None
-            Updated constraint sense flags.
+            Updated constraint sense flags. If omitted during a structural
+            update, the complete state from the previous solve is reused;
+            supplying it explicitly overrides that warm start.
         break_points : 1-D int array_like or None
             Updated break points.
 
@@ -560,6 +571,16 @@ cdef class Model:
                 self._qp.sense = &self._sense[0]
                 update_mask |= DAQP_UPDATE_sense
 
+        # Omitted sense reuses DAQP's state; explicit sense overrides it.
+        if sense is None and (update_mask & (DAQP_UPDATE_Rinv | DAQP_UPDATE_M)):
+            if self._has_solved:
+                # A preceding update may have installed a reduced workspace.
+                daqp_eq_restore(self._work)
+                self._qp.sense = self._work.sense
+            else:
+                self._qp.sense = NULL if m == 0 else &self._sense[0]
+            update_mask |= DAQP_UPDATE_sense
+
         if break_points is not None:
             bp_arr = np.ascontiguousarray(break_points, dtype=np.intc)
             if bp_arr.shape[0] == nh:
@@ -581,9 +602,11 @@ cdef class Model:
 
         Available keys: ``primal_tol``, ``dual_tol``, ``zero_tol``,
         ``pivot_tol``, ``progress_tol``, ``cycle_tol``, ``iter_limit``,
-        ``fval_bound``, ``eps_prox``, ``eta_prox``, ``rho_soft``,
+        ``fval_bound``, ``eps_prox``, ``eta_prox``, ``rho_soft``, ``w_soft``,
         ``rel_subopt``, ``abs_subopt``, ``sing_tol``, ``refactor_tol``,
-        ``time_limit``.
+        ``time_limit``, ``eq_reduction``. Equality reduction uses -1 for off,
+        0 for automatic selection (which only applies to solves that start from
+        scratch, so a warm-started model is not reduced), and 1 for forced on.
         """
         if self._work.settings == NULL:
             return {}
@@ -600,11 +623,13 @@ cdef class Model:
             'eps_prox':     s.eps_prox,
             'eta_prox':     s.eta_prox,
             'rho_soft':     s.rho_soft,
+            'w_soft':       s.w_soft,
             'rel_subopt':   s.rel_subopt,
             'abs_subopt':   s.abs_subopt,
             'sing_tol':     s.sing_tol,
             'refactor_tol': s.refactor_tol,
             'time_limit':   s.time_limit,
+            'eq_reduction': s.eq_reduction,
         }
 
     @settings.setter
@@ -613,6 +638,8 @@ cdef class Model:
         if self._work.settings == NULL:
             return
         cdef DAQPSettings* s = self._work.settings
+        cdef double old_rho_soft = s.rho_soft
+        cdef double old_w_soft = s.w_soft
         if 'primal_tol'   in new_settings: s.primal_tol   = new_settings['primal_tol']
         if 'dual_tol'     in new_settings: s.dual_tol     = new_settings['dual_tol']
         if 'zero_tol'     in new_settings: s.zero_tol     = new_settings['zero_tol']
@@ -624,11 +651,52 @@ cdef class Model:
         if 'eps_prox'     in new_settings: s.eps_prox     = new_settings['eps_prox']
         if 'eta_prox'     in new_settings: s.eta_prox     = new_settings['eta_prox']
         if 'rho_soft'     in new_settings: s.rho_soft     = new_settings['rho_soft']
+        if 'w_soft'       in new_settings: s.w_soft       = new_settings['w_soft']
         if 'rel_subopt'   in new_settings: s.rel_subopt   = new_settings['rel_subopt']
         if 'abs_subopt'   in new_settings: s.abs_subopt   = new_settings['abs_subopt']
         if 'sing_tol'     in new_settings: s.sing_tol     = new_settings['sing_tol']
         if 'refactor_tol' in new_settings: s.refactor_tol = new_settings['refactor_tol']
         if 'time_limit'   in new_settings: s.time_limit   = new_settings['time_limit']
+        if 'eq_reduction' in new_settings: s.eq_reduction = new_settings['eq_reduction']
+        if s.rho_soft != old_rho_soft or s.w_soft != old_w_soft:
+            daqp_refresh_soft_weights(self._work)
+
+    def soft_weights(self, rho_l=None, rho_u=None, w_l=None, w_u=None):
+        """
+        Set the weights of the soft constraints, one element per constraint.
+
+        ``rho_l``/``rho_u`` are the reciprocal quadratic weights and
+        ``w_l``/``w_u`` the linear ones, for the lower and the upper bound.
+        An argument left as ``None`` keeps that weight at its default, i.e.
+        the ``rho_soft``/``w_soft`` settings.
+        """
+        cdef double[::1] rl, ru, wl, wu
+        cdef double *prl = NULL
+        cdef double *pru = NULL
+        cdef double *pwl = NULL
+        cdef double *pwu = NULL
+        # One weight per constraint of the original problem (_work.m is
+        # reduced while equality constraints are eliminated)
+        cdef int m = self._qp.m
+        if rho_l is not None:
+            rl = np.ascontiguousarray(rho_l, dtype=np.double)
+            if rl.shape[0] != m: raise ValueError("rho_l must have one entry per constraint")
+            prl = &rl[0]
+        if rho_u is not None:
+            ru = np.ascontiguousarray(rho_u, dtype=np.double)
+            if ru.shape[0] != m: raise ValueError("rho_u must have one entry per constraint")
+            pru = &ru[0]
+        if w_l is not None:
+            wl = np.ascontiguousarray(w_l, dtype=np.double)
+            if wl.shape[0] != m: raise ValueError("w_l must have one entry per constraint")
+            pwl = &wl[0]
+        if w_u is not None:
+            wu = np.ascontiguousarray(w_u, dtype=np.double)
+            if wu.shape[0] != m: raise ValueError("w_u must have one entry per constraint")
+            pwu = &wu[0]
+        if not daqp_set_soft_weights(self._work, prl, pru, pwl, pwu):
+            raise RuntimeError(
+                    "daqp was built without support for individual soft weights")
 
 
 @cython.boundscheck(False)

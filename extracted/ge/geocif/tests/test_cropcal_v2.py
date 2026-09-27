@@ -135,6 +135,23 @@ def _design(archive, n=8):
 # --------------------------------------------------------------------------
 # A. one column vocabulary
 # --------------------------------------------------------------------------
+def test_rules_keep_the_zone_label_while_the_features_use_latitude(archive, monkeypatch):
+    seen = {}
+    real = transitions.rs_transitions
+
+    def spy(*args, **kwargs):
+        seen["hemisphere"] = kwargs["hemisphere"]
+        return real(*args, **kwargs)
+
+    monkeypatch.setattr(transitions, "rs_transitions", spy)
+    context = _context(hemisphere="S", lat=10.0)        # an Ethiopia: 10 N, zone file says S
+    outcome = pipeline.run_region(context, _calendar_row(_codes_for_season(9)), _settings(archive))
+    assert seen["hemisphere"] == "S"                     # the GEOGLAM port is unchanged
+    assert outcome.feature_row["hemisphere"] == "N"
+    assert outcome.feature_row["hemisphere_zone"] == "S"
+    assert outcome.row["hemisphere"] == "S"              # the result frame reports the rule's input
+
+
 def test_scored_and_skipped_rows_carry_exactly_the_regionscore_columns(archive, tmp_path):
     scored = pipeline.run_region(_context(), _calendar_row(_codes_for_season(9)), _settings(archive))
     skipped = pipeline.run_region(_context(), _calendar_row(_codes_for_season(9)), _settings(tmp_path / "empty"))

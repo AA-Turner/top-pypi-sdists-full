@@ -10,6 +10,8 @@ gauge, and what ``UpdateableResultTest`` needs to identify a row to update.
 
 from __future__ import annotations
 
+import decimal
+
 import pytest
 
 from secantus.sql.engine import run_sql
@@ -94,16 +96,27 @@ class TestFieldSelection:
             (1, 7),
         ]
 
-    def test_order_by_does_not_sort_expanded_rows(self, q):
-        """Known divergence, pre-existing and not specific to this function:
-        ORDER BY keys are computed per SOURCE row, before the set-returning
-        function expands it, so every expanded row shares one key and they keep
-        array order. Postgres would return 7, 8, 9 here. `unnest` behaves the
-        same way — see tasks/backlog.md. Pinned so a fix is a deliberate change.
+    def test_order_by_now_sorts_record_srf_rows(self, q):
+        """FIXED 2026-08-29. Was `test_order_by_does_not_yet_sort_record_srf_rows`.
+
+        `ORDER BY` over a plain `unnest` now sorts the expanded rows (see
+        `TestSrfOrdering`), but the *record*-SRF field form —
+        `(information_schema._pg_expandarray(arr)).x` — takes a different
+        planning route that the fix does not reach, so it keeps array order.
+        Postgres returns 7, 8, 9 here. Ordering by an alias on that form is
+        worse: `(...).n AS n ... ORDER BY n` answers 42703, which predates this
+        change (verified against the unpatched tree).
+
+        It pinned the CURRENT behaviour and was named so it could not be
+        mistaken for the intended one -- the honest form of a bug-pinning test,
+        and it failed the moment the behaviour improved, which is what such a
+        test is for. Fuller coverage now lives in
+        `TestOrderByOverTheExpandedRows`; this keeps the original query so the
+        before/after stays traceable.
         """
         assert q(
             "SELECT (information_schema._pg_expandarray(ARRAY[9, 8, 7])).x FROM src ORDER BY 1"
-        ) == [(9,), (8,), (7,)]
+        ) == [(7,), (8,), (9,)]
 
     def test_empty_array_yields_no_rows(self, q):
         assert q("SELECT (information_schema._pg_expandarray(ARRAY[]::int[])).n FROM src") == []
@@ -122,3 +135,154 @@ class TestTheDriverQuery:
         # The whole record is carried as a composite, so the outer query can
         # still read a field off it.
         assert by_column["a"][5] == {"x": 1, "n": 1}
+
+
+class TestSrfElementTypes:
+    """`unnest` declares the ARRAY'S ELEMENT type, not a hardcoded int4.
+
+    The declared type used to be `int4` for every array, which is a wire lie for
+    anything else: the RowDescription said int4 and the server then sent `a` /
+    `1.5` / `t`, so a strict client did `int('a')` and raised
+    `ValueError: invalid literal for int() with base 10: 'a'` — client-side, in
+    psycopg, before the application ever saw a row. Only integer arrays worked,
+    and only by luck. Verified against a live PostgreSQL 14.
+    """
+
+    def test_text_array_elements_are_text(self, q):
+        assert q("SELECT unnest(ARRAY['a', 'b']) FROM src") == [("a",), ("b",)]
+
+    def test_numeric_array_elements_are_numeric(self, q):
+        assert q("SELECT unnest(ARRAY[1.5, 2.5]) FROM src") == [
+            (decimal.Decimal("1.5"),),
+            (decimal.Decimal("2.5"),),
+        ]
+
+    def test_bool_array_elements_are_bool(self, q):
+        assert q("SELECT unnest(ARRAY[true, false]) FROM src") == [(True,), (False,)]
+
+    def test_int_array_still_works(self, q):
+        assert q("SELECT unnest(ARRAY[9, 8]) FROM src") == [(9,), (8,)]
+
+    def test_a_subscript_is_an_int_whatever_the_array_holds(self, q):
+        # generate_subscripts and `.n` yield the position, not an element.
+        assert q("SELECT generate_subscripts(ARRAY['a', 'b'], 1) FROM src") == [(1,), (2,)]
+        assert q("SELECT (information_schema._pg_expandarray(ARRAY['a', 'b'])).n FROM src") == [
+            (1,),
+            (2,),
+        ]
+
+
+class TestSrfOrdering:
+    """`ORDER BY` over `unnest`, by ordinal and by output alias.
+
+    Ordering by the alias — the form a real query uses — raised `0A000`
+    outright; ordering by ordinal silently returned array order. Both are the
+    same defect: the sort key has to come from the expanded row.
+    PG-probed 14.
+    """
+
+    def test_order_by_ordinal(self, q):
+        assert q("SELECT unnest(ARRAY[9,8,7]) AS u FROM src ORDER BY 1") == [(7,), (8,), (9,)]
+
+    def test_order_by_output_alias(self, q):
+        assert q("SELECT unnest(ARRAY[9,8,7]) AS u FROM src ORDER BY u") == [(7,), (8,), (9,)]
+
+    def test_order_by_alias_descending(self, q):
+        assert q("SELECT unnest(ARRAY[7,9,8]) AS u FROM src ORDER BY u DESC") == [
+            (9,),
+            (8,),
+            (7,),
+        ]
+
+    def test_text_elements_sort_as_text(self, q):
+        assert q("SELECT unnest(ARRAY['c','a','b']) AS u FROM src ORDER BY 1") == [
+            ("a",),
+            ("b",),
+            ("c",),
+        ]
+
+    def test_without_order_by_array_order_is_kept(self, q):
+        assert q("SELECT unnest(ARRAY[9,8,7]) FROM src") == [(9,), (8,), (7,)]
+
+
+E = "information_schema._pg_expandarray"
+
+
+class TestOrderByOverTheExpandedRows:
+    """ORDER BY was dropped on this path, in two different ways.
+
+    An alias or a field reference errored `42703` — the name exists only in the
+    EXPANDED output, not as a source column — and an ORDINAL was accepted and
+    then silently ignored, so `ORDER BY 1` returned the array's own order while
+    reporting success. The silent half is the worse one.
+
+    The keys must come from the expanded rows: one source row fans out to many,
+    so a source-row key is identical across all of them and a stable sort leaves
+    the array order untouched. Same root cause the `unnest` form had.
+    """
+
+    def test_order_by_alias(self, q):
+        assert q(f"SELECT ({E}(ARRAY[9,8,7])).x AS v FROM src ORDER BY v") == [(7,), (8,), (9,)]
+
+    def test_order_by_alias_desc(self, q):
+        assert q(f"SELECT ({E}(ARRAY[7,8,9])).x AS v FROM src ORDER BY v DESC") == [
+            (9,),
+            (8,),
+            (7,),
+        ]
+
+    def test_order_by_ordinal_actually_sorts(self, q):
+        """This one used to SUCCEED and return the array's order — no error, no
+        sort. It is pinned separately because a passing query returning wrong
+        rows is what makes this class dangerous."""
+        assert q(f"SELECT ({E}(ARRAY[9,8,7])).x FROM src ORDER BY 1") == [(7,), (8,), (9,)]
+
+    def test_order_by_the_subscript_field(self, q):
+        rows = q(
+            f"SELECT ({E}(ARRAY[9,8,7])).x AS v, ({E}(ARRAY[9,8,7])).n AS i "
+            "FROM src ORDER BY i DESC"
+        )
+        assert [r[0] for r in rows] == [7, 8, 9]
+
+    def test_text_elements_sort_as_text(self, q):
+        assert q(f"SELECT ({E}(ARRAY['c','a','b'])).x AS v FROM src ORDER BY v") == [
+            ("a",),
+            ("b",),
+            ("c",),
+        ]
+
+    def test_without_order_by_the_array_order_is_kept(self, q):
+        """The guard: expansion order is the array's own, and sorting must not
+        be applied when it was not asked for."""
+        assert q(f"SELECT ({E}(ARRAY[9,8,7])).x AS v FROM src") == [(9,), (8,), (7,)]
+
+
+class TestValueFieldType:
+    """`.x` is the array's ELEMENT, so it types as that element.
+
+    It used to report `any` / oid 0 for every array — not a type a client can do
+    anything with. `.n` was always right (int4). Verified against PostgreSQL 14:
+    int[] -> int4, text[] -> text, numeric[] -> numeric.
+    """
+
+    def _tag(self, storage, session, sql):
+        return run_sql(storage, "t", sql, session=session)[0].columns[0].type_tag
+
+    def test_element_type_follows_the_array(self, tmp_path):
+        storage = Storage(str(tmp_path))
+        session = Session(database="t")
+        try:
+            run_sql(storage, "t", "CREATE TABLE src (id int primary key)", session=session)
+            run_sql(storage, "t", "INSERT INTO src VALUES (1)", session=session)
+            cases = {
+                "ARRAY[1,2]": "int4",
+                "ARRAY['a','b']": "text",
+                "ARRAY[1.5,2.5]": "numeric",
+            }
+            for arr, tag in cases.items():
+                got = self._tag(storage, session, f"SELECT ({E}({arr})).x FROM src")
+                assert got == tag, f"{arr} -> {got}, expected {tag}"
+            # The subscript stays int4 regardless of the element type.
+            assert self._tag(storage, session, f"SELECT ({E}(ARRAY['a'])).n FROM src") == "int4"
+        finally:
+            storage.close()

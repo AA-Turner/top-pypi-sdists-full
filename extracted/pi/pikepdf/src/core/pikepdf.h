@@ -49,8 +49,10 @@ inline PyType_Slot pikepdf_gc_slots[] = {
 // From object_convert.cpp
 py::object decimal_from_pdfobject(QPDFObjectHandle h);
 
-// From pikepdf.cpp - forward declaration for type_caster
-bool get_explicit_conversion_mode();
+// From pikepdf.cpp - forward declarations for type_caster.
+// Resolution order: thread-local override > per-Pdf mode > global setting.
+bool get_explicit_conversion_mode(QpdfEntry const *owner) noexcept;
+bool get_explicit_conversion_mode() noexcept;
 
 // Sentinel prefix that carries a JBIG2 decode failure across qpdf's C++ frames.
 //
@@ -68,6 +70,11 @@ inline constexpr const char *JBIG2_DECODE_ERROR_PREFIX = "Pl_JBIG2:";
 
 // From pikepdf.cpp - the pikepdf.DataDecodingError class object (borrowed).
 PyObject *get_data_decoding_error_type();
+// decimal.Decimal, cached at module initialization.
+py::handle get_decimal_type();
+
+// Raise pikepdf.ForeignObjectError with the given message.
+[[noreturn]] void throw_foreign_object_error(std::string const &msg);
 
 namespace nanobind {
 namespace detail {
@@ -106,7 +113,7 @@ struct type_caster<QPDFObjectHandle> : public type_caster_base<QPDFObjectHandle>
         // In explicit conversion mode, return scalars as pikepdf.Object
         // so that Integer/Boolean/Real types are preserved.
         // In implicit mode (default), auto-convert to native Python types.
-        if (!get_explicit_conversion_mode()) {
+        if (!get_explicit_conversion_mode(qpdf_lock.entry())) {
             switch (src->getTypeCode()) {
             case qpdf_object_type_e::ot_null:
                 return handle(Py_None).inc_ref();
@@ -156,13 +163,16 @@ void init_object_construct(py::module_ &m);
 bool objecthandle_equal(QPDFObjectHandle self, QPDFObjectHandle other);
 
 // From object_repr.cpp
-std::string objecthandle_scalar_value(QPDFObjectHandle h);
-std::string objecthandle_pythonic_typename(QPDFObjectHandle h);
-std::string objecthandle_repr_typename_and_value(QPDFObjectHandle h);
+std::string objecthandle_scalar_value(QPDFObjectHandle h, bool explicit_mode);
+std::string objecthandle_pythonic_typename(QPDFObjectHandle h, bool explicit_mode);
+std::string objecthandle_repr_typename_and_value(
+    QPDFObjectHandle h, bool explicit_mode);
 std::string objecthandle_repr(QPDFObjectHandle h);
 
 // From object_convert.cpp
 py::object decimal_from_pdfobject(QPDFObjectHandle h);
+// Raises OverflowError if the value does not fit in a PDF integer.
+long long pdf_integer_from_pylong(const py::handle handle);
 QPDFObjectHandle objecthandle_encode(const py::handle handle);
 std::vector<QPDFObjectHandle> array_builder(const py::iterable iter);
 std::map<std::string, QPDFObjectHandle> dict_builder(const py::dict dict);
@@ -199,7 +209,6 @@ void init_transcoding(py::module_ &m);
 // pikepdf.cpp
 uint get_decimal_precision();
 bool get_mmap_default();
-bool get_explicit_conversion_mode();
 
 inline void python_warning(
     const char *msg, PyObject *category = PyExc_UserWarning, Py_ssize_t stacklevel = 1)

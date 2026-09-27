@@ -189,6 +189,9 @@ class ScrapeService:
         # set, each page is landed at the result boundary — after the parse, before it is sent,
         # cached or not — and carries `processed_document_id` / `notices`.
         self.land_as: str | None = None
+        #: Sources this run landed KEPT (the door's own answer) — the closing sentence says
+        #: "Saved" only for these; an unkept landing is "Captured, not saved".
+        self._kept_count: int = 0
 
         # The capture ladder's CLIENT rungs — the person's own logged-in Chrome
         # (`own_browser`) and the person driving it (`human_drive`). Which of
@@ -372,6 +375,100 @@ class ScrapeService:
     # Search + scrape
     # ------------------------------------------------------------------
 
+    @staticmethod
+    def _real_hits(items: list[SearchResultItem], limit: int) -> list[SearchResultItem]:
+        """The search hits a person asked for: only rows with a real web address (a provider's
+        placeholder row with no URL is never a hit), each address once, at most ``limit``.
+        Brave's "all" answers web AND news, each up to ``count`` — so it can return twice what
+        was asked for; the request's number is the ceiling (web-app walk 2026-09-26: 6 pages for
+        a max of 2)."""
+        seen: set[str] = set()
+        hits: list[SearchResultItem] = []
+        for item in items:
+            url = (item.url or "").strip()
+            if not url.lower().startswith(("http://", "https://")) or url in seen:
+                continue
+            seen.add(url)
+            hits.append(item)
+            if len(hits) >= max(0, limit):
+                break
+        return hits
+
+    async def _emit_scraped(self, result: ScrapeResult, start: float, unsaved: list[dict[str, Any]]) -> bool:
+        """Send one scraped page. When this run produces Sources, only a page that LANDED is a
+        result row (so the rows a person sees equal the Sources saved); a page that was not read
+        or not saved is collected into ``unsaved`` with its reason and said once, in the summary.
+        Returns True when the page became a Source."""
+        if not result.success:
+            supervised_task(
+                _fire_and_forget_failure_log(result),
+                kind="scrape_failure_logging_task_failed",
+                name="scrape-failure-log",
+                context={"url": result.url},
+            )
+        page = await self._landed(result, _apply_field_flags(result.to_dict(), self.options))
+        landed = bool(page.get("processed_document_id"))
+        if self.land_as and not landed:
+            notices = list(page.get("notices") or [])
+            reason = (
+                result.failure_message
+                or (notices[-1].get("message") if notices and isinstance(notices[-1], dict) else None)
+                or (f"it could not be read ({result.failure_reason})." if result.failure_reason else "it was not saved.")
+            )
+            unsaved.append({"url": result.url, "reason": reason})
+            return False
+        if landed and page.get("kept"):
+            self._kept_count += 1
+        elapsed_ms = round((time.monotonic() - start) * 1000, 1)
+        await self.emitter.send_data(
+            FetchResultsData(metadata={"execution_time_ms": elapsed_ms}, results=[page])
+        )
+        return landed
+
+    async def _say_what_landed(self, landed: int, read: int, unsaved: list[dict[str, Any]]) -> None:
+        """One closing sentence with the true count — ``sources_landed`` equals the result rows
+        sent — and, when nothing landed, that nothing did and why."""
+        if not self.land_as:
+            return
+        if landed:
+            kept = self._kept_count
+            pages = f"{read} page{'s' if read != 1 else ''} read"
+            if kept >= landed:
+                message = f"Saved {landed} Source{'s' if landed != 1 else ''} from {pages}."
+            elif kept:
+                message = (
+                    f"Captured {landed} Source{'s' if landed != 1 else ''} from {pages}: {kept} saved, "
+                    f"{landed - kept} not saved yet — save one to keep it and have AI process it."
+                )
+            else:
+                message = (
+                    f"Captured {landed} Source{'s' if landed != 1 else ''} from {pages}, not saved yet — "
+                    "save one to keep it and have AI process it."
+                )
+            if unsaved:
+                message += f" {len(unsaved)} page{'s' if len(unsaved) != 1 else ''} could not be saved."
+        elif read:
+            first = unsaved[0]["reason"] if unsaved else "none of them could be read."
+            message = (
+                f"No Sources were saved: none of the {read} page{'s' if read != 1 else ''} found could "
+                f"be read or saved. The first: {first}"
+            )
+        else:
+            message = "No Sources were saved: the search found no pages to read. Try different keywords."
+        await self.emitter.send_info(
+            InfoPayload(
+                code="sources_landed",
+                system_message=message,
+                user_message=message,
+                metadata={
+                    "sources_landed": landed,
+                    "sources_saved": self._kept_count,
+                    "pages_read": read,
+                    "pages_not_saved": unsaved,
+                },
+            )
+        )
+
     async def search_and_scrape(self) -> None:
         """
         For each keyword: search → stream search results → collect URLs →
@@ -388,19 +485,24 @@ class ScrapeService:
                         user_message=f'Searching for "{keyword}"...',
                     )
                 )
-                items = await self._brave_search(keyword)
+                items = self._real_hits(await self._brave_search(keyword), self.total_results_per_keyword)
                 await self.emitter.send_data(
                     SearchResultsData(
-                        metadata={"keyword": keyword},
+                        metadata={
+                            "keyword": keyword,
+                            "role": "candidates",
+                            "note": "Search results to read; the Sources arrive as fetch_results.",
+                        },
                         results=[r.to_dict() for r in items],
                     )
                 )
-                all_urls.extend(r.url for r in items)
+                all_urls.extend(r.url for r in items if r.url not in all_urls)
                 await asyncio.sleep(1)
             except Exception as exc:
                 vcprint(f"[ScrapeService] search error for '{keyword}': {exc}", color="red")
 
         if not all_urls:
+            await self._say_what_landed(0, 0, [])
             return
 
         await self.emitter.send_info(
@@ -413,6 +515,8 @@ class ScrapeService:
 
         start = time.monotonic()
         ladder_policy = await self._resolve_ladder_policy()
+        landed = read = 0
+        unsaved: list[dict[str, Any]] = []
         async for result in scrape_many_stream(
             all_urls,
             use_proxy=True,
@@ -421,21 +525,9 @@ class ScrapeService:
             organization_id=self.organization_id,
             acting_user_id=self.acting_user_id,
         ):
-            if not result.success:
-                supervised_task(
-                    _fire_and_forget_failure_log(result),
-                    kind="scrape_failure_logging_task_failed",
-                    name="scrape-failure-log",
-                    context={"url": result.url},
-                )
-            page = await self._landed(result, _apply_field_flags(result.to_dict(), self.options))
-            elapsed_ms = round((time.monotonic() - start) * 1000, 1)
-            await self.emitter.send_data(
-                FetchResultsData(
-                    metadata={"execution_time_ms": elapsed_ms},
-                    results=[page],
-                )
-            )
+            read += 1
+            landed += int(await self._emit_scraped(result, start, unsaved))
+        await self._say_what_landed(landed, read, unsaved)
 
     async def search_and_scrape_limited(self) -> None:
         """
@@ -457,16 +549,30 @@ class ScrapeService:
         except Exception as exc:
             vcprint(f"[ScrapeService] search error: {exc}", color="red")
             return
+        items = self._real_hits(items, fetch_count)
 
+        # These are CANDIDATES, not results: up to twice max_page_read addresses are searched so
+        # max_page_read readable pages can be found. They are web addresses (not Sources, §1 rule
+        # 6); the Sources are the fetch_results rows, and sources_landed carries the true count.
+        # Said on the wire so no client renders candidates beside the pages as one list.
         await self.emitter.send_data(
             SearchResultsData(
-                metadata={"keyword": self.keyword},
+                metadata={
+                    "keyword": self.keyword,
+                    "role": "candidates",
+                    "max_page_read": self.max_page_read,
+                    "note": (
+                        f"{len(items)} search result(s) to read from until {self.max_page_read} "
+                        "page(s) become Sources; the Sources arrive as fetch_results."
+                    ),
+                },
                 results=[r.to_dict() for r in items],
             )
         )
 
         urls = [r.url for r in items]
         if not urls:
+            await self._say_what_landed(0, 0, [])
             return
 
         await self.emitter.send_info(
@@ -477,7 +583,8 @@ class ScrapeService:
             )
         )
 
-        successful = 0
+        successful = read = 0
+        unsaved: list[dict[str, Any]] = []
         start = time.monotonic()
         async for result in scrape_many_stream(
             urls,
@@ -486,7 +593,8 @@ class ScrapeService:
             organization_id=self.organization_id,
             acting_user_id=self.acting_user_id,
         ):
-            if not result.success:
+            read += 1
+            if not self.land_as and not result.success:
                 supervised_task(
                     _fire_and_forget_failure_log(result),
                     kind="scrape_failure_logging_task_failed",
@@ -494,17 +602,11 @@ class ScrapeService:
                     context={"url": result.url},
                 )
                 continue
-            successful += 1
-            page = await self._landed(result, _apply_field_flags(result.to_dict(), self.options))
-            elapsed_ms = round((time.monotonic() - start) * 1000, 1)
-            await self.emitter.send_data(
-                FetchResultsData(
-                    metadata={"execution_time_ms": elapsed_ms},
-                    results=[page],
-                )
-            )
+            if await self._emit_scraped(result, start, unsaved) or (not self.land_as and result.success):
+                successful += 1
             if successful >= self.max_page_read:
                 break
+        await self._say_what_landed(successful, read, unsaved)
 
     # ------------------------------------------------------------------
     # Internal helpers

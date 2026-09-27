@@ -2,14 +2,14 @@ import asyncio
 import io
 import logging
 from collections import OrderedDict
-from contextlib import suppress
-from functools import partial
+from contextlib import asynccontextmanager, suppress
+from functools import partial, wraps
 from io import BytesIO
 from random import getrandbits
 from types import MappingProxyType
 from typing import (
-    Any, Awaitable, Callable, Dict, List, Mapping, Optional, Set, Tuple, Type,
-    Union,
+    Any, AsyncGenerator, Awaitable, Callable, Dict, List, Mapping, Optional,
+    Set, Tuple, Type, TypeVar, Union, overload,
 )
 from uuid import UUID
 
@@ -18,17 +18,17 @@ from pamqp import commands as spec
 from pamqp.base import Frame
 from pamqp.body import ContentBody
 from pamqp.constants import REPLY_SUCCESS
-from pamqp.exceptions import AMQPFrameError
 from pamqp.header import ContentHeader
 
 from aiormq.tools import Countdown, awaitable
 
 from .abc import (
     AbstractChannel, AbstractConnection, ArgumentsType, ChannelFrame,
-    ConfirmationFrameType, ConsumerCallback, DeliveredMessage, ExceptionType,
+    ConfirmationFrameType, ConsumerCallback, ConsumerCancelCallback,
+    DeliveredMessage, ExceptionType,
     FrameType, GetResultType, ReturnCallback, RpcReturnType, TimeoutType,
 )
-from .base import Base, task
+from .base import Base
 from .exceptions import (
     AMQPChannelError, AMQPError, ChannelAccessRefused, ChannelClosed,
     ChannelInvalidStateError, ChannelLockedResource, ChannelNotFoundEntity,
@@ -46,6 +46,26 @@ EXCEPTION_MAPPING: Mapping[int, Type[AMQPChannelError]] = MappingProxyType({
     405: ChannelLockedResource,
     406: ChannelPreconditionFailed,
 })
+
+
+T = TypeVar("T")
+
+TaskFunctionType = Callable[..., T]
+
+
+def task(func: TaskFunctionType) -> TaskFunctionType:
+    """Run the method as a channel task. Reject the call on a closed channel.
+
+    A call that starts after the channel closed would create a future in
+    a rejected FutureStore and wait for it forever.
+    """
+    @wraps(func)
+    async def wrap(self: "Channel", *args: Any, **kwargs: Any) -> Any:
+        if self.is_closed:
+            raise ChannelInvalidStateError("%r closed" % self)
+        return await self.create_task(func(self, *args, **kwargs))
+
+    return wrap
 
 
 def exception_by_code(frame: spec.Channel.Close) -> AMQPError:
@@ -120,15 +140,21 @@ class Channel(Base, AbstractChannel):
         self.write_queue = connector.write_queue
         self.on_return_raises = on_return_raises
         self.on_return_callbacks: Set[ReturnCallback] = set()
-        self._close_exception = None
+        self.on_consumer_cancel_callbacks: Set[
+            ConsumerCancelCallback
+        ] = set()
+        self._close_exception: BaseException | None = None
 
-        self.create_task(self._reader())
+        self.__reader_task = self.create_task(self._reader())
 
         self.__close_reply_code: int = REPLY_SUCCESS
         self.__close_reply_text: str = ""
         self.__close_class_id: int = 0
         self.__close_method_id: int = 0
         self.__close_event: asyncio.Event = asyncio.Event()
+        # True after Channel.Open reached the writer. From that point
+        # the broker has (or will have) a channel with this number.
+        self.__open_sent = False
 
     def set_close_reason(
         self, reply_code: int = REPLY_SUCCESS,
@@ -140,11 +166,19 @@ class Channel(Base, AbstractChannel):
         self.__close_method_id = method_id
 
     @property
-    def lock(self) -> asyncio.Lock:
+    @asynccontextmanager
+    async def lock(self) -> AsyncGenerator[None, None]:
+        """Hold the channel lock. Reject the caller if the channel closed.
+
+        The second check covers a close that happened while the caller
+        waited for the lock.
+        """
         if self.is_closed:
             raise ChannelInvalidStateError("%r closed" % self)
-
-        return self.__lock
+        async with self.__lock:
+            if self.is_closed:
+                raise ChannelInvalidStateError("%r closed" % self)
+            yield
 
     async def _get_frame(self) -> FrameType:
         weight, frame = await self.frames.get()
@@ -153,6 +187,120 @@ class Channel(Base, AbstractChannel):
 
     def __str__(self) -> str:
         return str(self.number)
+
+    # The overloads give each RPC call the type of its reply frame.
+    # A call with nowait=True returns None; see the last overload.
+    @overload
+    async def rpc(
+        self, frame: spec.Channel.Open, timeout: TimeoutType = None,
+    ) -> spec.Channel.OpenOk: ...
+
+    @overload
+    async def rpc(
+        self, frame: spec.Channel.Close, timeout: TimeoutType = None,
+    ) -> spec.Channel.CloseOk: ...
+
+    @overload
+    async def rpc(
+        self, frame: spec.Channel.Flow, timeout: TimeoutType = None,
+    ) -> spec.Channel.FlowOk: ...
+
+    @overload
+    async def rpc(
+        self, frame: spec.Confirm.Select, timeout: TimeoutType = None,
+    ) -> spec.Confirm.SelectOk: ...
+
+    @overload
+    async def rpc(
+        self, frame: spec.Basic.Get, timeout: TimeoutType = None,
+    ) -> GetResultType: ...
+
+    @overload
+    async def rpc(
+        self, frame: spec.Basic.Cancel, timeout: TimeoutType = None,
+    ) -> spec.Basic.CancelOk: ...
+
+    @overload
+    async def rpc(
+        self, frame: spec.Basic.Consume, timeout: TimeoutType = None,
+    ) -> spec.Basic.ConsumeOk: ...
+
+    @overload
+    async def rpc(
+        self, frame: spec.Basic.Qos, timeout: TimeoutType = None,
+    ) -> spec.Basic.QosOk: ...
+
+    @overload
+    async def rpc(
+        self,
+        frame: Union[spec.Basic.Recover, spec.Basic.RecoverAsync],
+        timeout: TimeoutType = None,
+    ) -> spec.Basic.RecoverOk: ...
+
+    @overload
+    async def rpc(
+        self, frame: spec.Exchange.Declare, timeout: TimeoutType = None,
+    ) -> spec.Exchange.DeclareOk: ...
+
+    @overload
+    async def rpc(
+        self, frame: spec.Exchange.Delete, timeout: TimeoutType = None,
+    ) -> spec.Exchange.DeleteOk: ...
+
+    @overload
+    async def rpc(
+        self, frame: spec.Exchange.Bind, timeout: TimeoutType = None,
+    ) -> spec.Exchange.BindOk: ...
+
+    @overload
+    async def rpc(
+        self, frame: spec.Exchange.Unbind, timeout: TimeoutType = None,
+    ) -> spec.Exchange.UnbindOk: ...
+
+    @overload
+    async def rpc(
+        self, frame: spec.Queue.Declare, timeout: TimeoutType = None,
+    ) -> spec.Queue.DeclareOk: ...
+
+    @overload
+    async def rpc(
+        self, frame: spec.Queue.Delete, timeout: TimeoutType = None,
+    ) -> spec.Queue.DeleteOk: ...
+
+    @overload
+    async def rpc(
+        self, frame: spec.Queue.Bind, timeout: TimeoutType = None,
+    ) -> spec.Queue.BindOk: ...
+
+    @overload
+    async def rpc(
+        self, frame: spec.Queue.Unbind, timeout: TimeoutType = None,
+    ) -> spec.Queue.UnbindOk: ...
+
+    @overload
+    async def rpc(
+        self, frame: spec.Queue.Purge, timeout: TimeoutType = None,
+    ) -> spec.Queue.PurgeOk: ...
+
+    @overload
+    async def rpc(
+        self, frame: spec.Tx.Select, timeout: TimeoutType = None,
+    ) -> spec.Tx.SelectOk: ...
+
+    @overload
+    async def rpc(
+        self, frame: spec.Tx.Commit, timeout: TimeoutType = None,
+    ) -> spec.Tx.CommitOk: ...
+
+    @overload
+    async def rpc(
+        self, frame: spec.Tx.Rollback, timeout: TimeoutType = None,
+    ) -> spec.Tx.RollbackOk: ...
+
+    @overload
+    async def rpc(
+        self, frame: Frame, timeout: TimeoutType = None,
+    ) -> RpcReturnType: ...
 
     @task
     async def rpc(
@@ -166,6 +314,11 @@ class Channel(Base, AbstractChannel):
         lock = self.lock
 
         async with countdown.enter_context(lock):
+            # Another call can close the channel while this call waits for
+            # the lock. Do not send a frame on a closed channel.
+            if self.__close_event.is_set():
+                raise ChannelInvalidStateError("Channel closed by RPC timeout")
+
             try:
                 await countdown(
                     self.write_queue.put(
@@ -175,6 +328,9 @@ class Channel(Base, AbstractChannel):
                         ),
                     ),
                 )
+
+                if isinstance(frame, spec.Channel.Open):
+                    self.__open_sent = True
 
                 if not (frame.synchronous or getattr(frame, "nowait", False)):
                     return None
@@ -191,40 +347,72 @@ class Channel(Base, AbstractChannel):
                 if self.is_closed:
                     raise
 
-                log.warning(
-                    "Closing channel %r because RPC call %s cancelled",
-                    self, frame,
-                )
-
-                self.__close_event.set()
-                await self.write_queue.put(
-                    ChannelFrame.marshall(
-                        channel_number=self.number,
-                        frames=[
-                            spec.Channel.Close(
-                                class_id=0,
-                                method_id=0,
-                                reply_code=504,
-                                reply_text=(
-                                    "RPC timeout on frame {!s}".format(frame)
-                                ),
-                            ),
-                        ],
-                    ),
-                )
-
+                await self.__close_after_failure(frame)
                 raise
 
-    async def open(self, timeout: TimeoutType = None) -> spec.Channel.OpenOk:
-        frame: spec.Channel.OpenOk = await self.rpc(
-            spec.Channel.Open(), timeout=timeout,
+    async def __close_after_failure(self, frame: Optional[Frame]) -> None:
+        """Close the channel after a cancelled or timed out RPC call.
+
+        When Channel.Open reached the writer, the broker has a channel
+        with this number and a Channel.Close handshake frees the number.
+        Otherwise the channel is closed locally.
+        """
+        self.__close_event.set()
+
+        if not self.__open_sent:
+            log.warning(
+                "Closing channel %r locally because RPC call %s cancelled "
+                "before Channel.Open was sent", self, frame,
+            )
+            self._close_locally()
+            return
+
+        log.warning(
+            "Closing channel %r because RPC call %s cancelled", self, frame,
         )
 
-        if self.publisher_confirms:
-            await self.rpc(spec.Confirm.Select())
+        await self.write_queue.put(
+            ChannelFrame.marshall(
+                channel_number=self.number,
+                frames=[
+                    spec.Channel.Close(
+                        class_id=0,
+                        method_id=0,
+                        reply_code=504,
+                        reply_text="RPC timeout on frame {!s}".format(frame),
+                    ),
+                ],
+            ),
+        )
+
+    def _close_locally(self) -> None:
+        """Close the channel without a Channel.Close handshake.
+
+        Use it only when Channel.Open did not reach the writer. The broker
+        has no channel with this number, so the number is free at once.
+        """
+        self.__close_event.set()
+        self.__reader_task.cancel()
+        self.connection.channels.pop(self.number, None)
+
+    async def open(self, timeout: TimeoutType = None) -> spec.Channel.OpenOk:
+        try:
+            frame: spec.Channel.OpenOk = await self.rpc(
+                spec.Channel.Open(), timeout=timeout,
+            )
+
+            if self.publisher_confirms:
+                await self.rpc(spec.Confirm.Select())
+        except BaseException:
+            if not self.__close_event.is_set():
+                # rpc() did not run, or it failed before its own cleanup.
+                # Cancellation before the rpc task starts takes this path,
+                # also between Channel.OpenOk and Confirm.Select.
+                await self.__close_after_failure(None)
+            raise
 
         if frame is None:  # pragma: no cover
-            raise AMQPFrameError(frame)
+            raise InvalidFrameError(frame)
         return frame
 
     async def __get_content_frame(self) -> ContentBody:
@@ -271,6 +459,14 @@ class Channel(Base, AbstractChannel):
 
         return frame
 
+    @staticmethod
+    def _on_consumer_done(task: asyncio.Task) -> None:
+        if task.cancelled():
+            return
+        exception = task.exception()
+        if exception is not None:
+            log.error("Consumer callback failed", exc_info=exception)
+
     async def _on_deliver_frame(self, frame: spec.Basic.Deliver) -> None:
         header: ContentHeader = await self.__get_content_header()
         message = await self._read_content(frame, header)
@@ -282,7 +478,8 @@ class Channel(Base, AbstractChannel):
         consumer = self.consumers.get(frame.consumer_tag)
         if consumer is not None:
             # noinspection PyAsyncCall
-            self.create_task(consumer(message))
+            task = self.create_task(consumer(message))
+            task.add_done_callback(self._on_consumer_done)
 
     async def _on_get_frame(
         self, frame: Union[spec.Basic.GetOk, spec.Basic.GetEmpty],
@@ -356,8 +553,13 @@ class Channel(Base, AbstractChannel):
 
         if isinstance(confirmation, Returning):
             return
-        elif confirmation.done():  # pragma: nocover
-            log.warning(
+        elif confirmation.done():
+            # Cancellation or a publish timeout can precede the broker's reply.
+            level = (
+                logging.DEBUG if confirmation.cancelled() else logging.WARNING
+            )
+            log.log(
+                level,
                 "Delivery tag %r confirmed %r was ignored", delivery_tag, frame,
             )
             return
@@ -396,8 +598,28 @@ class Channel(Base, AbstractChannel):
         if frame.consumer_tag is not None:
             self.consumers.pop(frame.consumer_tag, None)
 
+        if not isinstance(frame, spec.Basic.Cancel):
+            # Basic.CancelOk answers a client basic_cancel() call.
+            return
+
+        # The broker cancelled the consumer, for example because the queue
+        # was deleted. Tell the user, a callback error must not stop the
+        # channel reader.
+        log.warning(
+            "Consumer %r cancelled by the broker on %r",
+            frame.consumer_tag, self,
+        )
+
+        for cb in self.on_consumer_cancel_callbacks:
+            # noinspection PyBroadException
+            try:
+                await awaitable(cb)(frame)
+            except Exception:
+                log.exception("Unhandled consumer cancel callback exception")
+
     async def _on_close_frame(self, frame: spec.Channel.Close) -> None:
         exc: BaseException = exception_by_code(frame)
+        self._close_exception = exc
         with suppress(asyncio.QueueFull):
             self.write_queue.put_nowait(
                 ChannelFrame.marshall(
@@ -478,17 +700,21 @@ class Channel(Base, AbstractChannel):
         countdown = Countdown(timeout)
         async with countdown.enter_context(self.getter_lock):
             self.getter = self.create_future()
+            try:
+                await self.rpc(
+                    spec.Basic.Get(queue=queue, no_ack=no_ack),
+                    timeout=countdown.get_timeout(),
+                )
+            except BaseException:
+                self.getter.cancel()
+                raise
+            else:
+                frame: Union[spec.Basic.GetEmpty, spec.Basic.GetOk]
+                message: DeliveredMessage
 
-            await self.rpc(
-                spec.Basic.Get(queue=queue, no_ack=no_ack),
-                timeout=countdown.get_timeout(),
-            )
-
-            frame: Union[spec.Basic.GetEmpty, spec.Basic.GetOk]
-            message: DeliveredMessage
-
-            frame, message = await countdown(self.getter)
-            del self.getter
+                frame, message = await countdown(self.getter)
+            finally:
+                del self.getter
 
         return message
 
@@ -537,6 +763,9 @@ class Channel(Base, AbstractChannel):
     async def basic_ack(
         self, delivery_tag: int, multiple: bool = False, wait: bool = True,
     ) -> None:
+        if self.is_closed or self.__close_event.is_set():
+            raise ChannelInvalidStateError("%r closed" % self)
+
         drain_future = self.create_future() if wait else None
 
         await self.write_queue.put(
@@ -562,6 +791,9 @@ class Channel(Base, AbstractChannel):
         requeue: bool = True,
         wait: bool = True,
     ) -> None:
+        if self.is_closed or self.__close_event.is_set():
+            raise ChannelInvalidStateError("%r closed" % self)
+
         if not self.connection.basic_nack:
             raise MethodNotImplemented
 
@@ -587,6 +819,9 @@ class Channel(Base, AbstractChannel):
     async def basic_reject(
         self, delivery_tag: int, *, requeue: bool = True, wait: bool = True,
     ) -> None:
+        if self.is_closed or self.__close_event.is_set():
+            raise ChannelInvalidStateError("%r closed" % self)
+
         drain_future = self.create_future()
         await self.write_queue.put(
             ChannelFrame.marshall(
@@ -615,18 +850,43 @@ class Channel(Base, AbstractChannel):
             reader = partial(fp.read, self.max_content_size)
             return list(map(ContentBody, iter(reader, b"")))
 
+    @asynccontextmanager
+    async def _raise_on_channel_close(self) -> AsyncGenerator[None, None]:
+        try:
+            yield
+        except asyncio.CancelledError as exc:
+            # Closing the channel cancels its consumer tasks as well as
+            # rejecting pending confirmations. Inside a consumer, expose
+            # the error that caused this cancellation to the publisher.
+            task = asyncio.current_task()
+            if self._closing.done() and not self._closing.cancelled():
+                reason = self._close_exception
+                if (
+                    isinstance(reason, Exception)
+                    and self._closing.exception() is reason
+                    and len(exc.args) == 1
+                    and exc.args[0] is reason
+                    and task is not None
+                    and task.cancelling() == 1
+                ):
+                    # Remove only our cancellation. A concurrent external
+                    # cancellation must remain a CancelledError.
+                    task.uncancel()
+                    raise reason from exc
+            raise
+
     async def basic_publish(
         self,
         body: bytes,
         *,
         exchange: str = "",
         routing_key: str = "",
-        properties: Optional[spec.Basic.Properties] = None,
+        properties: spec.Basic.Properties | None = None,
         mandatory: bool = False,
         immediate: bool = False,
         timeout: TimeoutType = None,
         wait: bool = True,
-    ) -> Optional[ConfirmationFrameType]:
+    ) -> ConfirmationFrameType | None:
         _check_routing_key(routing_key)
         countdown = Countdown(timeout=timeout)
 
@@ -647,56 +907,71 @@ class Channel(Base, AbstractChannel):
             rnd_uuid = UUID(int=getrandbits(128), version=4)
             content_header.properties.message_id = rnd_uuid.hex
 
-        confirmation: Optional[ConfirmationType] = None
+        confirmation: asyncio.Future | None = None
 
-        async with countdown.enter_context(self.lock):
-            self.delivery_tag += 1
-
-            if self.publisher_confirms:
+        # Keep cancellation in this task: a wait_for task could enqueue a
+        # frame just before its caller is cancelled, making rollback unsafe.
+        async with (
+            self._raise_on_channel_close(),
+            asyncio.timeout(countdown.get_timeout()),
+        ):
+            async with self.lock:
+                self.delivery_tag += 1
+                delivery_tag = self.delivery_tag
                 message_id = content_header.properties.message_id
+                drain_future: asyncio.Future | None = None
+                sent = False
 
-                if self.delivery_tag not in self.confirmations:
-                    self.confirmations[
-                        self.delivery_tag
-                    ] = self.create_future()
+                try:
+                    if self.publisher_confirms:
+                        confirmation = self.create_future()
+                        self.confirmations[delivery_tag] = confirmation
+                        self.message_id_delivery_tag[message_id] = delivery_tag
 
-                confirmation = self.confirmations[self.delivery_tag]
-                self.message_id_delivery_tag[message_id] = self.delivery_tag
+                        def forget_message_id(_: asyncio.Future) -> None:
+                            if self.message_id_delivery_tag.get(
+                                message_id,
+                            ) == delivery_tag:
+                                self.message_id_delivery_tag.pop(message_id)
 
-                if confirmation is None:
-                    return
+                    body_frames: list[FrameType | ContentBody]
+                    body_frames = [publish_frame, content_header]
+                    body_frames += self._split_body(body)
 
-                confirmation.add_done_callback(
-                    lambda _: self.message_id_delivery_tag.pop(
-                        message_id, None,
-                    ),
-                )
+                    drain_future = self.create_future() if wait else None
+                    await self.write_queue.put(
+                        ChannelFrame.marshall(
+                            frames=body_frames,
+                            channel_number=self.number,
+                            drain_future=drain_future,
+                        ),
+                    )
+                    sent = True
+                    if confirmation is not None:
+                        confirmation.add_done_callback(forget_message_id)
 
-            body_frames: List[Union[FrameType, ContentBody]]
-            body_frames = [publish_frame, content_header]
-            body_frames += self._split_body(body)
-
-            drain_future = self.create_future() if wait else None
-            await countdown(
-                self.write_queue.put(
-                    ChannelFrame.marshall(
-                        frames=body_frames,
-                        channel_number=self.number,
-                        drain_future=drain_future,
-                    ),
-                ),
-            )
-
-            if drain_future:
-                await drain_future
-
-            if not self.publisher_confirms:
-                return None
+                    if drain_future is not None:
+                        await drain_future
+                except BaseException:
+                    if not sent:
+                        # The broker has not seen this publish. Reuse its
+                        # sequence number while still holding the lock.
+                        self.delivery_tag -= 1
+                        self.confirmations.pop(delivery_tag, None)
+                        if self.message_id_delivery_tag.get(
+                            message_id,
+                        ) == delivery_tag:
+                            self.message_id_delivery_tag.pop(message_id)
+                        if confirmation is not None:
+                            confirmation.cancel()
+                    if drain_future is not None:
+                        drain_future.cancel()
+                    raise
 
             if confirmation is None:
                 return None
 
-        return await countdown(confirmation)
+            return await confirmation
 
     async def basic_qos(
         self,

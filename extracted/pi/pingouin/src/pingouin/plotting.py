@@ -10,7 +10,12 @@ import matplotlib.transforms as transforms
 import numpy as np
 import pandas as pd
 import seaborn as sns
+from matplotlib.cbook import normalize_kwargs
+from matplotlib.lines import Line2D
+from matplotlib.patches import Patch
 from scipy import stats
+
+from .utils import _check_dataframe, remove_na
 
 # Set default Seaborn preferences (disabled Pingouin >= 0.3.4)
 # See https://github.com/raphaelvallat/pingouin/issues/85
@@ -26,7 +31,16 @@ __all__ = [
 
 
 def plot_blandaltman(
-    x, y, agreement=1.96, xaxis="mean", confidence=0.95, annotate=True, ax=None, **kwargs
+    x,
+    y,
+    agreement=1.96,
+    xaxis="mean",
+    confidence=0.95,
+    annotate=True,
+    percentage=False,
+    symmetric_ylim=False,
+    ax=None,
+    **kwargs,
 ):
     """
     Generate a Bland-Altman plot to compare two sets of measurements.
@@ -36,22 +50,37 @@ def plot_blandaltman(
     x, y : pd.Series, np.array, or list
         First and second measurements.
     agreement : float
-        Multiple of the standard deviation to plot agreement limits.
-        The defaults is 1.96, which corresponds to 95% confidence interval if
-        the differences are normally distributed.
+        Multiple of the standard deviation used to compute the limits of
+        agreement (LoA). The default is 1.96, which gives LoA that contain
+        approximately 95% of differences when they are normally distributed.
     xaxis : str
         Define which measurements should be used as the reference (x-axis).
         Default is to use the average of x and y ("mean"). Accepted values are
         "mean", "x" or "y".
-    confidence : float
-        If not None, plot the specified percentage confidence interval of
-        the mean and limits of agreement. The CIs of the mean difference and
-        agreement limits describe a possible error in the
-        estimate due to a sampling error. The greater the sample size,
-        the narrower the CIs will be.
+    confidence : float or None
+        If not None, plot the specified confidence interval of the mean
+        difference and limits of agreement. These bands represent sampling
+        uncertainty around the point estimates (not prediction intervals):
+        the larger the sample size, the narrower the bands. Default is 0.95.
     annotate : bool
-        If True (default), annotate the values for the mean difference
-        and agreement limits.
+        If True (default), annotate the mean difference and upper/lower limits
+        of agreement values on the right-hand side of the plot.
+    percentage : bool
+        If True, plot percentage differences relative to the mean of each
+        pair, i.e. ``(x - y) / abs(mean(x, y)) * 100``. Useful when measurement
+        variability scales with magnitude. This is only meaningful for
+        ratio-scale measurements that stay away from zero: the percentage
+        difference grows without bound as the mean of a pair approaches zero.
+        Default is False.
+
+        .. versionadded:: 0.7.0
+    symmetric_ylim : bool
+        If True, force the y-axis to be symmetric around zero. This avoids
+        conveying a visual bias when the mean difference is close to zero, but
+        compresses the data into a narrow band when the bias is large relative
+        to the spread of the differences. Default is False.
+
+        .. versionadded:: 0.7.0
     ax : matplotlib axes
         Axis on which to draw the plot.
     **kwargs : optional
@@ -84,7 +113,8 @@ def plot_blandaltman(
     The 95% limits of agreement can be unreliable estimates of the population
     parameters especially for small sample sizes so, when comparing methods
     or assessing repeatability, it is important to calculate confidence
-    intervals for the 95% limits of agreement.
+    intervals for the 95% limits of agreement. The standard error of the
+    limits of agreement is √(3s²/n), per Bland & Altman (1986) [1]_.
 
     The code is an adaptation of the
     `PyCompare <https://github.com/jaketmp/pyCompare>`_ package. The present
@@ -127,21 +157,34 @@ def plot_blandaltman(
     _scatter_kwargs = {"color": "tab:blue", "alpha": 0.8}
     _scatter_kwargs.update(kwargs)
 
-    # Calculate mean, STD and SEM of x - y
+    # Calculate differences — absolute or percentage
+    mean_xy = np.vstack((x, y)).mean(0)
+    if percentage:
+        if np.any(mean_xy == 0):
+            raise ValueError(
+                "Percentage differences are undefined when the mean of `x` and `y` "
+                "is zero for one or more paired observations."
+            )
+        # Divide by the absolute mean, otherwise the sign of the difference would be
+        # flipped for pairs with a negative mean.
+        diff = (x - y) / np.abs(mean_xy) * 100
+    else:
+        diff = x - y
+
+    # Calculate mean, STD and SEM of the differences
     n = x.size
     dof = n - 1
-    diff = x - y
     mean_diff = np.mean(diff)
     std_diff = np.std(diff, ddof=1)
     mean_diff_se = np.sqrt(std_diff**2 / n)
-    # Limits of agreements
+    # Limits of agreement and their SE (Bland & Altman, 1986: SE = sqrt(3s²/n))
     high = mean_diff + agreement * std_diff
     low = mean_diff - agreement * std_diff
     high_low_se = np.sqrt(3 * std_diff**2 / n)
 
     # Define x-axis
     if xaxis == "mean":
-        xval = np.vstack((x, y)).mean(0)
+        xval = mean_xy
         xlabel = f"Mean of {xname} and {yname}"
     elif xaxis == "x":
         xval = x
@@ -154,11 +197,12 @@ def plot_blandaltman(
     if ax is None:
         ax = plt.gca()
 
-    # Plot the mean diff, limits of agreement and scatter
+    # Zero line (perfect agreement), then bias and LoA
+    ax.axhline(0, color="lightgray", linestyle="solid", lw=1, zorder=0)
     ax.scatter(xval, diff, **_scatter_kwargs)
     ax.axhline(mean_diff, color="k", linestyle="-", lw=2)
-    ax.axhline(high, color="k", linestyle=":", lw=1.5)
-    ax.axhline(low, color="k", linestyle=":", lw=1.5)
+    ax.axhline(high, color="k", linestyle="--", lw=1.5)
+    ax.axhline(low, color="k", linestyle="--", lw=1.5)
 
     # Annotate values
     if annotate:
@@ -169,41 +213,56 @@ def plot_blandaltman(
         ax.text(xloc, mean_diff + offset, "Mean", ha="right", va="bottom", transform=trans)
         ax.text(xloc, mean_diff - offset, "%.2f" % mean_diff, ha="right", va="top", transform=trans)
         ax.text(
-            xloc, high + offset, "+%.2f SD" % agreement, ha="right", va="bottom", transform=trans
+            xloc,
+            high + offset,
+            f"+{agreement:.2f}\u00d7SD",
+            ha="right",
+            va="bottom",
+            transform=trans,
         )
         ax.text(xloc, high - offset, "%.2f" % high, ha="right", va="top", transform=trans)
-        ax.text(xloc, low - offset, "-%.2f SD" % agreement, ha="right", va="top", transform=trans)
+        ax.text(
+            xloc,
+            low - offset,
+            f"\u2212{agreement:.2f}\u00d7SD",
+            ha="right",
+            va="top",
+            transform=trans,
+        )
         ax.text(xloc, low + offset, "%.2f" % low, ha="right", va="bottom", transform=trans)
 
-    # Add 95% confidence intervals for mean bias and limits of agreement
+    # Confidence intervals for mean bias and limits of agreement
     if confidence is not None:
         assert 0 < confidence < 1
         ci = dict()
         ci["mean"] = stats.t.interval(confidence, dof, loc=mean_diff, scale=mean_diff_se)
         ci["high"] = stats.t.interval(confidence, dof, loc=high, scale=high_low_se)
         ci["low"] = stats.t.interval(confidence, dof, loc=low, scale=high_low_se)
-        ax.axhspan(ci["mean"][0], ci["mean"][1], facecolor="tab:grey", alpha=0.2)
-        ax.axhspan(ci["high"][0], ci["high"][1], facecolor=_scatter_kwargs["color"], alpha=0.2)
-        ax.axhspan(ci["low"][0], ci["low"][1], facecolor=_scatter_kwargs["color"], alpha=0.2)
+        # Bias CI in grey, LoA CIs in blue — independent of scatter color
+        ax.axhspan(ci["mean"][0], ci["mean"][1], facecolor="tab:gray", alpha=0.2)
+        ax.axhspan(ci["high"][0], ci["high"][1], facecolor="tab:blue", alpha=0.2)
+        ax.axhspan(ci["low"][0], ci["low"][1], facecolor="tab:blue", alpha=0.2)
 
-    # Labels
-    ax.set_ylabel(f"{xname} - {yname}")
+    # Labels and (optional) symmetric y-axis
+    unit = " [%]" if percentage else ""
+    ax.set_ylabel(f"{xname} \u2212 {yname}{unit}")
     ax.set_xlabel(xlabel)
+    if symmetric_ylim:
+        bound = max(abs(lim) for lim in ax.get_ylim())
+        ax.set_ylim(-bound, bound)
     return ax
 
 
-def _ppoints(n, a=0.5):
+def _ppoints(n):
     """
     Ordinates For Probability Plotting.
 
-    Numpy analogue or `R`'s `ppoints` function.
+    Numpy analogue of `R`'s `ppoints` function.
 
     Parameters
     ----------
     n : int
-        Number of points generated
-    a : float
-        Offset fraction (typically between 0 and 1)
+        Number of points generated.
 
     Returns
     -------
@@ -211,11 +270,22 @@ def _ppoints(n, a=0.5):
         Sequence of probabilities at which to evaluate the inverse
         distribution.
     """
+    # Use a = 3/8 for small samples (n <= 10), 0.5 otherwise (Blom, 1958)
     a = 3 / 8 if n <= 10 else 0.5
     return (np.arange(n) + 1 - a) / (n + 1 - 2 * a)
 
 
-def qqplot(x, dist="norm", sparams=(), confidence=0.95, square=True, ax=None, **kwargs):
+def qqplot(
+    x,
+    dist="norm",
+    sparams=(),
+    confidence=0.95,
+    square=True,
+    line_kwargs=None,
+    ci_kwargs=None,
+    ax=None,
+    **kwargs,
+):
     """Quantile-Quantile plot.
 
     Parameters
@@ -228,13 +298,26 @@ def qqplot(x, dist="norm", sparams=(), confidence=0.95, square=True, ax=None, **
     sparams : tuple, optional
         Distribution-specific shape parameters (shape parameters, location,
         and scale). See :py:func:`scipy.stats.probplot` for more details.
-    confidence : float
+    confidence : float or bool
         Confidence level (.95 = 95%) for point-wise confidence envelope.
-        Can be disabled by passing False.
-    square: bool
+        Pass False to disable the confidence envelope.
+    square : bool
         If True (default), ensure equal aspect ratio between X and Y axes.
+    line_kwargs : dict or None
+        Optional keyword arguments passed to :py:func:`matplotlib.pyplot.plot`
+        for the regression line. Default style is ``{"color": "r", "lw": 2}``.
+        Matplotlib aliases and their canonical names (e.g. ``lw`` and
+        ``linewidth``) are interchangeable.
+
+        .. versionadded:: 0.7.0
+    ci_kwargs : dict or None
+        Optional keyword arguments passed to :py:func:`matplotlib.pyplot.plot`
+        for the confidence envelope lines. Default style is
+        ``{"color": "r", "ls": "--", "lw": 1.25}``.
+
+        .. versionadded:: 0.7.0
     ax : matplotlib axes
-        Axis on which to draw the plot
+        Axis on which to draw the plot.
     **kwargs : optional
         Optional argument(s) passed to :py:func:`matplotlib.pyplot.scatter`.
 
@@ -330,12 +413,20 @@ def qqplot(x, dist="norm", sparams=(), confidence=0.95, square=True, ax=None, **
     # Update default kwargs with specified inputs
     _scatter_kwargs = {"marker": "o", "color": "blue"}
     _scatter_kwargs.update(kwargs)
+    # Canonicalize Matplotlib aliases before merging (e.g. "ls" -> "linestyle"), otherwise
+    # a caller passing the long form would collide with the alias used in the defaults.
+    _line_kwargs = normalize_kwargs({"color": "r", "lw": 2}, Line2D)
+    _line_kwargs.update(normalize_kwargs(line_kwargs or {}, Line2D))
+    _ci_kwargs = normalize_kwargs({"color": "r", "ls": "--", "lw": 1.25}, Line2D)
+    _ci_kwargs.update(normalize_kwargs(ci_kwargs or {}, Line2D))
 
     if isinstance(dist, str):
         dist = getattr(stats, dist)
 
-    x = np.asarray(x)
-    x = x[~np.isnan(x)]  # NaN are automatically removed
+    x = remove_na(x)  # NaN are automatically removed
+    if x.size > 0 and np.ptp(x) == 0:
+        # A degenerate fit (scale = 0) would divide by zero when standardizing below
+        raise ValueError("All values in `x` are identical: a Q-Q plot requires some variance.")
 
     # Check sparams: if single parameter, tuple becomes int
     if not isinstance(sparams, (tuple, list)):
@@ -348,17 +439,12 @@ def qqplot(x, dist="norm", sparams=(), confidence=0.95, square=True, ax=None, **
         )
 
     # Extract quantiles and regression
-    quantiles = stats.probplot(x, sparams=sparams, dist=dist, fit=False)
-    theor, observed = quantiles[0], quantiles[1]
+    theor, observed = stats.probplot(x, sparams=sparams, dist=dist, fit=False)
 
-    fit_params = dist.fit(x)
-    loc = fit_params[-2]
-    scale = fit_params[-1]
-    shape = fit_params[:-2] if len(fit_params) > 2 else None
+    *shape, loc, scale = dist.fit(x)
 
-    # Observed values to observed quantiles
-    if loc != 0 and scale != 1:
-        observed = (np.sort(observed) - fit_params[-2]) / fit_params[-1]
+    # Observed values (already sorted) to observed quantiles
+    observed = (observed - loc) / scale
 
     # Linear regression
     slope, intercept, r, _, _ = stats.linregress(theor, observed)
@@ -382,7 +468,7 @@ def qqplot(x, dist="norm", sparams=(), confidence=0.95, square=True, ax=None, **
 
     # Add regression line and annotate R2
     fit_val = slope * theor + intercept
-    ax.plot(theor, fit_val, "r-", lw=2)
+    ax.plot(theor, fit_val, **_line_kwargs)
     posx = end_pts[0] + 0.60 * (end_pts[1] - end_pts[0])
     posy = end_pts[0] + 0.10 * (end_pts[1] - end_pts[0])
     ax.text(posx, posy, "$R^2=%.3f$" % r**2)
@@ -392,12 +478,12 @@ def qqplot(x, dist="norm", sparams=(), confidence=0.95, square=True, ax=None, **
         n = x.size
         P = _ppoints(n)
         crit = stats.norm.ppf(1 - (1 - confidence) / 2)
-        pdf = dist.pdf(theor) if shape is None else dist.pdf(theor, *shape)
+        pdf = dist.pdf(theor, *shape)
         se = (slope / pdf) * np.sqrt(P * (1 - P) / n)
         upper = fit_val + crit * se
         lower = fit_val - crit * se
-        ax.plot(theor, upper, "r--", lw=1.25)
-        ax.plot(theor, lower, "r--", lw=1.25)
+        ax.plot(theor, upper, **_ci_kwargs)
+        ax.plot(theor, lower, **_ci_kwargs)
 
     # Make square
     if square:
@@ -416,9 +502,9 @@ def plot_paired(
     boxplot_in_front=False,
     orient="v",
     ax=None,
-    colors=["green", "grey", "indianred"],
-    pointplot_kwargs={"scale": 0.6, "marker": "."},
-    boxplot_kwargs={"color": "lightslategrey", "width": 0.2},
+    colors=None,
+    pointplot_kwargs=None,
+    boxplot_kwargs=None,
 ):
     """
     Paired plot.
@@ -453,16 +539,16 @@ def plot_paired(
         .. versionadded:: 0.3.9
     ax : matplotlib axes
         Axis on which to draw the plot.
-    colors : list of str
-        Line colors names. Default is green when value increases from A to B,
-        indianred when value decreases from A to B and grey when the value is
-        the same in both measurements.
-    pointplot_kwargs : dict
-        Dictionnary of optional arguments that are passed to the
-        :py:func:`seaborn.pointplot` function.
-    boxplot_kwargs : dict
-        Dictionnary of optional arguments that are passed to the
-        :py:func:`seaborn.boxplot` function.
+    colors : list of str or None
+        Line colors names. Default (None) uses green when value increases from
+        A to B, indianred when value decreases from A to B, and grey when the
+        value is the same in both measurements.
+    pointplot_kwargs : dict or None
+        Optional keyword arguments passed to :py:func:`seaborn.pointplot`.
+        When None, internal defaults are used.
+    boxplot_kwargs : dict or None
+        Optional keyword arguments passed to :py:func:`seaborn.boxplot`.
+        When None, internal defaults are used.
 
     Returns
     -------
@@ -527,13 +613,13 @@ def plot_paired(
         ...     data=df, dv="Scores", within="Time", subject="Subject", boxplot_in_front=True
         ... )
     """
-    from pingouin.utils import _check_dataframe
-
+    if colors is None:
+        colors = ["green", "grey", "indianred"]
     # Update default kwargs with specified inputs
     _pointplot_kwargs = {"scale": 0.6, "marker": "."}
-    _pointplot_kwargs.update(pointplot_kwargs)
+    _pointplot_kwargs.update(pointplot_kwargs or {})
     _boxplot_kwargs = {"color": "lightslategrey", "width": 0.2}
-    _boxplot_kwargs.update(boxplot_kwargs)
+    _boxplot_kwargs.update(boxplot_kwargs or {})
     # Extract pointplot alpha, if set
     pp_alpha = _pointplot_kwargs.pop("alpha", 1.0)
 
@@ -543,23 +629,11 @@ def plot_paired(
     mew = lw * 0.75  # get the markeredgewidth
     markersize = np.pi * np.square(lw) * 2  # get the markersize
 
-    # Set boxplot in front of Line2D plot (zorder=2 for both) and add alpha
-    if boxplot_in_front:
-        _boxplot_kwargs.update(
-            {
-                "boxprops": {"zorder": 3},  # Boxplot on top
-                "whiskerprops": {"zorder": 3},
-                "zorder": 3,
-            }
-        )
-    else:
-        _boxplot_kwargs.update(
-            {
-                "boxprops": {"zorder": 1},  # Boxplot behind
-                "whiskerprops": {"zorder": 1},
-                "zorder": 1,
-            }
-        )
+    # Set boxplot in front of (or behind) the Line2D plot (zorder=2 for both)
+    zorder = 3 if boxplot_in_front else 1
+    _boxplot_kwargs.update(
+        {"boxprops": {"zorder": zorder}, "whiskerprops": {"zorder": zorder}, "zorder": zorder}
+    )
 
     # Validate args
     data = _check_dataframe(data=data, dv=dv, within=within, subject=subject, effects="within")
@@ -579,14 +653,14 @@ def plot_paired(
     if order is None:
         order = x_cat
     else:
-        assert len(order) == len(x_cat), (
-            "Order must have the same number of elements as the number of levels in `within`."
-        )
+        if len(order) != len(x_cat):
+            raise ValueError(
+                "Order must have the same number of elements as the number of levels in `within`."
+            )
 
     # Substitue within by integer order of the ordered columns to allow for
     # changing the order of numeric withins.
     data["wthn"] = data[within].replace({_ordr: i for i, _ordr in enumerate(order)})
-    order_num = range(len(order))  # Make numeric order
 
     # Start the plot
     if ax is None:
@@ -597,7 +671,7 @@ def plot_paired(
     _y = dv if orient == "v" else "wthn"
 
     for cat in range(len(x_cat) - 1):
-        _order = (order_num[cat], order_num[cat + 1])
+        _order = (cat, cat + 1)
         # Extract data of the current subject-combination
         data_now = data.loc[data["wthn"].isin(_order), [dv, "wthn", subject]]
         # Select colors for all lines between the current subjects
@@ -642,10 +716,15 @@ def plot_paired(
         # Set boxplot x and y depending on orientation
         _xbp = within if orient == "v" else dv
         _ybp = dv if orient == "v" else within
+        # Keep track of the patches already present, e.g. on a user-supplied axis, so that
+        # only the ones created by the boxplot below are made transparent.
+        pre_existing = {id(patch) for patch in ax.patches}
         sns.boxplot(data=data, x=_xbp, y=_ybp, order=order, ax=ax, orient=orient, **_boxplot_kwargs)
 
         # Set alpha to patch of boxplot but not to whiskers
-        for patch in ax.artists:
+        for patch in ax.patches:
+            if id(patch) in pre_existing:
+                continue
             r, g, b, a = patch.get_facecolor()
             patch.set_facecolor((r, g, b, 0.75))
     else:
@@ -675,9 +754,9 @@ def plot_rm_corr(
     y=None,
     subject=None,
     legend=False,
-    kwargs_facetgrid=dict(height=4, aspect=1),
-    kwargs_line=dict(ls="solid"),
-    kwargs_scatter=dict(marker="o"),
+    kwargs_facetgrid=None,
+    kwargs_line=None,
+    kwargs_scatter=None,
 ):
     """Plot a repeated measures correlation.
 
@@ -692,12 +771,15 @@ def plot_rm_corr(
     legend : boolean
         If True, add legend to plot. Legend will show all the unique values in
         ``subject``.
-    kwargs_facetgrid : dict
-        Optional keyword arguments passed to :py:class:`seaborn.FacetGrid`
-    kwargs_line : dict
-        Optional keyword arguments passed to :py:class:`matplotlib.pyplot.plot`
-    kwargs_scatter : dict
-        Optional keyword arguments passed to :py:class:`matplotlib.pyplot.scatter`
+    kwargs_facetgrid : dict or None
+        Optional keyword arguments passed to :py:class:`seaborn.FacetGrid`.
+        When None, internal defaults are used.
+    kwargs_line : dict or None
+        Optional keyword arguments passed to :py:class:`matplotlib.pyplot.plot`.
+        When None, internal defaults are used.
+    kwargs_scatter : dict or None
+        Optional keyword arguments passed to :py:class:`matplotlib.pyplot.scatter`.
+        When None, internal defaults are used.
 
     Returns
     -------
@@ -715,9 +797,7 @@ def plot_rm_corr(
     measures assessed on two or more occasions for multiple individuals.
 
     Results have been tested against the
-    `rmcorr <https://github.com/cran/rmcorr>` R package. Note that this
-    function requires `statsmodels
-    <https://www.statsmodels.org/stable/index.html>`_.
+    `rmcorr <https://github.com/cran/rmcorr>` R package.
 
     Missing values are automatically removed from the ``data``
     (listwise deletion).
@@ -754,50 +834,33 @@ def plot_rm_corr(
         ...     kwargs_facetgrid=dict(height=4.5, aspect=1.5, palette="Spectral"),
         ... )
     """
-    # Check that stasmodels is installed
-    from pingouin.utils import _is_statsmodels_installed
+    _kwargs_facetgrid = {"height": 4, "aspect": 1}
+    _kwargs_facetgrid.update(kwargs_facetgrid or {})
+    _kwargs_line = {"ls": "solid"}
+    _kwargs_line.update(kwargs_line or {})
+    _kwargs_scatter = {"marker": "o"}
+    _kwargs_scatter.update(kwargs_scatter or {})
 
-    _is_statsmodels_installed(raise_error=True)
-    from statsmodels.formula.api import ols
+    from .correlation import _check_rm_corr_data
 
-    # Safety check (duplicated from pingouin.rm_corr)
-    assert isinstance(data, pd.DataFrame), "Data must be a DataFrame"
-    assert x in data.columns, "The %s column is not in data." % x
-    assert y in data.columns, "The %s column is not in data." % y
-    assert data[x].dtype.kind in "bfiu", "%s must be numeric." % x
-    assert data[y].dtype.kind in "bfiu", "%s must be numeric." % y
-    assert subject in data.columns, "The %s column is not in data." % subject
-    if data[subject].nunique() < 3:
-        raise ValueError("rm_corr requires at least 3 unique subjects.")
+    data = _check_rm_corr_data(data, x, y, subject)
 
-    # Remove missing values
-    data = data[[x, y, subject]].dropna(axis=0)
-
-    # Calculate rm_corr
-    # rmc = pg.rm_corr(data=data, x=x, y=y, subject=subject)
-
-    # Fit ANCOVA model
-    # https://patsy.readthedocs.io/en/latest/builtins-reference.html
-    # C marks the data as categorical
-    # Q allows to quote variable that do not meet Python variable name rule
-    # e.g. if variable is "weight.in.kg" or "2A"
-    assert x not in ["C", "Q"], "`x` must not be 'C' or 'Q'."
-    assert y not in ["C", "Q"], "`y` must not be 'C' or 'Q'."
-    assert subject not in ["C", "Q"], "`subject` must not be 'C' or 'Q'."
-    formula = f"Q('{y}') ~ C(Q('{subject}')) + Q('{x}')"
-    model = ols(formula, data=data).fit()
-
-    # Fitted values
-    data["pred"] = model.fittedvalues
+    # Fitted values of the ANCOVA model y ~ C(subject) + x, i.e. parallel lines with a common
+    # within-subject slope and a subject-specific intercept.
+    grp = data.groupby(subject, observed=True)
+    x_center = data[x] - grp[x].transform("mean")
+    y_center = data[y] - grp[y].transform("mean")
+    slope = (x_center * y_center).sum() / (x_center**2).sum()
+    data["pred"] = grp[y].transform("mean") + slope * x_center
 
     # Define color palette
-    if "palette" not in kwargs_facetgrid:
-        kwargs_facetgrid["palette"] = sns.hls_palette(data[subject].nunique())
+    if "palette" not in _kwargs_facetgrid:
+        _kwargs_facetgrid["palette"] = sns.hls_palette(data[subject].nunique())
 
     # Start plot
-    g = sns.FacetGrid(data, hue=subject, **kwargs_facetgrid)
-    g = g.map(sns.regplot, x, "pred", scatter=False, ci=None, truncate=True, line_kws=kwargs_line)
-    g = g.map(sns.scatterplot, x, y, **kwargs_scatter)
+    g = sns.FacetGrid(data, hue=subject, **_kwargs_facetgrid)
+    g = g.map(sns.regplot, x, "pred", scatter=False, ci=None, truncate=True, line_kws=_kwargs_line)
+    g = g.map(sns.scatterplot, x, y, **_kwargs_scatter)
 
     if legend:
         g.add_legend()
@@ -809,8 +872,8 @@ def plot_circmean(
     angles,
     square=True,
     ax=None,
-    kwargs_markers=dict(color="tab:blue", marker="o", mfc="none", ms=10),
-    kwargs_arrow=dict(width=0.01, head_width=0.1, head_length=0.1, fc="tab:red", ec="tab:red"),
+    kwargs_markers=None,
+    kwargs_arrow=None,
 ):
     """Plot the circular mean and vector length of a set of angles
     on the unit circle.
@@ -825,14 +888,18 @@ def plot_circmean(
         If True (default), ensure equal aspect ratio between X and Y axes.
     ax : matplotlib axes
         Axis on which to draw the plot.
-    kwargs_markers : dict
+    kwargs_markers : dict or None
         Optional keywords arguments that are passed to
         :obj:`matplotlib.axes.Axes.plot`
-        to control the markers aesthetics.
-    kwargs_arrow : dict
+        to control the markers aesthetics. When None, internal defaults are
+        used. Matplotlib aliases and their canonical names (e.g. ``ms`` and
+        ``markersize``) are interchangeable.
+    kwargs_arrow : dict or None
         Optional keywords arguments that are passed to
         :obj:`matplotlib.axes.Axes.arrow`
-        to control the arrow aesthetics.
+        to control the arrow aesthetics. When None, internal defaults are
+        used. Matplotlib aliases and their canonical names (e.g. ``fc`` and
+        ``facecolor``) are interchangeable.
 
     Returns
     -------
@@ -879,30 +946,22 @@ def plot_circmean(
     angles = np.asarray(angles)
     assert angles.ndim == 1, "angles must be a one-dimensional array."
     assert angles.size > 1, "angles must have at least 2 values."
+    if kwargs_markers is not None and not isinstance(kwargs_markers, dict):
+        raise TypeError("`kwargs_markers` must be a dict or None.")
+    if kwargs_arrow is not None and not isinstance(kwargs_arrow, dict):
+        raise TypeError("`kwargs_arrow` must be a dict or None.")
 
-    assert isinstance(kwargs_markers, dict), "kwargs_markers must be a dict."
-    assert isinstance(kwargs_arrow, dict), "kwargs_arrow must be a dict."
-
-    # Fill missing values in dict
-    if "color" not in kwargs_markers.keys():
-        kwargs_markers["color"] = "tab:blue"
-    if "marker" not in kwargs_markers.keys():
-        kwargs_markers["marker"] = "o"
-    if "mfc" not in kwargs_markers.keys():
-        kwargs_markers["mfc"] = "none"
-    if "ms" not in kwargs_markers.keys():
-        kwargs_markers["ms"] = 10
-
-    if "width" not in kwargs_arrow.keys():
-        kwargs_arrow["width"] = 0.01
-    if "head_width" not in kwargs_arrow.keys():
-        kwargs_arrow["head_width"] = 0.1
-    if "head_length" not in kwargs_arrow.keys():
-        kwargs_arrow["head_length"] = 0.1
-    if "fc" not in kwargs_arrow.keys():
-        kwargs_arrow["fc"] = "tab:red"
-    if "ec" not in kwargs_arrow.keys():
-        kwargs_arrow["ec"] = "tab:red"
+    # Merge caller-supplied kwargs over defaults. Matplotlib aliases are canonicalized
+    # first (e.g. "ms" -> "markersize") so that either form overrides the defaults.
+    _kwargs_markers = normalize_kwargs(
+        {"color": "tab:blue", "marker": "o", "mfc": "none", "ms": 10}, Line2D
+    )
+    _kwargs_markers.update(normalize_kwargs(kwargs_markers or {}, Line2D))
+    _kwargs_arrow = normalize_kwargs(
+        {"width": 0.01, "head_width": 0.1, "head_length": 0.1, "fc": "tab:red", "ec": "tab:red"},
+        Patch,
+    )
+    _kwargs_arrow.update(normalize_kwargs(kwargs_arrow or {}, Patch))
 
     # Convert angles to unit vector
     z = np.exp(1j * angles)
@@ -917,18 +976,16 @@ def plot_circmean(
     ax.add_patch(circle)
     ax.axvline(0, lw=1, ls=":", color="slategrey")
     ax.axhline(0, lw=1, ls=":", color="slategrey")
-    ax.plot(np.real(z), np.imag(z), ls="None", **kwargs_markers)
+    ax.plot(np.real(z), np.imag(z), ls="None", **_kwargs_markers)
 
     # Plot mean resultant vector
-    ax.arrow(0, 0, np.real(zm), np.imag(zm), **kwargs_arrow)
+    ax.arrow(0, 0, np.real(zm), np.imag(zm), **_kwargs_arrow)
 
     # X and Y ticks in radians
     ax.set_xticks([])
     ax.set_yticks([])
-    ax.spines["top"].set_visible(False)
-    ax.spines["right"].set_visible(False)
-    ax.spines["left"].set_visible(False)
-    ax.spines["bottom"].set_visible(False)
+    for spine in ax.spines.values():
+        spine.set_visible(False)
     ax.text(1.2, 0, "0", verticalalignment="center")
     ax.text(-1.3, 0, r"$\pi$", verticalalignment="center")
     ax.text(0, 1.2, r"$+\pi/2$", horizontalalignment="center")

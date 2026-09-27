@@ -31,10 +31,6 @@ from matrx_connect.lane import get_current_lane
 from matrx_connect.reservations import try_get_tracker
 from matrx_utils import vcprint
 
-# IMPORT SAFETY — ai_model_manager and cxm both resolve host-injected DB
-# models/bases when their impl modules load, which raises DBNotConfiguredError
-# in a CLIENT host. Both are resolved lazily at CALL time via the helpers
-# below (config errors at CALL time, never import time).
 from matrx_ai.agents import live_structure
 from matrx_ai.db.control_tokens import (
     clean_assistant_content,
@@ -42,6 +38,12 @@ from matrx_ai.db.control_tokens import (
 )
 from matrx_ai.db.message_parts import validate_message_content
 from matrx_ai.db.message_positions import APPEND_MESSAGE_POSITION
+
+# IMPORT SAFETY — ai_model_manager and cxm both resolve host-injected DB
+# models/bases when their impl modules load, which raises DBNotConfiguredError
+# in a CLIENT host. Both are resolved lazily at CALL time via the helpers
+# below (config errors at CALL time, never import time).
+from matrx_ai.utils.credential_fields import without_credential_fields
 
 # Import-order safety: ``matrx_ai.orchestrator.__init__`` imports executor,
 # which imports THIS module — so importing anything under matrx_ai.orchestrator
@@ -1316,7 +1318,8 @@ async def persist_completed_request(
                 str(iteration_num)
             )
 
-            request_metadata = dict(req.get("metadata", {}))
+            # Never a credential in a durable row (utils/credential_fields.py).
+            request_metadata = without_credential_fields(dict(req.get("metadata", {})))
             if "response_message_id" not in request_metadata:
                 response_message_id = assistant_message_ids_by_iteration.get(int(iteration_num))
                 if response_message_id:
@@ -1502,7 +1505,11 @@ async def persist_completed_request(
                         merged_by_model[model_name] = new_vals
 
             # Build metadata for the user request row.
-            request_metadata: dict[str, Any] = dict(ur_data.get("metadata", {}))
+            # The request's metadata is the run context's, which carries live
+            # credentials (the sandbox bearer token): never into a durable row.
+            request_metadata: dict[str, Any] = without_credential_fields(
+                dict(ur_data.get("metadata", {}))
+            )
             if agg_cost_unknown:
                 request_metadata["cost_reconciliation"] = "incomplete_child_costs"
                 request_metadata["known_cost_subtotal"] = round(agg_cost, 6)

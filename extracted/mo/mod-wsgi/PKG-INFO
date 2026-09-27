@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mod_wsgi
-Version: 6.0.6
+Version: 6.1.0
 Summary: Installer for Apache/mod_wsgi.
 Home-page: https://www.modwsgi.org/
 Author: Graham Dumpleton
@@ -25,6 +25,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Internet :: WWW/HTTP :: WSGI
 Classifier: Topic :: Internet :: WWW/HTTP :: WSGI :: Server
 Requires-Python: >=3.10

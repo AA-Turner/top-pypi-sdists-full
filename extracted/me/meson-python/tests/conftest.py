@@ -30,11 +30,6 @@ _meson_ver_str = subprocess.run(['meson', '--version'], check=True, stdout=subpr
 MESON_VERSION = tuple(map(int, _meson_ver_str.split('.')[:3]))
 
 EXT_SUFFIX = sysconfig.get_config_var('EXT_SUFFIX')
-if sys.version_info <= (3, 8, 7):
-    if MESON_VERSION >= (0, 99):
-        # Fixed in Meson 1.0, see https://github.com/mesonbuild/meson/pull/10961.
-        from distutils.sysconfig import get_config_var
-        EXT_SUFFIX = get_config_var('EXT_SUFFIX')
 
 FREE_THREADED_BUILD = bool(sysconfig.get_config_var('Py_GIL_DISABLED'))
 
@@ -218,11 +213,12 @@ def meson_fatal_warnings():
                 # toolchains.
                 'cmake-subproject',
 
-                # The ``link-against-local-lib`` package uses linker arguments
-                # to add RPATH entries. This functionality is deprecated in
-                # Meson but it is used in the wild thus we should make sure it
-                # keeps working.
+                # These packages use linker arguments to add RPATH entries.
+                # This functionality is deprecated in Meson but it is used
+                # in the wild thus we should make sure it keeps working.
                 'link-against-local-lib',
+                'sharedlib-in-package',
+                'same-name-sharedlibs',
 
         }:
             if meson_args is None:

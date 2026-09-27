@@ -18,10 +18,25 @@ from pymongo.errors import OperationFailure
 from secantus import SecantusDBServer
 
 
-@pytest.fixture
-def server(tmp_path):
-    with SecantusDBServer(port=0, storage_path=str(tmp_path / "wt")) as srv:
+# Module-scoped: one server for the file, with `_fresh_databases` below
+# giving each test the clean slate a per-test server used to.
+@pytest.fixture(scope="module")
+def server(wt_home_module):
+    with SecantusDBServer(port=0, storage_path=wt_home_module) as srv:
         yield srv
+
+
+@pytest.fixture(autouse=True)
+def _fresh_databases(client):
+    """Drop everything this test made, so the shared server looks new to the next.
+
+    The isolation a per-test server gave for free, without paying for a server.
+    Runs AFTER the test so a failure leaves its data in place for inspection.
+    """
+    yield
+    for _name in client.list_database_names():
+        if _name not in ("admin", "local", "config"):
+            client.drop_database(_name)
 
 
 @pytest.fixture
@@ -88,16 +103,14 @@ def test_repl_set_get_status_agrees_with_hello(client: MongoClient) -> None:
     assert member["name"] == hello["me"]
 
 
-def test_repl_set_get_status_standalone_error(tmp_path) -> None:
+def test_repl_set_get_status_standalone_error(wt_home) -> None:
     """With no set name this really is a standalone, and the honest answer stands.
 
     ``NoReplicationEnabled`` (76) with mongod's canonical wording — not
     CommandNotFound. Harnesses special-case that exact message to mean
     "standalone, skip the replica-set-only paths"; a bare code-59 aborts them.
     """
-    with SecantusDBServer(
-        port=0, storage_path=str(tmp_path / "standalone"), replica_set_name=None
-    ) as srv:
+    with SecantusDBServer(port=0, storage_path=wt_home, replica_set_name=None) as srv:
         mc = MongoClient(srv.uri, serverSelectionTimeoutMS=2000, directConnection=True)
         try:
             assert "setName" not in mc.admin.command("hello")

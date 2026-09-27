@@ -5,9 +5,20 @@
 
 int daqp_ldp(DAQPWorkspace *work){
     int exitflag=DAQP_EXIT_ITERLIMIT,iter,i;
+    work->soft_slack = 0; // Only set when a solution is found
     int tried_repair=0, cycle_counter=0;
+    int refine_adds=0; // Refinements without progress that added a constraint
     c_float best_fval = -1;
     c_float fval_bound = 2*work->settings->fval_bound; // Internal objective is twice the nomninal
+
+    // Correctly cleanup a singular working-set on entry
+    if(work->sing_ind != DAQP_EMPTY_IND && work->sing_ind == work->n_active-1 &&
+            !DAQP_IS_IMMUTABLE(work->WS[work->sing_ind])){
+        work->n_active--;
+        DAQP_SET_INACTIVE(work->WS[work->n_active]);
+        work->sing_ind = DAQP_EMPTY_IND;
+        if(work->reuse_ind > work->n_active) work->reuse_ind = work->n_active;
+    }
 
     for(iter=1; iter < work->settings->iter_limit; ++iter){
 
@@ -30,7 +41,8 @@ int daqp_ldp(DAQPWorkspace *work){
                         if(work->D[i] < min_D) min_D = work->D[i];
 
                     // If LDL is truly ill-conditioned, refactor for a better pivot ordering
-                    if(work->n_active > 2 && tried_repair != 1 &&
+                    // (Not in BnB, which relies on the order of the working set)
+                    if(work->n_active > 2 && tried_repair != 1 && work->bnb == NULL &&
                             min_D < work->settings->refactor_tol){
                         tried_repair = 1;
                         // Correct LOWER/UPPER (important for equality constraints)
@@ -49,13 +61,25 @@ int daqp_ldp(DAQPWorkspace *work){
                     // amplified by 1/scaling in original space.  Apply one step of
                     // iterative refinement to correct both u and lam_star before
                     // declaring optimal.
-                    if(work->n_active > 0 && min_D < work->settings->pivot_tol){
+                    // If the refined and the unrefined solution keep disagreeing
+                    // about a constraint (it is added after the refinement and
+                    // then removed again without progress), further refinements
+                    // repeat that deterministically, so they are stopped after
+                    // two such attempts and the current solution is accepted.
+                    if(work->n_active > 0 && min_D < work->settings->pivot_tol &&
+                            refine_adds < 2){
                         daqp_refine_active(work);
-                        if(daqp_add_infeasible(work))
-                            continue;
+                        // A constraint added after the refinement goes through
+                        // the cycle guard, like any other addition
+                        if(daqp_add_infeasible(work)){
+                            refine_adds++;
+                            goto cycle_guard;
+                        }
                     }
 
 
+                    // Softening was needed if a soft constraint ended up violated
+                    work->soft_slack = daqp_max_soft_slack(work);
                     if(work->soft_slack > work->settings->primal_tol)
                         exitflag = DAQP_EXIT_SOFT_OPTIMAL;
                     else
@@ -63,6 +87,7 @@ int daqp_ldp(DAQPWorkspace *work){
                     break;
                 }
 
+cycle_guard:
                 // Cycle guard
                 if(work->fval-best_fval < work->settings->progress_tol){
                     if(cycle_counter++ > work->settings->cycle_tol){
@@ -82,6 +107,7 @@ int daqp_ldp(DAQPWorkspace *work){
                 else{ // Progress was made
                     best_fval = work->fval;
                     cycle_counter = 0;
+                    refine_adds = 0;
                 }
             }
         }
@@ -143,4 +169,5 @@ void reset_daqp_workspace(DAQPWorkspace *work){
     work->sing_ind=DAQP_EMPTY_IND;
     work->n_active =0;
     work->reuse_ind=0;
+    if(work->eq != NULL) work->eq->working_set_valid = 0;
 }

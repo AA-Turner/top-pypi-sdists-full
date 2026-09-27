@@ -27,6 +27,25 @@ def _ctx(organization_id: str | None = ORG_ID, user_id: str = "") -> SimpleNames
     )
 
 
+@pytest.fixture(autouse=True)
+def landed(monkeypatch: pytest.MonkeyPatch) -> list[dict]:
+    """``/page-capture`` lands every successful page as a Source (SOURCE-CONVERGENCE §4.1), and
+    an unwired landing hook RAISES by design — so these tests wire a recording one, like a host.
+    (They replace ``_ext.has_ext`` for the route's other seams; the landing module holds its own
+    binding and reads the real registry.)"""
+    import matrx_scraper.source_landing  # noqa: F401 — bind the REAL has_ext before a test replaces it
+    from matrx_scraper._ext import configure_ext
+
+    seen: list[dict] = []
+
+    async def hook(landing: dict) -> dict:
+        seen.append(landing)
+        return {"processed_document_id": f"doc-{len(seen)}", "source_id": "s", "notices": [], "kept": False}
+
+    configure_ext(source_landing=hook)
+    return seen
+
+
 class FakeCache:
     """The cache contract: every read names the organization it acts in.
 
@@ -381,3 +400,40 @@ async def test_backlink_screenshot_stores_against_the_admitted_organization(
     assert result["screenshot_file_id"] == "file-1"
     assert seen["organization_id"] == ORG_ID
     assert seen["metadata_organization_id"] == ORG_ID
+
+
+@pytest.mark.asyncio
+async def test_page_capture_on_a_host_that_does_not_exist_says_so(monkeypatch) -> None:
+    """Quick-scrape names the host and the remedy for a name that does not resolve; page-capture
+    answered a stock 'url must be a publicly routable…'. Same sentence now; a name that resolves
+    somewhere private still gets the undetailed refusal (no oracle)."""
+    import socket
+
+    from fastapi import HTTPException
+
+    async def unresolvable(value: str) -> str:
+        try:
+            raise socket.gaierror(8, "nodename nor servname provided")
+        except socket.gaierror as exc:
+            raise ValueError("URL host could not be resolved: no-such.invalid") from exc
+
+    monkeypatch.setattr(url_utils, "validate_public_http_url", unresolvable)
+    with pytest.raises(HTTPException) as err:
+        await scrape_router.page_capture(
+            scrape_router.PageCaptureRequest(url="https://no-such.invalid/a", target_url="https://brand.example/"),
+            ctx=_ctx(),
+        )
+    detail = err.value.detail
+    assert isinstance(detail, dict) and detail["code"] == "host_not_found"
+    assert "no-such.invalid" in detail["message"] and "does not exist" in detail["message"]
+
+    async def private(value: str) -> str:
+        raise ValueError("URL host resolves to a non-public IP address: intranet (10.0.0.1)")
+
+    monkeypatch.setattr(url_utils, "validate_public_http_url", private)
+    with pytest.raises(HTTPException) as err:
+        await scrape_router.page_capture(
+            scrape_router.PageCaptureRequest(url="https://intranet/a", target_url="https://brand.example/"),
+            ctx=_ctx(),
+        )
+    assert err.value.detail == "url must be a publicly routable http(s) address"

@@ -1353,3 +1353,75 @@ def example_summary(ex: Any) -> dict[str, Any]:
         "validation_status": ex.validation_status,
         "deleted": ex.deleted_at is not None,
     }
+
+
+#: The most the schema + canonical example of ONE kind put into a kind_get /
+#: kindcomp_get_context result. The rest of each result (summaries, contracts)
+#: stays well under the size gate's soft cap. Production (ops
+#: tool_result_overflow:kind_get / kindcomp_get_context): agent_input_qme_report
+#: 58,651 / 70,087 chars, resale_intelligence_report 72,424.
+KIND_BODIES_BUDGET_CHARS = 30_000
+
+
+def bound_kind_bodies(
+    json_schema: Any,
+    canonical_example: Any,
+    *,
+    ctx: Any,
+    tool_name: str,
+    budget: int = KIND_BODIES_BUDGET_CHARS,
+) -> tuple[Any, Any, str | None]:
+    """Return ``(json_schema, canonical_example, note)`` bounded to ``budget``.
+
+    The schema is the contract, so it is kept whole whenever it fits; the
+    canonical example is then cut to the room left, as its JSON text. When even
+    the schema does not fit it becomes a marked stand-in (its top-level property
+    names + the head of its JSON text). Every cut is named in ``note``, and the
+    complete bodies are held for ``fetch_tool_result`` under this call — never a
+    silent cut, never a structure sliced into invalid JSON posing as the real one.
+    """
+    import json as _json
+
+    schema_text = _json.dumps(json_schema, ensure_ascii=False, default=str) if json_schema is not None else ""
+    example_text = (
+        _json.dumps(canonical_example, ensure_ascii=False, default=str)
+        if canonical_example is not None
+        else ""
+    )
+    if len(schema_text) + len(example_text) <= budget:
+        return json_schema, canonical_example, None
+
+    from matrx_ai.tools.output_overflow import hold_full_text_for_fetch
+
+    held = hold_full_text_for_fetch(
+        ctx,
+        text=_json.dumps(
+            {"json_schema": json_schema, "canonical_example": canonical_example},
+            ensure_ascii=False,
+            default=str,
+        ),
+        tool_name=tool_name,
+    )
+    rest = held or "The rest is not retrievable from this call (no call id to fetch by)."
+    if len(schema_text) <= budget:
+        room = budget - len(schema_text)
+        head = example_text[:room]
+        note = (
+            f"canonical_example is {len(example_text):,} chars as JSON; it is cut to its "
+            f"first {len(head):,} chars and returned as TEXT (not parseable JSON). "
+            f"json_schema is complete and describes the full shape. {rest}"
+        )
+        return json_schema, (head or None), note
+    props = json_schema.get("properties") if isinstance(json_schema, dict) else None
+    stand_in = {
+        "__truncated__": True,
+        "total_chars": len(schema_text),
+        "top_level_properties": sorted(props.keys()) if isinstance(props, dict) else None,
+        "head": schema_text[:budget],
+    }
+    note = (
+        f"json_schema is {len(schema_text):,} chars, over the {budget:,} one result carries: "
+        f"json_schema here is a stand-in (__truncated__) with its top-level property names "
+        f"and the first {budget:,} chars of its JSON text; canonical_example was omitted. {rest}"
+    )
+    return stand_in, None, note

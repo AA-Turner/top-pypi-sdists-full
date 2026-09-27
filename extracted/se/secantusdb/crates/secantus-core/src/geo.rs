@@ -247,10 +247,10 @@ fn within(doc: &Geometry<f64>, q: &QGeom) -> bool {
 
 /// `$geoWithin` field operator. `Fallback` for malformed / `$center` /
 /// non-document args (Python raises the proper `QueryError`).
-pub fn op_geo_within(values: &[Option<&Bson>], arg: &Bson) -> R {
-    let arg = arg.as_document().ok_or(Fallback)?;
-    let q = parse_query_geometry(arg).ok_or(Fallback)?;
-    for v in values.iter().flatten() {
+pub fn op_geo_within(values: &[crate::query::Cand], arg: &Bson) -> R {
+    let arg = arg.as_document().ok_or(Fallback::Defer)?;
+    let q = parse_query_geometry(arg).ok_or(Fallback::Defer)?;
+    for v in values.iter().filter_map(|c| c.value) {
         if let Some(g) = parse_doc_geometry(v) {
             if within(&g, &q) {
                 return Ok(true);
@@ -262,16 +262,16 @@ pub fn op_geo_within(values: &[Option<&Bson>], arg: &Bson) -> R {
 
 /// `$geoIntersects` field operator — `$geometry` (planar) only, mirroring
 /// mongod / `geo.py`. `Fallback` otherwise.
-pub fn op_geo_intersects(values: &[Option<&Bson>], arg: &Bson) -> R {
-    let arg = arg.as_document().ok_or(Fallback)?;
+pub fn op_geo_intersects(values: &[crate::query::Cand], arg: &Bson) -> R {
+    let arg = arg.as_document().ok_or(Fallback::Defer)?;
     if !arg.contains_key("$geometry") {
-        return Err(Fallback);
+        return Err(Fallback::Defer);
     }
-    let q = match parse_query_geometry(arg).ok_or(Fallback)? {
+    let q = match parse_query_geometry(arg).ok_or(Fallback::Defer)? {
         QGeom::Planar(g) => g,
-        QGeom::Sphere { .. } | QGeom::Disk { .. } => return Err(Fallback),
+        QGeom::Sphere { .. } | QGeom::Disk { .. } => return Err(Fallback::Defer),
     };
-    for v in values.iter().flatten() {
+    for v in values.iter().filter_map(|c| c.value) {
         if let Some(g) = parse_doc_geometry(v) {
             if g.relate(&q).is_intersects() {
                 return Ok(true);
@@ -294,27 +294,41 @@ fn parse_near_spec(
     sibling_min: Option<&Bson>,
     default_spherical: bool,
 ) -> Result<((f64, f64), Option<f64>, Option<f64>, bool, bool), Fallback> {
-    // A BSON null reads as ABSENT, not as an unsupported construct. The Java
-    // driver's `Filters.nearSphere(field, point, maxDistance, minDistance)`
-    // sends `$minDistance: null` when the caller passes no minimum, and
-    // treating that as a Fallback made the Rust server reject the whole query
-    // ("uses a construct the Rust server does not support") where the Python
-    // server returns the matching document — the last failure in the
-    // java-vs-Rust gauge. Mirrors `query._opt_number`, which returns None for
-    // None and only rejects a non-number.
+    // An ABSENT key means "unbounded"; an explicit `null` is INVALID and must
+    // not be conflated with it. Probed on mongod 8.3.4: `{$near: {$geometry: ...,
+    // $minDistance: null}}` is rejected with "$minDistance must be a number"
+    // (code 2). Negative bounds are rejected too ("must be non-negative").
+    //
+    // This block previously accepted `Bson::Null` as absent, justified by a
+    // comment claiming the Java driver "sends `$minDistance: null` when the
+    // caller passes no minimum". That claim is FALSE -- the driver omits the
+    // field entirely, in both serialisation paths:
+    //
+    //     Filters.java createNearFilterDocument:  if (minDistance != null) { ... }
+    //     Filters.java GeometryOperatorFilter:    if (minDistance != null) { ... }
+    //
+    // So null-tolerance was never needed for the Java gauge, and it made both
+    // servers silently run an unbounded query where mongod errors. Mirrors
+    // `query._opt_number`.
     let opt_number = |b: Option<&Bson>| -> Result<Option<f64>, Fallback> {
         match b {
-            None | Some(Bson::Null) => Ok(None),
-            Some(v) => num(v).map(Some).ok_or(Fallback),
+            None => Ok(None),
+            // Null / non-number / negative are all errors mongod names
+            // precisely; defer so the Python engine raises the exact message.
+            Some(Bson::Null) => Err(Fallback::Defer),
+            Some(v) => match num(v) {
+                Some(n) if n >= 0.0 => Ok(Some(n)),
+                _ => Err(Fallback::Defer),
+            },
         }
     };
     match arg {
         Bson::Document(d) => {
-            let geom = d.get_document("$geometry").map_err(|_| Fallback)?;
+            let geom = d.get_document("$geometry").map_err(|_| Fallback::Defer)?;
             if geom.get_str("type") != Ok("Point") {
-                return Err(Fallback);
+                return Err(Fallback::Defer);
             }
-            let c = pair(geom.get("coordinates").ok_or(Fallback)?).ok_or(Fallback)?;
+            let c = pair(geom.get("coordinates").ok_or(Fallback::Defer)?).ok_or(Fallback::Defer)?;
             Ok((
                 (c.x, c.y),
                 opt_number(d.get("$maxDistance"))?,
@@ -324,10 +338,10 @@ fn parse_near_spec(
             ))
         }
         Bson::Array(a) if a.len() == 2 || a.len() == 3 => {
-            let cx = num(&a[0]).ok_or(Fallback)?;
-            let cy = num(&a[1]).ok_or(Fallback)?;
+            let cx = num(&a[0]).ok_or(Fallback::Defer)?;
+            let cy = num(&a[1]).ok_or(Fallback::Defer)?;
             let mut max_d = if a.len() == 3 {
-                Some(num(&a[2]).ok_or(Fallback)?)
+                Some(num(&a[2]).ok_or(Fallback::Defer)?)
             } else {
                 None
             };
@@ -341,7 +355,7 @@ fn parse_near_spec(
             let min_d = opt_number(sibling_min)?;
             Ok(((cx, cy), max_d, min_d, default_spherical, true))
         }
-        _ => Err(Fallback),
+        _ => Err(Fallback::Defer),
     }
 }
 
@@ -350,7 +364,7 @@ fn parse_near_spec(
 /// centre. Sort-by-distance is the command layer's job. Mirrors
 /// `query._op_geo_near`.
 pub fn op_geo_near(
-    values: &[Option<&Bson>],
+    values: &[crate::query::Cand],
     arg: &Bson,
     sibling_max: Option<&Bson>,
     sibling_min: Option<&Bson>,
@@ -364,7 +378,7 @@ pub fn op_geo_near(
         max_d = max_d.map(|m| m * EARTH_RADIUS_METERS);
         min_d = min_d.map(|m| m * EARTH_RADIUS_METERS);
     }
-    for v in values.iter().flatten() {
+    for v in values.iter().filter_map(|c| c.value) {
         // $near is restricted to point geometries (mirroring geo.distance,
         // which returns None for non-points -> skipped).
         let p = match parse_doc_geometry(v) {
@@ -502,18 +516,24 @@ mod tests {
     use bson::doc;
 
     fn within(field: Bson, q: bson::Document) -> R {
-        op_geo_within(&[Some(&field)], &Bson::Document(q))
+        op_geo_within(
+            &[crate::query::Cand::plain(Some(&field))],
+            &Bson::Document(q),
+        )
     }
     fn xy(x: f64, y: f64) -> Bson {
         Bson::Array(vec![Bson::Double(x), Bson::Double(y)])
     }
 
     /// The Java driver sends `$minDistance: null` when `Filters.nearSphere` is
-    /// called with no minimum. A null must read as ABSENT — rejecting it made
-    /// the Rust server refuse the whole query while the Python server answered
-    /// it, which was the last java-vs-Rust gauge failure.
+    /// An explicit null is INVALID, not absent. mongod rejects it ("$minDistance
+    /// must be a number"), so the engine defers and the Python side names the
+    /// error. These tests previously asserted the opposite, justified by a claim
+    /// that the Java driver sends `$minDistance: null` when called with no
+    /// minimum -- the driver source disproves it, omitting the field entirely
+    /// (`Filters.java`: `if (minDistance != null) { ... }`, both paths).
     #[test]
-    fn a_null_distance_bound_reads_as_absent() {
+    fn a_null_distance_bound_is_deferred() {
         let point = Bson::Document(doc! {"type": "Point", "coordinates": [1.0, 1.0]});
         let near = doc! {
             "$geometry": {"type": "Point", "coordinates": [1.01, 1.01]},
@@ -521,41 +541,105 @@ mod tests {
             "$minDistance": Bson::Null,
         };
         assert!(
-            op_geo_near(&[Some(&point)], &Bson::Document(near), None, None, true).unwrap(),
-            "a null $minDistance must not reject the query"
+            op_geo_near(
+                &[crate::query::Cand::plain(Some(&point))],
+                &Bson::Document(near),
+                None,
+                None,
+                true
+            )
+            .is_err(),
+            "a null $minDistance is invalid and must defer, not run unbounded"
         );
     }
 
     #[test]
-    fn a_null_max_distance_is_also_absent() {
-        // Absent means unbounded, so a far-away point still matches.
+    fn a_null_max_distance_is_deferred() {
+        // A null bound must NOT be read as "unbounded" -- that silently ran the
+        // query where mongod errors.
         let point = Bson::Document(doc! {"type": "Point", "coordinates": [40.0, 40.0]});
         let near = doc! {
             "$geometry": {"type": "Point", "coordinates": [1.0, 1.0]},
             "$maxDistance": Bson::Null,
         };
-        assert!(op_geo_near(&[Some(&point)], &Bson::Document(near), None, None, true).unwrap());
+        assert!(op_geo_near(
+            &[crate::query::Cand::plain(Some(&point))],
+            &Bson::Document(near),
+            None,
+            None,
+            true
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn an_absent_bound_still_means_unbounded() {
+        // The fix distinguishes absent from null; it must not reject both.
+        let point = Bson::Document(doc! {"type": "Point", "coordinates": [40.0, 40.0]});
+        let near = doc! {"$geometry": {"type": "Point", "coordinates": [1.0, 1.0]}};
+        assert!(op_geo_near(
+            &[crate::query::Cand::plain(Some(&point))],
+            &Bson::Document(near),
+            None,
+            None,
+            true
+        )
+        .unwrap());
+    }
+
+    #[test]
+    fn a_negative_distance_bound_is_deferred() {
+        // mongod: "$maxDistance must be non-negative".
+        let point = Bson::Document(doc! {"type": "Point", "coordinates": [1.0, 1.0]});
+        let near = doc! {
+            "$geometry": {"type": "Point", "coordinates": [1.01, 1.01]},
+            "$maxDistance": -1.0,
+        };
+        assert!(op_geo_near(
+            &[crate::query::Cand::plain(Some(&point))],
+            &Bson::Document(near),
+            None,
+            None,
+            true
+        )
+        .is_err());
     }
 
     #[test]
     fn a_non_numeric_distance_bound_still_falls_back() {
-        // Only NULL is forgiven — a string is still an unsupported construct,
-        // as it is on the Python side.
+        // A string is invalid too (nothing is "forgiven" here any more).
         let point = Bson::Document(doc! {"type": "Point", "coordinates": [1.0, 1.0]});
         let near = doc! {
             "$geometry": {"type": "Point", "coordinates": [1.01, 1.01]},
             "$maxDistance": "far",
         };
-        assert!(op_geo_near(&[Some(&point)], &Bson::Document(near), None, None, true).is_err());
+        assert!(op_geo_near(
+            &[crate::query::Cand::plain(Some(&point))],
+            &Bson::Document(near),
+            None,
+            None,
+            true
+        )
+        .is_err());
     }
 
     #[test]
-    fn a_null_sibling_bound_reads_as_absent_too() {
-        // The legacy pair form lifts the bounds to sibling keys.
+    fn a_null_sibling_bound_is_deferred_too() {
+        // The legacy pair form lifts the bounds to sibling keys. A null there is
+        // invalid on mongod too -- with its OWN codes, 16895 ($maxDistance) and
+        // 16893 ($minDistance), rather than the nested form's BadValue (2) --
+        // so defer and let the Python engine name it.
         let point = xy(1.0, 1.0);
         let near = Bson::Array(vec![Bson::Double(1.01), Bson::Double(1.01)]);
         let null = Bson::Null;
-        assert!(op_geo_near(&[Some(&point)], &near, Some(&null), Some(&null), false).unwrap());
+        assert!(op_geo_near(
+            &[crate::query::Cand::plain(Some(&point))],
+            &near,
+            Some(&null),
+            Some(&null),
+            false
+        )
+        .is_err());
     }
 
     #[test]
@@ -582,8 +666,22 @@ mod tests {
         let arg = xy(1.01, 1.01);
         let max = Bson::Double(0.1);
         let min = Bson::Double(0.0);
-        assert!(op_geo_near(&[Some(&xy(1.0, 1.0))], &arg, Some(&max), Some(&min), false).unwrap());
-        assert!(!op_geo_near(&[Some(&xy(3.0, 3.0))], &arg, Some(&max), Some(&min), false).unwrap());
+        assert!(op_geo_near(
+            &[crate::query::Cand::plain(Some(&xy(1.0, 1.0)))],
+            &arg,
+            Some(&max),
+            Some(&min),
+            false
+        )
+        .unwrap());
+        assert!(!op_geo_near(
+            &[crate::query::Cand::plain(Some(&xy(3.0, 3.0)))],
+            &arg,
+            Some(&max),
+            Some(&min),
+            false
+        )
+        .unwrap());
     }
 
     #[test]
@@ -636,25 +734,55 @@ mod tests {
     #[test]
     fn geo_intersects_requires_geometry() {
         let arg = Bson::Document(doc! {"$box": [[0.0, 0.0], [10.0, 10.0]]});
-        assert!(op_geo_intersects(&[Some(&xy(5.0, 5.0))], &arg).is_err());
+        assert!(
+            op_geo_intersects(&[crate::query::Cand::plain(Some(&xy(5.0, 5.0)))], &arg).is_err()
+        );
         let q = Bson::Document(doc! {"$geometry": {
             "type": "Polygon",
             "coordinates": [[[0.0, 0.0], [10.0, 0.0], [10.0, 10.0], [0.0, 10.0], [0.0, 0.0]]],
         }});
-        assert!(op_geo_intersects(&[Some(&xy(5.0, 5.0))], &q).unwrap());
+        assert!(op_geo_intersects(&[crate::query::Cand::plain(Some(&xy(5.0, 5.0)))], &q).unwrap());
     }
 
     #[test]
     fn near_legacy_planar_bound() {
         // {$near: [0,0, 5]} (planar): a point ~1.41 away matches, ~7.07 doesn't.
         let arg = Bson::Array(vec![0.0.into(), 0.0.into(), 5.0.into()]);
-        assert!(op_geo_near(&[Some(&xy(1.0, 1.0))], &arg, None, None, false).unwrap());
-        assert!(!op_geo_near(&[Some(&xy(5.0, 5.0))], &arg, None, None, false).unwrap());
+        assert!(op_geo_near(
+            &[crate::query::Cand::plain(Some(&xy(1.0, 1.0)))],
+            &arg,
+            None,
+            None,
+            false
+        )
+        .unwrap());
+        assert!(!op_geo_near(
+            &[crate::query::Cand::plain(Some(&xy(5.0, 5.0)))],
+            &arg,
+            None,
+            None,
+            false
+        )
+        .unwrap());
         // Bound-less {$near: [0,0]} matches any point geometry.
         let bare = Bson::Array(vec![0.0.into(), 0.0.into()]);
-        assert!(op_geo_near(&[Some(&xy(99.0, 99.0))], &bare, None, None, false).unwrap());
+        assert!(op_geo_near(
+            &[crate::query::Cand::plain(Some(&xy(99.0, 99.0)))],
+            &bare,
+            None,
+            None,
+            false
+        )
+        .unwrap());
         // ...but not a non-geometry value.
-        assert!(!op_geo_near(&[Some(&Bson::Int32(3))], &bare, None, None, false).unwrap());
+        assert!(!op_geo_near(
+            &[crate::query::Cand::plain(Some(&Bson::Int32(3)))],
+            &bare,
+            None,
+            None,
+            false
+        )
+        .unwrap());
     }
 
     #[test]
@@ -664,20 +792,41 @@ mod tests {
             "$geometry": {"type": "Point", "coordinates": [0.0, 0.0]},
             "$maxDistance": 1_500_000.0_f64,
         });
-        assert!(op_geo_near(&[Some(&xy(0.0, 0.0))], &arg, None, None, true).unwrap()); // dist 0
-                                                                                       // ~10 deg away is ~1.11e6 m (< 1.5e6) -> in; tighten the bound to exclude.
+        assert!(op_geo_near(
+            &[crate::query::Cand::plain(Some(&xy(0.0, 0.0)))],
+            &arg,
+            None,
+            None,
+            true
+        )
+        .unwrap()); // dist 0
+                    // ~10 deg away is ~1.11e6 m (< 1.5e6) -> in; tighten the bound to exclude.
         let tight = Bson::Document(doc! {
             "$geometry": {"type": "Point", "coordinates": [0.0, 0.0]},
             "$maxDistance": 100_000.0_f64,
         });
-        assert!(!op_geo_near(&[Some(&xy(10.0, 10.0))], &tight, None, None, true).unwrap());
+        assert!(!op_geo_near(
+            &[crate::query::Cand::plain(Some(&xy(10.0, 10.0)))],
+            &tight,
+            None,
+            None,
+            true
+        )
+        .unwrap());
     }
 
     #[test]
     fn near_malformed_defers() {
         // A doc arg without $geometry -> Python raises QueryError -> Fallback.
         let arg = Bson::Document(doc! {"$maxDistance": 5.0_f64});
-        assert!(op_geo_near(&[Some(&xy(0.0, 0.0))], &arg, None, None, false).is_err());
+        assert!(op_geo_near(
+            &[crate::query::Cand::plain(Some(&xy(0.0, 0.0)))],
+            &arg,
+            None,
+            None,
+            false
+        )
+        .is_err());
     }
 
     #[test]

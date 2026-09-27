@@ -1,12 +1,13 @@
 import abc
-import logging
-import typing
-import yaml
-import httpx
-import yarl
-import re
-
 import importlib
+import logging
+import re
+import typing
+from typing import ClassVar
+
+import httpx2
+import yaml
+import yarl
 
 # prefer a fast json library here as we may parse large documents
 for i in ["orjson", "simdjson", "ujson", "json"]:
@@ -19,12 +20,14 @@ for i in ["orjson", "simdjson", "ujson", "json"]:
 
 assert json is not None
 
-from pathlib import Path  # noqa:E402
+import functools
+import operator
+from pathlib import Path
 
 from .plugin import Plugins
 
 if typing.TYPE_CHECKING:
-    from ._types import YAMLLoaderType, JSON
+    from ._types import JSON, YAMLLoaderType
 
 log = logging.getLogger("aiopenapi3.loader")
 
@@ -41,8 +44,8 @@ class YAML12Loader(yaml.SafeLoader):
     add the YAML 1.2 core tags
     """
 
-    _core_resolvers = [
-        ["bool", re.compile(r"""^(?:|true|True|TRUE|false|False|FALSE)$""", re.X), list("tTfF")],
+    _core_resolvers: ClassVar = [
+        ["bool", re.compile(r"""^(?:|true|True|TRUE|false|False|FALSE)$""", re.VERBOSE), list("tTfF")],
         [
             "int",
             re.compile(
@@ -51,7 +54,7 @@ class YAML12Loader(yaml.SafeLoader):
                                   |[-+]?(?:[0-9]+)
                                   |0x[0-9a-fA-F]+
                                   )$""",
-                re.X,
+                re.VERBOSE,
             ),
             list("-+0123456789"),
         ],
@@ -61,11 +64,11 @@ class YAML12Loader(yaml.SafeLoader):
                 r"""^(?:[-+]?(?:\.[0-9]+|[0-9]+(\.[0-9]*)?)(?:[eE][-+]?[0-9]+)?
                                   |[-+]?\.(?:inf|Inf|INF)
                                   |\.(?:nan|NaN|NAN))$""",
-                re.X,
+                re.VERBOSE,
             ),
             list("-+0123456789."),
         ],
-        ["null", re.compile(r"""^(?:~||null|Null|NULL)$""", re.X), ["~", "n", "N", ""]],
+        ["null", re.compile(r"""^(?:~||null|Null|NULL)$""", re.VERBOSE), ["~", "n", "N", ""]],
     ]
     """
     core tags from
@@ -75,7 +78,9 @@ class YAML12Loader(yaml.SafeLoader):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         tags = set(
-            sum(list(map(lambda x: list(map(lambda y: y[0], x)), YAML12Loader.yaml_implicit_resolvers.values())), [])
+            functools.reduce(
+                operator.iadd, [[y[0] for y in x] for x in YAML12Loader.yaml_implicit_resolvers.values()], []
+            )
         )
         for tag in tags:
             YAML12Loader.remove_implicit_resolver(tag)
@@ -166,11 +171,11 @@ class Loader(abc.ABC):
         if file.suffix not in (".yaml", ".json"):
             try:
                 return self.parse(plugins, url.with_path("/test.yaml"), data)
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001, S110
                 pass
             try:
                 return self.parse(plugins, url.with_path("/test.json"), data)
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001, S110
                 pass
 
         if file.suffix == ".yaml":
@@ -211,7 +216,7 @@ class WebLoader(Loader):
     Loader downloads data via http/s using the supplied session_factory
     """
 
-    def __init__(self, baseurl: yarl.URL, session_factory=httpx.Client, yload: "YAMLLoaderType" = YAML12Loader):
+    def __init__(self, baseurl: yarl.URL, session_factory=httpx2.Client, yload: "YAMLLoaderType" = YAML12Loader):
         super().__init__(yload)
         assert isinstance(baseurl, yarl.URL)
         self.baseurl: yarl.URL = baseurl
@@ -294,7 +299,7 @@ class ChainLoader(Loader):
                 r = i.load(plugins, url, codec)
                 log.debug(f"using {i}")
                 return r
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001
                 errors.append((i, str(exc)))
         for l, e in errors:
             log.debug(f"{l} {e}")

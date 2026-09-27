@@ -593,6 +593,21 @@ class Catalog:
         self._storage.insert(db, CATALOG_COLLECTION, [_to_doc(table)])
 
     def drop(self, db: str, table: str) -> bool:
+        """Drop a table AND every per-table record that depends on it.
+
+        Dropping only the table definition left its privilege state behind, so
+        a table dropped and recreated under the same name INHERITED the old
+        one's grants — including grants to other roles. Someone revoking
+        access by dropping the table got a new table that still granted it.
+
+        Measured against PostgreSQL 14 on 2026-09-20: after DROP + CREATE the
+        new table has `relacl` NULL and no grants, column grants or policies.
+        Comments and the RLS-enabled flag were already cleared correctly; the
+        four cleared here were not.
+        """
+        for collection in (GRANT_COLLECTION, COLUMN_GRANT_COLLECTION, POLICY_COLLECTION):
+            self._storage.delete_matching(db, collection, {"table": table})
+        self._storage.delete_matching(db, RELATION_ACL_COLLECTION, {"_id": table})
         return self._storage.delete_matching(db, CATALOG_COLLECTION, {"_id": table}) > 0
 
     def list_tables(self, db: str) -> list[str]:
@@ -808,6 +823,25 @@ class Catalog:
         rest.reverse()
         cache[(db, name)] = [rest, first]
         return first
+
+    def sequence_relation_state(self, db: str, name: str) -> dict[str, Any] | None:
+        """A sequence's state as PG's one-row RELATION reports it, or None.
+
+        The persisted ``last_value`` is the pre-allocated batch's HIGH-WATER
+        MARK, not the value most recently handed out — reading the doc directly
+        would report a position up to ``SEQUENCE_ALLOC_BATCH`` values ahead of
+        the truth. The live position is the same one ``_invalidate_sequence_
+        cache`` writes back, so it is read from the cache entry when a run is
+        open.
+        """
+        doc = self.get_sequence(db, name)
+        if doc is None:
+            return None
+        cache = _SEQ_ALLOC_CACHE.get(self._storage)
+        entry = cache.get((db, name)) if cache is not None else None
+        if entry is not None:
+            return {**doc, "last_value": entry[1], "is_called": True}
+        return doc
 
     def _invalidate_sequence_cache(self, db: str, name: str) -> None:
         """Retire ``name``'s pre-allocated run, writing the last value actually
@@ -1057,6 +1091,15 @@ class Catalog:
                 continue  # the owner's row is driven by owner_privs above
             entries.append(item(doc["grantee"], doc.get("privileges", [])))
         return "{" + ",".join(entries) + "}"
+
+    def owner_privileges(self, db: str, table: str) -> tuple[str, list[str]] | None:
+        """``(owner, retained privileges)`` once a GRANT / REVOKE has
+        materialized ``table``'s ACL, else None — meaning untouched, which in
+        Postgres is the owner holding everything implicitly."""
+        state = self._relation_acl_state(db, table)
+        if state is None:
+            return None
+        return state["owner"], list(state.get("owner_privs", ()))
 
     def has_table_privilege(self, db: str, table: str, grantees: set[str], privilege: str) -> bool:
         """Whether any identity in ``grantees`` (a user + its role names, plus

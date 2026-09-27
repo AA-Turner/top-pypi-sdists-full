@@ -22,7 +22,8 @@ import decimal
 import json
 import math
 import re
-from collections.abc import Callable
+import struct as _struct
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from decimal import Decimal
 from typing import Any
@@ -32,6 +33,9 @@ from sqlglot import exp
 
 from secantus.paths import get_path
 from secantus.sql import errors, typemap
+from secantus.sql import numeric as _numeric
+from secantus.sql import ranges as _ranges
+from secantus.sql import subms as _subms
 
 # jsonb navigation (->, ->>, #>, #>>); the scalar (->> / #>>) variants render text.
 _JSONB_NAV = (exp.JSONExtract, exp.JSONExtractScalar, exp.JSONBExtract, exp.JSONBExtractScalar)
@@ -140,7 +144,7 @@ def evaluate(node: exp.Expression, scope: Scope, ctx: ScalarContext) -> Any:
             from secantus.sql import intervals as _intervals
 
             return _intervals.neg(v)
-        return typemap.negate(v)
+        return _check_unary_int_range(node, typemap.negate(v))
     if isinstance(node, exp.Cast):
         return _eval_cast(node, scope, ctx)
     if isinstance(node, exp.Column):
@@ -149,6 +153,15 @@ def evaluate(node: exp.Expression, scope: Scope, ctx: ScalarContext) -> Any:
         return _eval_jsonb_nav(node, scope, ctx)
     if isinstance(node, exp.JSONBDeleteAtPath):
         return _eval_jsonb_delete_path(node, scope, ctx)
+    if isinstance(node, exp.ArrayOverlaps):
+        # `&&` over two tsqueries is tsquery AND, not array overlap. Checked
+        # before the array / range / net / geo dispatch below, all of which
+        # would take a tsquery dict for their own operand type.
+        from secantus.sql import fts as _fts
+
+        lhs, rhs = evaluate(node.this, scope, ctx), evaluate(node.expression, scope, ctx)
+        if _fts.is_tsquery(lhs) and _fts.is_tsquery(rhs):
+            return _fts.tsquery_and(lhs, rhs)
     if isinstance(node, (exp.ArrayContainsAll, exp.ArrayContainedBy, exp.ArrayOverlaps)):
         result = _eval_range_op(node, scope, ctx)
         if result is not _NOT_RANGE:
@@ -174,6 +187,7 @@ def evaluate(node: exp.Expression, scope: Scope, ctx: ScalarContext) -> Any:
         hstore_result = _eval_hstore_exists(node, scope, ctx)
         if hstore_result is not _NOT_HSTORE:
             return hstore_result
+        return _eval_jsonb_exists(node, scope, ctx)
     if getattr(exp, "Distance", None) is not None and isinstance(node, exp.Distance):
         from secantus.sql import pggeo as _pggeo
 
@@ -242,9 +256,24 @@ def evaluate(node: exp.Expression, scope: Scope, ctx: ScalarContext) -> Any:
     if isinstance(node, exp.Is):
         left = evaluate(node.this, scope, ctx)
         if isinstance(node.expression, exp.Null):
+            fields = _record_fields(left)
+            if fields is not None:
+                # `row IS NULL` is true only when EVERY field is NULL — the row
+                # itself is never the NULL, so testing the record object for
+                # None answered false for `(NULL, NULL)`.
+                return all(f is None for f in fields)
             return left is None
         return left == evaluate(node.expression, scope, ctx)
     if isinstance(node, exp.Not):
+        # `row IS NOT NULL` is NOT the negation of `row IS NULL`: it is true only
+        # when every field is NON-null, so a row with one NULL is false for BOTH.
+        # sqlglot gives `Not(Is(row, Null))`, so without this the negation made
+        # `(1, NULL) IS NOT NULL` true.
+        inner_node = node.this
+        if isinstance(inner_node, exp.Is) and isinstance(inner_node.expression, exp.Null):
+            fields = _record_fields(evaluate(inner_node.this, scope, ctx))
+            if fields is not None:
+                return all(f is not None for f in fields)
         # Three-valued logic: NOT NULL is NULL (a WHERE treats it as
         # not-matched), never TRUE.
         inner = evaluate(node.this, scope, ctx)
@@ -273,49 +302,9 @@ def evaluate(node: exp.Expression, scope: Scope, ctx: ScalarContext) -> Any:
         if lb is None or rb is None:
             return None
         return False
-    if isinstance(node, (exp.EQ, exp.NEQ)) and (
-        isinstance(node.this, exp.Any) or isinstance(node.expression, exp.Any)
-    ):
-        # ``x = ANY(<array expr>)`` / ``x <> ANY(...)`` — PG's IN over an array
-        # value. pgjdbc's TypeInfoCache filters namespaces with
-        # ``n.nspname = ANY (current_schemas(true))`` inside a multi-table join,
-        # where the WHERE is evaluated per row rather than pushed down.
-        anynode = node.this if isinstance(node.this, exp.Any) else node.expression
-        other = node.expression if isinstance(node.this, exp.Any) else node.this
-        inner = anynode.this
-        while isinstance(inner, exp.Paren):
-            inner = inner.this
-        haystack = evaluate(inner, scope, ctx)
-        needle = _unwrap_decimal(evaluate(other, scope, ctx))
-        if haystack is None or needle is None:
-            return None
-        if not isinstance(haystack, (list, tuple)):
-            haystack = [haystack]
-        hit = any(_unwrap_decimal(v) == needle for v in haystack)
-        return hit if isinstance(node, exp.EQ) else not hit
-    if isinstance(node, (exp.EQ, exp.NEQ)) and any(
-        isinstance(side, exp.Anonymous) and str(side.this).upper() == "ALL"
-        for side in (node.this, node.expression)
-    ):
-        # ``x <> ALL(<array expr>)`` — true when x differs from every element
-        # (pgjdbc's getSQLKeywords filters the SQL:2003 words this way).
-        # sqlglot parses the ALL as an Anonymous call, unlike ANY.
-        allnode = (
-            node.this
-            if isinstance(node.this, exp.Anonymous) and str(node.this.this).upper() == "ALL"
-            else node.expression
-        )
-        other = node.expression if allnode is node.this else node.this
-        inner = allnode.expressions[0] if allnode.expressions else None
-        haystack = evaluate(inner, scope, ctx) if inner is not None else None
-        needle = _unwrap_decimal(evaluate(other, scope, ctx))
-        if haystack is None or needle is None:
-            return None
-        if not isinstance(haystack, (list, tuple)):
-            haystack = [haystack]
-        if isinstance(node, exp.EQ):
-            return all(_unwrap_decimal(v) == needle for v in haystack)
-        return all(_unwrap_decimal(v) != needle for v in haystack)
+    quant = _quantified_compare(node)
+    if quant is not None:
+        return _eval_quantified(node, quant, scope, ctx)
     if isinstance(node, (exp.EQ, exp.NEQ, exp.GT, exp.GTE, exp.LT, exp.LTE)):
         return _eval_compare(node, scope, ctx)
     if isinstance(node, exp.Exists):
@@ -353,15 +342,49 @@ def evaluate(node: exp.Expression, scope: Scope, ctx: ScalarContext) -> Any:
         return _eval_like(node, scope, ctx)
     if isinstance(node, (exp.RegexpLike, exp.RegexpILike)):
         return _eval_regexp(node, scope, ctx)
+    if isinstance(node, exp.Escape) and isinstance(node.this, exp.SimilarTo):
+        return _eval_similar_to(node.this, scope, ctx, escape=evaluate(node.expression, scope, ctx))
+    if isinstance(node, exp.SimilarTo):
+        return _eval_similar_to(node, scope, ctx)
     if type(node) in _ARITH:
         return _eval_arith(node, scope, ctx)
     if isinstance(node, exp.DPipe):  # || string concatenation
         left, right = evaluate(node.this, scope, ctx), evaluate(node.expression, scope, ctx)
         if left is None or right is None:
-            return None
+            # A NULL ARRAY is EMPTY in a concatenation — `NULL::int[] || 9` is
+            # `{9}` in PG — while a NULL of any other type makes the whole `||`
+            # NULL. Both are `None` here, so the ARRAY-ness has to come from the
+            # node: a cast or an `ARRAY[…]` is readable directly, a column is
+            # stamped by `typecheck._stamp_array_concat`.
+            array_side = (
+                isinstance(left, list)
+                or isinstance(right, list)
+                or getattr(node, "_secantus_array_concat", False)
+                or _is_array_typed_node(node.this)
+                or _is_array_typed_node(node.expression)
+            )
+            if not array_side or (left is None and right is None):
+                return None
+            # A NULL on the ARRAY side is empty; a NULL ELEMENT stays an element,
+            # which is why `NULL::int || '{1}'::int[]` is `{NULL,1}`.
+            if left is None:
+                left = [] if _is_array_operand(node.this) else [None]
+            if right is None:
+                right = [] if _is_array_operand(node.expression) else [None]
         # ``bytea || bytea`` concatenates the raw bytes; anything else is text.
         if isinstance(left, (bytes, bytearray)) and isinstance(right, (bytes, bytearray)):
             return bytes(left) + bytes(right)
+        # ``tsvector || tsvector`` / ``tsquery || tsquery``. Both are dicts
+        # internally, so without this the hstore branch below merged them
+        # right-wins and `to_tsvector('quick') || to_tsvector('brown')`
+        # answered just `'brown'` — half the document silently dropped.
+        from secantus.sql import fts as _fts
+
+        if _fts.is_tsvector(left) and _fts.is_tsvector(right):
+            return _fts.tsvector_concat(left, right)
+        if _fts.is_tsquery(left) and _fts.is_tsquery(right):
+            return _fts.tsquery_or(left, right)
+
         # ``array || array`` / ``array || elem`` concatenates lists.
         if isinstance(left, list) or isinstance(right, list):
             lval = left if isinstance(left, list) else [left]
@@ -372,20 +395,59 @@ def evaluate(node: exp.Expression, scope: Scope, ctx: ScalarContext) -> Any:
 
         if _hstore.is_hstore(left) or _hstore.is_hstore(right):
             return _hstore.merge(_hstore.parse(left), _hstore.parse(right))
+        # ``jsonb || jsonb`` where BOTH sides are objects merges, right wins
+        # (PG-probed 14). This case fell through to the text fallback below,
+        # where `str(dict)` produced a PYTHON REPR: `'{"x":1}'::jsonb ||
+        # '{"y":2}'::jsonb` answered `{'x': 1}{'y': 2}` — single-quoted, not
+        # valid JSON, and silently wrong.
+        #
+        # STILL WRONG, deliberately out of scope here: the mixed shapes
+        # (array||array, object||array, array||scalar) take the list branch
+        # above. Their *values* are right, but the result is typed as a PG
+        # ARRAY, so `::text` renders `{1,2,3}` where PG renders the jsonb
+        # `[1, 2, 3]`. Fixing that is a typing change — the result of a jsonb
+        # concat has to carry the jsonb tag — not a value change here.
+        #
+        # Two jsonb *scalars* also stay on the text path deliberately: a Python
+        # str is indistinguishable from a text value at this point, and
+        # rerouting it would break ordinary `'a' || 'b'` concatenation.
+        if isinstance(left, Mapping) and isinstance(right, Mapping):
+            return {**dict(left), **dict(right)}
         return _as_text(left) + _as_text(right)
     if isinstance(node, exp.Bracket):
         return _eval_bracket(node, scope, ctx)
     if isinstance(node, exp.Array):  # ARRAY[...] constructor -> a Python list
-        return [evaluate(e, scope, ctx) for e in node.expressions]
+        exprs = node.expressions
+        if len(exprs) == 1 and isinstance(exprs[0], (exp.Select, exp.Subquery)):
+            # `ARRAY(SELECT ...)` — the array-SUBQUERY constructor, which collects
+            # the subquery's first column into one array. It parses as an Array
+            # whose single element is the Select, so the list comprehension below
+            # tried to evaluate the Select as a scalar and answered
+            # `42P01 relation "" does not exist`.
+            select = _subquery_select(exprs[0])
+            proj = select.expressions[0]
+            return [evaluate(proj, inner, ctx) for inner in _inner_row_scopes(select, scope, ctx)]
+        return [evaluate(e, scope, ctx) for e in exprs]
     if isinstance(node, exp.Tuple):
         # A parenthesized multi-value tuple ``(a, b, …)`` in a scalar position is
         # an anonymous record constructor — the same shape as ``ROW(a, b, …)``,
         # keeping each field's SQL type oid (from the argument AST) for the
         # binary record encoding.
-        vals = [evaluate(e, scope, ctx) for e in node.expressions]
+        vals = [_blank_pad_record_field(e, evaluate(e, scope, ctx)) for e in node.expressions]
         rec = typemap.RecordValue((f"f{i + 1}", v) for i, v in enumerate(vals))
         rec.field_oids = tuple(_row_field_oid(e) for e in node.expressions)
         return rec
+    if getattr(exp, "ToNumber", None) is not None and isinstance(node, exp.ToNumber):
+        # sqlglot gives `to_number` its OWN node (this + format) rather than an
+        # Anonymous call, so the name-keyed dispatch in `_call_func` never saw
+        # it and every `to_number(...)` answered NULL.
+        from secantus.sql import numformat as _numformat
+
+        val = evaluate(node.this, scope, ctx)
+        fmt = evaluate(node.args.get("format"), scope, ctx)
+        if val is None or fmt is None:
+            return None
+        return _numformat.to_number(_as_text(val), _as_text(fmt))
     if isinstance(node, exp.Interval):  # interval '1 day' (added to / subtracted
         return _eval_interval(node, scope, ctx)  # from a date via _Interval.__radd__)
     if isinstance(node, exp.Collate):
@@ -394,10 +456,18 @@ def evaluate(node: exp.Expression, scope: Scope, ctx: ScalarContext) -> Any:
         return evaluate(node.this, scope, ctx)
     typed = _SCALAR_FUNC_NODES.get(type(node))
     if typed is not None:
-        return typed(node, scope, ctx)
+        try:
+            return typed(node, scope, ctx)
+        except errors.SQLError:
+            raise
+        except (TypeError, ValueError, AttributeError, KeyError, IndexError) as exc:
+            raise _no_such_function(node, scope, ctx) from exc
     # Schema-qualified function: pg_catalog.format_type(...) -> the call.
+    # The qualifier is carried through: a user function homed in a schema is
+    # stored under a dotted key, and dropping the schema here made
+    # ``hf.addf(1, 2)`` resolve as bare ``addf`` and raise "does not exist".
     if isinstance(node, exp.Dot) and isinstance(node.expression, exp.Anonymous):
-        return _eval_func(node.expression, scope, ctx)
+        return _eval_func(node.expression, scope, ctx, schema=node.this.name)
     # Composite field access: ``(col).field`` -> Dot(Paren(col), Identifier). The
     # inner expression resolves to a subdocument; return the named field (NULL for
     # a missing field or a NULL composite).
@@ -414,7 +484,29 @@ def evaluate(node: exp.Expression, scope: Scope, ctx: ScalarContext) -> Any:
         return _eval_typed_func(node, scope, ctx)
     if isinstance(node, (exp.Select, exp.Subquery)):
         return _eval_subquery(node, scope, ctx)
+    if isinstance(node, exp.Lambda):
+        # PostgreSQL has no lambda syntax, so a `Lambda` here is always a
+        # MISPARSE of the jsonb arrow: inside a function call, `v -> 'arr'`
+        # looks like `param -> body` to sqlglot's generic parser and only
+        # reaches `JSONExtract` when the left side is something an identifier
+        # cannot be (a cast, say). So `jsonb_typeof(v->'arr')` was
+        # `0A000 unsupported scalar expression` while
+        # `jsonb_typeof('…'::jsonb->'a')` worked.
+        rebuilt = _lambda_as_json_arrow(node)
+        if rebuilt is not None:
+            return evaluate(rebuilt, scope, ctx)
     raise errors.feature_not_supported(f"unsupported scalar expression: {node.sql()}")
+
+
+def _lambda_as_json_arrow(node: exp.Expression) -> exp.Expression | None:
+    """Rebuild a misparsed `x -> y` lambda as the jsonb extraction it is."""
+    params = node.expressions or []
+    if len(params) != 1 or node.this is None:
+        return None
+    left = params[0]
+    if isinstance(left, exp.Identifier):
+        left = exp.column(left.this, quoted=left.args.get("quoted"))
+    return exp.JSONExtract(this=left, expression=node.this)
 
 
 def _eval_bracket(node: exp.Bracket, scope: Scope, ctx: ScalarContext) -> Any:
@@ -460,6 +552,11 @@ def _as_text(value: Any) -> str:
     """Postgres text rendering of a scalar (for ``||`` / ``concat``)."""
     if isinstance(value, bool):
         return "true" if value else "false"
+    if isinstance(value, _dt.datetime):
+        # Through the same renderer a ``::text`` cast uses, so `concat(t, '')`
+        # and `t::text` agree — `str(datetime)` pads the fractional seconds to
+        # six digits where Postgres prints the shortest form.
+        return typemap.render_timestamp_text(value)
     return str(value)
 
 
@@ -487,14 +584,45 @@ def _pg_mod(left: Any, right: Any) -> Any:
     # Postgres mod takes the sign of the dividend (unlike Python ``%``).
     if right == 0:
         raise errors.SQLError("22012", "division by zero")
+    if isinstance(left, Decimal) or isinstance(right, Decimal):
+        # Exact, and the dividend's sign (Decimal.remainder's rule too).
+        # `math.fmod` converted a numeric to FLOAT, so `n % m` was wrong for
+        # any value a double cannot hold, not merely imprecise.
+        try:
+            return _numeric.EXACT.remainder(Decimal(left), Decimal(right))
+        except (TypeError, decimal.InvalidOperation):
+            pass
     r = math.fmod(left, right)
     return int(r) if isinstance(left, int) and isinstance(right, int) else r
 
 
+def _exact_arith(op: str) -> Callable[[Any, Any], Any]:
+    """``+`` / ``-`` / ``*`` that never round a ``numeric``.
+
+    A bare ``a + b`` on two ``Decimal``s runs in Python's DEFAULT context,
+    which rounds at 28 significant digits -- below even Decimal128's 34, and
+    far below Postgres' exact numeric. Measured:
+    ``1234567890123456789012345678901234567890 + 1`` came back as
+    ``1.234567890123456789012345679E+39``. Any other operand pair (ints,
+    floats, intervals, dates) keeps its own operator."""
+    method = {"+": "add", "-": "subtract", "*": "multiply"}[op]
+    plain = {"+": lambda a, b: a + b, "-": lambda a, b: a - b, "*": lambda a, b: a * b}[op]
+
+    def exactable(v: Any) -> bool:
+        return isinstance(v, Decimal) or (isinstance(v, int) and not isinstance(v, bool))
+
+    def apply(a: Any, b: Any) -> Any:
+        if (isinstance(a, Decimal) or isinstance(b, Decimal)) and exactable(a) and exactable(b):
+            return getattr(_numeric.EXACT, method)(Decimal(a), Decimal(b))
+        return plain(a, b)
+
+    return apply
+
+
 _ARITH: dict[type, Callable[[Any, Any], Any]] = {
-    exp.Add: lambda a, b: a + b,
-    exp.Sub: lambda a, b: a - b,
-    exp.Mul: lambda a, b: a * b,
+    exp.Add: _exact_arith("+"),
+    exp.Sub: _exact_arith("-"),
+    exp.Mul: _exact_arith("*"),
     exp.Div: _pg_div,
     exp.Mod: _pg_mod,
 }
@@ -523,6 +651,28 @@ def _eval_arith(node: exp.Expression, scope: Scope, ctx: ScalarContext) -> Any:
             return _ranges.union(left, right)
         if isinstance(node, exp.Sub):
             return _ranges.difference(left, right)
+    # A bare string literal is Postgres' ``unknown``, and unknown resolves to the
+    # OTHER operand's type before an operator is chosen — so it must not be read
+    # as a date here. ``'2020-01-01' + 1`` is *integer* input in PG (22P02); we
+    # did date arithmetic and answered '2020-01-02' under the int4 oid the
+    # literal ``1`` had already fixed, so the CLIENT raised decoding it. Only a
+    # literal node is judged: a date column or a ``::date`` cast is genuinely
+    # typed and keeps its date arithmetic.
+    if isinstance(left, str) and _is_number(right) and _is_unknown_literal(node.this):
+        left = _num_from_text(left, right)
+    elif isinstance(right, str) and _is_number(left) and _is_unknown_literal(node.expression):
+        right = _num_from_text(right, left)
+    # Beside an interval the same rule makes the unknown an *interval*, so
+    # ``'2020-01-01' + interval '1 day'`` is 22007 in PG, not a timestamp. We
+    # read the literal as a date and answered one — under the oid the INTERVAL
+    # operand had fixed, so psycopg raised ``can't parse interval '2020-01-02
+    # 00:00:00'``. Only ``+`` / ``-``: for ``*`` / ``/`` PG resolves the unknown
+    # to a number instead (``interval '1 day' * '2'`` is two days).
+    elif isinstance(node, (exp.Add, exp.Sub)):
+        if isinstance(left, str) and _is_interval(right) and _is_unknown_literal(node.this):
+            left = _interval_from_text(left)
+        elif isinstance(right, str) and _is_interval(left) and _is_unknown_literal(node.expression):
+            right = _interval_from_text(right)
     date_result = _eval_date_arith(node, left, right)
     if date_result is not _NOT_DATE:
         return date_result
@@ -535,6 +685,22 @@ def _eval_arith(node: exp.Expression, scope: Scope, ctx: ScalarContext) -> Any:
         right = float(right)
     elif isinstance(right, float) and isinstance(left, Decimal):
         left = float(left)
+    # A *typed* text operand has no arithmetic operator at all in Postgres, so
+    # it is 42883 whatever it contains — ``'1'::text + 1`` errors just as
+    # ``'a'::text + 1`` does. Only an UNKNOWN literal coerces (below). We ran the
+    # coercion for both, so a typed operand either computed silently (`'1'::text
+    # + 1` answered 2) or reported the coercion's 22P02 instead of PG's 42883.
+    # Decided from the cast alone — no resolver needed, and a cast is
+    # unambiguously typed. The column form is judged in `sql/typecheck.py`, which
+    # owns the exemptions a declared type needs (reflected tables especially).
+    _lt, _rt = _text_cast_type(node.this), _text_cast_type(node.expression)
+    if _lt is not None or _rt is not None:
+        op = _ARITH_SYMBOL.get(type(node), "?")
+        raise errors.SQLError(
+            "42883",
+            f"operator does not exist: {_lt or _pg_operand_type(left)} {op} "
+            f"{_rt or _pg_operand_type(right)}",
+        )
     # An unknown-type text operand against a number resolves numerically, like
     # PG's unknown-literal coercion (``abalance + $1`` with an untyped text
     # param — pgbench's extended mode binds every param typeless).
@@ -542,23 +708,241 @@ def _eval_arith(node: exp.Expression, scope: Scope, ctx: ScalarContext) -> Any:
         left = _num_from_text(left, right)
     elif isinstance(right, str) and _is_number(left):
         right = _num_from_text(right, left)
-    return _ARITH[type(node)](left, right)
+    # ``jsonb - key`` deletes; see `_jsonb_delete`. Checked here rather than in
+    # `_ARITH` because a Mapping/list left operand has no meaningful Python
+    # subtraction — `dict - str` raised a bare TypeError that escaped as an
+    # "internal server error" (XX000).
+    #
+    # An interval / range is ALSO a Mapping (they ride as tagged subdocuments),
+    # so this branch used to claim them: ``interval '1 day' - 1`` answered
+    # ``22023 cannot delete from scalar`` — a *jsonb* error for an interval —
+    # where PG answers 42883. They fall through to the operator check below.
+    if (
+        isinstance(node, exp.Sub)
+        and isinstance(left, (Mapping, list))
+        and not _is_interval(left)
+        and not _is_range_value(left)
+    ):
+        return _jsonb_delete(left, right)
+    # Postgres has NO arithmetic operators on boolean, so any bool operand is
+    # 42883. Python would not raise here — `bool` IS an `int`, so `true + 1`
+    # quietly answered 2 and `true - false` answered 1 where PG errors.
+    if isinstance(left, bool) or isinstance(right, bool):
+        op = _ARITH_SYMBOL.get(type(node), "?")
+        raise errors.SQLError(
+            "42883",
+            f"operator does not exist: {_pg_operand_type(left)} {op} {_pg_operand_type(right)}",
+        )
+    try:
+        result = _ARITH[type(node)](left, right)
+    except TypeError:
+        # PG answers 42883 for an operator that does not exist for the operand
+        # pair (`'a'::text - 1`, `'\x01'::bytea + 1`). Python's TypeError used
+        # to escape as XX000 — an internal error where PG names the problem.
+        op = _ARITH_SYMBOL.get(type(node), "?")
+        raise errors.SQLError(
+            "42883",
+            f"operator does not exist: {_pg_operand_type(left)} {op} {_pg_operand_type(right)}",
+        ) from None
+    return _check_arith_range(node, left, right, result)
+
+
+def _check_arith_range(node: exp.Expression, left: Any, right: Any, result: Any) -> Any:
+    """Reject an arithmetic result Postgres' fixed-width types cannot hold.
+
+    Python's `int` is unbounded and its `float` saturates to `inf`, so both
+    integer and float overflow computed a value SILENTLY here where PG raises
+    22003 — and for integers the wrong value then went out under an oid too
+    narrow to carry it."""
+    # Integer width comes from the planner's stamp (PG's promotion table over
+    # the DECLARED operand types); unstamped shapes are left unchecked rather
+    # than guessed at from the value, which cannot tell int2 from int4.
+    if isinstance(result, int) and not isinstance(result, bool):
+        tag = getattr(node, "_secantus_int_tag", None)
+        if tag is not None:
+            typemap.check_int_range(result, tag)
+        return result
+    if not isinstance(result, float):
+        return result
+    # PG's CHECKFLOATVAL: an infinite result is an error unless an operand was
+    # already infinite, and a zero result is an error unless zero was a legal
+    # answer — `1e308 * 10` overflows, `'inf'::float8 + 1` does not, and
+    # `1e-320 / 1e10` underflows while `1e-320 * 0` is plainly zero. Which
+    # operands make zero legal differs by operator: for `/` only the DIVIDEND.
+    operands = (left, right)
+    floats = [v for v in operands if isinstance(v, float)]
+    if math.isinf(result):
+        if not any(math.isinf(v) for v in floats):
+            raise errors.SQLError("22003", "value out of range: overflow")
+        return result
+    if result == 0.0 and isinstance(node, (exp.Mul, exp.Div)):
+        zero_ok = (left == 0) if isinstance(node, exp.Div) else any(v == 0 for v in operands)
+        if not zero_ok:
+            raise errors.SQLError("22003", "value out of range: underflow")
+    return result
+
+
+#: The SQL spelling of each arithmetic node, for a 42883 message.
+_ARITH_SYMBOL: dict[type, str] = {
+    exp.Add: "+",
+    exp.Sub: "-",
+    exp.Mul: "*",
+    exp.Div: "/",
+    exp.Mod: "%",
+}
+
+
+def _pg_operand_type(v: Any) -> str:
+    """A PG type name for an operand, used only in the 42883 message."""
+    if v is None:
+        return "unknown"
+    if isinstance(v, bool):
+        return "boolean"
+    # Intervals and ranges ride as tagged subdocuments, so the Mapping arm below
+    # would call them "jsonb". Named before it.
+    if _is_interval(v):
+        return "interval"
+    if _is_range_value(v):
+        return "range"
+    if isinstance(v, int):
+        return "integer"
+    if isinstance(v, float):
+        return "double precision"
+    if isinstance(v, Decimal):
+        return "numeric"
+    if isinstance(v, (bytes, bytearray)):
+        return "bytea"
+    if isinstance(v, Mapping):
+        return "jsonb"
+    if isinstance(v, list):
+        return "array"
+    if isinstance(v, str):
+        return "text"
+    return type(v).__name__
+
+
+def _jsonb_delete(left: Any, right: Any) -> Any:
+    """``jsonb - key`` / ``- index`` / ``- key[]``. PG-probed 14:
+
+    * object ``-`` text  -> delete that key (a missing key is a no-op)
+    * array  ``-`` text  -> drop elements equal to that string
+    * array  ``-`` int   -> delete that index (negative counts from the end;
+      out of range is a no-op)
+    * either ``-`` text[] -> delete each in turn
+    * object ``-`` int   -> 22023 "cannot delete from object using integer index"
+    * scalar ``-`` any   -> 22023 "cannot delete from scalar"
+
+    This whole operator used to reach Python's ``-`` and die with a bare
+    ``TypeError`` that surfaced as an internal error (XX000).
+    """
+    if isinstance(right, list):
+        out = left
+        for key in right:
+            out = _jsonb_delete(out, key)
+        return out
+    if isinstance(left, Mapping):
+        if isinstance(right, bool) or not isinstance(right, str):
+            if isinstance(right, int):
+                raise errors.SQLError("22023", "cannot delete from object using integer index")
+            raise errors.SQLError("22023", "cannot delete from scalar")
+        out = dict(left)
+        out.pop(right, None)
+        return out
+    # A JSON array.
+    if isinstance(right, bool):
+        raise errors.SQLError("22023", "cannot delete from scalar")
+    if isinstance(right, int):
+        index = right if right >= 0 else len(left) + right
+        if 0 <= index < len(left):
+            return [*left[:index], *left[index + 1 :]]
+        return list(left)
+    if isinstance(right, str):
+        return [item for item in left if item != right]
+    raise errors.SQLError("22023", "cannot delete from scalar")
 
 
 def _is_number(v: Any) -> bool:
     return isinstance(v, (int, float, Decimal)) and not isinstance(v, bool)
 
 
-def _num_from_text(text: str, like: Any) -> Any:
-    t = text.strip()
+def _is_interval(v: Any) -> bool:
+    from secantus.sql import intervals as _intervals
+
+    return _intervals.is_interval(v)
+
+
+def _interval_from_text(text: str) -> Any:
+    """Coerce an ``unknown`` literal to an interval, PG's ``22007`` on failure."""
+    from secantus.sql import intervals as _intervals
+
     try:
-        if isinstance(like, float):
-            return float(t)
-        if isinstance(like, Decimal):
-            return Decimal(t)
-        return int(t) if "." not in t and "e" not in t.lower() else Decimal(t)
+        return _intervals.parse(text)
+    except _intervals.IntervalError:
+        raise errors.SQLError(
+            "22007", f'invalid input syntax for type interval: "{text}"'
+        ) from None
+
+
+#: Cast spellings with no arithmetic operator in Postgres -> the type name the
+#: 42883 message uses. Postgres names the *declared* type, so ``varchar`` reports
+#: "character varying", not "text".
+_TEXT_CAST_NAMES: dict[str, str] = {
+    "text": "text",
+    "varchar": "character varying",
+    "character varying": "character varying",
+    "char": "character",
+    "character": "character",
+    "bpchar": "character",
+    "citext": "citext",
+    "name": "name",
+}
+
+
+def _text_cast_type(node: exp.Expression | None) -> str | None:
+    """The PG type name of an explicit cast to a text type, else None.
+
+    Only an explicit cast is judged — that is what makes the operand *typed*
+    rather than Postgres' ``unknown``."""
+    while isinstance(node, exp.Paren):
+        node = node.this
+    if not isinstance(node, exp.Cast) or node.to is None:
+        return None
+    spelling = node.to.sql(dialect="postgres").lower().strip().split("(", 1)[0].strip()
+    return _TEXT_CAST_NAMES.get(spelling)
+
+
+def _is_unknown_literal(node: exp.Expression | None) -> bool:
+    """Is this operand a bare string literal — Postgres' ``unknown`` type?
+
+    A cast, a column or a parameter is typed and must NOT be judged here; only
+    the literal form is unambiguously unknown."""
+    while isinstance(node, exp.Paren):
+        node = node.this
+    return isinstance(node, exp.Literal) and bool(node.is_string)
+
+
+def _num_from_text(text: str, like: Any) -> Any:
+    """Coerce an ``unknown`` literal to the OTHER operand's type, PG's rule.
+
+    The target type decides both the parse and the error text, so ``'1.5' + 1``
+    is *integer* input and fails ``22P02`` — it does not silently widen to
+    numeric. Widening was wrong twice over: it answered ``2.5`` for a column the
+    planner had already typed ``int4`` from the literal ``1``, so the wire sent
+    a decimal under an int4 oid and the CLIENT raised decoding it
+    (``invalid literal for int(): '2.5'``). PG-probed 14."""
+    t = text.strip()
+    if isinstance(like, float):
+        target, parse = "double precision", float
+    elif isinstance(like, Decimal):
+        target, parse = "numeric", Decimal
+    else:
+        target, parse = "integer", int
+    try:
+        return parse(t)  # type: ignore[operator]
     except (ValueError, ArithmeticError):
-        raise errors.SQLError("22P02", f'invalid input syntax for type numeric: "{text}"') from None
+        raise errors.SQLError(
+            "22P02", f'invalid input syntax for type {target}: "{text}"'
+        ) from None
 
 
 _NOT_DATE = object()
@@ -712,15 +1096,64 @@ def _variadic(node: exp.Expression, scope: Scope, ctx: ScalarContext) -> list[An
     return [typemap.unwrap_numeric(evaluate(a, scope, ctx)) for a in args]
 
 
-def _unary(fn: Callable[[Any], Any]) -> Callable[[exp.Expression, Scope, ScalarContext], Any]:
+def _check_unary_int_range(node: exp.Expression, result: Any) -> Any:
+    """Reject a unary result the operand's integer type cannot hold.
+
+    Only `abs()` and unary minus can do this, and only at one value each: the
+    integer ranges are asymmetric, so `abs((-2147483648)::int)` has no int4
+    answer. Python's unbounded `int` returned 2147483648 under oid 23 — a value
+    four bytes cannot carry — where PG answers 22003."""
+    tag = getattr(node, "_secantus_int_tag", None)
+    if tag is not None and isinstance(result, int) and not isinstance(result, bool):
+        typemap.check_int_range(result, tag)
+    return result
+
+
+def _unary(
+    fn: Callable[[Any], Any], *, check_int_range: bool = False
+) -> Callable[[exp.Expression, Scope, ScalarContext], Any]:
     def handler(node: exp.Expression, scope: Scope, ctx: ScalarContext) -> Any:
         # Unwrapped because these are the plain math builtins (sqrt / log10 /
         # sign / trunc / …) and ``math`` rejects a Decimal128 outright. A
         # non-decimal value passes through untouched.
         v = typemap.unwrap_numeric(evaluate(node.this, scope, ctx))
-        return None if v is None else fn(v)
+        if v is None:
+            return None
+        result = fn(v)
+        return _check_unary_int_range(node, result) if check_int_range else result
 
     return handler
+
+
+def _eval_trim(node: exp.Expression, scope: Scope, ctx: ScalarContext) -> Any:
+    """`TRIM([LEADING|TRAILING|BOTH] [chars] FROM string)`.
+
+    The trim characters and the position were both IGNORED — every spelling ran
+    a plain `str.strip()`, so `trim(both 'x' from 'xxabxx')` answered
+    `'xxabxx'` where PG answers `'ab'`. Silently wrong, and only for the SQL
+    keyword form: `btrim` / `ltrim` / `rtrim` take their characters as an
+    ordinary second argument and were fine.
+
+    The second operand is a SET of characters, not a substring, which is what
+    `str.strip(chars)` already means."""
+    value = evaluate(node.this, scope, ctx)
+    if value is None:
+        return None
+    text = _as_text(value)
+    chars_node = node.args.get("expression")
+    if chars_node is None:
+        chars = " "
+    else:
+        raw = evaluate(chars_node, scope, ctx)
+        if raw is None:
+            return None
+        chars = _as_text(raw)
+    position = str(node.args.get("position") or "BOTH").upper()
+    if position == "LEADING":
+        return text.lstrip(chars)
+    if position == "TRAILING":
+        return text.rstrip(chars)
+    return text.strip(chars)
 
 
 def _eval_round(node: exp.Expression, scope: Scope, ctx: ScalarContext) -> Any:
@@ -732,7 +1165,13 @@ def _eval_round(node: exp.Expression, scope: Scope, ctx: ScalarContext) -> Any:
     if isinstance(v, decimal.Decimal):
         # PG rounds numeric half-away-from-zero; Python's round() is
         # banker's rounding, wrong for e.g. round(2.5) and round(3.125, 2).
-        return v.quantize(decimal.Decimal(1).scaleb(-ndigits), rounding=decimal.ROUND_HALF_UP)
+        # Under the exact context: the default one refuses a result wider
+        # than 28 digits (InvalidOperation).
+        return v.quantize(
+            decimal.Decimal(1).scaleb(-ndigits),
+            rounding=decimal.ROUND_HALF_UP,
+            context=_numeric.EXACT,
+        )
     return round(v, ndigits)
 
 
@@ -740,13 +1179,50 @@ def _eval_substring(node: exp.Expression, scope: Scope, ctx: ScalarContext) -> A
     v = evaluate(node.this, scope, ctx)
     if v is None:
         return None
-    text = _as_text(v)
+    # A BYTEA is sliced as bytes. `_as_text` renders it as a Python repr, so
+    # `substring(b from 1 for 1)` over `\x0102` answered the string `'b'` —
+    # the first character of `b'\x01\x02'` — where PG answers `\x01`.
+    is_bytes = isinstance(v, (bytes, bytearray))
+    text = bytes(v) if is_bytes else _as_text(v)
     start_node, length_node = node.args.get("start"), node.args.get("length")
-    start = int(evaluate(start_node, scope, ctx)) if start_node is not None else 1
-    begin = max(start - 1, 0)  # SQL substring is 1-based
-    if length_node is not None:
-        return text[begin : begin + int(evaluate(length_node, scope, ctx))]
-    return text[begin:]
+    start_val = evaluate(start_node, scope, ctx) if start_node is not None else None
+    if start_val is None and start_node is not None:
+        return None
+    # `substring(str FROM pattern)` — the POSIX-REGEX form. sqlglot parks the
+    # pattern in the same `start` slot as the positional form, so `int()` on it
+    # raised ValueError and the wire got `XX000 internal error`. Postgres
+    # returns the FIRST capture group when the pattern has one, the whole match
+    # when it does not, and NULL when it does not match (probed on 14.13).
+    if (
+        not is_bytes
+        and length_node is None
+        and isinstance(start_val, str)
+        and not _looks_like_int(start_val)
+    ):
+        m = _re_compile(start_val, "").search(text)
+        if m is None:
+            return None
+        return m.group(1) if m.re.groups else m.group(0)
+    start = int(start_val) if start_val is not None else 1
+    # PG measures the length from the ORIGINAL start, then clips to the string:
+    # `substr('abcdef', -1, 3)` covers positions -1, 0 and 1, so it is `'a'`.
+    # Clamping the start first and THEN counting gave `'abc'`.
+    begin = max(start, 1)
+    if length_node is None:
+        return text[begin - 1 :]
+    length = evaluate(length_node, scope, ctx)
+    if length is None:
+        return None
+    length = int(length)
+    if length < 0:
+        raise errors.SQLError("22011", "negative substring length not allowed")
+    stop = min(start + length, len(text) + 1)
+    return text[begin - 1 : max(stop - 1, begin - 1)]
+
+
+def _looks_like_int(text: str) -> bool:
+    stripped = text.strip()
+    return bool(stripped) and (stripped[1:] if stripped[0] in "+-" else stripped).isdigit()
 
 
 def _eval_array_size(node: exp.Expression, scope: Scope, ctx: ScalarContext) -> Any:
@@ -786,6 +1262,23 @@ def _eval_array_prepend(node: exp.Expression, scope: Scope, ctx: ScalarContext) 
     return [elem] + _as_list(arr)
 
 
+def _is_array_typed_node(node: exp.Expression) -> bool:
+    """Whether a node is STATICALLY an array — an `ARRAY[…]` constructor or a
+    cast to an array type. A column needs the catalog and is stamped instead."""
+    while isinstance(node, exp.Paren):
+        node = node.this
+    if isinstance(node, exp.Array):
+        return True
+    if isinstance(node, exp.Cast):
+        return typemap.is_array_tag(typemap.type_tag_for_sql(node.to) or "")
+    return False
+
+
+def _is_array_operand(node: exp.Expression) -> bool:
+    """Whether THIS side of a `||` is the array, rather than an element."""
+    return _is_array_typed_node(node) or getattr(node, "_secantus_array_operand", False)
+
+
 def _eval_array_cat(node: exp.Expression, scope: Scope, ctx: ScalarContext) -> Any:
     out = _as_list(evaluate(node.this, scope, ctx))
     for e in node.args.get("expressions") or []:
@@ -812,6 +1305,35 @@ def _eval_array_remove(node: exp.Expression, scope: Scope, ctx: ScalarContext) -
     return [v for v in _as_list(arr) if v != elem]
 
 
+def flatten_array(value: Any) -> list[Any]:
+    """Every element of a (possibly multidimensional) array, in row-major order.
+
+    Postgres has no nested-array type -- ``int[][]`` is ONE array with two
+    dimensions -- so every whole-array operation walks it flat. Taking only the
+    top level left the inner lists as elements, and rendering one through
+    ``_as_text`` produced the PYTHON repr: ``array_to_string(ARRAY[[1,2],[3,4]],
+    ',')`` answered ``[1, 2],[3, 4]`` where Postgres says ``1,2,3,4``.
+    """
+    out: list[Any] = []
+    for v in _as_list(value):
+        if isinstance(v, (list, tuple)):
+            out.extend(flatten_array(v))
+        else:
+            out.append(v)
+    return out
+
+
+def _join_array_text(values: list[Any], delim: str, null_str: str | None) -> str:
+    parts = []
+    for v in values:
+        if v is None:
+            if null_str is not None:
+                parts.append(null_str)  # NULL elements omitted unless a null_string is given
+        else:
+            parts.append(_as_text(v))
+    return delim.join(parts)
+
+
 def _eval_array_to_string(node: exp.Expression, scope: Scope, ctx: ScalarContext) -> Any:
     arr = evaluate(node.this, scope, ctx)
     if arr is None:
@@ -819,14 +1341,7 @@ def _eval_array_to_string(node: exp.Expression, scope: Scope, ctx: ScalarContext
     delim = _as_text(evaluate(node.args.get("expression"), scope, ctx))
     null_node = node.args.get("null")
     null_str = None if null_node is None else _as_text(evaluate(null_node, scope, ctx))
-    parts = []
-    for v in _as_list(arr):
-        if v is None:
-            if null_str is not None:
-                parts.append(null_str)  # NULL elements omitted unless a null_string is given
-        else:
-            parts.append(_as_text(v))
-    return delim.join(parts)
+    return _join_array_text(flatten_array(arr), delim, null_str)
 
 
 def _eval_nullif(node: exp.Expression, scope: Scope, ctx: ScalarContext) -> Any:
@@ -845,9 +1360,22 @@ def _eval_coalesce(node: exp.Expression, scope: Scope, ctx: ScalarContext) -> An
     return None
 
 
+def _concat_text(v: Any) -> str:
+    """One ``concat`` / ``format('%s')`` argument as text.
+
+    These render through the type's OUTPUT function, where a boolean is ``t`` /
+    ``f`` -- not through ``::text``, which spells it ``true`` / ``false``. The
+    two differ only for bool, and using the cast's spelling made
+    ``concat(1, 2.5, true)`` answer ``12.5true`` where Postgres says ``12.5t``.
+    """
+    if isinstance(v, bool):
+        return "t" if v else "f"
+    return _as_text(v)
+
+
 def _eval_concat(node: exp.Expression, scope: Scope, ctx: ScalarContext) -> Any:
     # Postgres ``concat`` ignores NULL arguments (renders them as empty).
-    return "".join(_as_text(v) for v in _variadic(node, scope, ctx) if v is not None)
+    return "".join(_concat_text(v) for v in _variadic(node, scope, ctx) if v is not None)
 
 
 def _extremum(pick: Callable[[list[Any]], Any]) -> Callable[..., Any]:
@@ -861,7 +1389,6 @@ def _extremum(pick: Callable[[list[Any]], Any]) -> Callable[..., Any]:
 def _re_compile(pattern: str, flags_str: str) -> Any:
     """Compile a POSIX regex with Postgres flag letters (``i`` case-insensitive,
     ``m``/``n`` newline-sensitive, ``s`` dot-all, ``x`` extended)."""
-    import re
 
     fs = flags_str or ""
     f = 0
@@ -902,8 +1429,14 @@ def _eval_split_part(node: exp.Expression, scope: Scope, ctx: ScalarContext) -> 
     idx = evaluate(node.args.get("part_index"), scope, ctx)
     if src is None or delim is None or idx is None:
         return None
-    parts = _as_text(src).split(_as_text(delim))
     n = int(idx)
+    if n == 0:
+        raise errors.SQLError("22023", "field position must not be zero")
+    text, sep = _as_text(src), _as_text(delim)
+    # An EMPTY delimiter splits into nothing -- Python's `str.split("")` raises
+    # ValueError, which escaped as a confusing "function split_part(unknown)
+    # does not exist". Postgres treats the whole string as field 1.
+    parts = text.split(sep) if sep else [text]
     if n < 0:  # Postgres 14+: count from the end
         n = len(parts) + n + 1
     return parts[n - 1] if 1 <= n <= len(parts) else ""
@@ -1092,6 +1625,150 @@ def _eval_trunc(node: exp.Expression, scope: Scope, ctx: ScalarContext) -> Any:
     return math.trunc(v * factor) / factor
 
 
+def _split_qualified_ident(text: str) -> list[str]:
+    """`parse_ident('a.B')` → `['a','b']`, `parse_ident('"A".b')` → `['A','b']`."""
+    parts: list[str] = []
+    i, n = 0, len(text)
+    while i < n:
+        while i < n and text[i] in " \t":
+            i += 1
+        if i < n and text[i] == '"':
+            i += 1
+            buf: list[str] = []
+            while i < n:
+                if text[i] == '"':
+                    if i + 1 < n and text[i + 1] == '"':
+                        buf.append('"')
+                        i += 2
+                        continue
+                    i += 1
+                    break
+                buf.append(text[i])
+                i += 1
+            parts.append("".join(buf))
+        else:
+            start = i
+            while i < n and text[i] != ".":
+                i += 1
+            parts.append(text[start:i].strip().lower())
+        while i < n and text[i] in " \t":
+            i += 1
+        if i < n and text[i] == ".":
+            i += 1
+    return [p for p in parts if p != ""]
+
+
+def _unistr(text: str) -> str:
+    r"""`unistr` — Postgres' backslash unicode escapes: 4 hex digits, `+` and
+    6, `u` and 4, `U` and 8; a doubled backslash is a literal one."""
+    out: list[str] = []
+    i, n = 0, len(text)
+    while i < n:
+        if text[i] != "\\":
+            out.append(text[i])
+            i += 1
+            continue
+        if i + 1 < n and text[i + 1] == "\\":
+            out.append("\\")
+            i += 2
+            continue
+        if i + 1 < n and text[i + 1] == "+":
+            out.append(chr(int(text[i + 2 : i + 8], 16)))
+            i += 8
+            continue
+        if i + 1 < n and text[i + 1] in "uU":
+            width = 4 if text[i + 1] == "u" else 8
+            out.append(chr(int(text[i + 2 : i + 2 + width], 16)))
+            i += 2 + width
+            continue
+        out.append(chr(int(text[i + 1 : i + 5], 16)))
+        i += 5
+    return "".join(out)
+
+
+def _eval_at_time_zone(node: exp.Expression, scope: Scope, ctx: ScalarContext) -> Any:
+    """`<timestamp> AT TIME ZONE <zone>` — the SQL operator, not a function.
+
+    It reads BOTH ways, and which way depends on the operand: a NAIVE
+    timestamp is interpreted as being in `zone` and becomes an instant, while
+    an AWARE one is converted into `zone` and loses the zone. So
+    `'2020-06-15 12:00'::timestamp AT TIME ZONE 'America/New_York'` is
+    16:00 UTC, and the same instant back through it is 08:00."""
+    import zoneinfo
+
+    value = evaluate(node.this, scope, ctx)
+    zone_node = node.args.get("zone")
+    zone = evaluate(zone_node, scope, ctx) if isinstance(zone_node, exp.Expression) else zone_node
+    if value is None or zone is None:
+        return None
+    if not isinstance(value, _dt.datetime):
+        value = _as_datetime(value)
+    try:
+        tz = zoneinfo.ZoneInfo(_as_text(zone))
+    except Exception:
+        raise errors.SQLError("22023", f'time zone "{_as_text(zone)}" not recognized') from None
+    if value.tzinfo is None:
+        return value.replace(tzinfo=tz).astimezone(_dt.timezone.utc)
+    return value.astimezone(tz).replace(tzinfo=None)
+
+
+def _eval_normalize(node: exp.Expression, scope: Scope, ctx: ScalarContext) -> Any:
+    """`normalize(text [, form])` — Unicode normalisation, NFC by default."""
+    import unicodedata
+
+    value = evaluate(node.this, scope, ctx)
+    if value is None:
+        return None
+    form_node = node.args.get("form")
+    form = str(form_node.this if hasattr(form_node, "this") else form_node or "NFC").upper()
+    if form not in ("NFC", "NFD", "NFKC", "NFKD"):
+        form = "NFC"
+    return unicodedata.normalize(form, _as_text(value))
+
+
+def _local_timestamp(ctx: ScalarContext | None) -> Any:
+    """`localtimestamp` — now in the SESSION's time zone, without the zone.
+
+    `datetime.now()` is the machine's local wall clock, which is a different
+    instant from the session's whenever the two zones differ: with the default
+    UTC session on a UTC+1 host, `localtimestamp <= now()` was FALSE."""
+    from secantus.sql.datetimes import session_tzinfo
+
+    tz = session_tzinfo(getattr(ctx, "session", None))
+    return _dt.datetime.now(tz).replace(tzinfo=None)
+
+
+def _session_version() -> str:
+    """The `version()` banner — the same string the session-function path
+    returns, so the two spellings cannot drift."""
+    from secantus.sql.session import VERSION_STRING
+
+    return VERSION_STRING
+
+
+def _eval_to_hex(node: exp.Expression, scope: Scope, ctx: ScalarContext) -> Any:
+    """`to_hex(int)` / `to_hex(bigint)` — was `0A000 function hex() is not
+    supported`, naming a function the user did not write.
+
+    A negative value is rendered as its unsigned two's complement, at the
+    argument's OWN width: `to_hex(-1)` is `ffffffff` but `to_hex((-1)::bigint)`
+    is `ffffffffffffffff`. The width comes from an explicit cast where there is
+    one, otherwise from whether the value fits an `integer` — which is also how
+    Postgres types the literal."""
+    value = typemap.unwrap_numeric(evaluate(node.this, scope, ctx))
+    if value is None:
+        return None
+    number = int(value)
+    inner = node.this
+    while isinstance(inner, exp.Paren):
+        inner = inner.this
+    wide = (isinstance(inner, exp.Cast) and typemap.type_tag_for_sql(inner.to) == "int8") or not (
+        -(2**31) <= number <= 2**31 - 1
+    )
+    bits = 64 if wide else 32
+    return format(number & ((1 << bits) - 1), "x")
+
+
 def _eval_log(node: exp.Expression, scope: Scope, ctx: ScalarContext) -> Any:
     """``log(x)`` is base-10 in Postgres; ``log(b, x)`` is log base ``b`` (this=b)."""
     a = typemap.unwrap_numeric(evaluate(node.this, scope, ctx))
@@ -1122,9 +1799,39 @@ def _sign(v: Any) -> Any:
     return float(s) if isinstance(v, float) else s
 
 
-def _cbrt(v: Any) -> float:
-    """Real cube root — Python's ``** (1/3)`` goes complex for negatives."""
-    return math.copysign(abs(v) ** (1.0 / 3.0), v)
+def _cbrt(v: Any) -> float | None:
+    """Real cube root — Python's ``** (1/3)`` goes complex for negatives.
+
+    A NUMERIC argument arrives as `Decimal128`, which has no `__abs__`, so
+    `cbrt(27.0)` raised TypeError while `cbrt(27)` worked. Coerce first.
+    """
+    if v is None:
+        return None
+    x = float(str(v.to_decimal() if isinstance(v, bson.Decimal128) else v))
+    return _real_cbrt(x)
+
+
+def _real_cbrt(x: float) -> float:
+    """A cube root that is exact for perfect cubes.
+
+    Not `math.copysign(abs(x) ** (1/3), x)`: the power form loses the last
+    digits, so `cbrt(1000000)` came out 99.99999999999997 where PG gives
+    exactly 100.
+
+    `math.cbrt` is the right answer — it and PG both call libm's `cbrt`, so it
+    agrees to the bit — but it only exists from Python 3.11 and this package
+    supports 3.10. The fallback refines the power form with one Newton step,
+    which is exact on every perfect cube and within one ULP elsewhere. Chasing
+    that last bit is not worth it: a correctly-rounded cube root disagrees with
+    libm on ~8% of random inputs, so being *more* accurate than libm would move
+    us AWAY from Postgres."""
+    if x == 0.0 or not math.isfinite(x):
+        return x
+    cbrt = getattr(math, "cbrt", None)
+    if cbrt is not None:
+        return cbrt(x)
+    y = math.copysign(abs(x) ** (1.0 / 3.0), x)
+    return y - (y * y * y - x) / (3.0 * y * y)
 
 
 # -- date / time ------------------------------------------------------------- #
@@ -1180,17 +1887,55 @@ def _eval_extract(node: exp.Extract, scope: Scope, ctx: ScalarContext) -> Any:
         return ts.timetuple().tm_yday
     if field in ("week",):
         return ts.isocalendar()[1]
+    if field in ("isoyear",):
+        # The ISO-8601 week-numbering year, which is NOT the calendar year at a
+        # year boundary: 2021-01-03 is still ISO year 2020.
+        return ts.isocalendar()[0]
+    if field in ("julian",):
+        # The Julian Day number. Postgres counts from 4714-11-24 BC, which is
+        # Python's proleptic-Gregorian ordinal plus this constant.
+        return ts.toordinal() + 1721425
     if field in ("hour", "hours"):
         return getattr(ts, "hour", 0)
     if field in ("minute", "minutes"):
         return getattr(ts, "minute", 0)
     if field in ("second", "seconds"):
         return getattr(ts, "second", 0)
+    if field in ("millisecond", "milliseconds", "microsecond", "microseconds"):
+        # Postgres folds the SECONDS into these: 10:30:45.5 is 45500 ms /
+        # 45500000 us, not 500 / 500000.
+        micros = getattr(ts, "second", 0) * 1_000_000 + getattr(ts, "microsecond", 0)
+        return micros if field.startswith("micro") else decimal.Decimal(micros) / 1000
+    if field in ("decade", "decades"):
+        return ts.year // 10
+    if field in ("century", "centuries"):
+        # PG counts 1900 as century 19 and 2020 as 21 — the year BEFORE the
+        # boundary belongs to the previous century.
+        return (ts.year - 1) // 100 + 1 if ts.year > 0 else (ts.year // 100) - 1
+    if field in ("millennium", "millennia"):
+        return (ts.year - 1) // 1000 + 1 if ts.year > 0 else (ts.year // 1000) - 1
     if field == "epoch":
         base = ts if isinstance(ts, _dt.datetime) else _dt.datetime(ts.year, ts.month, ts.day)
         if base.tzinfo is None:
             base = base.replace(tzinfo=_dt.timezone.utc)
         return base.timestamp()
+    if field in ("timezone", "timezone_hour", "timezone_minute"):
+        # The SESSION zone's offset at that instant, in seconds / hours /
+        # minutes — Postgres normalises a timestamptz into the session zone
+        # before extracting, so a literal's own `+05` does not survive:
+        # `extract(timezone_hour from '…+05'::timestamptz)` is 0 under a UTC
+        # session, not 5.
+        from secantus.sql.datetimes import session_tzinfo
+
+        seconds = 0
+        if isinstance(ts, _dt.datetime):
+            tz = session_tzinfo(getattr(ctx, "session", None))
+            local = ts.astimezone(tz) if ts.tzinfo is not None else ts.replace(tzinfo=tz)
+            offset = local.utcoffset()
+            seconds = int(offset.total_seconds()) if offset is not None else 0
+        if field == "timezone":
+            return seconds
+        return seconds // 3600 if field == "timezone_hour" else (seconds % 3600) // 60
     raise errors.feature_not_supported(f"unsupported extract field: {field}")
 
 
@@ -1233,6 +1978,17 @@ def _eval_date_trunc(node: exp.TimestampTrunc, scope: Scope, ctx: ScalarContext)
         return _dt.datetime(y, mo, d, h, mi, tzinfo=tz)
     if unit == "second":
         return _dt.datetime(y, mo, d, h, mi, s, tzinfo=tz)
+    if unit == "millisecond":
+        return ts.replace(microsecond=(ts.microsecond // 1000) * 1000)
+    if unit == "microsecond":
+        return ts
+    if unit == "decade":
+        return _dt.datetime(y - y % 10, 1, 1, tzinfo=tz)
+    if unit in ("century", "millennium", "millennia"):
+        # Postgres' centuries and millennia START at year 1 (2026 truncates to
+        # 2001, not 2000), the same off-by-one the ``extract`` fields above use.
+        span = 100 if unit == "century" else 1000
+        return _dt.datetime((y - 1) // span * span + 1, 1, 1, tzinfo=tz)
     raise errors.feature_not_supported(f"unsupported date_trunc unit: {unit}")
 
 
@@ -1268,50 +2024,262 @@ def _date_trunc_interval(unit: str, src: Any, _intervals: Any) -> Any:
     raise errors.feature_not_supported(f'unit "{unit}" not supported for interval date_trunc')
 
 
-# sqlglot's Postgres dialect already normalises the standard ``to_char`` tokens
-# (YYYY / MM / DD / HH24 / MI / SS …) to strftime directives; only the word-form
-# tokens are left as literals, so we map just those (longest-first) and then
-# strftime once. Existing ``%X`` directives are copied through untouched.
-_PG_WORD_TOKENS = [
-    ("MONTH", "%B"),
-    ("MON", "%b"),
-    ("DAY", "%A"),
-    ("DY", "%a"),
-    ("AM", "%p"),
-    ("PM", "%p"),
+#: `to_char(interval, …)` field templates, longest first so `HH24` is matched
+#: before `HH`. Each maps to a lambda over (months, days, micros) and the
+#: zero-padding width. Measured against PG 14.13: fields are NOT folded into
+#: one another — `interval '1 day 25 hours'` is `DD`=01 `HH24`=25, and
+#: `interval '14 months'` is `YYYY`=0001 `MM`=02.
+_INTERVAL_TOKENS: list[tuple[str, Any, int]] = [
+    ("YYYY", lambda mo, d, us: mo // 12, 4),
+    ("HH24", lambda mo, d, us: us // 3_600_000_000, 2),
+    ("MM", lambda mo, d, us: mo % 12, 2),
+    ("DD", lambda mo, d, us: d, 2),
+    ("MI", lambda mo, d, us: (us // 60_000_000) % 60, 2),
+    ("SS", lambda mo, d, us: (us // 1_000_000) % 60, 2),
 ]
 
+#: Calendar-name templates PG REFUSES for an interval ("Intervals are not tied
+#: to specific calendar dates") with 22007.
+#: Longest first, so `MONTH` is seen before `MON` and `DAY` before `D`.
+_INTERVAL_REJECTED = ("MONTH", "A.M.", "P.M.", "MON", "DAY", "DY", "AM", "PM", "TZ", "D")
 
-_WORD_TIME_TOKEN_RE = re.compile(r"(?i)(month|mon|day|dy)")
-_WORD_TIME_DIRECTIVES = {"month": "%B", "mon": "%b", "day": "%A", "dy": "%a"}
+
+def _fmt_arg(node: exp.Expression, scope: Scope, ctx: ScalarContext) -> str | None:
+    """The format operand of a `to_date` / `to_timestamp` call, if present."""
+    fmt_node = node.args.get("format") or node.expression
+    if fmt_node is None:
+        return None
+    raw = getattr(node, "_secantus_raw_format", None)
+    if isinstance(raw, str) and "%" not in raw:
+        return raw
+    value = evaluate(fmt_node, scope, ctx) if isinstance(fmt_node, exp.Expression) else fmt_node
+    return None if value is None else _as_text(value)
 
 
-def _repair_time_format(fmt: str) -> str:
-    """Undo sqlglot's partial PG→strftime format conversion and redo it with
-    the word tokens handled.
+def _to_date_from_format(value: Any, fmt: str | None, *, date_only: bool) -> Any:
+    """``to_date(text, fmt)`` / ``to_timestamp(text, fmt)``.
 
-    sqlglot's postgres TIME_MAPPING knows no ``Day`` / ``Month`` tokens, so
-    ``to_char(ts, 'Day')`` arrives here as ``%uay`` (the ``D`` matched alone).
-    Reverse-map back to the original PG template, replace the word tokens with
-    sentinels, forward-map the rest, then substitute the strftime directives.
-    A format with no word tokens round-trips unchanged."""
+    The PG template is converted to strftime through the same mapping the
+    rendering side uses, so the two stay consistent.
+    """
+    if value is None:
+        return None
+    text = _as_text(value)
+    if fmt is None:
+        parsed = _as_datetime(text)
+    else:
+        # The template goes to the same token table the RENDERING side uses,
+        # not through sqlglot's lossy strftime mapping — that mapping knows no
+        # `Mon` / `AM` / `MS` / `IW`, so every one of those templates raised
+        # `22007 invalid input syntax` instead of parsing.
+        from secantus.sql import datetimeformat as _dtformat
+
+        try:
+            parsed = _dtformat.parse_datetime(text, _recover_pg_format(fmt))
+        except (ValueError, KeyError, IndexError) as exc:
+            raise errors.SQLError(
+                "22007", f'invalid input syntax for type timestamp: "{text}"'
+            ) from exc
+    if date_only:
+        return parsed.date() if isinstance(parsed, _dt.datetime) else parsed
+    return parsed
+
+
+def _to_timestamp_tz(parsed: Any, ctx: ScalarContext) -> Any:
+    """``to_timestamp`` returns a **timestamptz**, so the parsed wall clock is
+    an instant in the SESSION zone. It was returned naive, which rendered
+    without the `+00` offset Postgres sends."""
+    if not isinstance(parsed, _dt.datetime) or parsed.tzinfo is not None:
+        return parsed
+    from secantus.sql.datetimes import session_tzinfo
+
+    return parsed.replace(tzinfo=session_tzinfo(getattr(ctx, "session", None)))
+
+
+def _unix_to_timestamp(value: Any) -> Any:
+    """``to_timestamp(<epoch seconds>)`` — a timestamptz at UTC, as PG returns."""
+    if value is None:
+        return None
+    seconds = float(str(value.to_decimal() if isinstance(value, bson.Decimal128) else value))
+    return _dt.datetime.fromtimestamp(seconds, tz=_dt.timezone.utc)
+
+
+#: A PG type name for an argument NODE, for the `42883` message. Postgres
+#: names a bare string literal `unknown`, not `text`, so the node matters —
+#: the evaluated VALUE cannot tell the two apart.
+def _pg_arg_type_name(arg: exp.Expression, scope: Scope, ctx: ScalarContext) -> str:
+    while isinstance(arg, exp.Paren):
+        arg = arg.this
+    if isinstance(arg, exp.Cast) and arg.to is not None:
+        tag = typemap.type_tag_for_sql(arg.to)
+        return typemap.SQL_TYPE_NAME.get(tag, tag) if tag else "unknown"
+    if isinstance(arg, exp.Null):
+        return "unknown"
+    if isinstance(arg, exp.Boolean):
+        return "boolean"
+    if isinstance(arg, exp.Literal):
+        if arg.is_string:
+            return "unknown"  # PG's untyped literal
+        return "numeric" if "." in str(arg.this) else "integer"
+    if isinstance(arg, exp.Interval):
+        return "interval"
+    if isinstance(arg, exp.Array):
+        return "integer[]"
+    try:
+        value = evaluate(arg, scope, ctx)
+    except Exception:  # noqa: BLE001 -- naming a type must never itself fail
+        return "unknown"
+    return _pg_type_name_of(value)
+
+
+def _pg_type_name_of(value: Any) -> str:
+    """PG's spelling for a runtime value's type."""
+    from secantus.sql import intervals as _intervals
+
+    if value is None:
+        return "unknown"
+    if isinstance(value, bool):
+        return "boolean"
+    if _intervals.is_interval(value):
+        return "interval"
+    if isinstance(value, _dt.datetime):
+        return "timestamp without time zone"
+    if isinstance(value, _dt.date):
+        return "date"
+    if isinstance(value, _dt.time):
+        return "time without time zone"
+    if isinstance(value, (bytes, bytearray)):
+        return "bytea"
+    if isinstance(value, (list, tuple)):
+        return "integer[]"
+    if isinstance(value, int):
+        return "integer"
+    if isinstance(value, (float, Decimal, bson.Decimal128)):
+        return "numeric"
+    if isinstance(value, dict):
+        return "jsonb"
+    return "text"
+
+
+def _no_such_function(node: exp.Expression, scope: Scope, ctx: ScalarContext) -> errors.SQLError:
+    """Postgres' `42883 function f(types) does not exist`.
+
+    A scalar builtin handed an operand type it does not model used to raise a
+    bare Python `TypeError` / `ValueError`, which escaped to the wire as
+    `XX000 internal error` — 397 shapes did this, measured across a
+    function x value-type sweep. PostgreSQL answers 42883 for 353 of them,
+    which is what this produces.
+
+    Deliberately NOT a catch-all for every exception: `SQLError` is re-raised
+    untouched, so a handler that already diagnosed the problem keeps its own
+    code and message.
+    """
+    # An `Anonymous` node keeps the FUNCTION NAME in `node.this` and its
+    # arguments in `node.expressions` — reading `this` as an argument produced
+    # `function anonymous(unknown, text[])`.
+    if isinstance(node, exp.Anonymous):
+        name = _func_name(node)
+        args: list[exp.Expression] = [
+            a for a in (node.expressions or []) if isinstance(a, exp.Expression)
+        ]
+    else:
+        name = node.sql_name().lower() if hasattr(node, "sql_name") else type(node).__name__.lower()
+        args = [a for a in (node.args.get("this"), node.expression) if a is not None]
+        args += [a for a in (node.expressions or []) if isinstance(a, exp.Expression)]
+        for key in ("format", "length", "start"):
+            extra = node.args.get(key)
+            if isinstance(extra, exp.Expression) and extra not in args:
+                args.append(extra)
+    names = [_pg_arg_type_name(a, scope, ctx) for a in args[:4]]
+    return errors.SQLError("42883", f"function {name}({', '.join(names)}) does not exist")
+
+
+def _install_to_char_raw_format() -> None:
+    """Keep the ORIGINAL ``to_char`` template on the parsed node.
+
+    sqlglot's Postgres dialect part-converts a ``to_char`` format to strftime
+    at PARSE time, and that conversion is lossy in a way no inverse can undo:
+    it maps both ``d`` and ``D`` to ``%u``, so ``'day'`` and ``'ad'`` and
+    ``'Ddth'`` all arrive with their case destroyed and come back out of the
+    inverse mapping as ``'Day'``, ``'aD'``, ``'DDth'``. Postgres matches its
+    template tokens case-SENSITIVELY, so that is three wrong answers.
+
+    Rather than fight the mapping, stash the raw literal on the node (the same
+    stamp idiom the planner uses elsewhere) and leave sqlglot's own conversion
+    exactly as it was, so nothing that reads ``format`` changes behaviour.
+    """
+    from sqlglot.dialects.postgres import Postgres as _PG
+
+    for name in ("TO_CHAR", "TO_DATE", "TO_TIMESTAMP"):
+        original = _PG.Parser.FUNCTIONS.get(name)
+        if original is None or getattr(original, "_secantus_wrapped", False):
+            continue
+
+        def _make(inner: Any) -> Any:
+            def _builder(args: Any, *rest: Any, **kwargs: Any) -> Any:
+                node = inner(args, *rest, **kwargs)
+                raw = args[1] if isinstance(args, (list, tuple)) and len(args) > 1 else None
+                if isinstance(raw, exp.Literal) and raw.is_string:
+                    node._secantus_raw_format = raw.this  # noqa: SLF001
+                return node
+
+            _builder._secantus_wrapped = True  # type: ignore[attr-defined]
+            return _builder
+
+        _PG.Parser.FUNCTIONS[name] = _make(original)
+
+
+_install_to_char_raw_format()
+
+
+def _recover_pg_format(fmt: str) -> str:
+    """The ORIGINAL Postgres template behind sqlglot's partial strftime
+    conversion.
+
+    Only a fallback now: `_install_to_char_raw_format` captures the untouched
+    template at parse time, and this inverse cannot recover the token CASE that
+    the forward mapping destroys (`d` and `D` both become `%u`)."""
     from sqlglot.dialects.postgres import Postgres as _PG
     from sqlglot.time import format_time as _format_time
 
-    recovered = _format_time(fmt, _PG.INVERSE_TIME_MAPPING) or fmt
-    subs: list[str] = []
+    return _format_time(fmt, _PG.INVERSE_TIME_MAPPING) or fmt
 
-    def _stash(m: re.Match) -> str:
-        subs.append(_WORD_TIME_DIRECTIVES[m.group(0).lower()])
-        return f"\x00{len(subs) - 1}\x00"
 
-    masked = _WORD_TIME_TOKEN_RE.sub(_stash, recovered)
-    if not subs:
-        return fmt
-    mapped = _format_time(masked, _PG.TIME_MAPPING) or masked
-    for i, directive in enumerate(subs):
-        mapped = mapped.replace(f"\x00{i}\x00", directive)
-    return mapped
+def _to_char_interval(src: Any, fmt: str) -> str:
+    """``to_char(<interval>, fmt)``.
+
+    This used to fall through to `_as_datetime`, which raised ValueError on the
+    interval's subdocument and put `XX000 internal error` on the wire.
+    """
+    from secantus.sql import intervals as _intervals
+
+    months, days, micros = _intervals._fields(src)
+    # sqlglot partially converts the PG template to strftime at PARSE time
+    # (`HH24` arrives as `%H`, `Day` as `%uay`), so recover the original
+    # template first — the interval tokens are PG's, not strftime's.
+    fmt = _recover_pg_format(fmt)
+    upper = fmt.upper()
+    out: list[str] = []
+    i = 0
+    while i < len(fmt):
+        # Longest match first, and the ACCEPTED and REJECTED tables are tried
+        # together: a substring test cannot work here because `DD` (accepted)
+        # contains `D` (rejected), which is what made every `DD` format a
+        # spurious 22007.
+        for token, get, width in _INTERVAL_TOKENS:
+            if upper.startswith(token, i):
+                value = get(months, days, micros)
+                # A negative field keeps its sign rather than being padded
+                # (`to_char(interval '-3 days', 'DD')` is `-3`).
+                out.append(str(value) if value < 0 else str(value).zfill(width))
+                i += len(token)
+                break
+        else:
+            if any(upper.startswith(bad, i) for bad in _INTERVAL_REJECTED):
+                raise errors.SQLError("22007", "invalid format specification for an interval value")
+            out.append(fmt[i])
+            i += 1
+    return "".join(out)
 
 
 def _eval_to_char(node: exp.TimeToStr, scope: Scope, ctx: ScalarContext) -> Any:
@@ -1329,27 +2297,33 @@ def _eval_to_char(node: exp.TimeToStr, scope: Scope, ctx: ScalarContext) -> Any:
         from secantus.sql import numformat as _numformat
 
         num = src.to_decimal() if isinstance(src, bson.Decimal128) else src
-        return _numformat.to_char_numeric(num, fmt)
+        # The template in the AST has already been part-converted to strftime by
+        # sqlglot's postgres dialect — `MI999` arrives as `%M999` and `9999D99`
+        # as `9999%u99` — so the NUMERIC formatter saw tokens that are not its
+        # own and silently dropped them. Recover the original template first.
+        return _numformat.to_char_numeric(num, _recover_pg_format(fmt))
+    from secantus.sql import intervals as _intervals
+
+    if _intervals.is_interval(src):
+        return _to_char_interval(src, fmt)
     ts = _as_datetime(src)
     if not isinstance(ts, _dt.datetime):
         ts = _dt.datetime(ts.year, ts.month, ts.day)
-    fmt = _repair_time_format(fmt)
-    out, i = [], 0
-    up = fmt.upper()
-    while i < len(fmt):
-        if fmt[i] == "%" and i + 1 < len(fmt):
-            out.append(fmt[i : i + 2])  # already a strftime directive
-            i += 2
-            continue
-        for pat, directive in _PG_WORD_TOKENS:
-            if up.startswith(pat, i):
-                out.append(directive)
-                i += len(pat)
-                break
-        else:
-            out.append(fmt[i])
-            i += 1
-    return ts.strftime("".join(out))
+    # A naive timestamp renders its timezone tokens against the SESSION zone,
+    # the way Postgres does — `to_char(timestamp '…', 'OF')` under a UTC session
+    # is '+00', not empty.
+    from secantus.sql import datetimeformat as _dtformat
+    from secantus.sql.datetimes import session_tzinfo
+
+    zone = session_tzinfo(getattr(ctx, "session", None))
+    zone_known = ts.tzinfo is not None
+    ts = ts.replace(tzinfo=zone) if ts.tzinfo is None else ts.astimezone(zone)
+    # Prefer the raw template captured at parse time; fall back to the inverse
+    # mapping for a node rebuilt from already-converted SQL (which still holds
+    # strftime directives, so a `%` is the tell).
+    raw = getattr(node, "_secantus_raw_format", None)
+    template = raw if isinstance(raw, str) and "%" not in raw else _recover_pg_format(fmt)
+    return _dtformat.to_char_datetime(ts, template, zone_known=zone_known)
 
 
 def _utcnow(ctx: ScalarContext | None) -> _dt.datetime:
@@ -1444,6 +2418,22 @@ def _eval_decode(node: exp.Expression, scope: Scope, ctx: ScalarContext) -> Any:
     return _bytea.decode(text, _as_text(evaluate(fmt, scope, ctx)))
 
 
+def _length_of(v: Any) -> int:
+    """``length(x)`` — characters for text, bytes for a binary, and for a
+    ``tsvector`` the number of DISTINCT LEXEMES.
+
+    The tsvector case is not a nicety: a tsvector is a dict internally, so the
+    generic path stringified it and measured the JSON, answering 45 for a
+    two-lexeme vector."""
+    from secantus.sql import fts as _fts
+
+    if _fts.is_tsvector(v):
+        return _fts.tsvector_length(v)
+    if isinstance(v, (bytes, bytearray)):
+        return len(v)
+    return len(_as_text(v))
+
+
 def _bit_length_of(v: Any) -> Any:
     """``bit_length`` across the three input kinds Postgres accepts."""
     if v is None:
@@ -1458,15 +2448,292 @@ def _bit_length_of(v: Any) -> Any:
     return 8 * len(text.encode("utf-8"))
 
 
+#: Keywords that ``quote_ident`` must quote: every word ``pg_get_keywords()``
+#: reports with a category other than ``U`` (unreserved). Postgres'
+#: ``quote_identifier()`` leaves an otherwise-safe identifier bare only when it
+#: is not a keyword or is an UNRESERVED one, so ``quote_ident('select')`` is
+#: ``"select"`` while ``quote_ident('abort')`` is ``abort``. Measured from
+#: PostgreSQL 14.13 (151 of its 457 keywords).
+_QUOTE_IDENT_KEYWORDS = frozenset(
+    {
+        "all",
+        "analyse",
+        "analyze",
+        "and",
+        "any",
+        "array",
+        "as",
+        "asc",
+        "asymmetric",
+        "authorization",
+        "between",
+        "bigint",
+        "binary",
+        "bit",
+        "boolean",
+        "both",
+        "case",
+        "cast",
+        "char",
+        "character",
+        "check",
+        "coalesce",
+        "collate",
+        "collation",
+        "column",
+        "concurrently",
+        "constraint",
+        "create",
+        "cross",
+        "current_catalog",
+        "current_date",
+        "current_role",
+        "current_schema",
+        "current_time",
+        "current_timestamp",
+        "current_user",
+        "dec",
+        "decimal",
+        "default",
+        "deferrable",
+        "desc",
+        "distinct",
+        "do",
+        "else",
+        "end",
+        "except",
+        "exists",
+        "extract",
+        "false",
+        "fetch",
+        "float",
+        "for",
+        "foreign",
+        "freeze",
+        "from",
+        "full",
+        "grant",
+        "greatest",
+        "group",
+        "grouping",
+        "having",
+        "ilike",
+        "in",
+        "initially",
+        "inner",
+        "inout",
+        "int",
+        "integer",
+        "intersect",
+        "interval",
+        "into",
+        "is",
+        "isnull",
+        "join",
+        "lateral",
+        "leading",
+        "least",
+        "left",
+        "like",
+        "limit",
+        "localtime",
+        "localtimestamp",
+        "national",
+        "natural",
+        "nchar",
+        "none",
+        "normalize",
+        "not",
+        "notnull",
+        "null",
+        "nullif",
+        "numeric",
+        "offset",
+        "on",
+        "only",
+        "or",
+        "order",
+        "out",
+        "outer",
+        "overlaps",
+        "overlay",
+        "placing",
+        "position",
+        "precision",
+        "primary",
+        "real",
+        "references",
+        "returning",
+        "right",
+        "row",
+        "select",
+        "session_user",
+        "setof",
+        "similar",
+        "smallint",
+        "some",
+        "substring",
+        "symmetric",
+        "table",
+        "tablesample",
+        "then",
+        "time",
+        "timestamp",
+        "to",
+        "trailing",
+        "treat",
+        "trim",
+        "true",
+        "union",
+        "unique",
+        "user",
+        "using",
+        "values",
+        "varchar",
+        "variadic",
+        "verbose",
+        "when",
+        "where",
+        "window",
+        "with",
+        "xmlattributes",
+        "xmlconcat",
+        "xmlelement",
+        "xmlexists",
+        "xmlforest",
+        "xmlnamespaces",
+        "xmlparse",
+        "xmlpi",
+        "xmlroot",
+        "xmlserialize",
+        "xmltable",
+    }
+)
+
+
+def _quote_ident(text: str) -> str:
+    """Postgres ``quote_identifier()``: quote only when the identifier would not
+    read back as itself. A bare all-lower-case alphanumeric/underscore word that
+    does not start with a digit stays unquoted -- UNLESS it is a keyword that is
+    not UNRESERVED, which the previous rule missed (``quote_ident('select')``
+    answered a bare ``select``). Embedded double quotes double."""
+    safe = bool(text) and (text[0].isalpha() or text[0] == "_")
+    safe = safe and all(ch.isalnum() or ch == "_" for ch in text) and text.islower()
+    safe = safe and text not in _QUOTE_IDENT_KEYWORDS
+    return text if safe else '"' + text.replace('"', '""') + '"'
+
+
+def _pg_initcap(text: str) -> str:
+    """Postgres ``initcap``: upper-case the first character of each WORD and
+    lower-case the rest, where a word is a run of ALPHANUMERIC characters.
+
+    Python's ``str.title()`` breaks a word at a digit as well, so ``initcap
+    ('a1b c')`` gave ``A1B C`` where Postgres gives ``A1b C`` -- the digit does
+    not start a new word.
+
+    Whether a non-ASCII letter counts as alphanumeric is the server's
+    ``lc_ctype``: a ``C``-locale PostgreSQL treats ``E-acute`` as a separator
+    and answers ``ECole`` for ``ECOLE``, a UTF-8 one keeps it inside the word.
+    Python's ``str.isalnum`` is Unicode-aware, so this matches a UTF-8 locale.
+    """
+    out: list[str] = []
+    in_word = False
+    for ch in text:
+        if ch.isalnum():
+            out.append(ch.upper() if not in_word else ch.lower())
+            in_word = True
+        else:
+            out.append(ch)
+            in_word = False
+    return "".join(out)
+
+
+def _eval_json_strip_nulls(node: exp.Expression, scope: Scope, ctx: ScalarContext) -> Any:
+    """``json_strip_nulls(x)`` — remove OBJECT keys whose value is null,
+    recursively. Array elements are left alone: PostgreSQL answers
+    ``[1,null,2]`` for ``json_strip_nulls('[1,null,2]')``, because only a key
+    can be absent."""
+    value = evaluate(node.this, scope, ctx)
+    if value is None:
+        return None
+    return _jsonb_strip_nulls(_as_jsonb_arg(value))
+
+
 _SCALAR_FUNC_NODES: dict[type, Callable[[exp.Expression, Scope, ScalarContext], Any]] = {
     # ``upper`` / ``lower`` are overloaded: a range operand yields its bound, any
     # other operand is the string case-shift.
-    exp.Upper: _unary(lambda v: v.get("upper") if isinstance(v, dict) else _as_text(v).upper()),
-    exp.Lower: _unary(lambda v: v.get("lower") if isinstance(v, dict) else _as_text(v).lower()),
+    exp.Upper: _unary(
+        lambda v: _ranges.upper_bound(v) if isinstance(v, dict) else _as_text(v).upper()
+    ),
+    exp.Lower: _unary(
+        lambda v: _ranges.lower_bound(v) if isinstance(v, dict) else _as_text(v).lower()
+    ),
     # ``length()`` — a bytea's byte count, else the string's character length.
-    exp.Length: _unary(lambda v: len(v) if isinstance(v, (bytes, bytearray)) else len(_as_text(v))),
-    exp.Trim: _unary(lambda v: _as_text(v).strip()),
-    exp.Abs: _unary(abs),
+    exp.Length: _unary(_length_of),
+    exp.Trim: lambda n, s, c: _eval_trim(n, s, c),
+    # These three carry their FIRST argument in ``node.this``, which the generic
+    # `_eval_typed_func` path drops (it reads ``node.expressions`` only) — so
+    # they reached `_call_func` with an empty arg list and answered NULL.
+    # Registering them here takes precedence over that path.
+    # `div(a, b)` parses to `Cast(IntDiv(a, b) AS DECIMAL)` — the cast target is
+    # already PG's numeric return; only the inner node had no handler.
+    exp.IntDiv: lambda n, s, c: _plain_scalar(
+        "div", [evaluate(n.this, s, c), evaluate(n.expression, s, c)]
+    ),
+    # `to_date` / `to_timestamp`. sqlglot renames them (StrToDate /
+    # UnixToTime / StrToTime), so they never reached a handler and answered
+    # `0A000 function str_to_date() is not supported` — an error naming a
+    # function the user did not write.
+    exp.StrToDate: lambda n, s, c: _to_date_from_format(
+        evaluate(n.this, s, c), _fmt_arg(n, s, c), date_only=True
+    ),
+    exp.StrToTime: lambda n, s, c: _to_timestamp_tz(
+        _to_date_from_format(evaluate(n.this, s, c), _fmt_arg(n, s, c), date_only=False), c
+    ),
+    exp.UnixToTime: lambda n, s, c: _unix_to_timestamp(evaluate(n.this, s, c)),
+    exp.StringToArray: lambda n, s, c: _plain_scalar(
+        "string_to_array",
+        [evaluate(x, s, c) for x in (n.this, n.expression, n.args.get("null")) if x is not None],
+    ),
+    exp.MD5: lambda n, s, c: _plain_scalar("md5", [evaluate(n.this, s, c)]),
+    exp.Hex: lambda n, s, c: _eval_to_hex(n, s, c),
+    # `version()` works as a bare projection through the session-function path,
+    # but nested in an expression (`version() LIKE 'PostgreSQL%'`) it reached
+    # the generic dispatcher and reported `function current_version() is not
+    # supported` — sqlglot's node name, not one the user wrote.
+    exp.CurrentVersion: lambda n, s, c: _session_version(),
+    # `localtimestamp` works as a bare projection through the session-function
+    # path; nested in an expression it reached the generic dispatcher and
+    # reported `function localtimestamp() is not supported`.
+    exp.Localtimestamp: lambda n, s, c: _local_timestamp(c),
+    exp.Normalize: lambda n, s, c: _eval_normalize(n, s, c),
+    exp.AtTimeZone: lambda n, s, c: _eval_at_time_zone(n, s, c),
+    # sqlglot renames `make_time` / `make_timestamp` to these typed nodes, so
+    # they never reached the plain-builtin table and reported
+    # `function time_from_parts() is not supported` — a name the user never
+    # wrote. `make_date` keeps its own name and goes through that table.
+    exp.TimeFromParts: lambda n, s, c: _make_datetime(
+        "make_time", [evaluate(n.args.get(k), s, c) for k in ("hour", "min", "sec")]
+    ),
+    exp.TimestampFromParts: lambda n, s, c: _make_datetime(
+        "make_timestamp",
+        [evaluate(n.args.get(k), s, c) for k in ("year", "month", "day", "hour", "min", "sec")],
+    ),
+    exp.StartsWith: lambda n, s, c: _plain_scalar(
+        "starts_with", [evaluate(n.this, s, c), evaluate(n.expression, s, c)]
+    ),
+    exp.WidthBucket: lambda n, s, c: _plain_scalar(
+        "width_bucket",
+        [
+            evaluate(n.args.get(k), s, c)
+            for k in ("this", "min_value", "max_value", "num_buckets")
+            if n.args.get(k) is not None
+        ],
+    ),
+    # copy_abs for a numeric: builtin abs() rounds a Decimal to 28 digits.
+    exp.Abs: _unary(
+        lambda v: v.copy_abs() if isinstance(v, Decimal) else abs(v), check_int_range=True
+    ),
     exp.Ceil: _unary(lambda v: math.ceil(v)),
     exp.Floor: _unary(lambda v: math.floor(v)),
     exp.Round: _eval_round,
@@ -1528,12 +2795,17 @@ for _cls_name, _handler in (
     ("CurrentTimestamp", lambda n, s, c: _utcnow(c)),
     ("CurrentDate", lambda n, s, c: _utcnow(c).date()),
     ("CurrentTime", lambda n, s, c: _fmt_current_time(c)),
+    # `LOCALTIME` / `LOCALTIMESTAMP` are the tz-NAIVE twins of `CURRENT_TIME` /
+    # `CURRENT_TIMESTAMP`; sqlglot gives them their own nodes and neither was
+    # handled, so both answered `42883 function localtime() does not exist`.
+    ("Localtime", lambda n, s, c: _utcnow(c).time()),
+    ("Localtimestamp", lambda n, s, c: _utcnow(c).replace(tzinfo=None)),
     ("Pad", _eval_pad),
     ("Left", _eval_left),
     ("Right", _eval_right),
     ("Repeat", _eval_repeat),
     ("Reverse", _unary(lambda v: _as_text(v)[::-1])),
-    ("Initcap", _unary(lambda v: _as_text(v).title())),
+    ("Initcap", _unary(lambda v: _pg_initcap(_as_text(v)))),
     ("Ascii", _eval_ascii),
     ("Chr", _eval_chr),
     ("StrPosition", _eval_str_position),
@@ -1553,6 +2825,10 @@ for _cls_name, _handler in (
     ("Decode", _eval_decode),
     # ``xmlelement`` has a dedicated node (name in ``this``, args in ``expressions``).
     ("XMLElement", _eval_xmlelement),
+    # sqlglot gives `json_strip_nulls` its own node while `jsonb_strip_nulls`
+    # stays an Anonymous call, so the name-keyed dispatch served one spelling
+    # and the other silently answered NULL for every input.
+    ("JSONStripNulls", _eval_json_strip_nulls),
 ):
     _cls = getattr(exp, _cls_name, None)
     if _cls is not None:
@@ -1658,6 +2934,7 @@ def _eval_compare(node: exp.Expression, scope: Scope, ctx: ScalarContext) -> Any
         else:
             left = _ranges.canonical(left)
             right = _ranges.canonical(right)
+    left, right = _parse_date_text_against_date(left, right)
     left, right = _promote_date_against_datetime(left, right)
     if (
         isinstance(left, _dt.datetime)
@@ -1679,17 +2956,113 @@ def _eval_compare(node: exp.Expression, scope: Scope, ctx: ScalarContext) -> Any
     if _is_nan(left) and _is_nan(right):
         # Postgres treats NaN as equal to NaN (and greater than every number).
         return isinstance(node, (exp.EQ, exp.GTE, exp.LTE))
+    # An ENUM compares by its DECLARED label order, not by spelling. The
+    # labels are stamped on the node by the planner, which has the catalog;
+    # without them `SELECT m > 'ok'` answered `sad > ok` as text.
+    labels = getattr(node, "_secantus_enum_labels", None)
+    if (
+        labels is not None
+        and isinstance(left, str)
+        and isinstance(right, str)
+        and left in labels
+        and right in labels
+    ):
+        left, right = labels.index(left), labels.index(right)
+    # A record is a dict of `f1..fN` and has no ordering of its own, so
+    # `(1,2) < (1,3)` raised `TypeError` and reached the client as `XX000`.
+    # Postgres compares records field by field, left to right.
+    lrec, rrec = _record_fields(left), _record_fields(right)
+    if lrec is not None and rrec is not None:
+        row = _compare_rows(node, lrec, rrec)
+        if row is not _ROW_UNDECIDED:
+            return row
+        left, right = lrec, rrec
     if isinstance(node, exp.EQ):
         return left == right
     if isinstance(node, exp.NEQ):
         return left != right
-    if isinstance(node, exp.GT):
-        return left > right
-    if isinstance(node, exp.GTE):
-        return left >= right
-    if isinstance(node, exp.LT):
-        return left < right
-    return left <= right
+    # An ordering comparison between values Python cannot order raised a bare
+    # TypeError, which reached the client as ``XX000 internal error`` with a
+    # traceback behind it -- ``SELECT ARRAY[1,2] > 1`` and ``'{"a":1}'::jsonb > 1``
+    # both did. Postgres answers 42883, naming the operator it lacks.
+    try:
+        if isinstance(node, exp.GT):
+            return left > right
+        if isinstance(node, exp.GTE):
+            return left >= right
+        if isinstance(node, exp.LT):
+            return left < right
+        return left <= right
+    except TypeError as exc:
+        raise errors.SQLError(
+            "42883",
+            f"operator does not exist: {_pg_type_name(left)} "
+            f"{_COMPARE_SYMBOL[type(node)]} {_pg_type_name(right)}",
+        ) from exc
+
+
+#: The SQL spelling of each ordering-comparison node, for the 42883 message.
+_COMPARE_SYMBOL: dict[type, str] = {
+    exp.GT: ">",
+    exp.GTE: ">=",
+    exp.LT: "<",
+    exp.LTE: "<=",
+}
+
+
+def _functions_any_context() -> frozenset[str]:
+    """Session functions the scalar evaluator may call in any position."""
+    from secantus.sql import functions as _functions
+
+    return _functions._ANY_CONTEXT_FUNCS
+
+
+def _pg_type_name(value: Any) -> str:
+    """A best-effort Postgres type name for a runtime value, for error text."""
+    if isinstance(value, bool):
+        return "boolean"
+    if isinstance(value, int):
+        return "integer"
+    if isinstance(value, (float, Decimal)):
+        return "numeric"
+    if isinstance(value, (list, tuple)):
+        inner = next((v for v in value if v is not None), None)
+        return f"{_pg_type_name(inner)}[]" if inner is not None else "array"
+    if isinstance(value, dict):
+        return "jsonb"
+    if isinstance(value, _dt.datetime):
+        return "timestamp"
+    if isinstance(value, _dt.date):
+        return "date"
+    if isinstance(value, bytes):
+        return "bytea"
+    if value is None:
+        return "unknown"
+    return "text"
+
+
+def _parse_date_text_against_date(left: Any, right: Any) -> tuple[Any, Any]:
+    """When one side is a real ``date`` / ``datetime`` and the other is its
+    canonical TEXT, parse the text so the two compare as dates.
+
+    A ``::date`` cast yields the canonical text while ``CURRENT_DATE`` yields a
+    ``datetime.date``, so ``now()::date = CURRENT_DATE`` compared a str with a
+    date and answered FALSE on a day when both plainly named the same one.
+    (Two casts, or two literals, were always fine -- which is why only the
+    mixed shape showed it.)
+    """
+    for a, b, swap in ((left, right, False), (right, left, True)):
+        if isinstance(a, (_dt.date, _dt.datetime)) and isinstance(b, str):
+            from secantus.sql.datetimes import DateTimeError, parse_iso_datetime
+
+            try:
+                parsed: Any = parse_iso_datetime(b)
+            except (DateTimeError, ValueError):
+                return left, right
+            if isinstance(a, _dt.date) and not isinstance(a, _dt.datetime):
+                parsed = parsed.date()
+            return (parsed, a) if swap else (a, parsed)
+    return left, right
 
 
 def _promote_date_against_datetime(left: Any, right: Any) -> tuple[Any, Any]:
@@ -1808,6 +3181,7 @@ def _cast_scalar(value: Any, tag: str) -> Any:
     if tag in ("float4", "float8"):
         if isinstance(value, bool):
             return value
+        original = value
         if isinstance(value, (int, float, Decimal)):
             value = float(value)
         elif isinstance(value, str):
@@ -1817,13 +3191,7 @@ def _cast_scalar(value: Any, tag: str) -> Any:
                 raise _invalid_input(tag, value) from None
         else:
             return value
-        if tag == "float4":
-            # PG narrows at the cast — the narrowed double is what compares,
-            # stores, and renders (float4out's shortest form needs it).
-            import struct as _st
-
-            return _st.unpack("!f", _st.pack("!f", value))[0]
-        return value
+        return _narrow_float(original, value, tag)
     if tag == "numeric":
         if isinstance(value, bool):
             return value
@@ -2019,15 +3387,61 @@ def _array_elem_render_tag(node: exp.Expression, value: list) -> str:
     return typemap.infer_elem_tag(value)
 
 
+#: Functions whose result is json / jsonb. Their VALUE is an ordinary Python
+#: list, dict or str here, so only the call itself says the `::text` rendering
+#: should be JSON — `jsonb_build_array(1,'x',true)::text` was rendered as the
+#: PG array `{1,x,t}` instead of `[1, "x", true]`, and `to_jsonb('x'::text)`
+#: as a bare `x` instead of `"x"`.
+_JSON_RETURNING_FUNCS = frozenset(
+    {
+        "json_build_object",
+        "jsonb_build_object",
+        "json_build_array",
+        "jsonb_build_array",
+        "jsonb_set",
+        "jsonb_set_lax",
+        "jsonb_insert",
+        "jsonb_strip_nulls",
+        "json_strip_nulls",
+        "jsonb_path_query",
+        "jsonb_path_query_array",
+        "jsonb_path_query_first",
+        "jsonb_extract_path",
+        "json_extract_path",
+        "array_to_json",
+        "to_jsonb",
+        "to_json",
+        "row_to_json",
+        "jsonb_agg",
+        "json_agg",
+        "jsonb_object_agg",
+        "json_object_agg",
+    }
+)
+
+
+def _json_returning_call(node: exp.Expression) -> bool:
+    """Whether a node is a call to one of the json-returning functions."""
+    name = None
+    if isinstance(node, exp.Anonymous):
+        name = str(node.this)
+    elif isinstance(node, exp.JSONArrayAgg):
+        name = "json_agg"
+    elif isinstance(node, exp.Func):
+        name = node.sql_name()
+    return name is not None and str(name).rsplit(".", 1)[-1].lower() in _JSON_RETURNING_FUNCS
+
+
 def _yields_json(node: exp.Expression) -> bool:
     """Whether an expression statically yields a json value — a ``::json/jsonb``
-    cast or ``->``-style navigation. Drives ``::text`` rendering (JSON text vs
-    array_out literal) for structured values."""
+    cast, ``->``-style navigation, or a json-returning function. Drives
+    ``::text`` rendering (JSON text vs array_out literal) for structured
+    values."""
     while isinstance(node, exp.Paren):
         node = node.this
     if isinstance(node, exp.Cast):
         return typemap.type_tag_for_sql(node.to) == "json"
-    return isinstance(node, _JSONB_NAV)
+    return isinstance(node, _JSONB_NAV) or _json_returning_call(node)
 
 
 def _operand_is_json(node: exp.Expression) -> bool:
@@ -2057,6 +3471,123 @@ def _plain_json_operand_text(operand: exp.Expression) -> str | None:
 
 
 def _eval_cast(node: exp.Cast, scope: Scope, ctx: ScalarContext) -> Any:
+    """``x::type``, with Postgres' integer range check on the way out.
+
+    The check is applied HERE rather than inside each branch: the cast body has
+    a dozen exits (enum, bit, char-length, range, array …) and adding a guard to
+    each is how one gets missed. `1e10::int` returned 10000000000 before this.
+    """
+    out = _eval_cast_impl(node, scope, ctx)
+    if isinstance(out, int) and not isinstance(out, bool):
+        to_tag = typemap.type_tag_for_sql(node.to) if node.to is not None else None
+        if to_tag in ("int2", "int4", "int8"):
+            typemap.check_int_range(out, to_tag)
+    # Length-qualified character targets truncate whatever the body produced.
+    # Here for the same reason as the range check above: a `char(n)` target's
+    # type TAG is plain `text`, so a non-string value (`123::char(2)`) is
+    # rendered by one of the several `to_tag == "text"` branches, each of which
+    # returns before the body's own char-length block — `123::char(2)` was
+    # `'123'` where Postgres gives `'12'`.
+    if isinstance(out, str) and node.to is not None:
+        char_len = _char_cast_length(node.to)
+        if char_len is not None:
+            out = out[: char_len[0]]
+    return out
+
+
+#: Every spelling of infinity `float8in` accepts, lowercased — these are legal
+#: input, so a cast that lands on infinity from one of them is not an overflow.
+_INFINITY_SPELLINGS = frozenset({"inf", "infinity", "+inf", "+infinity", "-inf", "-infinity"})
+
+
+def _float_input_is_infinite(original: Any) -> bool:
+    """Whether the value BEING CAST already denoted infinity."""
+    if isinstance(original, str):
+        return original.strip().lower() in _INFINITY_SPELLINGS
+    if isinstance(original, Decimal):
+        return original.is_infinite()
+    return isinstance(original, float) and math.isinf(original)
+
+
+def _float_out_of_range(original: Any, tag: str) -> errors.SQLError:
+    """Postgres' out-of-range error for a float cast, in the two spellings it
+    uses. Casting from text or from numeric quotes the INPUT as written —
+    numeric spelled out in plain decimal, text verbatim — while narrowing an
+    existing double (`1e39::float8::float4`) reports the CHECKFLOATVAL form,
+    which names no value at all. Which one you get is decided by the source
+    type, so it is decided here by the Python type carrying it."""
+    if isinstance(original, float):
+        kind = "underflow" if original != 0.0 and abs(original) < 1.0 else "overflow"
+        return errors.SQLError("22003", f"value out of range: {kind}")
+    if isinstance(original, Decimal):
+        shown = format(original, "f")
+    elif isinstance(original, int):
+        shown = str(original)
+    else:
+        shown = str(original).strip()
+    name = typemap.SQL_TYPE_NAME.get(tag, tag)
+    return errors.SQLError("22003", f'"{shown}" is out of range for type {name}')
+
+
+def _narrow_float(original: Any, value: float, tag: str) -> float:
+    """Narrow a parsed double to ``tag``, rejecting what the type cannot hold.
+
+    Python saturates where Postgres errors: `float('1e400')` is `inf` and
+    `struct.pack('!f', 1e39)` raises `OverflowError` — the first quietly
+    answered infinity for `1e400::float8`, the second escaped as an XX000
+    internal error for `1e39::float4`. Both are `22003` in PG. A value that
+    rounds to zero is equally out of range (`1e-46::float4`), which is why the
+    zero check is not merely cosmetic."""
+    if math.isinf(value) and not _float_input_is_infinite(original):
+        raise _float_out_of_range(original, tag)
+    if value == 0.0 and original is not None and not _is_zero_input(original):
+        raise _float_out_of_range(original, tag)
+    if tag != "float4":
+        return value
+    # PG narrows at the cast — the narrowed double is what compares, stores,
+    # and renders (float4out's shortest form needs it).
+    try:
+        narrowed = _struct.unpack("!f", _struct.pack("!f", value))[0]
+    except OverflowError:
+        raise _float_out_of_range(original, tag) from None
+    if math.isinf(narrowed) and not math.isinf(value):
+        raise _float_out_of_range(original, tag)
+    if narrowed == 0.0 and value != 0.0:
+        raise _float_out_of_range(original, tag)
+    return narrowed
+
+
+def _is_zero_input(original: Any) -> bool:
+    """Whether the value being cast was itself zero (so a zero result is right)."""
+    if isinstance(original, str):
+        # Decimal, not float: `float("1e-400")` is 0.0, so asking the float
+        # whether the input was zero said yes and let the underflow through.
+        # The question is whether the TEXT denotes zero, which needs exact
+        # arithmetic to answer.
+        try:
+            return Decimal(original.strip()) == 0
+        except (decimal.InvalidOperation, ValueError):
+            return False
+    if isinstance(original, (int, float, Decimal)):
+        return not (isinstance(original, Decimal) and original.is_nan()) and original == 0
+    return False
+
+
+def _cast_numeric_typmod(node: exp.Expression, value: Decimal) -> Any:
+    """Apply a `::numeric(p, s)` cast's declared precision and scale.
+
+    The COLUMN path rounds to the declared scale; the cast did not, so
+    `10::numeric(5,2)` answered `10` where PG answers `10.00`. Same gate, same
+    `22003 numeric field overflow` when the rounded value no longer fits."""
+    to = getattr(node, "to", None)
+    identity = typemap.cast_type_identity(to) if to is not None else None
+    if identity is None:
+        return value
+    pg_oid, typmod = identity
+    return typemap.enforce_numeric_typmod(value, pg_oid, typmod)
+
+
+def _eval_cast_impl(node: exp.Cast, scope: Scope, ctx: ScalarContext) -> Any:
     value = evaluate(node.this, scope, ctx)
     # ``'ok'::mood`` — a cast to a declared enum validates the label (22P02) and
     # yields the label text (an enum's value form IS its text).
@@ -2078,7 +3609,6 @@ def _eval_cast(node: exp.Cast, scope: Scope, ctx: ScalarContext) -> Any:
     if rng_type is not None:
         if value is None or isinstance(value, dict):
             return value
-        from secantus.sql import ranges as _ranges
         from secantus.sql.catalog import fold_type_name
 
         doc, elem_tag = rng_type
@@ -2250,6 +3780,15 @@ def _eval_cast(node: exp.Cast, scope: Scope, ctx: ScalarContext) -> Any:
             probe = getattr(scope, "column_tag", None)
             if probe is not None:
                 src_tag = probe(inner)
+        elif isinstance(inner, (exp.Lower, exp.Upper)) and isinstance(inner.this, exp.Column):
+            # ``lower(tz)::text`` -- a stored tstzrange bound decodes naive,
+            # so without the range column's type it lost its ``+00``.
+            probe = getattr(scope, "column_tag", None)
+            range_tag = probe(inner.this) if probe is not None else None
+            if range_tag in typemap._RANGE_TAGS:
+                src_tag = _ranges.bound_result_tag(range_tag)
+        if src_tag == "date":
+            return value.date().isoformat()
         if value.tzinfo is not None or src_tag == "timestamptz":
             if value.tzinfo is None:
                 value = value.replace(tzinfo=_dt.timezone.utc)
@@ -2275,6 +3814,16 @@ def _eval_cast(node: exp.Cast, scope: Scope, ctx: ScalarContext) -> Any:
             from secantus.sql import datetimes as _datetimes
 
             return _datetimes.render_timetz(value)
+    if to_tag_early == "text" and isinstance(value, (list, str)):
+        inner = node.this
+        while isinstance(inner, exp.Paren):
+            inner = inner.this
+        # A json-returning call renders as JSON, not as an array literal — and
+        # a jsonb STRING renders quoted. Checked before the array branch below,
+        # which would otherwise turn `jsonb_build_array(1,'x',true)::text` into
+        # the PG array `{1,x,t}`.
+        if _yields_json(inner) or getattr(node, "_secantus_json_operand", False):
+            return typemap._render_json(value)
     if to_tag_early == "text" and isinstance(value, list):
         # ``(x::box[])::text`` — render the array literal NOW with the inner
         # cast's element rules (box's ``;`` delimiter); by output time the
@@ -2282,7 +3831,12 @@ def _eval_cast(node: exp.Cast, scope: Scope, ctx: ScalarContext) -> Any:
         inner = node.this
         while isinstance(inner, exp.Paren):
             inner = inner.this
-        elem = "text"
+        # Default to what the VALUES say rather than a blunt `text`: an interval
+        # rides as a subdocument, so `ARRAY[interval '1 day']::text` rendered
+        # each element as our internal `{"interval": {…}}` JSON where PG gives
+        # `{"1 day"}`. The two explicit shapes below still win — they carry
+        # element identity this branch exists to preserve.
+        elem = _array_elem_render_tag(inner, value)
         if isinstance(inner, exp.Cast):
             inner_tag = typemap.type_tag_for_sql(inner.to)
             if typemap.is_array_tag(inner_tag):
@@ -2476,17 +4030,18 @@ def _eval_cast(node: exp.Cast, scope: Scope, ctx: ScalarContext) -> Any:
 
         n = _bitstr.to_int(str(value))
         return float(n) if to_tag in ("float4", "float8") else n
-    # Length-qualified character casts: ``varchar(n)`` / crdb ``STRING(n)``
-    # truncate to n characters; ``char(n)`` / ``bpchar(n)`` also right-pad with
-    # spaces. Bare ``text`` / ``varchar`` impose no limit (helper returns None).
+    # Length-qualified character casts truncate to n characters. ``char(n)``
+    # does NOT blank-pad here: padding is applied on the way OUT
+    # (``typemap.blank_pad``, keyed on the described bpchar oid + typmod),
+    # which is the model the COLUMN path already used. Padding eagerly in the
+    # value made the cast path disagree with the column path on everything
+    # downstream, because Postgres strips trailing blanks on EVERY conversion
+    # of bpchar to text: `'a'::char(3) || '|'` is `'a|'`, not `'a  |'`, and
+    # `length('a'::char(3))` is 1, not 3.
     if isinstance(value, str):
         char_len = _char_cast_length(node.to)
         if char_len is not None:
-            length, blank_padded = char_len
-            out = value[:length]
-            if blank_padded and len(out) < length:
-                out = out.ljust(length)
-            return out
+            return value[: char_len[0]]
     # Concrete scalar targets convert the value (``'1'::int`` -> 1).
     if value is not None and to_tag in (
         "int2",
@@ -2499,7 +4054,13 @@ def _eval_cast(node: exp.Cast, scope: Scope, ctx: ScalarContext) -> Any:
         "char1",
         "jsonpath",
     ):
-        return _cast_scalar(value, to_tag)
+        cast_value = _cast_scalar(value, to_tag)
+        # A declared `numeric(p, s)` on the CAST rounds too: `10::numeric(5,2)`
+        # is `10.00`. Only the column path applied it, so the same declared type
+        # meant two different values depending on where it was written.
+        if to_tag == "numeric" and isinstance(cast_value, Decimal):
+            return _cast_numeric_typmod(node, cast_value)
+        return cast_value
     # ``ts::text`` renders through the session-aware datetime renderer (TimeZone
     # / DateStyle GUCs), like PG's timestamp_out — not raw isoformat.
     if to_tag == "text" and isinstance(value, _dt.datetime):
@@ -2518,10 +4079,27 @@ def _eval_cast(node: exp.Cast, scope: Scope, ctx: ScalarContext) -> Any:
     # literal, a JSON value as JSON text, an array as Postgres' array_out
     # literal — so each compares equal to a client-dumped parameter's text.
     if to_tag == "text" and isinstance(value, (dict, list)):
+        # A tsvector / tsquery is a dict internally, so without this it fell
+        # through to the JSON renderer below and `v::text` produced
+        # `{"tsvector": {"fat": [2]}}` where PostgreSQL gives `'fat':2`. Same
+        # shape as the range branch that follows: an internal dict whose TEXT
+        # form is the type's own, not JSON.
+        from secantus.sql import fts as _fts
+
+        if _fts.is_tsvector(value):
+            return _fts.render_tsvector(value)
+        if _fts.is_tsquery(value):
+            return _fts.render_tsquery(value)
+        if isinstance(value, typemap.RecordValue):
+            # A composite is a dict internally, so without this it fell through
+            # to the JSON renderer and `('a', 1)::text` produced
+            # `{"f1": "a", "f2": 1}` where PostgreSQL gives `(a,1)`. The record
+            # renderer already existed and is what the WIRE uses; only the cast
+            # did not route to it.
+            rendered = typemap.to_pg_text(value, "composite")
+            return rendered.decode() if isinstance(rendered, bytes) else rendered
         shape = _range_value_shape(value)
         if shape is not None:
-            from secantus.sql import ranges as _ranges
-
             if shape == "multirange":
                 return _ranges.render_multirange(value)
             return _ranges.render(value)
@@ -2667,12 +4245,55 @@ def _char_cast_length(datatype: exp.DataType | None) -> tuple[int, bool] | None:
     return None
 
 
+def _blank_pad_record_field(expr: exp.Expression, value: Any) -> Any:
+    """Blank-pad a ``char(n)`` field of a record constructor.
+
+    A composite renders each field through that field's type OUTPUT function,
+    which for ``bpchar`` is padded — ``('a'::text, 'd'::char(2))`` renders as
+    ``(a,"d ")``, not ``(a,d)``. Everywhere else a ``char(n)`` cast leaves the
+    value unpadded (the wire pads it on the way out), so the padding has to be
+    put back HERE, where the value is about to become a field rather than a
+    scalar. Probed against PostgreSQL 14.13.
+
+    Only the CAST form is recognised; a ``char(n)`` COLUMN inside a record
+    needs the catalog, which this layer does not have (recorded in
+    `tasks/backlog.md`)."""
+    if not isinstance(value, str):
+        return value
+    inner = expr
+    while isinstance(inner, exp.Paren):
+        inner = inner.this
+    if not isinstance(inner, exp.Cast) or inner.to is None:
+        return value
+    char_len = _char_cast_length(inner.to)
+    if char_len is None:
+        return value
+    length, blank_padded = char_len
+    return value.ljust(length) if blank_padded and len(value) < length else value
+
+
 def _func_name(node: exp.Anonymous) -> str:
     name = node.this if isinstance(node.this, str) else node.name
     return str(name).rsplit(".", 1)[-1].lower()
 
 
-def _eval_func(node: exp.Anonymous, scope: Scope, ctx: ScalarContext) -> Any:
+def _eval_func(
+    node: exp.Anonymous, scope: Scope, ctx: ScalarContext, schema: str | None = None
+) -> Any:
+    """A named function call, with the same no-internal-errors guard the typed
+    node handlers get — `age(1)` reached the wire as `XX000` because this path
+    is separate from `_SCALAR_FUNC_NODES`."""
+    try:
+        return _eval_func_impl(node, scope, ctx, schema)
+    except errors.SQLError:
+        raise
+    except (TypeError, ValueError, AttributeError, KeyError, IndexError) as exc:
+        raise _no_such_function(node, scope, ctx) from exc
+
+
+def _eval_func_impl(
+    node: exp.Anonymous, scope: Scope, ctx: ScalarContext, schema: str | None = None
+) -> Any:
     name = _func_name(node)
     if name == "xmlforest":
         # ``xmlforest(value AS name, …)`` needs the per-arg aliases, which are lost
@@ -2692,10 +4313,16 @@ def _eval_func(node: exp.Anonymous, scope: Scope, ctx: ScalarContext) -> Any:
         # PG types an untyped literal as unknown (705), an explicit ``::text``
         # as 25, ``::bytea`` as 17, and so on. Reconstructing oids from Python
         # values can't make those distinctions.
-        rec = typemap.RecordValue((f"f{i + 1}", v) for i, v in enumerate(args))
+        padded = [
+            _blank_pad_record_field(a, v) for a, v in zip(node.expressions, args, strict=False)
+        ]
+        rec = typemap.RecordValue((f"f{i + 1}", v) for i, v in enumerate(padded))
         rec.field_oids = tuple(_row_field_oid(a) for a in node.expressions)
         return rec
-    return _call_func(name, args, ctx)
+    result = _call_func(name, args, ctx, qualified=f"{schema.lower()}.{name}" if schema else None)
+    if result is _ENUM_FUNC_NEEDS_NODE:
+        return _eval_enum_func(name, node, ctx)
+    return result
 
 
 def _row_field_oid(arg: exp.Expression) -> int:
@@ -2747,7 +4374,39 @@ def _eval_typed_func(node: exp.Func, scope: Scope, ctx: ScalarContext) -> Any:
         ]
         return _call_func("format", args, ctx)
     args = [evaluate(a, scope, ctx) for a in node.expressions if isinstance(a, exp.Expression)]
-    return _call_func(name, args, ctx)
+    result = _call_func(name, args, ctx)
+    if result is _ENUM_FUNC_NEEDS_NODE:
+        return _eval_enum_func(name, node, ctx)
+    return result
+
+
+def _eval_enum_func(name: str, node: exp.Expression, ctx: ScalarContext | None) -> Any:
+    """`enum_range(NULL::mood)` / `enum_first` / `enum_last`.
+
+    The enum type is named by the ARGUMENT'S CAST, not by any value — the
+    argument is a NULL — so these cannot go through the value-only builtin
+    table and were `0A000 function enum_range() is not supported`."""
+    args = list(node.expressions or [])
+    type_name = None
+    for arg in args:
+        inner = arg
+        while isinstance(inner, exp.Paren):
+            inner = inner.this
+        if isinstance(inner, exp.Cast):
+            type_name = inner.to.sql(dialect="postgres").strip('"')
+            break
+    catalog = getattr(ctx, "catalog", None)
+    if type_name is None or catalog is None:
+        raise errors.feature_not_supported(f"{name}() requires an enum-typed argument")
+    enum = catalog.get_enum(getattr(ctx, "db", ""), type_name.lower())
+    if enum is None:
+        raise errors.SQLError("42704", f'type "{type_name}" does not exist')
+    labels = list(enum["labels"])
+    if name == "enum_first":
+        return labels[0] if labels else None
+    if name == "enum_last":
+        return labels[-1] if labels else None
+    return labels
 
 
 def _seq_name(arg: Any) -> str:
@@ -2805,8 +4464,24 @@ def _has_table_privilege(args: list[Any], ctx: ScalarContext | None) -> Any:
     if table is None or privilege is None or user is None:
         return None
     priv = _as_text(privilege).split("WITH")[0].strip().upper()
-    grantees = {_as_text(user), "PUBLIC", "public"}
-    return ctx.catalog.has_table_privilege(ctx.db, _as_text(table), grantees, priv)
+    who, tbl = _as_text(user), _as_text(table)
+    grantees = {who, "PUBLIC", "public"}
+    if ctx.catalog.has_table_privilege(ctx.db, tbl, grantees, priv):
+        return True
+    # The OWNER holds every privilege implicitly — this only consulted recorded
+    # GRANTs, so `has_table_privilege('t', 'SELECT')` answered FALSE for a table
+    # the caller had just created and could plainly read. Every relation here is
+    # owned by the connecting user (the same assumption `pg_class.relowner`
+    # already reports), and a REVOKE that targets the owner materializes the ACL
+    # and is honoured below.
+    #
+    # Reporting only: the authz gate has its own path and already permits the
+    # owner, which is why the SELECT worked while this said it could not.
+    owner_state = ctx.catalog.owner_privileges(ctx.db, tbl)
+    if owner_state is None:
+        return who == getattr(ctx.session, "user", None)
+    owner, retained = owner_state
+    return who == owner and priv in {p.upper() for p in retained}
 
 
 def _has_column_privilege(args: list[Any], ctx: ScalarContext | None) -> Any:
@@ -2874,7 +4549,233 @@ def _advisory_lock(name: str, args: list[Any], ctx: ScalarContext | None) -> Any
     return None  # pg_advisory_lock* return void (after blocking until granted)
 
 
-def _call_func(name: str, args: list[Any], ctx: ScalarContext | None = None) -> Any:
+def _plain_scalar(name: str, args: list[Any]) -> Any:
+    """The pure string / numeric builtins — no session, storage or catalog.
+
+    Each was reachable only as `0A000 function <name>() is not supported in
+    this context`, in EVERY context (FROM-less and over a table alike, measured
+    against PG 14.13 on 2026-09-01), so the "in this context" wording was
+    misleading: they were simply absent.
+    """
+    a = args[0] if args else None
+    if name == "md5":
+        import hashlib
+
+        return None if a is None else hashlib.md5(_as_text(a).encode()).hexdigest()  # noqa: S324
+    if name == "btrim":
+        chars = _as_text(args[1]) if len(args) > 1 and args[1] is not None else None
+        return None if a is None else (_as_text(a).strip(chars) if chars else _as_text(a).strip())
+    if name == "quote_ident":
+        return None if a is None else _quote_ident(_as_text(a))
+    if name in ("quote_literal", "quote_nullable"):
+        if a is None:
+            return "NULL" if name == "quote_nullable" else None
+        return "'" + _as_text(a).replace("'", "''") + "'"
+    if name == "concat_ws":
+        # The SEPARATOR being NULL yields NULL; NULL arguments are skipped
+        # (unlike `concat`, which skips them too but has no separator).
+        if a is None:
+            return None
+        return _as_text(a).join(_concat_text(v) for v in args[1:] if v is not None)
+    if name == "starts_with":
+        if a is None or len(args) < 2 or args[1] is None:
+            return None
+        return _as_text(a).startswith(_as_text(args[1]))
+    if name == "width_bucket":
+        if len(args) < 4 or any(v is None for v in args[:4]):
+            return None
+        from decimal import Decimal as _Dec
+
+        operand, low, high, count = (_Dec(str(v)) for v in args[:4])
+        count = int(count)
+        if count <= 0:
+            raise errors.SQLError("22004", "count must be greater than zero")
+        if low == high:
+            raise errors.SQLError("22004", "lower bound cannot equal upper bound")
+        if low < high:
+            if operand < low:
+                return 0
+            if operand >= high:
+                return count + 1
+            return int((operand - low) * count / (high - low)) + 1
+        # A DESCENDING span is legal in PG and buckets the other way.
+        if operand > low:
+            return 0
+        if operand <= high:
+            return count + 1
+        return int((low - operand) * count / (low - high)) + 1
+    if name == "regexp_match":
+        # PG returns text[] of the capture groups, or a single-element array of
+        # the whole match when the pattern has none; NULL when it does not match.
+        if a is None or len(args) < 2 or args[1] is None:
+            return None
+        m = _re_compile(_as_text(args[1]), _as_text(args[2]) if len(args) > 2 else "").search(
+            _as_text(a)
+        )
+        if m is None:
+            return None
+        return list(m.groups()) if m.re.groups else [m.group(0)]
+    if name == "regexp_split_to_array":
+        if a is None or len(args) < 2 or args[1] is None:
+            return None
+        return _re_compile(_as_text(args[1]), _as_text(args[2]) if len(args) > 2 else "").split(
+            _as_text(a)
+        )
+    if name == "string_to_array":
+        # A NULL delimiter splits into single characters, as PG does.
+        if a is None:
+            return None
+        delim = args[1] if len(args) > 1 else None
+        text = _as_text(a)
+        parts = list(text) if delim is None else text.split(_as_text(delim))
+        null_str = _as_text(args[2]) if len(args) > 2 and args[2] is not None else None
+        return [None if null_str is not None and x == null_str else x for x in parts]
+    if name == "array_replace":
+        if a is None:
+            return None
+        if not isinstance(a, (list, tuple)):
+            return a
+        old_v = args[1] if len(args) > 1 else None
+        new_v = args[2] if len(args) > 2 else None
+        return [new_v if x == old_v else x for x in a]
+    if name == "isfinite":
+        # A date / timestamp / interval is finite unless it is one of PG's
+        # infinity sentinels. NULL propagates.
+        if a is None:
+            return None
+        from secantus.sql import datetimes as _dtm
+
+        sentinel = getattr(_dtm, "datetime_sentinel", None)
+        if sentinel is not None and isinstance(a, str) and sentinel(a) is not None:
+            return False
+        return not (isinstance(a, float) and (a != a or a in (float("inf"), float("-inf"))))
+    if name in ("scale", "min_scale", "trim_scale"):
+        # `scale` is the COUNT of decimal digits a numeric carries — `scale(1.50)`
+        # is 2, `scale(100)` is 0; not "digits after stripping zeros". `min_scale`
+        # IS that -- the smallest scale that keeps the value exactly -- and
+        # `trim_scale` returns the value re-scaled to it.
+        if a is None:
+            return None
+        from decimal import Decimal as _Dec
+
+        d = a.to_decimal() if isinstance(a, bson.Decimal128) else a
+        if not isinstance(d, _Dec):
+            d = _Dec(str(d))
+        if name == "scale":
+            return max(0, -d.as_tuple().exponent)
+        trimmed = d.normalize()
+        # `normalize` turns 1500 into 1.5E+3; a negative exponent is the scale,
+        # a positive one means no fractional digits at all.
+        min_scale = max(0, -trimmed.as_tuple().exponent)
+        if name == "min_scale":
+            return min_scale
+        return _Dec(d).quantize(_Dec(1).scaleb(-min_scale)) if min_scale else _Dec(int(d))
+    if name in ("make_date", "make_time", "make_timestamp"):
+        return _make_datetime(name, args)
+    if name == "div":
+        # Integer quotient of two numerics, truncated toward zero — PG returns
+        # NUMERIC, not int.
+        if a is None or len(args) < 2 or args[1] is None:
+            return None
+        from decimal import Decimal as _Dec
+
+        num, den = _Dec(str(a)), _Dec(str(args[1]))
+        if den == 0:
+            raise errors.SQLError("22012", "division by zero")
+        return _Dec(int(num / den))
+    return _UNSUPPORTED
+
+
+def _make_datetime(name: str, args: list[Any]) -> Any:
+    """`make_date` / `make_time` / `make_timestamp` — each was
+    `0A000 function … is not supported`.
+
+    The seconds argument is fractional, so `make_time(10, 30, 45.5)` is
+    `10:30:45.5`. An impossible field is `22008 date field value out of range`
+    with the attempted value spelled out, which is what PG reports rather than
+    a generic parse failure."""
+    if any(a is None for a in args):
+        return None
+    values = [typemap.unwrap_numeric(a) for a in args]
+    try:
+        if name == "make_date":
+            year, month, day = (int(v) for v in values[:3])
+            return _dt.date(year, month, day)
+        seconds = float(values[-1])
+        whole, micros = divmod(round(seconds * 1_000_000), 1_000_000)
+        if name == "make_time":
+            hour, minute = (int(v) for v in values[:2])
+            # `isoformat()` pads the fraction to six digits; PG prints the
+            # shortest form, so `make_time(10, 30, 45.5)` is `10:30:45.5`.
+            rendered = _dt.time(hour, minute, int(whole), int(micros)).isoformat()
+            return rendered.rstrip("0").rstrip(".") if "." in rendered else rendered
+        year, month, day, hour, minute = (int(v) for v in values[:5])
+        return _dt.datetime(year, month, day, hour, minute, int(whole), int(micros))
+    except (ValueError, TypeError, OverflowError):
+        if name == "make_time":
+            hh, mm, ss = values[0], values[1], values[2]
+            raise errors.SQLError(
+                "22008",
+                f"time field value out of range: {int(hh):02d}:{int(mm):02d}:{_time_secs(ss)}",
+            ) from None
+        shown = "-".join(f"{int(v):02d}" for v in values[:3])
+        raise errors.SQLError("22008", f"date field value out of range: {shown}") from None
+
+
+def _time_secs(value: Any) -> str:
+    """Seconds as PG spells them in a `make_time` range error: two digits, with
+    a fractional part only when there is one."""
+    seconds = float(value)
+    return f"{seconds:02.0f}" if seconds == int(seconds) else f"{seconds:09.6f}".rstrip("0")
+
+
+#: Sentinel: `_plain_scalar` did not recognise the name (distinct from a
+#: function that legitimately returned None for a NULL argument).
+_UNSUPPORTED = object()
+
+#: `enum_range` / `enum_first` / `enum_last` take their enum type from the
+#: ARGUMENT'S CAST (`enum_range(NULL::mood)`), which the value-only helper
+#: cannot see — the caller routes them through `_eval_enum_func` instead.
+_ENUM_FUNC_NEEDS_NODE = object()
+
+#: Result type tags for the builtins above, so the RowDescription is right.
+PLAIN_SCALAR_TAGS = {
+    "md5": "text",
+    "btrim": "text",
+    "quote_ident": "text",
+    "quote_literal": "text",
+    "quote_nullable": "text",
+    "concat_ws": "text",
+    "starts_with": "bool",
+    "width_bucket": "int4",
+    "div": "numeric",
+    "isfinite": "bool",
+    "scale": "int4",
+    "min_scale": "int4",
+    "trim_scale": "numeric",
+    "regexp_match": "text[]",
+    "regexp_split_to_array": "text[]",
+    "string_to_array": "text[]",
+    "array_positions": "int8[]",
+    "num_nonnulls": "int4",
+    "num_nulls": "int4",
+    "parse_ident": "text[]",
+    "unistr": "text",
+    "make_date": "date",
+    "make_time": "time",
+    "make_timestamp": "timestamp",
+}
+
+
+def _call_func(
+    name: str,
+    args: list[Any],
+    ctx: ScalarContext | None = None,
+    qualified: str | None = None,
+) -> Any:
+    plain = _plain_scalar(name, args)
+    if plain is not _UNSUPPORTED:
+        return plain
     if name == "has_column_privilege":
         return _has_column_privilege(args, ctx)
     if name == "format_type":
@@ -2946,14 +4847,7 @@ def _call_func(name: str, args: list[Any], ctx: ScalarContext | None = None) -> 
             return None
         delim = _as_text(args[1]) if len(args) > 1 else ""
         null_str = _as_text(args[2]) if len(args) > 2 and args[2] is not None else None
-        parts = []
-        for v in _as_list(arr):
-            if v is None:
-                if null_str is not None:
-                    parts.append(null_str)
-            else:
-                parts.append(_as_text(v))
-        return delim.join(parts)
+        return _join_array_text(flatten_array(arr), delim, null_str)
     if name == "current_schemas":
         # ``current_schemas(include_implicit)`` — the search path as text[].
         # With true, PG prepends the implicitly-searched pg_catalog. pgjdbc's
@@ -2972,8 +4866,24 @@ def _call_func(name: str, args: list[Any], ctx: ScalarContext | None = None) -> 
         session = getattr(ctx, "session", None)
         return getattr(session, "user", None) or "postgres"
     if name == "pg_get_serial_sequence":
-        # No serial-sequence resolution surface.
-        return None
+        # ``pg_get_serial_sequence('t', 'col')`` -> the schema-qualified sequence
+        # name a SERIAL / IDENTITY column draws from, or NULL when the column has
+        # none. The column already RECORDS it (`Column.sequence`, which is what
+        # `nextval` and the information_schema view read); this just never
+        # looked, so ORM reflection saw every serial column as plain.
+        if ctx is None or ctx.catalog is None or len(args) < 2:
+            return None
+        tbl, colname = _as_text(args[0]), _as_text(args[1])
+        try:
+            tdef = ctx.catalog.get(ctx.db, tbl.rsplit(".", 1)[-1])
+        except Exception:  # noqa: BLE001 -- unknown relation is NULL, not an error
+            return None
+        col = tdef.column(colname) if tdef is not None else None
+        seq = getattr(col, "sequence", None) if col is not None else None
+        if not seq:
+            return None
+        schema = getattr(ctx.session, "current_schema", None) or "public"
+        return seq if "." in seq else f"{schema}.{seq}"
     if name in ("obj_description", "col_description"):
         # ``obj_description(oid[, 'catalog'])`` / ``col_description(oid,
         # attnum)`` — look the comment up in the derived pg_description rows
@@ -3031,7 +4941,12 @@ def _call_func(name: str, args: list[Any], ctx: ScalarContext | None = None) -> 
         # composite / ROW(...) argument arrives as a subdocument, a scalar as itself.
         return _as_json_value(args[0]) if args else None
     if name in ("jsonb_array_length", "json_array_length"):
-        v = args[0] if args else None
+        v = _as_jsonb_arg(args[0] if args else None)
+        if v is None:
+            # A NULL argument is a NULL result, not an error — PG only rejects
+            # a non-array VALUE. `jsonb_array_length(v->'arr')` over a row
+            # without that key raised where PG answers NULL.
+            return None
         if not isinstance(v, list):
             raise errors.SQLError("22023", "cannot get array length of a non-array")
         return len(v)
@@ -3061,19 +4976,63 @@ def _call_func(name: str, args: list[Any], ctx: ScalarContext | None = None) -> 
         dims = _array_dim_lengths(v)
         return "".join(f"[1:{d}]" for d in dims) if dims else None
     if name in ("jsonb_typeof", "json_typeof"):
-        return _json_typeof(args[0] if args else None)
+        return _json_typeof(_as_jsonb_arg(args[0] if args else None))
     if name in ("jsonb_set", "jsonb_set_lax"):
-        target, path, value = args[0], _pg_text_path(args[1]), _as_json_value(args[2])
+        target = _as_jsonb_arg(args[0])
+        path, value = _pg_text_path(args[1]), _as_json_value(args[2])
         create = args[3] if len(args) > 3 else True
         return _jsonb_set(target, path, value, create=bool(create), insert=False)
     if name == "jsonb_insert":
-        target, path, value = args[0], _pg_text_path(args[1]), _as_json_value(args[2])
+        target = _as_jsonb_arg(args[0])
+        path, value = _pg_text_path(args[1]), _as_json_value(args[2])
         after = bool(args[3]) if len(args) > 3 else False
         return _jsonb_set(target, path, value, create=True, insert=True, insert_after=after)
-    if name in ("jsonb_strip_nulls", "json_strip_nulls"):
-        return _jsonb_strip_nulls(args[0] if args else None)
-    if name in ("jsonb_pretty",):
+    if name in (
+        "jsonb_extract_path",
+        "json_extract_path",
+        "jsonb_extract_path_text",
+        "json_extract_path_text",
+    ):
+        # The variadic-key spelling of ``#>`` / ``#>>``. sqlglot folds only the
+        # ``json_`` spelling into ``JSONExtract``; the ``jsonb_`` one arrives here
+        # as an Anonymous call, which is why one of the pair worked and the other
+        # answered "function ... is not supported in this context".
+        val = _json_navigable(_as_jsonb_arg(args[0] if args else None))
+        for key in (_as_text(a) for a in args[1:]):
+            if isinstance(val, dict):
+                val = val.get(key)
+            elif isinstance(val, list):
+                try:
+                    val = val[int(key)]
+                except (ValueError, IndexError):
+                    return None
+            else:
+                return None
+        return _json_as_text(val) if name.endswith("_text") else val
+    if name == "trim_array":
+        # ``trim_array(arr, n)`` drops the LAST n elements; n < 0 or n > length
+        # is an error in Postgres, not a clamp.
         v = args[0] if args else None
+        if v is None or len(args) < 2 or args[1] is None:
+            return None
+        if not isinstance(v, (list, tuple)):
+            return None
+        n = int(args[1])
+        if n < 0 or n > len(v):
+            raise errors.SQLError(
+                "2202E", f"number of elements to trim must be between 0 and {len(v)}"
+            )
+        return list(v)[: len(v) - n]
+    if name in ("array_to_json", "array_to_jsonb"):
+        # Arrays are already native Python lists that render as json, so this is
+        # the identity — the second argument (pretty-print line feeds) only
+        # affects the text rendering, which the wire does not use.
+        v = args[0] if args else None
+        return v if isinstance(v, (list, tuple)) else None
+    if name in ("jsonb_strip_nulls", "json_strip_nulls"):
+        return _jsonb_strip_nulls(_as_jsonb_arg(args[0] if args else None))
+    if name in ("jsonb_pretty",):
+        v = _as_jsonb_arg(args[0] if args else None)
         return None if v is None else json.dumps(v, indent=4, default=str)
     if name == "row":
         # ``row(a, b, …)`` — an anonymous record value (Postgres names the
@@ -3151,20 +5110,54 @@ def _call_func(name: str, args: list[Any], ctx: ScalarContext | None = None) -> 
     ):
         from secantus.sql import fts as _fts
 
-        # A two-argument form passes the text-search config first; we ignore it
-        # (the config is fixed) and read the last argument as the document / query.
+        # A two-argument form passes the text-search config first. Only its
+        # stop-word half is modelled (`simple` keeps them, anything else drops
+        # them); the last argument is the document / query.
         text = args[-1] if args else None
         if text is None:
             return None
+        config = _as_text(args[0]) if len(args) > 1 else None
         if name == "to_tsvector":
-            return _fts.to_tsvector(_as_text(text))
+            return _fts.to_tsvector(_as_text(text), config)
         if name == "plainto_tsquery":
-            return _fts.plainto_tsquery(_as_text(text))
+            return _fts.plainto_tsquery(_as_text(text), config)
         if name == "phraseto_tsquery":
-            return _fts.phraseto_tsquery(_as_text(text))
+            return _fts.phraseto_tsquery(_as_text(text), config)
         if name == "websearch_to_tsquery":
-            return _fts.websearch_to_tsquery(_as_text(text))
-        return _fts.to_tsquery(_as_text(text))
+            return _fts.websearch_to_tsquery(_as_text(text), config)
+        return _fts.to_tsquery(_as_text(text), config)
+    if name in (
+        "strip",
+        "numnode",
+        "querytree",
+        "tsvector_to_array",
+        "array_to_tsvector",
+        "tsvector_concat",
+        "tsquery_and",
+        "tsquery_or",
+        "tsquery_not",
+    ):
+        from secantus.sql import fts as _fts
+
+        a = args[0] if args else None
+        b = args[1] if len(args) > 1 else None
+        if a is None:
+            return None
+        if name == "strip":
+            return _fts.strip_tsvector(a)
+        if name == "numnode":
+            return _fts.numnode(a)
+        if name == "querytree":
+            return _fts.querytree(a)
+        if name == "tsvector_to_array":
+            return _fts.tsvector_to_array(a)
+        if name == "array_to_tsvector":
+            return _fts.array_to_tsvector(a)
+        if name == "tsvector_concat":
+            return _fts.tsvector_concat(a, b)
+        if name == "tsquery_not":
+            return _fts.tsquery_not(a)
+        return (_fts.tsquery_and if name == "tsquery_and" else _fts.tsquery_or)(a, b)
     if name == "ts_headline":
         from secantus.sql import fts as _fts
 
@@ -3301,10 +5294,17 @@ def _call_func(name: str, args: list[Any], ctx: ScalarContext | None = None) -> 
         if ctx is not None and args and args[0] is not None:
             session = ctx.session
             channel, payload = str(args[0]), (_as_text(args[1]) if len(args) > 1 else "")
+            if len(payload.encode("utf-8")) >= 8000:
+                raise errors.SQLError("22023", "payload string too long")
             hub = getattr(session, "notify_hub", None)
             if hub is not None:
                 if session.txn_handle is not None:
-                    session.pending_notifies.append((channel, payload))
+                    # Same collapse rule as the NOTIFY statement: an exact
+                    # repeat of (channel, payload) in one transaction is
+                    # delivered once. The two spellings of the same operation
+                    # had different semantics here.
+                    if (channel, payload) not in session.pending_notifies:
+                        session.pending_notifies.append((channel, payload))
                 else:
                     hub.notify(channel, payload, session.backend_pid)
         return None
@@ -3351,9 +5351,16 @@ def _call_func(name: str, args: list[Any], ctx: ScalarContext | None = None) -> 
         from secantus.sql import ranges as _ranges
 
         return _ranges.lower_bound(args[0]) if name == "lower" else _ranges.upper_bound(args[0])
+    if name == "to_number":
+        from secantus.sql import numformat as _numformat
+
+        if not args or args[0] is None or (len(args) > 1 and args[1] is None):
+            return None
+        return _numformat.to_number(_as_text(args[0]), _as_text(args[1]) if len(args) > 1 else "")
     if name in (
         "jsonb_path_query",
         "jsonb_path_query_array",
+        "jsonb_path_query_first",
         "jsonb_path_exists",
         "jsonb_path_match",
     ):
@@ -3383,10 +5390,18 @@ def _call_func(name: str, args: list[Any], ctx: ScalarContext | None = None) -> 
         if name == "jsonb_path_query_array":
             return matches
         # jsonb_path_query is set-returning; in a scalar context return the first
-        # match (NULL when the path matches nothing).
+        # match (NULL when the path matches nothing). ``jsonb_path_query_first``
+        # is that same first-match rule as a scalar function in Postgres.
         return matches[0] if matches else None
     if ctx is not None and getattr(ctx, "catalog", None) is not None:
-        udf = ctx.catalog.get_function(ctx.db, name, len(args))
+        # A schema-qualified call resolves against the DOTTED key first — a
+        # function homed in a user schema is stored that way — then against the
+        # bare name, which is what an unqualified call and every builtin use.
+        udf = None
+        if qualified is not None:
+            udf = ctx.catalog.get_function(ctx.db, qualified, len(args))
+        if udf is None:
+            udf = ctx.catalog.get_function(ctx.db, name, len(args))
         if udf is not None:
             return _invoke_udf(udf, args, ctx)
     if name == "format" and args:
@@ -3404,18 +5419,50 @@ def _call_func(name: str, args: list[Any], ctx: ScalarContext | None = None) -> 
                     out.append("%")
                     i += 2
                     continue
+                # `%n$s` names its argument by POSITION, and may repeat one:
+                # `format('%1$s-%1$s-%2$s','a','b')` is `a-a-b`. Unrecognised,
+                # the whole directive was copied through as literal text, so
+                # the format string came back unformatted.
+                width = 2
+                explicit: int | None = None
+                j = i + 1
+                digits = ""
+                while j < len(fmt) and fmt[j].isdigit():
+                    digits += fmt[j]
+                    j += 1
+                if digits and j < len(fmt) and fmt[j] == "$" and j + 1 < len(fmt):
+                    explicit = int(digits)
+                    spec = fmt[j + 1]
+                    width = j + 2 - i
                 if spec in "sIL":
-                    val = rest.pop(0) if rest else None
+                    if explicit is not None:
+                        if not 0 < explicit <= len(rest):
+                            raise errors.SQLError("22023", "too few arguments for format()")
+                        val = rest[explicit - 1]
+                    else:
+                        # Running out mid-format is an ERROR in Postgres, not an
+                        # empty substitution: `format('%s %s', 'a')` is 22023.
+                        if not rest:
+                            raise errors.SQLError("22023", "too few arguments for format()")
+                        val = rest.pop(0)
                     if spec == "s":
-                        out.append("" if val is None else _as_text(val))
+                        out.append("" if val is None else _concat_text(val))
                     elif spec == "I":
-                        ident = "" if val is None else _as_text(val)
-                        out.append('"' + ident.replace('"', '""') + '"')
+                        # %I *is* quote_ident, so it quotes only when it must.
+                        # Always quoting made `format('%I', 'tbl')` produce
+                        # `"tbl"` where PG gives a bare `tbl`, and a NULL is an
+                        # error there rather than an empty identifier.
+                        if val is None:
+                            raise errors.SQLError(
+                                "22004",
+                                "null values cannot be formatted as an SQL identifier",
+                            )
+                        out.append(_quote_ident(_as_text(val)))
                     else:
                         out.append(
                             "NULL" if val is None else "'" + _as_text(val).replace("'", "''") + "'"
                         )
-                    i += 2
+                    i += width
                     continue
             out.append(c)
             i += 1
@@ -3442,6 +5489,30 @@ def _call_func(name: str, args: list[Any], ctx: ScalarContext | None = None) -> 
             if ctx.catalog.get(db, probe) is not None:
                 return schema == rel_schema
         return False
+    if name in ("enum_range", "enum_first", "enum_last"):
+        return _ENUM_FUNC_NEEDS_NODE
+    if name in ("num_nonnulls", "num_nulls"):
+        nulls = sum(1 for a in args if a is None)
+        return nulls if name == "num_nulls" else len(args) - nulls
+    if name == "parse_ident":
+        # Split a qualified identifier. An UNQUOTED part folds to lower case,
+        # a double-quoted one keeps its spelling — `parse_ident('"A".b')` is
+        # `{A,b}`.
+        if not args or args[0] is None:
+            return None
+        return _split_qualified_ident(str(args[0]))
+    if name == "unistr":
+        if not args or args[0] is None:
+            return None
+        return _unistr(str(args[0]))
+    if name == "array_positions":
+        # Every 1-based index at which the element appears; an empty array when
+        # it does not. PG returns `bigint[]`.
+        arr = args[0] if args else None
+        if arr is None:
+            return None
+        elem = args[1] if len(args) > 1 else None
+        return [i for i, v in enumerate(_as_list(arr), start=1) if v == elem]
     if name == "array_fill":
         # ``array_fill(value, ARRAY[d1, d2, ...])`` — an array of the given
         # dimensions with every element set to value (lower-bounds arg
@@ -3462,8 +5533,8 @@ def _call_func(name: str, args: list[Any], ctx: ScalarContext | None = None) -> 
         return getattr(ctx.session, "current_schema", None)
     if (
         name in ("pg_terminate_backend", "pg_cancel_backend", "pg_backend_pid", "pg_sleep")
-        and ctx is not None
-    ):
+        or (name in _functions_any_context() and getattr(ctx, "session", None) is not None)
+    ) and ctx is not None:
         # Works in any expression context (``select pg_terminate_backend(pid)
         # from pg_stat_activity where …``, ``select pg_sleep(0.01) from
         # generate_series(…)``), not just the constant path.
@@ -3488,7 +5559,23 @@ def _call_func(name: str, args: list[Any], ctx: ScalarContext | None = None) -> 
             session=ctx.session,
         )
         return _struct.unpack(">i", result)[0]
-    raise errors.feature_not_supported(f"function {name}() is not supported in this context")
+    # A SET-RETURNING function reached the SCALAR evaluator: the name is real,
+    # the position is what this engine cannot serve, so 0A000 is the honest
+    # answer and names the actual limit.
+    from secantus.sql import srf as _srf
+
+    if name in _srf._NAMED_SRFS or name in _srf._RECORD_SRFS:
+        raise errors.feature_not_supported(
+            f"set-returning function {name}() is only supported as a row source "
+            f"(FROM {name}(...)) or as the whole SELECT list"
+        )
+    # An unresolvable function NAME is 42883 in Postgres, whatever the reason --
+    # a typo, or a function this engine has not implemented. The old
+    # ``0A000 ... is not supported in this context`` claimed the call site was
+    # the problem when the name was unreachable in every context, and a client
+    # probing for a function's existence looks for 42883.
+    arg_types = ", ".join(_pg_type_name(a) for a in args)
+    raise errors.SQLError("42883", f"function {name}({arg_types}) does not exist")
 
 
 _UDF_MISSING = object()
@@ -3549,6 +5636,7 @@ def _eval_jsonb_nav(node: exp.Expression, scope: Scope, ctx: ScalarContext) -> A
 
     if _hstore.is_hstore(val):
         return _hstore.lookup(val, keys[0]) if keys else None
+    val = _json_navigable(val)
     for key in keys:
         if isinstance(val, dict):
             val = val.get(key)
@@ -3561,6 +5649,28 @@ def _eval_jsonb_nav(node: exp.Expression, scope: Scope, ctx: ScalarContext) -> A
             return None
     if isinstance(node, _JSONB_NAV_SCALAR):  # ->> / #>> return text
         return _json_as_text(val)
+    return val
+
+
+def _json_navigable(val: Any) -> Any:
+    """A ``json``-typed value in a form ``->`` / ``#>`` can descend into.
+
+    The ``json`` type keeps the client's exact text (whitespace, key order and
+    duplicate keys are all preserved, which is what separates it from
+    ``jsonb``), so a ``::json`` value arrives here as a ``JsonText`` -- a *str
+    subclass*. The descent below only walks ``dict`` / ``list``, so every
+    navigation over a ``json`` value fell straight through to the ``else``
+    branch and answered NULL: ``'{"a":1}'::json -> 'a'`` was NULL where
+    Postgres says 1, and so were ``->>``, ``#>``, ``#>>`` and
+    ``json_extract_path``. Parse the text for the walk; the original value is
+    untouched, so the text-preserving property still holds for everything that
+    renders it.
+    """
+    if isinstance(val, typemap.JsonText):
+        try:
+            return json.loads(str(val))
+        except (ValueError, TypeError):
+            return val
     return val
 
 
@@ -3595,6 +5705,26 @@ def _as_json_value(value: Any) -> Any:
         except (ValueError, TypeError):
             return value
     return value
+
+
+def _as_jsonb_arg(value: Any) -> Any:
+    """Coerce an UNTYPED string argument to jsonb.
+
+    A bare `'{"a":1}'` literal is Postgres' `unknown`, and a function's
+    declared parameter type is what resolves it — so `jsonb_set('{"a":1}',
+    '{b}', '2')` is an ordinary call there. Here the literal stayed a Python
+    `str`, the navigation had nothing to walk, and `jsonb_set` /
+    `jsonb_strip_nulls` returned their input UNCHANGED: no-ops that looked like
+    successes. Only the `::jsonb`-cast spelling worked.
+
+    A value that is already parsed passes through, and a string that is not
+    JSON is left alone for the caller to reject."""
+    if not isinstance(value, str):
+        return value
+    try:
+        return json.loads(value)
+    except (ValueError, TypeError):
+        return value
 
 
 def _jsonb_set(
@@ -3716,6 +5846,39 @@ def _eval_hstore_exists(node: exp.Expression, scope: Scope, ctx: ScalarContext) 
     if isinstance(node, exp.JSONBContainsAllTopKeys):  # ?&
         return _hstore.exists_all(left, keys)
     return _hstore.exists_any(left, keys)  # ?|
+
+
+def _jsonb_has_key(value: Any, key: Any) -> bool:
+    """`jsonb ? text`: does the value have this key at the top level?
+
+    An OBJECT is asked about its keys, an ARRAY about its string elements, and
+    a jsonb STRING about equality — which is Postgres' rule, and the reason the
+    array and scalar cases are not just a dict lookup."""
+    if isinstance(value, Mapping):
+        return str(key) in {str(k) for k in value}
+    if isinstance(value, list):
+        return any(isinstance(v, str) and v == key for v in value)
+    return isinstance(value, str) and value == key
+
+
+def _eval_jsonb_exists(node: exp.Expression, scope: Scope, ctx: ScalarContext) -> Any:
+    """`?` / `?|` / `?&` over jsonb.
+
+    Only the hstore forms were wired here, so in a SELECT list these fell
+    through to the generic function path and reported
+    `function jsonb_contains() is not supported` — or, for the two-key forms, a
+    name mangled out of the node class (`j_s_o_n_b_contains_any_top_keys`).
+    They did work inside a WHERE."""
+    left = evaluate(node.this, scope, ctx)
+    right = evaluate(node.expression, scope, ctx)
+    if left is None or right is None:
+        return None
+    if isinstance(node, exp.JSONBContains):
+        return _jsonb_has_key(left, right)
+    keys = right if isinstance(right, (list, tuple)) else [right]
+    if isinstance(node, exp.JSONBContainsAllTopKeys):
+        return all(_jsonb_has_key(left, k) for k in keys)
+    return any(_jsonb_has_key(left, k) for k in keys)
 
 
 def _eval_geo_op(node: exp.Expression, scope: Scope, ctx: ScalarContext) -> Any:
@@ -4075,6 +6238,43 @@ def _subquery_select(node: exp.Expression) -> exp.Expression:
     return node.this if isinstance(node, exp.Subquery) else node
 
 
+def _values_source_rows(node: exp.Expression) -> tuple[str | None, list[dict[str, Any]]] | None:
+    """``(alias, rows)`` for a ``FROM (VALUES …) AS t(a, b)`` source, else None.
+
+    Each row is a dict keyed by the alias's column names, or ``column1``,
+    ``column2`` … when the aliases are omitted — Postgres' own default names.
+    """
+    inner = node.this if isinstance(node, (exp.Subquery, exp.Alias)) else node
+    if not isinstance(inner, exp.Values):
+        return None
+    alias_node = node.args.get("alias") if isinstance(node, exp.Subquery) else None
+    alias_node = alias_node or inner.args.get("alias")
+    name = alias_node.this.name if alias_node is not None and alias_node.this else None
+    cols = [c.name for c in (alias_node.args.get("columns") or [])] if alias_node else []
+    rows: list[dict[str, Any]] = []
+    for tup in inner.expressions:
+        vals = tup.expressions if isinstance(tup, exp.Tuple) else [tup]
+        names = cols or [f"column{i + 1}" for i in range(len(vals))]
+        rows.append(dict(zip(names, vals, strict=False)))
+    return name, rows
+
+
+def _values_scope(
+    alias: str | None, row: dict[str, Any], outer: Scope, ctx: ScalarContext
+) -> Scope:
+    """A ``Scope`` over one VALUES row; unknown names fall through to ``outer``.
+
+    The cells are AST nodes, evaluated on reference so an expression in the
+    VALUES list (``(1 + 1)``) works like any other."""
+
+    def resolve(node: exp.Column) -> Any:
+        if (node.table or None) in (None, alias) and node.name in row:
+            return evaluate(row[node.name], outer, ctx)
+        return outer(node)
+
+    return resolve
+
+
 def _inner_row_scopes(select: exp.Expression, outer: Scope, ctx: ScalarContext):
     """Yield a ``Scope`` for each inner-table row that satisfies the subquery's
     WHERE. Correlated references in that WHERE fall through to ``outer``. Shared
@@ -4095,6 +6295,19 @@ def _inner_row_scopes(select: exp.Expression, outer: Scope, ctx: ScalarContext):
             yield outer
         return
     sources = [from_node.this] + [j.this for j in joins]
+    # A VALUES-derived source (``FROM (VALUES (1), (2)) t(n)``) is not a
+    # relation, so `_lookup_inner_table` found nothing and every scalar subquery
+    # over one -- `IN (...)`, `EXISTS`, `ARRAY(...)` and the bare scalar form
+    # alike -- answered `42P01 relation "" does not exist`.
+    if len(sources) == 1:
+        values_rows = _values_source_rows(sources[0])
+        if values_rows is not None:
+            alias, rows = values_rows
+            for row in rows:
+                scope = _values_scope(alias, row, outer, ctx)
+                if where is None or _truthy(evaluate(where.this, scope, ctx)):
+                    yield scope
+            return
     resolved = []
     for table_node in sources:
         tdef = _lookup_inner_table(ctx, table_node)
@@ -4244,6 +6457,11 @@ def _eval_between(node: exp.Between, outer: Scope, ctx: ScalarContext) -> Any:
     v = evaluate(node.this, outer, ctx)
     low = evaluate(node.args["low"], outer, ctx)
     high = evaluate(node.args["high"], outer, ctx)
+    # `BETWEEN SYMMETRIC` puts the bounds in order first, so
+    # `3 BETWEEN SYMMETRIC 5 AND 1` is TRUE. The keyword was parsed and then
+    # ignored, which made every reversed-bound test answer FALSE.
+    if node.args.get("symmetric") and low is not None and high is not None and _cmp_ge(low, high):
+        low, high = high, low
     lo_cmp = None if v is None or low is None else _cmp_ge(v, low)
     hi_cmp = None if v is None or high is None else _cmp_ge(high, v)
     if lo_cmp is False or hi_cmp is False:
@@ -4258,6 +6476,47 @@ def _cmp_ge(a: Any, b: Any) -> bool:
     return a >= b
 
 
+#: `_compare_rows` returning this means "no NULL was involved — compare the
+#: field tuples as before".
+_ROW_UNDECIDED = object()
+
+
+def _compare_rows(node: exp.Expression, left: tuple, right: tuple) -> Any:
+    """Postgres' three-valued rule for comparing two ROWS.
+
+    Fields are compared left to right; the FIRST pair that decides the answer
+    wins, and a NULL pair reached before then makes the whole comparison NULL.
+    So `(1, NULL) = (1, NULL)` is NULL (nothing decided it), `(1, NULL) =
+    (2, 3)` is FALSE (the first pair decided it), and `(1, 2) < (1, NULL)` is
+    NULL. Comparing the field tuples directly answered TRUE for the first of
+    those, because Python's `==` treats two Nones as equal.
+    """
+    if len(left) != len(right):
+        return _ROW_UNDECIDED
+    equality = isinstance(node, (exp.EQ, exp.NEQ))
+    for a, b in zip(left, right, strict=True):
+        if a is None or b is None:
+            return None  # undecided by the fields before it, and now unknowable
+        if a == b:
+            continue
+        if equality:
+            return isinstance(node, exp.NEQ)
+        return _ROW_UNDECIDED  # an ordering decided here — let the tuple compare
+    return isinstance(node, exp.EQ) if equality else _ROW_UNDECIDED
+
+
+def _record_fields(value: Any) -> tuple | None:
+    """A record's field values in order, or None when it is not a record.
+
+    A `RecordValue` is a dict of `f1..fN`, and a dict has no `<` — so
+    `(1,2) < (1,3)` raised `TypeError` and reached the client as `XX000`.
+    Postgres compares records field by field, left to right, which is what
+    the ordered tuple gives."""
+    if not isinstance(value, typemap.RecordValue):
+        return None
+    return tuple(value[k] for k in sorted(value, key=lambda k: int(str(k)[1:] or 0)))
+
+
 def _as_bool_arg(value: Any) -> bool:
     """A boolean argument that may arrive as a real bool, an AST node, or the
     text PG accepts for one (an untyped literal binds as text)."""
@@ -4270,27 +6529,216 @@ def _as_bool_arg(value: Any) -> bool:
     return str(value).strip().lower() in ("t", "true", "y", "yes", "on", "1")
 
 
+def _like_matches(node: exp.Expression, value: Any, pattern: Any, escape: Any) -> Any:
+    """One LIKE match, shared by the scalar and the quantified forms."""
+
+    from secantus.sql.planner import _ESCAPE_UNSET, _like_to_regex
+
+    if value is None or pattern is None:
+        return None
+    flags = re.IGNORECASE if isinstance(node, exp.ILike) else 0
+    esc = _as_text(escape) if escape is not None else _ESCAPE_UNSET
+    hit = (
+        re.match(_like_to_regex(_as_text(pattern), escape=esc), _as_text(value), flags) is not None
+    )
+    return not hit if node.args.get("negate") else hit
+
+
 def _eval_like(node: exp.Expression, outer: Scope, ctx: ScalarContext, escape: Any = None) -> Any:
-    import re
 
     from secantus.sql.planner import _like_to_regex
 
     val = evaluate(node.this, outer, ctx)
+    # `LIKE ALL(<array>)` / `LIKE ANY(<array>)` — the quantified form, which
+    # was `0A000 unsupported scalar expression` while the scalar `LIKE` worked.
+    quantifier = node.expression
+    while isinstance(quantifier, exp.Paren):
+        quantifier = quantifier.this
+    if isinstance(quantifier, (exp.All, exp.Any)):
+        patterns = evaluate(quantifier.this, outer, ctx)
+        if val is None or patterns is None:
+            return None
+        combine = all if isinstance(quantifier, exp.All) else any
+        hits = [
+            _like_matches(node, val, p, escape)
+            for p in (patterns if isinstance(patterns, (list, tuple)) else [patterns])
+        ]
+        if any(h is None for h in hits):
+            return None
+        return combine(hits)
     pattern = evaluate(node.expression, outer, ctx)
     if val is None or pattern is None:
         return None
     flags = re.IGNORECASE if isinstance(node, exp.ILike) else 0
-    esc = _as_text(escape) if escape is not None else None
+    # No ESCAPE clause means PG's DEFAULT escape (backslash), not "no escape" —
+    # the two are different and only `ESCAPE ''` disables it.
+    from secantus.sql.planner import _ESCAPE_UNSET
+
+    esc = _as_text(escape) if escape is not None else _ESCAPE_UNSET
     hit = re.match(_like_to_regex(_as_text(pattern), escape=esc), _as_text(val), flags) is not None
     # sqlglot parses ``NOT LIKE`` as ``Like(negate=True)``, not Not(Like).
     return not hit if node.args.get("negate") else hit
+
+
+#: The SQL-regex metacharacters ``SIMILAR TO`` shares with POSIX regex. Every
+#: other regex metacharacter -- ``.`` above all -- is a LITERAL in a SIMILAR TO
+#: pattern, which is the whole trap: ``'abc' SIMILAR TO 'a.c'`` is FALSE.
+_SIMILAR_PASSTHROUGH = "|*+?{}()[]"
+
+
+def similar_to_regex(pattern: str, escape: str = "\\") -> str:
+    """A Postgres ``SIMILAR TO`` pattern as an anchored Python regex.
+
+    SQL's regex dialect is LIKE's wildcards (``%`` any run, ``_`` any single
+    character) plus a handful of POSIX operators (``| * + ? {} () []``). Any
+    other character is literal and must be escaped -- notably ``.``, ``^`` and
+    ``$`` -- and the match is against the WHOLE string.
+    """
+    out = ["(?s)\\A"]
+    i = 0
+    in_bracket = False
+    while i < len(pattern):
+        ch = pattern[i]
+        if escape and ch == escape and i + 1 < len(pattern):
+            out.append(re.escape(pattern[i + 1]))
+            i += 2
+            continue
+        if in_bracket:
+            # Inside [...] the SQL dialect is POSIX's, so it passes through.
+            out.append(ch)
+            if ch == "]":
+                in_bracket = False
+            i += 1
+            continue
+        if ch == "[":
+            in_bracket = True
+            out.append(ch)
+        elif ch == "%":
+            out.append(".*")
+        elif ch == "_":
+            out.append(".")
+        elif ch in _SIMILAR_PASSTHROUGH:
+            out.append(ch)
+        else:
+            out.append(re.escape(ch))
+        i += 1
+    out.append("\\Z")
+    return "".join(out)
+
+
+def _eval_similar_to(
+    node: exp.Expression, outer: Scope, ctx: ScalarContext, escape: Any = None
+) -> Any:
+    """``x SIMILAR TO pattern [ESCAPE c]`` — SQL's own regex flavour."""
+    val = evaluate(node.this, outer, ctx)
+    pattern = evaluate(node.expression, outer, ctx)
+    if val is None or pattern is None:
+        return None
+    esc = _as_text(escape) if escape is not None else "\\"
+    hit = re.match(similar_to_regex(_as_text(pattern), esc), _as_text(val)) is not None
+    return not hit if node.args.get("negate") else hit
+
+
+#: The comparison classes a quantifier can sit under, and the Python predicate
+#: each one applies to (element, needle).
+_QUANT_CMP: dict[type, Any] = {
+    exp.EQ: lambda a, b: a == b,
+    exp.NEQ: lambda a, b: a != b,
+    exp.GT: lambda a, b: a > b,
+    exp.GTE: lambda a, b: a >= b,
+    exp.LT: lambda a, b: a < b,
+    exp.LTE: lambda a, b: a <= b,
+}
+
+
+def _quantified_compare(
+    node: exp.Expression,
+) -> tuple[bool, exp.Expression, exp.Expression] | None:
+    """``(is_all, array_expr, other_expr)`` when ``node`` is a quantified
+    comparison ``x <op> ANY(arr)`` / ``x <op> ALL(arr)``, else None.
+
+    sqlglot models the two quantifiers differently -- ``ANY`` is ``exp.Any`` but
+    ``ALL`` arrives as an ``Anonymous`` call named ALL -- and the previous code
+    handled each only under ``=`` / ``<>``. Every ORDER comparison was therefore
+    an outright error: ``1 < ALL(ARRAY[2,3])`` answered "function all() is not
+    supported in this context".
+    """
+    if type(node) not in _QUANT_CMP:
+        return None
+    for side, other in ((node.this, node.expression), (node.expression, node.this)):
+        if isinstance(side, exp.Any):
+            inner = side.this
+            while isinstance(inner, exp.Paren):
+                inner = inner.this
+            return False, inner, other
+        if isinstance(side, exp.Anonymous) and str(side.this).upper() == "ALL":
+            inner = side.expressions[0] if side.expressions else exp.Null()
+            return True, inner, other
+        if isinstance(side, exp.All):
+            return True, side.this, other
+    return None
+
+
+def _eval_quantified(
+    node: exp.Expression,
+    quant: tuple[bool, exp.Expression, exp.Expression],
+    scope: Scope,
+    ctx: ScalarContext,
+) -> Any:
+    """SQL three-valued ``ANY`` / ``ALL`` over an array operand.
+
+    ANY is TRUE as soon as one element compares true, FALSE only when every
+    comparison is false, and NULL when neither settles it. ALL is the mirror.
+    An EMPTY array settles it outright -- ``NULL = ALL('{}')`` is true and
+    ``NULL = ANY('{}')`` is false, needle regardless -- while a NULL *array* is
+    NULL. (Measured against PostgreSQL 14.13.)
+    """
+    is_all, arr_node, other_node = quant
+    sub = arr_node
+    while isinstance(sub, exp.Paren):
+        sub = sub.this
+    if isinstance(sub, (exp.Subquery, exp.Select)):
+        # ``x <op> ANY (SELECT …)`` — the set form. Its rows are the haystack;
+        # the comparison rules below are the same ones the array form uses.
+        select = _subquery_select(sub)
+        proj = select.expressions[0]
+        haystack: Any = [
+            evaluate(proj, inner, ctx) for inner in _inner_row_scopes(select, scope, ctx)
+        ]
+    else:
+        haystack = evaluate(arr_node, scope, ctx)
+        if haystack is None:
+            return None
+        if not isinstance(haystack, (list, tuple)):
+            haystack = [haystack]
+    if not haystack:
+        return is_all  # the empty case is decided before the needle is looked at
+    needle = _unwrap_decimal(evaluate(other_node, scope, ctx))
+    if needle is None:
+        return None
+    predicate = _QUANT_CMP[type(node)]
+    saw_null = False
+    for v in haystack:
+        elem = _unwrap_decimal(v)
+        if elem is None:
+            saw_null = True
+            continue
+        try:
+            hit = bool(
+                predicate(elem, needle) if node.expression is arr_node else predicate(needle, elem)
+            )
+        except TypeError:
+            saw_null = True
+            continue
+        if hit != is_all:  # ANY found a true / ALL found a false
+            return hit
+    return None if saw_null else is_all
 
 
 def _eval_regexp(node: exp.Expression, outer: Scope, ctx: ScalarContext) -> Any:
     """POSIX regex-match operators ``~`` (``RegexpLike``) / ``~*`` (``RegexpILike``).
     The pattern is a raw regex matched *unanchored* (``re.search``), unlike LIKE.
     ``!~`` / ``!~*`` arrive as ``Not(...)`` and are negated by the caller."""
-    import re
 
     val = evaluate(node.this, outer, ctx)
     pattern = evaluate(node.expression, outer, ctx)
@@ -4305,7 +6753,11 @@ def _sub_scope(inner_alias: str, tdef: Any, row: dict[str, Any], outer: Scope) -
         alias = node.table or None
         name = node.name
         if alias == inner_alias or (alias is None and tdef.column(name) is not None):
-            return get_path(row, tdef.field_for(name))
+            field = tdef.field_for(name)
+            # With the sub-millisecond companion merged back, as the outer
+            # row's scope has it: otherwise `s2.t = s.t` compared a truncated
+            # inner timestamp against an exact outer one and never matched.
+            return _subms.merge(get_path(row, field), row.get(_subms.companion_field(field)))
         return outer(node)  # correlated reference to the enclosing query
 
     return resolve

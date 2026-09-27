@@ -1,0 +1,1531 @@
+"""The Rust PostgreSQL server, diffed against a real PostgreSQL.
+
+The Python SQL server is the *behaviour* oracle; live PostgreSQL is the
+*correctness* one, and where they disagree PostgreSQL wins. Every case here runs
+the identical DDL, DML and query against both servers and asserts the answers
+match — which is how the NULL-ordering and three-valued-logic rules in
+`secantus-pgplan` were derived rather than guessed.
+
+Needs BOTH:
+  * `secantusd-pg` built  — cd crates/secantus-pgserver && cargo build
+  * a live PostgreSQL     — SECANTUS_PG_ORACLE_DSN, default the local 14
+"""
+
+from __future__ import annotations
+
+import contextlib
+import datetime as dt
+import os
+import time
+from collections.abc import Iterator
+from decimal import Decimal
+from pathlib import Path
+
+import pytest
+
+psycopg = pytest.importorskip("psycopg")
+from psycopg.types.multirange import Multirange  # noqa: E402
+from psycopg.types.range import Range  # noqa: E402
+
+from tests.test_rust_pgserver_slice import BINARY, _Server  # noqa: E402
+
+ORACLE_DSN = os.environ.get(
+    "SECANTUS_PG_ORACLE_DSN",
+    "host=127.0.0.1 port=5432 dbname=postgres user=jdrumgoole",
+)
+
+
+# Short and few on purpose. The failure mode here is a HANG, not a blip:
+# Postgres.app gates connections per-application behind a macOS permission
+# dialog, so an unapproved process (every pytest-xdist worker) waits for a
+# dialog nobody answers until the timeout expires. A generous 15s x 5 budget
+# therefore bought nothing and cost 75s of dead waiting per worker.
+_CONNECT_TIMEOUT_S = 5
+_CONNECT_ATTEMPTS = 2
+# Why the last connection attempt failed. A bare "no oracle" skip is
+# indistinguishable from "PostgreSQL is not installed", which is how ~100
+# silently skipped tests looked like an intentional configuration.
+_LAST_ERROR: list[str] = ["never attempted"]
+
+
+def _oracle() -> psycopg.Connection | None:
+    """Connect to the oracle, retrying once on a transient failure.
+
+    **If this skips under the full suite but passes standalone, the cause is
+    almost certainly Postgres.app\'s per-application permission gate**, not
+    your code and not load. Measured 2026-08-31: every worker got
+
+        FATAL: Postgres.app failed to verify "trust" authentication
+        DETAIL: You did not confirm the permission dialog.
+
+    surfacing through psycopg as a bare `ConnectionTimeout`, because the server
+    waits on a dialog no background process can answer. It silently disabled
+    ~109 tests here and the five pre-existing oracle suites
+    (`test_sql_search_path.py` and friends) alongside them. Fix it in
+    Postgres.app\'s settings, or point `SECANTUS_PG_ORACLE_DSN` at a plain
+    PostgreSQL; there is nothing to fix in the test.
+    """
+    delay = 0.5
+    for attempt in range(_CONNECT_ATTEMPTS):
+        try:
+            return psycopg.connect(ORACLE_DSN, autocommit=True, connect_timeout=_CONNECT_TIMEOUT_S)
+        except Exception as exc:  # noqa: BLE001 - retry, then record why
+            _LAST_ERROR[0] = f"{type(exc).__name__}: {exc}"
+            if attempt == _CONNECT_ATTEMPTS - 1:
+                return None
+            time.sleep(delay)
+            delay *= 2
+    return None
+
+
+def _oracle_available() -> bool:
+    """Probe for the oracle, closing the probe's connection.
+
+    The docstring here used to say the first cut "leaked" a connection per
+    worker by calling `_oracle()` straight into a `skipif`. **Measured
+    2026-08-31: it did not.** CPython refcounting collects the unreferenced
+    connection the moment the comparison is computed, and psycopg closes it on
+    `__del__`; nine such probes leave zero rows in `pg_stat_activity`, where
+    nine held references leave nine. Closing explicitly is still right -- it
+    does not depend on refcounting -- but connection exhaustion was never the
+    reason these suites skip. See `tests/pg_oracle.py`, the shared probe the
+    six older oracle suites now use, for what the reason actually is.
+    """
+    conn = _oracle()
+    if conn is None:
+        return False
+    conn.close()
+    return True
+
+
+pytestmark = [
+    pytest.mark.skipif(
+        not BINARY.exists(),
+        reason="secantusd-pg not built (cargo build in crates/secantus-pgserver)",
+    ),
+    pytest.mark.skipif(
+        not _oracle_available(),
+        reason=f"no local PostgreSQL oracle ({ORACLE_DSN}): {_LAST_ERROR[0]}",
+    ),
+]
+
+# One shared fixture table. `n` and `s` are nullable ON PURPOSE: three-valued
+# logic is where SQL and MQL diverge, so every case gets a NULL to trip over.
+SETUP = [
+    "CREATE TABLE d (id int PRIMARY KEY, n int, s text)",
+    "INSERT INTO d VALUES (1, 3, 'c'), (2, NULL, 'a'), (3, 1, NULL), (4, 2, 'b')",
+]
+
+QUERIES = [
+    # scalar <op> ANY/ALL(array): three-valued, empty ANY is false / empty
+    # ALL is true, a NULL element or NULL scalar yields NULL.
+    "SELECT 'x' = ANY(ARRAY['x','y'])",
+    "SELECT 1 = ANY(ARRAY[1,2,3])",
+    "SELECT 0 < ALL(ARRAY[1,2,3])",
+    "SELECT 5 <> ALL(ARRAY[1,2,3])",
+    "SELECT 2 >= ANY(ARRAY[1,5])",
+    "SELECT 1 = ANY(ARRAY[]::int[])",
+    "SELECT 1 = ALL(ARRAY[]::int[])",
+    "SELECT 9 = ANY(ARRAY[1,NULL,3])",
+    "SELECT 1 = ANY(ARRAY[1,NULL,3])",
+    "SELECT 1 = ALL(ARRAY[1,NULL,1])",
+    "SELECT NULL::int = ANY(ARRAY[1,2])",
+    # A bounded pg_type/pg_range JOIN -- RangeInfo.fetch's shape. A FULL
+    # pg_range dump is deliberately NOT compared: the oracle's catalog carries
+    # builtin ranges plus any custom range a prior test left behind, so the row
+    # set legitimately differs (see the composite-campaign note in the backlog).
+    "SELECT t.typname FROM pg_type t LEFT JOIN pg_range r ON r.rngtypid = t.oid WHERE t.oid = 25",
+    # Scalar calls, constant and over columns; PostgreSQL replaces only the
+    # FIRST match unless `g` is given, which is not most regex libraries'
+    # default.
+    "SELECT regexp_replace('aaa', 'a', 'b')",
+    "SELECT regexp_replace('aaa', 'a', 'b', 'g')",
+    "SELECT regexp_replace('Hello World', 'o', '0', 'gi')",
+    "SELECT regexp_replace('abc123', '(\\d+)', '<\\1>')",
+    "SELECT regexp_replace(s, 'l+', 'L') FROM d ORDER BY id",
+    "SELECT upper(s) FROM d ORDER BY id",
+    "SELECT length(s) FROM d ORDER BY id",
+    "SELECT current_setting(NULL)",
+    # An array's TYPE comes from its elements, and the mixed-numeric cases
+    # widen in PostgreSQL's own order (int2 < int4 < int8 < numeric < float4 <
+    # float8). A NULL literal contributes no type.
+    "SELECT array[1::int2]",
+    "SELECT array[1::int8]",
+    "SELECT array[1::float4]",
+    "SELECT array[1, 1.5]",
+    "SELECT array[1::int8, 1.5]",
+    "SELECT array[1::float4, 1.5]",
+    "SELECT array[1.5::numeric, 1::float4]",
+    "SELECT array[1::float4, 1::float8]",
+    "SELECT array[1::int8, 1::int2]",
+    "SELECT array[null, 1]",
+    "SELECT array['2026-01-01'::date]",
+    "SELECT array['2026-01-01 12:00'::timestamp]",
+    # A QUOTED brace is the string, not the start of a nested array.
+    """SELECT '{"{"}'::text[]""",
+    """SELECT '{"a,b","q x"}'::text[]""",
+    # The virtual `pg_type` catalog, to_regtype and the regtype cast -- what
+    # psycopg's TypeInfo.fetch is made of. The count is over a fixed oid list
+    # rather than the whole table, whose size differs by server version.
+    "SELECT 0::oid",
+    "SELECT '25'::oid",
+    "SELECT 4294967295::oid",
+    "SELECT (-1)::oid",
+    "SELECT 25::oid::int4",
+    "SELECT 25::oid::text",
+    "SELECT to_regtype('text')",
+    "SELECT to_regtype('\"text\"')",
+    "SELECT to_regtype('\"TEXT\"')",
+    "SELECT to_regtype('integer')",
+    "SELECT to_regtype('nope')",
+    "SELECT to_regtype('text')::text",
+    "SELECT to_regtype('integer')::int4",
+    "SELECT 25::regtype::text",
+    "SELECT 1043::regtype::text",
+    "SELECT typname, oid, typarray, typdelim FROM pg_type WHERE oid = 25",
+    "SELECT typname FROM pg_type t WHERE t.oid = to_regtype('jsonb')",
+    "SELECT count(*) FROM pg_type WHERE oid IN (16, 25, 23, 3802)",
+    "SELECT oid::regtype::text FROM pg_type WHERE oid = 23",
+    # A series' bounds, which clients write as parameters far more often than
+    # as literals; the parameterised shapes are in PARAMETERISED below.
+    "SELECT * FROM generate_series(1, null)",
+    "SELECT * FROM generate_series(null::int4, 3)",
+    "SELECT * FROM generate_series(1, 10, null)",
+    # A numeric NEVER renders in exponent notation, whatever its magnitude --
+    # in the row, through a `::text` cast, or inside an array. Decimal128's own
+    # rendering does, and `1.5e20` came back as `1.5E+20` against PostgreSQL's
+    # `150000000000000000000`; two Decimals that compare equal and are not the
+    # same text.
+    "SELECT 1.5e20::numeric",
+    "SELECT (1.5e20::numeric)::text",
+    "SELECT array[1.5e20::numeric]",
+    "SELECT 2e3::numeric",
+    "SELECT (1e-10::numeric)::text",
+    "SELECT (1.50::numeric)::text",
+    "SELECT array[1.50::numeric, 2e3::numeric]",
+    # --- ORDER BY: null placement is the trap --------------------------------
+    "SELECT id FROM d ORDER BY n",
+    "SELECT id FROM d ORDER BY n DESC",
+    "SELECT id FROM d ORDER BY n ASC NULLS FIRST",
+    "SELECT id FROM d ORDER BY n DESC NULLS LAST",
+    "SELECT id FROM d ORDER BY s",
+    "SELECT id FROM d ORDER BY s DESC",
+    "SELECT id FROM d ORDER BY n, id",
+    "SELECT id FROM d ORDER BY id DESC",
+    # --- LIMIT / OFFSET ------------------------------------------------------
+    "SELECT id FROM d ORDER BY id LIMIT 2",
+    "SELECT id FROM d ORDER BY id OFFSET 1",
+    "SELECT id FROM d ORDER BY id LIMIT 2 OFFSET 1",
+    "SELECT id FROM d ORDER BY id LIMIT 0",
+    "SELECT id FROM d ORDER BY id OFFSET 99",
+    "SELECT id FROM d ORDER BY n LIMIT 3",
+    # --- three-valued logic --------------------------------------------------
+    "SELECT id FROM d WHERE n IS NULL",
+    "SELECT id FROM d WHERE n IS NOT NULL",
+    "SELECT id FROM d WHERE s IS NULL",
+    "SELECT id FROM d WHERE n IN (1, 3)",
+    "SELECT id FROM d WHERE n IN (1, NULL)",
+    "SELECT id FROM d WHERE n NOT IN (1)",
+    "SELECT id FROM d WHERE n NOT IN (1, NULL)",
+    "SELECT id FROM d WHERE s IN ('a', 'c')",
+    "SELECT id FROM d WHERE n BETWEEN 1 AND 2",
+    "SELECT id FROM d WHERE n NOT BETWEEN 1 AND 2",
+    "SELECT id FROM d WHERE n = 1",
+    # `= NULL` is never true in SQL -- only `IS NULL` matches. MQL's `{n: null}`
+    # would match, so these pin the short-circuit for LITERAL nulls too.
+    "SELECT id FROM d WHERE n = NULL",
+    "SELECT id FROM d WHERE n <> NULL",
+    "SELECT id FROM d WHERE n > NULL",
+    "SELECT id FROM d WHERE s = NULL",
+    "SELECT id FROM d WHERE n <> 1",
+    "SELECT id FROM d WHERE n > 1 AND s IS NOT NULL",
+    "SELECT id FROM d WHERE n IS NULL OR n > 2",
+    # --- projection ----------------------------------------------------------
+    "SELECT id, n, s FROM d ORDER BY id",
+    "SELECT s AS label FROM d ORDER BY id",
+    # --- casts. The declared type matters as much as the value: `Describe`
+    # runs before `Bind`, so a type inferred from the (NULL) value typed
+    # `$1::int` as varchar and the client decoded an integer as a string.
+    # --- constant expressions. `7/2` is 3 (integer division truncates) and
+    # `5/0` is 22012 -- both probed, neither guessed.
+    # --- session settings (GUCs). Column CASING is part of the contract:
+    # `SHOW datestyle` answers a column called `DateStyle`.
+    "SHOW client_encoding",
+    "SHOW datestyle",
+    "SHOW standard_conforming_strings",
+    "SHOW transaction_read_only",
+    "SELECT current_setting('client_encoding')",
+    "SELECT current_setting('nope.zz', true)",
+    "SELECT 1+1",
+    "SELECT 1-2",
+    "SELECT 2*3",
+    "SELECT 7/2",
+    "SELECT 7%2",
+    "SELECT (1+2)*3",
+    "SELECT -3",
+    "SELECT 'a'||'b'",
+    "SELECT 'n='||1",
+    "SELECT 1+NULL",
+    "SELECT 1=1",
+    "SELECT 1<2",
+    "SELECT 2<>2",
+    # --- date / time. `22007` (not a date) and `22008` (a date that cannot
+    # exist) are DIFFERENT codes, and PostgreSQL canonicalises the spelling.
+    # --- numeric. SCALE is part of the value: `1.50` is not `1.5`.
+    "SELECT 1.5",
+    "SELECT 1.50::numeric::text",
+    "SELECT '0.1'::numeric::text",
+    "SELECT '-0.30'::numeric::text",
+    "SELECT '2.5000000000000000'::numeric::text",
+    "SELECT NULL::numeric",
+    "SELECT '2026-09-01 12:34:56'::timestamp::text",
+    "SELECT '2026-09-01 12:34:56.789'::timestamp::text",
+    "SELECT '2026-09-01 12:34:56.789012'::timestamp::text",
+    "SELECT '2026-09-01 12:34:56.000'::timestamp::text",
+    "SELECT '2026-09-01'::timestamp::text",
+    "SELECT '2026-09-01T12:34:56'::timestamp::text",
+    # A `timestamp` (no tz) accepts a trailing offset and DROPS it,
+    # keeping the wall clock -- psycopg dumps a tz-aware datetime here.
+    "SELECT '2000-01-01 03:02:03+02'::timestamp::text",
+    "SELECT '2000-01-01 03:02:03-05:30'::timestamp::text",
+    "SELECT '2000-01-01 03:02:03-01:02:03'::timestamp::text",
+    "SELECT NULL::timestamp",
+    "SELECT '2026-09-01'::date::text",
+    "SELECT '2026-9-1'::date::text",
+    "SELECT '20260901'::date::text",
+    # PostgreSQL's date/timestamp domain is wider than a Python date: infinity,
+    # epoch, years past 9999 and BC all render as canonical text and must match.
+    "SELECT 'infinity'::date::text",
+    "SELECT '-infinity'::date::text",
+    "SELECT 'infinity'::timestamp::text",
+    "SELECT '-infinity'::timestamp::text",
+    "SELECT 'epoch'::timestamp::text",
+    "SELECT '10000-01-01'::date::text",
+    "SELECT '12345-06-07'::date::text",
+    "SELECT '10000-01-01 12:00'::timestamp::text",
+    "SELECT '0100-06-15 BC'::date::text",
+    # Leap-aware day validity holds for wide/BC years too: 10000 is a leap
+    # year (div by 400) and 1 BC is astronomical year 0 (also leap).
+    "SELECT '10000-02-29'::date::text",
+    "SELECT '0001-02-29 BC'::date::text",
+    "SELECT '1000-01-01 12:00 BC'::timestamp::text",
+    "SELECT '12:34:56'::time::text",
+    "SELECT '12:34'::time::text",
+    "SELECT '12:34:56.5'::time::text",
+    "SELECT '12:34:56.000'::time::text",
+    "SELECT NULL::date",
+    "SELECT NULL::time",
+    # uuid canonicalises to lowercase 8-4-4-4-12 from upper / braces /
+    # no-hyphen / partial-hyphen spellings, all reading back as oid 2950.
+    "SELECT 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11'::uuid::text",
+    "SELECT 'A0EEBC99-9C0B-4EF8-BB6D-6BB9BD380A11'::uuid::text",
+    "SELECT '{a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11}'::uuid::text",
+    "SELECT 'a0eebc999c0b4ef8bb6d6bb9bd380a11'::uuid::text",
+    "SELECT 'a0eebc99-9c0b4ef8-bb6d-6bb9bd380a11'::uuid::text",
+    # inet keeps its mask under the ::text cast (network_show); cidr is
+    # strict and IPv6 is compressed to canonical form.
+    "SELECT '1.2.3.4'::inet::text",
+    "SELECT '1.2.3.4/24'::inet::text",
+    "SELECT '10.0.0.0/8'::cidr::text",
+    "SELECT '2001:0db8:0000:0000:0000:0000:0000:0001'::inet::text",
+    "SELECT '2001:db8::/32'::cidr::text",
+    "SELECT NULL::inet",
+    "SELECT NULL::cidr",
+    "SELECT NULL::uuid",
+    # Anonymous records (ROW / parenthesised list): construction, text
+    # render with PG field-quoting, and three-valued comparison.
+    "SELECT ROW(1, 'a', true)",
+    "SELECT (1, 'a')",
+    "SELECT (1, 2, 3)::text",
+    "SELECT ROW(1, NULL, 3)::text",
+    "SELECT ROW('a,b', 'c')::text",
+    "SELECT ROW('he\"llo')::text",
+    "SELECT ROW('')::text",
+    "SELECT ROW(false, true)::text",
+    "SELECT ROW(1, 2) = ROW(1, 2)",
+    "SELECT ROW(1, 2) < ROW(1, 3)",
+    "SELECT ROW(2, 1) > ROW(1, 9)",
+    "SELECT ROW(1, 2) <> ROW(1, 3)",
+    "SELECT ROW(1, NULL) = ROW(1, NULL)",
+    "SELECT ROW(1, 2) < ROW(1, NULL)",
+    "SELECT ROW(1, NULL, 3) = ROW(1, 2, 4)",
+    "SELECT pg_typeof(ROW(1, 2))::text",
+    # bytea: hex and escape input, byte functions, encode/decode, concat.
+    "SELECT '\\x0102ff'::bytea::text",
+    "SELECT 'ab\\001c'::bytea::text",
+    "SELECT '\\x de ad BE EF'::bytea::text",
+    "SELECT length('\\x0102ff'::bytea)",
+    "SELECT octet_length('\\x0102ff'::bytea)",
+    "SELECT bit_length('\\x0102ff'::bytea)",
+    "SELECT get_byte('\\x0102ff'::bytea, 2)",
+    "SELECT set_byte('\\x0102ff'::bytea, 1, 64)::text",
+    "SELECT encode('\\x0102ff'::bytea, 'base64')",
+    "SELECT encode('\\x00017f80ff'::bytea, 'escape')",
+    "SELECT decode('AQL/', 'base64')::text",
+    "SELECT ('\\x0102'::bytea || '\\xff'::bytea)::text",
+    # bytea compares by unsigned byte value, lexicographically; a prefix
+    # sorts before the longer value.
+    "SELECT '\\x01'::bytea = '\\x01'::bytea",
+    "SELECT '\\x01'::bytea < '\\x02'::bytea",
+    "SELECT '\\xff'::bytea > '\\x01'::bytea",
+    "SELECT '\\x01'::bytea < '\\x0102'::bytea",
+    "SELECT '\\x0102'::bytea <> '\\x0103'::bytea",
+    "SELECT '1'::int",
+    "SELECT 1::text",
+    "SELECT '1.5'::float8",
+    "SELECT 'true'::bool",
+    "SELECT NULL::int",
+    "SELECT '42'::int8",
+    "SELECT 1::float8",
+    "SELECT id FROM d WHERE n = '3'::int",
+    "SELECT id FROM d WHERE n > '1'::int",
+    "SELECT * FROM d ORDER BY id",
+    "SELECT n, id FROM d ORDER BY id",
+    "SELECT id, id FROM d ORDER BY id",
+    # --- more three-valued logic, hunting for the next `<>`-shaped bug -------
+    "SELECT id FROM d WHERE n >= 1",
+    "SELECT id FROM d WHERE n <= 2",
+    "SELECT id FROM d WHERE n < 3",
+    "SELECT id FROM d WHERE s <> 'a'",
+    "SELECT id FROM d WHERE s > 'a'",
+    "SELECT id FROM d WHERE n <> 1 OR s IS NULL",
+    "SELECT id FROM d WHERE NOT (n IS NULL)",
+    "SELECT id FROM d WHERE NOT (n IS NOT NULL)",
+    "SELECT id FROM d WHERE NOT (n = 1)",
+    "SELECT id FROM d WHERE NOT (n <> 1)",
+    "SELECT id FROM d WHERE NOT (n > 1)",
+    "SELECT id FROM d WHERE NOT (n <= 2)",
+    "SELECT id FROM d WHERE NOT (n = 1 AND s IS NULL)",
+    "SELECT id FROM d WHERE NOT (n = 1 OR n = 2)",
+    "SELECT id FROM d WHERE NOT (NOT (n = 1))",
+    "SELECT id FROM d WHERE NOT (n IN (1, 3))",
+    "SELECT id FROM d WHERE NOT (n NOT IN (1, 3))",
+    "SELECT id FROM d WHERE NOT (n BETWEEN 1 AND 2)",
+    "SELECT id FROM d WHERE NOT (n NOT BETWEEN 1 AND 2)",
+    "SELECT id FROM d WHERE NOT (s IS NULL) AND n > 1",
+    "SELECT id FROM d WHERE n = 1 AND s IS NULL",
+    "SELECT id FROM d WHERE (n = 1 OR n = 2) AND id <> 3",
+    "SELECT id FROM d WHERE n IN (1)",
+    "SELECT id FROM d WHERE n NOT IN (1, 2)",
+    "SELECT id FROM d WHERE s NOT IN ('a')",
+    "SELECT id FROM d WHERE n BETWEEN 2 AND 1",
+    "SELECT id FROM d WHERE n NOT BETWEEN 2 AND 3",
+    "SELECT id FROM d WHERE id BETWEEN 1 AND 4",
+    # --- ordering interactions ----------------------------------------------
+    "SELECT id FROM d WHERE n IS NOT NULL ORDER BY n DESC",
+    "SELECT id FROM d ORDER BY s NULLS FIRST",
+    "SELECT id FROM d ORDER BY n ASC, s DESC",
+    "SELECT id FROM d ORDER BY id LIMIT 10 OFFSET 0",
+    # --- aggregates: NULL handling is the whole game ------------------------
+    "SELECT count(*) FROM d",
+    "SELECT count(n) FROM d",
+    "SELECT count(s) FROM d",
+    "SELECT sum(n) FROM d",
+    "SELECT min(n) FROM d",
+    "SELECT max(n) FROM d",
+    "SELECT min(s) FROM d",
+    "SELECT max(s) FROM d",
+    "SELECT count(*), count(n), sum(n), min(n), max(n) FROM d",
+    # Over an empty input: count is 0, everything else is NULL.
+    "SELECT count(*) FROM d WHERE n > 99",
+    "SELECT count(n) FROM d WHERE n > 99",
+    "SELECT sum(n) FROM d WHERE n > 99",
+    "SELECT min(n) FROM d WHERE n > 99",
+    "SELECT max(n) FROM d WHERE n > 99",
+    "SELECT count(*) FROM d WHERE n IS NOT NULL",
+    "SELECT sum(n) FROM d WHERE n <> 1",
+    # --- GROUP BY: NULL is its own group ------------------------------------
+    "SELECT s, count(*) FROM d GROUP BY s ORDER BY s",
+    "SELECT s, count(n) FROM d GROUP BY s ORDER BY s",
+    "SELECT s, sum(n) FROM d GROUP BY s ORDER BY s",
+    "SELECT s, min(n), max(n) FROM d GROUP BY s ORDER BY s",
+    "SELECT s, count(*) FROM d GROUP BY s ORDER BY s DESC",
+    "SELECT s, count(*) FROM d GROUP BY s ORDER BY s NULLS FIRST",
+    "SELECT s, count(*) FROM d WHERE n IS NOT NULL GROUP BY s ORDER BY s",
+    "SELECT s AS grp, count(*) AS c FROM d GROUP BY s ORDER BY s",
+    "SELECT s, count(*) FROM d GROUP BY s ORDER BY s LIMIT 2",
+    "SELECT count(*) FROM d GROUP BY s ORDER BY s",
+    # --- arrays: text form, comparison, and NULL's array-only rule ----------
+    # Array `=` is NOT scalar `=` applied elementwise: inside an array two
+    # NULLs compare EQUAL and a NULL sorts after every non-NULL. Scalar
+    # `NULL = NULL` is NULL, so this is the case that catches a compare
+    # written by analogy with the scalar path.
+    "SELECT ARRAY[1,2,3]::int[]",
+    "SELECT ARRAY['a','b']::text[]",
+    # Multidimensional arrays: nested constructors and text literals
+    # reconstruct the nested value with the array oid (1007), not varchar.
+    "SELECT ARRAY[[1,2],[3,4]]",
+    "SELECT ARRAY[[[1,2]],[[3,4]]]",
+    "SELECT ARRAY[[1,NULL],[3,4]]::int[]",
+    "SELECT '{{1,2},{3,4}}'::int[]",
+    "SELECT ARRAY[['a','b'],['c','d']]",
+    "SELECT '{}'::text[]",
+    "SELECT '{1,2,3}'::int[]",
+    "SELECT '{foo,\"bar baz\",qux}'::text[]",
+    "SELECT ARRAY[NULL]::text[] = ARRAY[NULL]::text[]",
+    "SELECT ARRAY['a',NULL]::text[] = ARRAY['a',NULL]::text[]",
+    "SELECT ARRAY['a',NULL]::text[] > ARRAY['a','z']::text[]",
+    "SELECT ARRAY['a']::text[] < ARRAY['a','b']::text[]",
+    "SELECT ARRAY[1,2]::int[] = ARRAY[1,2]::int[]",
+    "SELECT ARRAY[1,2]::int[] = ARRAY[1,3]::int[]",
+    "SELECT ARRAY[1,2]::int[] < ARRAY[1,3]::int[]",
+    "SELECT ARRAY[2]::int[] > ARRAY[1,9,9]::int[]",
+    "SELECT '{}'::int[] = '{}'::int[]",
+    "SELECT '{}'::int[] < ARRAY[1]::int[]",
+    "SELECT ARRAY[1,2,3]::int[] <> ARRAY[1,2]::int[]",
+    "SELECT '{a,NULL,b}'::text[]",
+    # --- pg_typeof: the DISPLAY name, which is not the internal one ---------
+    "SELECT pg_typeof(1)::text",
+    "SELECT pg_typeof(1::int8)::text",
+    "SELECT pg_typeof(1::int2)::text",
+    "SELECT pg_typeof(1.5)::text",
+    "SELECT pg_typeof(1.5::float8)::text",
+    "SELECT pg_typeof(1.5::float4)::text",
+    "SELECT pg_typeof('a'::text)::text",
+    "SELECT pg_typeof('a'::varchar)::text",
+    "SELECT pg_typeof('a'::bpchar)::text",
+    "SELECT pg_typeof('x'::name)::text",
+    "SELECT pg_typeof(true)::text",
+    "SELECT pg_typeof('2026-01-01'::date)::text",
+    "SELECT pg_typeof('12:00'::time)::text",
+    "SELECT pg_typeof('2026-01-01 12:00'::timestamp)::text",
+    "SELECT pg_typeof(ARRAY[1,2])::text",
+    "SELECT pg_typeof(ARRAY['a']::text[])::text",
+    # A bare NULL has no type yet — PostgreSQL calls it `unknown`.
+    "SELECT pg_typeof(null)::text",
+    "SELECT pg_typeof(1+1)::text",
+    "SELECT pg_typeof('a'||'b')::text",
+    "SELECT pg_typeof(1=1)::text",
+    # --- casts to integer use TWO different rounding rules ------------------
+    # numeric -> integer rounds half AWAY FROM ZERO; float -> integer rounds
+    # half TO EVEN. Using one rule for both answers 3 for `2.5::float8::int`.
+    "SELECT 1.5::int, 2.5::int, -1.5::int, 0.5::int, 1.4::int, -0.5::int",
+    "SELECT 0.5::float8::int, 1.5::float8::int, 2.5::float8::int",
+    "SELECT 3.5::float8::int, -0.5::float8::int, -2.5::float8::int",
+    "SELECT 1.5::int8, 1.5::int2",
+    # A decimal literal is `numeric`, so these cast FROM numeric, not float.
+    "SELECT 1.5::float8, 1.5::float4",
+    # --- a timestamp CONSTANT reaches the wire by a different route than a
+    # stored one, and used to come back NULL --------------------------------
+    "SELECT '2026-01-01 12:00'::timestamp",
+    "SELECT '2026-01-01 12:00:00.123456'::timestamp",
+    "SELECT '1969-07-20 20:17:40'::timestamp",
+    "SELECT '2026-01-01 12:00'::timestamp::text",
+    # --- interval: three independent parts, flattened only for comparison ---
+    "SELECT '1 day'::interval::text",
+    "SELECT '1 day 02:03:04'::interval::text",
+    "SELECT '1d 3h 4m 5.678s'::interval::text",
+    "SELECT '1 year 2 months'::interval::text",
+    "SELECT 'P1Y2M3D'::interval::text",
+    "SELECT 'PT1H2M3S'::interval::text",
+    "SELECT '1 mon -1 day'::interval::text",
+    "SELECT '1.5 days'::interval::text",
+    "SELECT '1 week'::interval::text",
+    "SELECT '12 mons'::interval::text",
+    "SELECT '13 mons'::interval::text",
+    "SELECT '0'::interval::text",
+    "SELECT '25:00:00'::interval::text",
+    "SELECT '0.5 sec'::interval::text",
+    "SELECT '500 ms'::interval::text",
+    "SELECT '1000 us'::interval::text",
+    "SELECT '2 hrs 30 mins'::interval::text",
+    "SELECT '-1 day'::interval::text",
+    "SELECT '-1 mon'::interval::text",
+    "SELECT '-13 mons'::interval::text",
+    "SELECT '-1.5 hours'::interval::text",
+    "SELECT '1 day -02:03:04'::interval::text",
+    "SELECT '100 years'::interval::text",
+    "SELECT pg_typeof('1 day'::interval)::text",
+    # Comparison flattens: 30-day months, 24-hour days.
+    "SELECT '1 day'::interval = '24:00:00'::interval",
+    "SELECT '1 mon'::interval = '30 days'::interval",
+    "SELECT '1 day'::interval < '25:00:00'::interval",
+    "SELECT '1 day'::interval > '1 hour'::interval",
+    # Arithmetic keeps them apart: months clamp to the month end.
+    "SELECT ('2026-01-31'::timestamp + '1 mon'::interval)::text",
+    "SELECT ('2026-01-31'::timestamp + '2 mons'::interval)::text",
+    "SELECT ('2024-02-29'::timestamp + '1 year'::interval)::text",
+    "SELECT ('2026-03-01 12:00'::timestamp - '1 day'::interval)::text",
+    "SELECT ('2026-01-01 00:00'::timestamp + '1d 3h 4m 5.678s'::interval)::text",
+    "SELECT ('1 day'::interval + '2 hours'::interval)::text",
+    "SELECT ('1 mon'::interval - '1 day'::interval)::text",
+    # Beside an interval, a bare UNKNOWN literal coerces to an INTERVAL — not
+    # to a timestamp — so this is 22007 rather than date arithmetic. A typed
+    # operand keeps datetime arithmetic. `tasks/backlog.md` recorded this rule
+    # from the Python server; the Rust one reproduced the same bug until it did.
+    "SELECT ('1 day' + interval '1 day')::text",
+    "SELECT (interval '1 day' - '2 hours')::text",
+    "SELECT ('2020-01-01'::timestamp + interval '1 day')::text",
+    "SELECT ('2020-01-01'::date + interval '1 day')::text",
+    # Scaling spills fractions downward: months to days, days to time.
+    "SELECT (interval '1 day' * 2)::text",
+    "SELECT (interval '1 day' * 0.5)::text",
+    "SELECT (interval '1 mon' * 1.5)::text",
+    "SELECT (interval '1 year' * 0.5)::text",
+    "SELECT (interval '1 day' / 2)::text",
+    "SELECT (interval '1 mon 1 day' * 2)::text",
+    "SELECT (2 * interval '1 day')::text",
+    # --- numeric arithmetic is EXACT and its scale is part of the answer ----
+    "SELECT (1.5 + 1.5)::text",
+    "SELECT (1.50 + 1.5)::text",
+    "SELECT (1 + 1.5)::text",
+    "SELECT (1.234 + 1.1)::text",
+    "SELECT (2.00 - 1.0)::text",
+    "SELECT (2.5 * 2)::text",
+    "SELECT (2.5 * 2.0)::text",
+    "SELECT (1.50 * 1.50)::text",
+    "SELECT (0.1 * 0.1)::text",
+    "SELECT (0.1 + 0.2)::text",
+    "SELECT (-1.5)::text",
+    "SELECT (2 * 3)::text",
+    # --- NaN has a place in PostgreSQL's TOTAL order, unlike IEEE's ---------
+    "SELECT 'NaN'::float8 = 'NaN'::float8",
+    "SELECT 'NaN'::float8 > 1e308",
+    "SELECT 'NaN'::float8 > 'Infinity'::float8",
+    "SELECT 'Infinity'::float8 > 1e308",
+    "SELECT -'Infinity'::float8 < -1e308",
+    "SELECT 'NaN'::numeric = 'NaN'::numeric",
+    # --- exact decimal comparison: the same f64, different numerics --------
+    "SELECT 1.50::numeric = 1.5::numeric",
+    "SELECT 0::numeric = -0::numeric",
+    "SELECT '12345678901234567890.1'::numeric < '12345678901234567890.2'::numeric",
+    "SELECT (-1.5)::numeric < (-1.4)::numeric",
+    # --- an unknown literal takes the type of the operand beside it --------
+    "SELECT interval '1 day' = '1 day'",
+    "SELECT '1 day' = interval '1 day'",
+    "SELECT '2026-01-01'::timestamp = '2026-01-01'",
+    "SELECT '2026-01-01'::date = '2026-01-01'",
+    "SELECT ARRAY[1,2] = '{1,2}'",
+    "SELECT ARRAY['a','b'] = '{a,b}'",
+    # --- json keeps what it was given; jsonb normalises --------------------
+    """SELECT '{"b":1, "a":2}'::json::text""",
+    """SELECT '{"b":1, "a":2}'::jsonb::text""",
+    """SELECT '{"a":1, "a":2}'::jsonb::text""",
+    """SELECT '[1,  2,   3]'::jsonb::text""",
+    # Keys sort by BYTE length first, then bytewise.
+    """SELECT '{"aa":1,"ab":2,"b":3}'::jsonb::text""",
+    """SELECT '{"é":1,"z":2}'::jsonb::text""",
+    """SELECT '{"b":1,"A":2}'::jsonb::text""",
+    """SELECT '{"nested": {"z":1,"a":2}}'::jsonb::text""",
+    # A jsonb number is a numeric: the exponent expands, the scale survives.
+    """SELECT '{"x": 1.10}'::jsonb::text""",
+    """SELECT '{"n":-1.5e10}'::jsonb::text""",
+    """SELECT '{"n":1e3}'::jsonb::text""",
+    """SELECT '{"n":1.5E-3}'::jsonb::text""",
+    """SELECT '{"big":123456789012345678901234567890}'::jsonb::text""",
+    "SELECT '\"str\"'::jsonb::text",
+    "SELECT 'null'::jsonb::text",
+    "SELECT '[]'::jsonb::text",
+    "SELECT '{}'::jsonb::text",
+    "SELECT pg_typeof('{}'::json)::text",
+    "SELECT pg_typeof('{}'::jsonb)::text",
+    # --- scalar built-ins. Bare, NOT wrapped in a cast: only the cast route
+    # goes through the expression evaluator, so a probe that always casts
+    # never exercises the target-list path (which is how it stayed broken).
+    "SELECT upper('aB')",
+    "SELECT initcap('ab cd')",
+    "SELECT length('héllo')",
+    "SELECT octet_length('héllo')",
+    "SELECT btrim('xxaxx','x')",
+    "SELECT substr('abcdef',2,3)",
+    "SELECT replace('abcabc','b','X')",
+    "SELECT repeat('ab',3)",
+    "SELECT reverse('abc')",
+    "SELECT left('abcde',-2)",
+    "SELECT right('abcde',-2)",
+    "SELECT strpos('abcabc','c')",
+    "SELECT strpos('abc','z')",
+    "SELECT concat('a',null,'b')",
+    "SELECT concat_ws('-','a',null,'b')",
+    "SELECT split_part('a,b,c',',',2)",
+    "SELECT md5('a')",
+    "SELECT chr(233)",
+    "SELECT ascii('é')",
+    "SELECT starts_with('abc','ab')",
+    "SELECT abs(-5.5)",
+    "SELECT sign(-3)",
+    "SELECT ceil(-1.2)",
+    "SELECT floor(-1.7)",
+    "SELECT trunc(-1.9)",
+    "SELECT trunc(1.999,2)",
+    "SELECT round(1.234,2)",
+    # numeric rounds half away from zero, float8 half to even.
+    "SELECT round(1.5)",
+    "SELECT round(2.5)",
+    "SELECT round(-1.5)",
+    "SELECT round(1.5::float8)",
+    "SELECT round(2.5::float8)",
+    "SELECT power(2,3)",
+    "SELECT exp(1)",
+    "SELECT ln(1)",
+    "SELECT log(100)",
+    "SELECT sqrt(4)",
+    "SELECT mod(-7,3)",
+    "SELECT div(7,3)",
+    # greatest / least IGNORE nulls; almost everything else propagates them.
+    "SELECT greatest(1,2,3)",
+    "SELECT least(3,2,1)",
+    "SELECT greatest(1,null)",
+    "SELECT greatest(null,null)",
+    "SELECT coalesce(null,1)",
+    "SELECT coalesce(null,null)",
+    "SELECT nullif(1,1)",
+    "SELECT nullif(1,2)",
+    "SELECT upper(null)",
+    # --- ranges: discrete types canonicalise to [), continuous ones do not --
+    "SELECT int4range(1,5)::text",
+    "SELECT int4range(1,5,'[]')::text",
+    "SELECT int4range(1,5,'()')::text",
+    "SELECT '[1,5)'::int4range::text",
+    "SELECT '[1,5]'::int4range::text",
+    "SELECT '(1,5)'::int4range::text",
+    "SELECT '(1,5]'::int4range::text",
+    "SELECT 'empty'::int4range::text",
+    "SELECT int4range(1,1)::text",
+    "SELECT '[1,1)'::int4range::text",
+    "SELECT int4range(null,5)::text",
+    "SELECT int4range(1,null)::text",
+    "SELECT '(,)'::int4range::text",
+    "SELECT int8range(1,5)::text",
+    "SELECT daterange('2026-01-01','2026-01-05')::text",
+    "SELECT '[2026-01-01,2026-01-05]'::daterange::text",
+    # numrange is continuous — the bounds stay exactly as written.
+    "SELECT numrange(1.0,2.0)::text",
+    "SELECT numrange(1,2,'[]')::text",
+    "SELECT '[1.0,2.0]'::numrange::text",
+    "SELECT '[1.0,2.00]'::numrange::text",
+    # A timestamp bound is quoted, because it has a space in it.
+    "SELECT tsrange('2026-01-01','2026-01-02')::text",
+    # Two spellings of one range are equal.
+    "SELECT '[1,5]'::int4range = '[1,6)'::int4range",
+    "SELECT '[1,5)'::int4range = '[1,5)'::int4range",
+    "SELECT pg_typeof(int4range(1,5))::text",
+    "SELECT pg_typeof('[1,2)'::numrange)::text",
+    # An ARRAY of multiranges reports the multirange's array type, not
+    # varchar -- so a client parses it into Multirange objects.
+    "SELECT pg_typeof(ARRAY['{[1,5)}'::int4multirange])::text",
+    "SELECT (ARRAY['{[1,5)}'::int4multirange, '{}'::int4multirange])::text",
+    "SELECT (ARRAY['{[1.5,2.5)}'::nummultirange])::text",
+    # A tsrange orders its own bounds, so a sub-millisecond bound has to be
+    # comparable — two timestamp composites had no comparison arm.
+    "SELECT tsrange('2026-01-01 00:00:00.5','2026-01-02')::text",
+    "SELECT '[2026-01-01 00:00:00.5,2026-01-02)'::tsrange::text",
+    # --- multiranges: sorted, empties dropped, touching members merged ------
+    "SELECT '{[1,5)}'::int4multirange::text",
+    "SELECT '{[10,20),[1,5)}'::int4multirange::text",
+    "SELECT '{[1,5),[3,8)}'::int4multirange::text",
+    # touching merges; a gap does not
+    "SELECT '{[1,5),[5,8)}'::int4multirange::text",
+    "SELECT '{[1,5),[6,8)}'::int4multirange::text",
+    "SELECT '{[1,2),[2,3),[3,4)}'::int4multirange::text",
+    "SELECT '{[1,5),[2,3)}'::int4multirange::text",
+    "SELECT '{}'::int4multirange::text",
+    "SELECT '{empty}'::int4multirange::text",
+    "SELECT '{[1,5),empty,[10,20)}'::int4multirange::text",
+    "SELECT '{[1,5]}'::int4multirange::text",
+    "SELECT '{(,5)}'::int4multirange::text",
+    "SELECT '{(,5),[10,)}'::int4multirange::text",
+    # a continuous element type has no adjacency by stepping
+    "SELECT '{[1.0,2.0),[2.0,3.0)}'::nummultirange::text",
+    "SELECT '{[1.0,2.0),(2.0,3.0)}'::nummultirange::text",
+    "SELECT '{[2026-01-01,2026-01-05)}'::datemultirange::text",
+    "SELECT int4multirange()::text",
+    "SELECT int4multirange(int4range(1,5))::text",
+    "SELECT int4multirange(int4range(1,5),int4range(10,20))::text",
+    "SELECT int8multirange(int8range(1,5))::text",
+    "SELECT pg_typeof('{}'::int4multirange)::text",
+    "SELECT '{[1,5)}'::int4multirange = '{[1,5)}'::int4multirange",
+    # --- generate_series as a FROM source ----------------------------------
+    "SELECT * FROM generate_series(1,5)",
+    "SELECT * FROM generate_series(1,10,3)",
+    # counting up towards a smaller stop is EMPTY, not reversed
+    "SELECT * FROM generate_series(5,1)",
+    "SELECT * FROM generate_series(5,1,-2)",
+    "SELECT * FROM generate_series(1,0)",
+    "SELECT * FROM generate_series(3,3)",
+    # the alias renames the column; a column alias beats the table one
+    "SELECT * FROM generate_series(1,3) AS g",
+    "SELECT * FROM generate_series(1,3) AS g(x)",
+    "SELECT g FROM generate_series(1,3) g",
+    "SELECT * FROM generate_series(1,3) ORDER BY 1 DESC",
+    "SELECT * FROM generate_series(1,10) LIMIT 3",
+    "SELECT * FROM generate_series(1,10) OFFSET 7",
+    "SELECT * FROM generate_series(1,10) LIMIT 2 OFFSET 3",
+    "SELECT count(*) FROM generate_series(1,100)",
+    "SELECT sum(g) FROM generate_series(1,10) g",
+    "SELECT min(g), max(g) FROM generate_series(3,7) g",
+    # --- the same function in the SELECT LIST, with no FROM at all ---------
+    "SELECT generate_series(1,3)",
+    "SELECT generate_series(1,3) AS g",
+    "SELECT generate_series(3,1)",
+    "SELECT generate_series(1,5,2)",
+    "SELECT generate_series(1,3) ORDER BY 1 DESC",
+    "SELECT generate_series(1,10) LIMIT 3",
+    "SELECT generate_series(1,10) OFFSET 7",
+]
+
+# (statement, verification query) — the write is compared by its row count AND
+# by what the table looks like afterwards.
+MUTATIONS = [
+    ("UPDATE d SET n = 99 WHERE id = 1", "SELECT id, n FROM d ORDER BY id"),
+    ("UPDATE d SET n = 5 WHERE n IS NULL", "SELECT id, n FROM d ORDER BY id"),
+    ("UPDATE d SET s = 'z' WHERE n > 1", "SELECT id, s FROM d ORDER BY id"),
+    ("UPDATE d SET n = 7 WHERE id = 999", "SELECT id, n FROM d ORDER BY id"),
+    ("UPDATE d SET n = 1", "SELECT id, n FROM d ORDER BY id"),
+    ("DELETE FROM d WHERE id = 2", "SELECT id FROM d ORDER BY id"),
+    ("DELETE FROM d WHERE n IS NULL", "SELECT id FROM d ORDER BY id"),
+    ("DELETE FROM d WHERE n > 1", "SELECT id FROM d ORDER BY id"),
+    ("DELETE FROM d WHERE id = 999", "SELECT id FROM d ORDER BY id"),
+    ("UPDATE d SET n = NULL WHERE id = 1", "SELECT id, n FROM d ORDER BY id"),
+    ("UPDATE d SET s = NULL", "SELECT id, s FROM d ORDER BY id"),
+    ("UPDATE d SET n = 4 WHERE n IN (1, 2)", "SELECT id, n FROM d ORDER BY id"),
+    ("UPDATE d SET n = 0 WHERE n <> 3", "SELECT id, n FROM d ORDER BY id"),
+    ("UPDATE d SET n = 8 WHERE n BETWEEN 1 AND 2", "SELECT id, n FROM d ORDER BY id"),
+    ("DELETE FROM d WHERE n IS NOT NULL", "SELECT id FROM d ORDER BY id"),
+    ("DELETE FROM d WHERE n IN (1, 3)", "SELECT id FROM d ORDER BY id"),
+    ("DELETE FROM d WHERE n <> 1", "SELECT id FROM d ORDER BY id"),
+    ("DELETE FROM d", "SELECT id FROM d ORDER BY id"),
+]
+
+
+@pytest.fixture(scope="module")
+def oracle() -> Iterator[psycopg.Connection]:
+    """The live PostgreSQL, isolated to THIS xdist worker's own schema.
+
+    Our side gets a fresh storage home per test, but there is only one local
+    PostgreSQL and every case here creates a table called `d`. Sharing the
+    `public` schema across xdist workers made them race on `CREATE TABLE d`
+    (`duplicate key ... pg_type_typname_nsp_index`) — 35 failures under `-n
+    auto` that every one of them passed serially. A per-worker schema removes
+    the shared name entirely.
+    """
+    conn = _oracle()
+    if conn is None:
+        # Reachable at import but not now: report it as a skip, matching the
+        # other oracle-backed suites. An ERROR here reads as a server bug when
+        # it is the oracle that went away.
+        pytest.skip(f"PostgreSQL oracle unreachable ({ORACLE_DSN}): {_LAST_ERROR[0]}")
+    worker = os.environ.get("PYTEST_XDIST_WORKER", "serial")
+    schema = f"secantus_diff_{worker}"
+    try:
+        cur = conn.cursor()
+        # Recreate rather than reuse: a previous run's leftovers would seed the
+        # oracle with rows this run never inserted.
+        cur.execute(f"DROP SCHEMA IF EXISTS {schema} CASCADE")
+        cur.execute(f"CREATE SCHEMA {schema}")
+        cur.execute(f"SET search_path TO {schema}")
+        yield conn
+        cur.execute(f"DROP SCHEMA IF EXISTS {schema} CASCADE")
+    finally:
+        conn.close()
+
+
+def _reset_oracle(conn: psycopg.Connection) -> None:
+    cur = conn.cursor()
+    cur.execute("DROP TABLE IF EXISTS d")
+    for sql in SETUP:
+        cur.execute(sql)
+
+
+def _rows(cur: psycopg.Cursor, sql: str) -> list[tuple]:
+    cur.execute(sql)
+    return cur.fetchall()
+
+
+@pytest.fixture
+def ours(tmp_path: Path) -> Iterator[psycopg.Connection]:
+    """A freshly seeded secantusd-pg."""
+    home = tmp_path / "pgstore"
+    home.mkdir()
+    with _Server(home) as server, server.connect() as conn:
+        cur = conn.cursor()
+        for sql in SETUP:
+            cur.execute(sql)
+        yield conn
+
+
+@pytest.mark.parametrize("sql", QUERIES, ids=lambda s: s[:58])
+def test_query_matches_postgres(
+    sql: str, ours: psycopg.Connection, oracle: psycopg.Connection
+) -> None:
+    _reset_oracle(oracle)
+    theirs = _rows(oracle.cursor(), sql)
+    mine = _rows(ours.cursor(), sql)
+    assert mine == theirs, f"{sql}\n  postgres={theirs}\n  ours    ={mine}"
+
+
+# (sql, params). These go over the EXTENDED protocol -- Parse/Bind/Execute --
+# because psycopg switches to it as soon as a query has parameters. Until the
+# server implemented that path it answered "OK" with zero rows, which is a wrong
+# answer rather than a missing feature, and no literal-SQL case could catch it.
+PARAMETERISED = [
+    ("SELECT * FROM generate_series(1, %s)", (4,)),
+    # An array constructor over a PARAMETER: the describe pass has no value to
+    # read a type off, so this is where a value-derived array type went wrong.
+    ("SELECT array[%s::float4]", ("42",)),
+    ("SELECT array[%s::int8]", (5,)),
+    ("SELECT array[%s]", (5,)),
+    ("SELECT array[%s::float4, 1::float4]", ("42",)),
+    ("SELECT %s::text[]", (["{"],)),
+    ("SELECT %s::text[]", (["}", "{1,2}", "a,b", "", "NULL", None],)),
+    ("SELECT %s::varchar[]", (["{"],)),
+    # Every byte, twice over: U+0085 and U+00A0 are whitespace to Rust and not
+    # to PostgreSQL, and were being trimmed out of an element entirely.
+    ("SELECT %s::text[]", ([chr(i) for i in range(1, 256)],)),
+    ("SELECT %s::name[]", ([chr(i) for i in range(1, 256)],)),
+    ("SELECT * FROM generate_series(%s, 10, %s)", (1, 3)),
+    ("SELECT generate_series(1, %s)", (3,)),
+    # A json operand whose type comes from a cast on the parameter, and a path
+    # given as a text array.
+    ("SELECT %s::json ->> 'a'", ('{"a": 1}',)),
+    ("SELECT %s::jsonb -> 'a'", ('{"a": [1,2]}',)),
+    ("""SELECT '{"a":{"b":2}}'::json #>> %s""", (["a", "b"],)),
+    ("SELECT * FROM generate_series(1, %s)", (None,)),
+    ("SELECT * FROM generate_series(1, %s) ORDER BY 1 DESC LIMIT 2", (5,)),
+    ("SELECT id FROM d WHERE n > %s", (1,)),
+    ("SELECT id FROM d WHERE n = %s", (3,)),
+    ("SELECT id FROM d WHERE n <> %s", (1,)),
+    ("SELECT id FROM d WHERE s = %s", ("a",)),
+    ("SELECT id FROM d WHERE s <> %s", ("a",)),
+    ("SELECT id FROM d WHERE n >= %s AND n <= %s", (1, 2)),
+    ("SELECT id FROM d WHERE n IN (%s, %s)", (1, 3)),
+    ("SELECT id FROM d WHERE n NOT IN (%s)", (1,)),
+    ("SELECT id FROM d WHERE n BETWEEN %s AND %s", (1, 2)),
+    ("SELECT id FROM d WHERE NOT (n = %s)", (1,)),
+    ("SELECT id FROM d WHERE s = %s OR n > %s", ("a", 2)),
+    ("SELECT id FROM d ORDER BY id LIMIT %s", (2,)),
+    ("SELECT id FROM d ORDER BY id LIMIT %s OFFSET %s", (2, 1)),
+    ("SELECT id, n FROM d WHERE n IS NOT NULL ORDER BY id", ()),
+    ("SELECT count(*) FROM d WHERE n > %s", (1,)),
+    ("SELECT sum(n) FROM d WHERE n > %s", (1,)),
+    ("SELECT count(*) FROM d WHERE n > %s", (99,)),
+    ("SELECT sum(n) FROM d WHERE n > %s", (99,)),
+    ("SELECT s, count(*) FROM d GROUP BY s ORDER BY s", ()),
+    # Bound values of every type this server decodes, which psycopg sends in
+    # BINARY by default — a format decoded by entirely separate code.
+    ("SELECT %s::numeric", (Decimal("1.50"),)),
+    ("SELECT %s::numeric", (Decimal("-12345.6789"),)),
+    ("SELECT %s::date", (dt.date(2026, 9, 2),)),
+    ("SELECT %s::time", (dt.time(23, 59, 59, 123456),)),
+    ("SELECT %s::timestamp", (dt.datetime(2026, 9, 2, 12, 34, 56),)),
+    ("SELECT %s::timestamp", (dt.datetime(1969, 7, 20, 20, 17, 40),)),
+    ("SELECT %s::int4[]", ([1, 2, 3],)),
+    ("SELECT %s::int4[]", ([1, None, 3],)),
+    ("SELECT %s::text[]", (["a", "b"],)),
+    ("SELECT %s::int8[]", ([10**12, 2],)),
+    # Multiranges as bound parameters — psycopg sends these in binary, whose
+    # layout is a range count then each range in the RANGE's own binary form.
+    ("SELECT %s::int4multirange", (Multirange([Range(1, 5, "[)")]),)),
+    (
+        "SELECT %s::int4multirange",
+        (Multirange([Range(1, 5, "[)"), Range(10, 20, "[)")]),),
+    ),
+    ("SELECT %s::int4multirange", (Multirange([]),)),
+    (
+        "SELECT %s::nummultirange",
+        (Multirange([Range(Decimal("1.0"), Decimal("2.0"), "[]")]),),
+    ),
+    ("SELECT %s::interval", (dt.timedelta(days=1),)),
+    ("SELECT %s::interval", (dt.timedelta(days=1, hours=2, minutes=3, seconds=4),)),
+    ("SELECT %s::interval", (dt.timedelta(seconds=-1),)),
+    ("SELECT %s::interval", (dt.timedelta(microseconds=500000),)),
+    # A typed value compared against a bound one. psycopg leaves the parameter
+    # type UNSPECIFIED for lists and datetimes and lets the server infer it, so
+    # these exercise the resolution rule rather than a declared oid.
+    ("SELECT array['a','b'] = %s", (["a", "b"],)),
+    # NOT `array[1,2,3] = %s`: psycopg dumps a list of small ints as
+    # `smallint[]`, and PostgreSQL has no `integer[] = smallint[]` operator —
+    # array comparison needs identical element types, with no widening. This
+    # server compares them and answers true. Divergence filed in the backlog.
+    ("SELECT '1 day'::interval = %s", (dt.timedelta(days=1),)),
+    ("SELECT '2026-01-01 12:00'::timestamp = %s", (dt.datetime(2026, 1, 1, 12, 0),)),
+    ("SELECT '2026-01-01'::date = %s", (dt.date(2026, 1, 1),)),
+    ("SELECT '12:00'::time = %s", (dt.time(12, 0),)),
+    ("SELECT 1.50::numeric = %s", (Decimal("1.5"),)),
+    ("SELECT array[1.5::numeric] = %s", ([Decimal("1.5")],)),
+    ("SELECT array['2026-01-01'::date] = %s", ([dt.date(2026, 1, 1)],)),
+    # A range constructor whose BOUNDS argument is a parameter. Describe runs
+    # before Bind, so at plan time that argument is NULL — which is an error
+    # for a literal and must not be one for a placeholder.
+    ("SELECT int4range(%s::int4, %s::int4, %s)", (10, 20, "[]")),
+    ("SELECT int4range(%s::int4, %s::int4, %s)", (None, None, "()")),
+    ("SELECT int4range(%s::int4, %s::int4, %s)", (10, None, "[)")),
+    ("SELECT numrange(%s::numeric, %s::numeric, %s)", (Decimal("-100"), Decimal("100.123"), "(]")),
+    # A bound NULL must behave exactly like a literal one.
+    ("SELECT id FROM d WHERE n = %s", (None,)),
+    ("SELECT id FROM d WHERE n <> %s", (None,)),
+    ("SELECT id FROM d WHERE n IN (%s, %s)", (1, None)),
+]
+
+PARAM_MUTATIONS = [
+    ("UPDATE d SET n = %s WHERE id = %s", (99, 1), "SELECT id, n FROM d ORDER BY id"),
+    ("UPDATE d SET s = %s WHERE n > %s", ("z", 1), "SELECT id, s FROM d ORDER BY id"),
+    ("UPDATE d SET n = %s WHERE n IS NULL", (7,), "SELECT id, n FROM d ORDER BY id"),
+    ("DELETE FROM d WHERE id = %s", (2,), "SELECT id FROM d ORDER BY id"),
+    ("DELETE FROM d WHERE n > %s", (1,), "SELECT id FROM d ORDER BY id"),
+    ("INSERT INTO d VALUES (%s, %s, %s)", (9, 9, "i"), "SELECT id, n, s FROM d ORDER BY id"),
+]
+
+
+# (zone, query). `timestamptz` renders in the SESSION zone, so every one of
+# these is meaningless without setting it on BOTH servers first — the oracle's
+# own default here is `GB`, not UTC, which would make a zone-less comparison
+# look like a divergence in this server.
+TIMEZONE_QUERIES = [
+    (tz, sql)
+    for tz in ["UTC", "+02:00", "-02:00", "Europe/Rome", "America/Chicago"]
+    for sql in [
+        "SELECT '2026-01-01 12:00'::timestamptz::text",
+        # July as well as January: a named zone's offset differs across DST,
+        # a fixed one does not.
+        "SELECT '2026-07-01 12:00'::timestamptz::text",
+        "SELECT '2026-01-01 12:00+00'::timestamptz::text",
+        "SELECT '2026-01-01 12:00+02'::timestamptz::text",
+        "SELECT '2026-01-01 12:00Z'::timestamptz::text",
+        # Second-precision offsets are real and appear in psycopg's corpus.
+        "SELECT '2000-01-01 00:00+01:02:03'::timestamptz::text",
+        "SELECT '0258-1-8 1:12:32.358261+01:02:03'::timestamptz::text",
+        "SELECT pg_typeof('2026-01-01'::timestamptz)::text",
+        "SELECT pg_typeof('12:00'::timetz)::text",
+        "SELECT '12:00+02'::timetz::text",
+        "SELECT 'integer'::regtype::text",
+        "SELECT 'int4'::regtype::text",
+    ]
+]
+
+
+@pytest.mark.parametrize("tz,sql", TIMEZONE_QUERIES, ids=lambda v: str(v)[:44])
+def test_timezone_query_matches_postgres(
+    tz: str, sql: str, ours: psycopg.Connection, oracle: psycopg.Connection
+) -> None:
+    """`timestamptz` under an explicit session TimeZone, on both servers.
+
+    `SET TimeZone TO '+02:00'` uses the POSIX sign — positive is WEST of
+    Greenwich, so it renders as `-02`. That is the reverse of the sign in a
+    literal like `'12:00+02'`, and was probed rather than assumed.
+    """
+    for conn in (oracle, ours):
+        conn.cursor().execute(f"set timezone to '{tz}'")
+    theirs = _rows(oracle.cursor(), sql)
+    mine = _rows(ours.cursor(), sql)
+    assert mine == theirs, f"[{tz}] {sql}\n  postgres={theirs}\n  ours    ={mine}"
+    for conn in (oracle, ours):
+        conn.cursor().execute("set timezone to 'UTC'")
+
+
+# Statements both servers must REFUSE, with the same SQLSTATE. A wrong answer
+# and a wrong error code are both divergences, and only the first shows up in a
+# row comparison — these would pass a `_rows` test by raising on both sides.
+ERROR_QUERIES = [
+    # A scalar compared to an ARRAY with no ANY/ALL is 42883 (no such operator).
+    "SELECT 'x'::text = ARRAY['x','y']",
+    # Beside an interval a bare unknown literal coerces to an INTERVAL, so this
+    # is a bad interval rather than date arithmetic.
+    "SELECT ('2020-01-01' + interval '1 day')::text",
+    "SELECT (interval '1 day' + '2020-01-01')::text",
+    # …and the same rule in a COMPARISON, not just arithmetic.
+    "SELECT interval '1 day' = '2020-01-01'",
+    "SELECT 1/0",
+    "SELECT 'x'::numeric",
+    "SELECT 'x'::int",
+    "SELECT '2026-13-01'::date",
+    # A wide-year date with an impossible field is 22008; a non-date is 22007.
+    "SELECT '12345-13-01'::date",
+    "SELECT 'notadate'::date",
+    "SELECT 'notadate'::timestamp",
+    # An impossible day is 22008 even in a wide/BC year (12345 and 3 BC are
+    # not leap years); April never has 31 days.
+    "SELECT '12345-02-29'::date",
+    "SELECT '0004-02-29 BC'::date",
+    "SELECT '12345-04-31'::date",
+    # Malformed uuids are 22P02: not a uuid, too short, a hyphen off the
+    # group boundaries, and a non-hex digit.
+    "SELECT 'not-a-uuid'::uuid",
+    # A malformed address is 22P02; a cidr with host bits set is too.
+    "SELECT 'notanip'::inet",
+    "SELECT '10.1.2.3/8'::cidr",
+    "SELECT '1.2.3.4/33'::inet",
+    "SELECT 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a1'::uuid",
+    "SELECT 'a0-eebc99-9c0b-4ef8-bb6d-6bb9bd380a11'::uuid",
+    "SELECT 'g0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11'::uuid",
+    # bytea: a bad hex digit / odd length is 22023, a bad escape is 22P02,
+    # and a byte index out of range is 2202E.
+    "SELECT '\\xZZ'::bytea",
+    "SELECT '\\x0'::bytea",
+    "SELECT 'ab\\c'::bytea",
+    "SELECT get_byte('\\x0102'::bytea, 5)",
+    "SELECT encode('\\x01'::bytea, 'nope')",
+    "SELECT nosuchcolumn FROM d",
+    "SELECT * FROM nosuchtable",
+    "SELECT '{bad}'::json",
+    "SELECT '[1,]'::json",
+    "SELECT '{\"a\":1} x'::json",
+    # Three different mistakes, three different SQLSTATE classes.
+    "SELECT int4range(5,1)",
+    "SELECT '[5,1)'::int4range",
+    "SELECT 'x'::int4range",
+    "SELECT 'x'::oid",
+    "SELECT regexp_replace('x', '[', 'y')",
+    "SELECT 4294967296::oid",
+    "SELECT int4range(1,5,'x')",
+    "SELECT int4range(1,5,null)",
+    "SELECT '{[1,5)'::int4multirange",
+    "SELECT '{x}'::int4multirange",
+    "SELECT '[1,5)'::int4multirange",
+    "SELECT * FROM generate_series(1,5,0)",
+    # No `generate_series(int, float8)` overload exists; this server used to
+    # truncate the bound and answer rows.
+    "SELECT * FROM generate_series(1, 3::float8)",
+    # A bare CREATE of an existing table; the IF NOT EXISTS form is a no-op and
+    # is covered in the slice tests, which can create the table first.
+    "CREATE TABLE d (id int4)",
+]
+
+
+@pytest.mark.parametrize("sql", ERROR_QUERIES, ids=lambda s: s[:52])
+def test_error_sqlstate_matches_postgres(
+    sql: str, ours: psycopg.Connection, oracle: psycopg.Connection
+) -> None:
+    """Both servers refuse, and name the same SQLSTATE."""
+    # Seed the oracle, exactly as the row comparison does. Without this the
+    # fixture table is missing THERE and present HERE, so a bad-column case
+    # answers 42P01 against 42703 and looks like a server divergence.
+    _reset_oracle(oracle)
+
+    def refusal(conn: psycopg.Connection) -> str:
+        try:
+            conn.cursor().execute(sql)
+        except psycopg.Error as exc:
+            return exc.diag.sqlstate or "?"
+        else:
+            return "accepted"
+        finally:
+            with contextlib.suppress(Exception):
+                conn.rollback()
+
+    theirs = refusal(oracle)
+    mine = refusal(ours)
+    # This guard has already earned its keep: two cases drafted for this list
+    # were ones PostgreSQL ACCEPTS and this server deliberately refuses
+    # (nested arrays, a 35-digit numeric). Those are documented limitations,
+    # not shared refusals, and belong in the backlog rather than here.
+    assert theirs != "accepted", f"the oracle accepted {sql}; the case is wrong"
+    assert mine == theirs, f"{sql}\n  postgres={theirs}\n  ours    ={mine}"
+
+
+# Queries whose RESULT FORMAT is part of the contract, not just the value.
+#
+# Only the types this server can render exactly in PostgreSQL's binary layout
+# are here: a column outside that set is deliberately described as text even
+# when the client asked for binary (`tasks/backlog.md`), so putting a timestamp
+# in this list would assert the divergence rather than the contract.
+BINARY_RESULT_QUERIES = [
+    "SELECT 1::int2",
+    "SELECT 1::int4",
+    "SELECT 1::int8",
+    "SELECT 1.5::float4",
+    "SELECT 1.5::float8",
+    "SELECT true",
+    "SELECT 'x'::text",
+    "SELECT 'x'::varchar",
+    "SELECT 'x'::name",
+    "SELECT 'x'::bpchar",
+    "SELECT 1.50::numeric",
+    "SELECT (-1.5)::numeric",
+    "SELECT 0.00001::numeric",
+    "SELECT 100000::numeric",
+    "SELECT 12345678901234567890.123::numeric",
+    "SELECT 'NaN'::numeric",
+    # Exponent-shaped decimals: the binary layout has no exponent to carry
+    # them in, so each has to be expanded before it can be cut into groups.
+    "SELECT 1.5e-5::numeric",
+    "SELECT 1.5e20::numeric",
+    "SELECT 1e-10::numeric",
+    "SELECT 0.0::numeric",
+    "SELECT 123456789012345678901234567890::numeric",
+    "SELECT array[1,2,3]::int4[]",
+    "SELECT array[1.5]::float8[]",
+    "SELECT array['a','b']::text[]",
+    "SELECT array[1.50]::numeric[]",
+    "SELECT null::int4",
+    "SELECT null::numeric",
+    "SELECT n FROM d ORDER BY id",
+    "SELECT s FROM d ORDER BY id",
+    "SELECT count(*) FROM d",
+    "SELECT sum(n) FROM d",
+]
+
+
+@pytest.mark.parametrize("binary", [False, True], ids=["text", "binary"])
+@pytest.mark.parametrize("sql", BINARY_RESULT_QUERIES, ids=lambda s: s[:52])
+def test_result_format_matches_postgres(
+    sql: str, binary: bool, ours: psycopg.Connection, oracle: psycopg.Connection
+) -> None:
+    """The format the client ASKED for, alongside the value and the type oid.
+
+    The value alone proves nothing here: the server described every column as
+    text and psycopg duly decoded text, so a binary cursor got right answers in
+    the wrong format and no row comparison could see it.
+    """
+    _reset_oracle(oracle)
+
+    def probe(conn: psycopg.Connection) -> tuple:
+        cur = conn.cursor(binary=binary)
+        cur.execute(sql)
+        rows = cur.fetchall()
+        return (int(cur.pgresult.fformat(0)), cur.pgresult.ftype(0), repr(rows))
+
+    theirs, mine = probe(oracle), probe(ours)
+    assert mine == theirs, f"{sql}\n  postgres={theirs}\n  ours    ={mine}"
+
+
+def test_server_cursors_match_postgres(
+    ours: psycopg.Connection, oracle: psycopg.Connection
+) -> None:
+    """A psycopg SERVER cursor, which describes the cursor's portal first.
+
+    PostgreSQL exposes a declared cursor as a portal of the same name, and
+    psycopg describes it before it fetches anything.
+    """
+
+
+# `pg_typeof` of a bound parameter, whose type only the client knows, plus the
+# range comparisons that need the same information. Both are here rather than in
+# QUERIES because the answer depends on what psycopg DECLARED for the
+# parameter, which a literal cannot express.
+PARAM_TYPE_QUERIES: list[tuple[str, tuple]] = [
+    ("SELECT pg_typeof(%s)", (1,)),
+    ("SELECT pg_typeof(%s)", (40000,)),
+    ("SELECT pg_typeof(%s)", (10**12,)),
+    ("SELECT pg_typeof(%s)", (1.5,)),
+    ("SELECT pg_typeof(%s)", (Decimal("1.5"),)),
+    ("SELECT pg_typeof(%s)", (True,)),
+    ("SELECT pg_typeof(%s)", (dt.date(2026, 1, 1),)),
+    ("SELECT pg_typeof(%s)", (dt.datetime(2026, 1, 1, 12),)),
+    ("SELECT pg_typeof(%s)", ([1, 2],)),
+    # No declared type, and no context to resolve one from.
+    ("SELECT pg_typeof(%s)", ("x",)),
+    ("SELECT pg_typeof(%s)", (None,)),
+    ("SELECT pg_typeof(%s::int4)", ("5",)),
+    # …and the regtype it answers casts onward by both its natures.
+    ("SELECT pg_typeof(%s)::oid", (1,)),
+    ("SELECT pg_typeof(%s)::oid", (1.5,)),
+    ("SELECT pg_typeof(%s)::text", ([1, 2],)),
+]
+
+# The same information, in comparisons rather than in `pg_typeof` — these run in
+# BOTH formats, because a boolean answer is a boolean in either. The
+# `pg_typeof` cases above are text-only: its result type is `regtype`, which
+# renders as the type NAME in text and as the four-byte oid in binary, and this
+# server answers `text` (see `tasks/backlog.md`).
+PARAM_RANGE_QUERIES: list[tuple[str, tuple]] = [
+    ("SELECT int4range(10, 20, '[]') = %s", (Range(10, 20, "[]"),)),
+    ("SELECT %s = int4range(10, 21, '[)')", (Range(10, 20, "[]"),)),
+    ("SELECT int8range(1, 5, '[]') = %s", (Range(1, 5, "[]"),)),
+    ("SELECT numrange(1.0, 2.0, '[]') = %s", (Range(Decimal("1.0"), Decimal("2.0"), "[]"),)),
+    (
+        "SELECT int4multirange(int4range(1, 5, '[]')) = %s",
+        (Multirange([Range(1, 5, "[]")]),),
+    ),
+]
+
+
+@pytest.mark.parametrize("binary", [False, True], ids=["text", "binary"])
+@pytest.mark.parametrize("sql,params", PARAM_RANGE_QUERIES, ids=lambda v: str(v)[:52])
+def test_range_parameter_matches_postgres(
+    sql: str,
+    params: tuple,
+    binary: bool,
+    ours: psycopg.Connection,
+    oracle: psycopg.Connection,
+) -> None:
+    """A range bound as a parameter, in both wire formats."""
+    _reset_oracle(oracle)
+
+    def probe(conn: psycopg.Connection) -> object:
+        cur = conn.cursor(binary=binary)
+        try:
+            cur.execute(sql, params)
+        except psycopg.Error as exc:
+            with contextlib.suppress(Exception):
+                conn.rollback()
+            return f"[{exc.diag.sqlstate}] {str(exc).splitlines()[0]}"
+        return repr(cur.fetchall())
+
+    theirs, mine = probe(oracle), probe(ours)
+    assert mine == theirs, f"{sql} {params}\n  postgres={theirs}\n  ours    ={mine}"
+
+
+@pytest.mark.parametrize("sql,params", PARAM_TYPE_QUERIES, ids=lambda v: str(v)[:52])
+def test_parameter_type_matches_postgres(
+    sql: str,
+    params: tuple,
+    ours: psycopg.Connection,
+    oracle: psycopg.Connection,
+) -> None:
+    """The declared type of a parameter, which no literal can stand in for."""
+    _reset_oracle(oracle)
+
+    def probe(conn: psycopg.Connection) -> object:
+        cur = conn.cursor()
+        try:
+            cur.execute(sql, params)
+        except psycopg.Error as exc:
+            with contextlib.suppress(Exception):
+                conn.rollback()
+            return f"[{exc.diag.sqlstate}] {str(exc).splitlines()[0]}"
+        return repr(cur.fetchall())
+
+    theirs, mine = probe(oracle), probe(ours)
+    assert mine == theirs, f"{sql} {params}\n  postgres={theirs}\n  ours    ={mine}"
+
+
+def test_enum_ddl_matches_postgres(ours: psycopg.Connection, oracle: psycopg.Connection) -> None:
+    """CREATE TYPE ... AS ENUM / DROP TYPE and the catalog reads behind them."""
+    _reset_oracle(oracle)
+
+    def probe(conn: psycopg.Connection) -> list:
+        out: list = []
+        cur = conn.cursor()
+
+        def attempt(sql: str) -> str:
+            try:
+                cur.execute(sql)
+            except psycopg.Error as exc:
+                with contextlib.suppress(Exception):
+                    conn.rollback()
+                return f"[{exc.diag.sqlstate}]"
+            return f"ok ({cur.statusmessage})"
+
+        attempt("DROP TYPE IF EXISTS dmood")
+        out.append(("create", attempt("CREATE TYPE dmood AS ENUM ('sad','ok')")))
+        out.append(("duplicate", attempt("CREATE TYPE dmood AS ENUM ('x')")))
+        cur.execute("SELECT to_regtype('dmood')::text")
+        out.append(("regtype", cur.fetchone()[0]))
+        cur.execute("SELECT typname FROM pg_type WHERE oid = to_regtype('dmood')")
+        out.append(("pg_type row", cur.fetchall()))
+        out.append(("drop", attempt("DROP TYPE dmood")))
+        out.append(("drop again", attempt("DROP TYPE dmood")))
+        out.append(("drop if exists", attempt("DROP TYPE IF EXISTS dmood")))
+        cur.execute("SELECT to_regtype('dmood')")
+        out.append(("gone", cur.fetchone()[0]))
+        return out
+
+    theirs, mine = probe(oracle), probe(ours)
+    assert mine == theirs, f"postgres={theirs}\n  ours    ={mine}"
+
+
+def test_tiny_wide_numeric_filters_match_postgres(
+    ours: psycopg.Connection, oracle: psycopg.Connection
+) -> None:
+    """A range filter on a 35-digit constant just above Decimal128's exponent
+    floor (1.23...E-6150). The Rust bracket truncated it to 34 digits, pushed
+    the exponent below -6176, and fell back to (0, 1E-6176) -- which does not
+    contain the constant, so `n > c` matched the stored Decimal128 5E-6160
+    (smaller than c) and `n < c` missed it. Found porting the bracket to the
+    Python server (2026-09-19)."""
+    _reset_oracle(oracle)
+    c = "1.2345678901234567890123456789012345E-6150"
+    rows = ["5E-6160", "2E-6150", "1E-6176", "0", "-5E-6160", "1"]
+
+    def probe(conn: psycopg.Connection) -> list:
+        cur = conn.cursor()
+        cur.execute("DROP TABLE IF EXISTS tiny_wide")
+        cur.execute("CREATE TABLE tiny_wide (id int PRIMARY KEY, n numeric)")
+        for i, v in enumerate(rows):
+            cur.execute("INSERT INTO tiny_wide VALUES (%s, %s::numeric)", (i, v))
+        out = []
+        for op in ("=", "<>", "<", "<=", ">", ">="):
+            cur.execute(f"SELECT id FROM tiny_wide WHERE n {op} {c}::numeric ORDER BY id")
+            out.append((op, [r[0] for r in cur.fetchall()]))
+        cur.execute("DROP TABLE tiny_wide")
+        return out
+
+    theirs, mine = probe(oracle), probe(ours)
+    # Self-check: the scenario must separate the rows on the reference server.
+    assert dict(theirs)[">"] == [1, 5], theirs
+    assert mine == theirs, f"postgres={theirs}\n  ours    ={mine}"
+
+
+def test_savepoints_match_postgres(ours: psycopg.Connection, oracle: psycopg.Connection) -> None:
+    """SAVEPOINT / RELEASE / ROLLBACK TO, against the server that defines them.
+
+    A savepoint here is a set of pre-images rather than anything the storage
+    engine knows about, so what has to be checked is the DATA either side of a
+    rollback, not just the tags and the SQLSTATEs.
+    """
+    _reset_oracle(oracle)
+
+    def probe(conn: psycopg.Connection) -> list:
+        was_autocommit = conn.autocommit
+        conn.autocommit = True
+        out: list = []
+
+        def attempt(sql: str) -> str:
+            cur = conn.cursor()
+            try:
+                cur.execute(sql)
+            except psycopg.Error as exc:
+                return f"[{exc.diag.sqlstate}]"
+            return f"ok ({cur.statusmessage})"
+
+        cur = conn.cursor()
+        try:
+            cur.execute("DROP TABLE IF EXISTS sp")
+            cur.execute("CREATE TABLE sp (id int4)")
+            cur.execute("BEGIN")
+            cur.execute("INSERT INTO sp VALUES (1)")
+            out.append(("savepoint", attempt("SAVEPOINT s1")))
+            cur.execute("INSERT INTO sp VALUES (2)")
+            out.append(("rollback to", attempt("ROLLBACK TO SAVEPOINT s1")))
+            cur.execute("SELECT id FROM sp ORDER BY id")
+            out.append(("rows", cur.fetchall()))
+            cur.execute("INSERT INTO sp VALUES (3)")
+            cur.execute("SAVEPOINT s2")
+            cur.execute("INSERT INTO sp VALUES (4)")
+            out.append(("release", attempt("RELEASE SAVEPOINT s2")))
+            out.append(("rolling back to the outer one", attempt("ROLLBACK TO SAVEPOINT s1")))
+            cur.execute("SELECT id FROM sp ORDER BY id")
+            out.append(("rows after that", cur.fetchall()))
+            out.append(("a name that is gone", attempt("ROLLBACK TO SAVEPOINT s2")))
+            out.append(("the error", attempt("SELECT nosuchcolumn FROM sp")))
+            out.append(("while poisoned", attempt("SELECT 1")))
+            out.append(("rollback to", attempt("ROLLBACK TO SAVEPOINT s1")))
+            out.append(("after that", attempt("SELECT 1")))
+            cur.execute("COMMIT")
+            cur.execute("SELECT id FROM sp ORDER BY id")
+            out.append(("rows after commit", cur.fetchall()))
+            out.append(("savepoint outside a block", attempt("SAVEPOINT nope")))
+        finally:
+            with contextlib.suppress(Exception):
+                conn.cursor().execute("DROP TABLE IF EXISTS sp")
+            conn.autocommit = was_autocommit
+        return out
+
+    theirs, mine = probe(oracle), probe(ours)
+    assert mine == theirs, f"postgres={theirs}\n  ours    ={mine}"
+
+
+def test_transaction_status_matches_postgres(
+    ours: psycopg.Connection, oracle: psycopg.Connection
+) -> None:
+    """The status that rides on every `ReadyForQuery`, and the failed block.
+
+    Nothing in a row comparison can see this: the status is reported after each
+    statement rather than selected, so a server can report IDLE inside a
+    transaction indefinitely without a single query answering differently.
+    """
+    from psycopg.pq import TransactionStatus
+
+    _reset_oracle(oracle)
+
+    def probe(conn: psycopg.Connection) -> list:
+        was_autocommit = conn.autocommit
+        conn.autocommit = False
+        try:
+            with conn.cursor("sc") as cur:
+                cur.execute("SELECT id FROM d ORDER BY id")
+                return [
+                    [d.name for d in cur.description],
+                    cur.fetchmany(2),
+                    cur.fetchone(),
+                    cur.fetchall(),
+                ]
+        finally:
+            conn.rollback()
+            conn.autocommit = was_autocommit
+        conn.autocommit = True
+        out: list = []
+
+        def st() -> str:
+            return TransactionStatus(conn.info.transaction_status).name
+
+        def attempt(sql: str, params: tuple = ()) -> str:
+            try:
+                conn.cursor().execute(sql, params)
+            except psycopg.Error as exc:
+                return exc.diag.sqlstate or "?"
+            return "ok"
+
+        cur = conn.cursor()
+        try:
+            cur.execute("DROP TABLE IF EXISTS ft")
+            cur.execute("CREATE TABLE ft (id int4)")
+            out.append(("idle", st()))
+            cur.execute("BEGIN")
+            out.append(("in a transaction", st()))
+            cur.execute("INSERT INTO ft VALUES (1)")
+            out.append(("the error", attempt("SELECT nosuchcolumn FROM ft")))
+            out.append(("after the error", st()))
+            out.append(("a select after it", attempt("SELECT 1")))
+            out.append(("an insert after it", attempt("INSERT INTO ft VALUES (2)")))
+            out.append(("a parameterised one", attempt("SELECT %s", (1,))))
+            cur.execute("COMMIT")
+            out.append(("the tag of that commit", cur.statusmessage))
+            out.append(("after it", st()))
+            cur.execute("SELECT count(*) FROM ft")
+            out.append(("rows that survived", cur.fetchone()[0]))
+            out.append(("an error outside a transaction", attempt("SELECT nosuchcolumn FROM ft")))
+            out.append(("still idle", st()))
+            cur.execute("BEGIN")
+            cur.execute("INSERT INTO ft VALUES (3)")
+            cur.execute("COMMIT")
+            out.append(("the tag of a clean commit", cur.statusmessage))
+            cur.execute("SELECT count(*) FROM ft")
+            out.append(("rows after it", cur.fetchone()[0]))
+        finally:
+            with contextlib.suppress(Exception):
+                conn.cursor().execute("DROP TABLE IF EXISTS ft")
+            conn.autocommit = was_autocommit
+        return out
+
+    theirs, mine = probe(oracle), probe(ours)
+    assert mine == theirs, f"postgres={theirs}\n  ours    ={mine}"
+
+
+@pytest.mark.parametrize("sql,params", PARAMETERISED, ids=lambda v: str(v)[:52])
+def test_parameterised_query_matches_postgres(
+    sql: str, params: tuple, ours: psycopg.Connection, oracle: psycopg.Connection
+) -> None:
+    _reset_oracle(oracle)
+    ocur, mcur = oracle.cursor(), ours.cursor()
+    ocur.execute(sql, params or None)
+    theirs = ocur.fetchall()
+    mcur.execute(sql, params or None)
+    mine = mcur.fetchall()
+    assert mine == theirs, f"{sql} {params}\n  postgres={theirs}\n  ours    ={mine}"
+
+
+@pytest.mark.parametrize("stmt,params,verify", PARAM_MUTATIONS, ids=lambda v: str(v)[:52])
+def test_parameterised_mutation_matches_postgres(
+    stmt: str,
+    params: tuple,
+    verify: str,
+    ours: psycopg.Connection,
+    oracle: psycopg.Connection,
+) -> None:
+    _reset_oracle(oracle)
+    ocur, mcur = oracle.cursor(), ours.cursor()
+    ocur.execute(stmt, params or None)
+    mcur.execute(stmt, params or None)
+    assert mcur.rowcount == ocur.rowcount, (
+        f"{stmt} {params}\n  postgres rowcount={ocur.rowcount}\n  ours     rowcount={mcur.rowcount}"
+    )
+    assert _rows(mcur, verify) == _rows(ocur, verify), f"after {stmt} {params}"
+
+
+@pytest.mark.parametrize("stmt,verify", MUTATIONS, ids=lambda s: str(s)[:58])
+def test_mutation_matches_postgres(
+    stmt: str, verify: str, ours: psycopg.Connection, oracle: psycopg.Connection
+) -> None:
+    _reset_oracle(oracle)
+    ocur, mcur = oracle.cursor(), ours.cursor()
+
+    ocur.execute(stmt)
+    mcur.execute(stmt)
+    # The row count is part of the contract: PostgreSQL's UPDATE tag counts rows
+    # MATCHED, so `SET n = 1` reports every row even where the value is unchanged.
+    assert mcur.rowcount == ocur.rowcount, (
+        f"{stmt}\n  postgres rowcount={ocur.rowcount}\n  ours     rowcount={mcur.rowcount}"
+    )
+    assert _rows(mcur, verify) == _rows(ocur, verify), f"after {stmt}"

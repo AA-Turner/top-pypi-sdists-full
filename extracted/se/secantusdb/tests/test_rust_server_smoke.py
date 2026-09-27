@@ -25,6 +25,8 @@ import subprocess
 
 import pytest
 
+from tests.net_timeouts import REJECTED_SELECTION_TIMEOUT_MS, SERVER_SELECTION_TIMEOUT_MS
+
 _server = pytest.importorskip("_secantus_server")
 pymongo = pytest.importorskip("pymongo")
 bson = pytest.importorskip("bson")
@@ -36,7 +38,7 @@ def _client(srv):
         host,
         port,
         directConnection=True,
-        serverSelectionTimeoutMS=5000,
+        serverSelectionTimeoutMS=SERVER_SELECTION_TIMEOUT_MS,
     )
 
 
@@ -184,7 +186,7 @@ def test_scram_auth_roundtrip_against_rust_server(tmp_path) -> None:
             authSource="admin",
             authMechanism="SCRAM-SHA-256",
             directConnection=True,
-            serverSelectionTimeoutMS=5000,
+            serverSelectionTimeoutMS=SERVER_SELECTION_TIMEOUT_MS,
         )
         try:
             assert good.admin.command("ping")["ok"] == 1.0
@@ -202,7 +204,7 @@ def test_scram_auth_roundtrip_against_rust_server(tmp_path) -> None:
             authSource="admin",
             authMechanism="SCRAM-SHA-256",
             directConnection=True,
-            serverSelectionTimeoutMS=5000,
+            serverSelectionTimeoutMS=SERVER_SELECTION_TIMEOUT_MS,
         )
         try:
             with pytest.raises(pymongo.errors.OperationFailure):
@@ -316,7 +318,7 @@ def test_tls_against_rust_server(tmp_path) -> None:
             tls=True,
             tlsCAFile=str(cert),
             directConnection=True,
-            serverSelectionTimeoutMS=5000,
+            serverSelectionTimeoutMS=SERVER_SELECTION_TIMEOUT_MS,
         )
         try:
             assert client.admin.command("ping")["ok"] == 1.0
@@ -812,11 +814,19 @@ def test_aggregate_stage_name_validation_against_rust_server(tmp_path) -> None:
 
 
 def test_unknown_expression_operator_error_codes(tmp_path) -> None:
-    """Context-specific unknown-operator codes on the Rust server, matching the
-    Python server and mongod 6.0: 168 InvalidPipelineOperator for a query
-    ``$expr``; Location31325 inside an aggregation ``$project``. A
-    projection-only operator ($slice/$elemMatch/$meta shape) is never
-    mislabeled as an unknown expression."""
+    """Context-specific unknown-operator codes on the Rust server.
+
+    Re-measured against mongod **8.2.11** (2026-09-17). The previous version of
+    this docstring cited 6.0 and the nested case asserted `31325`, which no 8.x
+    server answers: the code depends on POSITION, not on the stage. The
+    top-level value of a `$project` field belongs to the PROJECTION parser and
+    its `31325`; one level deeper it is the generic expression parser's `168`.
+    A query `$expr` is `168` too. See
+    `tools/probes/unknown_expression_errors.py`.
+
+    A projection-only operator (`$slice` / `$elemMatch` / `$meta`) is never
+    mislabeled as an unknown expression.
+    """
     srv = _server.RustServer(str(tmp_path / "wt"), 0)
     try:
         coll = _client(srv)["t"]["c"]
@@ -831,10 +841,15 @@ def test_unknown_expression_operator_error_codes(tmp_path) -> None:
         assert proj_exc.value.code == 31325
         assert "Unknown expression $notreal" in proj_exc.value.details["errmsg"]
 
-        # Nested unknown operator is found too.
+        # Nested: the generic expression parser, so 168 and the operator
+        # QUOTED -- not the projection parser's 31325, which this asserted while
+        # the check recursed.
         with pytest.raises(pymongo.errors.OperationFailure) as nested_exc:
             list(coll.aggregate([{"$project": {"y": {"$add": [1, {"$bogus": 2}]}}}]))
-        assert nested_exc.value.code == 31325
+        assert nested_exc.value.code == 168
+        assert nested_exc.value.details["errmsg"] == (
+            "Invalid $project :: caused by :: Unrecognized expression '$bogus'"
+        )
 
         # $slice in its projection-only shape still projects (not an expression).
         got = list(coll.aggregate([{"$project": {"arr": {"$slice": ["$arr", 2]}}}]))
@@ -1054,7 +1069,7 @@ def test_tls_and_x509_auth_end_to_end(tmp_path) -> None:
         host, port = srv.address
         boot = pymongo.MongoClient(
             f"mongodb://{host}:{port}/?tls=true&tlsCAFile={ca_path}",
-            serverSelectionTimeoutMS=5000,
+            serverSelectionTimeoutMS=SERVER_SELECTION_TIMEOUT_MS,
         )
         boot["$external"].command(
             "createUser",
@@ -1082,7 +1097,7 @@ def test_tls_and_x509_auth_end_to_end(tmp_path) -> None:
             f"mongodb://{host}:{port}/?tls=true&tlsCAFile={ca_path}"
             f"&tlsCertificateKeyFile={alice_pem}"
             "&authMechanism=MONGODB-X509&authSource=$external",
-            serverSelectionTimeoutMS=5000,
+            serverSelectionTimeoutMS=SERVER_SELECTION_TIMEOUT_MS,
         )
         client["x509db"]["c"].insert_one({"_id": 1, "v": "hello from alice"})
         assert client["x509db"]["c"].find_one({"_id": 1})["v"] == "hello from alice"
@@ -1091,7 +1106,7 @@ def test_tls_and_x509_auth_end_to_end(tmp_path) -> None:
         # Negative: a client presenting no cert is refused at the TLS layer.
         bad = pymongo.MongoClient(
             f"mongodb://{host}:{port}/?tls=true&tlsCAFile={ca_path}",
-            serverSelectionTimeoutMS=2000,
+            serverSelectionTimeoutMS=REJECTED_SELECTION_TIMEOUT_MS,
         )
         with pytest.raises(pymongo.errors.PyMongoError):
             bad.admin.command("ping")
@@ -1743,7 +1758,11 @@ def test_array_set_typeguard_validation(tmp_path) -> None:
                     {
                         "$project": {
                             "_id": 0,
-                            "s": {"$size": [1, 2, 3]},
+                            # `[[1, 2, 3]]`, not `[1, 2, 3]`: `$size` takes
+                            # exactly ONE argument, so the bare list is three
+                            # arguments and mongod answers 16020. This asserted
+                            # our own wrong reading of it.
+                            "s": {"$size": [[1, 2, 3]]},
                             "i": {"$in": [2, [1, 2]]},
                             "r": {"$regexMatch": {"input": "abc", "regex": "b"}},
                         }

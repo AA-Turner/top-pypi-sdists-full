@@ -51,6 +51,7 @@ from matrx_ai.graph_nodes.agent_action import (
     resolve_step_agent_full,
     run_step_agent,
 )
+from matrx_ai.graph_nodes.iteration_limit import resolve_step_iteration_limit
 from matrx_ai.graph_nodes.shared import AiExecutionResult, normalize_completed_result
 
 logger = logging.getLogger(__name__)
@@ -119,6 +120,8 @@ async def mandate_start(
         return await _run_workflow_held_mandate(
             ctx, inputs, resolved, declared_variables=declared_variables
         )
+    limit = await resolve_step_iteration_limit(ctx, inputs.max_iterations)
+    inputs.max_iterations = limit.value
     request = build_agent_request(
         ctx,
         inputs,
@@ -133,4 +136,4 @@ async def mandate_start(
     # (a compiled Orchestra whose final step IS the result). Pass it through.
     if isinstance(completed, AiExecutionResult):
         return success(completed)
-    return await asyncio.to_thread(normalize_completed_result, completed)
+    return limit.name_on(await asyncio.to_thread(normalize_completed_result, completed))

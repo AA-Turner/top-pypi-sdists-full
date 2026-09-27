@@ -1130,3 +1130,287 @@ async def test_close_does_not_hang_during_reconnect(event_loop):
     connect_task.cancel()
     with suppress(asyncio.CancelledError):
         await connect_task
+
+
+@pytest.mark.parametrize("buffered", [False, True])
+@pytest.mark.parametrize("reject_on_redelivered", [False, True])
+@pytest.mark.parametrize("redelivered", [False, True])
+@aiomisc.timeout(30)
+async def test_process_error_during_reconnection(
+    create_connection,
+    direct_connection,
+    proxy,
+    create_task,
+    reject_on_redelivered,
+    redelivered,
+    buffered,
+):
+    connection = await create_connection()
+    restored = asyncio.Event()
+    connection.reconnect_callbacks.add(lambda *_: restored.set())
+
+    async with connection:
+        channel = await connection.channel()
+        await channel.set_qos(prefetch_count=2)
+        queue = await channel.declare_queue(auto_delete=False)
+        publisher = await direct_connection.channel()
+        try:
+            async with queue.iterator() as iterator:
+                await publisher.default_exchange.publish(
+                    Message(b"interrupted"),
+                    routing_key=queue.name,
+                )
+                message = await asyncio.wait_for(anext(iterator), 5)
+                if redelivered:
+                    await message.reject(requeue=True)
+                    message = await asyncio.wait_for(anext(iterator), 5)
+                assert message.redelivered is redelivered
+
+                if buffered:
+                    await publisher.default_exchange.publish(
+                        Message(b"buffered"),
+                        routing_key=queue.name,
+                    )
+                    async with asyncio.timeout(5):
+                        while iterator._queue.empty():
+                            await asyncio.sleep(0.01)
+                    pending = None
+                else:
+                    # Keep the next iteration waiting across the disconnect.
+                    pending = create_task(anext(iterator))
+                    await asyncio.sleep(0)
+                error = ValueError("processing interrupted")
+                with pytest.raises(ValueError) as raised:
+                    async with message.process(
+                        reject_on_redelivered=reject_on_redelivered,
+                    ):
+                        await proxy.disconnect_all()
+                        await asyncio.wait_for(restored.wait(), 10)
+                        await asyncio.wait_for(channel.ready(), 5)
+                        raise error
+                assert raised.value is error
+                assert not message.processed
+
+                # Restoring the channel does not revive old delivery tags.
+                for method in (message.ack, message.reject, message.nack):
+                    with pytest.raises(
+                        aiormq.exceptions.ChannelInvalidStateError,
+                    ):
+                        await asyncio.wait_for(method(), 1)
+
+                if buffered:
+                    stale = await asyncio.wait_for(anext(iterator), 5)
+                    assert stale.body == b"buffered"
+                    with pytest.raises(
+                        aiormq.exceptions.ChannelInvalidStateError,
+                    ):
+                        await stale.ack()
+                    pending = create_task(anext(iterator))
+
+                assert pending is not None
+                retries = [await asyncio.wait_for(pending, 5)]
+                if buffered:
+                    retries.append(await asyncio.wait_for(anext(iterator), 5))
+                expected = (
+                    {b"interrupted", b"buffered"}
+                    if buffered
+                    else {
+                        b"interrupted",
+                    }
+                )
+                assert {retry.body for retry in retries} == expected
+                for retry in retries:
+                    assert retry.redelivered
+                    async with retry.process():
+                        pass
+
+                await publisher.default_exchange.publish(
+                    Message(b"after reconnect"),
+                    routing_key=queue.name,
+                )
+                following = await asyncio.wait_for(anext(iterator), 5)
+                assert following.body == b"after reconnect"
+                await following.ack()
+        finally:
+            cleanup_queue = await publisher.get_queue(queue.name)
+            await cleanup_queue.delete(if_unused=False, if_empty=False)
+
+
+@pytest.mark.parametrize("publisher_confirms", [False, True])
+@pytest.mark.parametrize("default_exchange", [False, True])
+@aiomisc.timeout(30)
+async def test_publish_after_disconnected_failure(
+    connection, proxy, proxy_port, publisher_confirms, default_exchange
+):
+    channel = await connection.channel(publisher_confirms=publisher_confirms)
+    queue = await channel.declare_queue(get_random_name())
+    exchange = channel.default_exchange
+    if not default_exchange:
+        exchange = await channel.declare_exchange(get_random_name())
+        await queue.bind(exchange, queue.name)
+
+    restored = asyncio.Event()
+    connection.reconnect_callbacks.add(lambda *_: restored.set())
+    target_port = proxy.target_port
+
+    for attempt in range(3):
+        await exchange.publish(Message(b"before"), queue.name, timeout=2)
+        message = await queue.get(no_ack=True, timeout=2)
+        assert message.body == b"before"
+        old_channel = await channel.get_underlay_channel()
+        restored.clear()
+        proxy.target_port = proxy_port
+        try:
+            await proxy.disconnect_all()
+            async with asyncio.timeout(5):
+                while not channel.is_closed:
+                    await asyncio.sleep(0.01)
+
+            # A known closed channel must fail promptly, without implicitly
+            # waiting for the broker or queuing this message for replay.
+            with pytest.raises(aiormq.exceptions.ChannelInvalidStateError):
+                await asyncio.wait_for(
+                    exchange.publish(Message(b"offline"), queue.name), 1
+                )
+            assert not restored.is_set()
+        finally:
+            proxy.target_port = target_port
+
+        await asyncio.wait_for(restored.wait(), 5)
+        await asyncio.wait_for(channel.ready(), 2)
+        assert await channel.get_underlay_channel() is not old_channel
+        body = f"after-{attempt}".encode()
+        await exchange.publish(Message(body), queue.name, timeout=2)
+        message = await queue.get(timeout=2)
+        assert message.body == body
+        await message.ack()
+        assert await queue.get(fail=False, timeout=2) is None
+
+
+@pytest.mark.parametrize("default_exchange", [False, True])
+@aiomisc.timeout(30)
+async def test_publish_lost_confirmation_is_not_replayed(
+    connection, direct_connection, proxy, default_exchange
+):
+    channel = await connection.channel()
+    queue = await channel.declare_queue(get_random_name())
+    exchange = channel.default_exchange
+    if not default_exchange:
+        exchange = await channel.declare_exchange(get_random_name())
+        await queue.bind(exchange, queue.name)
+    direct_channel = await direct_connection.channel()
+    direct_queue = await direct_channel.get_queue(queue.name)
+    restored = asyncio.Event()
+    connection.reconnect_callbacks.add(lambda *_: restored.set())
+
+    async def drop_server_frames(_):
+        return b""
+
+    # Let the broker accept the publication, but hide its confirmation from
+    # the publisher. Receiving through a separate connection proves delivery.
+    proxy.set_content_processors(None, drop_server_frames)
+    publishing = asyncio.create_task(
+        exchange.publish(Message(b"unconfirmed"), queue.name, timeout=10)
+    )
+    try:
+        async with asyncio.timeout(3):
+            while True:
+                message = await direct_queue.get(fail=False, timeout=1)
+                if message is not None:
+                    break
+                await asyncio.sleep(0.01)
+        assert message.body == b"unconfirmed"
+        await message.ack()
+        assert not publishing.done()
+        await proxy.disconnect_all()
+        with pytest.raises(aiormq.exceptions.AMQPConnectionError):
+            await asyncio.wait_for(publishing, 3)
+    finally:
+        proxy.set_content_processors(None, None)
+        if not publishing.done():
+            publishing.cancel()
+        await asyncio.gather(publishing, return_exceptions=True)
+
+    await asyncio.wait_for(restored.wait(), 5)
+    await asyncio.wait_for(channel.ready(), 2)
+    await exchange.publish(Message(b"after"), queue.name, timeout=2)
+    message = await direct_queue.get(timeout=2)
+    assert message.body == b"after"
+    await message.ack()
+    assert await direct_queue.get(fail=False, timeout=2) is None
+
+
+@pytest.mark.parametrize(
+    "connection_fabric", [aio_pika.connect, aio_pika.connect_robust]
+)
+@pytest.mark.parametrize("use_context", [False, True])
+@aiomisc.timeout(15)
+async def test_iterator_cancellation_survives_close_timeout(
+    connection, direct_connection, proxy, use_context
+):
+    from contextlib import AsyncExitStack
+
+    channel = await connection.channel()
+    queue = await channel.declare_queue(get_random_name())
+    iterator = queue.iterator(timeout=0.05)
+    await iterator.consume()
+    reading = asyncio.Event()
+    cancelling = asyncio.Event()
+    release = asyncio.Event()
+
+    async def hold_server_frames(data):
+        cancelling.set()
+        await release.wait()
+        return data
+
+    async def consume():
+        async with AsyncExitStack() as stack:
+            if use_context:
+                await stack.enter_async_context(iterator)
+            reading.set()
+            while True:
+                try:
+                    await anext(iterator)
+                except asyncio.TimeoutError:
+                    # This is the application pattern from #623: replacing
+                    # cancellation with TimeoutError would keep it running.
+                    continue
+
+    proxy.set_content_processors(None, hold_server_frames)
+    task = asyncio.create_task(consume())
+    try:
+        await reading.wait()
+        task.cancel("stop consumer")
+        await asyncio.wait_for(cancelling.wait(), 2)
+        done, _ = await asyncio.wait({task}, timeout=1)
+        assert task in done, "Iterator swallowed task cancellation"
+        assert task.cancelled()
+        closing = getattr(iterator, "_QueueIterator__closing", None)
+        if use_context:
+            assert closing is None
+            assert iterator._closed.done()
+        else:
+            assert closing is not None
+            assert not closing.done()
+        with pytest.raises(asyncio.CancelledError, match="stop consumer"):
+            await task
+    finally:
+        release.set()
+        proxy.set_content_processors(None, None)
+        if not task.done():
+            task.cancel()
+        await asyncio.gather(task, return_exceptions=True)
+        # __anext__ shields close after its timeout. Let Basic.CancelOk finish
+        # that operation before tearing down the connection and event loop.
+        closing = getattr(iterator, "_QueueIterator__closing", None)
+        if closing is not None:
+            await asyncio.wait_for(closing, 2)
+        await iterator.close()
+
+    if use_context:
+        if isinstance(connection, RobustConnection):
+            await connection.reconnect()
+            await asyncio.wait_for(channel.ready(), 3)
+        direct_channel = await direct_connection.channel()
+        declared = await direct_channel.declare_queue(queue.name, passive=True)
+        assert declared.declaration_result.consumer_count == 0

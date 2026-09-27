@@ -8,6 +8,7 @@ from numba import njit
 from sklearn.model_selection import TimeSeriesSplit
 
 import vectorbt as vbt
+from vectorbt import _engine
 from vectorbt.generic import dispatch, nb
 
 seed = 42
@@ -276,6 +277,41 @@ class TestAccessors:
         )
         pd.testing.assert_frame_equal(df.vbt.rolling_std(test_window), df.rolling(test_window).std())
 
+    @pytest.mark.parametrize("test_ddof", [0, 1])
+    def test_rolling_std_numerical_stability(self, test_ddof):
+        rng = np.random.default_rng(42)
+        window = 4000
+        large_offset_series = pd.Series(1e8 + rng.normal(0, 0.01, 5000))
+        got = large_offset_series.vbt.rolling_std(window, minp=window, ddof=test_ddof)
+        expected = large_offset_series.rolling(window, min_periods=window).std(ddof=test_ddof)
+        pd.testing.assert_series_equal(got, expected, atol=1e-6, rtol=0)
+
+        large_offset_nan_series = large_offset_series.copy()
+        large_offset_nan_series.iloc[::37] = np.nan
+        got_nan = large_offset_nan_series.vbt.rolling_std(window, minp=10, ddof=test_ddof)
+        expected_nan = large_offset_nan_series.rolling(window, min_periods=10).std(ddof=test_ddof)
+        pd.testing.assert_series_equal(got_nan, expected_nan, atol=1e-6, rtol=0)
+
+    def test_rolling_std_ddof_exceeds_window(self):
+        a = pd.Series([1.0, 2.0, 3.0, 4.0, 5.0])
+        got = a.vbt.rolling_std(window=2, minp=1, ddof=5)
+        expected = a.rolling(window=2, min_periods=1).std(ddof=5)
+        pd.testing.assert_series_equal(got, expected)
+
+        got = a.vbt.rolling_std(window=0, minp=0, ddof=0)
+        expected = a.rolling(window=0, min_periods=0).std(ddof=0)
+        pd.testing.assert_series_equal(got, expected)
+
+    def test_rolling_std_recompute(self):
+        rng = np.random.default_rng(7)
+        window = 30
+        a = 1e14 + rng.normal(0, 1.0, 50000)
+        windows = np.lib.stride_tricks.sliding_window_view(a, window)
+        expected = np.std(windows - windows.mean(axis=1, keepdims=True), axis=1, ddof=1)
+        got = pd.Series(a).vbt.rolling_std(window, minp=window, ddof=1).values[window - 1 :]
+        assert not np.any(np.isnan(got) | (got == 0))
+        assert np.median(np.abs(got - expected) / expected) < 0.2
+
     @pytest.mark.parametrize(
         "test_window,test_minp,test_adjust", list(product([1, 2, 3, 4, 5], [1, None], [False, True]))
     )
@@ -343,6 +379,18 @@ class TestAccessors:
             df.expanding(min_periods=test_minp).std(ddof=test_ddof),
         )
         pd.testing.assert_frame_equal(df.vbt.expanding_std(), df.expanding().std())
+
+    @pytest.mark.parametrize("test_engine", ["numba", "rust"])
+    def test_expanding_minp_above_length(self, test_engine):
+        if test_engine == "rust" and not _engine.is_rust_available():
+            pytest.skip("vectorbt-rust is not installed or version-compatible")
+        minp = len(df.index) + 1
+        pd.testing.assert_frame_equal(
+            df.vbt.expanding_mean(minp=minp, engine=test_engine), df.expanding(min_periods=minp).mean()
+        )
+        pd.testing.assert_frame_equal(
+            df.vbt.expanding_std(minp=minp, engine=test_engine), df.expanding(min_periods=minp).std()
+        )
 
     def test_apply_along_axis(self):
         pd.testing.assert_frame_equal(

@@ -531,6 +531,355 @@ def test_pg_proc_arg_mode_columns(storage, session):
     assert res.rows == [(None, None)]
 
 
+def test_pg_proc_argtypes_for_unnamed_parameters(storage, session):
+    """`f(int, int)` must record int4, not void.
+
+    sqlglot parses an UNNAMED parameter as a bare `Identifier` rather than a
+    `ColumnDef` carrying a `DataType`, so the type tag came back `None` and
+    `_type_oid` mapped it to **2278 (void)** — an OID this catalog does not
+    even define, so a client resolving it found nothing. pgjdbc's
+    `DatabaseMetaDataTest::functionColumns` creates exactly `f1(int, int)` and
+    reads the argument rows back.
+
+    The NAMED form is asserted beside it because it was always correct: the
+    bug lived only in the branch that handles parameters without names, which
+    is why it survived a catalog full of working functions.
+    """
+    q(storage, session, "CREATE FUNCTION fu(int, int) RETURNS int AS 'SELECT 1' LANGUAGE sql")
+    q(storage, session, "CREATE FUNCTION fn(a int, b text) RETURNS int AS 'SELECT 1' LANGUAGE sql")
+    q(storage, session, "CREATE FUNCTION fz() RETURNS int AS 'SELECT 1' LANGUAGE sql")
+
+    def argtypes(name: str) -> str:
+        res = q(storage, session, f"SELECT proargtypes FROM pg_proc WHERE proname='{name}'")
+        return res.rows[0][0]
+
+    assert argtypes("fu") == "23 23", "unnamed int params must be int4 (23), not void (2278)"
+    assert argtypes("fn") == "23 25"
+    assert argtypes("fz") == ""
+
+
+def test_pg_proc_argtypes_resolve_multiword_type_names(storage, session):
+    """`double precision` is two words and still one unnamed parameter.
+
+    The Identifier branch resolves the whole spelling, so a multi-word builtin
+    must not fall back to void the way a single-word one used to.
+    """
+    q(
+        storage,
+        session,
+        "CREATE FUNCTION fd(double precision) RETURNS int AS 'SELECT 1' LANGUAGE sql",
+    )
+    res = q(storage, session, "SELECT proargtypes FROM pg_proc WHERE proname='fd'")
+    assert res.rows[0][0] == "701", "double precision is float8 (701)"
+
+
+def test_declared_char_types_have_pg_type_rows(storage, session):
+    """A ``varchar`` / ``char(n)`` column must point at a type that EXISTS.
+
+    Both spellings fold to the ``text`` storage tag, but a column still records
+    the declared oid (1043 / 1042). ``pg_type`` is built from the tag-keyed
+    ``PG_TYPENAME``, which can name only one of the three — so every such
+    column pointed at an oid with NO ``pg_type`` row, and a client joining
+    ``pg_attribute`` to ``pg_type`` (which is what a JDBC/psycopg metadata call
+    does) resolved it to nothing.
+
+    Asserted as the join a driver actually performs, not as a row count, so it
+    fails if either half regresses. ``text`` is asserted beside them to pin
+    that the fold still works.
+    """
+    q(storage, session, "CREATE TABLE ct (a varchar(10), b char(5), c text)")
+    res = q(
+        storage,
+        session,
+        "SELECT a.attname, a.atttypid, t.typname "
+        "FROM pg_attribute a JOIN pg_class c ON a.attrelid = c.oid "
+        "LEFT JOIN pg_type t ON t.oid = a.atttypid "
+        "WHERE c.relname = 'ct' ORDER BY a.attnum",
+    )
+    assert res.rows == [
+        ("a", 1043, "varchar"),
+        ("b", 1042, "bpchar"),
+        ("c", 25, "text"),
+    ]
+
+
+def test_columns_data_type_renders_the_declared_char_type(storage, session):
+    """``information_schema.columns.data_type`` names the DECLARED type.
+
+    A column already carried the declared oid for ``pg_attribute.atttypid``;
+    only this render ignored it and reported the ``text`` storage tag for every
+    string column. PostgreSQL 14 reports ``character varying`` / ``character``
+    (measured 2026-09-19), and a bare ``varchar`` renders the same as a
+    length-qualified one.
+    """
+    q(storage, session, "CREATE TABLE cd (a varchar(10), b char(5), c text, d varchar)")
+    res = q(
+        storage,
+        session,
+        "SELECT data_type FROM information_schema.columns "
+        "WHERE table_name = 'cd' ORDER BY ordinal_position",
+    )
+    assert [r[0] for r in res.rows] == [
+        "character varying",
+        "character",
+        "text",
+        "character varying",
+    ]
+
+
+def test_pg_proc_argtypes_record_the_declared_char_type(storage, session):
+    """``f(int, varchar)`` records 1043, not the ``text`` tag's 25.
+
+    Parameters had no equivalent of a column's ``decl_oid``, so the declared
+    spelling was lost and ``proargtypes`` read ``'23 25'`` where PostgreSQL 14
+    records ``'23 1043'`` (measured 2026-09-19). Both the unnamed and the named
+    form are asserted: the two take different parse branches, and the previous
+    bug in this area lived in only one of them.
+    """
+    q(storage, session, "CREATE FUNCTION fv(int, varchar) RETURNS int AS 'SELECT 1' LANGUAGE sql")
+    q(
+        storage,
+        session,
+        "CREATE FUNCTION fw(a int, b varchar, c char(3), d text) "
+        "RETURNS int AS 'SELECT 1' LANGUAGE sql",
+    )
+    q(storage, session, "CREATE FUNCTION fb(bpchar) RETURNS int AS 'SELECT 1' LANGUAGE sql")
+
+    def argtypes(name: str) -> str:
+        res = q(storage, session, f"SELECT proargtypes FROM pg_proc WHERE proname='{name}'")
+        return res.rows[0][0]
+
+    assert argtypes("fv") == "23 1043", "bare varchar is 1043, not text's 25"
+    assert argtypes("fw") == "23 1043 1042 25"
+    # Bare `bpchar` is the worse half of the same family: it has no storage tag
+    # at all, so it recorded 2278 (void) rather than merely the wrong string
+    # type.
+    assert argtypes("fb") == "1042", "bare bpchar is 1042, not void (2278)"
+
+
+def test_parameters_data_type_renders_the_declared_char_type(storage, session):
+    """``information_schema.parameters.data_type`` renders the SQL name.
+
+    PostgreSQL 14 renders ``character varying`` / ``character`` there — the SQL
+    spelling, NOT the ``pg_type.typname`` (``varchar`` / ``bpchar``) the same
+    type reports elsewhere. Measured 2026-09-19; the two surfaces disagreeing
+    is why this is asserted separately from ``proargtypes``.
+    """
+    q(
+        storage,
+        session,
+        "CREATE FUNCTION fp(a int, b varchar, c char(3), d text) "
+        "RETURNS int AS 'SELECT 1' LANGUAGE sql",
+    )
+    res = q(
+        storage,
+        session,
+        "SELECT data_type FROM information_schema.parameters "
+        "WHERE specific_name LIKE 'fp%' ORDER BY ordinal_position",
+    )
+    assert [r[0] for r in res.rows] == [
+        "integer",
+        "character varying",
+        "character",
+        "text",
+    ]
+
+
+def test_pg_class_relpages(storage, session):
+    """`pg_class.relpages` exists, and an INDEX reports 1 page rather than 0.
+
+    pgjdbc's `getIndexInfo` selects `ci.relpages AS PAGES`, so the column being
+    absent failed the whole query with `column "relpages" does not exist` —
+    taking out `ascDescIndexInfo`, `partialIndexInfo` and `remarkIndexInfo`
+    before any assertion ran.
+
+    A fresh table reports 0 and a fresh index reports 1 on PostgreSQL 14
+    (measured 2026-09-19): an index has its metapage from the moment it
+    exists. The index case is asserted because 0 would be the obvious guess
+    and it is wrong.
+    """
+    q(storage, session, "CREATE TABLE rp (a int PRIMARY KEY, b text)")
+    q(storage, session, "CREATE INDEX rp_b ON rp(b)")
+    res = q(
+        storage,
+        session,
+        "SELECT relname, relpages FROM pg_class WHERE relname IN ('rp', 'rp_b') ORDER BY relname",
+    )
+    assert res.rows == [("rp", 0), ("rp_b", 1)]
+
+
+def test_pg_type_typlen(storage, session):
+    """`pg_type.typlen`, including the `name` row pgjdbc needs to connect well.
+
+    `getMaxNameLength()` selects `typlen` for `typname = 'name'` in
+    `pg_catalog` and raises "Unable to find name datatype in the system
+    catalogs" when the row is missing — which is what broke
+    `getClientInfoProperties`. `name` is not a type this server stores; the row
+    exists only so that lookup resolves.
+
+    The array row is asserted too: TypeInfoCache's array lookup filters on
+    `typlen = -1`, so a wrong value there silently hides every array type.
+    All values measured against PostgreSQL 14 on 2026-09-19.
+    """
+    res = q(
+        storage,
+        session,
+        "SELECT t.typlen FROM pg_catalog.pg_type t, pg_catalog.pg_namespace n "
+        "WHERE t.typnamespace = n.oid AND t.typname = 'name' "
+        "AND n.nspname = 'pg_catalog'",
+    )
+    assert res.rows == [(64,)], "name is 64 bytes; pgjdbc reads it as NAMEDATALEN"
+
+    res = q(
+        storage,
+        session,
+        "SELECT typname, typlen FROM pg_type "
+        "WHERE typname IN ('int4', 'bool', 'uuid', 'text', 'varchar', '_text') "
+        "ORDER BY typname",
+    )
+    assert res.rows == [
+        ("_text", -1),
+        ("bool", 1),
+        ("int4", 4),
+        ("text", -1),
+        ("uuid", 16),
+        ("varchar", -1),
+    ]
+
+
+def test_pg_type_typlen_for_user_types(storage, session):
+    """An enum is 4 bytes; every other user type is varlena.
+
+    Measured on PostgreSQL 14 (2026-09-19). The enum is the one case where the
+    -1 default would be wrong — it is a fixed 4-byte oid reference, not a
+    varlena — so it is set explicitly and pinned here.
+    """
+    q(storage, session, "CREATE TYPE te AS ENUM ('a', 'b')")
+    q(storage, session, "CREATE TYPE tc AS (x int, y text)")
+    res = q(
+        storage,
+        session,
+        "SELECT typname, typlen FROM pg_type WHERE typname IN ('te', 'tc') ORDER BY typname",
+    )
+    assert res.rows == [("tc", -1), ("te", 4)]
+
+
+def test_schema_qualified_function_reports_its_namespace(storage, session):
+    """`CREATE FUNCTION hf.addf(...)` belongs to `hf`, not `public`.
+
+    Only a `pg_temp_` qualifier was preserved at creation, so any other schema
+    was silently dropped and the function reported `pronamespace = public`. It
+    existed and was invisible in the schema it was created in — pgjdbc's
+    `getFunctions` and `getProcedures` both filter by schema, which is what
+    took out `getFunctionsInSchemaForFunctions`.
+
+    `proname` is asserted bare: the dotted key is storage, not the name a
+    client reads.
+    """
+    q(storage, session, "CREATE SCHEMA hf")
+    q(storage, session, "CREATE FUNCTION hf.addf(int, int) RETURNS int AS 'SELECT 1' LANGUAGE sql")
+    q(storage, session, "CREATE FUNCTION plainf(int) RETURNS int AS 'SELECT 1' LANGUAGE sql")
+    res = q(
+        storage,
+        session,
+        "SELECT p.proname, n.nspname FROM pg_proc p "
+        "JOIN pg_namespace n ON p.pronamespace = n.oid "
+        "WHERE p.proname IN ('addf', 'plainf') ORDER BY p.proname",
+    )
+    assert res.rows == [("addf", "hf"), ("plainf", "public")]
+
+
+def test_schema_qualified_function_call_resolution(storage, session):
+    """A schema-homed function is callable QUALIFIED and not bare.
+
+    Both halves matter. Storing the dotted key without teaching the call path
+    about it made `hf.addf(2, 3)` raise "function addf does not exist" — the
+    namespace would have been right and the function unusable.
+
+    The bare call failing is not a regression but a fidelity fix: PostgreSQL 14
+    raises `function addf(integer, integer) does not exist` for it too
+    (measured 2026-09-19), because `hf` is not on the search_path. This server
+    used to answer it.
+    """
+    q(storage, session, "CREATE SCHEMA hf")
+    q(
+        storage,
+        session,
+        "CREATE FUNCTION hf.addf(int, int) RETURNS int AS 'SELECT $1 + $2' LANGUAGE sql",
+    )
+    assert q(storage, session, "SELECT hf.addf(2, 3)").rows == [(5,)]
+
+    with pytest.raises(errors.SQLError) as exc:
+        q(storage, session, "SELECT addf(2, 3)")
+    assert "does not exist" in str(exc.value)
+
+
+def test_enum_array_column_reports_the_array_type(storage, session):
+    """A ``ts.te[]`` column resolves to the ARRAY type, not the enum itself.
+
+    The enum branch of ``pg_attribute`` had no array handling — the composite
+    branch beside it did — so an array-of-enum column recorded the element's
+    oid. pgjdbc's ``getColumns`` then reported TYPE_NAME
+    ``"test_schema"."test_enum"`` and the element's DATA_TYPE where
+    PostgreSQL 14 reports ``"test_schema"."_test_enum"`` and ARRAY.
+
+    The scalar column is asserted beside it: the fix must not turn every enum
+    column into an array.
+    """
+    q(storage, session, "CREATE SCHEMA ts")
+    q(storage, session, "CREATE TYPE ts.te AS ENUM ('v')")
+    q(storage, session, "CREATE TABLE ea (arr ts.te[], sc ts.te)")
+    res = q(
+        storage,
+        session,
+        "SELECT a.attname, t.typname, t.typtype FROM pg_attribute a "
+        "JOIN pg_class c ON a.attrelid = c.oid "
+        "JOIN pg_type t ON t.oid = a.atttypid "
+        "WHERE c.relname = 'ea' AND a.attnum > 0 ORDER BY a.attnum",
+    )
+    assert res.rows == [("arr", "_te", "b"), ("sc", "te", "e")]
+
+
+def test_array_type_names_collide_per_namespace(storage, session):
+    """An array type name is unique per SCHEMA, not globally.
+
+    PostgreSQL prepends underscores until the name is free **within its own
+    namespace**. A single global set made ``test_schema.test_enum``'s array
+    dodge the unrelated ``public._test_enum`` and come out ``__test_enum``.
+
+    Both halves are pinned because they pull in opposite directions: the
+    schema-scoped array keeps ONE underscore even though ``public._test_enum``
+    exists, while the public array really does need THREE — ``_test_enum`` is
+    taken by the enum itself and ``__test_enum`` by that enum's own array,
+    which is created first because it has the lower oid.
+
+    Every name here was measured against PostgreSQL 14 on 2026-09-20.
+    """
+    q(storage, session, "CREATE SCHEMA test_schema")
+    q(storage, session, "CREATE TYPE test_schema.test_enum AS ENUM ('val')")
+    q(storage, session, "CREATE TYPE _test_enum AS ENUM ('evil')")
+    q(storage, session, "CREATE TYPE test_enum AS ENUM ('other')")
+    q(
+        storage,
+        session,
+        "CREATE TABLE on_path_table (a test_schema.test_enum[], b _test_enum, c test_enum[])",
+    )
+    res = q(
+        storage,
+        session,
+        "SELECT a.attname, n.nspname, t.typname FROM pg_attribute a "
+        "JOIN pg_class c ON a.attrelid = c.oid "
+        "JOIN pg_type t ON t.oid = a.atttypid "
+        "JOIN pg_namespace n ON t.typnamespace = n.oid "
+        "WHERE c.relname = 'on_path_table' AND a.attnum > 0 ORDER BY a.attnum",
+    )
+    assert res.rows == [
+        ("a", "test_schema", "_test_enum"),
+        ("b", "public", "_test_enum"),
+        ("c", "public", "___test_enum"),
+    ]
+
+
 def test_pg_class_reltuples(storage, session):
     # pgjdbc's getIndexInfo reads ci.reltuples as CARDINALITY; -1 is PG's
     # "no estimate yet" initial value.
@@ -780,3 +1129,162 @@ def test_comma_join_semantics_preserved(storage, session):
         " WHERE ca.id = cb.aid AND cb.id = cc.bid AND ca.x = 10 ORDER BY cc.id",
     )
     assert res.rows == [(10, 1000)]
+
+
+def test_pg_proc_argmodes_for_in_inout_out(storage, session):
+    """`f(IN a int, INOUT b varchar, OUT c timestamptz)` in full.
+
+    Four separate facts, all measured against PostgreSQL 14 on 2026-09-20 and
+    all previously wrong:
+
+    - `proargmodes` was NULL; it is `{i,b,o}`.
+    - `proallargtypes` was NULL; it is every parameter's type.
+    - `proargtypes` listed all three, but it is the CALL signature — an
+      OUT-only parameter is excluded, so it is `23 1043`.
+    - `prorettype` was 2278 (void, an oid this catalog does not define); with
+      two output columns it is 2249 (`record`).
+    """
+    q(
+        storage,
+        session,
+        "CREATE FUNCTION f3(IN a int, INOUT b varchar, OUT c timestamptz) "
+        "AS $f$ BEGIN b := 'a'; END; $f$ LANGUAGE plpgsql",
+    )
+    res = q(
+        storage,
+        session,
+        "SELECT proargmodes, proallargtypes, proargnames, proargtypes, prorettype "
+        "FROM pg_proc WHERE proname = 'f3'",
+    )
+    modes, allargs, names, argtypes, rettype = res.rows[0]
+    assert list(modes) == ["i", "b", "o"]
+    assert list(allargs) == [23, 1043, 1184]
+    assert list(names) == ["a", "b", "c"]
+    assert argtypes == "23 1043", "proargtypes is the call signature: no OUT-only param"
+    assert rettype == 2249, "two output columns means record, not void"
+
+
+def test_pg_proc_argmodes_are_null_when_every_param_is_in(storage, session):
+    """PostgreSQL leaves both arrays NULL unless some parameter is not plain IN.
+
+    pgjdbc's getProcedureColumns switches on exactly that, so populating them
+    unconditionally would change how it reads every ordinary function.
+    """
+    q(
+        storage,
+        session,
+        "CREATE FUNCTION allin(a int, b text) RETURNS int AS 'SELECT 1' LANGUAGE sql",
+    )
+    res = q(
+        storage,
+        session,
+        "SELECT proargmodes, proallargtypes FROM pg_proc WHERE proname = 'allin'",
+    )
+    assert res.rows == [(None, None)]
+
+
+def test_pg_proc_returns_table(storage, session):
+    """`RETURNS TABLE (i int)` reports its columns as `t`-mode entries.
+
+    The output columns ride the same three arrays as OUT parameters, and a
+    single column makes `prorettype` that column's type — not void, and not
+    `record`. `proargtypes` stays empty because the function takes no input.
+    """
+    q(storage, session, "CREATE FUNCTION f5() RETURNS TABLE (i int) LANGUAGE sql AS 'SELECT 1'")
+    res = q(
+        storage,
+        session,
+        "SELECT proargmodes, proallargtypes, proargnames, proargtypes, prorettype, proretset "
+        "FROM pg_proc WHERE proname = 'f5'",
+    )
+    modes, allargs, names, argtypes, rettype, retset = res.rows[0]
+    assert list(modes) == ["t"]
+    assert list(allargs) == [23]
+    assert list(names) == ["i"]
+    assert argtypes == ""
+    assert rettype == 23
+    assert retset is True
+
+
+def test_pg_proc_composite_return_type(storage, session):
+    """`RETURNS <table>` resolves to that table's row type, not void.
+
+    A user type has no storage tag, so the return type was 2278. The NAME is
+    recorded at CREATE and resolved at reflection time, where the catalog is
+    in scope — asserted against the table's own row-type oid rather than a
+    literal, because these oids are this server's to mint.
+    """
+    q(storage, session, "CREATE TABLE mdt (id int, name text)")
+    q(
+        storage,
+        session,
+        "CREATE FUNCTION f4(int) RETURNS mdt AS $b$ SELECT 1, 'a' $b$ LANGUAGE sql",
+    )
+    rettype = q(storage, session, "SELECT prorettype FROM pg_proc WHERE proname = 'f4'").rows[0][0]
+    rowtype = q(
+        storage,
+        session,
+        "SELECT t.oid FROM pg_type t JOIN pg_class c ON t.typrelid = c.oid WHERE c.relname = 'mdt'",
+    ).rows[0][0]
+    assert rettype == rowtype != 2278
+
+
+def test_pg_type_typtype_for_pseudo_and_multirange(storage, session):
+    """`record` is a pseudo-type `p`; a multirange is `m`.
+
+    Both reported `b`. This is not cosmetic: pgjdbc's getProcedureColumns
+    decides whether to emit a leading `returnValue` row by switching on
+    `typtype`, so `record` reading `b` gave a function with OUT parameters a
+    spurious extra row — which is how this was found, after the argmodes were
+    already correct. Measured on PostgreSQL 14, 2026-09-20.
+    """
+    res = q(
+        storage,
+        session,
+        "SELECT typname, typtype FROM pg_type "
+        "WHERE typname IN ('record', 'int4range', 'int4multirange', 'text') ORDER BY typname",
+    )
+    assert res.rows == [
+        ("int4multirange", "m"),
+        ("int4range", "r"),
+        ("record", "p"),
+        ("text", "b"),
+    ]
+
+
+def test_builtin_return_type_is_not_treated_as_a_user_type(storage, session):
+    """`RETURNS refcursor` keeps its own type; it is not a composite.
+
+    sqlglot parses `refcursor` as a USERDEFINED type name — the same shape as
+    `RETURNS <composite>` — even though `type_tag_for_sql` resolves it
+    perfectly well. A first version of the composite-return fix claimed every
+    USERDEFINED name, which dropped refcursor's tag and made `SELECT getref()`
+    describe its column as text (25) rather than refcursor (1790).
+
+    So the discriminator is whether the type resolves to a storage tag, not
+    whether sqlglot called it USERDEFINED. Both sides are asserted here
+    because the bug was invisible from either one alone.
+    """
+    q(
+        storage,
+        session,
+        "CREATE FUNCTION getref() RETURNS refcursor AS $b$ SELECT 'x'::refcursor $b$ LANGUAGE sql",
+    )
+    q(storage, session, "CREATE TABLE mdt2 (id int)")
+    q(
+        storage,
+        session,
+        "CREATE FUNCTION getcomp() RETURNS mdt2 AS $b$ SELECT 1 $b$ LANGUAGE sql",
+    )
+    ref = q(storage, session, "SELECT prorettype FROM pg_proc WHERE proname = 'getref'").rows[0][0]
+    comp = q(storage, session, "SELECT prorettype FROM pg_proc WHERE proname = 'getcomp'").rows[0][
+        0
+    ]
+    rowtype = q(
+        storage,
+        session,
+        "SELECT t.oid FROM pg_type t JOIN pg_class c ON t.typrelid = c.oid "
+        "WHERE c.relname = 'mdt2'",
+    ).rows[0][0]
+    assert ref == 1790, "refcursor resolves to its own oid, not a user type"
+    assert comp == rowtype, "a real composite still resolves through the catalog"

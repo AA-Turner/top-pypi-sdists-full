@@ -47,6 +47,67 @@ pub(crate) fn coll_arg(doc: &Document, cmd: &str) -> Result<String, CommandError
 
 /// A document-valued field, or an empty document when absent / wrong type
 /// (mirrors Python's `spec.get("q", {})` / `doc.get("query") or {}`).
+/// A `hint` on a WRITE command must name an index that exists.
+///
+/// `find` / `count` / `aggregate` route their hint through the storage layer,
+/// which rejects an unknown one; `update` / `delete` / `findAndModify` never
+/// passed theirs anywhere, so `hint: "nosuch"` was accepted and the write ran
+/// unhinted while mongod fails the command. Validating without planning off it
+/// is result-equivalent: a VALID hint selects an index, never a different set
+/// of documents.
+pub(crate) fn validate_write_hint(
+    storage: &dyn crate::Storage,
+    db: &str,
+    coll: &str,
+    hint: Option<&Bson>,
+) -> Result<(), CommandError> {
+    let hint = match hint {
+        None | Some(Bson::Null) => return Ok(()),
+        Some(h) => h,
+    };
+    let indexes = storage.list_indexes(db, coll).unwrap_or_default();
+    let known = match hint {
+        Bson::String(s) => {
+            // `"$natural"` is deliberately absent: mongod takes only the
+            // document form and rejects the string (probed 8.2.11,
+            // 2026-08-31). The `Bson::Document` arm below still accepts
+            // `{$natural: ...}`.
+            s == "_id_"
+                || indexes
+                    .iter()
+                    .any(|i| i.get_str("name").map(|n| n == s).unwrap_or(false))
+        }
+        Bson::Document(spec) => {
+            (spec.len() == 1 && (spec.contains_key("$natural") || spec.contains_key("_id")))
+                || indexes
+                    .iter()
+                    .any(|i| i.get_document("key").map(|k| k == spec).unwrap_or(false))
+        }
+        _ => return Ok(()), // the type error is raised by `argtypes::require_hint`
+    };
+    if known {
+        return Ok(());
+    }
+    // mongod renders its whole query plan here; we name the hint. The CODE
+    // matches, the text does not — a deliberate difference, see
+    // `tasks/backlog.md` (8.2.11 returns a planner diagnostic, and the project
+    // asserts the rejection rather than the text).
+    //
+    // `{hint:?}` was Rust's `Debug` on a `Bson`, which leaked the RUST TYPE
+    // NAME to the client: a bad string hint came back as
+    // `hint String("x") does not correspond…`. `String(…)` means nothing to a
+    // MongoDB client, and the Python server says `'x'` for the same input.
+    let rendered = match hint {
+        Bson::String(s) => format!("\"{s}\""),
+        other => secantus_core::aggregate::render_value_compact(other),
+    };
+    Err(CommandError::new(
+        2,
+        "BadValue",
+        format!("hint {rendered} does not correspond to an existing index"),
+    ))
+}
+
 pub(crate) fn doc_field(doc: &Document, key: &str) -> Document {
     doc.get(key)
         .and_then(Bson::as_document)
@@ -171,9 +232,31 @@ pub(crate) fn encode_docs(docs: Vec<Document>) -> Result<Vec<Vec<u8>>, CommandEr
         .collect()
 }
 
+/// mongod's wrapper for an EXECUTION-time update error.
+///
+/// mongod reports the update errors that depend on the stored document -- a
+/// `$push` onto a non-array, an `$inc` past int64, an `_id` change -- as
+/// `Plan executor error during <command> :: caused by :: <message>`, and leaves
+/// the parse errors readable from the update spec alone (an unknown modifier, a
+/// path conflict, a `$rename` onto itself) bare. Probed 8.2.11 (2026-09-06)
+/// across ten wrapped and seven bare shapes, for both `update` and
+/// `findAndModify`.
+///
+/// The wrapper names the COMMAND, so it cannot be baked into the engine's
+/// message; the engine sets `exec` and the handler supplies the name. Mirrors
+/// the two sites in `secantus.commands` that do the same on the Python server.
+pub(crate) fn exec_wrapped(errmsg: String, exec: bool, command: &str) -> String {
+    if exec {
+        format!("Plan executor error during {command} :: caused by :: {errmsg}")
+    } else {
+        errmsg
+    }
+}
+
 /// Shape a per-operation `writeError` document from a pre-classified storage
-/// error (used by `delete`; `update` will reuse it).
-pub(crate) fn write_error(index: usize, err: StorageError) -> Document {
+/// error. `command` is the mongod command name for the executor wrapper (see
+/// [`exec_wrapped`]) -- `"update"` or `"delete"`.
+pub(crate) fn write_error(index: usize, err: StorageError, command: &str) -> Document {
     match err {
         StorageError::DuplicateKey(info) => {
             let mut e = doc! { "index": index as i32, "code": 11000, "errmsg": info.errmsg };
@@ -185,7 +268,8 @@ pub(crate) fn write_error(index: usize, err: StorageError) -> Document {
             }
             e
         }
-        StorageError::WriteError { code, errmsg } => {
+        StorageError::WriteError { code, errmsg, exec } => {
+            let errmsg = exec_wrapped(errmsg, exec, command);
             doc! { "index": index as i32, "code": code, "errmsg": errmsg }
         }
         // Internal is handled by callers (command-level error); shouldn't reach
@@ -201,14 +285,49 @@ pub(crate) fn write_error(index: usize, err: StorageError) -> Document {
     }
 }
 
+/// A READ command's execution-time refusal, under mongod's namespace-naming
+/// wrapper.
+///
+/// mongod has two executor wrappers and they are not interchangeable: an
+/// update-side failure gets `Plan executor error during <command> :: caused by
+/// ::` ([`exec_wrapped`]) while a read-side one gets `Executor error during
+/// <command> command: <db>.<coll> :: caused by ::`. The ambiguous-sort-path
+/// refusal (16746) is the read-side kind -- mongod discovers it per document --
+/// and it reached the client under the update wrapper with an EMPTY command
+/// name, because `command_error` assumed reads never carry an execution error.
+pub(crate) fn read_exec_error(err: StorageError, command: &str, ns: &str) -> CommandError {
+    match err {
+        StorageError::WriteError {
+            code,
+            errmsg,
+            exec: true,
+        } => CommandError::new(
+            code,
+            code_name_for(code),
+            format!("Executor error during {command} command: {ns} :: caused by :: {errmsg}"),
+        ),
+        other => command_error(other),
+    }
+}
+
 /// Map a storage error to a command-level `CommandError` (for non-batch
-/// commands like `count` / `find`).
+/// commands like `count` / `find`). Read commands never carry an
+/// execution-time update error, so this drops the flag; `findAndModify`, which
+/// does, goes through [`command_error_during`].
 pub(crate) fn command_error(err: StorageError) -> CommandError {
+    command_error_during(err, "")
+}
+
+/// [`command_error`] with the command name for mongod's executor wrapper --
+/// `findAndModify` is the one non-batch command that applies an update.
+pub(crate) fn command_error_during(err: StorageError, command: &str) -> CommandError {
     match err {
         StorageError::Internal(msg) => CommandError::new(1, "InternalError", msg),
-        StorageError::WriteError { code, errmsg } => {
-            CommandError::new(code, code_name_for(code), errmsg)
-        }
+        StorageError::WriteError { code, errmsg, exec } => CommandError::new(
+            code,
+            code_name_for(code),
+            exec_wrapped(errmsg, exec, command),
+        ),
         StorageError::DuplicateKey(info) => CommandError::new(11000, "DuplicateKey", info.errmsg),
         StorageError::WriteConflict => CommandError::new(
             112,
@@ -216,6 +335,17 @@ pub(crate) fn command_error(err: StorageError) -> CommandError {
             "WriteConflict error: this operation conflicted with another operation. Please retry \
              your operation or multi-document transaction.",
         ),
+    }
+}
+
+/// mongod's name for an error code: the real one where it has a name, and
+/// `Location<n>` otherwise. The parse-time expression checks answer a mix of
+/// both -- 16020 and 17276 are `Location`s, but 9 is `FailedToParse`, and
+/// naming it `Location9` is a divergence the differential gate catches.
+pub(crate) fn error_code_name(code: i32) -> String {
+    match code_name_for(code) {
+        "Location" => format!("Location{code}"),
+        name => name.to_string(),
     }
 }
 
@@ -232,6 +362,11 @@ fn code_name_for(code: i32) -> &'static str {
         10334 => "BSONObjectTooLarge",
         11000 => "DuplicateKey",
         66 => "ImmutableField",
+        // Every unknown-expression error carries this, and a table miss renders
+        // the generic `Location168`. Measured 8.2.11 (2026-09-17) across 13
+        // shapes in `tools/probes/unknown_expression_errors.py`, where it was
+        // the only remaining difference on nine of them.
+        168 => "InvalidPipelineOperator",
         _ => "Location",
     }
 }
@@ -241,6 +376,31 @@ mod tests {
     use super::as_i64;
     use bson::Bson;
     use std::str::FromStr;
+
+    /// mongod wraps an EXECUTION-time update error and leaves a parse error
+    /// bare, and the wrapper names the command. Probed 8.2.11 (2026-09-06).
+    #[test]
+    fn exec_wrapped_applies_mongods_executor_prefix() {
+        assert_eq!(
+            super::exec_wrapped(
+                "Cannot apply $pull to a non-array value".into(),
+                true,
+                "update"
+            ),
+            "Plan executor error during update :: caused by :: \
+             Cannot apply $pull to a non-array value"
+        );
+        // The command name is interpolated -- `findAndModify` reports its own.
+        assert_eq!(
+            super::exec_wrapped("boom".into(), true, "findAndModify"),
+            "Plan executor error during findAndModify :: caused by :: boom"
+        );
+        // A parse error stays exactly as the engine wrote it.
+        assert_eq!(
+            super::exec_wrapped("An empty update path is not valid.".into(), false, "update"),
+            "An empty update path is not valid."
+        );
+    }
 
     #[test]
     fn as_i64_coerces_numeric_types_incl_decimal128() {

@@ -21,6 +21,7 @@ use std::sync::Arc;
 
 use bson::{doc, Bson, Document};
 
+use crate::argtypes::render_stage_value;
 use crate::cursors::{CursorProducer, TailableOptions};
 use crate::storage::{ChangeStreamOptions, ChangeStreamScope, Storage};
 use crate::util::{as_i64, decode_docs, encode_docs};
@@ -74,23 +75,45 @@ impl CursorProducer for ChangeStreamProducer {
                 // changeStreamPreAndPostImages) ends the stream with an ok: 0
                 // reply at the next getMore.
                 if let Some((code, msg)) = batch.fatal {
-                    self.fatal_error = Some(CommandError::new(code, "ChangeStreamFatalError", msg));
+                    // Storage-side fatals are all missing-required-image, which
+                    // mongod reports as 47 `NoMatchingDocument` with no error
+                    // labels — a different condition, and a different code, from
+                    // the 280 `ChangeStreamFatalError` raised below when a
+                    // pipeline strips the resume token.
+                    self.fatal_error = Some(CommandError::new(code, "NoMatchingDocument", msg));
                 }
                 if self.pipeline.is_empty() {
                     batch.events
                 } else {
-                    let (events, stripped_id) = apply_event_pipeline(batch.events, &self.pipeline);
-                    if stripped_id {
+                    let (events, bad_token) = apply_event_pipeline(batch.events, &self.pipeline);
+                    if let Some((expected, found)) = bad_token {
                         // mongod tags this fatal change-stream error
                         // NonResumableChangeStreamError so drivers don't retry it.
+                        // mongod's exact wording, measured against 6.0.16:
+                        // the getMore wrapper prefix, the full explanation
+                        // (libmongoc's `_test_resume_token_error` asserts on the
+                        // final sentence), then the token it expected and what
+                        // the pipeline left behind.
+                        let found = match found {
+                            None => "{}".to_string(),
+                            Some(tok) => render_stage_value(&Bson::Document(doc! { "_id": tok })),
+                        };
+                        let expected = render_stage_value(&Bson::Document(
+                            doc! { "_id": expected.unwrap_or(Bson::Null) },
+                        ));
                         self.fatal_error = Some(
                             CommandError::new(
                                 280,
                                 "ChangeStreamFatalError",
-                                // mongod's exact wording — libmongoc's
-                                // `_test_resume_token_error` asserts on it.
-                                "Only transformations that retain the unmodified \
-                                 _id field are allowed.",
+                                format!(
+                                    "Executor error during getMore :: caused by :: \
+                                     Encountered an event whose _id field, which contains \
+                                     the resume token, was modified by the pipeline. \
+                                     Modifying the _id field of an event makes it \
+                                     impossible to resume the stream from that point. Only \
+                                     transformations that retain the unmodified _id field \
+                                     are allowed. Expected: {expected} but found: {found}"
+                                ),
                             )
                             .with_extra(doc! {
                                 "errorLabels": ["NonResumableChangeStreamError"],
@@ -274,17 +297,15 @@ pub fn open_change_stream(doc: &Document, ctx: &mut CommandContext) -> HandlerRe
     // "no changes"; mongod and the Python server populate it here too. The
     // producer advances its position past whatever it returns; the overflow
     // beyond `batchSize` is buffered for the first getMore.
+    let start_position = producer.position();
     let mut initial = producer.produce();
     let split = batch_size.min(initial.len());
     let remainder = initial.split_off(split);
     let first_batch_bytes = initial;
     let open_position = producer.position();
 
-    // The high-water-mark resume token at the (post-poll) position — mongod
-    // returns it as the open reply's `postBatchResumeToken` so a client that sees
-    // an empty first batch still has a token to resume from.
-    let open_pbrt = {
-        let bytes = storage.high_water_mark_token(open_position);
+    let hwm_token = |position| {
+        let bytes = storage.high_water_mark_token(position);
         if bytes.is_empty() {
             None
         } else {
@@ -293,7 +314,9 @@ pub fn open_change_stream(doc: &Document, ctx: &mut CommandContext) -> HandlerRe
                 .map(Bson::Document)
         }
     };
-
+    // Events held back for getMore (`batchSize` trimmed the poll) are NOT yet
+    // delivered, so the token must not move past them.
+    let held_back = !remainder.is_empty();
     let cursors = ctx.cursors()?;
     let cursor_id = cursors
         .register_tailable(
@@ -324,10 +347,28 @@ pub fn open_change_stream(doc: &Document, ctx: &mut CommandContext) -> HandlerRe
             .map_err(|e| CommandError::new(1, "InternalError", e.to_string()))?;
         first_batch.push(Bson::Document(d));
     }
+    let last_sent_id = match first_batch.last() {
+        Some(Bson::Document(last)) => last.get("_id").cloned(),
+        _ => None,
+    };
     let mut cursor_doc = doc! {
         "firstBatch": Bson::Array(first_batch),
         "id": Bson::Int64(cursor_id),
         "ns": ns,
+    };
+    // `postBatchResumeToken`. With nothing held back it is the high-water mark
+    // at the post-poll position -- mongod returns one even for an empty batch
+    // so a client always has a token to resume from. With events held back it
+    // is the last SENT event's `_id` (every change event's `_id` is its resume
+    // token), or the pre-poll position if nothing was sent. The post-poll mark
+    // pointed PAST the held-back events: a driver that resumed after draining
+    // the first batch skipped them -- pymongo's "Test consecutive resume" lost
+    // two of three inserts (2026-09-25). Mirrors `commands.py`'s rule that a
+    // non-empty batch's token is its last event's `_id`.
+    let open_pbrt = if held_back {
+        last_sent_id.or_else(|| hwm_token(start_position))
+    } else {
+        hwm_token(open_position)
     };
     if let Some(tok) = open_pbrt {
         cursor_doc.insert("postBatchResumeToken", tok);
@@ -342,10 +383,12 @@ pub fn open_change_stream(doc: &Document, ctx: &mut CommandContext) -> HandlerRe
 /// decode → run the storage-free core pipeline → re-encode. On any error (an
 /// event a stage can't handle) the raw events pass through, so a one-off
 /// unsupported construct never tears the stream down.
-fn apply_event_pipeline(events: Vec<Vec<u8>>, pipeline: &[Bson]) -> (Vec<Vec<u8>>, bool) {
+type BadToken = Option<(Option<Bson>, Option<Bson>)>;
+
+fn apply_event_pipeline(events: Vec<Vec<u8>>, pipeline: &[Bson]) -> (Vec<Vec<u8>>, BadToken) {
     let raw = events.clone();
     let Ok(decoded) = decode_docs(events) else {
-        return (raw, false);
+        return (raw, None);
     };
     // The resume tokens going in, to compare against what comes out.
     let tokens_in: Vec<Option<Bson>> = decoded.iter().map(|d| d.get("_id").cloned()).collect();
@@ -359,13 +402,23 @@ fn apply_event_pipeline(events: Vec<Vec<u8>>, pipeline: &[Bson]) -> (Vec<Vec<u8>
             // surviving event with a missing or altered `_id` trips it. The
             // pipeline may reorder or drop events, so match each output against
             // the input carrying the same token rather than by position.
-            let invalid_id = out.iter().any(|d| match d.get("_id") {
-                None => true,
-                Some(tok) => !tokens_in.iter().any(|t| t.as_ref() == Some(tok)),
+            // Report the offending pair, not just a flag: mongod's message
+            // names the token it expected and the one it found.
+            let invalid_id = out.iter().enumerate().find_map(|(i, d)| {
+                let found = d.get("_id").cloned();
+                let bad = match &found {
+                    None => true,
+                    Some(tok) => !tokens_in.iter().any(|t| t.as_ref() == Some(tok)),
+                };
+                if bad {
+                    Some((tokens_in.get(i).cloned().flatten(), found))
+                } else {
+                    None
+                }
             });
             (encode_docs(out).unwrap_or(raw), invalid_id)
         }
-        Err(_) => (raw, false),
+        Err(_) => (raw, None),
     }
 }
 
@@ -391,9 +444,20 @@ fn extract_change_stream_pipeline(doc: &Document) -> Result<Vec<Bson>, CommandEr
                 14,
                 "TypeMismatch",
                 // mongod's exact wording, which libmongoc asserts on.
-                "Each element of the 'pipeline' array must be an object",
+                crate::aggregate::PIPELINE_ELEMENT_MSG,
             ));
         };
+        if s.len() != 1 {
+            // A document of the wrong arity is Location40323, distinct from the
+            // TypeMismatch above. Without this, `{}` fell through to the
+            // unrecognised-stage branch below as the empty name `''`, and a
+            // multi-key stage was accepted outright.
+            return Err(CommandError::new(
+                40323,
+                "Location40323",
+                crate::aggregate::STAGE_ARITY_MSG,
+            ));
+        }
         let name = s.keys().next().map(String::as_str).unwrap_or("");
         if name == "$changeStream" {
             return Err(CommandError::new(
@@ -498,4 +562,54 @@ fn cursor_batch_size(doc: &Document) -> i64 {
         .and_then(|c| c.get("batchSize"))
         .and_then(as_i64)
         .unwrap_or(DEFAULT_BATCH_SIZE as i64)
+}
+
+#[cfg(test)]
+mod malformed_cs_pipeline_tests {
+    use super::*;
+    use bson::doc;
+
+    fn err_for(stage: Bson) -> CommandError {
+        let d = doc! {"pipeline": [Bson::Document(doc! {"$changeStream": {}}), stage]};
+        extract_change_stream_pipeline(&d).expect_err("malformed stage should be rejected")
+    }
+
+    #[test]
+    fn non_document_stage_is_type_mismatch() {
+        for bad in [
+            Bson::Int32(42),
+            Bson::String("stage".into()),
+            Bson::Array(vec![Bson::Int32(1)]),
+            Bson::Null,
+        ] {
+            let err = err_for(bad.clone());
+            assert_eq!(err.code, 14, "{bad:?}");
+            assert_eq!(
+                err.errmsg,
+                crate::aggregate::PIPELINE_ELEMENT_MSG,
+                "{bad:?}"
+            );
+        }
+    }
+
+    /// `{}` previously fell through to the unrecognised-stage branch as the
+    /// empty name `''` (40324); a multi-key stage was accepted outright.
+    #[test]
+    fn wrong_arity_stage_is_location_40323() {
+        for bad in [doc! {}, doc! {"$match": {}, "$project": {"x": 1}}] {
+            let err = err_for(Bson::Document(bad.clone()));
+            assert_eq!(err.code, 40323, "{bad:?}");
+            assert_eq!(err.errmsg, crate::aggregate::STAGE_ARITY_MSG, "{bad:?}");
+        }
+    }
+
+    #[test]
+    fn well_formed_stage_still_accepted() {
+        let d = doc! {"pipeline": [
+            Bson::Document(doc! {"$changeStream": {}}),
+            Bson::Document(doc! {"$match": {"operationType": "insert"}}),
+        ]};
+        let out = extract_change_stream_pipeline(&d).expect("valid stage must pass");
+        assert_eq!(out.len(), 1);
+    }
 }

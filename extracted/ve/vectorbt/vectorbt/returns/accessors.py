@@ -49,6 +49,11 @@ The accessors extend `vectorbt.generic.accessors`.
 0.09090909090909083
 ```
 
+!!! tip "VectorBT PRO"
+
+    See the [rolling metrics examples](https://vectorbt.pro/features/performance/#hyperfast-rolling-metrics)
+    for optimized calculations of rolling Sharpe ratios and other return statistics.
+
 ## Defaults
 
 `vectorbt.returns.accessors.ReturnsAccessor` accepts `defaults` dictionary where you can pass
@@ -597,17 +602,13 @@ class ReturnsAccessor(GenericAccessor):
         if nb_trials is None:
             nb_trials = self.wrapper.shape_2d[1]
         returns = to_2d_array(self.obj)
-        nanmask = np.isnan(returns)
-        if nanmask.any():
-            returns = returns.copy()
-            returns[nanmask] = 0.0
         result = metrics.deflated_sharpe_ratio(
             est_sharpe=sharpe_ratio / np.sqrt(self.ann_factor),
             var_sharpe=var_sharpe / self.ann_factor,
             nb_trials=nb_trials,
-            backtest_horizon=self.wrapper.shape_2d[0],
-            skew=skew(returns, axis=0, bias=bias),
-            kurtosis=kurtosis(returns, axis=0, bias=bias),
+            backtest_horizon=np.sum(~np.isnan(returns), axis=0),
+            skew=skew(returns, axis=0, bias=bias, nan_policy="omit"),
+            kurtosis=kurtosis(returns, axis=0, bias=bias, fisher=False, nan_policy="omit"),
         )
         wrap_kwargs = merge_dicts(dict(name_or_index="deflated_sharpe_ratio"), wrap_kwargs)
         return self.wrapper.wrap_reduced(result, group_by=False, **wrap_kwargs)

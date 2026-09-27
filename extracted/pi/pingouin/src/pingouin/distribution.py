@@ -8,70 +8,7 @@ import scipy.stats
 from .utils import _flatten_list as _fl
 from .utils import _postprocess_dataframe, remove_na
 
-__all__ = ["gzscore", "normality", "homoscedasticity", "anderson", "epsilon", "sphericity"]
-
-
-def gzscore(x, *, axis=0, ddof=1, nan_policy="propagate"):
-    """Geometric standard (Z) score.
-
-    Parameters
-    ----------
-    x : array_like
-        Array of raw values.
-    axis : int or None, optional
-        Axis along which to operate. Default is 0. If None, compute over
-        the whole array `x`.
-    ddof : int, optional
-        Degrees of freedom correction in the calculation of the
-        standard deviation. Default is 1.
-    nan_policy : {'propagate', 'raise', 'omit'}, optional
-        Defines how to handle when input contains nan. 'propagate' returns nan,
-        'raise' throws an error, 'omit' performs the calculations ignoring nan
-        values. Default is 'propagate'.  Note that when the value is 'omit',
-        nans in the input also propagate to the output, but they do not affect
-        the geometric z scores computed for the non-nan values.
-
-    Returns
-    -------
-    gzscore : array_like
-        Array of geometric z-scores (same shape as x).
-
-    Notes
-    -----
-    Geometric Z-scores are better measures of dispersion than arithmetic
-    z-scores when the sample data come from a log-normally distributed
-    population [1]_.
-
-    Given the raw scores :math:`x`, the geometric mean :math:`\\mu_g` and
-    the geometric standard deviation :math:`\\sigma_g`,
-    the standard score is given by the formula:
-
-    .. math:: z = \\frac{log(x) - log(\\mu_g)}{log(\\sigma_g)}
-
-    References
-    ----------
-    .. [1] https://en.wikipedia.org/wiki/Geometric_standard_deviation
-
-    Examples
-    --------
-    Standardize a lognormal-distributed vector:
-
-    >>> import numpy as np
-    >>> from pingouin import gzscore
-    >>> np.random.seed(123)
-    >>> raw = np.random.lognormal(size=100)
-    >>> z = gzscore(raw)
-    >>> print(round(z.mean(), 3), round(z.std(), 3))
-    -0.0 0.995
-    """
-    warnings.warn(
-        "gzscore is deprecated and will be removed in pingouin 0.7.0;"
-        " use scipy.stats.gzscore instead."
-    )
-    x = np.asanyarray(x)
-    log = np.ma.log if isinstance(x, np.ma.MaskedArray) else np.log
-    z = scipy.stats.zscore(log(x), axis=axis, ddof=ddof, nan_policy=nan_policy)
-    return z
+__all__ = ["normality", "homoscedasticity", "anderson", "epsilon", "sphericity"]
 
 
 def normality(data, dv=None, group=None, method="shapiro", alpha=0.05):
@@ -167,9 +104,9 @@ def normality(data, dv=None, group=None, method="shapiro", alpha=0.05):
     >>> import pingouin as pg
     >>> np.random.seed(123)
     >>> x = np.random.normal(size=100)
-    >>> pg.normality(x)
-             W      pval  normal
-    0  0.98414  0.274886    True
+    >>> pg.normality(x).round(3)
+           W   pval  normal
+    0  0.984  0.275    True
 
     2. Omnibus test on a wide-format dataframe with missing values
 
@@ -194,11 +131,11 @@ def normality(data, dv=None, group=None, method="shapiro", alpha=0.05):
     4. Long-format dataframe
 
     >>> data = pg.read_dataset("rm_anova2")
-    >>> pg.normality(data, dv="Performance", group="Time")
-                 W      pval  normal
+    >>> pg.normality(data, dv="Performance", group="Time").round(3)
+              W   pval  normal
     Time
-    Pre   0.967718  0.478773    True
-    Post  0.940728  0.095157    True
+    Pre   0.968  0.479    True
+    Post  0.941  0.095    True
 
     5. Same but using the Jarque-Bera test
 
@@ -233,21 +170,18 @@ def normality(data, dv=None, group=None, method="shapiro", alpha=0.05):
             stats["normal"] = np.where(stats["pval"] > alpha, True, False)
         else:
             # Long-format
-            stats = pd.DataFrame([])
             assert group in data.columns
             assert dv in data.columns
-            grp = data.groupby(group, observed=True, sort=False)
-            cols = grp.groups.keys()
-            for idx, tmp in grp:
-                if tmp[dv].count() <= 3:
+            rows = {}
+            for idx, x in data.groupby(group, observed=True, sort=False)[dv]:
+                x = x.dropna().to_numpy()
+                if x.size <= 3:
                     warnings.warn(f"Group {idx} has less than 4 valid samples. Returning NaN.")
-                    st_grp = pd.DataFrame(
-                        {"W": np.nan, "pval": np.nan, "normal": False}, index=[idx]
-                    )
+                    rows[idx] = (np.nan, np.nan)
                 else:
-                    st_grp = normality(tmp[dv].to_numpy(), method=method, alpha=alpha)
-                stats = pd.concat([stats, st_grp], axis=0, ignore_index=True)
-            stats.index = cols
+                    rows[idx] = tuple(func(x))[:2]
+            stats = pd.DataFrame.from_dict(rows, orient="index", columns=col_names)
+            stats["normal"] = stats["pval"] > alpha
             stats.index.name = group
     return _postprocess_dataframe(stats)
 
@@ -327,10 +261,7 @@ def homoscedasticity(data, dv=None, group=None, method="levene", alpha=0.05, **k
 
     .. math:: W \\sim F(k-1, N-k)
 
-    .. warning:: Missing values are not supported for this function.
-        Make sure to remove them before using the
-        :py:meth:`pandas.DataFrame.dropna` or :py:func:`pingouin.remove_na`
-        functions.
+    Missing values are automatically removed from each sample.
 
     References
     ----------
@@ -373,7 +304,8 @@ def homoscedasticity(data, dv=None, group=None, method="levene", alpha=0.05, **k
     bartlett  2.873569  0.090045       True
     """
     assert isinstance(data, (pd.DataFrame, list, dict))
-    assert method.lower() in ["levene", "bartlett"]
+    method = method.lower()
+    assert method in ["levene", "bartlett"]
     func = getattr(scipy.stats, method)
     if isinstance(data, pd.DataFrame):
         # Data is a Pandas DataFrame
@@ -382,27 +314,31 @@ def homoscedasticity(data, dv=None, group=None, method="levene", alpha=0.05, **k
             # Get numeric data only
             numdata = data._get_numeric_data()
             assert numdata.shape[1] > 1, "Data must have at least two columns."
-            statistic, p = func(*numdata.to_numpy().T, **kwargs)
+            samples = numdata.to_numpy().T
         else:
             # Long-format
             assert group in data.columns
             assert dv in data.columns
             grp = data.groupby(group, observed=True)[dv]
             assert grp.ngroups > 1, "Data must have at least two columns."
-            statistic, p = func(*grp.apply(list), **kwargs)
+            samples = grp.apply(list)
     elif isinstance(data, list):
         # Check that list contains other list or np.ndarray
         assert all(isinstance(el, (list, np.ndarray)) for el in data)
         assert len(data) > 1, "Data must have at least two iterables."
-        statistic, p = func(*data, **kwargs)
+        samples = data
     else:
         # Data is a dict
         assert all(isinstance(el, (list, np.ndarray)) for el in data.values())
         assert len(data) > 1, "Data must have at least two iterables."
-        statistic, p = func(*data.values(), **kwargs)
+        samples = data.values()
 
+    # Cast to float: scipy.stats.bartlett fails with integer inputs in SciPy >= 1.17
+    # Missing values are removed separately in each sample.
+    samples = [remove_na(np.asarray(x, dtype=float)) for x in samples]
+    statistic, p = func(*samples, **kwargs)
     equal_var = True if p > alpha else False
-    stat_name = "W" if method.lower() == "levene" else "T"
+    stat_name = "W" if method == "levene" else "T"
     stats = pd.DataFrame({stat_name: statistic, "pval": p, "equal_var": equal_var}, index=[method])
 
     return _postprocess_dataframe(stats)
@@ -476,57 +412,103 @@ def anderson(*args, dist="norm"):
 ###############################################################################
 
 
-def _check_multilevel_rm(data, func="epsilon"):
-    """Check if data has multilevel columns for wide-format repeated measures.
-    ``func`` can be either epsilon or mauchly
+def _orthonormal_contrasts(k):
+    """(k, k - 1) matrix of orthonormal contrasts, i.e. orthogonal to the grand mean."""
+    Q, _ = np.linalg.qr(np.column_stack([np.ones(k), np.eye(k)[:, :-1]]))
+    return Q[:, 1:]
+
+
+def _rm_contrasts(columns):
+    """Orthonormal contrasts of the highest-order effect of a wide-format repeated measures design.
+
+    ``columns`` are the columns of the wide-format dataframe: a single level for a one-way design
+    (contrasts of the main effect), or a two-level :py:class:`pandas.MultiIndex` for a two-way
+    design (contrasts of the interaction). The interaction contrasts are the Kronecker product of
+    the contrasts of each factor, as in R (``mauchly.test``, car, afex), SPSS and JASP.
+    Returns an array of shape (n_columns, dof).
     """
-    # Support for two-way factor of shape (2, N)
-    if data.columns.nlevels == 1:
-        # For code clarity only
-        return data
-    elif data.columns.nlevels == 2:
-        # We sort the multiindex so that the higher factor has fewer levels
-        # Make sure to use remove_unused_levels to get the "true" shape
-        levshape = data.columns.remove_unused_levels().levshape
-        data = data.reorder_levels(np.argsort(levshape), axis=1)
-        levshape = np.sort(levshape)
-        # The first factor can have only one level (see if .. below), however,
-        # the second factor must have at least two levels.
-        assert levshape[1] >= 2, "Factor must have at least two levels."
-        if levshape[0] == 1:
-            # Two factors but first factor has only one level (= one-way)
-            data = data.droplevel(level=0, axis=1)
-        elif levshape[0] == 2:
-            # One factor has only two-level, e.g. (2, N) or (N, 2)
-            # Let's make sure that the first factor is sorted
-            data = data.sort_index(level=0, axis=1)
-            # Now let's compute the difference matrix of the first level
-            # We end up with a one-way design. It is similar to applying
-            # a paired T-test to gain scores instead of using repeated measures
-            # on two time points. Here we have computed the gain scores.
-            data = (
-                data.T.groupby(level=1, observed=True, group_keys=False).diff().dropna().transpose()
-            )
-            data = data.droplevel(level=0, axis=1)
-        else:
-            # Both factors have more than 2 levels -- differ from R / JASP
-            if func == "epsilon":
-                warnings.warn(
-                    "Epsilon values might be innaccurate in "
-                    "two-way repeated measures design where each  "
-                    "factor has more than 2 levels. Please  "
-                    "double-check your results."
-                )
-            else:
-                raise ValueError(
-                    "If using two-way repeated measures design, "
-                    "at least one factor must have exactly two "
-                    "levels. More complex designs are not yet "
-                    "supported."
-                )
-        return data
-    else:
+    if columns.nlevels > 2:
         raise ValueError("Only one-way or two-way designs are supported.")
+    codes = [pd.factorize(columns.get_level_values(i))[0] for i in range(columns.nlevels)]
+    n_levels = [c.max() + 1 for c in codes]
+    if np.prod(n_levels) != len(columns):
+        raise ValueError("Each combination of the within-subject factors must appear exactly once.")
+    C = np.ones((len(columns), 1))
+    for c, k in zip(codes, n_levels):
+        # Row-wise Kronecker product. A factor with only one level has no contrast and is ignored,
+        # e.g. the interaction of a (1, k) design is the main effect of the second factor.
+        if k > 1:
+            C_fac = _orthonormal_contrasts(k)[c]
+            C = (C[:, :, None] * C_fac[:, None, :]).reshape(len(columns), -1)
+    return C
+
+
+def _contrast_cov(data):
+    """Covariance matrix of the orthonormal contrasts, of shape (dof, dof).
+
+    ``data`` is a wide-format dataframe without missing values. Epsilon and sphericity tests are
+    computed on this matrix.
+    """
+    S = data.cov(numeric_only=True)
+    C = _rm_contrasts(S.columns)
+    return C.T @ S.to_numpy() @ C
+
+
+def _mauchly(M, df_resid, k):
+    """Mauchly's test of sphericity from the (d, d) covariance matrix of orthonormal contrasts.
+
+    ``df_resid`` is the residual degrees of freedom of the covariance matrix,
+    i.e. n - 1 in a repeated measures design and n - n_groups when ``M`` is computed from
+    the pooled within-group covariance of a mixed design. ``k`` is the number of repeated
+    measures conditions (e.g. ka * kb for the interaction of a two-way design).
+    Returns W, chi-square, dof and p-value. Same as R ``mauchly.test``.
+    """
+    d = M.shape[0]
+    # Compute dof of the test
+    ddof = (d * (d + 1)) / 2 - 1
+    # W = det(M) / (tr(M) / d)^d
+    sign, logdet = np.linalg.slogdet(M)
+    logW = logdet - d * np.log(np.trace(M) / d) if sign > 0 else -np.inf
+    W = np.exp(logW)
+
+    # Compute chi-square and p-value. Note that R uses the number of conditions k, and not d,
+    # in the second-order term w2 (Anderson 2003 uses d). We follow R to get the same p-values.
+    f = 1 - (2 * d**2 + d + 2) / (6 * d * df_resid)
+    w2 = (
+        (d + 2)
+        * (d - 1)
+        * (d - 2)
+        * (2 * d**3 + 6 * d**2 + 3 * k + 2)
+        / (288 * (df_resid * d * f) ** 2)
+    )
+    chi_sq = -df_resid * f * logW
+    p1 = scipy.stats.chi2.sf(chi_sq, ddof)
+    p2 = scipy.stats.chi2.sf(chi_sq, ddof + 4)
+    pval = p1 + w2 * (p2 - p1)
+    return W, chi_sq, ddof, pval
+
+
+def _gg_epsilon(M):
+    """Greenhouse-Geisser epsilon from the (d, d) covariance matrix of orthonormal contrasts.
+
+    Epsilon is always 1 with only one degree of freedom (e.g. two repeated measures).
+    """
+    d = M.shape[0]
+    if d <= 1:
+        return 1.0
+    return np.min([np.trace(M) ** 2 / (d * np.trace(M @ M)), 1])
+
+
+def _mauchly_sphericity(M, df_resid, k, alpha=0.05):
+    """Mauchly's test of sphericity, as reported in the repeated measures ANOVA tables.
+
+    Same parameters as :py:func:`_mauchly`. Returns whether sphericity is met, W and the p-value.
+    Sphericity is always met with only one degree of freedom (e.g. two repeated measures).
+    """
+    if M.shape[0] <= 1:
+        return True, np.nan, 1.0
+    W, _, _, pval = _mauchly(M, df_resid, k)
+    return bool(pval > alpha), W, pval
 
 
 def _long_to_wide_rm(data, dv=None, within=None, subject=None):
@@ -549,6 +531,19 @@ def _long_to_wide_rm(data, dv=None, within=None, subject=None):
         data, index=subject, values=dv, columns=within, aggfunc="mean", dropna=True, observed=True
     )
     return data
+
+
+def _wide_rm(data, dv=None, within=None, subject=None):
+    """Wide-format dataframe of a repeated measures design, without missing values.
+
+    ``data`` is converted from long to wide format if ``dv``, ``within`` and ``subject`` are
+    specified. Rows with missing values are removed (listwise deletion).
+    This internal function is used in pingouin.epsilon and pingouin.sphericity.
+    """
+    assert isinstance(data, pd.DataFrame), "Data must be a pandas Dataframe."
+    if all([v is not None for v in [dv, within, subject]]):
+        data = _long_to_wide_rm(data, dv=dv, within=within, subject=subject)
+    return data.dropna()
 
 
 def epsilon(data, dv=None, within=None, subject=None, correction="gg"):
@@ -605,20 +600,19 @@ def epsilon(data, dv=None, within=None, subject=None, correction="gg"):
 
     .. math::
 
-        \\epsilon_{GG} = \\frac{k^2(\\overline{\\text{diag}(S)} -
-        \\overline{S})^2}{(k-1)(\\sum_{i=1}^{k}\\sum_{j=1}^{k}s_{ij}^2 -
-        2k\\sum_{j=1}^{k}\\overline{s_i}^2 + k^2\\overline{S}^2)}
+        \\epsilon_{GG} = \\frac{\\text{tr}(M)^2}{\\text{dof} \\cdot \\text{tr}(M^2)}
 
-    where :math:`S` is the covariance matrix, :math:`\\overline{S}` the
-    grandmean of S and :math:`\\overline{\\text{diag}(S)}` the mean of all the
-    elements on the diagonal of S (i.e. mean of the variances).
+    where :math:`M = C^T S C`, :math:`S` is the covariance matrix and :math:`C` is a
+    :math:`(k, \\text{dof})` matrix of orthonormal contrasts. For the interaction of a two-way
+    design, :math:`C` is the Kronecker product of the orthonormal contrasts of each factor, as in
+    R, SPSS and JASP.
 
     The Huynh-Feldt epsilon is given by:
 
     .. math::
 
-        \\epsilon_{HF} = \\frac{n(k-1)\\epsilon_{GG}-2}{(k-1)
-        (n-1-(k-1)\\epsilon_{GG})}
+        \\epsilon_{HF} = \\frac{n \\cdot \\text{dof} \\cdot \\epsilon_{GG}-2}{\\text{dof}
+        (n-1-\\text{dof} \\cdot \\epsilon_{GG})}
 
     where :math:`n` is the number of observations.
 
@@ -696,58 +690,21 @@ def epsilon(data, dv=None, within=None, subject=None, correction="gg"):
 
     which gives the same epsilon value as the long-format dataframe.
     """
-    assert isinstance(data, pd.DataFrame), "Data must be a pandas Dataframe."
+    # Wide-format data without missing values, and covariance matrix of the orthonormal contrasts
+    data = _wide_rm(data, dv=dv, within=within, subject=subject)
+    M = _contrast_cov(data)
+    n, dof = data.shape[0], M.shape[0]
 
-    # If data is in long-format, convert to wide-format
-    if all([v is not None for v in [dv, within, subject]]):
-        data = _long_to_wide_rm(data, dv=dv, within=within, subject=subject)
-
-    # From now on we assume that data is in wide-format and contains only
-    # the relevant columns.
-    # Drop rows with missing values
-    data = data.dropna()
-
-    # Support for two-way factor of shape (2, N)
-    data = _check_multilevel_rm(data, func="epsilon")
-
-    # Covariance matrix
-    S = data.cov(numeric_only=True)
-    n, k = data.shape
-
-    # Epsilon is always 1 with only two repeated measures.
-    if k <= 2:
+    # Epsilon is always 1 with only one degree of freedom (e.g. two repeated measures).
+    if dof <= 1:
         return 1.0
-
-    # Degrees of freedom
-    if S.columns.nlevels == 1:
-        # One-way design
-        dof = k - 1
-    else:
-        # Two-way design (>2, >2)
-        ka, kb = S.columns.levshape
-        dof = (ka - 1) * (kb - 1)
 
     # Lower bound
     if correction == "lb":
         return 1 / dof
 
     # Greenhouse-Geisser
-    # Method 1. Sums of squares. (see real-statistics.com)
-    mean_var = np.diag(S).mean()
-    S_mean = S.mean().mean()
-    ss_mat = (S**2).sum().sum()
-    ss_rows = (S.mean(axis=1) ** 2).sum().sum()
-    num = (k * (mean_var - S_mean)) ** 2
-    den = (k - 1) * (ss_mat - 2 * k * ss_rows + k**2 * S_mean**2)
-    eps = np.min([num / den, 1])
-
-    # Method 2. Eigenvalues.
-    # Sv = S.to_numpy()
-    # S_pop = Sv - Sv.mean(0)[:, None] - Sv.mean(1)[None, :] + Sv.mean()
-    # eig = np.linalg.eigvalsh(S_pop)
-    # eig = eig[eig > 0.1]
-    # V = eig.sum()**2 / np.sum(eig**2)
-    # eps = np.min([V / dof, 1])
+    eps = _gg_epsilon(M)
 
     # Huynh-Feldt
     if correction == "hf":
@@ -802,12 +759,6 @@ def sphericity(data, dv=None, within=None, subject=None, method="mauchly", alpha
     pval : float
         P-value.
 
-    Raises
-    ------
-    ValueError
-        When testing for an interaction, if both within-subject factors have
-        more than 2 levels (not yet supported in Pingouin).
-
     See Also
     --------
     epsilon : Epsilon adjustement factor for repeated measures.
@@ -822,9 +773,10 @@ def sphericity(data, dv=None, within=None, subject=None, method="mauchly", alpha
 
         W = \\frac{\\prod \\lambda_j}{(\\frac{1}{k-1} \\sum \\lambda_j)^{k-1}}
 
-    where :math:`\\lambda_j` are the eigenvalues of the population
-    covariance matrix (= double-centered sample covariance matrix) and
-    :math:`k` is the number of conditions.
+    where :math:`\\lambda_j` are the eigenvalues of the covariance matrix of the orthonormal
+    contrasts :math:`M = C^T S C` (see :py:func:`pingouin.epsilon`) and :math:`k` is the number of
+    conditions. For the interaction of a two-way design, :math:`k - 1` is replaced by
+    :math:`(k_1 - 1)(k_2 - 1)`.
 
     From then, the :math:`W` statistic is transformed into a chi-square
     score using the number of observations per condition :math:`n`
@@ -840,7 +792,7 @@ def sphericity(data, dv=None, within=None, subject=None, method="mauchly", alpha
 
     .. math::
 
-        V = \\frac{(\\sum_j^{k-1} \\lambda_j)^2}{\\sum_j^{k-1} \\lambda_j^2}
+        V = \\frac{\\sum_j^{k-1} \\lambda_j^2}{(\\sum_j^{k-1} \\lambda_j)^2}
 
     .. math:: \\chi_v^2 = \\frac{n}{2}  (k-1)^2 (V - \\frac{1}{k-1})
 
@@ -888,7 +840,7 @@ def sphericity(data, dv=None, within=None, subject=None, method="mauchly", alpha
     John, Nagao and Sugiura (JNS) test
 
     >>> round(pg.sphericity(data, method="jns")[-1], 3)  # P-value only
-    0.046
+    0.139
 
     Now using a long-format dataframe
 
@@ -917,10 +869,8 @@ def sphericity(data, dv=None, within=None, subject=None, method="mauchly", alpha
     The p-value value is very large, and the test therefore indicates that
     there is no violation of sphericity.
 
-    Now, let's calculate the epsilon for the interaction between the two
-    repeated measures factor. The current implementation in Pingouin only works
-    if at least one of the two within-subject factors has no more than two
-    levels.
+    Now, let's test sphericity for the interaction between the two
+    repeated measures factor.
 
     >>> spher, _, chisq, dof, pval = pg.sphericity(
     ...     data, dv="Performance", subject="Subject", within=["Time", "Metric"]
@@ -952,79 +902,21 @@ def sphericity(data, dv=None, within=None, subject=None, method="mauchly", alpha
 
     which gives the same output as the long-format dataframe.
     """
-    assert isinstance(data, pd.DataFrame), "Data must be a pandas Dataframe."
+    # Wide-format data without missing values, and covariance matrix of the orthonormal contrasts
+    data = _wide_rm(data, dv=dv, within=within, subject=subject)
+    M = _contrast_cov(data)
+    n, d = data.shape[0], M.shape[0]
 
-    # If data is in long-format, convert to wide-format
-    if all([v is not None for v in [dv, within, subject]]):
-        data = _long_to_wide_rm(data, dv=dv, within=within, subject=subject)
-
-    # From now on we assume that data is in wide-format and contains only
-    # the relevant columns.
-    # Remove rows with missing values in wide-format dataframe
-    data = data.dropna()
-
-    # Support for two-way factor of shape (2, N)
-    data = _check_multilevel_rm(data, func="mauchly")
-
-    # From here, we work only with one-way design
-    n, k = data.shape
-    d = k - 1
-
-    # Sphericity is always met with only two repeated measures.
-    if k <= 2:
+    # Sphericity is always met with only one degree of freedom (e.g. two repeated measures).
+    if d <= 1:
         return True, np.nan, np.nan, 1, 1.0
 
-    # Compute dof of the test
-    ddof = (d * (d + 1)) / 2 - 1
-    ddof = 1 if ddof == 0 else ddof
-
     if method.lower() == "mauchly":
-        # Method 1. Contrast matrix. Similar to R & Matlab implementation.
-        # Only works for one-way design or two-way design with shape (2, N).
-        # 1 - Compute the successive difference matrix Z.
-        #     (Note that the order of columns does not matter.)
-        # 2 - Find the contrast matrix that M so that data * M = Z
-        # 3 - Performs the QR decomposition of this matrix (= contrast matrix)
-        # 4 - Compute sample covariance matrix S
-        # 5 - Compute Mauchly's statistic
-        # Z = data.diff(axis=1).dropna(axis=1)
-        # M = np.linalg.lstsq(data, Z, rcond=None)[0]
-        # C, _ = np.linalg.qr(M)
-        # S = data.cov(numeric_only=True)
-        # A = C.T.dot(S).dot(C)
-        # logW = np.log(np.linalg.det(A)) - d * np.log(np.trace(A / d))
-        # W = np.exp(logW)
-
-        # Method 2. Eigenvalue-based method. Faster.
-        # 1 - Estimate the population covariance (= double-centered)
-        # 2 - Calculate n-1 eigenvalues
-        # 3 - Compute Mauchly's statistic
-        S = data.cov(numeric_only=True).to_numpy()  # NumPy, otherwise S.mean() != grandmean
-        S_pop = S - S.mean(0)[:, None] - S.mean(1)[None, :] + S.mean()
-        eig = np.linalg.eigvalsh(S_pop)[1:]
-        # Use a relative tolerance tied to machine precision
-        tol = np.finfo(float).eps * eig.max() * d
-        eig = eig[eig > tol]
-        W = np.prod(eig) / (eig.sum() / d) ** d
-        logW = np.log(W)
-
-        # Compute chi-square and p-value (adapted from the ezANOVA R package)
-        f = 1 - (2 * d**2 + d + 2) / (6 * d * (n - 1))
-        w2 = (
-            (d + 2)
-            * (d - 1)
-            * (d - 2)
-            * (2 * d**3 + 6 * d**2 + 3 * k + 2)
-            / (288 * ((n - 1) * d * f) ** 2)
-        )
-        chi_sq = -(n - 1) * f * logW
-        p1 = scipy.stats.chi2.sf(chi_sq, ddof)
-        p2 = scipy.stats.chi2.sf(chi_sq, ddof + 4)
-        pval = p1 + w2 * (p2 - p1)
+        W, chi_sq, ddof, pval = _mauchly(M, n - 1, data.shape[1])
     else:
-        # Method = JNS
-        eps = epsilon(data, correction="gg")
-        W = eps * d
+        # Method = JNS. John's statistic is equal to 1 / d under sphericity.
+        ddof = (d * (d + 1)) / 2 - 1
+        W = np.trace(M @ M) / np.trace(M) ** 2
         chi_sq = 0.5 * n * d**2 * (W - 1 / d)
         pval = scipy.stats.chi2.sf(chi_sq, ddof)
 

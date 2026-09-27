@@ -51,7 +51,10 @@ void init_matrix(py::module_ &m)
             "__init__",
             [](QPDFMatrix *self, QPDFObjectHandle &h) {
                 if (!h.isMatrix()) {
-                    throw py::value_error(
+                    // A TypeError, like a native value of the wrong type, so
+                    // a caller's exception handling does not depend on the
+                    // conversion mode.
+                    throw py::type_error(
                         "pikepdf.Object could not be converted to Matrix");
                 }
                 QPDFObjectHandle::Matrix ohmatrix = h.getArrayAsMatrix();
@@ -66,7 +69,7 @@ void init_matrix(py::module_ &m)
                 std::vector<double> converted(6);
                 for (int i = 0; i < 6; ++i) {
                     if (!ol.at(i).getValueAsNumber(converted.at(i))) {
-                        throw py::value_error("Values must be numeric");
+                        throw py::type_error("Values must be numeric");
                     }
                 }
                 new (self) QPDFMatrix(converted.at(0),
@@ -134,18 +137,19 @@ void init_matrix(py::module_ &m)
                 if (determinant == 0.0) {
                     throw std::domain_error("Matrix is not invertible");
                 }
-                auto adjugate = QPDFMatrix(
+                // Divide the adjugate by the determinant directly;
+                // QPDFMatrix::scale() is a concatenation that would leave the
+                // translation terms undivided.
+                return QPDFMatrix(
                     // clang-format off
-                    self.d,
-                    -self.b,
-                    -self.c,
-                    self.a,
-                    self.c * self.f - self.d * self.e,
-                    self.b * self.e - self.a * self.f
+                    self.d / determinant,
+                    -self.b / determinant,
+                    -self.c / determinant,
+                    self.a / determinant,
+                    (self.c * self.f - self.d * self.e) / determinant,
+                    (self.b * self.e - self.a * self.f) / determinant
                     // clang-format on
                 );
-                adjugate.scale(1.0 / determinant, 1.0 / determinant);
-                return adjugate;
             })
         .def(
             "__array__",
@@ -203,11 +207,13 @@ void init_matrix(py::module_ &m)
             })
         .def("_repr_latex_",
             [](QPDFMatrix &self) {
-                py::str s("$$\n\\begin{{bmatrix}}\n"
-                          "{:g} & {:g} & 0 \\\\\n"
-                          "{:g} & {:g} & 0 \\\\\n"
-                          "{:g} & {:g} & 1 \n"
-                          "\\end{{bmatrix}}\n$$");
+                py::str s(R"($$
+\begin{{bmatrix}}
+{:g} & {:g} & 0 \\
+{:g} & {:g} & 0 \\
+{:g} & {:g} & 1
+\end{{bmatrix}}
+$$)");
                 return s.attr("format")(self.a, self.b, self.c, self.d, self.e, self.f);
             })
         .def("__getstate__",

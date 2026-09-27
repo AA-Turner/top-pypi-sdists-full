@@ -138,6 +138,13 @@ async def _hard_delete(db, file_id: str, user_id: str) -> bool:
 # (arg_models/dispatcher_args.py) + tool_def.parameters."$variants" — the source of truth.
 
 
+#: The most file-record JSON one ``cloud_file`` list/batch_get result carries.
+#: Production (ops ``tool_result_overflow:cloud_file``, 09-01): ``list`` limit=80
+#: returned 71,649 chars of full file rows. Past this the page ends early with an
+#: exact ``next_offset`` (list) or the ids still to fetch (batch_get).
+CLOUD_FILE_RESULT_MAX_CHARS = 40_000
+
+
 async def cloud_file(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     started_at = time.time()
     try:
@@ -162,8 +169,25 @@ async def cloud_file(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
                 offset=offset,
                 limit=limit,
             )
+            from matrx_ai.tools.output_caps import cap_json_list
+
+            shown, cap = cap_json_list(files, max_chars=CLOUD_FILE_RESULT_MAX_CHARS)
+            out: dict[str, Any] = {"files": shown, "count": len(shown), "offset": offset, "limit": limit}
+            if cap.truncated:
+                out.update(
+                    truncated=True,
+                    fetched=cap.total,
+                    next_offset=offset + len(shown),
+                    note=(
+                        f"{cap.total} file(s) matched this page but only {len(shown)} fit in one "
+                        f"result ({CLOUD_FILE_RESULT_MAX_CHARS:,} chars). Continue with "
+                        f"action='list', offset={offset + len(shown)}."
+                    ),
+                )
+            elif len(files) == limit:
+                out["next_offset"] = offset + limit  # a full page: more may exist
             return _stamp(
-                ToolResult(success=True, output={"files": files, "count": len(files), "offset": offset, "limit": limit}),
+                ToolResult(success=True, output=out, output_self_capped=True),
                 started_at, ctx,
             )
         except Exception as exc:
@@ -220,16 +244,28 @@ async def cloud_file(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
             results = await asyncio.gather(*[_fetch_one(db, fid, user_id) for fid in file_ids])
             found = [r for r in results if r is not None]
             missing = [fid for fid, r in zip(file_ids, results, strict=False) if r is None]
+            from matrx_ai.tools.output_caps import cap_json_list
+
+            shown, cap = cap_json_list(found, max_chars=CLOUD_FILE_RESULT_MAX_CHARS)
+            out = {
+                "files": shown,
+                "count": len(shown),
+                "missing": missing,
+                "missing_count": len(missing),
+            }
+            if cap.truncated:
+                rest = [str(r.get("id")) for r in found[len(shown):] if isinstance(r, dict)]
+                out.update(
+                    truncated=True,
+                    not_returned=rest,
+                    note=(
+                        f"{len(found)} file(s) were found but only {len(shown)} fit in one result "
+                        f"({CLOUD_FILE_RESULT_MAX_CHARS:,} chars). Fetch the rest with "
+                        f"action='batch_get', file_ids=not_returned."
+                    ),
+                )
             return _stamp(
-                ToolResult(
-                    success=True,
-                    output={
-                        "files": found,
-                        "count": len(found),
-                        "missing": missing,
-                        "missing_count": len(missing),
-                    },
-                ),
+                ToolResult(success=True, output=out, output_self_capped=True),
                 started_at, ctx,
             )
         except Exception as exc:

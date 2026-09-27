@@ -1,9 +1,10 @@
 import threading
 import traceback
+from typing import cast
 
 import pytest
 
-from multidict import CIMultiDict, MultiDict, MutableMultiMapping
+from multidict import CIMultiDict, MultiDict, MutableMultiMapping, getversion
 
 
 @pytest.mark.c_extension
@@ -53,11 +54,11 @@ def test_race_condition_iterator_vs_mutation(
                 list(target.items())
                 list(target.keys())
                 list(target.values())
-                # getall()/get() walk the table with a finder open, which is
+                # getall()/get() walk the table mid-mutation, which is
                 # what makes an unlocked consistency check observable.
                 target.getall(f"k-{i % 64}", None)
                 target.get(f"k-{i % 64}", None)
-            except RuntimeError:
+            except RuntimeError:  # pragma: no cover
                 # "MultiDict changed during iteration" is exactly the expected
                 # and memory-safe outcome when iterating a resizing dictionary.
                 pass
@@ -149,3 +150,110 @@ def test_race_condition_extend_vs_source_mutation(
     # snapshot must have seen at least those.
     assert sizes
     assert min(sizes) >= 64
+
+
+@pytest.mark.c_extension
+def test_race_condition_getversion_vs_mutation(
+    any_multidict_class: type[CIMultiDict[str] | MultiDict[str]],
+) -> None:
+    """getversion() reads ``md->version`` without taking the object's
+    critical section, so it races a writer bumping that same field under
+    the lock on every mutation. Exercises the atomic relaxed load/store
+    pair backing ``md->version``, the same pattern ``len()`` already uses
+    for the lock-free read of ``md->used``.
+    """
+    if getattr(any_multidict_class, "__module__", "").endswith("_multidict_py"):
+        pytest.skip("Test is only applicable to the C extension")
+
+    md: MutableMultiMapping[str] = any_multidict_class()
+    md["k"] = "v0"
+
+    stop = threading.Event()
+    errors: list[str] = []
+    seen: list[int] = []
+    n_readers = 3
+    # Start every thread together; without this the writer (or a reader)
+    # can get a head start before the others are even scheduled.
+    ready = threading.Barrier(n_readers + 1)
+
+    def writer() -> None:
+        ready.wait()
+        # Loops until every reader is done, so mutation pressure lasts as
+        # long as any reader is reading: giving the writer a fixed
+        # iteration count instead would let it race to completion before
+        # a reader ever gets scheduled, leaving `seen` empty for reasons
+        # that have nothing to do with the atomic version fix.
+        i = 0
+        while not stop.is_set():
+            md["k"] = f"v{i}"
+            i += 1
+
+    def reader() -> None:
+        ready.wait()
+        last = -1
+        try:
+            for _ in range(20_000):
+                version = getversion(cast("MultiDict[object]", md))
+                if version < last:  # pragma: no cover
+                    errors.append(f"version went backwards: {last} -> {version}")
+                last = version
+                seen.append(version)
+        except Exception as e:  # pragma: no cover
+            errors.append(f"{type(e).__name__}: {e}")
+
+    reader_threads = [threading.Thread(target=reader) for _ in range(n_readers)]
+    writer_thread = threading.Thread(target=writer)
+
+    for t in [*reader_threads, writer_thread]:
+        t.start()
+    for t in reader_threads:
+        t.join()
+    stop.set()
+    writer_thread.join()
+
+    # A relaxed atomic load on a single object is still totally ordered
+    # with every store to it, so a reader must never observe the version
+    # go backwards even though it can see stale values.
+    assert not errors, f"Unexpected errors during concurrent execution: {errors}"
+    assert seen
+
+
+@pytest.mark.c_extension
+def test_items_iterator_shared_between_threads(
+    any_multidict_class: type[CIMultiDict[str] | MultiDict[str]],
+) -> None:
+    """Two threads pulling from one items iterator at once.
+
+    The C items iterator recycles its result tuple; only the thread that
+    owns the tuple may reuse it, and the field itself is never replaced,
+    so a shared iterator hands out correct pairs and never a freed one.
+    """
+    if getattr(any_multidict_class, "__module__", "").endswith("_multidict_py"):
+        pytest.skip("Test is only applicable to the C extension")
+
+    md: MutableMultiMapping[str] = any_multidict_class()
+    for i in range(2000):
+        md.add(f"k{i}", f"v{i}")
+    expected = set(md.items())
+    errors: list[str] = []
+
+    for _ in range(20):
+        it = iter(md.items())
+        seen: list[set[tuple[str, str]]] = [set(), set()]
+
+        def puller(idx: int) -> None:
+            try:
+                for pair in it:
+                    seen[idx].add(pair)
+            except Exception as e:  # pragma: no cover
+                errors.append(f"{type(e).__name__}: {e}")
+
+        threads = [threading.Thread(target=puller, args=(i,)) for i in range(2)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join(timeout=60)
+        assert not any(t.is_alive() for t in threads)
+        assert seen[0] | seen[1] == expected
+        assert seen[0] <= expected and seen[1] <= expected
+    assert not errors, errors

@@ -68,6 +68,7 @@ nav:
   - User Guide:
       - CLI Reference: guide/cli.md
       - Supply-Chain Vetting: guide/supply-chain.md
+      - Dependency Update Review: guide/dependency-review.md
       - Supported Formats: guide/formats.md
       - Dynamic Analysis: guide/coverage.md
       - Proof Standards: guide/proof-standards.md
@@ -78,6 +79,8 @@ nav:
       - Snyk: integrations/snyk.md
       - Dependabot: integrations/dependabot.md
       - Trivy: integrations/trivy.md
+      - Grype: integrations/grype.md
+      - OSV-Scanner: integrations/osv-scanner.md
       - pip-audit: integrations/pip-audit.md
       - SARIF: integrations/sarif.md
       - OpenVEX: integrations/openvex.md
@@ -90,6 +93,7 @@ nav:
       - Verdict Engine: architecture/engine.md
       - Analysis Pipeline: architecture/analysis.md
       - Parsers: architecture/parsers.md
+      - Secure Install Control Plane: proposals/secure-install-control-plane.md
   - API Reference:
       - Models: api/models.md
       - Engine: api/engine.md

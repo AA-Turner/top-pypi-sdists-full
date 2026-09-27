@@ -160,6 +160,17 @@ _MAX_GROUP_DEPTH = 32
 # that logs nothing is one nobody can diagnose. Both handlers report through this at DEBUG.
 logger = logging.getLogger(__name__)
 
+_X_AXIS_VARIABLE_NAMES = ("lon", "longitude", "x")
+"""The spellings :attr:`NetCDF.lon` accepts for the column axis, most specific first.
+
+A rebuilt store carries the source's own name for its grid, so `longitude` reaches this
+lookup as readily as `x` does; a store that spells it neither way has no 1-D coordinate
+array for the axis, and the geotransform is taken from the store instead.
+"""
+
+_Y_AXIS_VARIABLE_NAMES = ("lat", "latitude", "y")
+""":data:`_X_AXIS_VARIABLE_NAMES` for the row axis."""
+
 
 class _LazyVariableDict(dict):
     """Dict that loads NetCDF variables on first access per key.
@@ -2630,15 +2641,62 @@ class NetCDF(Dataset):
     def lon(self) -> np.typing.NDArray:
         """Longitude / x-coordinate values as a 1D array.
 
-        Looks for a variable named `"lon"` first, then `"x"`.
+        Looks for a variable named `"lon"`, then `"longitude"`, then `"x"` — the three
+        spellings `cf.build_coordinate_attrs` already treats as the same axis. Knowing
+        only `lon` and `x` meant a store that spells it `longitude` — which every CF file
+        this package reads may — found nothing here, and `_compute_geotransform` fell back
+        to GDAL's index-space placeholder, so the file reported pixel indices as world
+        coordinates.
 
         Returns:
-            np.ndarray or None: Flattened coordinate array, or None if
-            neither `lon` nor `x` exists in the dataset.
+            np.ndarray: The stored coordinates, flattened. When the store spells the axis
+            none of those three ways it is not an error and not `None`: the axis derived
+            from the geotransform is returned instead, exactly as
+            :attr:`pyramids.dataset.Dataset.lon` builds it.
+
+        Examples:
+            - A store that names its column axis `longitude` reports its own coordinates,
+              which is what `spatial_names` puts there:
+                ```python
+                >>> import numpy as np
+                >>> from pyramids.netcdf import GeoReference, NetCDF
+                >>> named = NetCDF.from_array(
+                ...     np.zeros((2, 2)),
+                ...     geo_ref=GeoReference(geo=(0.0, 1.0, 0.0, 2.0, 0.0, -1.0), epsg=4326),
+                ...     variable_name="t",
+                ...     spatial_names=("latitude", "longitude"),
+                ... )
+                >>> sorted(named.dimension_names)
+                ['latitude', 'longitude']
+                >>> named.lon.tolist()
+                [0.5, 1.5]
+
+                ```
+            - The default `y` / `x` naming reaches the same values through the third
+              spelling, so both stores answer alike:
+                ```python
+                >>> import numpy as np
+                >>> from pyramids.netcdf import GeoReference, NetCDF
+                >>> plain = NetCDF.from_array(
+                ...     np.zeros((2, 2)),
+                ...     geo_ref=GeoReference(geo=(0.0, 1.0, 0.0, 2.0, 0.0, -1.0), epsg=4326),
+                ...     variable_name="t",
+                ... )
+                >>> sorted(plain.dimension_names)
+                ['x', 'y']
+                >>> plain.lon.tolist()
+                [0.5, 1.5]
+
+                ```
+
+        See Also:
+            - :attr:`lat`: The same three spellings on the row axis.
         """
-        lon = self._read_variable("lon")
-        if lon is None:
-            lon = self._read_variable("x")
+        lon = None
+        for name in _X_AXIS_VARIABLE_NAMES:
+            lon = self._read_variable(name)
+            if lon is not None:
+                break
 
         result: np.ndarray
         if lon is not None:
@@ -2651,15 +2709,52 @@ class NetCDF(Dataset):
     def lat(self) -> np.typing.NDArray:
         """Latitude / y-coordinate values as a 1D array.
 
-        Looks for a variable named `"lat"` first, then `"y"`.
+        Looks for a variable named `"lat"`, then `"latitude"`, then `"y"` — the spellings
+        :attr:`lon` accepts, on the other axis.
 
         Returns:
-            np.ndarray or None: Flattened coordinate array, or None if
-            neither `lat` nor `y` exists in the dataset.
+            np.ndarray: The stored coordinates, flattened. When the store spells the axis
+            none of those three ways the geotransform-derived axis is returned instead,
+            never `None` — see :attr:`lon`.
+
+        Examples:
+            - A store that names its row axis `latitude` reports its own coordinates, and
+              a north-up grid's rows descend from north to south:
+                ```python
+                >>> import numpy as np
+                >>> from pyramids.netcdf import GeoReference, NetCDF
+                >>> named = NetCDF.from_array(
+                ...     np.zeros((2, 2)),
+                ...     geo_ref=GeoReference(geo=(0.0, 1.0, 0.0, 2.0, 0.0, -1.0), epsg=4326),
+                ...     variable_name="t",
+                ...     spatial_names=("latitude", "longitude"),
+                ... )
+                >>> named.lat.tolist()
+                [1.5, 0.5]
+
+                ```
+            - The default `y` / `x` naming answers with the same values:
+                ```python
+                >>> import numpy as np
+                >>> from pyramids.netcdf import GeoReference, NetCDF
+                >>> plain = NetCDF.from_array(
+                ...     np.zeros((2, 2)),
+                ...     geo_ref=GeoReference(geo=(0.0, 1.0, 0.0, 2.0, 0.0, -1.0), epsg=4326),
+                ...     variable_name="t",
+                ... )
+                >>> plain.lat.tolist()
+                [1.5, 0.5]
+
+                ```
+
+        See Also:
+            - :attr:`lon`: The same three spellings on the column axis.
         """
-        lat = self._read_variable("lat")
-        if lat is None:
-            lat = self._read_variable("y")
+        lat = None
+        for name in _Y_AXIS_VARIABLE_NAMES:
+            lat = self._read_variable(name)
+            if lat is not None:
+                break
 
         result: np.ndarray
         if lat is not None:
@@ -5975,9 +6070,10 @@ class NetCDF(Dataset):
         if self._rebuilt_in_memory:
             raise ValueError(
                 f"Lazy read reopens the variable from its store, and {var_name!r} was "
-                f"rebuilt in memory (by where(), fillna(), isnull() or notnull()), so "
-                f"the store no longer holds these cells. Read it eagerly with "
-                f"read_array()."
+                f"rebuilt in memory — by a cell-wise member such as where() or clip(), by "
+                f"a cut such as sel() or head(), or by a crop or reprojection — so the "
+                f"store no longer holds these cells in this shape and order. Read it "
+                f"eagerly with read_array()."
             )
         # Thread the eager-resolved raster plane (and its flips) into the lazy build so a variable
         # whose latitude/longitude is not the trailing pair -- selected via `x_dim`/`y_dim` or CF
@@ -6145,6 +6241,14 @@ class NetCDF(Dataset):
         wrapped._open_options = self._open_options
         wrapped._gdal_md_arr_ref = None
         wrapped._gdal_rg_ref = None
+        # Everything routed here holds cells this process assembled — a `sel`/`isel` cut and
+        # the Tier 2 band members through `_subset_along_dim`, `squeeze`/`expand_dims`
+        # through `_relabelled`, a crop, a reprojection, a resample. None of them still read
+        # as `parent_file::source_var_name`, which is all the lazy path knows how to reopen,
+        # so `read_array(chunks=)` answered the whole, unselected store variable: a `tail`
+        # of one step read back as four, and a `sortby` came back unsorted. The flag makes
+        # that path refuse in words, exactly as it already does for `where()`/`fillna()`.
+        wrapped._rebuilt_in_memory = True
         return wrapped
 
     def crop(self, *args, **kwargs) -> NetCDF:
@@ -7174,6 +7278,13 @@ class NetCDF(Dataset):
                 # First variable: build the container. `ExtraDimensions(dims=None)` falls back to
                 # the default single "time" axis, so both the band-dim and no-band-dim cases share
                 # this one call.
+                # Deliberately not carrying the source's spatial names or its CF axis
+                # attributes here: this arm reprojects, crops and resamples, so the
+                # result's grid is not the source's. A carried `lat` / `lon` pair is read
+                # by `_compute_geotransform` in preference to the stored transform, which
+                # made a reprojected result report the source grid — and the streamed arm
+                # cannot carry them at all, so the two arms agree by carrying neither
+                # (tests/netcdf/structure/test_fan_out_arms_agree.py).
                 result = NetCDF.from_array(
                     var_arr,
                     geo_ref=GeoReference(
@@ -7398,6 +7509,10 @@ class NetCDF(Dataset):
     def cumsum(self, dim: str, *, skipna: bool = True) -> NetCDF:
         """Facade — :meth:`Selection.cumsum <pyramids.netcdf.engines.selection.Selection.cumsum>`."""
         return self.selection.cumsum(dim, skipna=skipna)
+
+    def cumprod(self, dim: str, *, skipna: bool = True) -> NetCDF:
+        """Facade — :meth:`Selection.cumprod <pyramids.netcdf.engines.selection.Selection.cumprod>`."""
+        return self.selection.cumprod(dim, skipna=skipna)
 
     def shift(self, dim: str, periods: int = 1, *, fill_value: Any = None) -> NetCDF:
         """Facade — :meth:`Selection.shift <pyramids.netcdf.engines.selection.Selection.shift>`."""
@@ -7985,22 +8100,137 @@ class NetCDF(Dataset):
                 result = test(arr != 0, axis=axis).astype(np.uint8)
         return result
 
+    @staticmethod
+    def _carried_axis_metadata(
+        source: NetCDF | None,
+    ) -> tuple[tuple[str, str] | None, dict[str, dict[str, str]] | None]:
+        """What a rebuilt store should say about its axes, taken from the source.
+
+        Two things a rebuild used to invent rather than carry:
+
+        - the **spatial names**. `from_array` names its grid `y` / `x`, so a source on
+          `latitude` / `longitude` came back renamed, in memory and on the written file
+          (#1180). `interop._public_spatial_names` recovers the store's own names
+          positionally, and falls back to `y` / `x` for a variable with no parent — so an
+          in-memory build is unchanged.
+        - the **CF time attributes**. The result carries `(units, calendar)` on the Python
+          object, and the store it is written into never had them, so `to_file` had
+          nothing to copy and the calendar died at the write (#1179).
+
+        Args:
+            source: The variable the result is derived from, or `None` when there is none.
+
+        Returns:
+            tuple: `(spatial_names, dim_attrs)`, either of which is `None` when the source
+            says nothing about it.
+        """
+        names = None
+        attrs = None
+        if source is not None:
+            try:
+                names = _interop._public_spatial_names(source)
+            except AttributeError:
+                # The documented case: an object that never grew the `_md_array_dims` the
+                # resolution reads. Nothing wider is caught, because a `TypeError` or an
+                # `IndexError` from that code is a defect in it, and swallowing one here
+                # would rename the axes back to `y` / `x` — the #1180 symptom — silently.
+                names = None
+            attrs = NetCDF._cf_axis_attributes(source._resolved_band_dim_time_attrs())
+        return names, attrs
+
+    @staticmethod
+    def _cf_axis_attributes(time_attrs: dict | None) -> dict | None:
+        """The `(units, calendar)` pairs as the attributes `from_array` writes.
+
+        Args:
+            time_attrs: `(units, calendar)` per dimension, as
+                `_resolved_band_dim_time_attrs` reports them. Either half may be
+                empty, and a dimension declaring neither is left out.
+
+        Returns:
+            dict | None: `{dim: {"units": …, "calendar": …}}`, or `None` when no
+            dimension declares anything — which is what `ExtraDimensions.attrs`
+            takes to mean "write no CF attributes".
+        """
+        carried = {}
+        for dim, (units, calendar) in (time_attrs or {}).items():
+            written = {}
+            if units:
+                written["units"] = units
+            if calendar:
+                written["calendar"] = calendar
+            if written:
+                carried[dim] = written
+        return carried or None
+
     def _stack_reduced_variable(
-        self, result, var_name, arr, geo, epsg, ndv, band_names, values_map
+        self,
+        result,
+        var_name,
+        arr,
+        geo,
+        epsg,
+        ndv,
+        band_names,
+        values_map,
+        source=None,
+        time_attrs=None,
     ):
-        """Add a reduced variable into the result container, building it lazily."""
+        """Add a reduced variable into the result container, building it lazily.
+
+        Args:
+            result: The container being built, or `None` for the first variable.
+            var_name: The variable's name.
+            arr: Its cells.
+            geo: The geotransform.
+            epsg: The CRS.
+            ndv: The no-data value.
+            band_names: The band dimension names.
+            values_map: Their coordinate values.
+            source: The variable this one is derived from, whose axis names and CF time
+                attributes the rebuilt store should carry (#1179, #1180). `None` keeps the
+                `y` / `x` naming and writes no CF attributes.
+            time_attrs: The `(units, calendar)` per dimension to write, overriding the
+                source's. `None` (default) writes the source's. `concat` and `merge` pass
+                the consensus they computed across every part, which is empty for a
+                dimension the parts disagree about — adopting one part's calendar for all
+                of them is the misreading `_label_combined`'s policy and
+                `test_disagreeing_units_are_dropped_rather_than_guessed` forbid.
+
+        Returns:
+            NetCDF: The container, built on the first call and added to afterwards.
+        """
         extra = (
             [(name, values_map.get(name)) for name in band_names]
             if band_names
             else None
         )
+        spatial_names, dim_attrs = NetCDF._carried_axis_metadata(source)
+        # Names describe a grid, so they travel only while the grid is the source's. A
+        # `weighted` collapses the spatial axes to one cell, and calling that single cell
+        # `lat` leaves the store with two different lengths under one name — which is what
+        # the rename to `y` / `x` was protecting against
+        # (tests/netcdf/selection/test_weighted_edges.py).
+        if spatial_names is not None and not NetCDF._same_grid(source, arr, geo):
+            spatial_names = None
+        if time_attrs is not None:
+            dim_attrs = NetCDF._cf_axis_attributes(time_attrs)
+        if dim_attrs:
+            # A `reduce` collapses the very dimension the source declared units for, so
+            # what is carried is trimmed to the dimensions the result kept. `from_array`
+            # refuses attributes addressed to an axis that is not there, which is a
+            # caller's typo and not this.
+            dim_attrs = {
+                dim: written for dim, written in dim_attrs.items() if dim in band_names
+            } or None
         if result is None:
             result = NetCDF.from_array(
                 arr,
                 geo_ref=GeoReference(geo=geo, epsg=epsg),
                 no_data_value=ndv,
                 variable_name=var_name,
-                dims=ExtraDimensions(dims=extra),
+                dims=ExtraDimensions(dims=extra, attrs=dim_attrs),
+                spatial_names=spatial_names,
             )
         else:
             # A Dataset stores at most one (flattened) band axis, so collapse the
@@ -8029,8 +8259,11 @@ class NetCDF(Dataset):
             )
             # `result` is a private container this reduction builds up; nothing else
             # references its raster yet, so mutate in place (copy=False) to avoid an
-            # O(n^2) per-variable MEM copy on wide cubes (#143).
-            result.set_variable(var_name, ds, copy=False)
+            # O(n^2) per-variable MEM copy on wide cubes (#143). `dim_attrs` reaches the
+            # band dimensions this variable owns and the first did not — a `merge` of a
+            # time cube with a level cube creates `level` here, and without this its CF
+            # units would live only in memory and die at `to_file` (#1179).
+            result.set_variable(var_name, ds, copy=False, dim_attrs=dim_attrs)
         return result
 
     def to_crs(
@@ -8059,6 +8292,36 @@ class NetCDF(Dataset):
 
         Returns:
             NetCDF: Reprojected container or variable subset.
+
+        Notes:
+            The result sits on a **new grid**, so its spatial axes are named `y` / `x`
+            rather than the source's. A member that leaves the horizontal grid unchanged —
+            `coarsen`, `reduce`, `rolling`, `cumsum`, `diff` over a *band* dimension —
+            keeps the names with it; a *spatial* `coarsen` / `reduce` does change the grid
+            and (correctly) drops them, the same as here. Compared by membership below
+            because `dimension_names` lists the store's dimensions in its own order, not a
+            promised `(row, column)` one:
+
+            ```python
+            >>> import numpy as np
+            >>> from pyramids.netcdf import ExtraDimensions, GeoReference, NetCDF
+            >>> cube = NetCDF.from_array(
+            ...     np.arange(8.0).reshape(2, 2, 2),
+            ...     geo_ref=GeoReference(geo=(0.0, 1.0, 0.0, 2.0, 0.0, -1.0), epsg=4326),
+            ...     variable_name="t",
+            ...     dims=ExtraDimensions(name="time", values=[0.0, 6.0]),
+            ...     spatial_names=("latitude", "longitude"),
+            ... )
+            >>> sorted(cube.get_variable("t").coarsen("time", 2).dimension_names)
+            ['latitude', 'longitude', 'time']
+            >>> sorted(cube.to_crs(3857).dimension_names)
+            ['time', 'x', 'y']
+
+            ```
+
+            Carrying `latitude` / `longitude` onto a reprojected grid would name axes
+            after coordinates they no longer hold, so the rename is deliberate. It is the
+            same for `resample` and `crop`.
         """
         if self._is_root_container:
             result = self._apply_to_all_variables(
@@ -8547,6 +8810,15 @@ class NetCDF(Dataset):
 
         Returns:
             NetCDF: Resampled container or variable subset.
+
+        Notes:
+            The cells change size, so the result sits on a **new grid** and its spatial
+            axes come back named `y` / `x` rather than the source's: a cube on
+            `latitude` / `longitude` reports `['time', 'x', 'y']` after a resample.
+
+        See Also:
+            - :meth:`to_crs`: Why the rename happens, and which members keep the source's
+              names instead.
         """
         if self._is_root_container:
             result = self._apply_to_all_variables(
@@ -8564,16 +8836,19 @@ class NetCDF(Dataset):
             result = self._preserve_netcdf_metadata(result)._persist_to(path)
         return cast("NetCDF", result)
 
-    def isel(self, **indexers: Any) -> NetCDF:
+    def isel(self, *, drop: bool = False, **indexers: Any) -> NetCDF:
         """Facade — :meth:`Selection.isel <pyramids.netcdf.engines.selection.Selection.isel>`.
 
         Args:
+            drop: When `True`, drop the axes a scalar (point) selector collapsed — a
+                length-one `list` or `slice`, and a pre-existing length-one dim, are kept,
+                as in xarray; see the engine method.
             **indexers: `dimension=selector` pairs; see the engine method.
 
         Returns:
             NetCDF: The variable holding the selected bands.
         """
-        return self.selection.isel(**indexers)
+        return self.selection.isel(drop=drop, **indexers)
 
     def sel(
         self,
@@ -8593,6 +8868,44 @@ class NetCDF(Dataset):
             NetCDF: The variable holding the selected bands.
         """
         return self.selection.sel(method=method, tolerance=tolerance, **kwargs)
+
+    def head(self, indexers: Any = None, **indexers_kwargs: int) -> NetCDF:
+        """Facade — :meth:`Selection.head <pyramids.netcdf.engines.selection.Selection.head>`."""
+        return self.selection.head(indexers, **indexers_kwargs)
+
+    def tail(self, indexers: Any = None, **indexers_kwargs: int) -> NetCDF:
+        """Facade — :meth:`Selection.tail <pyramids.netcdf.engines.selection.Selection.tail>`."""
+        return self.selection.tail(indexers, **indexers_kwargs)
+
+    def thin(self, indexers: Any = None, **indexers_kwargs: int) -> NetCDF:
+        """Facade — :meth:`Selection.thin <pyramids.netcdf.engines.selection.Selection.thin>`."""
+        return self.selection.thin(indexers, **indexers_kwargs)
+
+    def drop_isel(self, **indexers: Any) -> NetCDF:
+        """Facade — :meth:`Selection.drop_isel <pyramids.netcdf.engines.selection.Selection.drop_isel>`."""
+        return self.selection.drop_isel(**indexers)
+
+    def drop_sel(self, *, errors: str = "raise", **labels: Any) -> NetCDF:
+        """Facade — :meth:`Selection.drop_sel <pyramids.netcdf.engines.selection.Selection.drop_sel>`."""
+        return self.selection.drop_sel(errors=errors, **labels)
+
+    def sortby(self, dim: str, *, ascending: bool = True) -> NetCDF:
+        """Facade — :meth:`Selection.sortby <pyramids.netcdf.engines.selection.Selection.sortby>`."""
+        return self.selection.sortby(dim, ascending=ascending)
+
+    def drop_duplicates(self, dim: str, *, keep: Any = "first") -> NetCDF:
+        """Facade — :meth:`Selection.drop_duplicates
+        <pyramids.netcdf.engines.selection.Selection.drop_duplicates>`.
+        """
+        return self.selection.drop_duplicates(dim, keep=keep)
+
+    def squeeze(self, dim: str | None = None) -> NetCDF:
+        """Facade — :meth:`Selection.squeeze <pyramids.netcdf.engines.selection.Selection.squeeze>`."""
+        return self.selection.squeeze(dim)
+
+    def expand_dims(self, dim: str, value: Any = None) -> NetCDF:
+        """Facade — :meth:`Selection.expand_dims <pyramids.netcdf.engines.selection.Selection.expand_dims>`."""
+        return self.selection.expand_dims(dim, value)
 
     @classmethod
     def read_file(  # type: ignore[override]
@@ -12034,7 +12347,13 @@ class NetCDF(Dataset):
         """
         dim = group.CreateDimension(dim_name, dim_type, None, values.shape[0])
         coord_arr = group.CreateMDArray(dim_name, [dim], dtype)
-        coord_arr.Write(values)
+        if dtype.GetClass() == gdal.GEDTC_STRING:
+            # A string MDArray takes a Python list of `str`; a NumPy string array sent
+            # through `Write` is force-cast to float64 by the SWIG binding and raises. This
+            # is the channel `interop` uses for a text coordinate (#565, #1181).
+            coord_arr.Write(np.asarray(values).astype(str).tolist())
+        else:
+            coord_arr.Write(values)
         if set_indexing:
             dim.SetIndexingVariable(coord_arr)
         cf_attrs = build_coordinate_attrs(dim_name, is_geographic)
@@ -12044,7 +12363,7 @@ class NetCDF(Dataset):
 
     @staticmethod
     def create_main_dimension(
-        group: gdal.Group, dim_name: str, dtype: int, values: np.ndarray
+        group: gdal.Group, dim_name: str, dtype: Any, values: np.ndarray
     ) -> gdal.Dimension:
         """Create a NetCDF dimension with an indexing variable.
 
@@ -12053,18 +12372,55 @@ class NetCDF(Dataset):
         `x`/`lon`/`longitude` -> horizontal X,
         `bands`/`time` -> temporal.
 
-        The dimension is registered in the group together with a
-        matching MDArray that stores the coordinate values.
+        The dimension is registered in the group together with a matching MDArray that
+        stores the coordinate values. When `dtype` is a string `ExtendedDataType`
+        (`gdal.ExtendedDataType.CreateString()`) a text coordinate axis — WRF's `Time` of
+        `'2000-01-24_12:00:00'` stamps, a scenario name — is written through the GDAL string
+        channel (a Python list of `str`); a NumPy string array sent straight to `Write` is
+        force-cast to float64 by the SWIG binding and would raise (#1181).
 
         Args:
-            group: Root group (or sub-group) of the multidimensional
-                dataset.
+            group: Root group (or sub-group) of the multidimensional dataset.
             dim_name: Name of the dimension to create.
-            dtype: GDAL `ExtendedDataType` for the indexing variable.
-            values: Coordinate values for the dimension.
+            dtype: GDAL `ExtendedDataType` for the indexing variable — a numeric type for a
+                numeric axis, or `gdal.ExtendedDataType.CreateString()` for a text axis.
+            values: Coordinate values for the dimension; numeric or text to match `dtype`.
 
         Returns:
             gdal.Dimension: The newly created dimension.
+
+        Examples:
+            - Create a numeric coordinate axis and read the stored values back:
+                ```python
+                >>> import numpy as np
+                >>> from osgeo import gdal
+                >>> from pyramids.netcdf import NetCDF
+                >>> ds = gdal.GetDriverByName("MEM").CreateMultiDimensional("mem")
+                >>> group = ds.GetRootGroup()
+                >>> f64 = gdal.ExtendedDataType.Create(gdal.GDT_Float64)
+                >>> dim = NetCDF.create_main_dimension(group, "time", f64, np.array([0.0, 1.0, 2.0]))
+                >>> dim.GetSize()
+                3
+                >>> group.OpenMDArray("time").ReadAsArray().tolist()
+                [0.0, 1.0, 2.0]
+
+                ```
+            - Create a text coordinate axis (e.g. WRF `Time` stamps) via the string channel:
+                ```python
+                >>> import numpy as np
+                >>> from osgeo import gdal
+                >>> from pyramids.netcdf import NetCDF
+                >>> ds = gdal.GetDriverByName("MEM").CreateMultiDimensional("mem")
+                >>> group = ds.GetRootGroup()
+                >>> sdt = gdal.ExtendedDataType.CreateString()
+                >>> stamps = np.array(["2000-01-24_12:00:00", "2000-01-24_18:00:00"])
+                >>> dim = NetCDF.create_main_dimension(group, "Time", sdt, stamps)
+                >>> dim.GetSize()
+                2
+                >>> group.OpenMDArray("Time").Read()
+                ['2000-01-24_12:00:00', '2000-01-24_18:00:00']
+
+                ```
         """
         if dim_name in ["y", "lat", "latitude"]:
             dim_type = gdal.DIM_TYPE_HORIZONTAL_Y
@@ -12076,7 +12432,12 @@ class NetCDF(Dataset):
             dim_type = None
         dim = group.CreateDimension(dim_name, dim_type, None, values.shape[0])
         x_values = group.CreateMDArray(dim_name, [dim], dtype)
-        x_values.Write(values)
+        if dtype.GetClass() == gdal.GEDTC_STRING:
+            # A string MDArray takes a Python list of `str`; a NumPy string array through
+            # `Write` is force-cast to float64 by the SWIG binding and raises (#1181).
+            x_values.Write(np.asarray(values).astype(str).tolist())
+        else:
+            x_values.Write(values)
         dim.SetIndexingVariable(x_values)
         return dim
 
@@ -12092,6 +12453,7 @@ class NetCDF(Dataset):
         dims: ExtraDimensions | None = None,
         encoding: Encoding | None = None,
         attrs: CFAttributes | None = None,
+        spatial_names: tuple[str, str] | None = None,
     ) -> Container:
         """Build a :class:`Container` from a NumPy array.
 
@@ -12130,13 +12492,19 @@ class NetCDF(Dataset):
             encoding: On-disk write options (chunking, compression); effective
                 only with a `path`.
             attrs: CF global attributes.
+            spatial_names: `(row, column)` names for the two spatial dimensions.
+                `None` (default) names them `y` / `x`; a rebuild passes the source
+                store's own so a result keeps `latitude` / `longitude` (#1180).
+                Two distinct non-empty strings, or a `ValueError`.
 
         Returns:
             Container: The newly created store.
 
         Raises:
             ValueError: `geo_ref` carries neither a ``geo`` nor a complete
-                ``top_left_corner`` + ``cell_size`` pair.
+                ``top_left_corner`` + ``cell_size`` pair; `spatial_names` is not
+                two distinct non-empty strings; or `dims.attrs` is keyed by a
+                dimension this array does not have.
             DriverNotExistError: `path` has no extension, or one the driver
                 catalog does not know.
             FileFormatNotSupportedError: `path`'s extension names a driver
@@ -12145,6 +12513,68 @@ class NetCDF(Dataset):
                 format.
 
         Examples:
+            - The grid is named `y` / `x` unless the caller says otherwise, and
+              `spatial_names` is how a rebuild keeps the source store's own names:
+
+                ```python
+                >>> import numpy as np
+                >>> from pyramids.netcdf import GeoReference, NetCDF
+                >>> cells = np.arange(4.0).reshape(2, 2)
+                >>> geo_ref = GeoReference(geo=(0.0, 1.0, 0.0, 2.0, 0.0, -1.0), epsg=4326)
+                >>> sorted(NetCDF.from_array(cells, geo_ref=geo_ref, variable_name="t").dimension_names)
+                ['x', 'y']
+                >>> named = NetCDF.from_array(
+                ...     cells,
+                ...     geo_ref=geo_ref,
+                ...     variable_name="t",
+                ...     spatial_names=("latitude", "longitude"),
+                ... )
+                >>> sorted(named.dimension_names)
+                ['latitude', 'longitude']
+
+                ```
+            - A band dimension declares the CF units it is given, and they survive the
+              write — which is what lets the written file decode its own stamps:
+
+                ```python
+                >>> import numpy as np
+                >>> from pyramids.netcdf import ExtraDimensions, GeoReference, NetCDF
+                >>> cube = NetCDF.from_array(
+                ...     np.arange(8.0).reshape(2, 2, 2),
+                ...     geo_ref=GeoReference(geo=(0.0, 1.0, 0.0, 2.0, 0.0, -1.0), epsg=4326),
+                ...     variable_name="t",
+                ...     dims=ExtraDimensions(
+                ...         name="time",
+                ...         values=[0.0, 6.0],
+                ...         attrs={"time": {"units": "hours since 2000-01-01", "calendar": "standard"}},
+                ...     ),
+                ... )
+                >>> cube.get_variable("t")._resolved_band_dim_time_attrs()
+                {'time': ('hours since 2000-01-01', 'standard')}
+                >>> cube.get_variable("t")._band_dim_values_map["time"]
+                [0.0, 6.0]
+
+                ```
+            - CF attributes addressed to an axis the array does not have are refused,
+              rather than quietly written nowhere:
+
+                ```python
+                >>> import numpy as np
+                >>> from pyramids.netcdf import ExtraDimensions, GeoReference, NetCDF
+                >>> try:
+                ...     NetCDF.from_array(
+                ...         np.arange(8.0).reshape(2, 2, 2),
+                ...         geo_ref=GeoReference(geo=(0.0, 1.0, 0.0, 2.0, 0.0, -1.0), epsg=4326),
+                ...         variable_name="t",
+                ...         dims=ExtraDimensions(
+                ...             name="time", values=[0.0, 6.0], attrs={"tim": {"units": "hours"}}
+                ...         ),
+                ...     )
+                ... except ValueError as error:
+                ...     print(error)
+                attrs names 'tim', which is not among the dimensions of this array (time).
+
+                ```
             - Wrap a 2-D array and read the variable back off the container:
                 ```python
                 >>> import numpy as np
@@ -12203,6 +12633,7 @@ class NetCDF(Dataset):
             dims=dims,
             encoding=encoding,
             attrs=attrs,
+            spatial_names=spatial_names,
         )
 
     @staticmethod
@@ -12412,10 +12843,12 @@ class NetCDF(Dataset):
     ) -> gdal.Dimension:
         """Reuse an existing dimension or create a new one.
 
-        If a dimension with `dim_name` already exists in the root group
-        and has the same size as `values`, it is returned directly.
-        On size mismatch, a new dimension with a `_{size}` suffix is
-        created to avoid conflicts.
+        A dimension with `dim_name` is reused only when it holds **the same coordinate
+        values** in the same order, not merely the same number of them. Matching on the
+        size alone silently mislabelled every variable written back on a reordered axis:
+        `sortby("time", ascending=False)` followed by `set_variable` kept the store's own
+        `[0, 6, 12, 18]`, so each plane landed on the wrong stamp. On any mismatch — a
+        different length or different values — a suffixed dimension is created instead.
 
         Args:
             rg: The root group of the multidimensional dataset.
@@ -12428,15 +12861,339 @@ class NetCDF(Dataset):
         Returns:
             gdal.Dimension: The reused or newly created dimension.
         """
-        for existing_dim in rg.GetDimensions() or []:
-            if existing_dim.GetName() == dim_name:
-                if existing_dim.GetSize() == len(values):
-                    return existing_dim
-                # Size mismatch — need a new dimension with a unique name
-                dim_name = f"{dim_name}_{len(values)}"
-                break
+        existing = {
+            dimension.GetName(): dimension for dimension in rg.GetDimensions() or []
+        }
+        wanted = dim_name
+        reused = existing.get(dim_name)
+        if reused is not None and not NetCDF._dimension_holds(reused, values):
+            # A suffixed sibling may already hold exactly these coordinates: the same
+            # reordered axis written twice must land on one dimension, not on `time_4` and
+            # then `time_4_2`, which would leave a CF reader looking at two unrelated axes
+            # carrying the same stamps.
+            reused = next(
+                (
+                    sibling
+                    for name, sibling in existing.items()
+                    if name.startswith(f"{wanted}_")
+                    and NetCDF._dimension_holds(sibling, values)
+                ),
+                None,
+            )
+            if reused is None:
+                dim_name = NetCDF._unused_dimension_name(existing, wanted, len(values))
+            written = reused.GetName() if reused is not None else dim_name
+            warnings.warn(
+                f"the axis holds different coordinate values from the store's own "
+                f"{wanted!r}, which one netCDF dimension cannot carry at once, so it was "
+                f"written as {written!r}. Select on the result under that name.",
+                stacklevel=2,
+            )
+        return (
+            reused
+            if reused is not None
+            else NetCDF.create_main_dimension(rg, dim_name, dtype, values)
+        )
 
-        return NetCDF.create_main_dimension(rg, dim_name, dtype, values)
+    @staticmethod
+    def _coordinateless_dimension(
+        rg: gdal.Group, dim_name: str, size: int, dim_type: str | None = None
+    ) -> gdal.Dimension:
+        """A band dimension with **no** indexing variable, for a coordinate-less axis.
+
+        When an operator's operands disagree about their stamps, T20 keeps the dimension
+        but no coordinates (`_band_dim_values_map[dim] is None`) — neither operand's stamps
+        describe the result. Writing that axis must not invent any: not the store's own
+        `time` (that is the axis the disagreement rejected), and not the positional
+        `[0, 1, 2, …]` a `range(size)` fallback would fabricate. netCDF allows a dimension
+        with no coordinate variable — a WRF `bottom_top` is one — and `_read_band_dim_values`
+        reads that shape back as `None`, so the round trip preserves "no coordinates" (#1192).
+
+        An existing coordinate-less dimension of the same name and size is reused, so
+        rewriting the same variable does not accumulate siblings. A name already taken by a
+        *coordinated* dimension (or a coordinate-less one of another size) cannot be reused —
+        one netCDF dimension cannot be both — so a suffixed name is created instead, and a
+        warning names it so a later selection is not a silent surprise.
+
+        Args:
+            rg: The root group.
+            dim_name: The band dimension's name.
+            size: Its length.
+            dim_type: The GDAL dimension type (e.g. `gdal.DIM_TYPE_TEMPORAL`), or `None`.
+
+        Returns:
+            gdal.Dimension: The reused or newly created coordinate-less dimension.
+
+        Warns:
+            UserWarning: The name is already held by a dimension this axis cannot share, so
+                the axis was written under a suffixed name to select on instead.
+        """
+        existing = {
+            dimension.GetName(): dimension for dimension in rg.GetDimensions() or []
+        }
+        match = existing.get(dim_name)
+        reusable = (
+            match is not None
+            and match.GetSize() == size
+            and match.GetIndexingVariable() is None
+        )
+        if reusable:
+            result = match
+        else:
+            target = (
+                dim_name
+                if match is None
+                else NetCDF._unused_dimension_name(existing, dim_name, size)
+            )
+            if match is not None:
+                # The store already holds a dimension of this name that a coordinate-less
+                # axis cannot share — a coordinated one, or a coordinate-less one of another
+                # size — so it is written under a suffixed name. Announce it, as
+                # `_get_or_create_dimension` announces the analogous coordinated collision;
+                # otherwise a later `isel(<name>=...)` fails with no hint the axis was renamed.
+                warnings.warn(
+                    f"the store already holds a dimension named {dim_name!r} that this "
+                    f"coordinate-less axis cannot share, so it was written as {target!r}. "
+                    "Select on the result under that name.",
+                    stacklevel=2,
+                )
+            result = rg.CreateDimension(target, dim_type or "", None, size)
+        return result
+
+    @staticmethod
+    def _same_grid(source: NetCDF, arr: np.ndarray, geo: tuple) -> bool:
+        """Whether a rebuilt array still sits on `source`'s grid.
+
+        Args:
+            source: The variable the result derives from.
+            arr: The result's cells; its trailing two axes are rows and columns.
+            geo: The result's geotransform.
+
+        Returns:
+            bool: `True` when the shape and the transform are the source's, so the
+            source's axis names describe the result as well.
+
+        Notes:
+            The transforms are compared at a tolerance, not for equality. Every caller
+            today hands back the same memoised tuple it is compared against, but one that
+            re-derives an identical grid — from the coordinate values, say — lands a float
+            ulp away, and dropping the names over that is #1180 again. The slack has both
+            a relative and an absolute part, as `_holds_the_same_grid_axis` does: a
+            transform re-derived from float32 coordinates lands off by the coordinate's
+            magnitude times the float32 epsilon (an origin near 90 by ~9e-6), which a
+            cell-scaled `atol` alone would reject.
+        """
+        shaped = np.shape(arr)
+        mine = tuple(float(one) for one in geo or ())
+        theirs = tuple(float(one) for one in source.geotransform or ())
+        same = (
+            len(shaped) >= 2
+            and (shaped[-2], shaped[-1]) == (source.rows, source.columns)
+            and len(mine) == len(theirs)
+        )
+        if same and mine:
+            cell = max(abs(theirs[1]), abs(theirs[5]))
+            same = bool(np.allclose(mine, theirs, rtol=1e-6, atol=cell * 1e-6))
+        return same
+
+    @staticmethod
+    def _matching_spatial_dimension(
+        rg: gdal.Group, values: np.ndarray, dim_type
+    ) -> gdal.Dimension | None:
+        """The store's own axis for these coordinates, or `None` when it has none.
+
+        A spatial dimension used to be resolved by **name**, always `"x"` or `"y"`, so
+        writing a variable into a store whose axes are `longitude` / `latitude` left it
+        with two pairs describing one grid and declared the new variable against the pair
+        the store did not have (#1194). An axis is identified here by what it holds — the
+        same coordinate values, in the same order — and by being the horizontal axis
+        asked for, so a grid that genuinely differs still gets its own. `_spatial_axes`
+        takes this decision for both axes together.
+
+        Args:
+            rg: The root group.
+            values: The coordinate values wanted.
+            dim_type: `gdal.DIM_TYPE_HORIZONTAL_X` or `..._Y`.
+
+        Returns:
+            gdal.Dimension | None: The matching dimension.
+        """
+        found = None
+        for existing in rg.GetDimensions() or []:
+            if existing.GetType() != dim_type:
+                continue
+            if NetCDF._holds_the_same_grid_axis(existing, values):
+                found = existing
+                break
+        return found
+
+    @staticmethod
+    def _spatial_axes(
+        rg: gdal.Group,
+        x_values: np.ndarray,
+        y_values: np.ndarray,
+        dtype,
+        names: tuple[str, str],
+    ) -> tuple:
+        """The `(column, row)` dimensions for a grid — the store's own pair, or a new one.
+
+        The decision is taken for **both** axes together. Resolving them one at a time let a
+        variable be declared against a pair drawn from two naming systems: on a y-ascending
+        store, `set_variable`'s north-up row coordinates never match the store's ascending
+        `lat` while its columns match `lon` exactly, so the result was `(y, lon)` with a
+        stray `y` left in the store. Either the store describes this grid or it does not.
+
+        Args:
+            rg: The root group.
+            x_values: The column coordinates.
+            y_values: The row coordinates.
+            dtype: The coordinate array's type.
+            names: The `(row, column)` names to create under when the store has no pair.
+
+        Returns:
+            tuple: `(dim_x, dim_y)`.
+        """
+        row_name, column_name = names
+        matched_x = NetCDF._matching_spatial_dimension(
+            rg, x_values, gdal.DIM_TYPE_HORIZONTAL_X
+        )
+        matched_y = NetCDF._matching_spatial_dimension(
+            rg, y_values, gdal.DIM_TYPE_HORIZONTAL_Y
+        )
+        if matched_x is not None and matched_y is not None:
+            axes = (matched_x, matched_y)
+        else:
+            axes = (
+                NetCDF._get_or_create_dimension(
+                    rg, column_name, x_values, dtype, gdal.DIM_TYPE_HORIZONTAL_X
+                ),
+                NetCDF._get_or_create_dimension(
+                    rg, row_name, y_values, dtype, gdal.DIM_TYPE_HORIZONTAL_Y
+                ),
+            )
+        return axes
+
+    @staticmethod
+    def _holds_the_same_grid_axis(
+        dimension: gdal.Dimension, values: np.ndarray
+    ) -> bool:
+        """Whether a spatial dimension carries the coordinates about to be written.
+
+        Two differences from `_dimension_holds`, which answers the same question for a band
+        axis and is deliberately left alone:
+
+        - **A tolerance, not equality.** `set_variable` does not read the store's
+          coordinates; it recomputes cell centres from the derived geotransform, and that
+          round trip — stored values to `(origin, step)` and back — is bit-exact only on
+          dyadic spacings. On an ordinary 0.1 degree grid, and on any float32 axis, the
+          recomputed centres differ in the last few ulps, and matching on `==` meant the
+          store silently gained a second pair of axes on almost every real file. The slack
+          has **both** a relative and an absolute part: float32 quantization error grows
+          with the coordinate's magnitude — a latitude near 50 is off by ~5e-6, far more
+          than a step-scaled `atol` alone allows — so the relative `rtol` tracks the
+          value while the `atol` floor covers an axis whose coordinates sit near zero.
+        - **Coordinates are required.** `_dimension_holds` falls back to the size when a
+          dimension has no indexing variable, which is right for a band axis that never had
+          coordinates. Here it would let any coordinate-less horizontal axis of the same
+          width — what a curvilinear or WRF store has — stand in for a grid it says nothing
+          about.
+
+        Args:
+            dimension: A candidate dimension of the wanted horizontal type.
+            values: The coordinate values about to be written.
+
+        Returns:
+            bool: `True` when the dimension carries these coordinates.
+        """
+        stored = (
+            NetCDF._read_band_dim_values(dimension)
+            if dimension.GetIndexingVariable() is not None
+            else None
+        )
+        wanted = np.asarray(values, dtype="float64").ravel()
+        same = stored is not None and len(stored) == len(wanted)
+        if same:
+            held = np.asarray(stored, dtype="float64").ravel()
+            # Scaled to the axis' own step, so the slack is a fraction of a cell rather
+            # than an absolute distance that would mean one thing in degrees and another
+            # in metres.
+            step = float(np.abs(np.diff(held)).max()) if len(held) > 1 else 1.0
+            same = bool(
+                np.allclose(
+                    held, wanted, rtol=1e-6, atol=abs(step) * 1e-6, equal_nan=True
+                )
+            )
+        return same
+
+    @staticmethod
+    def _dimension_holds(dimension: gdal.Dimension, values: np.ndarray) -> bool:
+        """Whether an existing dimension already carries exactly `values`, in order.
+
+        A dimension with no indexing variable carries no values to disagree with, so it
+        matches on size alone — that is the axis `isel` exists to serve, and a WRF
+        `bottom_top` is one.
+
+        Args:
+            dimension: The dimension found under the wanted name.
+            values: The coordinate values about to be written.
+
+        Returns:
+            bool: `True` when the dimension can be reused as it stands.
+        """
+        holds = bool(dimension.GetSize() == len(values))
+        if holds:
+            stored = NetCDF._read_band_dim_values(dimension)
+            if stored is not None:
+                wanted = list(np.asarray(values).ravel().tolist())
+                holds = len(stored) == len(wanted) and all(
+                    NetCDF._same_stamp(one, other) for one, other in zip(stored, wanted)
+                )
+        return holds
+
+    @staticmethod
+    def _same_stamp(one: Any, other: Any) -> bool:
+        """Whether two coordinate values stand for the same step.
+
+        A NaN stamp equals nothing, itself included, so the two are compared for
+        not-a-number rather than for equality when either is one: two axes that both carry
+        a NaN at the same position do agree about that position.
+
+        Args:
+            one: The stored stamp.
+            other: The stamp about to be written.
+
+        Returns:
+            bool: `True` when they are the same step.
+        """
+        same = bool(one == other)
+        if not same and isinstance(one, float) and isinstance(other, float):
+            same = math.isnan(one) and math.isnan(other)
+        return same
+
+    @staticmethod
+    def _unused_dimension_name(
+        existing: dict[str, Any], dim_name: str, size: int
+    ) -> str:
+        """A dimension name nothing in the group has taken yet.
+
+        `<name>_<size>` first, which is what a length mismatch has always produced, then
+        `<name>_<size>_2`, `_3` and so on — a reordered axis has the *same* length as the
+        one it clashes with, so the plain suffix can be taken as well.
+
+        Args:
+            existing: The group's dimensions, by name.
+            dim_name: The wanted name.
+            size: How many values the new dimension holds.
+
+        Returns:
+            str: A free name.
+        """
+        candidate = f"{dim_name}_{size}"
+        attempt = 2
+        while candidate in existing:
+            candidate = f"{dim_name}_{size}_{attempt}"
+            attempt += 1
+        return candidate
 
     @property
     def global_attributes(self) -> dict[str, Any]:

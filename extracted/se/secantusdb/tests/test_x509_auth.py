@@ -31,6 +31,7 @@ from pymongo.errors import OperationFailure
 
 from secantus import SecantusDBServer
 from secantus.auth import subject_dn_from_peercert
+from tests.net_timeouts import SERVER_SELECTION_TIMEOUT_MS
 
 # ---------------------------------------------------------------------------
 # DN extraction (no server, no TLS)
@@ -137,7 +138,7 @@ def alice_cert(tmp_path: Path, ca: trustme.CA) -> tuple[Path, str]:
 
 
 @pytest.fixture
-def auth_server(tmp_path, tls_files, alice_cert):
+def auth_server(wt_home, tls_files, alice_cert):
     """SecantusDB with TLS + mTLS + --auth on. Provision alice user
     (X509 mechanism, username = alice's real cert DN) before flipping
     --auth; yield (server, ca_path, cert_path, alice_dn)."""
@@ -148,7 +149,7 @@ def auth_server(tmp_path, tls_files, alice_cert):
     # the user. mTLS verification still happens.
     bootstrap = SecantusDBServer(
         port=0,
-        storage_path=str(tmp_path / "data"),
+        storage_path=wt_home,
         tls_cert_file=str(cert_path),
         tls_key_file=str(key_path),
         tls_ca_file=str(ca_path),
@@ -160,7 +161,7 @@ def auth_server(tmp_path, tls_files, alice_cert):
     bootstrap.start()
     try:
         boot_uri = f"mongodb://127.0.0.1:{bootstrap.port}/?tls=true&tlsCAFile={ca_path}"
-        boot_client = MongoClient(boot_uri, serverSelectionTimeoutMS=3000)
+        boot_client = MongoClient(boot_uri, serverSelectionTimeoutMS=SERVER_SELECTION_TIMEOUT_MS)
         try:
             boot_client["$external"].command(
                 "createUser",
@@ -176,7 +177,7 @@ def auth_server(tmp_path, tls_files, alice_cert):
     # Stage 2: bring the real server up with auth + require-client-cert.
     server = SecantusDBServer(
         port=0,
-        storage_path=str(tmp_path / "data"),
+        storage_path=wt_home,
         tls_cert_file=str(cert_path),
         tls_key_file=str(key_path),
         tls_ca_file=str(ca_path),
@@ -200,7 +201,7 @@ def test_x509_authenticates_with_matching_cert(auth_server, alice_cert) -> None:
         f"tls=true&tlsCAFile={ca_path}&tlsCertificateKeyFile={alice_pem}"
         "&authMechanism=MONGODB-X509&authSource=$external"
     )
-    client = MongoClient(uri, serverSelectionTimeoutMS=5000)
+    client = MongoClient(uri, serverSelectionTimeoutMS=SERVER_SELECTION_TIMEOUT_MS)
     try:
         client["x509db"]["coll"].insert_one({"_id": 1, "v": "hello from alice"})
         assert client["x509db"]["coll"].find_one({"_id": 1})["v"] == "hello from alice"
@@ -208,7 +209,7 @@ def test_x509_authenticates_with_matching_cert(auth_server, alice_cert) -> None:
         client.close()
 
 
-def test_x509_refused_when_no_matching_user(tmp_path, tls_files, ca) -> None:
+def test_x509_refused_when_no_matching_user(tmp_path, wt_home, tls_files, ca) -> None:
     """A cert signed by the configured CA but with no matching user
     record on the server gets refused."""
     cert_path, key_path, ca_path = tls_files
@@ -221,7 +222,7 @@ def test_x509_refused_when_no_matching_user(tmp_path, tls_files, ca) -> None:
 
     server = SecantusDBServer(
         port=0,
-        storage_path=str(tmp_path / "data"),
+        storage_path=wt_home,
         tls_cert_file=str(cert_path),
         tls_key_file=str(key_path),
         tls_ca_file=str(ca_path),
@@ -235,7 +236,7 @@ def test_x509_refused_when_no_matching_user(tmp_path, tls_files, ca) -> None:
             f"tls=true&tlsCAFile={ca_path}&tlsCertificateKeyFile={stranger_pem}"
             "&authMechanism=MONGODB-X509&authSource=$external"
         )
-        client = MongoClient(uri, serverSelectionTimeoutMS=3000)
+        client = MongoClient(uri, serverSelectionTimeoutMS=SERVER_SELECTION_TIMEOUT_MS)
         with pytest.raises(OperationFailure, match="no user found"):
             client.admin.command("ping")
         client.close()
@@ -243,7 +244,7 @@ def test_x509_refused_when_no_matching_user(tmp_path, tls_files, ca) -> None:
         server.stop()
 
 
-def test_x509_refused_for_scram_only_user(tmp_path, tls_files, ca) -> None:
+def test_x509_refused_for_scram_only_user(tmp_path, wt_home, tls_files, ca) -> None:
     """A user record exists for the cert DN but doesn't have an X509
     entry in credentials — X509 attempt refused."""
     cert_path, key_path, ca_path = tls_files
@@ -261,7 +262,7 @@ def test_x509_refused_for_scram_only_user(tmp_path, tls_files, ca) -> None:
     # Create alice as SCRAM-only.
     bootstrap = SecantusDBServer(
         port=0,
-        storage_path=str(tmp_path / "data"),
+        storage_path=wt_home,
         tls_cert_file=str(cert_path),
         tls_key_file=str(key_path),
         tls_ca_file=str(ca_path),
@@ -272,7 +273,7 @@ def test_x509_refused_for_scram_only_user(tmp_path, tls_files, ca) -> None:
     try:
         boot = MongoClient(
             f"mongodb://127.0.0.1:{bootstrap.port}/?tls=true&tlsCAFile={ca_path}",
-            serverSelectionTimeoutMS=3000,
+            serverSelectionTimeoutMS=SERVER_SELECTION_TIMEOUT_MS,
         )
         try:
             boot["$external"].command(
@@ -289,7 +290,7 @@ def test_x509_refused_for_scram_only_user(tmp_path, tls_files, ca) -> None:
 
     server = SecantusDBServer(
         port=0,
-        storage_path=str(tmp_path / "data"),
+        storage_path=wt_home,
         tls_cert_file=str(cert_path),
         tls_key_file=str(key_path),
         tls_ca_file=str(ca_path),
@@ -303,7 +304,7 @@ def test_x509_refused_for_scram_only_user(tmp_path, tls_files, ca) -> None:
             f"tls=true&tlsCAFile={ca_path}&tlsCertificateKeyFile={alice_pem}"
             "&authMechanism=MONGODB-X509&authSource=$external"
         )
-        client = MongoClient(uri, serverSelectionTimeoutMS=3000)
+        client = MongoClient(uri, serverSelectionTimeoutMS=SERVER_SELECTION_TIMEOUT_MS)
         with pytest.raises(OperationFailure, match="not configured for X509"):
             client.admin.command("ping")
         client.close()
@@ -311,14 +312,14 @@ def test_x509_refused_for_scram_only_user(tmp_path, tls_files, ca) -> None:
         server.stop()
 
 
-def test_scram_still_works_on_mtls_server(tmp_path, tls_files, ca) -> None:
+def test_scram_still_works_on_mtls_server(tmp_path, wt_home, tls_files, ca) -> None:
     """A SCRAM user authenticates normally even on an mTLS-required
     server — the cert proves "approved client", SCRAM proves "this
     specific user"."""
     cert_path, key_path, ca_path = tls_files
     bootstrap = SecantusDBServer(
         port=0,
-        storage_path=str(tmp_path / "data"),
+        storage_path=wt_home,
         tls_cert_file=str(cert_path),
         tls_key_file=str(key_path),
         tls_ca_file=str(ca_path),
@@ -329,7 +330,7 @@ def test_scram_still_works_on_mtls_server(tmp_path, tls_files, ca) -> None:
     try:
         boot = MongoClient(
             f"mongodb://127.0.0.1:{bootstrap.port}/?tls=true&tlsCAFile={ca_path}",
-            serverSelectionTimeoutMS=3000,
+            serverSelectionTimeoutMS=SERVER_SELECTION_TIMEOUT_MS,
         )
         try:
             boot["admin"].command(
@@ -354,7 +355,7 @@ def test_scram_still_works_on_mtls_server(tmp_path, tls_files, ca) -> None:
 
     server = SecantusDBServer(
         port=0,
-        storage_path=str(tmp_path / "data"),
+        storage_path=wt_home,
         tls_cert_file=str(cert_path),
         tls_key_file=str(key_path),
         tls_ca_file=str(ca_path),
@@ -368,7 +369,7 @@ def test_scram_still_works_on_mtls_server(tmp_path, tls_files, ca) -> None:
             f"tls=true&tlsCAFile={ca_path}&tlsCertificateKeyFile={pem}"
             "&authMechanism=SCRAM-SHA-256"
         )
-        client = MongoClient(uri, serverSelectionTimeoutMS=3000)
+        client = MongoClient(uri, serverSelectionTimeoutMS=SERVER_SELECTION_TIMEOUT_MS)
         try:
             client["t"]["c"].insert_one({"_id": 1})
             assert client["t"]["c"].find_one({"_id": 1}) == {"_id": 1}
@@ -378,17 +379,17 @@ def test_scram_still_works_on_mtls_server(tmp_path, tls_files, ca) -> None:
         server.stop()
 
 
-def test_x509_refused_without_tls(tmp_path) -> None:
+def test_x509_refused_without_tls(wt_home) -> None:
     """X509 auth on a plaintext daemon — no cert was ever presented,
     no DN to authenticate against. Surfaces as AuthenticationFailed."""
     bootstrap = SecantusDBServer(
         port=0,
-        storage_path=str(tmp_path / "data"),
+        storage_path=wt_home,
         require_auth=False,
     )
     bootstrap.start()
     try:
-        boot = MongoClient(bootstrap.uri, serverSelectionTimeoutMS=3000)
+        boot = MongoClient(bootstrap.uri, serverSelectionTimeoutMS=SERVER_SELECTION_TIMEOUT_MS)
         try:
             boot["$external"].command(
                 "createUser",
@@ -403,7 +404,7 @@ def test_x509_refused_without_tls(tmp_path) -> None:
 
     server = SecantusDBServer(
         port=0,
-        storage_path=str(tmp_path / "data"),
+        storage_path=wt_home,
         require_auth=True,
     )
     server.start()
@@ -412,7 +413,7 @@ def test_x509_refused_without_tls(tmp_path) -> None:
         # authMechanism=MONGODB-X509 would also try this, but the
         # URI parser would reject the missing TLS first — drive the
         # raw command path).
-        client = MongoClient(server.uri, serverSelectionTimeoutMS=3000)
+        client = MongoClient(server.uri, serverSelectionTimeoutMS=SERVER_SELECTION_TIMEOUT_MS)
         with pytest.raises(OperationFailure, match="MONGODB-X509 requires"):
             client["$external"].command(
                 "saslStart",

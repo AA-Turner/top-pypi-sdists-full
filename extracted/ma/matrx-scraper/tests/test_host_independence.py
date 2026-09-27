@@ -150,28 +150,57 @@ def test_module_scope_import_scan_would_catch_the_regression() -> None:
     assert node.module is not None and node.module.startswith("matrx_scraper.db")
 
 
+#: The only modules that may READ an ``AIDREAM_*`` variable, each with why.
+AIDREAM_ENV_READERS: dict[str, str] = {
+    "web_crawl/gsc_sync.py": "the documented GSC credential bridge of the standalone deployment.",
+    "server/config.py": (
+        "the standalone scraper SERVICE's own settings — the deployment is the host here; it hands "
+        "the values to make_http_landing_hook(aidream_url=..., service_token=...) as arguments, so "
+        "the landing hook itself reads no environment."
+    ),
+}
+
+
+def _reads_env(text: str, env_var: str) -> bool:
+    """A real read (``os.environ[...]``, ``os.environ.get(...)``, ``os.getenv(...)``) — never a
+    docstring or an error sentence that merely names the variable."""
+    import re
+
+    return bool(
+        re.search(
+            rf"""os\.(?:environ\s*(?:\[|\.get\s*\()|getenv\s*\()\s*["']{env_var}["']""",
+            text,
+        )
+    )
+
+
 @pytest.mark.parametrize(
     "env_var",
     ["AIDREAM_URL", "AIDREAM_SERVICE_TOKEN"],
 )
-def test_aidream_env_is_read_in_exactly_one_place(env_var: str) -> None:
+def test_aidream_env_is_read_only_by_the_declared_bridges(env_var: str) -> None:
     """The Matrx-microservice bridge is allowed to exist; it may not spread.
 
-    ``web_crawl/gsc_sync.py`` keeps the platform-bridge fallback because the
-    standalone scraper deployment has no vault and no host process to inject a
-    resolver into. Every OTHER host — aidream in-process, matrx-local, a
-    customer — goes through ``configure_ext(google_credential_resolver=...)``.
-    A second module reaching for an ``AIDREAM_*`` variable means someone skipped
-    the seam and re-hardwired the package to us.
+    Every OTHER host — aidream in-process, matrx-local, a customer — goes through
+    ``configure_ext(...)``. A module outside ``AIDREAM_ENV_READERS`` READING an ``AIDREAM_*``
+    variable means someone skipped the seam and re-hardwired the package to us. Naming the
+    variable in a message or docstring (the landing hook's remedy sentence does) is not a read.
     """
 
     readers = {
         str(path.relative_to(PACKAGE_ROOT))
         for path in _shipped_modules()
-        if env_var in path.read_text(encoding="utf-8")
+        if _reads_env(path.read_text(encoding="utf-8"), env_var)
     }
-    assert readers == {"web_crawl/gsc_sync.py"}, (
-        f"{env_var} must be read only by the documented microservice bridge in "
-        f"web_crawl/gsc_sync.py, not by {sorted(readers)}. Inject a host object "
-        "through configure_ext(...) instead."
+    assert readers <= set(AIDREAM_ENV_READERS), (
+        f"{env_var} is read outside the declared bridges: {sorted(readers - set(AIDREAM_ENV_READERS))}. "
+        "Inject a host object through configure_ext(...) instead."
     )
+    assert "web_crawl/gsc_sync.py" in readers, "the GSC bridge stopped reading its variable — update the list"
+
+
+def test_the_env_scan_tells_a_read_from_a_mention() -> None:
+    assert _reads_env('base = os.environ.get("AIDREAM_URL", "")', "AIDREAM_URL")
+    assert _reads_env("t = os.getenv('AIDREAM_SERVICE_TOKEN')", "AIDREAM_SERVICE_TOKEN")
+    assert _reads_env('x = os.environ["AIDREAM_URL"]', "AIDREAM_URL")
+    assert not _reads_env('"set AIDREAM_URL on this deployment."', "AIDREAM_URL")

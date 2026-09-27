@@ -354,10 +354,13 @@ class XAIChat:
         proto = getattr(final_response, "proto", None)
         model_name = getattr(proto, "model", None)
         from matrx_ai.config import serialize_provider_usage
-        from matrx_ai.providers.xai.translator import provider_charge_from_xai_usage
+        from matrx_ai.providers.xai.translator import (
+            billed_output_tokens_from_xai_usage,
+            provider_charge_from_xai_usage,
+        )
         return TokenUsage(
             input_tokens=getattr(usage, "prompt_tokens", 0),
-            output_tokens=getattr(usage, "completion_tokens", 0),
+            output_tokens=billed_output_tokens_from_xai_usage(usage),
             matrx_model_name=model_name,
             provider_model_name=model_name,
             api="xai",
@@ -401,6 +404,13 @@ class XAIChat:
 
         final_response = None
         reasoning_state = reset_reasoning_state(emitter)
+        # ``reasoning_content`` is the ACCUMULATED reasoning, so it stays truthy
+        # for the rest of the turn once the model has thought at all. Without
+        # this latch every answer chunk re-opened a "started" bracket that the
+        # same chunk closed — grok-4.7 streamed 119 empty reasoning brackets for
+        # a 118-token decision reply (Model Battle, 2026-09-26), and the column
+        # rendered "Worked through 48 steps" over nothing.
+        answer_started = False
         try:
             async for response, chunk in chat.stream():
                 final_response = response
@@ -411,11 +421,12 @@ class XAIChat:
                 # only live evidence xAI gives that the model is thinking. A
                 # no-op on non-reasoning models (reasoning_content stays empty).
                 reasoning = getattr(response, "reasoning_content", None)
-                if reasoning and not reasoning_state.signaled:
+                if reasoning and not reasoning_state.signaled and not answer_started:
                     reasoning_state.signaled = True
                     await emitter.send_reasoning_state("started")
                 delta = chunk.content
                 if delta:
+                    answer_started = True
                     # First answer token — reasoning is over.
                     if reasoning_state.signaled:
                         reasoning_state.signaled = False

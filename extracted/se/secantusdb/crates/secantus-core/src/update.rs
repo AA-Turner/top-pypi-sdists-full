@@ -31,8 +31,7 @@ use crate::numeric::{as_float_like, as_int_like, int_promoted_to_bson, is_int64}
 use crate::paths::{self, get_path, has_path};
 use crate::{expressions, query};
 
-#[derive(Debug)]
-pub struct Fallback;
+pub use crate::fallback::Fallback;
 
 type R<T> = Result<T, Fallback>;
 
@@ -54,32 +53,41 @@ fn rename_same_path(a: &str, b: &str) -> bool {
     ap[..n] == bp[..n]
 }
 
-/// True if walking `path` against `doc` passes through an array element — mongod
-/// forbids a `$rename` source/destination from being an array element (this
-/// previously silently corrupted the array). Mirrors
-/// `update._rename_traverses_array`.
-fn rename_traverses_array(doc: &Document, path: &str) -> bool {
+/// The name of the array `path` indexes into, or `None`.
+///
+/// `deep.n.0.a` over `{deep: {n: [{a: 1}]}}` answers `"n"` -- mongod's message
+/// names the field that HOLDS the array, not the whole path. This is the "array
+/// element" it forbids in a `$rename` source / destination (it previously
+/// silently corrupted the array here).
+///
+/// Caller-gated on the source path resolving: mongod treats a `$rename` whose
+/// source is absent as a no-op and never runs either array check, so
+/// `{$rename: {"v.9.a": "q"}}` succeeds while `{$rename: {"v.0.a": "q"}}` is
+/// refused (measured 8.2.11, 2026-09-09). Mirrors
+/// `update._rename_array_field`.
+fn rename_array_field<'a>(doc: &'a Document, path: &'a str) -> Option<&'a str> {
     let mut parts = path.split('.');
-    let Some(first) = parts.next() else {
-        return false;
-    };
-    let Some(mut cur) = doc.get(first) else {
-        return false;
-    };
+    let first = parts.next()?;
+    let mut cur = doc.get(first)?;
+    let mut holder = first;
     for part in parts {
         match cur {
-            // Only a numeric index into an array is the forbidden "array
-            // element"; a positional token ($ / $[] / $[id]) is not (and is
-            // already deferred above via has_positional).
-            Bson::Array(_) => return !part.is_empty() && part.bytes().all(|b| b.is_ascii_digit()),
-            Bson::Document(d) => match d.get(part) {
-                Some(v) => cur = v,
-                None => return false,
-            },
-            _ => return false,
+            Bson::Array(_) => {
+                return if !part.is_empty() && part.bytes().all(|b| b.is_ascii_digit()) {
+                    Some(holder)
+                } else {
+                    None
+                };
+            }
+            Bson::Document(d) => {
+                let v = d.get(part)?;
+                holder = part;
+                cur = v;
+            }
+            _ => return None,
         }
     }
-    false
+    None
 }
 
 // --- positional / arrayFilters path expansion ---------------------------
@@ -125,7 +133,7 @@ fn referenced_af_identifiers(update: &Document) -> std::collections::HashSet<Str
 /// through `$and`/`$or`/`$nor` sub-clauses. Mirrors `_extract_af_identifiers`
 /// (the `$expr`/no-identifier distinction only matters for Python's exact error
 /// code, so the bool isn't tracked here — an empty result defers regardless).
-fn extract_af_identifiers(f: &Document) -> Vec<String> {
+pub fn extract_af_identifiers(f: &Document) -> Vec<String> {
     fn walk(m: &Document, idents: &mut Vec<String>, seen: &mut std::collections::HashSet<String>) {
         for (key, value) in m {
             if key == "$and" || key == "$or" || key == "$nor" {
@@ -276,7 +284,7 @@ fn walk_positional(
         let idx = match idx {
             Some(i) if i >= 0 && (i as usize) < arr.len() => i as usize,
             // Unresolvable `$` — Python raises; we defer (server → BadValue).
-            _ => return Err(Fallback),
+            _ => return Err(Fallback::Defer),
         };
         prefix.push(idx.to_string());
         walk_positional(&arr[idx], rest, prefix, out, filters, pos)?;
@@ -291,11 +299,11 @@ fn walk_positional(
     } else if head.starts_with("$[") && head.ends_with(']') {
         let name = &head[2..head.len() - 1];
         let Bson::Array(arr) = cur else { return Ok(()) };
-        let sub = filters.get(name).ok_or(Fallback)?;
+        let sub = filters.get(name).ok_or(Fallback::Defer)?;
         for (i, elem) in arr.iter().enumerate() {
             let mut elem_doc = Document::new();
             elem_doc.insert(name.to_string(), elem.clone());
-            if query::matches(&elem_doc, sub, &Document::new(), None).map_err(|_| Fallback)? {
+            if query::matches(&elem_doc, sub, &Document::new(), None)? {
                 prefix.push(i.to_string());
                 walk_positional(elem, rest, prefix, out, filters, pos)?;
                 prefix.pop();
@@ -324,7 +332,15 @@ fn walk_positional(
 
 /// `paths::set_path` with its list-growth-cap error mapped to our `Fallback`.
 fn set_path(doc: &mut Document, path: &str, value: Bson) -> R<()> {
-    paths::set_path(doc, path, value).map_err(|_| Fallback)
+    // A dotted path that runs THROUGH a non-document cannot be created --
+    // mongod answers `PathNotViable` (28). `paths::set_path` returns silently
+    // in that case (as Python's did), so the update reported success and wrote
+    // nothing. Defer: the Python engine raises the exact error, and the
+    // standalone Rust server names it via `path_not_viable_error`.
+    if paths::path_block(doc, path).is_some() {
+        return Err(Fallback::Defer);
+    }
+    paths::set_path(doc, path, value).map_err(|_| Fallback::Defer)
 }
 
 use crate::paths::unset_path;
@@ -340,22 +356,22 @@ fn arith(current: &Bson, operand: &Bson, mul: bool) -> R<Bson> {
     // Rust server surfaces a generic BadValue — the standing update error-code
     // gap. String / null operands already fall through to Fallback below.)
     if matches!(operand, Bson::Boolean(_)) {
-        return Err(Fallback);
+        return Err(Fallback::Defer);
     }
     // Decimal dominates the widening order (int32 < int64 < double < decimal),
     // so either side being decimal puts the whole operation in the decimal
     // domain — computed exactly at decimal128's 34 digits, quantum preserved.
     if matches!(current, Bson::Decimal128(_)) || matches!(operand, Bson::Decimal128(_)) {
         let (a, b) = (
-            decimal::from_bson(current).ok_or(Fallback)?,
-            decimal::from_bson(operand).ok_or(Fallback)?,
+            decimal::from_bson(current).ok_or(Fallback::Defer)?,
+            decimal::from_bson(operand).ok_or(Fallback::Defer)?,
         );
         let r = if mul {
             decimal::mul(&a, &b)
         } else {
             decimal::add(&a, &b)
         };
-        return decimal::to_bson(&r.ok_or(Fallback)?).ok_or(Fallback);
+        return decimal::to_bson(&r.ok_or(Fallback::Defer)?).ok_or(Fallback::Defer);
     }
     if let (Some(a), Some(b)) = (as_int_like(current), as_int_like(operand)) {
         let r = if mul {
@@ -366,11 +382,11 @@ fn arith(current: &Bson, operand: &Bson, mul: bool) -> R<Bson> {
         // MongoDB promotes the result to int64 if either operand is already
         // int64 (or a 32-bit result would overflow) — matching `numerics.bson_*`.
         let wide = is_int64(current) || is_int64(operand);
-        return int_promoted_to_bson(r.ok_or(Fallback)?, wide).ok_or(Fallback);
+        return int_promoted_to_bson(r.ok_or(Fallback::Defer)?, wide).ok_or(Fallback::Defer);
     }
     // Float path: any non-numeric operand (current/operand) makes Python raise.
-    let a = as_float_like(current).ok_or(Fallback)?;
-    let b = as_float_like(operand).ok_or(Fallback)?;
+    let a = as_float_like(current).ok_or(Fallback::Defer)?;
+    let b = as_float_like(operand).ok_or(Fallback::Defer)?;
     Ok(Bson::Double(if mul { a * b } else { a + b }))
 }
 
@@ -389,6 +405,18 @@ fn arith(current: &Bson, operand: &Bson, mul: bool) -> R<Bson> {
 /// only `Null` deferred, which meant a bool reached `arith` and silently
 /// incremented (Python treats `bool` as an `int` subclass) — the parity suite
 /// caught the divergence the moment the Python side started refusing.
+/// A double or Decimal128 zero, of either sign. NOT an int -- an int zero
+/// promotes under a double multiplier and then follows IEEE (see `$mul`).
+fn is_zero_number(v: &Bson) -> bool {
+    match v {
+        Bson::Double(d) => *d == 0.0,
+        Bson::Decimal128(_) => crate::decimal::from_bson(v)
+            .map(|d| d.is_zero())
+            .unwrap_or(false),
+        _ => false,
+    }
+}
+
 fn current_or_zero(result: &Document, path: &str) -> R<Bson> {
     match get_path(result, path) {
         None => Ok(Bson::Int32(0)),
@@ -396,7 +424,7 @@ fn current_or_zero(result: &Document, path: &str) -> R<Bson> {
             Ok(get_path(result, path).expect("just matched").clone())
         }
         // Bson::Boolean lands here deliberately: it is not numeric for arithmetic.
-        Some(_) => Err(Fallback),
+        Some(_) => Err(Fallback::Defer),
     }
 }
 
@@ -405,7 +433,7 @@ fn current_or_zero(result: &Document, path: &str) -> R<Bson> {
 fn payload_doc(payload: &Bson) -> R<&Document> {
     match payload {
         Bson::Document(d) => Ok(d),
-        _ => Err(Fallback),
+        _ => Err(Fallback::Defer),
     }
 }
 
@@ -425,22 +453,44 @@ fn push_apply(arr: &mut Vec<Bson>, value: &Bson) -> R<()> {
     for k in m.keys() {
         match k.as_str() {
             "$each" | "$position" | "$slice" | "$sort" => {}
-            _ => return Err(Fallback), // unknown modifier -> Python raises
+            _ => return Err(Fallback::Defer), // unknown modifier -> Python raises
         }
     }
     let each = match m.get("$each") {
         Some(Bson::Array(a)) => a,
-        _ => return Err(Fallback),
+        // mongod names the type here, and words it differently from the
+        // `$addToSet` sibling above: `$push` keeps the colon before the type and
+        // answers code 2 where `$addToSet` answers 14. Both verbatim from an
+        // 8.2.11 probe (2026-09-06). This used to defer, which on the standalone
+        // Rust server told the client the server could not do `$push`.
+        Some(v) => {
+            return Err(Fallback::mongo(
+                2,
+                format!(
+                    "The argument to $each in $push must be an array but it was of type: {}",
+                    crate::query::bson_type_name(v)
+                ),
+            ));
+        }
+        None => return Err(Fallback::Defer),
     };
     match m.get("$position") {
         None => arr.extend(each.iter().cloned()),
         Some(p) => {
             // A bool $position is a parse error in mongod (code 2), not index 1
-            // — `as_int_like` would coerce it, so guard first.
+            // -- `as_int_like` would coerce it, so guard first. mongod's own
+            // text, measured 8.2.11 (2026-09-08); this used to DEFER, which on
+            // this server is the generic "does not support" refusal.
             if matches!(p, Bson::Boolean(_)) {
-                return Err(Fallback);
+                return Err(Fallback::mongo(
+                    2,
+                    format!(
+                        "The value for $position must be an integer value, not of type: {}",
+                        crate::query::bson_type_name(p)
+                    ),
+                ));
             }
-            let n = as_int_like(p).ok_or(Fallback)?;
+            let n = as_int_like(p).ok_or(Fallback::Defer)?;
             let idx = if n >= 0 {
                 (n as usize).min(arr.len())
             } else {
@@ -457,10 +507,19 @@ fn push_apply(arr: &mut Vec<Bson>, value: &Bson) -> R<()> {
     }
     if let Some(s) = m.get("$slice") {
         // A bool $slice is a parse error in mongod (code 2), not "keep 1".
+        // mongod words this DIFFERENTLY from `$position` above -- "but was given
+        // type:" rather than "not of type:" -- which is why both are measured
+        // rather than shared (8.2.11, 2026-09-08).
         if matches!(s, Bson::Boolean(_)) {
-            return Err(Fallback);
+            return Err(Fallback::mongo(
+                2,
+                format!(
+                    "The value for $slice must be an integer value but was given type: {}",
+                    crate::query::bson_type_name(s)
+                ),
+            ));
         }
-        let n = as_int_like(s).ok_or(Fallback)?;
+        let n = as_int_like(s).ok_or(Fallback::Defer)?;
         if n == 0 {
             arr.clear();
         } else if n > 0 {
@@ -505,9 +564,9 @@ fn push_sort(arr: &mut [Bson], spec: &Bson) -> R<()> {
     }
     match spec {
         Bson::Int32(_) | Bson::Int64(_) | Bson::Double(_) => {
-            let dir = dir_pm1(spec).ok_or(Fallback)?;
+            let dir = dir_pm1(spec).ok_or(Fallback::Defer)?;
             if !arr.iter().all(crate::order::is_sortable) {
-                return Err(Fallback);
+                return Err(Fallback::Defer);
             }
             if dir == -1 {
                 arr.sort_by(|a, b| crate::order::cmp(b, a));
@@ -518,14 +577,14 @@ fn push_sort(arr: &mut [Bson], spec: &Bson) -> R<()> {
         Bson::Document(spec_doc) => {
             let fields: Vec<(&String, i128)> = spec_doc
                 .iter()
-                .map(|(f, d)| dir_pm1(d).map(|di| (f, di)).ok_or(Fallback))
+                .map(|(f, d)| dir_pm1(d).map(|di| (f, di)).ok_or(Fallback::Defer))
                 .collect::<R<Vec<_>>>()?;
             for (field, _) in &fields {
                 if !arr
                     .iter()
                     .all(|e| crate::order::is_sortable(&key_of(e, field)))
                 {
-                    return Err(Fallback);
+                    return Err(Fallback::Defer);
                 }
             }
             // Stable field-by-field, applied in reverse spec order (Python parity).
@@ -540,7 +599,7 @@ fn push_sort(arr: &mut [Bson], spec: &Bson) -> R<()> {
                 });
             }
         }
-        _ => return Err(Fallback), // non-int / non-doc $sort -> Python raises
+        _ => return Err(Fallback::Defer), // non-int / non-doc $sort -> Python raises
     }
     Ok(())
 }
@@ -551,24 +610,62 @@ fn push_sort(arr: &mut [Bson], spec: &Bson) -> R<()> {
 /// sub-document match against the element (a scalar element never matches); a
 /// scalar criterion is BSON-aware equality. Mirrors `_pull_matches`. A construct
 /// the query engine can't evaluate exactly (regex / collation edge) defers.
+/// mongod's `28` for a dotted path whose intermediate is not a document.
+///
+/// `{$rename: {"v.k": "v.j"}}` over any non-document `v` -- a scalar, an array,
+/// a string, or a NULL -- is
+/// `cannot use the part (v of v.k) to traverse the element ({v: 1})`. Both
+/// servers silently no-opped, so an invalid update reported success. Measured
+/// 8.2.11, 2026-09-08.
+fn traverse_problem(doc: &Document, path: &str) -> Option<Fallback> {
+    let parts: Vec<&str> = path.split('.').collect();
+    let mut in_doc = doc;
+    for part in &parts[..parts.len().saturating_sub(1)] {
+        // An ABSENT component is a no-op, not an error.
+        let current = in_doc.get(*part)?;
+        match current {
+            Bson::Document(d) => in_doc = d,
+            other => {
+                return Some(
+                    Fallback::mongo(
+                        28,
+                        format!(
+                            "cannot use the part ({part} of {path}) to traverse the \
+                             element ({{{part}: {}}})",
+                            crate::query::bson_value_repr(other)
+                        ),
+                    )
+                    .exec(),
+                );
+            }
+        }
+    }
+    None
+}
+
 fn pull_matches(element: &Bson, criterion: &Bson) -> R<bool> {
     match criterion {
         Bson::Document(c) if !c.is_empty() && c.keys().all(|k| k.starts_with('$')) => {
             let d = doc! { "__e": element.clone() };
             let q = doc! { "__e": criterion.clone() };
-            crate::query::matches(&d, &q, &Document::new(), None).map_err(|_| Fallback)
+            crate::query::matches(&d, &q, &Document::new(), None)
         }
         Bson::Document(c) => match element {
-            Bson::Document(ed) => {
-                crate::query::matches(ed, c, &Document::new(), None).map_err(|_| Fallback)
-            }
+            Bson::Document(ed) => crate::query::matches(ed, c, &Document::new(), None),
             _ => Ok(false),
         },
-        _ => {
+        // A REGEX criterion traverses, like the operator form above.
+        Bson::RegularExpression(_) => {
             let d = doc! { "__e": element.clone() };
             let q = doc! { "__e": criterion.clone() };
-            crate::query::matches(&d, &q, &Document::new(), None).map_err(|_| Fallback)
+            crate::query::matches(&d, &q, &Document::new(), None)
         }
+        // Every other scalar is EXACT equality against the element -- no
+        // implicit array traversal, so `{$pull: {v: 1}}` leaves `{v: [[1, 2]]}`
+        // untouched even though `1` is inside the element. Routing this through
+        // the query engine gave it membership and silently emptied arrays of
+        // arrays (measured 8.2.11, 2026-09-08).
+        _ => crate::query::eq_scalar(element, criterion, None),
     }
 }
 
@@ -608,7 +705,19 @@ fn apply_op(
             for (path, factor) in payload {
                 for cpath in expand_path(result, path, filters, pos)? {
                     let cur = current_or_zero(result, &cpath)?;
-                    let new = arith(&cur, factor, true)?;
+                    let mut new = arith(&cur, factor, true)?;
+                    // A stored DOUBLE or DECIMAL zero keeps its own sign:
+                    // mongod's `$mul` leaves `0.0` as `0.0` and `-0.0` as
+                    // `-0.0` whatever the multiplier, where IEEE would flip it
+                    // (`0.0 * -1` is `-0.0`). Measured across 15 shapes on
+                    // 8.2.11 (2026-09-05): negative, positive, zero and
+                    // non-finite multipliers, over double / int / int64 /
+                    // decimal. A non-zero RESULT (`0.0 * inf` is NaN) still
+                    // writes, and an INT zero promotes and follows IEEE, so the
+                    // rule is narrow -- stored zero, zero result.
+                    if is_zero_number(&cur) && is_zero_number(&new) {
+                        new = cur.clone();
+                    }
                     set_path(result, &cpath, new)?;
                 }
             }
@@ -617,9 +726,25 @@ fn apply_op(
             for (path, value) in payload {
                 for cpath in expand_path(result, path, filters, pos)? {
                     let mut a = match get_path(result, &cpath).cloned() {
-                        None | Some(Bson::Null) => Vec::new(),
+                        // MISSING and NULL are different: mongod creates the array
+                        // for an absent field and REFUSES a present null. Folding
+                        // them together silently replaced the null with a
+                        // one-element array -- a wrong WRITE, not a missing error
+                        // (measured 8.2.11, 2026-09-08).
+                        None => Vec::new(),
                         Some(Bson::Array(a)) => a,
-                        Some(_) => return Err(Fallback), // $push on non-array -> Python raises
+                        Some(other) => {
+                            return Err(Fallback::mongo(
+                                2,
+                                format!(
+                                    "The field '{cpath}' must be an array but is of type {} \
+                                     in document {}",
+                                    crate::query::bson_type_name(&other),
+                                    render_doc_id(result)
+                                ),
+                            )
+                            .exec());
+                        }
                     };
                     push_apply(&mut a, value)?;
                     set_path(result, &cpath, Bson::Array(a))?;
@@ -628,7 +753,52 @@ fn apply_op(
         }
         "$pop" => {
             for (path, dir) in payload {
+                // mongod validates the DIRECTION before it looks at the field,
+                // through the same numeric ladder as `$size` and the `$bits*`
+                // mask. This deferred for every one of those cases, which on
+                // the standalone server reads as "$pop is not supported".
+                let dir_int = match crate::query::coerce_int64_argument(dir, path) {
+                    None => {
+                        return Err(Fallback::mongo(
+                            9,
+                            format!(
+                                "Expected a number in: {path}: {}",
+                                crate::query::bson_value_repr(dir)
+                            ),
+                        ));
+                    }
+                    Some(Err(e)) => return Err(e),
+                    Some(Ok(n)) => n,
+                };
+                if dir_int != 1 && dir_int != -1 {
+                    // mongod reports the COERCED integer, not the argument as
+                    // written: `Decimal128("1E+2")` is "found: 100", `2.000` is
+                    // "found: 2", and `Decimal128("-0")` is "found: 0" -- which
+                    // is the shape that caught this, since it is the only one
+                    // whose own rendering ("-0") differs from its value.
+                    return Err(Fallback::mongo(
+                        9,
+                        format!("$pop expects 1 or -1, found: {dir_int}"),
+                    ));
+                }
                 for cpath in expand_path(result, path, filters, pos)? {
+                    // A PRESENT non-array is an ERROR on mongod ("Path 'a'
+                    // contains an element of non-array type 'int'", code 14); a
+                    // missing field or an empty array are no-ops. The `if let`
+                    // below silently skips all three, so an invalid update
+                    // reported success. Defer so Python raises the exact error.
+                    if let Some(v) = get_path(result, &cpath) {
+                        if !matches!(v, Bson::Array(_)) {
+                            return Err(Fallback::mongo(
+                                14,
+                                format!(
+                                    "Path '{cpath}' contains an element of non-array type '{}'",
+                                    crate::query::bson_type_name(v)
+                                ),
+                            )
+                            .exec());
+                        }
+                    }
                     if let Some(Bson::Array(a)) = get_path(result, &cpath) {
                         if a.is_empty() {
                             continue;
@@ -639,17 +809,10 @@ fn apply_op(
                         // (code 9). `as_int_like` would coerce `true` to 1, and
                         // the old `_ => continue` silently no-op'd a bad value;
                         // defer so the Python oracle raises the exact error.
-                        if matches!(dir, Bson::Boolean(_)) {
-                            return Err(Fallback);
-                        }
-                        match as_int_like(dir) {
-                            Some(1) => {
-                                a.pop();
-                            }
-                            Some(-1) => {
-                                a.remove(0);
-                            }
-                            _ => return Err(Fallback),
+                        if dir_int == 1 {
+                            a.pop();
+                        } else {
+                            a.remove(0);
                         }
                         set_path(result, &cpath, Bson::Array(a))?;
                     }
@@ -659,28 +822,105 @@ fn apply_op(
         "$rename" => {
             for (old, new) in payload {
                 let new = match new {
+                    // `Code` is a `String` variant's neighbour in BSON but a
+                    // distinct type; mongod refuses it, as it does every
+                    // non-string.
                     Bson::String(s) => s.as_str(),
-                    _ => return Err(Fallback),
+                    other => {
+                        return Err(Fallback::mongo(
+                            2,
+                            format!(
+                                "The 'to' field for $rename must be a string: {old}: {}",
+                                crate::query::bson_value_repr(other)
+                            ),
+                        ));
+                    }
                 };
-                // $rename doesn't support positional tokens (mongod rejects);
-                // defer the rare case to keep semantics exact.
-                if has_positional(old) || has_positional(new) {
-                    return Err(Fallback);
+                if old.is_empty() || new.is_empty() {
+                    return Err(Fallback::mongo(56, "An empty update path is not valid."));
                 }
                 if old == "_id" || new == "_id" {
-                    return Err(Fallback); // immutable _id -> Python raises
+                    return Err(Fallback::Defer); // immutable _id -> Python raises
                 }
                 // mongod validation (Python raises 56 / 2; the Rust server renders
                 // BadValue). These previously silently corrupted the array or
                 // created a bad field.
                 if old.is_empty() || new.is_empty() {
-                    return Err(Fallback); // empty path -> Python raises 56
+                    return Err(Fallback::Defer); // empty path -> Python raises 56
                 }
                 if old == new || rename_same_path(old, new) {
-                    return Err(Fallback); // differ / same path -> Python raises 2
+                    // Named rather than deferred: on the standalone server a
+                    // defer reports "a construct the Rust server does not
+                    // support" for an ordinary bad argument. Probed 8.2.11.
+                    return Err(Fallback::mongo(
+                        2,
+                        format!(
+                            "The source and target field for $rename must differ: {old}: \"{new}\""
+                        ),
+                    ));
                 }
-                if rename_traverses_array(result, old) || rename_traverses_array(result, new) {
-                    return Err(Fallback); // array element -> Python raises 2
+                // Parse-time, and BEFORE the array checks below: a dynamic
+                // source outranks a dynamic destination, and a dynamic
+                // destination outranks an array-element SOURCE (measured
+                // 8.2.11, 2026-09-09). mongod raises these without looking at
+                // the document, so an absent source field still errors.
+                if has_positional(old) {
+                    return Err(Fallback::mongo(
+                        2,
+                        format!("The source field for $rename may not be dynamic: {old}"),
+                    ));
+                }
+                if has_positional(new) {
+                    return Err(Fallback::mongo(
+                        2,
+                        format!("The destination field for $rename may not be dynamic: {new}"),
+                    ));
+                }
+                // Execution-time: mongod discovers these while applying the
+                // rename to a particular document, so they carry the executor
+                // wrapper -- and it skips both when the source field is absent,
+                // because then the `$rename` is a no-op.
+                let source_indexes_array = rename_array_field(result, old).is_some();
+                if has_path(result, old) {
+                    if let Some(field) = rename_array_field(result, old) {
+                        return Err(Fallback::mongo(
+                            2,
+                            format!(
+                                "The source field cannot be an array element, '{old}' in doc \
+                                 with _id: {} has an array field called '{field}'",
+                                crate::query::bson_value_repr(
+                                    result.get("_id").unwrap_or(&Bson::Null)
+                                )
+                            ),
+                        )
+                        .exec());
+                    }
+                    if let Some(field) = rename_array_field(result, new) {
+                        return Err(Fallback::mongo(
+                            2,
+                            format!(
+                                "The destination field cannot be an array element, '{new}' in \
+                                 doc with _id: {} has an array field called '{field}'",
+                                crate::query::bson_value_repr(
+                                    result.get("_id").unwrap_or(&Bson::Null)
+                                )
+                            ),
+                        )
+                        .exec());
+                    }
+                }
+                // A source path that cannot be TRAVERSED is an error, not a
+                // silent skip -- `has_path` cannot tell "absent" from "blocked
+                // by a non-document". Every path reaching here is STATIC.
+                //
+                // Skipped for a path that indexes into an ARRAY: mongod refuses
+                // that outright when the source resolves (above) and treats it
+                // as a plain no-op when it does not, so `{$rename: {"v.9.a":
+                // "q"}}` succeeds rather than reporting a 28 traverse failure.
+                if !source_indexes_array {
+                    if let Some(problem) = traverse_problem(result, old) {
+                        return Err(problem);
+                    }
                 }
                 if has_path(result, old) {
                     let value = get_path(result, old).unwrap().clone();
@@ -693,29 +933,82 @@ fn apply_op(
             for (path, ops) in payload {
                 // `{field: {and|or|xor: <int mask>, ...}}` — mongod applies every
                 // listed operation to the field in order (e.g. (v & X) | Y).
+                // mongod separates "not a document" from "an EMPTY document",
+                // with two texts. The unbalanced braces in both are its own.
                 let ops = match ops {
-                    Bson::Document(d) if !d.is_empty() => d,
-                    _ => return Err(Fallback), // empty / non-doc -> Python raises
+                    Bson::Document(d) if d.is_empty() => {
+                        return Err(Fallback::mongo(
+                            2,
+                            "You must pass in at least one bitwise operation. The format is: \
+                             {$bit: {field: {and/or/xor: #}}",
+                        ));
+                    }
+                    Bson::Document(d) => d,
+                    other => {
+                        return Err(Fallback::mongo(
+                            2,
+                            format!(
+                                "The $bit modifier is not compatible with a {}. You must pass \
+                                 in an embedded document: {{$bit: {{field: {{and/or/xor: #}}}}",
+                                crate::query::bson_type_name(other)
+                            ),
+                        ));
+                    }
                 };
                 let mut parsed: Vec<(&str, i64)> = Vec::with_capacity(ops.len());
                 for (bit_op, mask_b) in ops {
                     let op_s = bit_op.as_str();
                     if !matches!(op_s, "and" | "or" | "xor") {
-                        return Err(Fallback); // unknown sub-op -> Python raises
+                        return Err(Fallback::mongo(
+                            2,
+                            format!(
+                                "The $bit modifier only supports 'and', 'or', and 'xor', not \
+                                 '{op_s}' which is an unknown operator: {{{op_s}: {}}}",
+                                crate::query::bson_value_repr(mask_b)
+                            ),
+                        ));
                     }
                     let mask = match mask_b {
                         Bson::Int32(n) => *n as i64,
                         Bson::Int64(n) => *n,
-                        _ => return Err(Fallback), // non-integer mask -> Python raises
+                        // mongod names the type in quotes and echoes the whole
+                        // `{op: value}` pair; its unbalanced brace is its own.
+                        // Measured 8.2.11 (2026-09-08) -- this deferred before.
+                        _ => {
+                            return Err(Fallback::mongo(
+                                2,
+                                format!(
+                                    "The $bit modifier field must be an Integer(32/64 bit); \
+                                     a '{}' is not supported here: {{{op_s}: {}}}",
+                                    crate::query::bson_type_name(mask_b),
+                                    crate::query::bson_value_repr(mask_b)
+                                ),
+                            ));
+                        }
                     };
                     parsed.push((op_s, mask));
                 }
                 for cpath in expand_path(result, path, filters, pos)? {
                     let mut cur = match get_path(result, &cpath) {
-                        None | Some(Bson::Null) => 0i64,
+                        // An ABSENT field starts at 0; a present NULL is
+                        // non-integral and mongod refuses it.
+                        None => 0i64,
                         Some(Bson::Int32(n)) => *n as i64,
                         Some(Bson::Int64(n)) => *n,
-                        Some(_) => return Err(Fallback), // $bit on non-integer -> Python raises
+                        Some(other) => {
+                            return Err(Fallback::mongo(
+                                2,
+                                format!(
+                                    "Cannot apply $bit to a value of non-integral type.\
+                                     _id: {} has the field {cpath} of non-integer type {}",
+                                    crate::query::bson_value_repr(
+                                        result.get("_id").unwrap_or(&Bson::Null)
+                                    ),
+                                    crate::query::bson_type_name(other)
+                                ),
+                            )
+                            .exec());
+                        }
                     };
                     for (bit_op, mask) in &parsed {
                         cur = match *bit_op {
@@ -740,23 +1033,39 @@ fn apply_op(
                 for cpath in expand_path(result, path, filters, pos)? {
                     // A *missing* field is set unconditionally; a present field
                     // (incl. an explicit null, rank 2) is compared by MongoDB's
-                    // BSON cross-type order via `order::bson_lt` — the direct
-                    // `_bson_lt` port, which (unlike the `$sort` comparator)
-                    // needs no transitivity and so covers bool / Decimal128 /
-                    // NaN / Binary / Timestamp / Regex / Min-MaxKey and the
-                    // decoded exotic text types. Only a DBPointer (Python's
-                    // type-name tiebreak) still defers.
+                    // SORT order, which is what `$min` / `$max` follow.
+                    //
+                    // NOT `order::bson_lt`, whose comment used to claim it
+                    // "covers NaN": it keeps IEEE semantics, where every NaN
+                    // comparison is false. mongod's sort order places NaN BELOW
+                    // -Infinity, so `{$min: {a: NaN}}` over `a: 5` sets the
+                    // field — and this left it untouched, a wrong value in a
+                    // WRITE path (probed 8.2.11, 2026-09-03).
+                    //
+                    // The two orders genuinely differ and both are mongod's:
+                    // the RANGE operators exclude NaN entirely, while sorting
+                    // places it first. `sortkey::encode_value` already encodes
+                    // that correctly, so this defers to it rather than
+                    // re-deriving the rule.
                     let should_set = match get_path(result, &cpath) {
                         None => true,
                         Some(current) => {
-                            let lt = if want_less {
-                                crate::order::bson_lt(value, current) // value < current
+                            let (lhs, rhs) = if want_less {
+                                (value, current)
                             } else {
-                                crate::order::bson_lt(current, value) // current < value
+                                (current, value)
                             };
-                            match lt {
-                                Some(l) => l,
-                                None => return Err(Fallback),
+                            match (
+                                crate::sortkey::encode_value(lhs, None),
+                                crate::sortkey::encode_value(rhs, None),
+                            ) {
+                                (Ok(a), Ok(b)) => a < b,
+                                // Anything the sort key cannot encode falls
+                                // back to the comparison order, as before.
+                                _ => match crate::order::bson_lt(lhs, rhs) {
+                                    Some(l) => l,
+                                    None => return Err(Fallback::Defer),
+                                },
                             }
                         }
                     };
@@ -772,42 +1081,40 @@ fn apply_op(
                 let items: Vec<Bson> = match value {
                     Bson::Document(d) if d.contains_key("$each") => match d.get("$each") {
                         Some(Bson::Array(a)) => a.clone(),
-                        _ => return Err(Fallback), // $each not an array -> Python raises
+                        other => {
+                            return Err(Fallback::mongo(
+                                14,
+                                format!(
+                                    "The argument to $each in $addToSet must be an array but \
+                                     it was of type {}",
+                                    crate::query::bson_type_name(other.unwrap_or(&Bson::Null))
+                                ),
+                            ));
+                        }
                     },
                     _ => vec![value.clone()],
                 };
                 for cpath in expand_path(result, path, filters, pos)? {
                     let mut a = match get_path(result, &cpath).cloned() {
-                        None | Some(Bson::Null) => Vec::new(),
+                        // As `$push` above: a present null is a non-array.
+                        None => Vec::new(),
                         Some(Bson::Array(a)) => a,
-                        Some(_) => return Err(Fallback), // non-array -> Python raises
+                        Some(other) => {
+                            return Err(Fallback::mongo(
+                                2,
+                                format!(
+                                    "Cannot apply $addToSet to non-array field. Field named \
+                                     '{cpath}' has non-array type {}",
+                                    crate::query::bson_type_name(&other)
+                                ),
+                            )
+                            .exec());
+                        }
                     };
                     for item in &items {
-                        // mongod's `$addToSet` membership test is field-ORDER-
-                        // sensitive for documents: `{y: 2, x: 1}` is a different
-                        // value from `{x: 1, y: 2}` and gets appended. `py_eq`
-                        // mirrors Python's `==`, which compares documents
-                        // order-INsensitively, so defer whenever a document is
-                        // involved and let the Python engine — which walks the
-                        // pairs in order — decide. Scalars keep the fast path.
-                        // Two cases `py_eq` gets wrong, both verified against
-                        // mongod 6.0.16:
-                        //   * documents — membership is field-ORDER-sensitive, so
-                        //     `{y:2,x:1}` is appended alongside `{x:1,y:2}`;
-                        //     `py_eq` mirrors Python `==`, which ignores order.
-                        //   * booleans — `true` is a distinct type from `1`, so
-                        //     `$addToSet: true` into `[1, 2]` yields `[1, 2, true]`
-                        //     (and `1` into `[true]` yields `[true, 1]`); Python's
-                        //     `==` says `1 == True`, so `py_eq` skips the append.
-                        // Defer both to the Python engine, whose equality ranks
-                        // bool separately and walks document pairs in order.
-                        let tricky = |v: &Bson| matches!(v, Bson::Document(_) | Bson::Boolean(_));
-                        if tricky(item) || a.iter().any(tricky) {
-                            return Err(Fallback);
-                        }
                         let mut present = false;
                         for e in &a {
-                            if expressions::py_eq(e, item).map_err(|_| Fallback)? {
+                            if addtoset_eq(e, item)? {
                                 present = true;
                                 break;
                             }
@@ -837,7 +1144,14 @@ fn apply_op(
                             }
                             set_path(result, &cpath, Bson::Array(kept))?;
                         }
-                        Some(_) => return Err(Fallback),
+                        Some(_) => {
+                            // Both $pull and $pullAll report it as $pull.
+                            return Err(Fallback::mongo(
+                                2,
+                                "Cannot apply $pull to a non-array value",
+                            )
+                            .exec());
+                        }
                         None => {}
                     }
                 }
@@ -846,7 +1160,7 @@ fn apply_op(
         "$pullAll" => {
             for (path, values) in payload {
                 let Bson::Array(vals) = values else {
-                    return Err(Fallback); // non-array arg -> Python raises
+                    return Err(Fallback::Defer); // non-array arg -> Python raises
                 };
                 for cpath in expand_path(result, path, filters, pos)? {
                     // Remove every element equal to any listed value (literal
@@ -858,7 +1172,7 @@ fn apply_op(
                             for e in a {
                                 let mut drop = false;
                                 for v in vals {
-                                    if expressions::py_eq(&e, v).map_err(|_| Fallback)? {
+                                    if expressions::py_eq(&e, v)? {
                                         drop = true;
                                         break;
                                     }
@@ -869,19 +1183,26 @@ fn apply_op(
                             }
                             set_path(result, &cpath, Bson::Array(kept))?;
                         }
-                        Some(_) => return Err(Fallback),
+                        Some(_) => {
+                            // Both $pull and $pullAll report it as $pull.
+                            return Err(Fallback::mongo(
+                                2,
+                                "Cannot apply $pull to a non-array value",
+                            )
+                            .exec());
+                        }
                         None => {}
                     }
                 }
             }
         }
         // $currentDate (non-deterministic) and unknown ops -> Python.
-        _ => return Err(Fallback),
+        _ => return Err(Fallback::Defer),
     }
     Ok(())
 }
 
-/// Apply an operator/replacement update document. `Err(Fallback)` => defer to
+/// Apply an operator/replacement update document. `Err(Fallback::Defer)` => defer to
 /// the pure-Python `apply_update` (which also raises the right errors).
 pub fn apply_update(doc: &Document, update: &Document, is_upsert: bool) -> R<Document> {
     apply_update_with(doc, update, is_upsert, &[], &Document::new())
@@ -899,16 +1220,35 @@ pub fn apply_update_with(
     array_filters: &[Document],
     positional_matches: &Document,
 ) -> R<Document> {
-    if update.is_empty() {
-        return Ok(doc.clone());
-    }
+    // NO empty short-circuit: `update: {}` is a replacement with an empty
+    // document, so the stored doc is reduced to its `_id` (probed mongod
+    // 6.0.16, which reports `nModified: 1` for it). Returning `doc.clone()`
+    // here silently kept every field the client asked to drop. An empty
+    // *pipeline* is the genuine no-op, and is a different entry point.
     if !array_filters_valid(array_filters, update) {
-        return Err(Fallback); // invalid arrayFilters -> Python raises the exact code
+        return Err(Fallback::Defer); // invalid arrayFilters -> Python raises the exact code
     }
-    let has_op = update.keys().any(|k| k.starts_with('$'));
+    // An update whose operators touch overlapping paths is rejected by mongod
+    // (code 40) rather than applied. Defer so the Python engine raises the exact
+    // error; the Rust server names it via `path_conflict_error` (it has no
+    // Python to fall back to).
+    match update_path_fault(update) {
+        // A path conflict still defers: the Python engine raises the exact
+        // error, and on the Rust server `path_conflict_error` recovers it in
+        // the storage layer. The other two name themselves -- a defer has no
+        // Python behind it there. All are PARSE errors, so they stay bare (no
+        // executor wrapper).
+        Some(UpdatePathFault::Conflict { .. }) => return Err(Fallback::Defer),
+        Some(_) => {
+            let (code, message) = update_spec_error(update).expect("a fault was just observed");
+            return Err(Fallback::mongo(code, message));
+        }
+        None => {}
+    }
+    let has_op = is_operator_form(update);
     if has_op {
         if !update.keys().all(|k| k.starts_with('$')) {
-            return Err(Fallback); // mixing operators with fields -> Python raises
+            return Err(Fallback::Defer); // mixing operators with fields -> Python raises
         }
         let filters = index_array_filters(array_filters);
         let mut result = doc.clone();
@@ -921,16 +1261,28 @@ pub fn apply_update_with(
         // _id is immutable: a changed _id is an error (let Python raise).
         if let Some(orig) = doc.get("_id") {
             if result.get("_id") != Some(orig) {
-                return Err(Fallback);
+                return Err(Fallback::Defer);
             }
         }
         Ok(result)
     } else {
+        // A `$`-prefixed TOP-LEVEL key in a replacement is mongod's
+        // `DollarPrefixedFieldName` (52), and it is an EXECUTION-time error, not
+        // a parse-time one: with no matching document the statement is a silent
+        // no-op (`n: 0`), and an UPSERT inserts the document verbatim, `$`-key
+        // and all (probed 8.2.11, 2026-09-06). So it fires only on a real
+        // replacement, which `is_upsert` distinguishes -- the upsert path calls
+        // us with the seed document it is about to insert.
+        if !is_upsert {
+            if let Some(field) = replacement_dollar_field(update) {
+                return Err(Fallback::mongo(52, replacement_dollar_error(field)).exec());
+            }
+        }
         // Replacement-style: the update is the new doc, with _id preserved.
         let mut new = update.clone();
         if let Some(orig) = doc.get("_id") {
             match new.get("_id") {
-                Some(v) if v != orig => return Err(Fallback), // changed _id -> Python raises
+                Some(v) if v != orig => return Err(Fallback::Defer), // changed _id -> Python raises
                 _ => {
                     // `_id` leads the stored document, as it does in mongod.
                     // `insert` on a Document APPENDS when the key is absent,
@@ -953,6 +1305,272 @@ pub fn apply_update_with(
     }
 }
 
+/// Returns the offending path and the conflict point when two operators target
+/// overlapping paths.
+///
+/// mongod refuses an update whose operators touch paths that are equal, or where
+/// one is a prefix of the other: `{$set: {a: 2}, $inc: {"a.b": 1}}` cannot be
+/// applied because `$set` replaces the very subtree `$inc` wants to walk into.
+/// Siblings and disjoint paths are fine. Mirrors
+/// `update._conflicting_update_paths`.
+///
+/// `$rename` claims BOTH ends -- it writes one and removes the other -- except
+/// when they are equal, which mongod reports with its own dedicated error.
+pub fn conflicting_update_paths(update: &Document) -> Option<(String, String)> {
+    match update_path_fault(update) {
+        Some(UpdatePathFault::Conflict { offending, at }) => Some((offending, at)),
+        _ => None,
+    }
+}
+
+/// Set `value` at a dotted `path`, creating the intermediate documents.
+///
+/// The public face of `paths::set_path`, which the storage layer needs when it
+/// seeds an upsert from the filter's equalities: mongod builds the nesting, so
+/// `{"a.b.c": 5}` seeds `{a: {b: {c: 5}}}` and NOT a literal dotted key. A
+/// literal one is a document mongod cannot produce, and it does not match the
+/// query that created it -- which made the same upsert, run twice, insert two
+/// documents.
+///
+/// Returns `Fallback::Defer` for a path the pure engine will not build (only
+/// the list-growth cap), rather than `paths`' bare `Result<(), ()>`.
+pub fn set_document_path(doc: &mut Document, path: &str, value: Bson) -> R<()> {
+    paths::set_path(doc, path, value).map_err(|()| Fallback::Defer)
+}
+
+/// Did an `$inc` / `$mul` write a NaN into `new`?
+///
+/// The half of mongod's `nModified` rule the stored bytes cannot show. mongod
+/// counts an arithmetic write whose result is a NaN as a modification even
+/// though the bytes are unchanged, and does NOT count an operator that declined
+/// to write (probed 8.2.11, 2026-09-06):
+///
+/// ```text
+/// {$inc: {a: 1}}   over a: NaN   -> nModified 1   (wrote a fresh NaN)
+/// {$inc: {a: 0}}   over a: NaN   -> nModified 1   (same)
+/// {$min: {a: 5}}   over a: NaN   -> nModified 0   ($min declined; NaN is smaller)
+/// {$set: {a: NaN}} over a: NaN   -> nModified 0   ($set wrote an equal value)
+/// {$inc: {a: 0}}   over a: 1     -> nModified 0   (wrote, but nothing changed)
+/// ```
+///
+/// So the discriminator is exactly "an arithmetic operator produced a NaN".
+/// Everything else is visible in the encoded document and is
+/// `diff::doc_changed`'s business.
+///
+/// Takes the POST-image because the result already sits there -- the caller has
+/// it, and re-deriving the arithmetic would be a second implementation of it.
+/// Positional / arrayFilter paths are skipped: they expand per document and
+/// this is a narrow tiebreak, so it errs toward "no" and leaves the byte
+/// comparison to decide. Mirrors `secantus.update.arith_wrote_nan`.
+pub fn arith_wrote_nan(new: &Document, update: &Document) -> bool {
+    for op in ["$inc", "$mul"] {
+        let Some(Bson::Document(fields)) = update.get(op) else {
+            continue;
+        };
+        for path in fields.keys() {
+            if path.contains("$[") || path.contains(".$") {
+                continue;
+            }
+            if let Some(Bson::Double(d)) = get_path(new, path) {
+                if d.is_nan() {
+                    return true;
+                }
+            }
+        }
+    }
+    false
+}
+
+/// Is this an operator update, or a replacement document?
+///
+/// mongod decides on the **first key alone** (probed 8.2.11, 2026-09-06), and
+/// then complains in that form's vocabulary:
+///
+/// ```text
+/// {$set: {a: 1}, z: 2}   ->  9  Unknown modifier: z
+/// {z: 2, $set: {a: 1}}   -> 52  The dollar ($) prefixed field '$set' ... is not
+///                               allowed in the context of an update's
+///                               replacement document.
+/// ```
+///
+/// This used to ask `keys().any(|k| k.starts_with('$'))`, which made the second
+/// one an operator update too and answered 9 for it. An empty update is a
+/// replacement (of nothing), which is how `{}` reduces a document to its `_id`.
+pub fn is_operator_form(update: &Document) -> bool {
+    update.keys().next().is_some_and(|k| k.starts_with('$'))
+}
+
+/// The FIRST top-level `$`-prefixed key of a replacement document.
+///
+/// Only the TOP level: mongod 8.x stores `{a: {$bad: 1}}` and `{a: [{$bad: 1}]}`
+/// happily, and stores a dotted key like `{"a.b": 1}` literally too. Probed
+/// 8.2.11 (2026-09-06).
+pub fn replacement_dollar_field(update: &Document) -> Option<&str> {
+    update
+        .keys()
+        .find(|k| k.starts_with('$'))
+        .map(String::as_str)
+}
+
+/// mongod's `DollarPrefixedFieldName` (52) message for a replacement document.
+pub fn replacement_dollar_error(field: &str) -> String {
+    format!(
+        "The dollar ($) prefixed field '{field}' in '{field}' is not allowed in the \
+         context of an update's replacement document. Consider using an aggregation \
+         pipeline with $replaceWith."
+    )
+}
+
+/// What is wrong with an update's operator paths, if anything.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum UpdatePathFault {
+    /// A path is empty, or has an empty component. mongod's `EmptyFieldName`
+    /// (56), carrying the message it uses for this shape.
+    Empty(String),
+    /// Two operators target overlapping paths -- mongod's code 40.
+    Conflict { offending: String, at: String },
+    /// A top-level key that is not an update modifier mongod knows -- either an
+    /// unrecognised `$`-operator or a bare field among the operators. mongod
+    /// has ONE message for both and names the offending key without a `$` for
+    /// the bare one. Its `FailedToParse` (9).
+    UnknownModifier(String),
+}
+
+/// Update modifiers mongod accepts. Mirrors `secantus.update._KNOWN_UPDATE_OPS`
+/// and the `KNOWN_UPDATE_OPS` the command crate used to keep privately.
+pub const KNOWN_UPDATE_OPS: [&str; 15] = [
+    "$set",
+    "$setOnInsert",
+    "$unset",
+    "$currentDate",
+    "$inc",
+    "$mul",
+    "$min",
+    "$max",
+    "$push",
+    "$addToSet",
+    "$pull",
+    "$pullAll",
+    "$pop",
+    "$rename",
+    "$bit",
+];
+
+/// The `(code, message)` mongod answers for a malformed update SPEC, or `None`
+/// if the spec's operators and paths are well formed. The parse-time half of
+/// update validation: mongod reports every one of these even when the filter
+/// matches nothing (probed 8.2.11, 2026-09-06), so the command layer runs it
+/// before going near a document.
+pub fn update_spec_error(update: &Document) -> Option<(i32, String)> {
+    match update_path_fault(update)? {
+        UpdatePathFault::UnknownModifier(k) => Some((
+            9,
+            format!(
+                "Unknown modifier: {k}. Expected a valid update modifier or \
+                 pipeline-style update specified as an array"
+            ),
+        )),
+        UpdatePathFault::Empty(message) => Some((56, message)),
+        UpdatePathFault::Conflict { offending, at } => Some((
+            40,
+            format!("Updating the path '{offending}' would create a conflict at '{at}'"),
+        )),
+    }
+}
+
+/// The FIRST thing wrong with an update's operator paths, in document order.
+///
+/// The empty-path and conflict checks share one walk because mongod interleaves
+/// them and the first offender wins (probed 8.2.11, 2026-09-06):
+///
+/// ```text
+/// {$inc: {"": 1},  $set: {a: 1, "a.b": 1}}   -> 56, the empty path
+/// {$set: {a: 1, "a.b": 1},  $inc: {"": 1}}   -> 40, the conflict
+/// ```
+///
+/// Running emptiness as a separate earlier pass answers 56 for both.
+///
+/// The empty-path half is new in 2026-09: before it, BOTH servers accepted
+/// `{$set: {"": 1}}` and stored a document with an empty field name -- one
+/// mongod cannot produce, and which the query that created it then fails to
+/// match. That is the "user-supplied path used as a dict key" shape
+/// `CLAUDE.md` calls out.
+pub fn update_path_fault(update: &Document) -> Option<UpdatePathFault> {
+    if !is_operator_form(update) {
+        // A replacement's fields are DATA, not paths -- including any
+        // `$`-prefixed one, whose refusal is execution-time (see
+        // `replacement_dollar_field`), not parse-time.
+        return None;
+    }
+    let mut seen: Vec<Vec<String>> = Vec::new();
+    for (op, payload) in update.iter() {
+        // The operator's NAME is checked before its paths, and a bare field
+        // among the operators is reached in document order like anything else:
+        // `{$nope: {a: 1}, $set: {"": 1}}` is 9 and `{$set: {"": 1}, z: 2}` is
+        // 56. Checking names in a pass of their own gets the second one wrong.
+        if !op.starts_with('$') || !KNOWN_UPDATE_OPS.contains(&op.as_str()) {
+            return Some(UpdatePathFault::UnknownModifier(op.clone()));
+        }
+        let Bson::Document(fields) = payload else {
+            continue;
+        };
+        for (field, value) in fields.iter() {
+            let mut paths = vec![field.clone()];
+            if op == "$rename" {
+                if let Some(dest) = value.as_str() {
+                    if dest != field {
+                        paths.push(dest.to_string());
+                    }
+                }
+            }
+            // Check every path of this field against paths claimed EARLIER, then
+            // claim them all. A `$rename`'s source and destination must not be
+            // compared with each other: mongod gives an overlapping pair its own
+            // error ("must not be on the same path", code 2), not a code-40
+            // conflict.
+            let mut claimed: Vec<Vec<String>> = Vec::new();
+            for path in paths {
+                if path.is_empty() {
+                    return Some(UpdatePathFault::Empty(
+                        "An empty update path is not valid.".to_string(),
+                    ));
+                }
+                let parts: Vec<String> = path.split('.').map(str::to_string).collect();
+                if parts.iter().any(String::is_empty) {
+                    return Some(UpdatePathFault::Empty(format!(
+                        "The update path '{path}' contains an empty field name, \
+                         which is not allowed."
+                    )));
+                }
+                for prev in &seen {
+                    let n = parts.len().min(prev.len());
+                    if parts[..n] == prev[..n] {
+                        let shorter = if prev.len() <= parts.len() {
+                            prev.join(".")
+                        } else {
+                            parts.join(".")
+                        };
+                        return Some(UpdatePathFault::Conflict {
+                            offending: path,
+                            at: shorter,
+                        });
+                    }
+                }
+                claimed.push(parts);
+            }
+            seen.extend(claimed);
+        }
+    }
+    None
+}
+
+/// mongod's message for a path conflict, if this update has one.
+pub fn path_conflict_error(update: &Document) -> Option<String> {
+    conflicting_update_paths(update).map(|(offending, at)| {
+        format!("Updating the path '{offending}' would create a conflict at '{at}'")
+    })
+}
+
 /// The exact mongod error for a `$inc` / `$mul` the engine refused on type
 /// grounds, or `None` if this update fails for some other (deferrable) reason.
 ///
@@ -969,7 +1587,15 @@ pub fn apply_update_with(
 /// * non-numeric operand — `Cannot increment with non-numeric argument: {n: "x"}`
 /// * non-numeric field   — `Cannot apply $inc to a value of non-numeric type.
 ///   {_id: 1} has the field 'n' of non-numeric type string`
-pub fn arith_type_error(doc: &Document, update: &Document) -> Option<String> {
+///
+/// Returns `(message, exec)`. `exec` distinguishes mongod's two wrappers, and
+/// the distinction is measured (8.2.11, 2026-09-08): a bad OPERAND is readable
+/// from the update spec alone and is reported BARE, while a bad stored FIELD is
+/// discoverable only against a document and is wrapped
+/// `Plan executor error during <command> :: caused by ::`. Both were being
+/// reported as execution-time, so the operand form carried a wrapper mongod
+/// does not send.
+pub fn arith_type_error(doc: &Document, update: &Document) -> Option<(String, bool)> {
     for (op, payload) in update.iter() {
         let verb = match op.as_str() {
             "$inc" => "increment",
@@ -983,9 +1609,12 @@ pub fn arith_type_error(doc: &Document, update: &Document) -> Option<String> {
             // mongod validates the whole update before touching a document, so
             // the operand check fires first and wins over the field check.
             if !is_arith_numeric(operand) {
-                return Some(format!(
-                    "Cannot {verb} with non-numeric argument: {{{path}: {}}}",
-                    render_scalar(operand)
+                return Some((
+                    format!(
+                        "Cannot {verb} with non-numeric argument: {{{path}: {}}}",
+                        render_scalar(operand)
+                    ),
+                    false, // readable from the spec -> mongod sends it bare
                 ));
             }
             // Positional / arrayFilter paths expand per document; leave those to
@@ -998,17 +1627,156 @@ pub fn arith_type_error(doc: &Document, update: &Document) -> Option<String> {
             if let Some(current) = get_path(doc, path) {
                 if !is_arith_numeric(current) {
                     let leaf = path.rsplit('.').next().unwrap_or(path);
-                    return Some(format!(
-                        "Cannot apply {op} to a value of non-numeric type. \
-                         {} has the field '{leaf}' of non-numeric type {}",
-                        render_doc_id(doc),
-                        query::bson_type_name(current)
+                    return Some((
+                        format!(
+                            "Cannot apply {op} to a value of non-numeric type. \
+                             {} has the field '{leaf}' of non-numeric type {}",
+                            render_doc_id(doc),
+                            query::bson_type_name(current)
+                        ),
+                        true, // depends on the stored document -> wrapped
                     ));
                 }
             }
         }
     }
     None
+}
+
+/// The exact mongod error for an `$inc` / `$mul` that overflows int64, or
+/// `None` if this update fails for some other reason.
+///
+/// Same "re-run a narrower check" shape as [`arith_type_error`], and for the
+/// same reason: the overflow is discovered deep inside `arith`, which knows
+/// neither the operator name nor the document's `_id`, and mongod's message
+/// names both. Without this the site could only `Fallback::Defer`, and a defer
+/// on the standalone Rust server has no Python behind it -- so five real
+/// overflow shapes told the client
+/// `query uses a construct the Rust server does not support`, i.e. that the
+/// server cannot do `$inc`, when it can and it was the RESULT that did not fit.
+///
+/// mongod fails the write here rather than widening to a double the way the
+/// *aggregation* operators do. Message verbatim from a mongod 8.2.11 probe
+/// (2026-09-06) -- `Failed to apply $inc operations to current value
+/// ((NumberLong)9223372036854775807) for document {_id: 1}` -- and identical to
+/// `secantus.update._arith_or_overflow`'s.
+pub fn arith_overflow_error(doc: &Document, update: &Document) -> Option<String> {
+    for (op, payload) in update.iter() {
+        let mul = match op.as_str() {
+            "$inc" => false,
+            "$mul" => true,
+            _ => continue,
+        };
+        let Bson::Document(fields) = payload else {
+            continue;
+        };
+        for (path, operand) in fields.iter() {
+            // Positional / arrayFilter paths expand per document; leave those to
+            // the normal defer rather than guess at the concrete path.
+            if path.contains("$[") || path.contains(".$") {
+                continue;
+            }
+            // A missing field is an implicit int 0, which cannot overflow.
+            let Some(current) = get_path(doc, path) else {
+                continue;
+            };
+            // Decimal128 has its own (much wider) domain and its own path in
+            // `arith`; only the integral one can overflow into this message.
+            if matches!(current, Bson::Decimal128(_)) || matches!(operand, Bson::Decimal128(_)) {
+                continue;
+            }
+            let (Some(a), Some(b)) = (as_int_like(current), as_int_like(operand)) else {
+                continue;
+            };
+            let r = if mul {
+                a.checked_mul(b)
+            } else {
+                a.checked_add(b)
+            };
+            let wide = is_int64(current) || is_int64(operand);
+            // `None` from either step is the overflow: past i128 (unreachable
+            // from two BSON integers, but cheap to be exact about) or past the
+            // int64 the result must be encoded into.
+            if r.is_none() || int_promoted_to_bson(r.unwrap(), wide).is_none() {
+                return Some(format!(
+                    "Failed to apply {op} operations to current value ({}) for document {}",
+                    render_arith_operand(current),
+                    render_doc_id(doc)
+                ));
+            }
+        }
+    }
+    None
+}
+
+/// The type-tagged rendering mongod puts in an overflow message:
+/// `(NumberLong)9223372036854775807`. Only a long can reach it -- an int32 that
+/// outgrows its width widens to long rather than overflowing.
+fn render_arith_operand(v: &Bson) -> String {
+    match v {
+        Bson::Int64(n) => format!("(NumberLong){n}"),
+        _ => render_scalar(v),
+    }
+}
+
+/// The exact mongod error for an update that would create a field under a
+/// non-document, or `None` if this update fails for some other reason.
+///
+/// Same purpose as [`arith_type_error`]: a bare `Fallback` becomes a generic
+/// `BadValue` (2) on the standalone Rust server, where mongod answers
+/// `PathNotViable` (28). Message verbatim from a mongod 6.0.16 probe —
+/// `Cannot create field 'x' in element {n: 5}`, naming the component that
+/// cannot be created and the thing standing in its way.
+///
+/// `$unset` is skipped: it does not create, and mongod lets it walk a
+/// non-viable path as a no-op.
+pub fn path_not_viable_error(doc: &Document, update: &Document) -> Option<String> {
+    for (op, payload) in update.iter() {
+        if op == "$unset" || !op.starts_with('$') {
+            continue;
+        }
+        let Bson::Document(fields) = payload else {
+            continue;
+        };
+        for path in fields.keys() {
+            // Positional / arrayFilter paths expand per document; leave those
+            // to the normal defer rather than guess at the concrete path.
+            if path.contains("$[") || path.contains(".$") {
+                continue;
+            }
+            if let Some((key, container, field)) = paths::path_block(doc, path) {
+                let element = match key {
+                    Some(k) => format!("{{{k}: {}}}", render_value(container)),
+                    None => "{}".to_string(),
+                };
+                return Some(format!(
+                    "Cannot create field '{field}' in element {element}"
+                ));
+            }
+        }
+    }
+    None
+}
+
+/// `render_scalar` extended to arrays and sub-documents. mongod spaces the
+/// brackets — `[ 1 ]`, `{ a: 1 }` — in the `PathNotViable` message.
+fn render_value(v: &Bson) -> String {
+    match v {
+        Bson::Document(d) if d.is_empty() => "{}".to_string(),
+        Bson::Document(d) => {
+            let inner: Vec<String> = d
+                .iter()
+                .map(|(k, x)| format!("{k}: {}", render_value(x)))
+                .collect();
+            format!("{{ {} }}", inner.join(", "))
+        }
+        Bson::Array(a) if a.is_empty() => "[]".to_string(),
+        Bson::Array(a) => {
+            let inner: Vec<String> = a.iter().map(render_value).collect();
+            format!("[ {} ]", inner.join(", "))
+        }
+        _ => render_scalar(v),
+    }
 }
 
 /// mongod's numeric domain for `$inc` / `$mul`: int32 / int64 / double /
@@ -1021,18 +1789,13 @@ fn is_arith_numeric(v: &Bson) -> bool {
 }
 
 /// A scalar as mongod renders it inside an error message.
+/// mongod's rendering of an offending value. This used to be a partial copy
+/// that fell through to Rust's `Debug` for everything it did not name, so an
+/// array printed `Array([])` where mongod prints `[]` and a document printed
+/// its `Debug` form. It is now the one canonical renderer -- the same
+/// consolidation the Python side needed, where FIVE copies had accumulated.
 fn render_scalar(v: &Bson) -> String {
-    match v {
-        Bson::Boolean(b) => b.to_string(),
-        Bson::Null => "null".to_string(),
-        Bson::String(s) => format!("\"{s}\""),
-        Bson::ObjectId(o) => format!("ObjectId('{o}')"),
-        Bson::Int32(n) => n.to_string(),
-        Bson::Int64(n) => n.to_string(),
-        Bson::Double(d) => d.to_string(),
-        Bson::Decimal128(d) => d.to_string(),
-        other => format!("{other:?}"),
-    }
+    crate::query::bson_value_repr(v)
 }
 
 /// The `{_id: …}` prefix mongod puts in the non-numeric-field message. It is the
@@ -1044,46 +1807,542 @@ fn render_doc_id(doc: &Document) -> String {
     }
 }
 
+/// mongod's `$addToSet` membership equality.
+///
+/// This used to defer to the Python engine whenever a document or a bool was
+/// involved, on the strength of a comment saying `py_eq` "mirrors Python's
+/// `==`". `py_eq` has since grown both rules -- bool is its own BSON type, and
+/// Code compares by code text -- so the only thing left to add here is document
+/// and array field ORDER. Deferring is not free on the standalone server, where
+/// there is no Python behind the fallback: an `$addToSet` of a bool or a
+/// document answered `BadValue` instead of updating.
+///
+/// Probed against mongod 8.2.11 (2026-09-01):
+///   * numerics unify across the width: `1`, `1.0`, `Int64(1)` and
+///     `Decimal128("1")` all dedup against each other;
+///   * a bool is its OWN type -- `true` into `[1]` appends, `false` into `[0]`
+///     appends;
+///   * documents compare field-ORDER-sensitively and RECURSIVELY -- `{y:2,x:1}`
+///     is appended alongside `{x:1,y:2}`, and so is `{d:{y:2,x:1}}` beside
+///     `{d:{x:1,y:2}}`;
+///   * arrays are order-sensitive -- `[2,1]` appends beside `[1,2]`;
+///   * `Code("ab")` and the string `"ab"` are different values;
+///   * regexes compare by pattern and option SET.
+fn addtoset_eq(a: &Bson, b: &Bson) -> Result<bool, Fallback> {
+    match (a, b) {
+        (Bson::Document(x), Bson::Document(y)) => {
+            if x.len() != y.len() {
+                return Ok(false);
+            }
+            for ((ka, va), (kb, vb)) in x.iter().zip(y.iter()) {
+                if ka != kb || !addtoset_eq(va, vb)? {
+                    return Ok(false);
+                }
+            }
+            Ok(true)
+        }
+        (Bson::Array(x), Bson::Array(y)) => {
+            if x.len() != y.len() {
+                return Ok(false);
+            }
+            for (ea, eb) in x.iter().zip(y.iter()) {
+                if !addtoset_eq(ea, eb)? {
+                    return Ok(false);
+                }
+            }
+            Ok(true)
+        }
+        (Bson::RegularExpression(x), Bson::RegularExpression(y)) => {
+            Ok(crate::regexutil::regex_eq(x, y))
+        }
+        _ => expressions::py_eq(a, b),
+    }
+}
+
 #[cfg(test)]
 mod tests {
+    /// The half of mongod's `nModified` rule the stored bytes cannot show.
+    /// Every one of these has a byte-identical before and after image.
+    #[test]
+    fn arith_wrote_nan_only_fires_for_an_arithmetic_nan() {
+        assert!(super::arith_wrote_nan(
+            &doc! {"a": f64::NAN},
+            &doc! {"$inc": {"a": 1i32}}
+        ));
+        assert!(super::arith_wrote_nan(
+            &doc! {"a": f64::NAN},
+            &doc! {"$mul": {"a": 2i32}}
+        ));
+        // Not arithmetic: `$set` wrote an equal value, `$min` declined to write.
+        assert!(!super::arith_wrote_nan(
+            &doc! {"a": f64::NAN},
+            &doc! {"$set": {"a": f64::NAN}}
+        ));
+        assert!(!super::arith_wrote_nan(
+            &doc! {"a": f64::NAN},
+            &doc! {"$min": {"a": 5i32}}
+        ));
+        // Arithmetic, but the result is not a NaN.
+        assert!(!super::arith_wrote_nan(
+            &doc! {"a": 1i32},
+            &doc! {"$inc": {"a": 0i32}}
+        ));
+        // Another field's NaN is not this operator's doing.
+        assert!(!super::arith_wrote_nan(
+            &doc! {"a": 1i32, "b": f64::NAN},
+            &doc! {"$inc": {"a": 0i32}}
+        ));
+        // A positional path is skipped -- the byte comparison decides there.
+        assert!(!super::arith_wrote_nan(
+            &doc! {"a": [f64::NAN]},
+            &doc! {"$inc": {"a.$[]": 1i32}}
+        ));
+    }
+
+    // --- the operator-vs-replacement form decision. mongod takes the FIRST
+    // key alone and then complains in that form's vocabulary (probed 8.2.11,
+    // 2026-09-06). ---
+
+    #[test]
+    fn the_first_key_decides_the_form() {
+        for (update, operator_form) in [
+            (doc! {"$set": {"a": 1i32}}, true),
+            (doc! {"$set": {"a": 1i32}, "z": 2i32}, true),
+            (doc! {"z": 2i32, "$set": {"a": 1i32}}, false),
+            (doc! {"y": 1i32, "z": 2i32, "$set": {"a": 1i32}}, false),
+            (doc! {"_id": 1i32, "$set": {"a": 1i32}}, false),
+            (doc! {"a.b": 1i32, "$set": {"a": 1i32}}, false),
+            (doc! {"a": 9i32}, false),
+            // An empty update is a replacement of nothing -- that is how `{}`
+            // reduces a stored document to its `_id`.
+            (Document::new(), false),
+        ] {
+            assert_eq!(
+                super::is_operator_form(&update),
+                operator_form,
+                "{update:?}"
+            );
+        }
+    }
+
+    /// A replacement's `$`-prefixed TOP-LEVEL key is `DollarPrefixedFieldName`
+    /// (52), and the FIRST such key is the one mongod names.
+    #[test]
+    fn a_dollar_key_in_a_replacement_is_refused() {
+        for (update, named) in [
+            (doc! {"z": 2i32, "$set": {"a": 1i32}}, "$set"),
+            (doc! {"z": 2i32, "$weird": 3i32}, "$weird"),
+            (doc! {"z": 1i32, "$aaa": 1i32, "$bbb": 2i32}, "$aaa"),
+            (doc! {"z": 1i32, "$aaa": 1i32, "y": 2i32}, "$aaa"),
+            (doc! {"_id": 1i32, "$set": {"a": 1i32}}, "$set"),
+        ] {
+            let err = super::apply_update(&doc! {"_id": 1i32, "a": 0i32}, &update, false)
+                .expect_err("a $-prefixed replacement key is refused");
+            assert_eq!(
+                err.as_mongo(),
+                Some((52, super::replacement_dollar_error(named).as_str())),
+                "{update:?}"
+            );
+            assert!(err.is_exec(), "mongod wraps this one: {update:?}");
+        }
+    }
+
+    /// Only the TOP level: mongod 8.x stores a nested `$`-key, and a literal
+    /// dotted key, verbatim.
+    #[test]
+    fn only_the_top_level_of_a_replacement_is_restricted() {
+        for update in [
+            doc! {"a": {"$bad": 1i32}},
+            doc! {"a": {"b": {"$bad": 1i32}}},
+            doc! {"a": [{"$bad": 1i32}]},
+            doc! {"a.b": 1i32},
+            doc! {"a": 9i32},
+        ] {
+            let out = super::apply_update(&doc! {"_id": 1i32, "a": 0i32}, &update, false)
+                .unwrap_or_else(|e| panic!("{update:?} must be stored, got {e:?}"));
+            let mut want = doc! {"_id": 1i32};
+            for (k, v) in update.iter() {
+                want.insert(k.clone(), v.clone());
+            }
+            assert_eq!(out, want, "{update:?}");
+        }
+    }
+
+    /// The 52 is EXECUTION-time, so the upsert-insert path must not raise it --
+    /// mongod inserts the document verbatim, `$`-key and all.
+    #[test]
+    fn an_upsert_inserts_the_replacement_verbatim() {
+        let out = super::apply_update(
+            &doc! {"_id": 99i32},
+            &doc! {"z": 2i32, "$set": {"a": 1i32}},
+            true,
+        )
+        .expect("the upsert-insert path does not apply the replacement check");
+        assert_eq!(out, doc! {"_id": 99i32, "z": 2i32, "$set": {"a": 1i32}});
+        // Field order is mongod's: `_id` first, then the document as sent.
+        assert_eq!(out.keys().collect::<Vec<_>>(), vec!["_id", "z", "$set"]);
+    }
+
+    /// The operator-form complaint stays a PARSE error: it is reported with no
+    /// matching document and on an upsert, unlike the replacement-form 52.
+    #[test]
+    fn operator_form_still_names_the_first_bare_key() {
+        assert_eq!(
+            super::update_spec_error(&doc! {"$set": {"a": 1i32}, "y": 1i32, "z": 2i32})
+                .map(|(c, m)| (c, m.contains("Unknown modifier: y"))),
+            Some((9, true))
+        );
+        // A replacement is not a spec error at all -- its refusal comes later.
+        assert_eq!(
+            super::update_spec_error(&doc! {"z": 2i32, "$set": {"a": 1i32}}),
+            None
+        );
+    }
+
+    // --- update_spec_error: the three parse faults and their ORDER. Every
+    // verdict measured against mongod 8.2.11 (2026-09-06). ---
+
+    #[test]
+    fn an_empty_update_path_is_rejected_for_every_operator() {
+        for (op, value) in [
+            ("$set", Bson::Int32(1)),
+            ("$unset", Bson::String(String::new())),
+            ("$inc", Bson::Int32(1)),
+            ("$mul", Bson::Int32(1)),
+            ("$min", Bson::Int32(1)),
+            ("$max", Bson::Int32(1)),
+            ("$push", Bson::Int32(1)),
+            ("$addToSet", Bson::Int32(1)),
+            ("$pop", Bson::Int32(1)),
+            ("$bit", Bson::Document(doc! {"and": 1i32})),
+        ] {
+            let update = doc! {op: {"": value}};
+            assert_eq!(
+                super::update_spec_error(&update),
+                Some((56, "An empty update path is not valid.".to_string())),
+                "{op} with an empty path"
+            );
+        }
+    }
+
+    #[test]
+    fn an_empty_path_component_is_named_wherever_it_sits() {
+        for path in ["a.", ".a", "a..b", "a.b.", ".", ".."] {
+            let update = doc! {"$set": {path: 1i32}};
+            assert_eq!(
+                super::update_spec_error(&update),
+                Some((
+                    56,
+                    format!(
+                        "The update path '{path}' contains an empty field name, \
+                         which is not allowed."
+                    )
+                )),
+                "path {path}"
+            );
+        }
+    }
+
+    #[test]
+    fn rename_validates_both_of_its_ends() {
+        assert_eq!(
+            super::update_spec_error(&doc! {"$rename": {"a": "b."}})
+                .unwrap()
+                .0,
+            56
+        );
+        assert_eq!(
+            super::update_spec_error(&doc! {"$rename": {"a.": "b"}})
+                .unwrap()
+                .0,
+            56
+        );
+        assert_eq!(
+            super::update_spec_error(&doc! {"$rename": {"": "b"}}),
+            Some((56, "An empty update path is not valid.".to_string()))
+        );
+    }
+
+    /// The three parse checks share ONE document-order walk, and the first
+    /// offender wins. Each pair below is the same two faults in both orders;
+    /// running any check as a separate earlier pass gets one of them backwards.
+    #[test]
+    fn the_first_parse_fault_in_document_order_wins() {
+        let cases: [(Document, i32); 6] = [
+            (
+                doc! {"$inc": {"": 1i32}, "$set": {"a": 1i32, "a.b": 1i32}},
+                56,
+            ),
+            (
+                doc! {"$set": {"a": 1i32, "a.b": 1i32}, "$inc": {"": 1i32}},
+                40,
+            ),
+            (doc! {"$nope": {"a": 1i32}, "$set": {"": 1i32}}, 9),
+            (doc! {"$set": {"": 1i32}, "$nope": {"a": 1i32}}, 56),
+            (
+                doc! {"$nope": {"x": 1i32}, "$set": {"a": 1i32, "a.b": 1i32}},
+                9,
+            ),
+            (
+                doc! {"$set": {"a": 1i32, "a.b": 1i32}, "$nope": {"x": 1i32}},
+                40,
+            ),
+        ];
+        for (update, code) in cases {
+            assert_eq!(
+                super::update_spec_error(&update).map(|(c, _)| c),
+                Some(code),
+                "{update:?}"
+            );
+        }
+    }
+
+    /// A bare field among the operators is reached in order like anything else,
+    /// so an empty path ahead of it still wins.
+    #[test]
+    fn a_bare_field_among_operators_is_an_unknown_modifier() {
+        assert_eq!(
+            super::update_spec_error(&doc! {"$set": {"a": 1i32}, "z": 2i32}),
+            Some((
+                9,
+                "Unknown modifier: z. Expected a valid update modifier or \
+                 pipeline-style update specified as an array"
+                    .to_string()
+            ))
+        );
+        assert_eq!(
+            super::update_spec_error(&doc! {"$set": {"": 1i32}, "z": 2i32}).map(|(c, _)| c),
+            Some(56)
+        );
+    }
+
+    /// A REPLACEMENT is data, not paths -- mongod really does store an empty
+    /// field name for `replace_one({_id: 1}, {"": 1})`, so the walk must not
+    /// touch it.
+    #[test]
+    fn a_replacement_document_is_not_path_validated() {
+        assert_eq!(super::update_spec_error(&doc! {"": 1i32}), None);
+        assert_eq!(
+            super::update_spec_error(&doc! {"a": 1i32, "b.c": 2i32}),
+            None
+        );
+        let out = super::apply_update(&doc! {"_id": 1i32, "a": 1i32}, &doc! {"": 1i32}, false)
+            .expect("a replacement with an empty field name is allowed");
+        assert_eq!(out, doc! {"_id": 1i32, "": 1i32});
+    }
+
+    #[test]
+    fn a_well_formed_update_has_no_spec_error() {
+        assert_eq!(
+            super::update_spec_error(&doc! {"$set": {"a.b": 1i32}}),
+            None
+        );
+        assert_eq!(
+            super::update_spec_error(&doc! {"$set": {"a": 1i32}, "$inc": {"b": 1i32}}),
+            None
+        );
+    }
+
+    /// `$each` type errors: mongod words the two operators differently AND
+    /// gives them different codes -- `$push` keeps the colon and answers 2,
+    /// `$addToSet` drops it and answers 14. Verbatim from 8.2.11.
+    #[test]
+    fn each_type_errors_keep_mongods_two_wordings() {
+        let err = super::apply_update(
+            &doc! {"_id": 1i32, "a": [1i32]},
+            &doc! {"$push": {"a": {"$each": 5i32}}},
+            false,
+        )
+        .expect_err("a non-array $each is refused");
+        assert_eq!(
+            err.as_mongo(),
+            Some((
+                2,
+                "The argument to $each in $push must be an array but it was of type: int"
+            ))
+        );
+
+        let err = super::apply_update(
+            &doc! {"_id": 1i32, "a": [1i32]},
+            &doc! {"$addToSet": {"a": {"$each": "x"}}},
+            false,
+        )
+        .expect_err("a non-array $each is refused");
+        assert_eq!(
+            err.as_mongo(),
+            Some((
+                14,
+                "The argument to $each in $addToSet must be an array but it was of type string"
+            ))
+        );
+    }
+
+    // --- arith_overflow_error: messages verbatim from a mongod 8.2.11 probe
+    // (2026-09-06). Before this the overflow could only defer, and the client
+    // was told the server could not do `$inc`. ---
+
+    #[test]
+    fn arith_overflow_error_names_the_operator_value_and_document() {
+        use bson::Bson;
+        let max = doc! {"_id": 1, "n": Bson::Int64(i64::MAX)};
+        assert_eq!(
+            super::arith_overflow_error(&max, &doc! {"$inc": {"n": 1}}).unwrap(),
+            "Failed to apply $inc operations to current value \
+             ((NumberLong)9223372036854775807) for document {_id: 1}"
+        );
+        let min = doc! {"_id": 1, "n": Bson::Int64(i64::MIN)};
+        assert_eq!(
+            super::arith_overflow_error(&min, &doc! {"$inc": {"n": -1}}).unwrap(),
+            "Failed to apply $inc operations to current value \
+             ((NumberLong)-9223372036854775808) for document {_id: 1}"
+        );
+        let big = doc! {"_id": 1, "n": Bson::Int64(1i64 << 62)};
+        assert_eq!(
+            super::arith_overflow_error(&big, &doc! {"$mul": {"n": 4}}).unwrap(),
+            "Failed to apply $mul operations to current value \
+             ((NumberLong)4611686018427387904) for document {_id: 1}"
+        );
+        // Two int64 operands that each fit but whose sum does not.
+        assert_eq!(
+            super::arith_overflow_error(&big, &doc! {"$inc": {"n": Bson::Int64(1i64 << 62)}})
+                .unwrap(),
+            "Failed to apply $inc operations to current value \
+             ((NumberLong)4611686018427387904) for document {_id: 1}"
+        );
+        // The document's `_id`, not the field, and rendered in mongod's form.
+        let sid = doc! {"_id": "abc", "n": Bson::Int64(i64::MAX)};
+        assert_eq!(
+            super::arith_overflow_error(&sid, &doc! {"$inc": {"n": 1}}).unwrap(),
+            "Failed to apply $inc operations to current value \
+             ((NumberLong)9223372036854775807) for document {_id: \"abc\"}"
+        );
+    }
+
+    #[test]
+    fn arith_overflow_error_is_none_when_nothing_overflows() {
+        use bson::Bson;
+        let doc = doc! {"_id": 1, "n": Bson::Int64(1), "s": "x"};
+        // Fits.
+        assert!(super::arith_overflow_error(&doc, &doc! {"$inc": {"n": 1}}).is_none());
+        // A missing field is an implicit 0 and cannot overflow.
+        assert!(super::arith_overflow_error(&doc, &doc! {"$inc": {"absent": 1}}).is_none());
+        // A non-numeric field is `arith_type_error`'s business, not this one.
+        assert!(super::arith_overflow_error(&doc, &doc! {"$inc": {"s": 1}}).is_none());
+        // Not an arithmetic operator at all.
+        assert!(super::arith_overflow_error(&doc, &doc! {"$set": {"n": 1}}).is_none());
+        // A double saturates to infinity rather than failing the write.
+        let d = doc! {"_id": 1, "n": f64::MAX};
+        assert!(super::arith_overflow_error(&d, &doc! {"$mul": {"n": 2.0}}).is_none());
+    }
+
+    // --- the parse-vs-execution classification mongod wraps on. Every verdict
+    // below was measured against mongod 8.2.11 (2026-09-06): the wrapped ones
+    // come back under `Plan executor error during update :: caused by ::` and
+    // the bare ones do not. ---
+
+    #[test]
+    fn execution_time_update_errors_are_marked_exec() {
+        for (doc, update) in [
+            (doc! {"_id": 1, "a": 1}, doc! {"$push": {"a": 2}}),
+            (doc! {"_id": 1, "a": 1}, doc! {"$pull": {"a": 2}}),
+            (doc! {"_id": 1, "a": 1}, doc! {"$pullAll": {"a": [2]}}),
+            (doc! {"_id": 1, "a": 1}, doc! {"$addToSet": {"a": 2}}),
+            (doc! {"_id": 1, "a": 1}, doc! {"$pop": {"a": 1}}),
+            (doc! {"_id": 1, "a": "s"}, doc! {"$bit": {"a": {"and": 1}}}),
+        ] {
+            let err = super::apply_update(&doc, &update, false)
+                .expect_err("these all fail against the stored document");
+            assert!(
+                err.is_exec(),
+                "{update:?} over {doc:?} must be marked execution-time, got {err:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn parse_time_update_errors_are_not_marked_exec() {
+        for (doc, update) in [
+            (doc! {"_id": 1, "a": 1}, doc! {"$pop": {"a": 5}}),
+            (doc! {"_id": 1, "a": 1}, doc! {"$rename": {"a": "a"}}),
+            (doc! {"_id": 1, "a": 1}, doc! {"$bit": {"a": 5}}),
+            (
+                doc! {"_id": 1, "a": [1]},
+                doc! {"$addToSet": {"a": {"$each": 5}}},
+            ),
+        ] {
+            let err = super::apply_update(&doc, &update, false)
+                .expect_err("these all fail on the update spec");
+            assert!(
+                !err.is_exec(),
+                "{update:?} over {doc:?} must stay bare, got {err:?}"
+            );
+        }
+    }
+
     // --- arith_type_error: messages verbatim from a mongod 6.0.16 probe ---
 
+    /// A bad stored FIELD is document-dependent, so `exec` is true and mongod
+    /// wraps it `Plan executor error during update :: caused by ::`.
     #[test]
     fn arith_type_error_names_a_non_numeric_field() {
         let doc = doc! {"_id": 1, "n": "x"};
         assert_eq!(
             super::arith_type_error(&doc, &doc! {"$inc": {"n": 1}}).unwrap(),
-            "Cannot apply $inc to a value of non-numeric type. \
-             {_id: 1} has the field 'n' of non-numeric type string"
+            (
+                "Cannot apply $inc to a value of non-numeric type. \
+                 {_id: 1} has the field 'n' of non-numeric type string"
+                    .to_string(),
+                true
+            )
         );
         assert_eq!(
             super::arith_type_error(&doc! {"_id": 1, "n": Bson::Null}, &doc! {"$inc": {"n": 1}})
                 .unwrap(),
-            "Cannot apply $inc to a value of non-numeric type. \
-             {_id: 1} has the field 'n' of non-numeric type null"
+            (
+                "Cannot apply $inc to a value of non-numeric type. \
+                 {_id: 1} has the field 'n' of non-numeric type null"
+                    .to_string(),
+                true
+            )
         );
         assert_eq!(
             super::arith_type_error(&doc, &doc! {"$mul": {"n": 2}}).unwrap(),
-            "Cannot apply $mul to a value of non-numeric type. \
-             {_id: 1} has the field 'n' of non-numeric type string"
+            (
+                "Cannot apply $mul to a value of non-numeric type. \
+                 {_id: 1} has the field 'n' of non-numeric type string"
+                    .to_string(),
+                true
+            )
         );
     }
 
+    /// A bad OPERAND is readable from the update spec alone, so `exec` is false
+    /// and mongod sends the message BARE. Measured 8.2.11 (2026-09-08); both
+    /// shapes used to be reported as execution-time.
     #[test]
     fn arith_type_error_names_a_non_numeric_operand() {
         let doc = doc! {"_id": 1, "n": 1};
         assert_eq!(
             super::arith_type_error(&doc, &doc! {"$inc": {"n": "x"}}).unwrap(),
-            "Cannot increment with non-numeric argument: {n: \"x\"}"
+            (
+                "Cannot increment with non-numeric argument: {n: \"x\"}".to_string(),
+                false
+            )
         );
         // Bool is not numeric for mongod even though it coerces elsewhere.
         assert_eq!(
             super::arith_type_error(&doc, &doc! {"$inc": {"n": true}}).unwrap(),
-            "Cannot increment with non-numeric argument: {n: true}"
+            (
+                "Cannot increment with non-numeric argument: {n: true}".to_string(),
+                false
+            )
         );
         assert_eq!(
             super::arith_type_error(&doc, &doc! {"$mul": {"n": "x"}}).unwrap(),
-            "Cannot multiply with non-numeric argument: {n: \"x\"}"
+            (
+                "Cannot multiply with non-numeric argument: {n: \"x\"}".to_string(),
+                false
+            )
         );
     }
 
@@ -1111,14 +2370,16 @@ mod tests {
         // The braces hold the doc's `_id`, not the incremented field — the bug
         // that made our message unlike any real server's.
         let oid: bson::oid::ObjectId = "60a0b0c0d0e0f00102030405".parse().unwrap();
-        let msg = super::arith_type_error(&doc! {"_id": oid, "n": "x"}, &doc! {"$inc": {"n": 1}})
-            .unwrap();
+        let (msg, exec) =
+            super::arith_type_error(&doc! {"_id": oid, "n": "x"}, &doc! {"$inc": {"n": 1}})
+                .unwrap();
         assert!(
             msg.contains("{_id: ObjectId('60a0b0c0d0e0f00102030405')}"),
             "got: {msg}"
         );
+        assert!(exec, "a stored-field mismatch is document-dependent");
         // Dotted path reports the leaf field name.
-        let msg = super::arith_type_error(
+        let (msg, _) = super::arith_type_error(
             &doc! {"_id": 1, "a": {"b": "x"}},
             &doc! {"$inc": {"a.b": 1}},
         )

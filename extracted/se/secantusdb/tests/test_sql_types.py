@@ -66,10 +66,22 @@ def test_json_scalar_renders_as_json_text():
     assert typemap.to_pg_text(Decimal(10) ** 20, "json") == b"100000000000000000000"
 
 
-def test_coerce_numeric_beyond_decimal128_rounds():
+def test_coerce_numeric_beyond_decimal128_is_exact():
+    """Was `…_rounds`, pinning the old ceiling: 40 digits came back as 34. A
+    numeric Decimal128 cannot hold exactly is now stored in the wide form
+    (`secantus.sql.numeric`) and reads back digit for digit."""
     d = Decimal("1" * 40)  # 40 significant digits — Decimal128 holds 34
-    got = typemap.coerce(d, "numeric").to_decimal()
-    assert got == Decimal("1.111111111111111111111111111111111E+39")
+    stored = typemap.coerce(d, "numeric")
+    assert stored == {"__numeric": "1" * 40, "__numkey": "3" + "1000040" + "1" * 40}
+    assert typemap.unwrap_numeric(stored) == d
+
+
+def test_coerce_numeric_that_fits_stays_decimal128():
+    """What a Mongo client reading the collection sees for ordinary values is
+    unchanged: a plain Decimal128, display scale included."""
+    import bson
+
+    assert typemap.coerce(Decimal("1.50"), "numeric") == bson.Decimal128("1.50")
 
 
 # --------------------------------------------------------------------------- #
@@ -274,9 +286,14 @@ def test_length_qualified_char_casts_truncate_and_pad():
 
         # varchar(n) truncates the value; identity is varchar (1043), typmod n+4.
         assert one("SELECT 'bar'::VARCHAR(2)") == ("ba", 1043, 6)
-        # char(n) truncates AND blank-pads to n.
+        # char(n) truncates. It does NOT pad the VALUE: the padding is applied
+        # on the way out, from the bpchar oid + typmod carried here (see
+        # `typemap.blank_pad`), which is the model the column path already
+        # used. `run_sql` is the embedded API and returns the internal value,
+        # so it is the unpadded one; `tests/test_sql_sweep_thirteen.py` pins
+        # the padded form a client actually receives over the wire.
         assert one("SELECT 'bar'::CHAR(2)") == ("ba", 1042, 6)
-        assert one("SELECT 'a'::CHAR(4)") == ("a   ", 1042, 8)
+        assert one("SELECT 'a'::CHAR(4)") == ("a", 1042, 8)
         # Bare text/varchar impose no limit.
         assert one("SELECT 'foobar'::TEXT") == ("foobar", 25, -1)
         assert one("SELECT 'foobar'::VARCHAR") == ("foobar", 1043, -1)

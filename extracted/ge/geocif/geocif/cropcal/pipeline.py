@@ -53,6 +53,8 @@ class RegionContext:
     cm_group: str = ""
     grouping: str = ""
     climate_zone: str = "Temperate"
+    #: The zone file's label -- used by the rule-based port only. The model's
+    #: ``hemisphere`` feature is derived from ``lat`` in ``features.build_row``.
     hemisphere: str = "N"
     lat: float = float("nan")
     lon: float = float("nan")
@@ -257,6 +259,10 @@ def run_region(
             crop=context.crop,
             params=params,
             climate_zone=context.climate_zone,
+            # The GEOGLAM port keeps the zone file's label: its winter-wheat
+            # rules branch on it, and Ethiopia's (June-December) wheat is
+            # arguably better served by the "southern" rule it was given. The
+            # model features use the latitude sign instead (features.build_row).
             hemisphere=context.hemisphere,
             fix_gdd100_offset=settings.fix_gdd100_offset,
         )

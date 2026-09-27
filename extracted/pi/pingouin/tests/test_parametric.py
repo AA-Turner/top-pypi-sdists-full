@@ -1,6 +1,7 @@
 from unittest import TestCase
 
 import numpy as np
+import pandas as pd
 import pytest
 from numpy.testing import assert_array_equal as array_equal
 
@@ -115,6 +116,10 @@ class TestParametric(TestCase):
         assert tt.loc["T_test", "dof"] == 5
         assert round(tt.loc["T_test", "p_val"], 5) == 0.02916
         array_equal(np.round(tt.loc["T_test", "CI95"], 2), [-np.inf, -0.61])
+
+        # `paired` accepts any boolean-like value (e.g. numpy bool)
+        pd.testing.assert_frame_equal(ttest(a, b, paired=np.True_), ttest(a, b, paired=True))
+        pd.testing.assert_frame_equal(ttest(a, b, paired=0), ttest(a, b, paired=False))
 
         # When the two arrays are identical
         tt = ttest(a, a, paired=True)
@@ -237,6 +242,25 @@ class TestParametric(TestCase):
         )
         assert not aov2.equals(aov2_ss1)
 
+        # Two-way ANOVA with an empty cell (same number of observations in the other cells)
+        df_empty = pd.DataFrame(
+            {
+                "A": np.repeat(["a1", "a1", "a2"], 4),
+                "B": np.repeat(["b1", "b2", "b1"], 4),
+                "Y": np.arange(12.0),
+            }
+        )
+        with pytest.raises(ValueError, match="empty cells"):
+            anova(dv="Y", between=["A", "B"], data=df_empty)
+        # Same but unbalanced
+        with pytest.raises(ValueError, match="empty cells"):
+            anova(dv="Y", between=["A", "B"], data=df_empty.iloc[1:])
+        # Three-way ANOVA with an empty cell
+        df_aov3_empty = read_dataset("anova3")
+        is_cell = df_aov3_empty[["Sex", "Risk", "Drug"]].eq(["M", "High", "A"]).all(axis=1)
+        with pytest.raises(ValueError, match="empty cells"):
+            anova(dv="Cholesterol", between=["Sex", "Risk", "Drug"], data=df_aov3_empty[~is_cell])
+
         # Three-way ANOVA using statsmodels
         # Balanced
         df_aov3 = read_dataset("anova3")
@@ -251,6 +275,12 @@ class TestParametric(TestCase):
         ).round(3)
         # Check that type 1 == type 2 == type 3
         assert aov3_ss1.equals(aov3_ss2)
+        # Unused levels of a categorical factor are ignored
+        drug_cat = pd.Categorical(df_aov3["Drug"], categories=[*df_aov3["Drug"].unique(), "X"])
+        aov3_cat = anova(
+            dv="Cholesterol", between=["Sex", "Risk", "Drug"], data=df_aov3.assign(Drug=drug_cat)
+        ).round(3)
+        assert aov3_ss2.equals(aov3_cat)
         assert aov3_ss2.equals(aov3_ss3)
         # Compare with JASP
         array_equal(
@@ -326,22 +356,58 @@ class TestParametric(TestCase):
             aov3_ss3.loc[:, "n2"], [0.048, 0.189, 0.012, 0.001, 0.018, 0.026, 0.012, np.nan]
         )
 
-        # Error: invalid char in column names
-        df_aov3["Sex:"] = np.random.normal(size=df_aov3.shape[0])
-        with pytest.raises(ValueError):
-            anova(dv="Cholesterol", between=["Sex:", "Risk", "Drug"], data=df_aov3)
+        # Column names are never evaluated as code in the model formula (any name is accepted)
+        aov3 = anova(dv="Cholesterol", between=["Sex", "Risk", "Drug"], data=df_aov3)
+        for names in [
+            {"Cholesterol": "C", "Sex": "Q", "Risk": "risk (a, b): 'x'", "Drug": 2},
+            {"Sex": "Sex') + __import__('builtins').exit(\"INJECTED\") + C(Q('Risk"},
+        ]:
+            names = {"Cholesterol": "Cholesterol", "Risk": "Risk", "Drug": "Drug"} | names
+            aov_names = anova(
+                dv=names["Cholesterol"],
+                between=[names["Sex"], names["Risk"], names["Drug"]],
+                data=df_aov3.rename(columns=names),
+            )
+            pd.testing.assert_frame_equal(
+                aov3.drop(columns="Source"), aov_names.drop(columns="Source")
+            )
+            sex, risk, drug = names["Sex"], names["Risk"], names["Drug"]
+            assert aov_names["Source"].tolist() == [
+                sex,
+                risk,
+                str(drug),
+                f"{sex} * {risk}",
+                f"{sex} * {drug}",
+                f"{risk} * {drug}",
+                f"{sex} * {risk} * {drug}",
+                "Residual",
+            ]
 
     def test_welch_anova(self):
         """Test function welch_anova."""
         # Pain dataset
         df_pain = read_dataset("anova")
         aov = welch_anova(dv="Pain threshold", between="Hair color", data=df_pain).round(4)
+        # A group with a single observation or zero variance is not supported
+        df_one = pd.DataFrame({"g": ["a"] * 5 + ["b"] * 5 + ["c"], "y": np.arange(11.0) ** 2})
+        with pytest.raises(ValueError, match="at least two observations"):
+            welch_anova(dv="y", between="g", data=df_one)
+        with pytest.raises(ValueError, match="non-zero variance"):
+            welch_anova(dv="y", between="g", data=df_one.assign(y=[1.0] * 5 + [2, 3, 4, 5, 6, 7]))
         # Compare with JASP
         assert aov.at[0, "ddof1"] == 3
         assert aov.at[0, "ddof2"] == 8.3298
         assert aov.at[0, "F"] == 5.8901
         assert aov.at[0, "p_unc"] == 0.0188
         assert aov.at[0, "np2"] == 0.5760
+        # Missing values in the dv or between factor are removed
+        df_nan = df_pain.copy()
+        df_nan.loc[0, "Hair color"] = np.nan
+        df_nan.loc[5, "Pain threshold"] = np.nan
+        pd.testing.assert_frame_equal(
+            welch_anova(dv="Pain threshold", between="Hair color", data=df_nan),
+            welch_anova(dv="Pain threshold", between="Hair color", data=df_nan.dropna()),
+        )
 
     def test_rm_anova(self):
         """Test function rm_anova.
@@ -350,6 +416,16 @@ class TestParametric(TestCase):
 
         https://github.com/raphaelvallat/pingouin/issues/251
         """
+        # Boolean-like correction (e.g. numpy bool) behaves like a Python bool
+        df_wide = read_dataset("rm_anova_wide")
+        aov_true = rm_anova(df_wide, correction=True)
+        assert "p_GG_corr" in aov_true.columns
+        assert aov_true.equals(rm_anova(df_wide, correction=np.bool_(True)))
+        df_mix = read_dataset("mixed_anova")
+        kwargs = dict(dv="Scores", within="Time", subject="Subject", between="Group")
+        aov_true = mixed_anova(df_mix, correction=True, **kwargs)
+        assert "p_GG_corr" in aov_true.columns
+        assert aov_true.equals(mixed_anova(df_mix, correction=np.bool_(True), **kwargs))
         rm_anova(
             dv="Scores", within="Time", subject="Subject", data=df, correction=False, detailed=False
         )
@@ -426,6 +502,11 @@ class TestParametric(TestCase):
         array_equal(aov.loc[:, "F"], [33.85228, 26.95919, 12.63227])
         array_equal(aov.loc[:, "ng2"], [0.25401, 0.35933, 0.08442])
         array_equal(aov.loc[:, "eps"], [1.0, 0.96910, 0.72717])
+        # Time has only two levels: sphericity is always met
+        assert aov["sphericity"].all()
+        assert np.isnan(aov.at[0, "W_spher"])
+        array_equal(aov.loc[:, "p_spher"], [1.0, 0.87844, 0.15239])
+        array_equal(aov.loc[1:, "W_spher"], [0.96812, 0.6248])
 
         # With categorical
         data_cat = data.copy()
@@ -451,6 +532,44 @@ class TestParametric(TestCase):
             data=data, subject="Subject", within=["Time", "Metric"], dv="Performance", effsize="np2"
         ).round(5)
         array_equal(aov.loc[:, "np2"], [0.78998, 0.74972, 0.58395])
+
+        # Non-spherical (3, 3) design: epsilon of the interaction must be computed from the
+        # Kronecker product of the contrasts of each factor. Compare with R afex::aov_ez.
+        # See https://github.com/raphaelvallat/pingouin/issues/19
+        rng = np.random.default_rng(1)
+        rows = []
+        for s in range(15):
+            b = rng.normal()
+            for i, fa in enumerate("abc"):
+                for j, fb in enumerate("xyz"):
+                    rows.append(
+                        (s, fa, fb, b + 0.5 * i + 0.3 * j * i + rng.normal(0, 0.3 + 0.5 * i * j))
+                    )
+        df33 = pd.DataFrame(rows, columns=["S", "A", "B", "y"])
+        aov = rm_anova(data=df33, subject="S", within=["A", "B"], dv="y").round(5)
+        array_equal(aov.loc[:, "F"], [53.9024, 3.53315, 3.05294])
+        array_equal(aov.loc[:, "eps"], [0.76334, 0.86145, 0.67162])
+        array_equal(aov.loc[:, "p_GG_corr"], [0.0, 0.05118, 0.04513])
+        # Mauchly's test of sphericity (compare with R afex::aov_ez)
+        array_equal(aov.loc[:, "W_spher"], [0.68997, 0.83917, 0.32683])
+        array_equal(aov.loc[:, "p_spher"], [0.08962, 0.31991, 0.12972])
+        assert aov["sphericity"].all()
+        # (3, 4) design: compare with R afex::aov_ez. The p-value of the main effect with 4 levels
+        # uses the same chi-square approximation as R (k = n_a * n_b), and therefore very slightly
+        # differs from pingouin.sphericity (0.84364) which only sees the main effect.
+        np.random.seed(123)
+        df34 = pd.DataFrame(
+            {
+                "y": np.random.normal(scale=3, size=600),
+                "A": np.repeat(["P1", "P2", "P3"], 200),
+                "B": np.tile(np.repeat(["A", "B", "C", "D"], 50), 3),
+                "S": np.tile(np.tile(np.arange(50), 4), 3),
+            }
+        )
+        aov = rm_anova(data=df34, subject="S", within=["A", "B"], dv="y").round(5)
+        array_equal(aov.loc[:, "eps"], [0.99633, 0.97163, 0.85621])
+        array_equal(aov.loc[:, "W_spher"], [0.99631, 0.95816, 0.58944])
+        array_equal(aov.loc[:, "p_spher"], [0.91519, 0.84365, 0.21311])
 
         # 2 factors with missing values. Cannot compare with JASP directly
         # because Pingouin applies an automatic removal of missing values
@@ -486,9 +605,11 @@ class TestParametric(TestCase):
         array_equal(aov.loc[:, "DF2"], [58, 116, 116])
         array_equal(aov.loc[:, "F"], [5.05171, 4.02739, 2.72800])
         array_equal(aov.loc[:, "np2"], [0.08012, 0.06493, 0.04492])
-        assert round(aov.at[1, "eps"], 3) == 0.999  # Pingouin = 0.99875, JAMOVI = 0.99812
-        assert round(aov.at[1, "W_spher"], 3) == 0.999  # Pingouin = 0.99875, JAMOVI = 0.99812
-        assert round(aov.at[1, "p_GG_corr"], 2) == 0.02
+        # Compare with R afex::aov_ez (= JAMOVI)
+        array_equal(aov.loc[1:, "eps"], [0.99812, 0.99812])
+        array_equal(aov.loc[1:, "W_spher"], [0.99812, 0.99812])
+        array_equal(aov.loc[1:, "p_spher"], [0.94769, 0.94769])
+        array_equal(aov.loc[1:, "p_GG_corr"], [0.02044, 0.06966])
         # With categorical: should be the same
         aov = mixed_anova(
             dv="Scores",
@@ -503,9 +624,11 @@ class TestParametric(TestCase):
         array_equal(aov.loc[:, "DF2"], [58, 116, 116])
         array_equal(aov.loc[:, "F"], [5.05171, 4.02739, 2.72800])
         array_equal(aov.loc[:, "np2"], [0.08012, 0.06493, 0.04492])
-        assert round(aov.at[1, "eps"], 3) == 0.999  # Pingouin = 0.99875, JAMOVI = 0.99812
-        assert round(aov.at[1, "W_spher"], 3) == 0.999  # Pingouin = 0.99875, JAMOVI = 0.99812
-        assert round(aov.at[1, "p_GG_corr"], 2) == 0.02
+        # Compare with R afex::aov_ez (= JAMOVI)
+        array_equal(aov.loc[1:, "eps"], [0.99812, 0.99812])
+        array_equal(aov.loc[1:, "W_spher"], [0.99812, 0.99812])
+        array_equal(aov.loc[1:, "p_spher"], [0.94769, 0.94769])
+        array_equal(aov.loc[1:, "p_GG_corr"], [0.02044, 0.06966])
 
         # Same with different effect sizes (compare with JAMOVI)
         aov = mixed_anova(
@@ -530,8 +653,10 @@ class TestParametric(TestCase):
         ).round(3)
         array_equal(aov.loc[:, "F"], [5.692, 3.054, 3.502])
         array_equal(aov.loc[:, "np2"], [0.094, 0.053, 0.060])
-        assert aov.at[1, "eps"] == 0.997
+        # Compare with R afex::aov_ez
+        assert aov.at[1, "eps"] == 0.996
         assert aov.at[1, "W_spher"] == 0.996
+        array_equal(aov.loc[1:, "p_GG_corr"], [0.051, 0.034])
 
         # Unbalanced group
         df_unbalanced = df[df["Subject"] <= 54]
@@ -545,8 +670,10 @@ class TestParametric(TestCase):
         ).round(3)
         array_equal(aov.loc[:, "F"], [3.561, 2.421, 1.828])
         array_equal(aov.loc[:, "np2"], [0.063, 0.044, 0.033])
-        assert aov.at[1, "eps"] == 1.0  # JASP = 0.998
-        assert aov.at[1, "W_spher"] == 1.0  # JASP = 0.998
+        # Compare with R afex::aov_ez and JASP
+        assert aov.at[1, "eps"] == 0.998
+        assert aov.at[1, "W_spher"] == 0.998
+        array_equal(aov.loc[1:, "p_GG_corr"], [0.094, 0.166])
 
         # With three groups and four time points, unbalanced (JASP -- type II)
         df_unbalanced = read_dataset("mixed_anova_unbalanced.csv")
@@ -563,11 +690,11 @@ class TestParametric(TestCase):
         array_equal(aov.loc[:, "F"], [2.3026, 1.7071, 0.8877])
         array_equal(aov.loc[:, "p_unc"], [0.1226, 0.1736, 0.5088])
         array_equal(aov.loc[:, "np2"], [0.1668, 0.0691, 0.0717])
-        # Check correction: values are very slightly different than ezANOVA
-        assert np.isclose(aov.at[1, "eps"], 0.9254, atol=0.01)
-        assert np.isclose(aov.at[1, "p_GG_corr"], 0.1779, atol=0.01)
-        assert np.isclose(aov.at[1, "W_spher"], 0.8850, atol=0.01)
-        assert np.isclose(aov.at[1, "p_spher"], 0.7535, atol=0.1)
+        # Check correction: compare with R afex::aov_ez / ezANOVA
+        array_equal(aov.loc[1:, "eps"], [0.9254, 0.9254])
+        array_equal(aov.loc[1:, "p_GG_corr"], [0.1779, 0.5031])
+        array_equal(aov.loc[1:, "W_spher"], [0.8850, 0.8850])
+        array_equal(aov.loc[1:, "p_spher"], [0.7535, 0.7535])
 
         # Same but with different effect sizes
         aov = mixed_anova(
@@ -588,6 +715,66 @@ class TestParametric(TestCase):
             effsize="ng2",
         ).round(4)
         array_equal(aov.loc[:, "ng2"], [0.0371, 0.0566, 0.0587])
+
+        # Non-spherical data with a strong group x time interaction.
+        # Epsilon and Mauchly must be computed from the pooled within-group covariance,
+        # and the GG-corrected p-values from the mixed-design F-values.
+        # See https://github.com/raphaelvallat/pingouin/issues/524
+        rng = np.random.default_rng(0)
+        rows = []
+        for g, shift in [("A", np.array([0.0, 1.0, 2.0])), ("B", np.array([2.0, 1.0, 0.0]))]:
+            for i in range(10):
+                base = rng.normal(0, 1)
+                e = rng.normal(0, [0.3, 1.0, 2.0])
+                for t in range(3):
+                    rows.append((f"{g}{i}", g, f"T{t}", base + shift[t] + e[t] + 0.5 * t))
+        df_spher = pd.DataFrame(rows, columns=["Subject", "Group", "Time", "Scores"])
+        aov = mixed_anova(
+            data=df_spher,
+            dv="Scores",
+            subject="Subject",
+            within="Time",
+            between="Group",
+            correction=True,
+        ).round(5)
+        # Compare with R afex::aov_ez
+        array_equal(aov.loc[:, "F"].round(4), [4.3177, 7.8161, 11.7164])
+        array_equal(aov.loc[1:, "eps"], [0.73320, 0.73320])
+        array_equal(aov.loc[1:, "W_spher"], [0.63611, 0.63611])
+        array_equal(aov.loc[1:, "p_spher"], [0.02138, 0.02138])
+        array_equal(aov.loc[1:, "p_GG_corr"], [0.00454, 0.00067])
+        assert not aov.at[1, "sphericity"]
+        # correction="auto" applies the correction since sphericity is violated
+        aov_auto = mixed_anova(
+            data=df_spher, dv="Scores", subject="Subject", within="Time", between="Group"
+        ).round(5)
+        array_equal(aov_auto.loc[1:, "p_GG_corr"], [0.00454, 0.00067])
+
+        # No correction
+        aov = mixed_anova(
+            data=df_spher,
+            dv="Scores",
+            subject="Subject",
+            within="Time",
+            between="Group",
+            correction=False,
+        )
+        assert "p_GG_corr" not in aov.columns
+        assert "W_spher" not in aov.columns
+
+        # Only two repeated measures: sphericity is always met, no correction
+        df_two = df[df["Time"] != "January"]
+        for correction in [True, "auto"]:
+            aov = mixed_anova(
+                data=df_two,
+                dv="Scores",
+                subject="Subject",
+                within="Time",
+                between="Group",
+                correction=correction,
+            )
+            assert "p_GG_corr" not in aov.columns
+            array_equal(aov.loc[1:, "eps"], [1.0, 1.0])
 
         # With overlapping subject IDs in the between-subject groups
         df_overlap = df.copy()
@@ -616,6 +803,12 @@ class TestParametric(TestCase):
         array_equal(aov["DF"], [3, 1, 31])
         array_equal(aov["F"], [3.3365, 29.4194, np.nan])
         array_equal(aov["p_unc"], [0.0319, 0.000, np.nan])
+        # Unused levels of a categorical factor are ignored
+        df_cat = df.assign(
+            Method=pd.Categorical(df["Method"], categories=[*df["Method"].unique(), "X"])
+        )
+        aov_cat = ancova(data=df_cat, dv="Scores", covar="Income", between="Method").round(4)
+        pd.testing.assert_frame_equal(aov, aov_cat)
         array_equal(aov["np2"], [0.2441, 0.4869, np.nan])
         aov = ancova(data=df, dv="Scores", covar="Income", between="Method", effsize="n2").round(4)
         array_equal(aov["n2"], [0.1421, 0.4177, np.nan])
@@ -640,3 +833,20 @@ class TestParametric(TestCase):
         # Other parameters
         ancova(data=df, dv="Scores", covar=["Income", "BMI"], between="Method")
         ancova(data=df, dv="Scores", covar=["Income"], between="Method")
+        # Column names are never evaluated as code in the model formula (any name is accepted)
+        aov = ancova(data=df, dv="Scores", covar=["Income", "BMI"], between="Method")
+        names = {
+            "Scores": "C",
+            "Method": "Q",
+            "Income": "family's income",
+            "BMI": "BMI') + __import__('builtins').exit(\"INJECTED\") + Q('Income",
+        }
+        aov_names = ancova(
+            data=df.rename(columns=names),
+            dv="C",
+            covar=[names["Income"], names["BMI"]],
+            between="Q",
+        )
+        assert aov_names["Source"].tolist() == ["Q", names["Income"], names["BMI"], "Residual"]
+        pd.testing.assert_frame_equal(aov.drop(columns="Source"), aov_names.drop(columns="Source"))
+        assert aov_names.bw_ == aov.bw_

@@ -21,11 +21,13 @@ def deflated_sharpe_ratio(
     est_sharpe: tp.Array1d,
     var_sharpe: float,
     nb_trials: int,
-    backtest_horizon: int,
+    backtest_horizon: tp.Union[int, tp.Array1d],
     skew: tp.Array1d,
     kurtosis: tp.Array1d,
 ) -> tp.Array1d:
     """Deflated Sharpe Ratio (DSR).
+
+    All inputs must be per period (not annualized). `kurtosis` must be non-excess (3 for normal returns).
 
     See [Deflated Sharpe Ratio](https://gmarti.gitlab.io/qfin/2018/05/30/deflated-sharpe-ratio.html)."""
     SR0 = approx_exp_max_sharpe(0, var_sharpe, nb_trials)

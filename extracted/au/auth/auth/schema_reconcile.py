@@ -15,12 +15,18 @@ junction tables holding every tenant's authorization edges under no policy.
 """
 
 import logging
+from typing import Any
 
 from sqlalchemy.engine import Engine
 
 from auth.config import DatabaseType, get_settings
 
 logger = logging.getLogger(__name__)
+
+#: What the last audit-partition runway check saw, so /readyz can report it.
+#: Logging is not a channel on every deployment -- vm-2 captures no application
+#: log line at all, which makes a CRITICAL there unreachable by anyone.
+audit_partition_state: dict = {"checked": False, "stranded": None, "newest": None}
 
 def _apply_tenant_rls(target_engine: Engine) -> None:
     """Secure any tenant-scoped table that ``create_all`` has just created.
@@ -50,7 +56,7 @@ def _apply_tenant_rls(target_engine: Engine) -> None:
     schema = settings.database_schema or "public"
     try:
         with target_engine.begin() as conn:
-            result = conn.execute(
+            result: Any = conn.execute(
                 text(f'SELECT {schema}.apply_tenant_rls()')  # noqa: S608
             ).scalar_one()
         logger.info("apply_tenant_rls: %s", result)
@@ -59,6 +65,92 @@ def _apply_tenant_rls(target_engine: Engine) -> None:
             "apply_tenant_rls could not run (%s); the boot check will refuse "
             "to serve if row level security is not in force",
             exc.__class__.__name__,
+        )
+
+
+def _ensure_audit_partition_runway(target_engine: Engine, months: int = 6) -> None:
+    """Keep monthly audit_log partitions provisioned ahead of now.
+
+    Partitions are finite and nothing renewed them. When they run out, rows do
+    not fail -- they land in audit_log_default, which
+    drop_audit_log_partitions_before deliberately skips, so retention can never
+    reclaim them and the growth problem partitioning solved returns with no
+    visible symptom (issuedb #15; production runway ended 2027-08).
+
+    Called here rather than scheduled in-process: create_tables runs pre-fork
+    under preload_app, so this executes once per service start, not once per
+    worker, and holds no thread across fork. A cron on the database-adjacent
+    host is still the durable answer for a deployment that runs longer than its
+    runway without restarting; this removes the cliff for one that restarts.
+
+    Non-raising, like everything beside it. A deployment whose role cannot
+    create partitions still starts, and rows in the default partition are
+    reported loudly below rather than silently absorbed.
+    """
+    from sqlalchemy import text
+
+    settings = get_settings()
+    if settings.database_type != DatabaseType.POSTGRESQL:
+        return
+    schema = settings.database_schema or "public"
+    try:
+        with target_engine.begin() as conn:
+            if conn.execute(
+                text("SELECT to_regproc(:fn) IS NULL"),
+                {"fn": f"{schema}.provision_audit_log_partition"},
+            ).scalar():
+                logger.info(
+                    "audit partition runway: provisioner absent, skipping"
+                )
+                return
+            created = []
+            for ahead in range(months + 1):
+                result: Any = conn.execute(
+                    text(
+                        f"SELECT {schema}.provision_audit_log_partition("  # noqa: S608
+                        "(date_trunc('month', now()) + make_interval(months => :n))::date)"
+                    ),
+                    {"n": ahead},
+                ).scalar_one()
+                if "created" in str(result):
+                    created.append(str(result))
+            stranded: int = conn.execute(
+                text(f"SELECT count(*) FROM {schema}.audit_log_default")  # noqa: S608
+            ).scalar_one()
+            newest = conn.execute(
+                text(
+                    "SELECT c.relname FROM pg_class c "
+                    "JOIN pg_inherits i ON i.inhrelid = c.oid "
+                    "WHERE i.inhparent = to_regclass(:p) "
+                    "AND c.relname <> 'audit_log_default' "
+                    "ORDER BY c.relname DESC LIMIT 1"
+                ),
+                {"p": f"{schema}.audit_log"},
+            ).scalar()
+    except Exception as exc:
+        logger.warning(
+            "audit partition runway could not be ensured (%s); "
+            "if partitions run out, rows land in audit_log_default and "
+            "retention cannot reclaim them",
+            exc.__class__.__name__,
+        )
+        return
+
+    audit_partition_state.update(
+        {"checked": True, "stranded": int(stranded), "newest": newest}
+    )
+    logger.info(
+        "audit partition runway: %d month(s) ahead, %d created this start",
+        months,
+        len(created),
+    )
+    if stranded:
+        logger.critical(
+            "AUDIT PARTITION RUNWAY WAS EXHAUSTED: %d row(s) are in "
+            "audit_log_default. Retention skips that partition, so they can "
+            "never be reclaimed. They must be moved into a real partition by "
+            "hand once one covers their timestamps.",
+            stranded,
         )
 
 

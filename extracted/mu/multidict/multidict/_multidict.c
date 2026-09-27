@@ -1,6 +1,9 @@
 #include <Python.h>
 #include <structmember.h>
 
+#include "_multilib/bulk_update.h"
+#include "_multilib/capsule.h"
+#include "_multilib/debug.h"
 #include "_multilib/dict.h"
 #include "_multilib/hashtable.h"
 #include "_multilib/istr.h"
@@ -9,34 +12,7 @@
 #include "_multilib/pythoncapi_compat.h"
 #include "_multilib/state.h"
 #include "_multilib/views.h"
-
-#define MultiDict_CheckExact(state, obj) Py_IS_TYPE(obj, state->MultiDictType)
-#define MultiDict_Check(state, obj)      \
-    (MultiDict_CheckExact(state, obj) || \
-     PyObject_TypeCheck(obj, state->MultiDictType))
-#define CIMultiDict_CheckExact(state, obj) \
-    Py_IS_TYPE(obj, state->CIMultiDictType)
-#define CIMultiDict_Check(state, obj)      \
-    (CIMultiDict_CheckExact(state, obj) || \
-     PyObject_TypeCheck(obj, state->CIMultiDictType))
-#define AnyMultiDict_Check(state, obj)     \
-    (MultiDict_CheckExact(state, obj) ||   \
-     CIMultiDict_CheckExact(state, obj) || \
-     PyObject_TypeCheck(obj, state->MultiDictType))
-#define MultiDictProxy_CheckExact(state, obj) \
-    Py_IS_TYPE(obj, state->MultiDictProxyType)
-#define MultiDictProxy_Check(state, obj)      \
-    (MultiDictProxy_CheckExact(state, obj) || \
-     PyObject_TypeCheck(obj, state->MultiDictProxyType))
-#define CIMultiDictProxy_CheckExact(state, obj) \
-    Py_IS_TYPE(obj, state->CIMultiDictProxyType)
-#define CIMultiDictProxy_Check(state, obj)      \
-    (CIMultiDictProxy_CheckExact(state, obj) || \
-     PyObject_TypeCheck(obj, state->CIMultiDictProxyType))
-#define AnyMultiDictProxy_Check(state, obj)     \
-    (MultiDictProxy_CheckExact(state, obj) ||   \
-     CIMultiDictProxy_CheckExact(state, obj) || \
-     PyObject_TypeCheck(obj, state->MultiDictProxyType))
+#include "_multilib/watch.h"
 
 /******************** Internal Methods ********************/
 
@@ -91,8 +67,7 @@ _multidict_extend_parse_args(mod_state* state, PyObject* args, PyObject* kwds,
                 PyExc_TypeError,
                 "%s takes from 1 to 2 positional arguments but %zd were given",
                 name,
-                s + 1,
-                NULL);
+                s + 1);
             *parg = NULL;
             return -1;
         }
@@ -117,7 +92,13 @@ _multidict_extend_parse_args(mod_state* state, PyObject* args, PyObject* kwds,
         } else {
             s = PyObject_LengthHint(*parg, 0);
             if (s < 0) {
-                // e.g. cannot calc size of generator object
+                if (!PyErr_ExceptionMatches(PyExc_TypeError)) {
+                    // propagate MemoryError / KeyboardInterrupt / etc.
+                    // *parg is cleared by the caller's fail label
+                    return -1;
+                }
+                // a __length_hint__ that is not an integer costs only the
+                // preallocation estimate, so fall back to no hint
                 PyErr_Clear();
             } else {
                 size += s;
@@ -133,7 +114,8 @@ _multidict_extend_parse_args(mod_state* state, PyObject* args, PyObject* kwds,
         if (s < 0) {
             return -1;
         }
-        size += s;
+        /* size may already hold an arbitrary __length_hint__. */
+        size = s > PY_SSIZE_T_MAX - size ? PY_SSIZE_T_MAX : size + s;
     }
 
     return size;
@@ -153,15 +135,19 @@ _multidict_clone_fast(mod_state* state, MultiDictObject* self, bool is_ci,
         }
         if (other != NULL && other->is_ci == is_ci) {
             int clone_ret;
+            bool flush;
             if (other != self) {
                 Py_BEGIN_CRITICAL_SECTION2(self, other);
                 clone_ret = md_clone_from_ht(self, other);
+                flush = md_watch_pending(self);
                 Py_END_CRITICAL_SECTION2();
             } else {
                 Py_BEGIN_CRITICAL_SECTION(self);
                 clone_ret = md_clone_from_ht(self, other);
+                flush = md_watch_pending(self);
                 Py_END_CRITICAL_SECTION();
             }
+            md_watch_flush_if(self, flush);
             if (clone_ret < 0) {
                 ret = -1;
                 goto done;
@@ -199,7 +185,7 @@ _multidict_vectorcall_impl(mod_state* state, MultiDictObject* self, bool is_ci,
                 Py_BEGIN_CRITICAL_SECTION(other);
                 ret = md_init(self, is_ci, md_len(other) + nkwargs);
                 if (ret == 0) {
-                    ret = md_update_from_ht(self, other, Extend, NULL);
+                    ret = md_update_from_ht(self, other, Extend, NULL, NULL);
                     ASSERT_CONSISTENT(self, false);
                 }
                 Py_END_CRITICAL_SECTION();
@@ -208,7 +194,7 @@ _multidict_vectorcall_impl(mod_state* state, MultiDictObject* self, bool is_ci,
             Py_BEGIN_CRITICAL_SECTION(arg);
             ret = md_init(self, is_ci, PyDict_GET_SIZE(arg) + nkwargs);
             if (ret == 0) {
-                ret = md_update_from_dict(self, arg, Extend, NULL);
+                ret = md_update_from_dict(self, arg, Extend, NULL, NULL);
                 ASSERT_CONSISTENT(self, false);
             }
             Py_END_CRITICAL_SECTION();
@@ -224,9 +210,7 @@ _multidict_vectorcall_impl(mod_state* state, MultiDictObject* self, bool is_ci,
 
             ret = md_init(self, is_ci, nkwargs + extra);
             if (ret == 0) {
-                if (arg != NULL) {
-                    ret = md_update_from_seq(self, arg, Extend, NULL);
-                }
+                ret = md_update_from_seq(self, arg, Extend, NULL, NULL);
                 ASSERT_CONSISTENT(self, false);
             }
         }
@@ -267,11 +251,10 @@ _multidict_ctor_vectorcall(PyObject* type, PyObject* const* args,
 
     PyObject* arg = nargs == 1 ? args[0] : NULL;
 
-    MultiDictObject* self = (MultiDictObject*)tp->tp_alloc(tp, 0);
+    MultiDictObject* self = md_shell_new(state, tp);
     if (self == NULL) {
         return NULL;
     }
-    self->state = state;
 
     int ret = _multidict_vectorcall_impl(
         state, self, is_ci, arg, args, nargs, kwnames);
@@ -283,15 +266,15 @@ _multidict_ctor_vectorcall(PyObject* type, PyObject* const* args,
 }
 
 static PyObject*
-multidict_vectorcall(PyObject* type, PyObject* const* args, size_t nargsf,
-                     PyObject* kwnames)
+multidict_tp_vectorcall(PyObject* type, PyObject* const* args, size_t nargsf,
+                        PyObject* kwnames)
 {
     return _multidict_ctor_vectorcall(type, args, nargsf, kwnames, false);
 }
 
 static PyObject*
-cimultidict_vectorcall(PyObject* type, PyObject* const* args, size_t nargsf,
-                       PyObject* kwnames)
+cimultidict_tp_vectorcall(PyObject* type, PyObject* const* args, size_t nargsf,
+                          PyObject* kwnames)
 {
     return _multidict_ctor_vectorcall(type, args, nargsf, kwnames, true);
 }
@@ -356,7 +339,8 @@ _multidict_proxy_ctor_vectorcall(PyObject* type, PyObject* const* args,
     }
     mod_state* state = get_mod_state(mod);
 
-    MultiDictProxyObject* self = (MultiDictProxyObject*)tp->tp_alloc(tp, 0);
+    MultiDictProxyObject* self =
+        (MultiDictProxyObject*)md_shell_alloc(state, tp);
     if (self == NULL) {
         return NULL;
     }
@@ -368,16 +352,16 @@ _multidict_proxy_ctor_vectorcall(PyObject* type, PyObject* const* args,
 }
 
 static PyObject*
-multidict_proxy_vectorcall(PyObject* type, PyObject* const* args,
-                           size_t nargsf, PyObject* kwnames)
+multidict_proxy_tp_vectorcall(PyObject* type, PyObject* const* args,
+                              size_t nargsf, PyObject* kwnames)
 {
     return _multidict_proxy_ctor_vectorcall(
         type, args, nargsf, kwnames, false);
 }
 
 static PyObject*
-cimultidict_proxy_vectorcall(PyObject* type, PyObject* const* args,
-                             size_t nargsf, PyObject* kwnames)
+cimultidict_proxy_tp_vectorcall(PyObject* type, PyObject* const* args,
+                                size_t nargsf, PyObject* kwnames)
 {
     return _multidict_proxy_ctor_vectorcall(type, args, nargsf, kwnames, true);
 }
@@ -385,33 +369,19 @@ cimultidict_proxy_vectorcall(PyObject* type, PyObject* const* args,
 static inline PyObject*
 multidict_copy(MultiDictObject* self)
 {
-    PyTypeObject* tp = Py_TYPE(self);
-    PyObject* ret = NULL;
-
-    ret = tp->tp_alloc(tp, 0);
-    if (ret == NULL) {
-        goto fail;
+    MultiDictObject* new_md = md_shell_new(self->state, Py_TYPE(self));
+    if (new_md == NULL) {
+        return NULL;
     }
-
-    MultiDictObject* new_md = (MultiDictObject*)ret;
-    new_md->state = self->state;
     int clone_ret;
     Py_BEGIN_CRITICAL_SECTION(self);
     clone_ret = md_clone_from_ht(new_md, self);
     Py_END_CRITICAL_SECTION();
     if (clone_ret < 0) {
-        goto fail;
+        Py_DECREF(new_md);
+        return NULL;
     }
-    return ret;
-fail:
-    Py_XDECREF(ret);
-    return NULL;
-}
-
-static inline PyObject*
-_multidict_proxy_copy(MultiDictProxyObject* self, PyTypeObject* type)
-{
-    return multidict_copy(self->md);
+    return (PyObject*)new_md;
 }
 
 PyDoc_STRVAR(multidict_to_dict_doc,
@@ -445,18 +415,13 @@ multidict_getall(MultiDictObject* self, PyObject* const* args,
                nargs,
                kwnames,
                1,
-               "key",
+               self->state->str_key,
                &key,
-               "default",
+               self->state->str_default,
                &_default) < 0) {
         return NULL;
     }
-    int tmp;
-    Py_BEGIN_CRITICAL_SECTION(self);
-    tmp = md_get_all(self, key, &list);
-    ASSERT_CONSISTENT(self, false);
-    Py_END_CRITICAL_SECTION();
-    if (tmp < 0) {
+    if (md_get_all(self, key, &list) < 0) {
         return NULL;
     }
 
@@ -484,9 +449,9 @@ multidict_getone(MultiDictObject* self, PyObject* const* args,
                nargs,
                kwnames,
                1,
-               "key",
+               self->state->str_key,
                &key,
-               "default",
+               self->state->str_default,
                &_default) < 0) {
         return NULL;
     }
@@ -499,31 +464,30 @@ multidict_get(MultiDictObject* self, PyObject* const* args, Py_ssize_t nargs,
 {
     PyObject* key = NULL;
     PyObject* _default = NULL;
-    bool decref_default = false;
 
     if (parse2("get",
                args,
                nargs,
                kwnames,
                1,
-               "key",
+               self->state->str_key,
                &key,
-               "default",
+               self->state->str_default,
                &_default) < 0) {
         return NULL;
     }
-    if (_default == NULL) {
-        _default = Py_GetConstant(Py_CONSTANT_NONE);
-        if (_default == NULL) {
-            return NULL;
-        }
-        decref_default = true;
+    PyObject* val = NULL;
+    if (md_get_one(self, key, &val) < 0) {
+        return NULL;
     }
-    PyObject* ret = _multidict_getone(self, key, _default);
-    if (decref_default) {
-        Py_CLEAR(_default);
+    if (val != NULL) {
+        return val;
     }
-    return ret;
+    if (_default != NULL) {
+        return Py_NewRef(_default);
+    }
+    // None is only needed when the key is missing.
+    return Py_GetConstant(Py_CONSTANT_NONE);
 }
 
 static PyObject*
@@ -574,7 +538,7 @@ ret:
 }
 
 static PyObject*
-multidict_repr(MultiDictObject* self)
+multidict_tp_repr(MultiDictObject* self)
 {
     PyObject* ret;
     Py_BEGIN_CRITICAL_SECTION(self);
@@ -584,7 +548,7 @@ multidict_repr(MultiDictObject* self)
 }
 
 static Py_ssize_t
-multidict_mp_len(MultiDictObject* self)
+multidict_mp_length(MultiDictObject* self)
 {
     return md_len(self);
 }
@@ -596,25 +560,12 @@ multidict_mp_subscript(MultiDictObject* self, PyObject* key)
 }
 
 static int
-multidict_mp_as_subscript(MultiDictObject* self, PyObject* key, PyObject* val)
+multidict_mp_ass_subscript(MultiDictObject* self, PyObject* key, PyObject* val)
 {
-    int ret;
-    // md_del() never touches defer; skip init/release for it
-    md_deferred_decref_t defer;
-    if (val != NULL) {
-        md_deferred_decref_init(&defer);
-    }
-    Py_BEGIN_CRITICAL_SECTION(self);
     if (val == NULL) {
-        ret = md_del(self, key);
-    } else {
-        ret = md_replace(self, key, val, &defer);
+        return md_del(self, key);
     }
-    Py_END_CRITICAL_SECTION();
-    if (val != NULL) {
-        md_deferred_decref_release(&defer);
-    }
-    return ret;
+    return md_replace(self, key, val);
 }
 
 static int
@@ -692,25 +643,24 @@ multidict_tp_dealloc(MultiDictObject* self)
 {
     PyTypeObject* tp = Py_TYPE(self);
     PyObject_GC_UnTrack(self);
+    /* Before the trashcan, which can defer this object and have dealloc
+       called on it again later: md_watch_on_dealloc() detaches the record
+       first, so the second call finds nothing and the event fires once. */
+    if (UNLIKELY(self->watch != NULL)) {
+        md_watch_on_dealloc(self);
+    }
     Py_TRASHCAN_BEGIN(self, multidict_tp_dealloc)
         PyObject_ClearWeakRefs((PyObject*)self);
     md_clear(self);
-    tp->tp_free((PyObject*)self);
+    /* Released last: md_clear() and md_shell_recycle() both read
+       self->state, which this reference is what keeps addressable. */
+    PyObject* mod = self->state->mod;
+    if (!md_shell_recycle(self->state, (PyObject*)self)) {
+        tp->tp_free((PyObject*)self);
+    }
+    Py_DECREF(mod);
     Py_DECREF(tp);
     Py_TRASHCAN_END  // there should be no code after this
-}
-
-static int
-multidict_tp_traverse(MultiDictObject* self, visitproc visit, void* arg)
-{
-    Py_VISIT(Py_TYPE(self));
-    return md_traverse(self, visit, arg);
-}
-
-static int
-multidict_tp_clear(MultiDictObject* self)
-{
-    return md_clear(self);
 }
 
 PyDoc_STRVAR(multidict_getall_doc,
@@ -734,20 +684,21 @@ PyDoc_STRVAR(multidict_values_doc,
 
 /******************** MultiDict ********************/
 
-static int
-multidict_tp_init(MultiDictObject* self, PyObject* args, PyObject* kwds)
+ALWAYS_INLINE static inline int
+_multidict_tp_init(MultiDictObject* self, PyObject* args, PyObject* kwds,
+                   bool is_ci)
 {
-    mod_state* state = get_mod_state_by_def((PyObject*)self);
+    mod_state* state = self->state;
     PyObject* arg = NULL;
-    Py_ssize_t size =
-        _multidict_extend_parse_args(state, args, kwds, "MultiDict", &arg);
+    Py_ssize_t size = _multidict_extend_parse_args(
+        state, args, kwds, is_ci ? "CIMultiDict" : "MultiDict", &arg);
     if (size < 0) {
         goto fail;
     }
     if (kwds && !PyArg_ValidateKeywordArguments(kwds)) {
         goto fail;
     }
-    int tmp = _multidict_clone_fast(state, self, false, arg, kwds);
+    int tmp = _multidict_clone_fast(state, self, is_ci, arg, kwds);
     if (tmp < 0) {
         goto fail;
     } else if (tmp == 1) {
@@ -756,44 +707,55 @@ multidict_tp_init(MultiDictObject* self, PyObject* args, PyObject* kwds)
     MultiDictObject* other = _multidict_resolve_other(state, arg);
     bool arg_is_dict = arg != NULL && PyDict_CheckExact(arg);
     int ret;
+    bool flush;
     if (other != NULL && other != self) {
         Py_BEGIN_CRITICAL_SECTION2(self, other);
-        ret = md_init(self, false, size);
+        md_watch_record_simple(self, MultiDict_EVENT_BATCH_BEGIN);
+        ret = md_init(self, is_ci, size);
         if (ret == 0) {
-            ret = md_update_from_ht(self, other, Extend, NULL);
+            ret = md_update_from_ht(self, other, Extend, NULL, NULL);
             if (ret == 0 && kwds != NULL) {
-                ret = md_update_from_dict(self, kwds, Extend, NULL);
+                ret = md_update_from_dict(self, kwds, Extend, NULL, NULL);
             }
             ASSERT_CONSISTENT(self, false);
         }
+        md_watch_record_simple(self, MultiDict_EVENT_BATCH_END);
+        flush = md_watch_pending(self);
         Py_END_CRITICAL_SECTION2();
     } else if (arg_is_dict) {
         Py_BEGIN_CRITICAL_SECTION2(self, arg);
-        ret = md_init(self, false, size);
+        md_watch_record_simple(self, MultiDict_EVENT_BATCH_BEGIN);
+        ret = md_init(self, is_ci, size);
         if (ret == 0) {
-            ret = md_update_from_dict(self, arg, Extend, NULL);
+            ret = md_update_from_dict(self, arg, Extend, NULL, NULL);
             if (ret == 0 && kwds != NULL) {
-                ret = md_update_from_dict(self, kwds, Extend, NULL);
+                ret = md_update_from_dict(self, kwds, Extend, NULL, NULL);
             }
             ASSERT_CONSISTENT(self, false);
         }
+        md_watch_record_simple(self, MultiDict_EVENT_BATCH_END);
+        flush = md_watch_pending(self);
         Py_END_CRITICAL_SECTION2();
     } else {
         Py_BEGIN_CRITICAL_SECTION(self);
-        ret = md_init(self, false, size);
+        md_watch_record_simple(self, MultiDict_EVENT_BATCH_BEGIN);
+        ret = md_init(self, is_ci, size);
         if (ret == 0) {
             if (other != NULL) {
                 ret = md_extend_self(self);
             } else if (arg != NULL) {
-                ret = md_update_from_seq(self, arg, Extend, NULL);
+                ret = md_update_from_seq(self, arg, Extend, NULL, NULL);
             }
             if (ret == 0 && kwds != NULL) {
-                ret = md_update_from_dict(self, kwds, Extend, NULL);
+                ret = md_update_from_dict(self, kwds, Extend, NULL, NULL);
             }
             ASSERT_CONSISTENT(self, false);
         }
+        md_watch_record_simple(self, MultiDict_EVENT_BATCH_END);
+        flush = md_watch_pending(self);
         Py_END_CRITICAL_SECTION();
     }
+    md_watch_flush_if(self, flush);
     if (ret < 0) {
         goto fail;
     }
@@ -803,6 +765,12 @@ done:
 fail:
     Py_CLEAR(arg);
     return -1;
+}
+
+static int
+multidict_tp_init(MultiDictObject* self, PyObject* args, PyObject* kwds)
+{
+    return _multidict_tp_init(self, args, kwds, false);
 }
 
 static PyObject*
@@ -818,11 +786,10 @@ multidict_tp_new(PyTypeObject* type, PyObject* args, PyObject* kwds)
         return NULL;
     }
     mod_state* state = get_mod_state(mod);
-    MultiDictObject* self = (MultiDictObject*)type->tp_alloc(type, 0);
+    MultiDictObject* self = md_shell_new(state, type);
     if (self == NULL) {
         return NULL;
     }
-    self->state = state;
     if (md_init(self, false, 0) < 0) {
         Py_DECREF(self);
         return NULL;
@@ -836,16 +803,18 @@ multidict_add(MultiDictObject* self, PyObject* const* args, Py_ssize_t nargs,
 {
     PyObject *key = NULL, *val = NULL;
 
-    if (parse2("add", args, nargs, kwnames, 2, "key", &key, "value", &val) <
-        0) {
+    if (parse2("add",
+               args,
+               nargs,
+               kwnames,
+               2,
+               self->state->str_key,
+               &key,
+               self->state->str_value,
+               &val) < 0) {
         return NULL;
     }
-    int tmp;
-    Py_BEGIN_CRITICAL_SECTION(self);
-    tmp = md_add(self, key, val);
-    ASSERT_CONSISTENT(self, false);
-    Py_END_CRITICAL_SECTION();
-    if (tmp < 0) {
+    if (md_add(self, key, val) < 0) {
         return NULL;
     }
     Py_RETURN_NONE;
@@ -866,44 +835,55 @@ multidict_extend(MultiDictObject* self, PyObject* args, PyObject* kwds)
     MultiDictObject* other = _multidict_resolve_other(self->state, arg);
     bool arg_is_dict = arg != NULL && PyDict_CheckExact(arg);
     int ret;
+    bool flush;
     if (other != NULL && other != self) {
         Py_BEGIN_CRITICAL_SECTION2(self, other);
+        md_watch_record_simple(self, MultiDict_EVENT_BATCH_BEGIN);
         ret = md_reserve(self, size);
         if (ret == 0) {
-            ret = md_update_from_ht(self, other, Extend, NULL);
+            ret = md_update_from_ht(self, other, Extend, NULL, NULL);
             if (ret == 0 && kwds != NULL) {
-                ret = md_update_from_dict(self, kwds, Extend, NULL);
+                ret = md_update_from_dict(self, kwds, Extend, NULL, NULL);
             }
             ASSERT_CONSISTENT(self, false);
         }
+        md_watch_record_simple(self, MultiDict_EVENT_BATCH_END);
+        flush = md_watch_pending(self);
         Py_END_CRITICAL_SECTION2();
     } else if (arg_is_dict) {
         Py_BEGIN_CRITICAL_SECTION2(self, arg);
+        md_watch_record_simple(self, MultiDict_EVENT_BATCH_BEGIN);
         ret = md_reserve(self, size);
         if (ret == 0) {
-            ret = md_update_from_dict(self, arg, Extend, NULL);
+            ret = md_update_from_dict(self, arg, Extend, NULL, NULL);
             if (ret == 0 && kwds != NULL) {
-                ret = md_update_from_dict(self, kwds, Extend, NULL);
+                ret = md_update_from_dict(self, kwds, Extend, NULL, NULL);
             }
             ASSERT_CONSISTENT(self, false);
         }
+        md_watch_record_simple(self, MultiDict_EVENT_BATCH_END);
+        flush = md_watch_pending(self);
         Py_END_CRITICAL_SECTION2();
     } else {
         Py_BEGIN_CRITICAL_SECTION(self);
+        md_watch_record_simple(self, MultiDict_EVENT_BATCH_BEGIN);
         ret = md_reserve(self, size);
         if (ret == 0) {
             if (other != NULL) {
                 ret = md_extend_self(self);
             } else if (arg != NULL) {
-                ret = md_update_from_seq(self, arg, Extend, NULL);
+                ret = md_update_from_seq(self, arg, Extend, NULL, NULL);
             }
             if (ret == 0 && kwds != NULL) {
-                ret = md_update_from_dict(self, kwds, Extend, NULL);
+                ret = md_update_from_dict(self, kwds, Extend, NULL, NULL);
             }
             ASSERT_CONSISTENT(self, false);
         }
+        md_watch_record_simple(self, MultiDict_EVENT_BATCH_END);
+        flush = md_watch_pending(self);
         Py_END_CRITICAL_SECTION();
     }
+    md_watch_flush_if(self, flush);
     if (ret < 0) {
         goto fail;
     }
@@ -918,9 +898,15 @@ static PyObject*
 multidict_clear(MultiDictObject* self)
 {
     int ret;
+    bool flush;
     Py_BEGIN_CRITICAL_SECTION(self);
+    if (md_len(self) != 0) {
+        md_watch_record_simple(self, MultiDict_EVENT_CLEARED);
+    }
     ret = md_clear(self);
+    flush = md_watch_pending(self);
     Py_END_CRITICAL_SECTION();
+    md_watch_flush_if(self, flush);
     if (ret < 0) {
         return NULL;
     }
@@ -934,7 +920,6 @@ multidict_setdefault(MultiDictObject* self, PyObject* const* args,
 {
     PyObject* key = NULL;
     PyObject* _default = NULL;
-    bool decref_none_default = false;
     PyObject* ret = NULL;
 
     if (parse2("setdefault",
@@ -942,27 +927,15 @@ multidict_setdefault(MultiDictObject* self, PyObject* const* args,
                nargs,
                kwnames,
                1,
-               "key",
+               self->state->str_key,
                &key,
-               "default",
+               self->state->str_default,
                &_default) < 0) {
         return NULL;
     }
-    if (_default == NULL) {
-        _default = Py_GetConstant(Py_CONSTANT_NONE);
-        if (_default == NULL) {
-            return NULL;
-        }
-        decref_none_default = true;
-    }
-    Py_BEGIN_CRITICAL_SECTION(self);
-    ASSERT_CONSISTENT(self, false);
+    // md_set_default() reads a NULL default as None.
     if (md_set_default(self, key, _default, &ret) < 0) {
         assert(ret == NULL);
-    }
-    Py_END_CRITICAL_SECTION();
-    if (decref_none_default) {
-        Py_CLEAR(_default);  // never raises exception
     }
     return ret;
 }
@@ -978,18 +951,13 @@ multidict_popone(MultiDictObject* self, PyObject* const* args,
                nargs,
                kwnames,
                1,
-               "key",
+               self->state->str_key,
                &key,
-               "default",
+               self->state->str_default,
                &_default) < 0) {
         return NULL;
     }
-    int tmp;
-    Py_BEGIN_CRITICAL_SECTION(self);
-    tmp = md_pop_one(self, key, &ret_val);
-    ASSERT_CONSISTENT(self, false);
-    Py_END_CRITICAL_SECTION();
-    if (tmp < 0) {
+    if (md_pop_one(self, key, &ret_val) < 0) {
         return NULL;
     }
 
@@ -1017,18 +985,13 @@ multidict_pop(MultiDictObject* self, PyObject* const* args, Py_ssize_t nargs,
                nargs,
                kwnames,
                1,
-               "key",
+               self->state->str_key,
                &key,
-               "default",
+               self->state->str_default,
                &_default) < 0) {
         return NULL;
     }
-    int tmp;
-    Py_BEGIN_CRITICAL_SECTION(self);
-    tmp = md_pop_one(self, key, &ret_val);
-    ASSERT_CONSISTENT(self, false);
-    Py_END_CRITICAL_SECTION();
-    if (tmp < 0) {
+    if (md_pop_one(self, key, &ret_val) < 0) {
         return NULL;
     }
 
@@ -1056,18 +1019,13 @@ multidict_popall(MultiDictObject* self, PyObject* const* args,
                nargs,
                kwnames,
                1,
-               "key",
+               self->state->str_key,
                &key,
-               "default",
+               self->state->str_default,
                &_default) < 0) {
         return NULL;
     }
-    int tmp;
-    Py_BEGIN_CRITICAL_SECTION(self);
-    tmp = md_pop_all(self, key, &ret_val);
-    ASSERT_CONSISTENT(self, false);
-    Py_END_CRITICAL_SECTION();
-    if (tmp < 0) {
+    if (md_pop_all(self, key, &ret_val) < 0) {
         return NULL;
     }
 
@@ -1088,9 +1046,12 @@ static PyObject*
 multidict_popitem(MultiDictObject* self)
 {
     PyObject* ret;
+    bool flush;
     Py_BEGIN_CRITICAL_SECTION(self);
     ret = md_pop_item(self);
+    flush = md_watch_pending(self);
     Py_END_CRITICAL_SECTION();
+    md_watch_flush_if(self, flush);
     return ret;
 }
 
@@ -1109,55 +1070,68 @@ multidict_update(MultiDictObject* self, PyObject* args, PyObject* kwds)
     MultiDictObject* other = _multidict_resolve_other(self->state, arg);
     bool arg_is_dict = arg != NULL && PyDict_CheckExact(arg);
     int ret;
-    md_deferred_decref_t defer;
-    md_deferred_decref_init(&defer);
+    bool flush;
+    update_marks_t marks;
+    reflist_t defer;
+    reflist_init(&defer);
     if (other != NULL && other != self) {
         Py_BEGIN_CRITICAL_SECTION2(self, other);
         ret = md_reserve(self, size);
+        update_marks_init(&marks, self);
+        md_watch_record_simple(self, MultiDict_EVENT_BATCH_BEGIN);
         if (ret == 0) {
-            ret = md_update_from_ht(self, other, Update, &defer);
+            ret = md_update_from_ht(self, other, Update, &defer, &marks);
             if (ret == 0 && kwds != NULL) {
-                ret = md_update_from_dict(self, kwds, Update, &defer);
+                ret = md_update_from_dict(self, kwds, Update, &defer, &marks);
             }
             ASSERT_CONSISTENT(self, true);
         }
-        if (md_post_update(self, &defer) < 0 && ret == 0) {
+        if (md_post_update(self, &defer, &marks) < 0 && ret == 0) {
             ret = -1;
         }
+        flush = md_watch_pending(self);
         Py_END_CRITICAL_SECTION2();
     } else if (arg_is_dict) {
         Py_BEGIN_CRITICAL_SECTION2(self, arg);
         ret = md_reserve(self, size);
+        update_marks_init(&marks, self);
+        md_watch_record_simple(self, MultiDict_EVENT_BATCH_BEGIN);
         if (ret == 0) {
-            ret = md_update_from_dict(self, arg, Update, &defer);
+            ret = md_update_from_dict(self, arg, Update, &defer, &marks);
             if (ret == 0 && kwds != NULL) {
-                ret = md_update_from_dict(self, kwds, Update, &defer);
+                ret = md_update_from_dict(self, kwds, Update, &defer, &marks);
             }
             ASSERT_CONSISTENT(self, true);
         }
-        if (md_post_update(self, &defer) < 0 && ret == 0) {
+        if (md_post_update(self, &defer, &marks) < 0 && ret == 0) {
             ret = -1;
         }
+        flush = md_watch_pending(self);
         Py_END_CRITICAL_SECTION2();
     } else {
         Py_BEGIN_CRITICAL_SECTION(self);
         ret = md_reserve(self, size);
+        update_marks_init(&marks, self);
+        md_watch_record_simple(self, MultiDict_EVENT_BATCH_BEGIN);
         if (ret == 0) {
             // self-referential update() is a no-op: entries already match
             if (other == NULL && arg != NULL) {
-                ret = md_update_from_seq(self, arg, Update, &defer);
+                ret = md_update_from_seq(self, arg, Update, &defer, &marks);
             }
             if (ret == 0 && kwds != NULL) {
-                ret = md_update_from_dict(self, kwds, Update, &defer);
+                ret = md_update_from_dict(self, kwds, Update, &defer, &marks);
             }
             ASSERT_CONSISTENT(self, true);
         }
-        if (md_post_update(self, &defer) < 0 && ret == 0) {
+        if (md_post_update(self, &defer, &marks) < 0 && ret == 0) {
             ret = -1;
         }
+        flush = md_watch_pending(self);
         Py_END_CRITICAL_SECTION();
     }
-    md_deferred_decref_release(&defer);
+    update_marks_release(&marks);
+    reflist_clear(&defer);
+    md_watch_flush_if(self, flush);
     if (ret < 0) {
         goto fail;
     }
@@ -1183,56 +1157,69 @@ multidict_merge(MultiDictObject* self, PyObject* args, PyObject* kwds)
     MultiDictObject* other = _multidict_resolve_other(self->state, arg);
     bool arg_is_dict = arg != NULL && PyDict_CheckExact(arg);
     int ret;
+    bool flush;
+    update_marks_t marks;
     /* No deferred-decref accumulator here: _md_merge() never decrefs
        anything mid-scan (it either returns early on a match or inserts
        a brand-new entry), so it has no suspension window of its own to
-       close -- see the comment above md_deferred_decref_t. */
+       close -- see the comment above reflist_t. */
     if (other != NULL && other != self) {
         Py_BEGIN_CRITICAL_SECTION2(self, other);
         ret = md_reserve(self, size);
+        update_marks_init(&marks, self);
+        md_watch_record_simple(self, MultiDict_EVENT_BATCH_BEGIN);
         if (ret == 0) {
-            ret = md_update_from_ht(self, other, Merge, NULL);
+            ret = md_update_from_ht(self, other, Merge, NULL, &marks);
             if (ret == 0 && kwds != NULL) {
-                ret = md_update_from_dict(self, kwds, Merge, NULL);
+                ret = md_update_from_dict(self, kwds, Merge, NULL, &marks);
             }
             ASSERT_CONSISTENT(self, true);
         }
-        if (md_post_update(self, NULL) < 0 && ret == 0) {
+        if (md_post_update(self, NULL, &marks) < 0 && ret == 0) {
             ret = -1;
         }
+        flush = md_watch_pending(self);
         Py_END_CRITICAL_SECTION2();
     } else if (arg_is_dict) {
         Py_BEGIN_CRITICAL_SECTION2(self, arg);
         ret = md_reserve(self, size);
+        update_marks_init(&marks, self);
+        md_watch_record_simple(self, MultiDict_EVENT_BATCH_BEGIN);
         if (ret == 0) {
-            ret = md_update_from_dict(self, arg, Merge, NULL);
+            ret = md_update_from_dict(self, arg, Merge, NULL, &marks);
             if (ret == 0 && kwds != NULL) {
-                ret = md_update_from_dict(self, kwds, Merge, NULL);
+                ret = md_update_from_dict(self, kwds, Merge, NULL, &marks);
             }
             ASSERT_CONSISTENT(self, true);
         }
-        if (md_post_update(self, NULL) < 0 && ret == 0) {
+        if (md_post_update(self, NULL, &marks) < 0 && ret == 0) {
             ret = -1;
         }
+        flush = md_watch_pending(self);
         Py_END_CRITICAL_SECTION2();
     } else {
         Py_BEGIN_CRITICAL_SECTION(self);
         ret = md_reserve(self, size);
+        update_marks_init(&marks, self);
+        md_watch_record_simple(self, MultiDict_EVENT_BATCH_BEGIN);
         if (ret == 0) {
             // self-referential merge() is a no-op: entries already match
             if (other == NULL && arg != NULL) {
-                ret = md_update_from_seq(self, arg, Merge, NULL);
+                ret = md_update_from_seq(self, arg, Merge, NULL, &marks);
             }
             if (ret == 0 && kwds != NULL) {
-                ret = md_update_from_dict(self, kwds, Merge, NULL);
+                ret = md_update_from_dict(self, kwds, Merge, NULL, &marks);
             }
             ASSERT_CONSISTENT(self, true);
         }
-        if (md_post_update(self, NULL) < 0 && ret == 0) {
+        if (md_post_update(self, NULL, &marks) < 0 && ret == 0) {
             ret = -1;
         }
+        flush = md_watch_pending(self);
         Py_END_CRITICAL_SECTION();
     }
+    update_marks_release(&marks);
+    md_watch_flush_if(self, flush);
     if (ret < 0) {
         goto fail;
     }
@@ -1248,7 +1235,7 @@ PyDoc_STRVAR(multidict_add_doc,
 
 PyDoc_STRVAR(multidict_copy_doc, "Return a copy of itself.");
 
-PyDoc_STRVAR(multdicit_method_extend_doc,
+PyDoc_STRVAR(multidict_extend_doc,
              "Extend current MultiDict with more values.\n\
 This method must be used instead of update.");
 
@@ -1260,13 +1247,13 @@ PyDoc_STRVAR(
 
 PyDoc_STRVAR(
     multidict_popone_doc,
-    "Remove the last occurrence of key and return the corresponding value.\n\n\
+    "Remove the first occurrence of key and return the corresponding value.\n\n\
 If key is not found, default is returned if given, otherwise KeyError is \
 raised.\n");
 
 PyDoc_STRVAR(
     multidict_pop_doc,
-    "Remove the last occurrence of key and return the corresponding value.\n\n\
+    "Remove the first occurrence of key and return the corresponding value.\n\n\
 If key is not found, default is returned if given, otherwise KeyError is \
 raised.\n");
 
@@ -1334,7 +1321,7 @@ static PyMethodDef multidict_methods[] = {
     {"extend",
      (PyCFunction)multidict_extend,
      METH_VARARGS | METH_KEYWORDS,
-     multdicit_method_extend_doc},
+     multidict_extend_doc},
     {"clear", (PyCFunction)multidict_clear, METH_NOARGS, multidict_clear_doc},
     {"setdefault",
      (PyCFunction)multidict_setdefault,
@@ -1383,7 +1370,7 @@ static PyMethodDef multidict_methods[] = {
     {NULL, NULL} /* sentinel */
 };
 
-PyDoc_STRVAR(MultDict_doc, "Dictionary with the support for duplicate keys.");
+PyDoc_STRVAR(multidict_doc, "Dictionary with the support for duplicate keys.");
 
 #ifndef MANAGED_WEAKREFS
 static PyMemberDef multidict_members[] = {
@@ -1397,16 +1384,16 @@ static PyMemberDef multidict_members[] = {
 
 static PyType_Slot multidict_slots[] = {
     {Py_tp_dealloc, multidict_tp_dealloc},
-    {Py_tp_repr, multidict_repr},
-    {Py_tp_doc, (void*)MultDict_doc},
+    {Py_tp_repr, multidict_tp_repr},
+    {Py_tp_doc, (void*)multidict_doc},
 
     {Py_sq_contains, multidict_sq_contains},
-    {Py_mp_length, multidict_mp_len},
+    {Py_mp_length, multidict_mp_length},
     {Py_mp_subscript, multidict_mp_subscript},
-    {Py_mp_ass_subscript, multidict_mp_as_subscript},
+    {Py_mp_ass_subscript, multidict_mp_ass_subscript},
 
     {Py_tp_traverse, multidict_tp_traverse},
-    {Py_tp_clear, multidict_tp_clear},
+    {Py_tp_clear, md_clear},
     {Py_tp_richcompare, multidict_tp_richcompare},
     {Py_tp_iter, multidict_tp_iter},
     {Py_tp_methods, multidict_methods},
@@ -1416,7 +1403,7 @@ static PyType_Slot multidict_slots[] = {
     {Py_tp_free, PyObject_GC_Del},
 
 #if PY_VERSION_HEX >= 0x030e00f0
-    {Py_tp_vectorcall, multidict_vectorcall},
+    {Py_tp_vectorcall, multidict_tp_vectorcall},
 #endif
 #ifndef MANAGED_WEAKREFS
     {Py_tp_members, multidict_members},
@@ -1455,84 +1442,24 @@ cimultidict_tp_new(PyTypeObject* type, PyObject* args, PyObject* kwds)
 static int
 cimultidict_tp_init(MultiDictObject* self, PyObject* args, PyObject* kwds)
 {
-    mod_state* state = get_mod_state_by_def((PyObject*)self);
-    PyObject* arg = NULL;
-    Py_ssize_t size =
-        _multidict_extend_parse_args(state, args, kwds, "CIMultiDict", &arg);
-    if (size < 0) {
-        goto fail;
-    }
-    if (kwds && !PyArg_ValidateKeywordArguments(kwds)) {
-        goto fail;
-    }
-    int tmp = _multidict_clone_fast(state, self, true, arg, kwds);
-    if (tmp < 0) {
-        goto fail;
-    } else if (tmp == 1) {
-        goto done;
-    }
-    MultiDictObject* other = _multidict_resolve_other(state, arg);
-    bool arg_is_dict = arg != NULL && PyDict_CheckExact(arg);
-    int ret;
-    if (other != NULL && other != self) {
-        Py_BEGIN_CRITICAL_SECTION2(self, other);
-        ret = md_init(self, true, size);
-        if (ret == 0) {
-            ret = md_update_from_ht(self, other, Extend, NULL);
-            if (ret == 0 && kwds != NULL) {
-                ret = md_update_from_dict(self, kwds, Extend, NULL);
-            }
-            ASSERT_CONSISTENT(self, false);
-        }
-        Py_END_CRITICAL_SECTION2();
-    } else if (arg_is_dict) {
-        Py_BEGIN_CRITICAL_SECTION2(self, arg);
-        ret = md_init(self, true, size);
-        if (ret == 0) {
-            ret = md_update_from_dict(self, arg, Extend, NULL);
-            if (ret == 0 && kwds != NULL) {
-                ret = md_update_from_dict(self, kwds, Extend, NULL);
-            }
-            ASSERT_CONSISTENT(self, false);
-        }
-        Py_END_CRITICAL_SECTION2();
-    } else {
-        Py_BEGIN_CRITICAL_SECTION(self);
-        ret = md_init(self, true, size);
-        if (ret == 0) {
-            if (other != NULL) {
-                ret = md_extend_self(self);
-            } else if (arg != NULL) {
-                ret = md_update_from_seq(self, arg, Extend, NULL);
-            }
-            if (ret == 0 && kwds != NULL) {
-                ret = md_update_from_dict(self, kwds, Extend, NULL);
-            }
-            ASSERT_CONSISTENT(self, false);
-        }
-        Py_END_CRITICAL_SECTION();
-    }
-    if (ret < 0) {
-        goto fail;
-    }
-done:
-    Py_CLEAR(arg);
-    return 0;
-fail:
-    Py_CLEAR(arg);
-    return -1;
+    return _multidict_tp_init(self, args, kwds, true);
 }
 
 PyDoc_STRVAR(
-    CIMultDict_doc,
+    cimultidict_doc,
     "Dictionary with the support for duplicate case-insensitive keys.");
 
 static PyType_Slot cimultidict_slots[] = {
-    {Py_tp_doc, (void*)CIMultDict_doc},
+    {Py_tp_doc, (void*)cimultidict_doc},
+    /* The same table as MultiDict, listed again so the descriptors are
+       bound to CIMultiDict: CPython's CALL_METHOD_DESCRIPTOR_* guards
+       on Py_IS_TYPE(self, descr->d_type) and deopts every call whose
+       descriptor was inherited from a base type. */
+    {Py_tp_methods, multidict_methods},
     {Py_tp_init, cimultidict_tp_init},
     {Py_tp_new, cimultidict_tp_new},
 #if PY_VERSION_HEX >= 0x030e00f0
-    {Py_tp_vectorcall, cimultidict_vectorcall},
+    {Py_tp_vectorcall, cimultidict_tp_vectorcall},
 #endif
     {0, NULL},
 };
@@ -1635,7 +1562,7 @@ multidict_proxy_values(MultiDictProxyObject* self)
 static PyObject*
 multidict_proxy_copy(MultiDictProxyObject* self)
 {
-    return _multidict_proxy_copy(self, self->md->state->MultiDictType);
+    return multidict_copy(self->md);
 }
 
 static PyObject*
@@ -1654,7 +1581,7 @@ multidict_proxy_to_dict(MultiDictProxyObject* self)
 }
 
 static Py_ssize_t
-multidict_proxy_mp_len(MultiDictProxyObject* self)
+multidict_proxy_mp_length(MultiDictProxyObject* self)
 {
     return md_len(self->md);
 }
@@ -1690,8 +1617,14 @@ multidict_proxy_tp_dealloc(MultiDictProxyObject* self)
     PyTypeObject* tp = Py_TYPE(self);
     PyObject_GC_UnTrack(self);
     PyObject_ClearWeakRefs((PyObject*)self);
-    Py_XDECREF(self->md);
-    tp->tp_free((PyObject*)self);
+    /* The pool is reached through the proxied multidict, so a proxy the
+       GC already cleared is freed rather than pooled. */
+    MultiDictObject* md = self->md;
+    bool pooled = md != NULL && md_shell_recycle(md->state, (PyObject*)self);
+    Py_XDECREF(md);
+    if (!pooled) {
+        tp->tp_free((PyObject*)self);
+    }
     Py_DECREF(tp);
 }
 
@@ -1712,7 +1645,7 @@ multidict_proxy_tp_clear(MultiDictProxyObject* self)
 }
 
 static PyObject*
-multidict_proxy_repr(MultiDictProxyObject* self)
+multidict_proxy_tp_repr(MultiDictProxyObject* self)
 {
     PyObject* ret;
     Py_BEGIN_CRITICAL_SECTION(self->md);
@@ -1762,7 +1695,7 @@ static PyMethodDef multidict_proxy_methods[] = {
     {NULL, NULL} /* sentinel */
 };
 
-PyDoc_STRVAR(MultDictProxy_doc, "Read-only proxy for MultiDict instance.");
+PyDoc_STRVAR(multidict_proxy_doc, "Read-only proxy for MultiDict instance.");
 
 #ifndef MANAGED_WEAKREFS
 static PyMemberDef multidict_proxy_members[] = {
@@ -1776,11 +1709,11 @@ static PyMemberDef multidict_proxy_members[] = {
 
 static PyType_Slot multidict_proxy_slots[] = {
     {Py_tp_dealloc, multidict_proxy_tp_dealloc},
-    {Py_tp_repr, multidict_proxy_repr},
-    {Py_tp_doc, (void*)MultDictProxy_doc},
+    {Py_tp_repr, multidict_proxy_tp_repr},
+    {Py_tp_doc, (void*)multidict_proxy_doc},
 
     {Py_sq_contains, multidict_proxy_sq_contains},
-    {Py_mp_length, multidict_proxy_mp_len},
+    {Py_mp_length, multidict_proxy_mp_length},
     {Py_mp_subscript, multidict_proxy_mp_subscript},
 
     {Py_tp_traverse, multidict_proxy_tp_traverse},
@@ -1794,7 +1727,7 @@ static PyType_Slot multidict_proxy_slots[] = {
     {Py_tp_free, PyObject_GC_Del},
 
 #if PY_VERSION_HEX >= 0x030e00f0
-    {Py_tp_vectorcall, multidict_proxy_vectorcall},
+    {Py_tp_vectorcall, multidict_proxy_tp_vectorcall},
 #endif
 #ifndef MANAGED_WEAKREFS
     {Py_tp_members, multidict_proxy_members},
@@ -1861,30 +1794,15 @@ cimultidict_proxy_tp_init(MultiDictProxyObject* self, PyObject* args,
     return 0;
 }
 
-static PyObject*
-cimultidict_proxy_copy(MultiDictProxyObject* self)
-{
-    return _multidict_proxy_copy(self, self->md->state->CIMultiDictType);
-}
-
-PyDoc_STRVAR(CIMultDictProxy_doc, "Read-only proxy for CIMultiDict instance.");
-
-PyDoc_STRVAR(cimultidict_proxy_copy_doc, "Return copy of itself");
-
-static PyMethodDef cimultidict_proxy_methods[] = {
-    {"copy",
-     (PyCFunction)cimultidict_proxy_copy,
-     METH_NOARGS,
-     cimultidict_proxy_copy_doc},
-    {NULL, NULL} /* sentinel */
-};
+PyDoc_STRVAR(cimultidict_proxy_doc,
+             "Read-only proxy for CIMultiDict instance.");
 
 static PyType_Slot cimultidict_proxy_slots[] = {
-    {Py_tp_doc, (void*)CIMultDictProxy_doc},
-    {Py_tp_methods, cimultidict_proxy_methods},
+    {Py_tp_doc, (void*)cimultidict_proxy_doc},
+    {Py_tp_methods, multidict_proxy_methods},  // see cimultidict_slots
     {Py_tp_init, cimultidict_proxy_tp_init},
 #if PY_VERSION_HEX >= 0x030e00f0
-    {Py_tp_vectorcall, cimultidict_proxy_vectorcall},
+    {Py_tp_vectorcall, cimultidict_proxy_tp_vectorcall},
 #endif
     {0, NULL},
 };
@@ -1915,7 +1833,7 @@ getversion(PyObject* self, PyObject* arg)
         PyErr_Format(PyExc_TypeError, "unexpected type");
         return NULL;
     }
-    return PyLong_FromUnsignedLong(md_version(md));
+    return PyLong_FromUnsignedLong(load_version(md));
 }
 
 /******************** Module ********************/
@@ -1943,14 +1861,60 @@ module_traverse(PyObject* mod, visitproc visit, void* arg)
     Py_VISIT(state->str_canonical);
     Py_VISIT(state->str_lower);
     Py_VISIT(state->str_name);
+    Py_VISIT(state->str_key);
+    Py_VISIT(state->str_default);
+    Py_VISIT(state->str_value);
+    Py_VISIT(state->none);
 
     return 0;
+}
+
+static void
+drain_pools(mod_state* state)
+{
+    htkeys_pools_clear(state->htkeys_pools);
+    /* Callers must drain before releasing the types: PyObject_GC_Del()
+       reads a shell's type to find the start of its allocation. */
+    pool_clear(&state->view_pool, PyObject_GC_Del);
+    pool_clear(&state->iter_pool, PyObject_GC_Del);
+    pool_clear(&state->md_pool, PyObject_GC_Del);
+    pool_clear(&state->proxy_pool, PyObject_GC_Del);
+}
+
+/* Capacity 0 turns every push into a miss, so nothing is parked after
+   the types are released: a shell parked then would outlive the type
+   the drain needs to free it, and objects still being torn down would
+   have their tables parked in a pool nothing drains again. */
+static void
+close_pools(mod_state* state)
+{
+    for (int i = 0; i < HTKEYS_POOL_CLASSES; i++) {
+        pool_init(state->htkeys_pools + i, 0);
+    }
+    pool_init(&state->view_pool, 0);
+    pool_init(&state->iter_pool, 0);
+    pool_init(&state->md_pool, 0);
+    pool_init(&state->proxy_pool, 0);
+}
+
+/* A warm pool lets an operation run without calling the allocator at
+   all, which hides it from a test that injects an allocation failure to
+   check the recovery path. Draining first puts that path back in reach.
+   For tests only, like getversion(). */
+static PyObject*
+freelist_clear(PyObject* mod, PyObject* Py_UNUSED(ignored))
+{
+    drain_pools(get_mod_state(mod));
+    Py_RETURN_NONE;
 }
 
 static int
 module_clear(PyObject* mod)
 {
     mod_state* state = get_mod_state(mod);
+
+    drain_pools(state);
+    close_pools(state);
 
     Py_CLEAR(state->IStrType);
 
@@ -1970,6 +1934,18 @@ module_clear(PyObject* mod)
     Py_CLEAR(state->str_canonical);
     Py_CLEAR(state->str_lower);
     Py_CLEAR(state->str_name);
+    Py_CLEAR(state->str_key);
+    Py_CLEAR(state->str_default);
+    Py_CLEAR(state->str_value);
+    Py_CLEAR(state->none);
+
+    /* Plain function and context pointers, so a memset rather than a
+       decref loop. No live multidict can reach a freed slot table anyway:
+       each heap type holds a reference to the module and each instance
+       one to its type, so the state outlives them all. */
+    memset(state->watchers, 0, sizeof(state->watchers));
+    memset(state->watcher_data, 0, sizeof(state->watcher_data));
+    memset(state->watcher_generation, 0, sizeof(state->watcher_generation));
 
     return 0;
 }
@@ -1982,6 +1958,7 @@ module_free(void* mod)
 
 static PyMethodDef module_methods[] = {
     {"getversion", (PyCFunction)getversion, METH_O},
+    {"_freelist_clear", (PyCFunction)freelist_clear, METH_NOARGS},
     {NULL, NULL} /* sentinel */
 };
 
@@ -1991,6 +1968,14 @@ module_exec(PyObject* mod)
     mod_state* state = get_mod_state(mod);
     PyObject* tmp;
     PyObject* tpl = NULL;
+
+    state->mod = mod;
+
+    htkeys_pools_init(state->htkeys_pools);
+    pool_init(&state->view_pool, POOL_MAX_DEPTH);
+    pool_init(&state->iter_pool, POOL_MAX_DEPTH);
+    pool_init(&state->md_pool, POOL_MAX_DEPTH);
+    pool_init(&state->proxy_pool, POOL_MAX_DEPTH);
 
     state->str_lower = PyUnicode_InternFromString("lower");
     if (state->str_lower == NULL) {
@@ -2002,6 +1987,22 @@ module_exec(PyObject* mod)
     }
     state->str_name = PyUnicode_InternFromString("__name__");
     if (state->str_name == NULL) {
+        goto fail;
+    }
+    state->str_key = PyUnicode_InternFromString("key");
+    if (state->str_key == NULL) {
+        goto fail;
+    }
+    state->str_default = PyUnicode_InternFromString("default");
+    if (state->str_default == NULL) {
+        goto fail;
+    }
+    state->str_value = PyUnicode_InternFromString("value");
+    if (state->str_value == NULL) {
+        goto fail;
+    }
+    state->none = Py_GetConstant(Py_CONSTANT_NONE);
+    if (state->none == NULL) {
         goto fail;
     }
 
@@ -2027,7 +2028,7 @@ module_exec(PyObject* mod)
        construction behaves like tp_new + tp_init, but reads its arguments
        directly off the vectorcall stack instead of requiring type_call()
        to first pack them into an args tuple and a kwargs dict. */
-    state->MultiDictType->tp_vectorcall = multidict_vectorcall;
+    state->MultiDictType->tp_vectorcall = multidict_tp_vectorcall;
 #endif
 
     tpl = PyTuple_Pack(1, (PyObject*)state->MultiDictType);
@@ -2040,7 +2041,7 @@ module_exec(PyObject* mod)
     }
     state->CIMultiDictType = (PyTypeObject*)tmp;
 #if PY_VERSION_HEX < 0x030e00f0
-    state->CIMultiDictType->tp_vectorcall = cimultidict_vectorcall;
+    state->CIMultiDictType->tp_vectorcall = cimultidict_tp_vectorcall;
 #endif
     Py_CLEAR(tpl);
 
@@ -2050,7 +2051,7 @@ module_exec(PyObject* mod)
     }
     state->MultiDictProxyType = (PyTypeObject*)tmp;
 #if PY_VERSION_HEX < 0x030e00f0
-    state->MultiDictProxyType->tp_vectorcall = multidict_proxy_vectorcall;
+    state->MultiDictProxyType->tp_vectorcall = multidict_proxy_tp_vectorcall;
 #endif
 
     tpl = PyTuple_Pack(1, (PyObject*)state->MultiDictProxyType);
@@ -2063,7 +2064,8 @@ module_exec(PyObject* mod)
     }
     state->CIMultiDictProxyType = (PyTypeObject*)tmp;
 #if PY_VERSION_HEX < 0x030e00f0
-    state->CIMultiDictProxyType->tp_vectorcall = cimultidict_proxy_vectorcall;
+    state->CIMultiDictProxyType->tp_vectorcall =
+        cimultidict_proxy_tp_vectorcall;
 #endif
     Py_CLEAR(tpl);
 
@@ -2089,6 +2091,14 @@ module_exec(PyObject* mod)
         goto fail;
     }
     if (PyModule_AddType(mod, state->ValuesViewType) < 0) {
+        goto fail;
+    }
+
+    PyObject* capsule = new_capsule(state);
+    if (capsule == NULL) {
+        goto fail;
+    }
+    if (PyModule_Add(mod, MultiDict_CAPI_NAME, capsule) < 0) {
         goto fail;
     }
 

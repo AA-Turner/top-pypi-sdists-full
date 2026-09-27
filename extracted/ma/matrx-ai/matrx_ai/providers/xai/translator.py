@@ -57,6 +57,28 @@ def provider_charge_from_xai_usage(usage: Any) -> ProviderCharge | None:
         field_path="usage.cost_in_usd_ticks",
     )
 
+
+def billed_output_tokens_from_xai_usage(usage: Any) -> int:
+    """xAI's billed output token count.
+
+    ``usage_pb2.SamplingUsage`` carries ``completion_tokens`` and
+    ``reasoning_tokens`` as TWO SEPARATE fields (unlike OpenAI's Responses API
+    ``output_tokens`` and Anthropic's ``output_tokens``, which already fold
+    reasoning/thinking tokens in) — ``total_tokens == prompt_tokens +
+    completion_tokens + reasoning_tokens`` (pinned by
+    ``test_from_xai_parses_full_response`` / the golden usage fixture). xAI
+    bills both: a run that used 1,200 completion tokens and 6,400 reasoning
+    tokens is billed for 7,600 output tokens, not 1,200 — the gap that under-recorded
+    one bake-off run at $0.74 against xAI's own $3.92 (2026-09-26). Our
+    ``calculate_cost`` prices strictly off ``TokenUsage.output_tokens`` (catalog
+    $/1M-token formula — ``provider_charge`` is reconciliation evidence only
+    and never substitutes for it), so this value must be
+    completion + reasoning for the ledger to bill the true amount.
+    """
+    return int(getattr(usage, "completion_tokens", 0) or 0) + int(
+        getattr(usage, "reasoning_tokens", 0) or 0
+    )
+
 # ============================================================================
 # XAI TRANSLATOR — native xai_sdk (gRPC) request/response shaping
 # ============================================================================
@@ -352,7 +374,7 @@ class XAITranslator(BaseTranslator):
             provider_charge = provider_charge_from_xai_usage(usage)
             token_usage = TokenUsage(
                 input_tokens=usage.prompt_tokens,
-                output_tokens=usage.completion_tokens,
+                output_tokens=billed_output_tokens_from_xai_usage(usage),
                 matrx_model_name=response.proto.model,
                 provider_model_name=response.proto.model,
                 api="xai",

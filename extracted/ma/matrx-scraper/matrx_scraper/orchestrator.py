@@ -992,6 +992,11 @@ def _seal_ladder(
     if _usable(result):
         return result
 
+    # A host we never reached has no HTTP status and gets its own sentence (which host, what
+    # failed, what to do) — never "answered 500" (matrx_scraper.unreachable).
+    from matrx_scraper.unreachable import announce_unreachable
+
+    announce_unreachable(result)
     verdict = trail.verdict(reason=_ladder_reason(result), policy=policy)
     for key, value in verdict.as_fields().items():
         setattr(result, key, value)

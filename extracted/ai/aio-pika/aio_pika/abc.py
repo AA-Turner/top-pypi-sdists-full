@@ -20,6 +20,7 @@ from typing import (
     Literal,
     Mapping,
     Optional,
+    Self,
     Tuple,
     Type,
     TypedDict,
@@ -43,6 +44,11 @@ from .tools import (
 
 
 TimeoutType = Optional[Union[int, float]]
+
+# Result of a confirmed publish: the Basic.Ack frame, or the returned
+# message when the broker can not route a mandatory message and the
+# channel was opened with on_return_raises=False.
+PublishResultType = aiormq.spec.Basic.Ack | aiormq.abc.DeliveredMessage
 
 NoneType = type(None)
 DateType = Optional[Union[int, datetime, float, timedelta]]
@@ -421,7 +427,7 @@ class AbstractQueueIterator(AsyncIterable[AbstractIncomingMessage]):
         raise NotImplementedError
 
     @abstractmethod
-    def __aenter__(self) -> Awaitable["AbstractQueueIterator"]:
+    async def __aenter__(self) -> "AbstractQueueIterator":
         raise NotImplementedError
 
     @abstractmethod
@@ -484,6 +490,28 @@ class AbstractExchange(ABC):
     ) -> aiormq.spec.Exchange.UnbindOk:
         raise NotImplementedError
 
+    @overload
+    async def publish(
+        self,
+        message: "AbstractMessage",
+        routing_key: str,
+        *,
+        mandatory: Literal[False],
+        immediate: bool = False,
+        timeout: TimeoutType = None,
+    ) -> aiormq.spec.Basic.Ack | None: ...
+
+    @overload
+    async def publish(
+        self,
+        message: "AbstractMessage",
+        routing_key: str,
+        *,
+        mandatory: bool = True,
+        immediate: bool = False,
+        timeout: TimeoutType = None,
+    ) -> PublishResultType | None: ...
+
     @abstractmethod
     async def publish(
         self,
@@ -493,7 +521,7 @@ class AbstractExchange(ABC):
         mandatory: bool = True,
         immediate: bool = False,
         timeout: TimeoutType = None,
-    ) -> Optional[aiormq.abc.ConfirmationFrameType]:
+    ) -> PublishResultType | None:
         raise NotImplementedError
 
     @abstractmethod
@@ -557,6 +585,11 @@ class AbstractChannel(PoolInstance, ABC):
         [AbstractIncomingMessage],
     ]
     default_exchange: AbstractExchange
+    """The default exchange of the broker: a direct exchange with the
+    empty name. Every queue is bound to it with its own name as the
+    routing key, so ``channel.default_exchange.publish(message,
+    routing_key=queue.name)`` delivers the message to that queue.
+    The attribute is set when the channel is opened."""
 
     publisher_confirms: bool
 
@@ -588,7 +621,7 @@ class AbstractChannel(PoolInstance, ABC):
         raise NotImplementedError
 
     @abstractmethod
-    async def __aenter__(self) -> "AbstractChannel":
+    async def __aenter__(self) -> Self:
         raise NotImplementedError
 
     @abstractmethod
@@ -696,7 +729,7 @@ class AbstractChannel(PoolInstance, ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def __await__(self) -> Generator[Any, Any, "AbstractChannel"]:
+    def __await__(self) -> Generator[Any, Any, Self]:
         raise NotImplementedError
 
 
@@ -835,7 +868,7 @@ class AbstractConnection(PoolInstance, ABC):
         raise NotImplementedError
 
     @abstractmethod
-    async def __aenter__(self) -> "AbstractConnection":
+    async def __aenter__(self) -> Self:
         raise NotImplementedError
 
     @abstractmethod
@@ -918,6 +951,11 @@ class AbstractRobustChannel(AbstractChannel):
 
     @abstractmethod
     async def restore(self) -> None:
+        raise NotImplementedError
+
+    @abstractmethod
+    async def ready(self) -> None:
+        """Wait until the connection is ready and the channel is restored."""
         raise NotImplementedError
 
     @abstractmethod
@@ -1033,6 +1071,7 @@ __all__ = (
     "MessageInfo",
     "NoneType",
     "SSLOptions",
+    "PublishResultType",
     "TimeoutType",
     "TransactionState",
     "UnderlayChannel",

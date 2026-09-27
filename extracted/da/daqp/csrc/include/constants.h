@@ -7,6 +7,11 @@ extern "C" {
 
 #include <stddef.h>
 
+// Individual weights for the soft constraints, unless explicitly disabled
+#ifndef DAQP_NO_SOFT_WEIGHTS
+#define DAQP_SOFT_WEIGHTS
+#endif
+
 #define DAQP_EMPTY_IND -1
 #define DAQP_UNCONSTRAINED_OPTIMAL -2
 #define DAQP_INF ((c_float)1e30)
@@ -22,16 +27,29 @@ extern "C" {
 #define DAQP_AUTO_ETA_CAP 1e-6
 #define DAQP_DEFAULT_ITER_LIMIT 10000
 #define DAQP_DEFAULT_RHO_SOFT 1e-6
+#define DAQP_DEFAULT_W_SOFT 0
 #define DAQP_DEFAULT_REL_SUBOPT 0
 #define DAQP_DEFAULT_ABS_SUBOPT 0
 #define DAQP_DEFAULT_SING_TOL (3.7e-11)
 #define DAQP_DEFAULT_REFACTOR_TOL 1e-9
 #define DAQP_DEFAULT_EPS_PROX (-1e-6)
 
+// Equality-reduction policy (DAQPSettings.eq_reduction). AUTO only reduces
+// solves that start from scratch, which the setup/update marks with
+// DAQP_UPDATE_eliminate (daqp_quadprog, the interfaces' one-shot solves, and
+// the Eigen interface without warm start); ON also reduces a warm-started
+// workspace that is updated and solved repeatedly
+#define DAQP_EQ_REDUCTION_OFF (-1)
+#define DAQP_EQ_REDUCTION_AUTO 0
+#define DAQP_EQ_REDUCTION_ON 1
+
 // Equality constraints are eliminated if there are sufficiently many of them
 // (neq > EQ_MIN_COUNT and EQ_MIN_RATIO*neq > n)
 #define DAQP_EQ_MIN_COUNT 5
 #define DAQP_EQ_MIN_RATIO 10
+#define DAQP_EQ_MIN_DIM 20
+// Diagonal Hessians require at least n/DAQP_EQ_DIAG_MIN_RATIO equalities
+#define DAQP_EQ_DIAG_MIN_RATIO 4
 
 
 // MACROS
@@ -58,7 +76,17 @@ extern "C" {
 #define DAQP_UPDATE_sense 16
 #define DAQP_UPDATE_hierarchy 32
 #define DAQP_UPDATE_unconstrained 64
+// Lets DAQP_EQ_REDUCTION_AUTO eliminate the equality constraints of the LDP
+// that this setup/update forms (for a solve that starts from scratch)
 #define DAQP_UPDATE_eliminate 128
+
+// WORKSPACE STATE MASKS
+// The DAQP_UPDATE_* bits in DAQP_STATE_PENDING mark the parts of the LDP that
+// an earlier update did not form, which the next update then forms
+#define DAQP_STATE_PENDING (DAQP_UPDATE_Rinv+DAQP_UPDATE_M+DAQP_UPDATE_v+DAQP_UPDATE_d+DAQP_UPDATE_sense+DAQP_UPDATE_hierarchy)
+#define DAQP_STATE_UNCONSTRAINED 256 // The unconstrained optimum is the solution
+#define DAQP_STATE_RINV_NORMALIZED 512 // The first ms rows of Rinv are normalized
+#define DAQP_STATE_INCUMBENT 1024 // work->x holds a candidate solution for BnB
 
 // CONSTRAINT MASKS
 #define DAQP_ACTIVE 1
@@ -88,12 +116,15 @@ extern "C" {
 #define DAQP_BINARY 16
 #define DAQP_IS_BINARY(x) (work->sense[x]&16)
 
-// marks that the soft slack is at its lower bound (d_ls or d_us)
+// marks that the slack of a soft constraint is zero (see auxiliary.c)
 #define DAQP_SLACK_FIXED 32
 #define DAQP_IS_SLACK_FIXED(x) (work->sense[x]&32)
 #define DAQP_IS_SLACK_FREE(x) ((work->sense[x]&32)==0)
 #define DAQP_SET_SLACK_FIXED(x) (work->sense[x]|=32)
 #define DAQP_SET_SLACK_FREE(x) (work->sense[x]&=~32)
+
+// marks a constraint that is temporarily set aside (see gradient_step in daqp_prox.c)
+#define DAQP_SET_ASIDE 64
 
 # ifdef __cplusplus
 }

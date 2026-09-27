@@ -169,6 +169,11 @@ def _tune_client_socket(conn: socket.socket) -> None:
         conn.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
 
 
+#: PostgreSQL's backend send-buffer size (PqSendBuffer): it flushes early once
+#: this much output is pending, and otherwise waits for Sync / Flush.
+_PG_SEND_BUFFER = 8192
+
+
 class SecantusPGServer:
     def __init__(
         self,
@@ -455,7 +460,7 @@ class SecantusPGServer:
         if self.require_auth and not self._authenticate(io, user):
             return None
 
-        session = Session(database=db, user=user, backend_pid=backend_pid)
+        session = Session(database=db, user=user, backend_pid=backend_pid, on_the_wire=True)
         # Server-config GUC tier (postgresql.conf equivalent): SET overrides
         # it, RESET falls back to it, SHOW reports it.
         if self.idle_in_transaction_timeout_s > 0:
@@ -631,6 +636,21 @@ class SecantusPGServer:
     def _query_loop(self, conn: socket.socket, session: Session) -> None:
         # Per-connection extended-protocol state (prepared statements + portals).
         ext = ExtendedSession(self.storage, session)
+        # Extended-protocol replies are BUFFERED until Sync or Flush, as
+        # PostgreSQL buffers them (its backend flushes only at ReadyForQuery,
+        # on Flush, or when its 8 KB send buffer fills). Sending each reply
+        # as it was produced split a client's pipeline into extra round trips
+        # -- psycopg's test_executemany_trace saw `F B F B` for one Sync, and
+        # only when the server's early ParseComplete happened to race the
+        # client's remaining writes. Anything this loop sends directly must
+        # `flush()` first, or the buffered replies would arrive out of order.
+        pending = bytearray()
+
+        def flush() -> None:
+            if pending:
+                conn.sendall(bytes(pending))
+                pending.clear()
+
         while not self._stop_event.is_set():
             # idle_in_transaction_session_timeout: while a transaction is open,
             # bound the wait for the next command; exceeding it aborts the
@@ -649,6 +669,8 @@ class SecantusPGServer:
             try:
                 msg = self._read_next_message(conn, session, txn_deadline)
             except TimeoutError:
+                with contextlib.suppress(OSError):
+                    flush()
                 if session.txn_handle is not None:
                     with contextlib.suppress(Exception):
                         self.storage.abort_user_transaction(session.txn_handle)
@@ -691,6 +713,8 @@ class SecantusPGServer:
                 # "the SELECT 1 queries should be ignored and should not
                 # return ReadyForQuery").
                 continue
+            if msg.type in ("F", "Q"):
+                flush()
             if msg.type == "F":  # Fastpath FunctionCall (pgjdbc large objects)
                 conn.sendall(self._handle_fastpath(session, msg.payload))
                 continue
@@ -731,9 +755,17 @@ class SecantusPGServer:
             # (Parse/Bind/Describe/Execute/Close/Sync/Flush). Async LISTEN/NOTIFY
             # deliveries ride out ahead of the reply (message boundaries).
             reply = ext.process(msg.type, msg.payload)
-            notifications = self._pending_notification_bytes(session)
-            if notifications or reply:
-                conn.sendall(notifications + (reply or b""))
+            pending += self._pending_notification_bytes(session) + (reply or b"")
+            # Flush at Sync (its ReadyForQuery ends the batch) and Flush, on an
+            # error (kept eager: the client stops reading its pipeline at the
+            # first ErrorResponse either way), and past PG's 8 KB send buffer
+            # so a large result is not held whole in memory.
+            if (
+                msg.type in ("S", "H")
+                or (reply or b"")[:1] == b"E"
+                or len(pending) >= _PG_SEND_BUFFER
+            ):
+                flush()
 
     def _authorize_lo_write(self, session: Session) -> None:
         """Gate a mutating Fastpath large-object call with the same RBAC +
@@ -974,6 +1006,34 @@ class SecantusPGServer:
         conn.sendall(pgwire.command_complete(f"COPY {n}"))
         conn.sendall(pgwire.ready_for_query(session.txn_status()))
 
+    #: Rows buffered between cancellation checks during COPY … TO STDOUT.
+    #: Small enough that an abort is noticed promptly, large enough that a
+    #: big copy does not become one syscall per row.
+    _COPY_OUT_FLUSH_ROWS = 128
+
+    @staticmethod
+    def _copy_out_flush(conn: socket.socket, session: Session, buf: bytearray) -> None:
+        """Send one batch of CopyData, first observing a pending cancel.
+
+        COPY TO used to materialise the whole result and hand it to a single
+        ``sendall``, so a client that read one row and abandoned the copy found
+        it already finished: the transaction stayed INTRANS where PostgreSQL
+        leaves it INERROR (probed on 14.13 with a 200k-row copy — a small one
+        buffers on both servers and shows nothing). There was no point at which
+        the stream could notice the CancelRequest, even though the machinery to
+        deliver it already existed — `session.py` had described the "COPY TO row
+        stream" as a cancellation point since before it was one.
+
+        Raising here is enough: `_handle_copy` already marks the enclosing block
+        failed and answers ErrorResponse + ReadyForQuery for any `SQLError`.
+        """
+        if session.cancel_event.is_set():
+            session.cancel_event.clear()
+            raise errors.SQLError("57014", "canceling statement due to user request")
+        if buf:
+            conn.sendall(bytes(buf))
+            buf.clear()
+
     def _copy_out(self, conn: socket.socket, session: Session, catalog: Any, plan: Any) -> None:
         if plan.fmt == "binary":
             self._copy_out_binary(conn, session, plan)
@@ -1001,7 +1061,11 @@ class SecantusPGServer:
                 )
             chunks += [
                 copyfmt.format_csv(
-                    [row], delimiter=plan.delimiter, null=plan.null, quote=plan.quote or '"'
+                    [row],
+                    delimiter=plan.delimiter,
+                    null=plan.null,
+                    quote=plan.quote or '"',
+                    force_quote=plan.force_quote,
                 )
                 for row in rows
             ]
@@ -1009,12 +1073,13 @@ class SecantusPGServer:
             chunks += [
                 copyfmt.format_text([row], delimiter=plan.delimiter, null=plan.null) for row in rows
             ]
-        if chunks:
-            out = bytearray()
-            for chunk in chunks:
-                if chunk:
-                    out += pgwire.copy_data(pgwire.encode_text(chunk, session.wire_encoding))
-            conn.sendall(bytes(out))
+        out = bytearray()
+        for i, chunk in enumerate(chunks):
+            if chunk:
+                out += pgwire.copy_data(pgwire.encode_text(chunk, session.wire_encoding))
+            if (i + 1) % self._COPY_OUT_FLUSH_ROWS == 0:
+                self._copy_out_flush(conn, session, out)
+        self._copy_out_flush(conn, session, out)
         conn.sendall(pgwire.copy_done())
         conn.sendall(pgwire.command_complete(f"COPY {len(rows)}"))
         conn.sendall(pgwire.ready_for_query(session.txn_status()))
@@ -1033,6 +1098,7 @@ class SecantusPGServer:
         # (psycopg's copy.read() row framing depends on it); each later row is
         # its own message and the int16 -1 trailer ends the stream.
         pending = bytearray(_PGCOPY_SIGNATURE + struct.pack("!ii", 0, 0))
+        sent = 0
         for row in rows:
             buf = bytearray(struct.pack("!h", len(plan.columns)))
             for value, oid, tag in zip(row, plan.col_oids, plan.col_tags, strict=True):
@@ -1044,10 +1110,13 @@ class SecantusPGServer:
             pending += buf
             out += pgwire.copy_data(bytes(pending))
             pending = bytearray()
+            sent += 1
+            if sent % self._COPY_OUT_FLUSH_ROWS == 0:
+                self._copy_out_flush(conn, session, out)
         if pending:  # zero rows — the header still has to go out
             out += pgwire.copy_data(bytes(pending))
         out += pgwire.copy_data(struct.pack("!h", -1))
-        conn.sendall(bytes(out))
+        self._copy_out_flush(conn, session, out)
         conn.sendall(pgwire.copy_done())
         conn.sendall(pgwire.command_complete(f"COPY {len(rows)}"))
         conn.sendall(pgwire.ready_for_query(session.txn_status()))
@@ -1087,7 +1156,7 @@ def _render_result(res: Any, encoding: str | None = "utf-8", session: Any = None
         # Reportable GUCs changed mid-statement by set_config().
         status += session.pending_parameter_status
         session.pending_parameter_status = []
-    if res.columns or res.command_tag.startswith("SELECT"):
+    if res.columns or (res.command_tag.startswith("SELECT") and not res.suppress_row_description):
         out += pgwire.row_description(
             [(c.name, c.pg_oid, c.typmod, c.table_oid, c.attnum) for c in res.columns],
             encoding=encoding,

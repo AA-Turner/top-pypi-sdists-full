@@ -1,7 +1,11 @@
 from __future__ import annotations
 
 import datetime as _dt
+import decimal as _decimal
+import functools
 import math
+import re
+import struct
 import zoneinfo
 from collections.abc import Mapping
 from dataclasses import dataclass, field
@@ -9,8 +13,11 @@ from decimal import Decimal, InvalidOperation
 from typing import Any
 
 import bson
-from bson import Decimal128, Int64
+from bson import Binary, Decimal128, Int64, ObjectId, Timestamp
 
+from secantus.bsontypes import fmt_double_value, is_bson_string
+from secantus.numerics import IntegerOverflowError, bson_int_width
+from secantus.ordering import bson_equal as _bson_equal
 from secantus.paths import get_path
 
 
@@ -61,6 +68,12 @@ def evaluate(expr: Any, doc: Mapping[str, Any], vars: dict[str, Any] | None = No
     return _eval(expr, _Ctx(doc=doc, vars=dict(vars) if vars else {}))
 
 
+#: An evaluator for a sub-expression whose value is RETURNED unchanged. The
+#: four operators below take one so the caller can choose the position: `_eval`
+#: (an absent path is null) or `_eval_field_value` (it stays MISSING).
+_Eval = Any
+
+
 def _eval(expr: Any, ctx: _Ctx) -> Any:
     if isinstance(expr, str):
         if expr.startswith("$$"):
@@ -79,15 +92,64 @@ def _eval(expr: Any, ctx: _Ctx) -> Any:
             (key,) = expr.keys()
             if key.startswith("$"):
                 return _apply_op(key, expr[key], ctx)
-        return {k: _eval(v, ctx) for k, v in expr.items()}
+        # A document *literal*. Each member sits in field-value position, so a
+        # member whose value is an absent field path is dropped rather than
+        # written as null — mongod answers `{z: {}}` for
+        # `{$project: {z: {w: "$nope"}}}`, not `{z: {w: null}}`.
+        out: dict[str, Any] = {}
+        for k, v in expr.items():
+            value = _eval_field_value(v, ctx)
+            if value is not MISSING:
+                out[k] = value
+        return out
     return expr
 
 
-_REMOVE_SENTINEL: Any = object()
+def _eval_field_value(expr: Any, ctx: _Ctx) -> Any:
+    """Evaluate in *field-value* position, where an absent path is MISSING.
+
+    Differs from :func:`_eval` only for a bare field-path string: as an
+    operator argument a missing path is `null` (and arithmetic over null is
+    null -- `{$add: ["$nope", 1]}` is `null`, probed 6.0.16),
+    but as the value of a projected/added field it is *missing* and the key is
+    omitted. Keeping the two distinct is why this isn't folded into `_eval`.
+    """
+    if isinstance(expr, str) and expr.startswith("$") and not expr.startswith("$$"):
+        d = ctx.doc if isinstance(ctx.doc, dict) else dict(ctx.doc)
+        return get_path(d, expr[1:], default=MISSING)
+    # ``$$REMOVE`` IS the missing value -- probed 9-for-9 against mongod 8.2.11,
+    # in every position, against the equivalent absent field path. So it follows
+    # the same two-position rule as one: MISSING here, ``null`` in ``_eval``.
+    # It used to return MISSING from ``_resolve_var`` in BOTH positions, which
+    # leaked the marker object into results: ``{arr: [1, "$$REMOVE", 2]}``
+    # reached ``bson.encode`` and CRASHED the command, ``$type`` answered
+    # "object" instead of "missing", and ``$concat`` raised 16702.
+    if expr == "$$REMOVE":
+        return MISSING
+    # The operators that RETURN one of their sub-expressions propagate its
+    # missing-ness; the ones that COMPUTE a value collapse it to null.
+    # `{$addFields: {z: {$cond: [true, "$nosuch", 1]}}}` omits `z` on mongod --
+    # probed 8.2.11, where we wrote a null. `$getField` already had its own
+    # handling. The position is lost once evaluation drops into the generic
+    # operator path, which is why this dispatches here rather than inside `_eval`.
+    if isinstance(expr, Mapping) and len(expr) == 1:
+        op, arg = next(iter(expr.items()))
+        propagating = _MISSING_PROPAGATING.get(op)
+        if propagating is not None:
+            # This dispatch bypasses `_apply_op`, so it bypassed its
+            # required-field validation with it: `{$cond: {}}` reached
+            # `_op_cond`, found no `if`, and answered a VALUE for an expression
+            # mongod rejects.
+            check_required_fields(op, arg)
+            return propagating(arg, ctx, _eval_field_value)
+    return _eval(expr, ctx)
+
 
 #: Sentinel for "the expression resolved to a missing field" (distinct from an
-#: explicit ``null``). Reuses the ``$$REMOVE`` marker.
-MISSING: Any = _REMOVE_SENTINEL
+#: explicit ``null``). ``$$REMOVE`` resolves to this in field-value position --
+#: it IS the missing value, not a marker of its own (probed 9-for-9 against
+#: mongod 8.2.11 versus the equivalent absent field path).
+MISSING: Any = object()
 
 
 def evaluate_or_missing(
@@ -97,10 +159,11 @@ def evaluate_or_missing(
     :data:`MISSING` (distinct from ``None``) so accumulators can skip a missing
     value the way mongod does — ``$push`` / ``$addToSet`` accumulate an explicit
     ``null`` but not a missing field."""
-    if isinstance(expr, str) and expr.startswith("$") and not expr.startswith("$$"):
-        d = doc if isinstance(doc, dict) else dict(doc)
-        return get_path(d, expr[1:], default=MISSING)
-    return evaluate(expr, doc, vars)
+    # ONE implementation of the field-value rule. This used to be a second copy
+    # of `_eval_field_value`'s logic, and the copies drifted: the `$$REMOVE`
+    # fix had to be made twice, and the missing-propagating operators below
+    # would have had to be as well.
+    return _eval_field_value(expr, _Ctx(doc=doc, vars=dict(vars) if vars else {}))
 
 
 def _resolve_var(name: str, ctx: _Ctx) -> Any:
@@ -115,18 +178,23 @@ def _resolve_var(name: str, ctx: _Ctx) -> Any:
     elif base in ("ROOT", "CURRENT"):
         value = ctx.doc
     elif base == "REMOVE":
-        # MongoDB 5.0+ ``$$REMOVE`` is a sentinel that, when used as a
-        # ``$setField`` / ``$addFields`` / ``$project`` value, deletes
-        # the field instead of writing it. ``_op_set_field`` checks for
-        # this identity to drop the key.
-        return _REMOVE_SENTINEL
-    elif base in ("KEEP", "PRUNE", "DESCEND"):
-        # ``$redact`` sentinels. The expression evaluator returns the
-        # ``"$$NAME"`` string literal so the stage handler can dispatch
-        # on equality. Real mongod's ``$redact`` docs show these as the
-        # only legal return values from the stage's expression.
-        value = f"$${base}"
+        # Value position: an absent field path is ``null`` here, and
+        # ``$$REMOVE`` is exactly an absent field path. ``_eval_field_value``
+        # above returns MISSING for the field-value position, which is what
+        # makes ``$project`` / ``$addFields`` omit the key.
+        return None
     else:
+        # ``$$KEEP`` / ``$$PRUNE`` / ``$$DESCEND`` deliberately fall through to
+        # here. They are NOT globally-defined variables: mongod binds them only
+        # while evaluating a ``$redact`` expression and answers
+        # ``Use of undefined variable: KEEP`` (17276) anywhere else -- probed on
+        # 8.2.11. This used to return the string ``"$$KEEP"`` for any of them,
+        # which leaked an internal marker into user output
+        # (``$project: {x: "$$KEEP"}`` returned it as data) and, worse, made a
+        # stored string equal to ``"$$KEEP"`` indistinguishable from the
+        # sentinel -- so ``$redact: "$field"`` over attacker-controlled content
+        # kept a document mongod refuses to keep. ``aggregate._stage_redact``
+        # now binds them in ``vars`` for the duration of its own evaluation.
         raise ExpressionError(
             f"Use of undefined variable: {base}", code=17276, code_name="Location17276"
         )
@@ -137,12 +205,502 @@ def _resolve_var(name: str, ctx: _Ctx) -> Any:
     return get_path(value if isinstance(value, dict) else dict(value), rest, default=None)
 
 
+#: Operators mongod rejects with 16020 when the argument count is wrong, and
+#: the count it wants. DERIVED by asking mongod 8.2.11 each operator with 0-4
+#: arguments and reading the arity out of its own message, not from docs.
+#:
+#: The count is `len(arg)` for a list and 1 for anything else -- a bare
+#: `{$abs: 5}` is one argument, and so is a nested expression document.
+#: `$cond`'s OBJECT form (`{if, then, else}`) is exempt: it is a document, so
+#: it would count as 1 against an arity of 3.
+_FIXED_ARITY: dict[str, int] = {
+    # arity 1
+    "$abs": 1,
+    "$acos": 1,
+    "$acosh": 1,
+    "$allElementsTrue": 1,
+    "$anyElementTrue": 1,
+    "$arrayToObject": 1,
+    "$asin": 1,
+    "$asinh": 1,
+    "$atan": 1,
+    "$atanh": 1,
+    "$binarySize": 1,
+    "$bitNot": 1,
+    "$bsonSize": 1,
+    "$ceil": 1,
+    "$cos": 1,
+    "$cosh": 1,
+    "$degreesToRadians": 1,
+    "$exp": 1,
+    "$first": 1,
+    "$floor": 1,
+    "$isArray": 1,
+    "$isNumber": 1,
+    "$last": 1,
+    "$ln": 1,
+    "$log10": 1,
+    "$not": 1,
+    "$objectToArray": 1,
+    "$radiansToDegrees": 1,
+    "$reverseArray": 1,
+    "$sin": 1,
+    "$sinh": 1,
+    "$size": 1,
+    "$sqrt": 1,
+    "$strLenBytes": 1,
+    "$strLenCP": 1,
+    "$tan": 1,
+    "$tanh": 1,
+    "$toLower": 1,
+    "$toUpper": 1,
+    "$tsIncrement": 1,
+    "$tsSecond": 1,
+    "$type": 1,
+    # arity 2
+    "$arrayElemAt": 2,
+    "$atan2": 2,
+    "$cmp": 2,
+    "$divide": 2,
+    "$eq": 2,
+    "$gt": 2,
+    "$gte": 2,
+    "$in": 2,
+    "$log": 2,
+    "$lt": 2,
+    "$lte": 2,
+    "$mod": 2,
+    "$ne": 2,
+    "$pow": 2,
+    "$setDifference": 2,
+    "$setIsSubset": 2,
+    "$split": 2,
+    "$strcasecmp": 2,
+    "$subtract": 2,
+    # arity 3
+    "$cond": 3,
+    "$substr": 3,
+    "$substrBytes": 3,
+    "$substrCP": 3,
+}
+
+
+#: Operators mongod reports under a different name, because they are aliases.
+_ARITY_ALIASES = {"$substr": "$substrBytes"}
+
+
+#: Operators whose argument must be a DOCUMENT, with mongod's code and wording.
+#: Taken from mongod 8.2.11 one operator at a time -- the five phrasings are its
+#: own and are not interchangeable ("found: {t}" vs "found {t}" vs no type at
+#: all), which is why this is a table rather than one message with the operator
+#: name substituted in.
+#:
+#: Like the arity check, this is a PARSE error: an empty collection reports it.
+_OBJECT_ARG: dict[str, tuple[int, str]] = {
+    "$convert": (9, "$convert expects an object of named arguments but found: {t}"),
+    "$dateAdd": (5166400, "$dateAdd expects an object as its argument"),
+    "$dateDiff": (5166301, "$dateDiff only supports an object as its argument"),
+    "$dateFromParts": (40519, "$dateFromParts only supports an object as its argument"),
+    "$dateFromString": (
+        40540,
+        "$dateFromString only supports an object as an argument, found: {t}",
+    ),
+    "$dateSubtract": (5166400, "$dateSubtract expects an object as its argument"),
+    "$dateToParts": (40524, "$dateToParts only supports an object as its argument"),
+    "$dateToString": (18629, "$dateToString only supports an object as its argument"),
+    "$dateTrunc": (5439007, "$dateTrunc only supports an object as its argument"),
+    "$filter": (28646, "$filter only supports an object as its argument"),
+    "$let": (16874, "$let only supports an object as its argument"),
+    "$ltrim": (50696, "$ltrim only supports an object as an argument, found {t}"),
+    "$map": (16878, "$map only supports an object as its argument"),
+    "$reduce": (40075, "$reduce requires an object as an argument, found: {t}"),
+    "$regexFind": (51103, "$regexFind expects an object of named arguments but found: {t}"),
+    "$regexFindAll": (51103, "$regexFindAll expects an object of named arguments but found: {t}"),
+    "$regexMatch": (51103, "$regexMatch expects an object of named arguments but found: {t}"),
+    "$replaceAll": (51751, "$replaceAll requires an object as an argument, found: {t}"),
+    "$replaceOne": (51751, "$replaceOne requires an object as an argument, found: {t}"),
+    "$rtrim": (50696, "$rtrim only supports an object as an argument, found {t}"),
+    "$setField": (4161100, "$setField only supports an object as its argument"),
+    "$sortArray": (2942500, "$sortArray requires an object as an argument, found: {t}"),
+    "$switch": (40060, "$switch requires an object as an argument, found: {t}"),
+    "$trim": (50696, "$trim only supports an object as an argument, found {t}"),
+    "$zip": (34460, "$zip only supports an object as an argument, found {t}"),
+}
+
+
+#: Operators taking a RANGE of argument counts, with mongod's own 28667.
+_RANGED_ARITY: dict[str, tuple[int, int]] = {"$trunc": (1, 2), "$round": (1, 2)}
+
+
+def _ranged_arity_problem(op: str, arg: Any) -> tuple[int, str] | None:
+    bounds = _RANGED_ARITY.get(op)
+    if bounds is None:
+        return None
+    lo, hi = bounds
+    got = len(arg) if isinstance(arg, list) else 1
+    if lo <= got <= hi:
+        return None
+    # `{$trunc: []}` reached `arg[0]` and raised IndexError -> internal error.
+    return (
+        28667,
+        f"Expression {op} takes at least {lo} arguments, and at most {hi}, "
+        f"but {got} were passed in.",
+    )
+
+
+#: The keys a document-argument operator accepts, with mongod's code and wording
+#: for an unrecognised one. Only the operators whose key set has been probed are
+#: here -- an operator absent from this table is not checked, which is the
+#: conservative direction.
+_OBJECT_KEYS: dict[str, tuple[int, str, tuple[str, ...]]] = {
+    "$cond": (17083, "Unrecognized parameter to $cond: {k}", ("if", "then", "else")),
+    "$dateToString": (
+        18534,
+        "Unrecognized argument to $dateToString: {k}",
+        ("date", "format", "timezone", "onNull"),
+    ),
+}
+
+
+#: Operators that introduce their own variables, and so cannot be folded: the
+#: bound value comes from the input. `$map` over a literal array still does not
+#: fold on mongod -- probed.
+_BINDING_OPS = frozenset({"$map", "$filter", "$reduce"})
+
+#: Non-deterministic, so never folded.
+_NON_DETERMINISTIC = frozenset({"$rand"})
+
+#: `$getField` reads `$$CURRENT`, so mongod never folds it -- not even with a
+#: wholly literal `input`: `{$getField: {field: 0, input: {a: 1}}}` is an
+#: EXECUTOR error on 8.2.11 (probed 2026-09-02), where treating it as constant
+#: reported the optimizer's prefix.
+_NEVER_FOLDED = frozenset({"$getField"})
+
+#: Variables that are constant for the whole pipeline. `$$ROOT` / `$$CURRENT`
+#: are the document, so they are not.
+_CONSTANT_VARS = frozenset({"NOW", "CLUSTER_TIME"})
+
+
+def is_constant_expression(expr: Any, bound: frozenset[str]) -> bool:
+    """Whether mongod can fold ``expr`` at optimization time.
+
+    Decides which of two prefixes an error carries: a folded expression fails
+    under ``Failed to optimize pipeline :: caused by ::``, and a
+    document-dependent one under ``Executor error during aggregate command on
+    namespace: … :: caused by ::``. Probed on mongod 8.2.11: a field path,
+    ``$$ROOT`` / ``$$CURRENT``, a variable bound from the input and ``$rand``
+    are all execution-time; literals, ``$$NOW`` and the command's own ``let``
+    values fold.
+
+    CONSERVATIVE: anything unrecognised is treated as non-constant, which keeps
+    the executor prefix -- the behaviour before this existed.
+    """
+    if isinstance(expr, str):
+        if expr.startswith("$$"):
+            base = expr[2:].split(".", 1)[0]
+            return base in _CONSTANT_VARS or base in bound
+        return not expr.startswith("$")  # a bare `$path` reads the document
+    if isinstance(expr, list):
+        return all(is_constant_expression(e, bound) for e in expr)
+    if not isinstance(expr, Mapping):
+        return True
+    for op, arg in expr.items():
+        if op == "$literal":
+            continue
+        if op in _NON_DETERMINISTIC or op in _BINDING_OPS or op in _NEVER_FOLDED:
+            return False
+        if op == "$let":
+            if not isinstance(arg, Mapping):
+                return False
+            names = arg.get("vars")
+            if not isinstance(names, Mapping):
+                return False
+            if not all(is_constant_expression(v, bound) for v in names.values()):
+                return False
+            if not is_constant_expression(arg.get("in"), bound | set(names)):
+                return False
+            continue
+        if not is_constant_expression(arg, bound):
+            return False
+    return True
+
+
+def _object_keys_problem(op: str, arg: Any) -> tuple[int, str] | None:
+    """An unrecognised key in a document-argument operator.
+
+    A PARSE error to mongod, which is why it lives in the walker rather than at
+    the raise site: reported from the operator itself it took the executor
+    wrapper, where mongod uses `Invalid $<stage> :: caused by ::`. It also used
+    to be a bare `KeyError` escaping as `internal server error`.
+    """
+    entry = _OBJECT_KEYS.get(op)
+    if entry is None or not isinstance(arg, Mapping):
+        return None
+    code, template, allowed = entry
+    for key in arg:
+        if key not in allowed:
+            return (code, template.format(k=key))
+    return None
+
+
+def _object_arg_problem(op: str, arg: Any) -> tuple[int, str] | None:
+    """mongod's error when a document-argument operator gets something else."""
+    entry = _OBJECT_ARG.get(op)
+    if entry is None or isinstance(arg, Mapping):
+        return None
+    code, template = entry
+    return (code, template.format(t=_bson_type_name(arg)))
+
+
+#: The conversion shorthands. Single-argument like the ``_FIXED_ARITY`` family
+#: -- and they accept the ``{$toInt: [expr]}`` list form the same way -- but
+#: mongod gives them their OWN wrong-arity error (``50723 $toInt requires a
+#: single argument, got 2``) rather than the 16020 wording, so they cannot just
+#: join that table. Probed 8.2.11, 2026-09-01; before this they were absent
+#: from both, so ``{$toInt: ["$s"]}`` -- the form every ``$`` field reference
+#: naturally takes -- tried to convert the ARRAY and answered a type error.
+_CONVERSION_SHORTHANDS = frozenset(
+    {
+        "$toBool",
+        "$toDate",
+        "$toDecimal",
+        "$toDouble",
+        "$toInt",
+        "$toLong",
+        "$toObjectId",
+        "$toString",
+    }
+)
+
+
+def _arity_problem(op: str, arg: Any) -> tuple[int, str] | None:
+    """mongod's 16020 when a fixed-arity operator gets the wrong count."""
+    if op in _CONVERSION_SHORTHANDS:
+        if isinstance(arg, list) and len(arg) != 1:
+            return (50723, f"{op} requires a single argument, got {len(arg)}")
+        return None
+    want = _FIXED_ARITY.get(op)
+    if want is None:
+        return None
+    # `$cond`'s object form is the one document argument that is not "one
+    # argument" -- it carries all three.
+    if op == "$cond" and isinstance(arg, Mapping):
+        return None
+    got = len(arg) if isinstance(arg, list) else 1
+    if got == want:
+        return None
+    # `$substr` is an ALIAS: mongod names the canonical operator in the message.
+    name = _ARITY_ALIASES.get(op, op)
+    # "1 arguments" is mongod's own plural, and it is reproduced.
+    return (
+        16020,
+        f"Expression {name} takes exactly {want} arguments. {got} were passed in.",
+    )
+
+
+# mongod's missing-required-argument errors for the document-form operators.
+#
+# Measured against mongod 8.2.11 on 2026-09-07 by starting from a VALID argument
+# document and dropping one field at a time (57 cases). Every code and wording is
+# a measurement -- they are not derivable from a pattern, which is why this is a
+# table: ``$filter`` says "Missing 'input' parameter to $filter" (28648) where
+# ``$reduce`` says "$reduce requires 'input' to be specified" (40077).
+#
+# MISSING is not NULL, and the distinction is the whole point:
+# ``{$trim: {input: None}}`` is LEGAL and yields null, and
+# ``{$regexMatch: {input: None, regex: "a"}}`` is legal and yields false. Only an
+# ABSENT key is an error, so this checks key presence and never the value.
+# Reading a missing field as null is what made 31 of those 57 cases answer a
+# wrong VALUE instead of erroring.
+_REQUIRED_FIELDS: dict[str, tuple[tuple[str, int, str], ...]] = {
+    "$trim": (("input", 50695, "$trim requires an 'input' field"),),
+    "$ltrim": (("input", 50695, "$ltrim requires an 'input' field"),),
+    "$rtrim": (("input", 50695, "$rtrim requires an 'input' field"),),
+    "$regexFind": (
+        ("input", 31022, "$regexFind requires 'input' parameter"),
+        ("regex", 31023, "$regexFind requires 'regex' parameter"),
+    ),
+    "$regexFindAll": (
+        ("input", 31022, "$regexFindAll requires 'input' parameter"),
+        ("regex", 31023, "$regexFindAll requires 'regex' parameter"),
+    ),
+    "$regexMatch": (
+        ("input", 31022, "$regexMatch requires 'input' parameter"),
+        ("regex", 31023, "$regexMatch requires 'regex' parameter"),
+    ),
+    "$reduce": (
+        ("input", 40077, "$reduce requires 'input' to be specified"),
+        ("initialValue", 40078, "$reduce requires 'initialValue' to be specified"),
+        ("in", 40079, "$reduce requires 'in' to be specified"),
+    ),
+    "$filter": (
+        ("input", 28648, "Missing 'input' parameter to $filter"),
+        ("cond", 28650, "Missing 'cond' parameter to $filter"),
+    ),
+    "$map": (
+        ("input", 16880, "Missing 'input' parameter to $map"),
+        ("in", 16882, "Missing 'in' parameter to $map"),
+    ),
+    "$replaceAll": (
+        ("input", 51749, "$replaceAll requires 'input' to be specified"),
+        ("find", 51748, "$replaceAll requires 'find' to be specified"),
+        ("replacement", 51747, "$replaceAll requires 'replacement' to be specified"),
+    ),
+    "$replaceOne": (
+        ("input", 51749, "$replaceOne requires 'input' to be specified"),
+        ("find", 51748, "$replaceOne requires 'find' to be specified"),
+        ("replacement", 51747, "$replaceOne requires 'replacement' to be specified"),
+    ),
+    "$setField": (
+        ("field", 4161102, "$setField requires 'field' to be specified"),
+        ("input", 4161109, "$setField requires 'input' to be specified"),
+        ("value", 4161103, "$setField requires 'value' to be specified"),
+    ),
+    "$sortArray": (
+        ("input", 2942502, "$sortArray requires 'input' to be specified"),
+        ("sortBy", 2942503, "$sortArray requires 'sortBy' to be specified"),
+    ),
+    "$dateToString": (("date", 18628, "Missing 'date' parameter to $dateToString"),),
+    "$cond": (
+        ("if", 17080, "Missing 'if' parameter to $cond"),
+        ("then", 17081, "Missing 'then' parameter to $cond"),
+        ("else", 17082, "Missing 'else' parameter to $cond"),
+    ),
+    "$let": (
+        ("vars", 16876, "Missing 'vars' parameter to $let"),
+        ("in", 16877, "Missing 'in' parameter to $let"),
+    ),
+    # These four answered a NULL where mongod raises -- ``{$dateTrunc: {}}`` was
+    # ``None``, not an error, which is the wrong-value class rather than the
+    # wrong-message one. The codes share no pattern: 40542 / 40522 / 5439009 /
+    # 5166303, and ``$dateTrunc`` numbers its two fields 5439009 then 5439010
+    # while ``$dateDiff`` runs 5166303 / 5166304 / 5166305. Measured 8.2.11,
+    # 2026-09-08.
+    "$dateFromString": (
+        ("dateString", 40542, "Missing 'dateString' parameter to $dateFromString"),
+    ),
+    "$dateToParts": (("date", 40522, "Missing 'date' parameter to $dateToParts"),),
+    "$dateTrunc": (
+        ("date", 5439009, "Missing 'date' parameter to $dateTrunc"),
+        ("unit", 5439010, "Missing 'unit' parameter to $dateTrunc"),
+    ),
+    "$dateDiff": (
+        ("startDate", 5166303, "Missing 'startDate' parameter to $dateDiff"),
+        ("endDate", 5166304, "Missing 'endDate' parameter to $dateDiff"),
+        ("unit", 5166305, "Missing 'unit' parameter to $dateDiff"),
+    ),
+    # ``field`` is checked BEFORE ``input``, the reverse of the order the
+    # operator reads them in: ``{$getField: {}}`` is 3041702, not 3041703.
+    "$getField": (
+        ("field", 3041702, "$getField requires 'field' to be specified"),
+        ("input", 3041703, "$getField requires 'input' to be specified"),
+    ),
+}
+
+# Required field must also be a NON-EMPTY array; mongod gives the same code for
+# "absent" and "present but empty".
+_REQUIRED_NON_EMPTY: dict[str, tuple[str, int, str]] = {
+    "$switch": ("branches", 40068, "$switch requires at least one branch"),
+    "$zip": ("inputs", 34465, "$zip requires at least one input array"),
+}
+
+# ``$dateAdd`` / ``$dateSubtract`` name all three fields in ONE message whichever
+# is missing, so they cannot use the per-field table.
+_DATE_ARITH_FIELDS = ("startDate", "unit", "amount")
+
+# The keys each operator ACCEPTS. Used only as a GATE, never to raise: mongod
+# reports an UNKNOWN argument in preference to a missing required one --
+# ``{$trim: {k: 1}}`` is 50694, and so is ``{$trim: {input: "a", k: 1}}``. The
+# operator implementations already emit those, so the required-field check stands
+# aside whenever a key is unrecognised.
+_ALLOWED_FIELDS: dict[str, frozenset[str]] = {
+    "$trim": frozenset({"input", "chars"}),
+    "$ltrim": frozenset({"input", "chars"}),
+    "$rtrim": frozenset({"input", "chars"}),
+    "$regexFind": frozenset({"input", "regex", "options"}),
+    "$regexFindAll": frozenset({"input", "regex", "options"}),
+    "$regexMatch": frozenset({"input", "regex", "options"}),
+    "$reduce": frozenset({"input", "initialValue", "in"}),
+    "$filter": frozenset({"input", "cond", "as", "limit"}),
+    "$map": frozenset({"input", "as", "in"}),
+    "$dateFromString": frozenset({"dateString", "format", "timezone", "onError", "onNull"}),
+    "$dateToParts": frozenset({"date", "timezone", "iso8601"}),
+    "$dateTrunc": frozenset({"date", "unit", "binSize", "timezone", "startOfWeek"}),
+    "$dateDiff": frozenset({"startDate", "endDate", "unit", "timezone", "startOfWeek"}),
+    "$getField": frozenset({"field", "input"}),
+    "$replaceAll": frozenset({"input", "find", "replacement"}),
+    "$replaceOne": frozenset({"input", "find", "replacement"}),
+    "$setField": frozenset({"field", "input", "value"}),
+    "$sortArray": frozenset({"input", "sortBy"}),
+    "$dateToString": frozenset({"date", "format", "timezone", "onNull"}),
+    "$cond": frozenset({"if", "then", "else"}),
+    "$let": frozenset({"vars", "in"}),
+    "$switch": frozenset({"branches", "default"}),
+    "$zip": frozenset({"inputs", "useLongestLength", "defaults"}),
+    "$dateAdd": frozenset({"startDate", "unit", "amount", "timezone"}),
+    "$dateSubtract": frozenset({"startDate", "unit", "amount", "timezone"}),
+}
+
+
+def check_required_fields(op: str, arg: Any) -> None:
+    """Raise mongod's error when ``arg`` omits a field ``op`` requires.
+
+    A no-op for every operator not in the tables, and for a non-document
+    argument (the array / scalar forms are a different parse).
+    """
+    if not isinstance(arg, Mapping):
+        return
+    allowed = _ALLOWED_FIELDS.get(op)
+    if allowed is not None and not all(k in allowed for k in arg):
+        return  # an unrecognised key outranks a missing one; its own check owns it
+    for name, code, message in _REQUIRED_FIELDS.get(op, ()):
+        if name not in arg:
+            raise ExpressionError(message, code=code, code_name=f"Location{code}")
+    non_empty = _REQUIRED_NON_EMPTY.get(op)
+    if non_empty is not None:
+        name, code, message = non_empty
+        value = arg.get(name)
+        if name not in arg or (isinstance(value, list) and not value):
+            raise ExpressionError(message, code=code, code_name=f"Location{code}")
+    if op in ("$dateAdd", "$dateSubtract") and any(f not in arg for f in _DATE_ARITH_FIELDS):
+        raise ExpressionError(
+            f"{op} requires startDate, unit, and amount to be present",
+            code=5166402,
+            code_name="Location5166402",
+        )
+
+
 def _apply_op(op: str, arg: Any, ctx: _Ctx) -> Any:
     if op == "$literal":
         return arg
+    # mongod's expression parser treats `{$op: [x]}` as ONE argument for the
+    # single-argument operators, unwrapping the list. We passed the list
+    # through, which produced silent WRONG VALUES rather than errors:
+    # `{$size: [[1, 2]]}` counted the outer array (1, not 2), `{$toUpper: ["a"]}`
+    # returned `["a"]`, and `{$first: ["$arr"]}` returned the whole array.
+    if (
+        isinstance(arg, list)
+        and len(arg) == 1
+        and (_FIXED_ARITY.get(op) == 1 or op in _CONVERSION_SHORTHANDS)
+    ):
+        arg = arg[0]
+    elif isinstance(arg, list) and op in _CONVERSION_SHORTHANDS and len(arg) != 1:
+        # Belt and braces: `_arity_problem` already reports this at PARSE time
+        # for anything going through the pipeline, and answers the same code and
+        # message. This catches a direct `evaluate()` call, which skips that
+        # scan -- without it the bad arity would fall through and be reported as
+        # a conversion of the ARRAY.
+        raise ExpressionError(
+            f"{op} requires a single argument, got {len(arg)}",
+            code=50723,
+            code_name="Location50723",
+        )
     handler = _OPS.get(op)
     if handler is None:
         raise UnknownExpressionOperatorError(op)
+    # mongod validates an argument document's required fields BEFORE evaluating
+    # anything, so a missing field is an error even when the rest would not run.
+    check_required_fields(op, arg)
     return handler(arg, ctx)
 
 
@@ -153,10 +711,22 @@ def _eval_args(arg: Any, ctx: _Ctx) -> list[Any]:
 
 
 def _bool(value: Any) -> bool:
-    if value is None:
+    """mongod's truthiness: only null, missing, `false` and zero are false.
+
+    Every other value is true -- including the EMPTY STRING, an empty array and
+    an empty document, none of which follow Python's own truthiness. `$or: ""`
+    is true on mongod and was false here, and the same rule governs `$and`,
+    `$cond`, `$switch` cases and `$filter`. `Decimal128` is a number and has to
+    be tested as one rather than falling through to the catch-all.
+    """
+    if value is None or value is MISSING:
         return False
-    if isinstance(value, (bool, int, float)):
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
         return bool(value)
+    if isinstance(value, Decimal128):
+        return bool(value.to_decimal())
     return True
 
 
@@ -179,30 +749,14 @@ def _op_concat(arg: Any, ctx: _Ctx) -> Any:
 
 
 def _bson_type_name(v: Any) -> str:
-    """mongod's type vocabulary for arithmetic error messages."""
-    if isinstance(v, bool):
-        return "bool"
-    if isinstance(v, Int64):
-        return "long"
-    if isinstance(v, int):
-        return "int" if -(2**31) <= v < 2**31 else "long"
-    if isinstance(v, float):
-        return "double"
-    if isinstance(v, Decimal128):
-        return "decimal"
-    if isinstance(v, str):
-        return "string"
-    if isinstance(v, _dt.datetime):
-        return "date"
-    if isinstance(v, Mapping):
-        return "object"
-    if isinstance(v, list):
-        return "array"
-    if isinstance(v, bson.ObjectId):
-        return "objectId"
-    if v is None:
-        return "null"
-    return type(v).__name__
+    """mongod's type vocabulary for arithmetic error messages.
+
+    Delegates to `secantus.bsontypes` — see there for why three copies of this
+    existed and what each one got wrong.
+    """
+    from secantus.bsontypes import bson_type_name
+
+    return bson_type_name(v)
 
 
 def _is_numeric(v: Any) -> bool:
@@ -212,14 +766,54 @@ def _is_numeric(v: Any) -> bool:
 
 
 def _fmt_double(v: float) -> str:
-    """Render a double the way mongod prints it in an error message: a
-    shortest round-trip form (Python's `repr` matches for the values that
-    reach these paths — small fractionals like `2.7`)."""
-    return repr(v)
+    """Render a double the way mongod prints it in an error message.
+
+    mongod streams a double into a message with C++'s `ostream <<` at its
+    default precision -- six significant digits -- so this is `printf("%g")`,
+    not a round-trip form. The two agree on the small fractionals most of these
+    messages carry (`2.7`), which is why `repr` stood here for so long, and
+    diverge as soon as a value needs more digits: 1099511627776.0 prints as
+    `1.09951e+12` and 0.0 as `0`. Probed 8.2.11 via `$acos`'s Location50989.
+    `$toString` uses the round-trip form instead -- see `convert_to_string`.
+    """
+    return f"{v:g}"
 
 
 class _FractionalIndex(Exception):
     """Signal: a double index arg has a fractional part (mongod rejects it)."""
+
+
+def _range_repr(v: Any) -> str:
+    """How mongod renders the operand in `$range`'s "32-bit integer" complaint.
+
+    NOT the trig rule: `$range` keeps an integer's digits (`1099511627776`)
+    where `$acos` converts to double first and prints `1.09951e+12`. A decimal
+    keeps its own representation in both. Probed 8.2.11 (2026-09-03).
+    """
+    if isinstance(v, bool):
+        return _bson_type_name(v)
+    if isinstance(v, (int, Decimal128)):
+        return str(v)
+    return _fmt_double(v)
+
+
+def _range_int32(v: Any) -> Any:
+    """`_int_index`, but bounded to 32 bits as `$range` requires.
+
+    A long that fits in 64 bits still fails here: `{$range: [2**40, 1]}` is
+    mongod's 34444, where accepting it built a range of a trillion elements.
+    A Decimal128 never represents as a 32-bit int for this purpose.
+    """
+    if isinstance(v, Decimal128):
+        raise _FractionalIndex
+    coerced = _int_index(v)
+    if (
+        isinstance(coerced, int)
+        and not isinstance(coerced, bool)
+        and not (-(2**31) <= coerced <= 2**31 - 1)
+    ):
+        raise _FractionalIndex
+    return coerced
 
 
 def _int_index(v: Any) -> Any:
@@ -228,28 +822,101 @@ def _int_index(v: Any) -> Any:
     raises `_FractionalIndex` (the caller turns it into the operator's exact
     error code). Any other type is returned unchanged for the caller's own
     non-numeric handling. `bool` must be rejected by the caller first."""
+    # "Representable as a 32-bit integer" is the actual rule, so a WHOLE number
+    # outside int32 raises too -- `1e40` is 28691 on mongod, not an out-of-range
+    # index (measured 8.2.11, 2026-09-08).
+    if isinstance(v, Decimal128):
+        # mongod accepts a decimal index -- `{$arrayElemAt: [[10, 20], NumberDecimal("1")]}`
+        # is 20 -- and this returned the `Decimal128` unchanged, which the caller
+        # then read as "not an int" and answered null.
+        dec = v.to_decimal()
+        if dec != dec.to_integral_value() or not _fits_int32(dec):
+            raise _FractionalIndex
+        return int(dec)
     if isinstance(v, float):
-        if v.is_integer():
-            return int(v)
-        raise _FractionalIndex
+        if not v.is_integer() or not _fits_int32(v):
+            raise _FractionalIndex
+        return int(v)
     return v
+
+
+def _fits_int32(v: Any) -> bool:
+    try:
+        return -(2**31) <= int(v) <= 2**31 - 1
+    except (ValueError, OverflowError):
+        return False
+
+
+def _int_result(value: Any, *operands: Any) -> Any:
+    """mongod's width rule for an integer arithmetic result.
+
+    Three parts, all probed on 8.2.11: `long` is contagious, so a long operand
+    makes the answer a long even when it would fit in 32 bits (`Int64(1) + 1`
+    is a long); an int result that outgrows 32 bits widens to long
+    (`$abs` of -2147483648 is a long); and one that outgrows *64* bits
+    saturates to a double rather than failing (`$pow: [2, 64]` is a double,
+    and `$pow: [10, 400]` is `inf`).
+
+    Python's ints are unbounded and `Int64.__add__` hands back a plain `int`,
+    so without this every long silently narrowed to an int, and every 64-bit
+    overflow reached `bson.encode` as an out-of-range int -- which raised
+    `OverflowError` from inside the cursor-splitting code and surfaced to the
+    client as an internal error instead of a double.
+    """
+    if not isinstance(value, int) or isinstance(value, bool):
+        return value
+    try:
+        return bson_int_width(value, wide=any(isinstance(v, Int64) for v in operands))
+    except IntegerOverflowError:
+        try:
+            return float(value)
+        except OverflowError:
+            return math.inf if value > 0 else -math.inf
+
+
+#: decimal128 arithmetic: 34 digits, and `Inf + -Inf` yields NaN rather than
+#: raising. Python's DEFAULT context is 28 digits and traps `InvalidOperation`,
+#: so a fold that used it silently lost six of decimal128's digits AND turned
+#: `{$add: [Decimal128("-Infinity"), Decimal128("Infinity")]}` into an
+#: `internal server error` reachable from any client (probed 8.2.11,
+#: 2026-09-03; mongod answers NaN).
+_DEC128_ARITH_CTX = _decimal.Context(prec=34, traps=[])
+
+
+def _decimal_arith_operand(v: Any) -> Decimal:
+    """One arithmetic operand as a `Decimal`.
+
+    A double is taken at 15 SIGNIFICANT digits, which is mongod's
+    double→decimal conversion for arithmetic: `{$add: [Decimal128("2.5"), 2.0]}`
+    is `4.50000000000000`, the double's precision entering the quantum.
+    `Decimal(2.0)` gives a bare `2` and answered `4.5`.
+    """
+    if isinstance(v, Decimal128):
+        return v.to_decimal()
+    if isinstance(v, float):
+        if math.isnan(v):
+            return Decimal("NaN")
+        if math.isinf(v):
+            return Decimal("Infinity" if v > 0 else "-Infinity")
+        return Decimal(f"{v:.14e}")
+    return Decimal(v)
 
 
 def _fold_numeric(values: list[Any], *, mul: bool) -> Any:
     """Sum or product over validated numeric operands. Mixing in a
     Decimal128 promotes the whole fold to decimal, like mongod's
-    type-widening; ``Decimal(float)`` keeps the exact binary expansion
-    mongod's double→decimal conversion produces."""
+    type-widening."""
     if any(isinstance(v, Decimal128) for v in values):
-        acc = Decimal(1 if mul else 0)
-        for v in values:
-            d = v.to_decimal() if isinstance(v, Decimal128) else Decimal(v)
-            acc = acc * d if mul else acc + d
-        return Decimal128(acc)
+        with _decimal.localcontext(_DEC128_ARITH_CTX):
+            acc = Decimal(1 if mul else 0)
+            for v in values:
+                d = _decimal_arith_operand(v)
+                acc = acc * d if mul else acc + d
+            return Decimal128(acc)
     acc2: Any = 1 if mul else 0
     for v in values:
         acc2 = acc2 * v if mul else acc2 + v
-    return acc2
+    return _int_result(acc2, *values)
 
 
 def _op_add(arg: Any, ctx: _Ctx) -> Any:
@@ -271,8 +938,14 @@ def _op_add(arg: Any, ctx: _Ctx) -> Any:
         if isinstance(offset, Decimal128):
             offset = float(offset.to_decimal())
         return dates[0] + _dt.timedelta(milliseconds=offset)
-    if len(values) == 1:
-        return values[0]
+    # NO single-value shortcut. mongod folds into a ZERO accumulator, and
+    # `+0 + -0` is `+0` in IEEE, so `{$add: [-0.0]}` is `0.0` and
+    # `{$add: [Decimal128("-0")]}` is `0` -- returning the lone operand
+    # unchanged handed back the negative zero. `$multiply` folds from ONE and
+    # therefore KEEPS the sign (`{$multiply: [-0.0]}` is `-0.0`); the asymmetry
+    # is mongod's and was measured, not derived (8.2.11, 2026-09-03). The fold
+    # preserves the numeric width for every other single operand -- int stays
+    # int, Int64 stays Int64 -- which was checked against the same probe.
     return _fold_numeric(values, mul=False)
 
 
@@ -291,8 +964,15 @@ def _op_subtract(arg: Any, ctx: _Ctx) -> Any:
             da = a.to_decimal() if isinstance(a, Decimal128) else Decimal(a)
             db = b.to_decimal() if isinstance(b, Decimal128) else Decimal(b)
             return Decimal128(da - db)
-        return a - b
-    raise ExpressionError(f"can't $subtract {_bson_type_name(b)} from {_bson_type_name(a)}")
+        return _int_result(a - b, a, b)
+
+    # A date is capitalised on the LEFT of "from" and not on the right:
+    # `can't $subtract string from Date` but `can't $subtract date from int`.
+    # Positional, not per-type (probed 8.2.11, 2026-09-03).
+    def _lhs_name(v: Any) -> str:
+        return "Date" if isinstance(v, _dt.datetime) else _bson_type_name(v)
+
+    raise ExpressionError(f"can't $subtract {_bson_type_name(b)} from {_lhs_name(a)}")
 
 
 def _op_multiply(arg: Any, ctx: _Ctx) -> Any:
@@ -316,12 +996,17 @@ def _op_divide(arg: Any, ctx: _Ctx) -> Any:
             f"$divide only supports numeric types, not "
             f"{_bson_type_name(a)} and {_bson_type_name(b)}"
         )
-    if b == 0:
+    # `b == 0` is FALSE for `Decimal128("0")` -- the type has no `__eq__` with
+    # `int` -- so a decimal zero divisor walked straight past this guard and
+    # `decimal.DivisionByZero` escaped the evaluator as an internal server
+    # error. The zero test has to be asked of the DECIMAL.
+    if _is_zero_operand(b):
         raise ExpressionError("can't $divide by zero", code=2)
     if isinstance(a, Decimal128) or isinstance(b, Decimal128):
-        da = a.to_decimal() if isinstance(a, Decimal128) else Decimal(a)
-        db = b.to_decimal() if isinstance(b, Decimal128) else Decimal(b)
-        return Decimal128(da / db)
+        da = _to_decimal(a)
+        db = _to_decimal(b)
+        with _decimal.localcontext(_DEC128_CTX):
+            return _to_decimal128(da / db)
     return a / b
 
 
@@ -334,17 +1019,49 @@ def _op_mod(arg: Any, ctx: _Ctx) -> Any:
             f"$mod only supports numeric types, not {_bson_type_name(a)} and {_bson_type_name(b)}",
             code=16611,
         )
-    if b == 0:
+    # A DECIMAL operand changes the by-zero CODE -- 16610 for int / double, but
+    # 5733415 the moment a decimal is on either side, whatever the other one is
+    # (measured 8.2.11 across eight type pairings, 2026-09-08). And `b == 0` is
+    # FALSE for `Decimal128("0")`, so a decimal zero divisor reached the
+    # arithmetic instead of this guard.
+    if _is_zero_operand(b):
+        if _has_decimal(a, b):
+            raise ExpressionError("can't $mod by zero", code=5733415)
         raise ExpressionError("can't $mod by zero", code=16610)
-    return a % b
+    if _has_decimal(a, b):
+        # `Decimal.__mod__` truncates toward zero, which is C's `fmod` and
+        # mongod's rule -- Python's `%` on ints/floats floors instead, which is
+        # why this cannot just widen the existing expression.
+        return _decimal_result(_dec_remainder, a, b)
+    if isinstance(a, float) or isinstance(b, float):
+        # Truncating, not flooring: mongod answers -1.5 for `$mod: [-5.5, 2]`
+        # where Python's `%` answers 0.5. Probed 8.2.11.
+        return math.fmod(a, b)
+    remainder = abs(a) % abs(b)
+    return _int_result(-remainder if a < 0 else remainder, a, b)
+
+
+def _operands(arg: Any) -> list[Any]:
+    """The operand EXPRESSIONS of a logical operator, unevaluated.
+
+    A single non-array operand is a one-element list to mongod
+    (`{$and: "$s"}`); iterating the argument directly walked the string
+    CHARACTER BY CHARACTER, so `"$s"` became `'$'` and `'s'` and the first
+    parsed as an empty field path. Returning expressions rather than values
+    keeps `$and` / `$or` lazy -- mongod short-circuits at runtime, so
+    `{$and: [false, {$divide: ["$n", 0]}]}` is false and must not evaluate the
+    divide (probed 8.2.11; an all-constant version folds at optimization time
+    and DOES raise, which is why the field reference matters here).
+    """
+    return arg if isinstance(arg, list) else [arg]
 
 
 def _op_and(arg: Any, ctx: _Ctx) -> bool:
-    return all(_bool(_eval(a, ctx)) for a in arg)
+    return all(_bool(_eval(a, ctx)) for a in _operands(arg))
 
 
 def _op_or(arg: Any, ctx: _Ctx) -> bool:
-    return any(_bool(_eval(a, ctx)) for a in arg)
+    return any(_bool(_eval(a, ctx)) for a in _operands(arg))
 
 
 def _op_not(arg: Any, ctx: _Ctx) -> bool:
@@ -365,63 +1082,118 @@ def _unwrap_d128(v: Any) -> Any:
     return v.to_decimal() if isinstance(v, Decimal128) else v
 
 
+#: A missing field ranks immediately BELOW null in the comparison operators --
+#: probed on mongod 6.0.16, where `$cmp: ["$absent", null]` is -1 and
+#: `$cmp: ["$absent", "$alsoAbsent"]` is 0. Anything else compares as a value.
+_MISSING_RANK = object()
+
+
+def _cmp_operand(expr: Any, ctx: _Ctx) -> Any:
+    """One comparison operand, with a missing field path kept DISTINCT from null.
+
+    The comparison operators are the one place in the expression language where
+    the difference is observable: `$eq: ["$absent", null]` is **false** on
+    mongod, while `$eq: ["$explicitNull", null]` is true. Everywhere else an
+    operator argument resolving to a missing path is simply null
+    (`{$add: ["$nope", 1]}` is 1), which is why this is not `_eval_field_value`
+    for every operator.
+
+    We evaluated both through `_eval`, which resolves a missing path to None, so
+    every comparison against null answered true for documents that did not have
+    the field at all -- and `$cond` built on `$eq` inherited it.
+    """
+    value = _eval_field_value(expr, ctx)
+    return _MISSING_RANK if value is MISSING else _unwrap_d128(value)
+
+
 def _cmp_pair(arg: Any, ctx: _Ctx) -> tuple[Any, Any]:
+    if isinstance(arg, list) and len(arg) == 2:
+        return _cmp_operand(arg[0], ctx), _cmp_operand(arg[1], ctx)
     a, b = _eval_args(arg, ctx)
     return _unwrap_d128(a), _unwrap_d128(b)
 
 
 def _op_eq(arg: Any, ctx: _Ctx) -> bool:
     a, b = _cmp_pair(arg, ctx)
-    return a == b
+    # MISSING equals only MISSING -- `is` rather than `==` because the sentinel
+    # must not compare equal to None.
+    if a is _MISSING_RANK or b is _MISSING_RANK:
+        return a is b
+    return _bson_equal(a, b)
 
 
 def _op_ne(arg: Any, ctx: _Ctx) -> bool:
     a, b = _cmp_pair(arg, ctx)
-    return a != b
+    if a is _MISSING_RANK or b is _MISSING_RANK:
+        return a is not b
+    return not _bson_equal(a, b)
+
+
+def _relational(arg: Any, ctx: _Ctx, want: tuple[int, ...]) -> bool:
+    """`$gt` / `$gte` / `$lt` / `$lte`, over mongod's BSON order.
+
+    These used to compare with Python's own operators and swallow the
+    `TypeError` a cross-type pair raises:
+
+        try:
+            return bool(a > b)
+        except TypeError:
+            return False
+
+    So EVERY comparison between different BSON types answered false, silently.
+    `{$gt: ["abc", 1]}` is true on mongod -- a string sorts after a number in
+    the canonical order -- and `{$lt: [null, 1]}` is true likewise. `$cmp` two
+    thousand lines below had it right all along, via `ordering._bson_lt`; these
+    four never used it. The expression language drives `$expr`, `$cond`,
+    `$filter`, `$switch` and `$bucket`, so the wrong answer reached rows.
+    """
+    a, b = _cmp_pair(arg, ctx)
+    if a is _MISSING_RANK or b is _MISSING_RANK:
+        # MISSING ranks below every real value.
+        order = 0 if a is b else (-1 if a is _MISSING_RANK else 1)
+    else:
+        from secantus.ordering import _bson_lt
+
+        order = -1 if _bson_lt(a, b) else (1 if _bson_lt(b, a) else 0)
+    return order in want
 
 
 def _op_gt(arg: Any, ctx: _Ctx) -> bool:
-    a, b = _cmp_pair(arg, ctx)
-    try:
-        return bool(a > b)
-    except TypeError:
-        return False
+    return _relational(arg, ctx, (1,))
 
 
 def _op_gte(arg: Any, ctx: _Ctx) -> bool:
-    a, b = _cmp_pair(arg, ctx)
-    try:
-        return bool(a >= b)
-    except TypeError:
-        return False
+    return _relational(arg, ctx, (0, 1))
 
 
 def _op_lt(arg: Any, ctx: _Ctx) -> bool:
-    a, b = _cmp_pair(arg, ctx)
-    try:
-        return bool(a < b)
-    except TypeError:
-        return False
+    return _relational(arg, ctx, (-1,))
 
 
 def _op_lte(arg: Any, ctx: _Ctx) -> bool:
-    a, b = _cmp_pair(arg, ctx)
-    try:
-        return bool(a <= b)
-    except TypeError:
-        return False
+    return _relational(arg, ctx, (-1, 0))
 
 
-def _op_cond(arg: Any, ctx: _Ctx) -> Any:
+def _op_cond(arg: Any, ctx: _Ctx, ret: _Eval = None) -> Any:
+    ret = ret or _eval
     if isinstance(arg, Mapping):
-        condition = _eval(arg["if"], ctx)
-        return _eval(arg["then"] if _bool(condition) else arg["else"], ctx)
+        # An unrecognised key is mongod's 17083; a MISSING one is `null` rather
+        # than a `KeyError` escaping as `internal server error`.
+        for key in arg:
+            if key not in ("if", "then", "else"):
+                raise ExpressionError(
+                    f"Unrecognized parameter to $cond: {key}",
+                    code=17083,
+                    code_name="Location17083",
+                )
+        condition = _eval(arg.get("if"), ctx)
+        return ret(arg.get("then") if _bool(condition) else arg.get("else"), ctx)
     if isinstance(arg, list) and len(arg) == 3:
-        return _eval(arg[1] if _bool(_eval(arg[0], ctx)) else arg[2], ctx)
+        return ret(arg[1] if _bool(_eval(arg[0], ctx)) else arg[2], ctx)
     raise ExpressionError("$cond requires {if, then, else} or [cond, then, else]")
 
 
-def _op_if_null(arg: Any, ctx: _Ctx) -> Any:
+def _op_if_null(arg: Any, ctx: _Ctx, ret: _Eval = None) -> Any:
     if not isinstance(arg, list) or len(arg) < 2:
         n = len(arg) if isinstance(arg, list) else 1
         raise ExpressionError(
@@ -430,39 +1202,352 @@ def _op_if_null(arg: Any, ctx: _Ctx) -> Any:
             code_name="Location1257300",
         )
     *checks, fallback = arg
+    ret = ret or _eval
     for check in checks:
-        v = _eval(check, ctx)
-        if v is not None:
+        v = ret(check, ctx)
+        # A MISSING check is skipped exactly like a null one: `$ifNull` is
+        # looking for the first argument that HAS a value.
+        if v is not None and v is not MISSING:
             return v
-    return _eval(fallback, ctx)
+    return ret(fallback, ctx)
+
+
+#: The operators whose result IS one of their sub-expressions, so a missing
+#: sub-expression makes the whole thing missing. Populated after the functions
+#: are defined; `_eval_field_value` looks each one up by name.
+_MISSING_PROPAGATING: dict[str, Any] = {}
+
+
+def _operand_type_name(arg: Any, value: Any, ctx: _Ctx) -> str:
+    """The type name mongod prints for `value`, which `arg` evaluated to.
+
+    `_eval` reports an absent field and an explicit null alike as ``None``, but
+    mongod's wrong-type messages distinguish them: ``{$size: "$nosuch"}`` says
+    `missing` where ``{$size: null}`` says `null` (probed 8.2.11, 2026-09-02).
+    Only the message needs the distinction, so it is recovered while one is
+    being built rather than threaded through evaluation.
+    """
+    if value is None and _eval_field_value(arg, ctx) is MISSING:
+        return "missing"
+    return _bson_type_name(value)
 
 
 def _op_size(arg: Any, ctx: _Ctx) -> int:
     value = _eval(arg, ctx)
     if not isinstance(value, list):
         raise ExpressionError(
-            f"The argument to $size must be an array, but was of type: {_bson_type_name(value)}",
+            "The argument to $size must be an array, but was of type: "
+            f"{_operand_type_name(arg, value, ctx)}",
             code=17124,
             code_name="Location17124",
         )
     return len(value)
 
 
-def _op_to_string(arg: Any, ctx: _Ctx) -> Any:
-    value = _eval(arg, ctx)
-    if value is None:
+def _render_date_iso(v: _dt.datetime) -> str:
+    """A date as mongod renders it into a string: ISO-8601, always three
+    fractional digits, always `Z`."""
+    return v.strftime("%Y-%m-%dT%H:%M:%S.") + f"{v.microsecond // 1000:03d}Z"
+
+
+def coerce_to_string(value: Any) -> str:
+    """mongod's `Value::coerceToString` -- what `$toLower` / `$toUpper` run
+    their operand through before case-folding it.
+
+    This is NOT `$toString`'s conversion, and the difference is not cosmetic:
+    the two accept *different types* and render numbers *differently*.
+    coerceToString takes a timestamp and a javascript value but rejects a bool
+    and an ObjectId (Location16007); `$toString` does the reverse. A double
+    here goes through `%g` (`1099511627776.0` -> `1.09951e+12`), where
+    `$toString` round-trips it. Null and missing both become the empty string
+    here, and null there. All probed against 8.2.11.
+    """
+    if value is None or value is MISSING:
+        return ""
+    # `bson.Code` subclasses `str`, so this branch already covers it -- and
+    # mongod does convert a javascript value to its source text. `str()`
+    # normalises it to a plain string rather than handing back the `Code`.
+    if isinstance(value, str):
+        return str(value)
+    # bool is an int subclass, so it has to be rejected before the int branch.
+    if isinstance(value, bool):
+        raise ExpressionError(
+            "can't convert from BSON type bool to String", code=16007, code_name="Location16007"
+        )
+    if isinstance(value, float):
+        return _fmt_double(value)
+    if isinstance(value, (int, Decimal128)):
+        return str(value)
+    if isinstance(value, _dt.datetime):
+        return _render_date_iso(value)
+    if isinstance(value, bson.Code):
+        return str(value)
+    if isinstance(value, bson.Timestamp):
+        # mongod formats a timestamp for this one conversion as `%b %e
+        # %H:%M:%S` in *local* time, with the increment appended after a colon:
+        # `Jan  1 01:00:01:2`. Local, not UTC -- confirmed against four values
+        # on 8.2.11, and it is why this rendering can't be checked against a
+        # server in another zone.
+        import time as _time
+
+        stamp = _time.strftime("%b %e %H:%M:%S", _time.localtime(value.time))
+        return f"{stamp}:{value.inc}"
+    raise ExpressionError(
+        f"can't convert from BSON type {_bson_type_name(value)} to String",
+        code=16007,
+        code_name="Location16007",
+    )
+
+
+def convert_to_string(value: Any) -> Any:
+    """mongod's `$convert` to string -- what `$toString` does. See
+    `coerce_to_string` for how the two differ."""
+    if value is None or value is MISSING:
         return None
-    return str(value)
+    # `bson.Code` subclasses `str` but mongod refuses to convert one, so it is
+    # rejected here rather than falling into the str branch below. The type name
+    # is DERIVED, not hardcoded: a Code carrying a scope is `javascriptWithScope`
+    # and mongod says so (probed 8.2.11, 2026-09-04). This site was fixed for
+    # `$toString` alone at some point, which is why the rest of the conversion
+    # family still parsed a Code as a string until the arms in `_convert_value`
+    # were tightened.
+    if isinstance(value, bson.Code):
+        raise ExpressionError(
+            f"Unsupported conversion from {_bson_type_name(value)} to string "
+            f"in $convert with no onError value",
+            code=241,
+            code_name="ConversionFailure",
+        )
+    if isinstance(value, str):
+        return str(value)
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, float):
+        # The round-trip form, with a whole double's trailing `.0` dropped:
+        # `4.0` -> `4`, `1099511627776.0` -> `1099511627776`, `1e+300`
+        # unchanged. Python's `repr` is already shortest-round-trip.
+        if math.isnan(value):
+            return "NaN"
+        if math.isinf(value):
+            return "Infinity" if value > 0 else "-Infinity"
+        text = repr(value)
+        return text[:-2] if text.endswith(".0") else text
+    if isinstance(value, (int, Decimal128, ObjectId)):
+        return str(value)
+    if isinstance(value, _dt.datetime):
+        return _render_date_iso(value)
+    if isinstance(value, bytes):
+        import base64
+
+        return base64.b64encode(value).decode("ascii")
+    raise ExpressionError(
+        f"Unsupported conversion from {_bson_type_name(value)} to string in "
+        "$convert with no onError value",
+        code=241,
+        code_name="ConversionFailure",
+    )
+
+
+def _op_to_string(arg: Any, ctx: _Ctx) -> Any:
+    return convert_to_string(_eval(arg, ctx))
+
+
+#: mongod's ``$trim`` default whitespace set — its documented 20-character
+#: table, confirmed character by character against 8.2.11 (2026-09-01). It is
+#: NOT Python's ``str.strip()`` set: it INCLUDES U+00A0 / U+1680 / U+2000-200A
+#: and EXCLUDES U+0085 / U+2028 / U+2029 / U+202F / U+205F / U+3000, which
+#: ``strip()`` removes. `"\u3000pad\u3000"` came back `"pad"` where mongod
+#: leaves it untouched.
+TRIM_WHITESPACE = "".join(
+    chr(c) for c in (0x00, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x20, 0xA0, 0x1680, *range(0x2000, 0x200B))
+)
+
+
+def ascii_upper(s: str) -> str:
+    """``$toUpper``'s case mapping: ASCII ONLY, which is mongod's.
+
+    Python's ``str.upper()`` does full Unicode case mapping and is WRONG here --
+    probed against 8.2.11 (2026-09-01), mongod answers ``'ÜNïCODé'`` for
+    ``'Ünïcodé'`` and ``'STRAßE'`` for ``'straße'``, leaving every non-ASCII
+    character alone, where ``.upper()`` gives ``'ÜNÏCODÉ'`` and ``'STRASSE'``.
+    11 of 18 probed strings diverged.
+
+    The Rust engine used to DEFER these operators "for Unicode-fidelity safety",
+    which had it backwards: the faithful answer is the simple one, and the
+    deferral is what made the standalone Rust server error on them. Both engines
+    now do the same ASCII mapping natively.
+    """
+    return s.translate(_ASCII_UPPER)
+
+
+def ascii_lower(s: str) -> str:
+    """``$toLower``'s case mapping: ASCII ONLY. See :func:`ascii_upper`."""
+    return s.translate(_ASCII_LOWER)
+
+
+_ASCII_UPPER = {c: c - 32 for c in range(ord("a"), ord("z") + 1)}
+_ASCII_LOWER = {c: c + 32 for c in range(ord("A"), ord("Z") + 1)}
 
 
 def _op_to_lower(arg: Any, ctx: _Ctx) -> Any:
-    value = _eval(arg, ctx)
-    return value.lower() if isinstance(value, str) else value
+    return ascii_lower(coerce_to_string(_eval(arg, ctx)))
 
 
 def _op_to_upper(arg: Any, ctx: _Ctx) -> Any:
-    value = _eval(arg, ctx)
-    return value.upper() if isinstance(value, str) else value
+    return ascii_upper(coerce_to_string(_eval(arg, ctx)))
+
+
+#: IEEE 754 decimal128 carries 34 significant digits, and that is the precision
+#: mongod computes these operators in. Converting through `float` -- which is
+#: what every one of them used to do -- narrows the result to 17 digits, and for
+#: nine of them raised a `TypeError` outright because `math` rejects a
+#: `Decimal128`. Both were visible to a caller: `{$sqrt: Decimal128("2.5")}`
+#: answered `internal server error`.
+#: `traps=[]` deliberately: a trapped `InvalidOperation` escapes the evaluator
+#: and reaches the client as `internal server error`, which is what
+#: `$trunc` / `$round` / `$add` of a decimal infinity each did. decimal128's
+#: own answer for those is a value (NaN or the infinity), never an exception.
+_DEC128_CTX = _decimal.Context(prec=34, traps=[])
+
+
+#: pi to more digits than decimal128 carries, so the conversion below rounds
+#: rather than truncates.
+_PI = _decimal.Decimal("3.14159265358979323846264338327950288419716939937510")
+
+#: The double conversion factors, computed once so the multiplication below
+#: associates the way mongod's does.
+_RADIANS_PER_DEGREE = math.pi / 180.0
+_DEGREES_PER_RADIAN = 180.0 / math.pi
+
+#: The DECIMAL conversion factors, mongod's own 34-digit constants. The decimal
+#: path used to compute `x * pi / 180` and `x * 180 / pi`, which is the
+#: association the double path's comment above explicitly warns against -- two
+#: roundings instead of one, and it showed: `$degreesToRadians` of
+#: `Decimal128("4.9E-324")` came back with 32 significant digits where mongod
+#: gives 34 (measured 8.2.11, 2026-09-07).
+_DEC_RADIANS_PER_DEGREE = _decimal.Decimal("0.01745329251994329576923690768488613")
+_DEC_DEGREES_PER_RADIAN = _decimal.Decimal("57.29577951308232087679815481410517")
+
+
+def _is_zero_operand(v: Any) -> bool:
+    """Whether a numeric operand is zero, decimals included.
+
+    `v == 0` is FALSE for `Decimal128("0")`: the BSON wrapper defines no
+    comparison against `int`. Two by-zero guards relied on it and let a decimal
+    zero through -- `$divide` then raised `decimal.DivisionByZero` out of the
+    evaluator, and `$mod` produced a `NaN`.
+    """
+    if isinstance(v, Decimal128):
+        d = v.to_decimal()
+        return d.is_finite() and d == 0
+    return not isinstance(v, bool) and isinstance(v, (int, float)) and v == 0
+
+
+def _dec_remainder(x: _decimal.Decimal, y: _decimal.Decimal) -> _decimal.Decimal:
+    """`x % y` at whatever precision the QUOTIENT needs.
+
+    `Decimal.__mod__` raises `InvalidOperation` -- a `NaN` under this module's
+    untrapped context -- when the integer quotient exceeds the working
+    precision, so `Decimal128("1E+6144") % 7` came back `NaN` where mongod
+    answers `1`. The quotient's digit count is bounded by the operands'
+    exponent gap, so ask for that many.
+    """
+    need = 34
+    if x.is_finite() and y.is_finite() and x != 0 and y != 0:
+        need = max(34, x.adjusted() - y.adjusted() + 4)
+    with _decimal.localcontext(_decimal.Context(prec=need, traps=[])):
+        return x % y
+
+
+def _to_decimal(v: Any) -> _decimal.Decimal:
+    """A numeric operand as a `Decimal`, exactly."""
+    if isinstance(v, Decimal128):
+        return v.to_decimal()
+    if isinstance(v, _decimal.Decimal):
+        return v
+    if isinstance(v, float):
+        # Through `str`, not `Decimal(float)`: the latter carries the binary
+        # value's full expansion (0.1 -> 0.1000000000000000055511151231257827).
+        return _decimal.Decimal(str(v))
+    return _decimal.Decimal(v)
+
+
+def _has_decimal(*vals: Any) -> bool:
+    return any(isinstance(v, Decimal128) for v in vals)
+
+
+#: decimal128 as IEEE 754 defines it. `clamp=1` with `Emax`/`Emin` is what turns
+#: an out-of-range result into the format's own answer -- `Infinity` above the
+#: top, and a value rounded to the minimum quantum (`Etiny = Emin - prec + 1 =
+#: -6176`) below the bottom, which is where subnormals come from.
+_DEC128_IEEE_CTX = _decimal.Context(prec=34, Emax=6144, Emin=-6143, clamp=1, traps=[])
+
+
+def _to_decimal128(d: _decimal.Decimal) -> Decimal128:
+    """A `Decimal` as a `Decimal128`, clamped into range rather than refused.
+
+    `Decimal128(...)` RAISES `decimal.Inexact` / `decimal.Overflow` for a value
+    the format cannot hold, and that exception escaped the evaluator: the exact
+    product behind `$radiansToDegrees(Decimal128("1E-6176"))` is
+    `5.729…E-6175`, too fine for decimal128, and the operator answered an
+    internal server error where mongod answers the subnormal `5.7E-6175`
+    (measured 8.2.11, 2026-09-07). Three such crashes across the two angle
+    conversions.
+
+    The plain construction is tried first so nothing already in range changes
+    quantum.
+    """
+    try:
+        return Decimal128(d)
+    except _decimal.DecimalException:
+        return Decimal128(_DEC128_IEEE_CTX.plus(d))
+
+
+def _decimal_result(fn: Any, *vals: Any) -> Decimal128:
+    """Run `fn` over the operands as `Decimal`s, at decimal128 precision."""
+    with _decimal.localcontext(_DEC128_CTX):
+        return _to_decimal128(fn(*(_to_decimal(v) for v in vals)))
+
+
+def _decimal_quantize_place(d: _decimal.Decimal, place: int, rounding: str) -> _decimal.Decimal:
+    """`$trunc` / `$round` at `place` -- widening rather than failing.
+
+    Unlike `$floor` / `$ceil`, these do NOT answer `NaN` when the requested
+    quantum needs more than 34 digits: mongod expresses the value at the finest
+    quantum that DOES fit, so `$trunc(Decimal128("1E+34"))` is
+    `1.000000000000000000000000000000000E+34` while `$floor` of the same input
+    is `NaN`. Quantizing without the fallback returned `NaN` for every decimal
+    past 34 integer digits (measured 8.2.11, 2026-09-07).
+    """
+    with _decimal.localcontext(_DEC128_CTX):
+        r = d.quantize(_decimal.Decimal(1).scaleb(-place), rounding=rounding)
+        if r.is_nan() and d.is_finite():
+            finest = _decimal.Decimal(1).scaleb(d.adjusted() - 33)
+            r = d.quantize(finest, rounding=rounding)
+        return r
+
+
+def _decimal_quantize_integral(v: Any, rounding: str) -> Decimal128:
+    """`$floor` / `$ceil` of a decimal -- the decimal spec's `quantize`.
+
+    An integral value needing more than decimal128's 34 digits is an Invalid
+    Operation, so mongod answers `NaN`: `$floor(Decimal128("1E+34"))` is `NaN`.
+    `$trunc` / `$round` of the SAME input answer
+    `1.000000000000000000000000000000000E+34` -- they do not quantize -- which
+    is why this cannot live in the shared rounding helper. Measured 8.2.11,
+    2026-09-07.
+    """
+    dec = _to_decimal(v)
+    if dec != 0 and dec.adjusted() >= 34:
+        return Decimal128("NaN")
+    with _decimal.localcontext(_DEC128_CTX):
+        # `quantize`, not `to_integral_value`: the latter leaves a coarse
+        # exponent alone, so `$floor(Decimal128("1E+33"))` stayed `1E+33` where
+        # mongod's quantum is 0 and it renders all 34 digits.
+        integral = dec.quantize(_decimal.Decimal(1), rounding=rounding)
+        if integral.is_nan():
+            return Decimal128("NaN")
+    return _to_decimal128(integral)
 
 
 def _require_math_numeric(v: Any, op: str, code: int = 28765) -> None:
@@ -483,7 +1568,83 @@ def _op_abs(arg: Any, ctx: _Ctx) -> Any:
     if v is None:
         return None
     _require_math_numeric(v, "$abs")
-    return abs(v)
+    if _has_decimal(v):
+        return _decimal_result(abs, v)
+    return _int_result(abs(v), v)
+
+
+#: The inclusive range mongod accepts for a `$round` / `$trunc` precision.
+_PRECISION_MIN, _PRECISION_MAX = -20, 100
+
+#: `Value::integral()` is a 32-bit test, not a "has no fractional part" test —
+#: which is why an int64 precision of 2**31 is rejected as "not integral" while
+#: 2**31 - 1 gets as far as the range check.
+_INT32_MIN, _INT32_MAX = -(2**31), 2**31 - 1
+
+
+def _round_precision(place: Any, op: str) -> int | None:
+    """Validate a ``$round`` / ``$trunc`` precision the way mongod does.
+
+    Reconstructed from probes against 8.2.11 (2026-09-01), which pinned a
+    three-step order that produces three *different* error codes:
+
+    1. ``Value::coerceToLong`` — a non-numeric (string, bool, ...) is
+       Location16004, and a NaN / Infinity double is Location31109.
+    2. ``Value::integral()`` — Location51082. This is the step the old code
+       only half-had: it rejected a fractional ``float`` but silently ignored a
+       fractional ``Decimal128`` (``$round: ["$n", Decimal128("1.5")]``
+       answered 8.0) and an out-of-int32 integer (``1e10`` answered 7.5).
+    3. the ``[-20, 100]`` bounds — Location51083, which was missing entirely:
+       ``$round: ["$n", -25]`` answered 0.0 where mongod refuses.
+
+    A null / missing precision short-circuits to a null *result*, so this
+    returns ``None`` to mean "the whole operator is null" — distinct from a
+    precision of 0.
+    """
+    if place is None:
+        return None
+    if isinstance(place, bool) or not isinstance(place, (int, float, Decimal128)):
+        raise ExpressionError(
+            f"can't convert from BSON type {_bson_type_name(place)} to long",
+            code=16004,
+            code_name="Location16004",
+        )
+    as_dec = place.to_decimal() if isinstance(place, Decimal128) else None
+    if isinstance(place, float) and not math.isfinite(place):
+        raise ExpressionError(
+            f"Can't coerce out of range value {_fmt_double(place)} to long",
+            code=31109,
+            code_name="Location31109",
+        )
+    if as_dec is not None and not as_dec.is_finite():
+        raise ExpressionError(
+            f"Can't coerce out of range value {as_dec} to long",
+            code=31109,
+            code_name="Location31109",
+        )
+    numeric = (
+        float(place) if isinstance(place, float) else (as_dec if as_dec is not None else place)
+    )
+    integral = _INT32_MIN <= numeric <= _INT32_MAX and (
+        numeric == int(numeric) if not isinstance(place, int) else True
+    )
+    if not integral:
+        raise ExpressionError(
+            # The doubled space after "to" is mongod's own — it streams the
+            # operator name into a slot that already carries a trailing space.
+            f"precision argument to  {op} must be a integral value",
+            code=51082,
+            code_name="Location51082",
+        )
+    value = int(numeric)
+    if not (_PRECISION_MIN <= value <= _PRECISION_MAX):
+        raise ExpressionError(
+            f"cannot apply {op} with precision value {value} value must be in "
+            f"[{_PRECISION_MIN}, {_PRECISION_MAX}]",
+            code=51083,
+            code_name="Location51083",
+        )
+    return value
 
 
 def _op_round(arg: Any, ctx: _Ctx) -> Any:
@@ -498,17 +1659,61 @@ def _op_round(arg: Any, ctx: _Ctx) -> Any:
     if n is None:
         return None
     _require_math_numeric(n, "$round", 51081)
-    if isinstance(place, bool):
-        raise ExpressionError("can't convert from BSON type bool to long", code=16004)
-    if isinstance(place, float):
-        if not place.is_integer():
-            raise ExpressionError(
-                "precision argument to  $round must be a integral value", code=51082
-            )
-        place = int(place)
-    if not isinstance(place, int):
-        place = 0
-    return round(n, place)
+    place = _round_precision(place, "$round")
+    if place is None:
+        return None
+    if _has_decimal(n):
+        # A non-finite decimal passes straight through -- `quantize` refuses it
+        # by IEEE rule, which reached the client as an internal error.
+        if not n.to_decimal().is_finite():
+            return n
+        # Half-to-even, which is what `round` does for floats and what mongod
+        # documents for `$round`.
+        return _decimal_result(
+            lambda d: _decimal_quantize_place(d, place, _decimal.ROUND_HALF_EVEN), n
+        )
+    rounded = round(n, place)
+    # Rounding UP out of int64 is an ERROR on mongod, not a widening to double:
+    # `{$round: [Int64(2**63 - 1), -1]}` needs 9223372036854775810 and reports
+    # 51080. `_int_result` would hand back a float and lose the value silently
+    # (probed 8.2.11, 2026-09-03).
+    if isinstance(n, int) and not isinstance(n, bool) and not (-(2**63) <= rounded < 2**63):
+        raise ExpressionError(
+            "invalid conversion from Decimal128 result in $round resulting from "
+            f"arguments: [{n}, {place}]",
+            code=51080,
+            code_name="Location51080",
+        )
+    return _int_result(rounded, n)
+
+
+def _decimal_is_infinite(v: Any) -> bool:
+    """`$ceil` / `$floor` of a decimal INFINITY is NaN on mongod.
+
+    An asymmetry, measured rather than reasoned: `$trunc` and `$round` pass it
+    through, and a DOUBLE infinity passes through `$ceil` unchanged. Probed
+    8.2.11 (2026-09-03).
+    """
+    return isinstance(v, Decimal128) and v.to_decimal().is_infinite()
+
+
+def _keep_signed_zero(result: float, original: float) -> float:
+    """IEEE keeps the SIGN when a rounding lands on zero: `ceil(-0.5)` is `-0.0`,
+    not `0.0`, and so is `trunc(-0.5)` and `floor(-0.0)`.
+
+    Python's `math.ceil` / `floor` / `trunc` return an **int**, which has no
+    signed zero, so `float(math.ceil(-0.5))` is `0.0` and the sign was gone by
+    the time it reached the client. mongod preserves it (probed 8.2.11,
+    2026-09-03, across -0.0 / -0.5 / -1.5 for all three operators).
+
+    Only the zero result needs this -- every other magnitude carries its own
+    sign. `$abs(-0.0)` is `0.0` on mongod and must NOT come through here.
+    """
+    import math
+
+    if result == 0.0 and math.copysign(1.0, original) < 0.0:
+        return -0.0
+    return result
 
 
 def _op_floor(arg: Any, ctx: _Ctx) -> Any:
@@ -518,7 +1723,20 @@ def _op_floor(arg: Any, ctx: _Ctx) -> Any:
     if v is None:
         return None
     _require_math_numeric(v, "$floor")
-    return math.floor(v)
+    if _has_decimal(v):
+        if _decimal_is_infinite(v):
+            return Decimal128("NaN")
+        return _decimal_quantize_integral(v, _decimal.ROUND_FLOOR)
+    # These operators are type-preserving in mongod: a double in is a double
+    # out (`$floor` of 1.5 is 2.0, not 2), an int stays an int. Python's
+    # `math.floor` returns an int for either, which changed the BSON type of
+    # every double that reached it. Probed 8.2.11.
+    # A non-finite DOUBLE passes through, as in `$ceil` below.
+    if isinstance(v, float) and not math.isfinite(v):
+        return v
+    if isinstance(v, float):
+        return _keep_signed_zero(float(math.floor(v)), v)
+    return _int_result(math.floor(v), v)
 
 
 def _op_ceil(arg: Any, ctx: _Ctx) -> Any:
@@ -528,7 +1746,82 @@ def _op_ceil(arg: Any, ctx: _Ctx) -> Any:
     if v is None:
         return None
     _require_math_numeric(v, "$ceil")
-    return math.ceil(v)
+    if _has_decimal(v):
+        if _decimal_is_infinite(v):
+            return Decimal128("NaN")
+        return _decimal_quantize_integral(v, _decimal.ROUND_CEILING)
+    # A non-finite DOUBLE passes through: `math.ceil(inf)` raises
+    # `OverflowError`, which reached the client as `internal server error`
+    # where mongod answers `inf` (probed 8.2.11, 2026-09-03).
+    if isinstance(v, float) and not math.isfinite(v):
+        return v
+    # Type-preserving, as `$floor` above.
+    if isinstance(v, float):
+        return _keep_signed_zero(float(math.ceil(v)), v)
+    return _int_result(math.ceil(v), v)
+
+
+def _math_domain_float(value: Any) -> float | None:
+    """The float a math operator's DOMAIN check should use — decimals included.
+
+    mongod applies these checks by VALUE, whatever the numeric type, but the
+    guards here tested ``isinstance(v, (int, float))`` and a ``Decimal128``
+    is neither. So every negative decimal skipped the check and fell into the
+    decimal path: ``$ln(Decimal128("-1"))`` returned ``NaN`` and
+    ``$ln(Decimal128("0"))`` returned ``-Infinity``, where mongod raises
+    ``28766`` for both. A wrong ANSWER, not just a missing error.
+    """
+    if isinstance(value, Decimal128):
+        dec = value.to_decimal()
+        f = float(dec)
+        # `float()` SATURATES: decimal128 reaches `1E-6176` and `1E+6144`, which
+        # `float` renders as `0.0` and `inf`. A domain check reading that
+        # decided `Decimal128("-1E-6176")` was not negative, and
+        # `$sqrt(Decimal128("-1E-6176"))` answered `NaN` where mongod raises
+        # 28714 (measured 8.2.11, 2026-09-07). Only the SIGN and the
+        # zero/non-zero distinction matter to these checks, so a saturated
+        # magnitude is replaced by the nearest float that keeps both.
+        if f == 0.0 and dec != 0:
+            return math.copysign(5e-324, -1.0 if dec.is_signed() else 1.0)
+        if math.isinf(f) and dec.is_finite():
+            return math.copysign(1.7976931348623157e308, f)
+        return f
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float)):
+        return float(value)
+    return None
+
+
+def _decimal_special_float(value: Any) -> float | None:
+    """The float behind a ``Decimal128`` that is NaN or ±Infinity, else ``None``.
+
+    mongod applies a math operator's DOMAIN check to a decimal exactly as to a
+    double, but the guards here tested ``isinstance(v, (int, float))`` only, so
+    a ``Decimal128`` slipped past them into the decimal path and came back
+    ``NaN``: ``$ln(Decimal128("-Infinity"))`` returned ``NaN`` where mongod
+    raises ``28766``, and ``$sqrt(Decimal128("-Infinity"))`` returned ``NaN``
+    where mongod raises ``28714``.
+
+    A FINITE decimal deliberately returns ``None`` -- it keeps the existing
+    decimal path, which carries real precision.
+    """
+    if not isinstance(value, Decimal128):
+        return None
+    dec = value.to_decimal()
+    if dec.is_nan():
+        return float("nan")
+    if dec.is_infinite():
+        return float(dec)
+    return None
+
+
+def _decimal_from_special(value: float) -> Decimal128:
+    """``Decimal128`` carrying a non-finite float -- mongod keeps the argument's
+    type through these operators, so a decimal in gives a decimal out."""
+    if value != value:
+        return Decimal128("NaN")
+    return Decimal128("Infinity" if value > 0 else "-Infinity")
 
 
 def _op_sqrt(arg: Any, ctx: _Ctx) -> Any:
@@ -538,13 +1831,22 @@ def _op_sqrt(arg: Any, ctx: _Ctx) -> Any:
     if v is None:
         return None
     _require_math_numeric(v, "$sqrt")
-    # mongod's domain error (probed 7.0.12): Location28714, not a null result.
-    if isinstance(v, (int, float)) and v < 0:
+    # mongod's domain error: Location28714, not a null result. Applied by VALUE,
+    # so a negative DECIMAL raises it too (measured 8.2.11).
+    domain = _math_domain_float(v)
+    if domain is not None and domain < 0:
         raise ExpressionError(
-            f"$sqrt's argument must be greater than or equal to 0, but is {v}",
+            # No ", but is <v>" suffix -- $sqrt is the one operator in this
+            # family that omits it, where $ln / $log10 keep it (probed 8.2.11).
+            "$sqrt's argument must be greater than or equal to 0",
             code=28714,
             code_name="Location28714",
         )
+    special = _decimal_special_float(v)
+    if special is not None:
+        return _decimal_from_special(special)
+    if _has_decimal(v):
+        return _decimal_result(lambda d: d.sqrt(), v)
     return math.sqrt(v)
 
 
@@ -564,12 +1866,18 @@ def _op_pow(arg: Any, ctx: _Ctx) -> Any:
         )
     if base == 0 and exponent < 0:
         raise ExpressionError("$pow cannot take a base of 0 and a negative exponent", code=28764)
+    if _has_decimal(base, exponent):
+        # `exp(e * ln(b))`, not `b ** e`. mongod computes it that way and the
+        # rounding shows: `2.5 ** 2` is exactly 6.25, but mongod answers
+        # 6.249999999999999999999999999999999, and matching the reference
+        # server is the point. A zero base has no `ln`, so it is handled first.
+        return _decimal_result(lambda b, e: b**e if b == 0 else (e * b.ln()).exp(), base, exponent)
     result = base**exponent
     # A negative base with a fractional exponent yields a Python complex, which
     # is unencodable (crashes BSON) — mongod returns NaN instead.
     if isinstance(result, complex):
         return float("nan")
-    return result
+    return _int_result(result, base, exponent)
 
 
 def _op_exp(arg: Any, ctx: _Ctx) -> Any:
@@ -579,7 +1887,21 @@ def _op_exp(arg: Any, ctx: _Ctx) -> Any:
     if v is None:
         return None
     _require_math_numeric(v, "$exp")
-    return math.exp(v)
+    if _has_decimal(v):
+        dec = v.to_decimal()
+        # `e^x` for |x| <= 1E-40 is 1 to forty orders past decimal128's
+        # resolution, and mongod answers a BARE `1` there -- not the 34-digit
+        # `1.000…000` that carrying the computation out produces. Measured
+        # 8.2.11, 2026-09-07.
+        if dec.is_finite() and dec != 0 and dec.adjusted() <= -40:
+            return Decimal128("1")
+        return _decimal_result(lambda d: d.exp(), v)
+    try:
+        return math.exp(v)
+    except OverflowError:
+        # mongod saturates to infinity; the OverflowError escaped as an
+        # `internal server error`.
+        return math.inf
 
 
 def _op_ln(arg: Any, ctx: _Ctx) -> Any:
@@ -590,12 +1912,26 @@ def _op_ln(arg: Any, ctx: _Ctx) -> Any:
         return None
     _require_math_numeric(v, "$ln")
     # mongod's domain error (probed 7.0.12): Location28766, not a null result.
-    if isinstance(v, (int, float)) and v <= 0:
+    # Applied by VALUE: a non-positive DECIMAL raises this too. NaN is not
+    # non-positive, so it falls through to the special handling below.
+    domain = _math_domain_float(v)
+    if domain is not None and domain <= 0:
         raise ExpressionError(
-            f"$ln's argument must be a positive number, but is {v}",
+            f"$ln's argument must be a positive number, but is {fmt_double_value(domain)}",
             code=28766,
             code_name="Location28766",
         )
+    special = _decimal_special_float(v)
+    if special is not None:
+        if special != special:
+            # mongod answers a DOUBLE nan for $ln of a Decimal NaN -- the one
+            # place in this family where the argument's type is NOT kept.
+            return float("nan")
+        # Only +Infinity can reach here: -Infinity and every non-positive
+        # value were refused by the domain check above.
+        return _decimal_from_special(special)
+    if _has_decimal(v):
+        return _decimal_result(lambda d: d.ln(), v)
     return math.log(v)
 
 
@@ -624,7 +1960,7 @@ def _op_log(arg: Any, ctx: _Ctx) -> Any:
     # mongod's domain errors (probed 7.0.12): Location28758 / 28759.
     if isinstance(n, (int, float)) and n <= 0:
         raise ExpressionError(
-            f"$log's argument must be a positive number, but is {n}",
+            f"$log's argument must be a positive number, but is {fmt_double_value(float(n))}",
             code=28758,
             code_name="Location28758",
         )
@@ -634,6 +1970,8 @@ def _op_log(arg: Any, ctx: _Ctx) -> Any:
             code=28759,
             code_name="Location28759",
         )
+    if _has_decimal(n, base):
+        return _decimal_result(lambda x, b: x.ln() / b.ln(), n, base)
     return math.log(n, base)
 
 
@@ -645,12 +1983,26 @@ def _op_log10(arg: Any, ctx: _Ctx) -> Any:
         return None
     _require_math_numeric(v, "$log10")
     # mongod's domain error (probed 7.0.12): Location28761, not a null result.
-    if isinstance(v, (int, float)) and v <= 0:
+    # Applied by VALUE: a non-positive DECIMAL raises this too. NaN is not
+    # non-positive, so it falls through to the special handling below.
+    domain = _math_domain_float(v)
+    if domain is not None and domain <= 0:
         raise ExpressionError(
-            f"$log10's argument must be a positive number, but is {v}",
+            f"$log10's argument must be a positive number, but is {fmt_double_value(domain)}",
             code=28761,
             code_name="Location28761",
         )
+    special = _decimal_special_float(v)
+    if special is not None:
+        if special != special:
+            # mongod answers a DOUBLE nan for $log10 of a Decimal NaN -- the one
+            # place in this family where the argument's type is NOT kept.
+            return float("nan")
+        # Only +Infinity can reach here: -Infinity and every non-positive
+        # value were refused by the domain check above.
+        return _decimal_from_special(special)
+    if _has_decimal(v):
+        return _decimal_result(lambda d: d.log10(), v)
     return math.log10(v)
 
 
@@ -662,6 +2014,283 @@ def _trig_coerce(name: str, v: Any, code: int = 28765) -> float:
     if isinstance(v, bool) or not isinstance(v, (int, float, Decimal128)):
         raise ExpressionError(f"{name} only supports numeric types, not {_type_name(v)}", code=code)
     return float(v.to_decimal()) if isinstance(v, Decimal128) else float(v)
+
+
+#: Decimal128 implementations of the HYPERBOLIC functions, as exact identities
+#: over `exp` / `ln` / `sqrt` -- all of which `decimal` provides, so these carry
+#: the full 34 digits mongod does. The CIRCULAR functions have no such identity
+#: and are summed as series below.
+#: Working precision for the circular functions below. `decimal` supplies
+#: `exp` / `ln` / `sqrt` -- which is all the hyperbolics need -- but nothing
+#: for sin / cos / tan / atan, so those are summed here. The series are
+#: evaluated with guard digits and the result handed back at decimal128's 34,
+#: so the rounding happens once, at the end.
+#: `traps=[]` for the same reason as `_DEC128_CTX`: a trapped
+#: `InvalidOperation` escapes as `internal server error`. The series below
+#: cannot run on a non-finite operand at all, so those are answered from the
+#: table in `_dec_trig_non_finite` before they reach it.
+_DEC_TRIG_CTX = _decimal.Context(prec=60, traps=[])
+
+#: pi/2 at decimal128 precision -- `$atan` of an infinity is exactly this, and
+#: mongod answers all 34 digits (probed 8.2.11, 2026-09-03).
+_HALF_PI_TEXT = "1.570796326794896619231321691639751"
+
+
+#: What a decimal ZERO answers, per operator, as ``(+0, -0)`` text.
+#:
+#: These are CONSTANTS -- no series has to run -- and both the per-operator
+#: QUANTUM and the sign rule are unguessable, so every cell was generated from
+#: mongod 8.2.11 on 2026-09-07 rather than derived. ``$tan`` answers ``0E-40``
+#: and ``$asinh`` answers ``0E-6176``; the ODD functions carry ``-0`` through
+#: and the EVEN ones drop it.
+#:
+#: The decimal series computed these itself and got them wrong: it returned a
+#: bare ``0`` where mongod carries a quantum (``$tan``, ``$asin``, ``$sinh``,
+#: ``$asinh``, ``$atanh``), a bare ``1`` where mongod writes 34 digits
+#: (``$cos``, ``$cosh``), and it dropped the sign of ``-0`` entirely
+#: (``$sin``, ``$atan``, ``$tanh``).
+_DEC_TRIG_ZERO: dict[str, tuple[str, str]] = {
+    "$sin": ("0", "-0"),
+    "$cos": ("1.000000000000000000000000000000000",) * 2,
+    "$tan": ("0E-40", "-0E-40"),
+    "$asin": ("0E-40", "-0E-40"),
+    "$acos": (_HALF_PI_TEXT,) * 2,
+    "$atan": ("0", "-0"),
+    "$sinh": ("0E-40", "-0E-40"),
+    "$cosh": ("1.000000000000000000000000000000000",) * 2,
+    "$tanh": ("0", "-0"),
+    "$asinh": ("0E-6176", "-0E-6176"),
+    "$atanh": ("0E-6176", "-0E-6176"),
+}
+
+
+def _dec_trig_zero(name: str, v: Decimal128) -> Decimal128 | None:
+    """The constant `name` answers at a decimal zero, or ``None``.
+
+    ``$acosh`` of zero is a domain error and is rejected before this runs.
+    """
+    pair = _DEC_TRIG_ZERO.get(name)
+    if pair is None:
+        return None
+    d = v.to_decimal()
+    if d.is_nan() or d.is_infinite() or d != 0:
+        return None
+    return Decimal128(pair[1] if str(v).startswith("-") else pair[0])
+
+
+def _dec_trig_non_finite(name: str, v: Decimal128) -> Decimal128 | None:
+    """The limit `name` takes at a non-finite decimal operand, or `None` when
+    the operand is finite and the series should run.
+
+    NaN answers NaN everywhere. The infinities differ per operator, and the
+    ones that are OUT OF DOMAIN (`$sin` / `$cos` / `$tan` / `$asin` / `$acos` /
+    `$atanh`, and `-inf` for `$acosh`) never reach here -- the domain check
+    above rejects them with 50989 first. Probed 8.2.11 (2026-09-03); before
+    this every one of these raised `decimal.InvalidOperation` out of the series
+    and surfaced as `internal server error`.
+    """
+    d = v.to_decimal()
+    if d.is_nan():
+        return Decimal128("NaN")
+    if not d.is_infinite():
+        return None
+    positive = d > 0
+    limits = {
+        "$atan": _HALF_PI_TEXT if positive else "-" + _HALF_PI_TEXT,
+        "$sinh": "Infinity" if positive else "-Infinity",
+        "$cosh": "Infinity",
+        "$tanh": "1" if positive else "-1",
+        "$asinh": "Infinity" if positive else "-Infinity",
+        "$acosh": "Infinity",
+    }
+    text = limits.get(name)
+    return Decimal128(text) if text is not None else None
+
+
+def _dec_series_sin(x: _decimal.Decimal) -> _decimal.Decimal:
+    """sin(x) by Taylor series, x already reduced into [-pi, pi]."""
+    term = total = x
+    x2 = x * x
+    n = 1
+    while term:
+        n += 2
+        term = -term * x2 / (n * (n - 1))
+        total += term
+    return total
+
+
+def _dec_series_cos(x: _decimal.Decimal) -> _decimal.Decimal:
+    """cos(x) by Taylor series, x already reduced into [-pi, pi]."""
+    term = total = _decimal.Decimal(1)
+    x2 = x * x
+    n = 0
+    while term:
+        n += 2
+        term = -term * x2 / (n * (n - 1))
+        total += term
+    return total
+
+
+def _dec_reduce(x: _decimal.Decimal) -> _decimal.Decimal:
+    """x mod 2*pi, brought into [-pi, pi] where the series converge fast."""
+    two_pi = 2 * _PI
+    r = x - (x / two_pi).to_integral_value(rounding=_decimal.ROUND_FLOOR) * two_pi
+    return r - two_pi if r > _PI else r
+
+
+def _dec_sin(x: _decimal.Decimal) -> _decimal.Decimal:
+    with _decimal.localcontext(_DEC_TRIG_CTX):
+        return _DEC128_CTX.plus(_dec_series_sin(_dec_reduce(x)))
+
+
+def _dec_cos(x: _decimal.Decimal) -> _decimal.Decimal:
+    with _decimal.localcontext(_DEC_TRIG_CTX):
+        return _DEC128_CTX.plus(_dec_series_cos(_dec_reduce(x)))
+
+
+def _dec_tan(x: _decimal.Decimal) -> _decimal.Decimal:
+    with _decimal.localcontext(_DEC_TRIG_CTX):
+        r = _dec_reduce(x)
+        return _DEC128_CTX.plus(_dec_series_sin(r) / _dec_series_cos(r))
+
+
+def _dec_atan_raw(x: _decimal.Decimal) -> _decimal.Decimal:
+    """atan(x) for any finite x, at the working precision.
+
+    The Taylor series only converges for |x| < 1 and crawls as |x| nears it,
+    so the argument is shrunk with the identity
+    `atan(x) = 2*atan(x / (1 + sqrt(1 + x*x)))` until it is comfortably small.
+
+    Unrounded on purpose: `$asin` / `$acos` / `$atan2` build on this and must
+    round once, at the end, rather than at every step.
+    """
+    if x.is_zero():
+        return x
+    sign, x = (-1, -x) if x < 0 else (1, x)
+    halvings = 0
+    while x > _decimal.Decimal("0.05"):
+        x = x / (1 + (1 + x * x).sqrt())
+        halvings += 1
+    term = total = x
+    x2 = x * x
+    n = 1
+    while term:
+        n += 2
+        term = -term * x2
+        total += term / n
+    return sign * total * (2**halvings)
+
+
+def _dec_asin_raw(x: _decimal.Decimal) -> _decimal.Decimal:
+    if abs(x) == 1:
+        return x * _PI / 2
+    return _dec_atan_raw(x / (1 - x * x).sqrt())
+
+
+def _dec_atan(x: _decimal.Decimal) -> _decimal.Decimal:
+    with _decimal.localcontext(_DEC_TRIG_CTX):
+        return _DEC128_CTX.plus(_dec_atan_raw(x))
+
+
+def _dec_asin(x: _decimal.Decimal) -> _decimal.Decimal:
+    with _decimal.localcontext(_DEC_TRIG_CTX):
+        return _DEC128_CTX.plus(_dec_asin_raw(x))
+
+
+def _dec_acos(x: _decimal.Decimal) -> _decimal.Decimal:
+    with _decimal.localcontext(_DEC_TRIG_CTX):
+        return _DEC128_CTX.plus(_PI / 2 - _dec_asin_raw(x))
+
+
+def _dec_atan2(y: _decimal.Decimal, x: _decimal.Decimal) -> _decimal.Decimal:
+    """atan2(y, x) at decimal128 precision, with mongod's quadrant rules --
+    probed 8.2.11, including that a negative-zero `y` carries its sign into
+    the answer (atan2(-0, -1) is -pi, not pi)."""
+    with _decimal.localcontext(_DEC_TRIG_CTX):
+        if x.is_zero():
+            if y.is_zero():
+                return _DEC128_CTX.plus(y)
+            return _DEC128_CTX.plus(-_PI / 2 if y.is_signed() else _PI / 2)
+        result = _dec_atan_raw(y / x)
+        if x < 0:
+            result = result - _PI if y.is_signed() else result + _PI
+        return _DEC128_CTX.plus(result)
+
+
+def _dec_asinh(d: _decimal.Decimal) -> _decimal.Decimal:
+    """``asinh(x) = ln(x + sqrt(x^2 + 1))``, at a precision the CANCELLATION can
+    afford.
+
+    This is the one entry in the table below that cannot be computed at 34
+    digits. For a small ``x`` the sum is ``1 + x + O(x^2)``, so forming it at
+    decimal128 precision throws away one digit of ``x`` for every order of
+    magnitude it sits below 1 -- ``asinh(Decimal128("1E-10"))`` came back
+    ``9.999999999999999999983333333334583E-11`` where the true value is
+    ``…333333E-11``, eleven digits of error, and ``1E-34`` had none left at
+    all. The working precision therefore grows with the argument's exponent and
+    the result is rounded once, at the end.
+
+    Correct rounding here is a DELIBERATE divergence from mongod, which carries
+    Intel RDFP's own last-digit error (it answers ``…334E-11`` above): asked
+    for and recorded in `tasks/backlog.md`. The rest of the table keeps its
+    34-digit arithmetic, which reproduces mongod more closely.
+    """
+    # mongod's own implementation UNDERFLOWS below ``1E-4966`` and answers a
+    # bare ``0`` (``-0`` for a negative argument) -- not the ``0E-6176`` it
+    # gives for an exact zero. Bisected against 8.2.11, 2026-09-08. mongod is
+    # the exemplar, so this follows it rather than the mathematically correct
+    # value.
+    if d != 0 and d.is_finite() and d.adjusted() <= -4966:
+        return _decimal.Decimal("-0") if d.is_signed() else _decimal.Decimal("0")
+    guard = 60 + max(0, -d.adjusted()) if d != 0 else 60
+    with _decimal.localcontext(_decimal.Context(prec=guard, traps=[])):
+        wide = (abs(d) + (d * d + 1).sqrt()).ln()
+    return _DEC128_CTX.plus(-wide if d.is_signed() else wide)
+
+
+def _dec_wide(fn: Any, d: _decimal.Decimal) -> _decimal.Decimal:
+    """Evaluate `fn` with guard digits and round to decimal128 ONCE.
+
+    The hyperbolics are built from `exp` and `ln`, and evaluating them at 34
+    digits throughout compounds a rounding error per sub-expression. That was
+    once deliberate -- the theory being that reproducing mongod's accumulation
+    matches it better than being correct -- and a single `$cosh` case supported
+    it. Measured across 60 cases on 8.2.11 (2026-09-09) the theory is a NET
+    LOSS, because mongod is itself correctly-rounded about 78% of the time and
+    its error is Intel RDFP's, not one we can imitate by choosing a precision:
+
+        operator   agreement at 34 digits   agreement computed wide
+        $tanh                        3/20                    14/20
+        $sinh                        8/20                    11/20
+        $cosh                       16/20                    15/20
+
+    So `$tanh` and `$sinh` gain far more than `$cosh` loses. Being CORRECT is
+    the best available approximation to mongod here; imitating its error only
+    works where our error happens to coincide with its, which is luck.
+    """
+    guard = 60 + max(0, abs(d.adjusted()))
+    with _decimal.localcontext(_decimal.Context(prec=guard, traps=[])):
+        return fn(d)
+
+
+_DEC_TRIG: dict[str, Any] = {
+    "$sinh": lambda d: _dec_wide(lambda x: (x.exp() - (-x).exp()) / 2, d),
+    "$cosh": lambda d: _dec_wide(lambda x: (x.exp() + (-x).exp()) / 2, d),
+    "$tanh": lambda d: _dec_wide(lambda x: (x.exp() - (-x).exp()) / (x.exp() + (-x).exp()), d),
+    "$asinh": lambda d: _dec_asinh(d),
+    "$acosh": lambda d: _dec_wide(lambda x: (x + (x * x - 1).sqrt()).ln(), d),
+    "$atanh": lambda d: _dec_wide(lambda x: ((1 + x) / (1 - x)).ln() / 2, d),
+    # Without these six a Decimal128 operand fell through to the double path,
+    # so `{$sin: Decimal128("2.5")}` answered a *double* -- the wrong BSON
+    # type, which then compares and sorts differently downstream. Probed
+    # against 8.2.11, which answers Decimal128 for all six.
+    "$sin": _dec_sin,
+    "$cos": _dec_cos,
+    "$tan": _dec_tan,
+    "$asin": _dec_asin,
+    "$acos": _dec_acos,
+    "$atan": _dec_atan,
+}
 
 
 def _make_trig(name: str, fn: Any, domain: str) -> Any:
@@ -676,20 +2305,56 @@ def _make_trig(name: str, fn: Any, domain: str) -> Any:
         if v is None:
             return None
         x = _trig_coerce(name, v)
-        if domain == "finite" and not math.isfinite(x):
+        # A Decimal128 keeps its OWN representation in the message -- `2.50`
+        # does not become `2.5` -- while everything else goes through `%g`
+        # (probed 8.2.11, 2026-09-03).
+        shown = str(v) if isinstance(v, Decimal128) else _fmt_double(x)
+        # NaN answers NaN for EVERY trig operator -- never a domain error, even
+        # for the range-limited ones where `-1 <= nan <= 1` is trivially false.
+        # Probed 8.2.11 (2026-09-03) across nine operators, both numeric types.
+        if math.isnan(x):
+            return Decimal128("NaN") if isinstance(v, Decimal128) else x
+        # NaN is NOT a domain error: `{$tan: NaN}` answers NaN on mongod, for
+        # all three of sin / cos / tan. Only the infinities are refused, which
+        # is why this cannot be `not math.isfinite(x)`.
+        if domain == "finite" and math.isinf(x):
             raise ExpressionError(
-                f"cannot apply {name} to {x}, value must be in (-inf,inf)", code=50989
+                f"cannot apply {name} to {shown}, value must be in (-inf,inf)",
+                code=50989,
             )
         if domain in ("unit", "atanh") and not (-1.0 <= x <= 1.0):
             raise ExpressionError(
-                f"cannot apply {name} to {x}, value must be in [-1,1]", code=50989
+                f"cannot apply {name} to {shown}, value must be in [-1,1]", code=50989
             )
         if domain == "geq1" and not x >= 1.0:
             raise ExpressionError(
-                f"cannot apply {name} to {x}, value must be in [1,inf]", code=50989
+                f"cannot apply {name} to {shown}, value must be in [1,inf]", code=50989
             )
         if domain == "atanh" and abs(x) == 1.0:
             return math.inf if x > 0 else -math.inf
+        if _has_decimal(v):
+            limit = _dec_trig_non_finite(name, v)
+            if limit is not None:
+                return limit
+            zero = _dec_trig_zero(name, v)
+            if zero is not None:
+                return zero
+        dec_fn = _DEC_TRIG.get(name)
+        if dec_fn is None or not _has_decimal(v):
+            try:
+                return fn(x)
+            except OverflowError:
+                # `$sinh` / `$cosh` of a large value: mongod saturates to
+                # infinity rather than failing the command.
+                return math.copysign(math.inf, x) if name == "$sinh" else math.inf
+        if dec_fn is not None and _has_decimal(v):
+            # At decimal128 precision THROUGHOUT, deliberately. Computing wide
+            # and rounding back is more accurate and matches mongod LESS: it
+            # accumulates its own rounding at 34 digits, so `$cosh` moved from
+            # agreeing to differing in the last digit when guard digits were
+            # tried. Fidelity here means reproducing the arithmetic, not
+            # improving on it.
+            return _decimal_result(dec_fn, v)
         return fn(x)
 
     return op
@@ -702,8 +2367,15 @@ def _op_atan2(arg: Any, ctx: _Ctx) -> Any:
     x = _eval(arg[1], ctx)
     if y is None or x is None:
         return None
+    # A different CODE per position -- 51044 for the first operand, 51045 for
+    # the second (probed 8.2.11, 2026-09-03; both used 51044 here).
     fy = _trig_coerce("$atan2", y, code=51044)
-    fx = _trig_coerce("$atan2", x, code=51044)
+    fx = _trig_coerce("$atan2", x, code=51045)
+    if _has_decimal(y, x):
+        # One decimal operand is enough: mongod answers a Decimal128 whichever
+        # side it is on. Falling through to `math.atan2` narrowed the answer to
+        # a double -- the wrong BSON type, as with the unary trig above.
+        return _decimal_result(_dec_atan2, y, x)
     return math.atan2(fy, fx)
 
 
@@ -711,8 +2383,23 @@ def _op_rand(arg: Any, _ctx: _Ctx) -> float:
     # MongoDB 5.0+: ``{$rand: {}}`` returns a uniform random double in
     # [0, 1). Argument must be an empty document; anything else is a
     # parse error in mongod (we mirror).
-    if not (isinstance(arg, Mapping) and not arg):
-        raise ExpressionError("$rand expects an empty document")
+    # Three outcomes, not one (probed 8.2.11): an empty document OR an empty
+    # ARRAY is the legal no-argument form; a NON-empty array is 3040501 "does
+    # not currently accept arguments"; anything that is neither a document nor
+    # an array is 10065 "invalid parameter: expected an object ($rand)".
+    if isinstance(arg, (list, Mapping)):
+        if arg:
+            raise ExpressionError(
+                "$rand does not currently accept arguments",
+                code=3040501,
+                code_name="Location3040501",
+            )
+    else:
+        raise ExpressionError(
+            "invalid parameter: expected an object ($rand)",
+            code=10065,
+            code_name="Location10065",
+        )
     import random as _random
 
     return _random.random()
@@ -730,35 +2417,68 @@ def _op_trunc(arg: Any, ctx: _Ctx) -> Any:
     if n is None:
         return None
     _require_math_numeric(n, "$trunc", 51081)
-    if isinstance(place, bool):
-        raise ExpressionError("can't convert from BSON type bool to long", code=16004)
-    if isinstance(place, float):
-        if not place.is_integer():
-            raise ExpressionError(
-                "precision argument to  $trunc must be a integral value", code=51082
-            )
-        place = int(place)
-    if not isinstance(place, int):
-        place = 0
+    place = _round_precision(place, "$trunc")
+    if place is None:
+        return None
+    if _has_decimal(n):
+        # A non-finite decimal passes straight through, as in `$round`.
+        if not n.to_decimal().is_finite():
+            return n
+        # `quantize` at the requested place, truncating toward zero.
+        return _decimal_result(lambda d: _decimal_quantize_place(d, place, _decimal.ROUND_DOWN), n)
+    # A non-finite DOUBLE passes through: `math.trunc` raises `OverflowError`
+    # on an infinity and `ValueError` on NaN, both of which reached the client
+    # as `internal server error` where mongod answers the value (probed 8.2.11,
+    # 2026-09-03). `$ceil` / `$floor` / `$round` all had the same shape.
+    if isinstance(n, float) and not math.isfinite(n):
+        return n
+    # An INTEGER truncates in integer arithmetic: `n * factor` sends
+    # `9223372036854775807` through a double and loses it, where mongod keeps
+    # it exactly.
+    if isinstance(n, int) and not isinstance(n, bool):
+        scale = 10 ** max(-place, 0)
+        # Toward ZERO, which `n - (n % scale)` does NOT give in Python: `%` here
+        # is floor-based, so `-12345 % 10` is 5 and that expression answers
+        # -12350 where mongod truncates to -12340. Rust's `%` truncates and
+        # needs no such care -- the same line is correct there.
+        magnitude = (abs(n) // scale) * scale
+        return _int_result(-magnitude if n < 0 else magnitude, n)
     factor = 10**place
-    return math.trunc(n * factor) / factor
+    # Type-preserving, as `$floor` / `$ceil`: dividing by `factor` made every
+    # int result a double (`$trunc` of 1 answered 1.0). Probed 8.2.11.
+    truncated = math.trunc(n * factor) / factor
+    if isinstance(n, int):
+        return _int_result(int(truncated), n)
+    return _keep_signed_zero(truncated, n)
 
 
 def _op_merge_objects(arg: Any, ctx: _Ctx) -> Any:
+    from secantus.bsontypes import bson_value_repr_stage
+
     items = arg if isinstance(arg, list) else [arg]
     result: dict[str, Any] = {}
     for item in items:
-        v = _eval(item, ctx)
-        if v is None:
-            continue
-        if not isinstance(v, Mapping):
-            raise ExpressionError(
-                f"$mergeObjects requires object inputs, but input {v} is of type "
-                f"{_bson_type_name(v)}",
-                code=40400,
-                code_name="Location40400",
-            )
-        result.update(v)
+        evaluated = _eval(item, ctx)
+        # An evaluated value that is itself an ARRAY is the operand list, one
+        # level down: `{$mergeObjects: "$docs"}` over `[{a: 1}, {b: 2}]` merges
+        # both, and over `[3, 1, 2]` reports "input 3" rather than naming the
+        # whole array. Only the literal-array form was being split (probed
+        # 8.2.11, 2026-09-03, across five shapes).
+        operands = evaluated if isinstance(evaluated, list) else [evaluated]
+        for v in operands:
+            if v is None:
+                continue
+            if not isinstance(v, Mapping):
+                raise ExpressionError(
+                    # The COMPACT vocabulary -- a double-quoted string, a bare
+                    # ObjectId hex, an ISO date. `f"{v}"` printed `abc` where
+                    # mongod writes `"abc"`.
+                    f"$mergeObjects requires object inputs, but input "
+                    f"{bson_value_repr_stage(v)} is of type {_bson_type_name(v)}",
+                    code=40400,
+                    code_name="Location40400",
+                )
+            result.update(v)
     return result
 
 
@@ -786,11 +2506,15 @@ def _op_set_field(arg: Any, ctx: _Ctx) -> Any:
     """
     if not isinstance(arg, Mapping):
         raise ExpressionError("$setField requires {field, input, value}")
-    field_expr = arg.get("field")
-    input_expr = arg.get("input")
-    value_expr = arg.get("value")
-    if field_expr is None or input_expr is None or value_expr is None:
+    # Membership, not `is None`: `value: null` is a PRESENT argument that writes
+    # a null (`{$setField: {field: "a", input: "$$ROOT", value: null}}` sets
+    # `a: null` -- probed 8.2.11). Testing for None read it as absent and
+    # rejected the one form that distinguishes "write null" from "remove".
+    if not all(k in arg for k in ("field", "input", "value")):
         raise ExpressionError("$setField requires field, input, value")
+    field_expr = arg["field"]
+    input_expr = arg["input"]
+    value_expr = arg["value"]
     field = _eval(field_expr, ctx)
     if not isinstance(field, str):
         raise ExpressionError(
@@ -804,13 +2528,13 @@ def _op_set_field(arg: Any, ctx: _Ctx) -> Any:
         return None
     if not isinstance(input_doc, Mapping):
         raise ExpressionError("$setField input must evaluate to a document")
-    value = _eval(value_expr, ctx)
+    # FIELD-VALUE position: mongod removes the field for `$$REMOVE` *and* for an
+    # absent path (`value: "$nosuch"` -- probed 8.2.11), and only an explicit
+    # null writes a null. This used to use `_eval`, so an absent path wrote a
+    # null where mongod removes.
+    value = _eval_field_value(value_expr, ctx)
     result = dict(input_doc)
-    # Sentinel-equivalent for removal: ``$$REMOVE`` (system var) maps
-    # to the same MISSING marker we use for "field doesn't exist". If
-    # the user supplied ``"$$REMOVE"`` or it resolved to None-via-
-    # MISSING, drop the key. Anything else is a normal assignment.
-    if value is _REMOVE_SENTINEL:
+    if value is MISSING:
         result.pop(field, None)
     else:
         result[field] = value
@@ -820,28 +2544,65 @@ def _op_set_field(arg: Any, ctx: _Ctx) -> Any:
 def _op_get_field(arg: Any, ctx: _Ctx) -> Any:
     """MongoDB 5.0+ ``$getField`` — read a field by name from a document.
 
-    Accepts ``{field, input}`` (full form) or a bare string (shorthand
-    for ``{field: <string>, input: $$CURRENT}``). The field name may
-    contain dots / dollars without being interpreted as a path —
-    that's the whole point of ``$getField`` vs. a bare ``$path``.
+    Accepts ``{field, input}`` (full form) or a bare expression (shorthand
+    for ``{field: <expr>, input: $$CURRENT}``). ``field`` is EVALUATED, not
+    taken literally: a plain string evaluates to itself, so ``{$getField: "s"}``
+    still reads field ``s``, but ``{$getField: "$n"}`` resolves the path and
+    then refuses the int it finds. Taking the bare form literally looked for a
+    field NAMED ``$n`` and answered missing where mongod errors (probed 8.2.11,
+    2026-09-02). A literally-dollared name needs ``$literal`` — which is
+    mongod's rule, and the reason the bare form exists at all.
     """
-    if isinstance(arg, str):
-        field, input_expr = arg, "$$CURRENT"
-    elif isinstance(arg, Mapping):
+    is_options_form = isinstance(arg, Mapping) and not (
+        len(arg) == 1 and next(iter(arg)).startswith("$")
+    )
+    if not is_options_form:
+        field, input_expr = _eval(arg, ctx), "$$CURRENT"
+        if not is_bson_string(field):
+            # mongod distinguishes an ABSENT path from an explicit null here --
+            # `{$getField: "$nosuch"}` says `missing` -- and `_eval` collapses
+            # both to None, so the field-value evaluator supplies the name.
+            named = _eval_field_value(arg, ctx)
+            raise ExpressionError(
+                "$getField requires 'field' to evaluate to type String, but got "
+                f"{'missing' if named is MISSING else _bson_type_name(field)}",
+                code=3041704,
+                code_name="Location3041704",
+            )
+    else:
+        # A single `$`-key document is a nested EXPRESSION, not the
+        # `{field, input}` options form -- `{$getField: {$literal: "$odd"}}` is
+        # how a literally-dollared field name is written, and treating it as the
+        # options form answered "unknown argument: $literal" (probed 8.2.11,
+        # 2026-09-02). The same operator-vs-options rule the date extractors use.
+        #
+        # An UNKNOWN argument outranks everything else, and `input` is required
+        # once the object form is used (probed 8.2.11).
+        for key in arg:
+            if key not in ("field", "input"):
+                raise ExpressionError(
+                    f"$getField found an unknown argument: {key}",
+                    code=3041701,
+                    code_name="Location3041701",
+                )
         field_expr = arg.get("field")
-        input_expr = arg.get("input", "$$CURRENT")
+        if "input" not in arg:
+            raise ExpressionError(
+                "$getField requires 'input' to be specified",
+                code=3041703,
+                code_name="Location3041703",
+            )
+        input_expr = arg["input"]
         if field_expr is None:
             raise ExpressionError("$getField requires a field")
         field = _eval(field_expr, ctx)
         if not isinstance(field, str):
             raise ExpressionError(
                 "$getField requires 'field' to evaluate to type String, but got "
-                f"{_bson_type_name(field)}",
-                code=5654602,
-                code_name="Location5654602",
+                f"{_operand_type_name(field_expr, field, ctx)}",
+                code=3041704,
+                code_name="Location3041704",
             )
-    else:
-        raise ExpressionError("$getField requires a string or {field, input} document")
     # Evaluate ``input`` in a missing-aware way so we can tell an input that
     # resolved to *missing* (an absent field path) apart from an explicit
     # ``null``. mongod (verified against 6.0):
@@ -854,11 +2615,11 @@ def _op_get_field(arg: Any, ctx: _Ctx) -> Any:
         and input_expr.startswith("$")
         and not input_expr.startswith("$$")
     ):
-        input_doc = get_path(dict(ctx.doc), input_expr[1:], default=_REMOVE_SENTINEL)
+        input_doc = get_path(dict(ctx.doc), input_expr[1:], default=MISSING)
     else:
         input_doc = _eval(input_expr, ctx)
-    if input_doc is _REMOVE_SENTINEL:
-        return _REMOVE_SENTINEL
+    if input_doc is MISSING:
+        return MISSING
     if input_doc is None or not isinstance(input_doc, Mapping):
         return None
     # A field absent from the input document resolves to "missing" (the same
@@ -866,11 +2627,11 @@ def _op_get_field(arg: Any, ctx: _Ctx) -> Any:
     # that reads it is omitted from the output. A field present with an explicit
     # ``null`` still returns ``None`` (and is emitted).
     if field not in input_doc:
-        return _REMOVE_SENTINEL
+        return MISSING
     return input_doc[field]
 
 
-def _op_switch(arg: Any, ctx: _Ctx) -> Any:
+def _op_switch(arg: Any, ctx: _Ctx, ret: _Eval = None) -> Any:
     if not isinstance(arg, Mapping):
         raise ExpressionError("$switch requires {branches, default?}")
     branches = arg.get("branches")
@@ -884,10 +2645,20 @@ def _op_switch(arg: Any, ctx: _Ctx) -> Any:
         if not isinstance(branch, Mapping) or "case" not in branch or "then" not in branch:
             raise ExpressionError("each $switch branch needs case and then")
         if _bool(_eval(branch["case"], ctx)):
-            return _eval(branch["then"], ctx)
+            return (ret or _eval)(branch["then"], ctx)
     if "default" in arg:
-        return _eval(arg["default"], ctx)
-    raise ExpressionError("$switch found no matching branch and no default")
+        return (ret or _eval)(arg["default"], ctx)
+    # mongod 8.2.11 answers 40066 here, wrapped in its executor prefix. It
+    # answers a DIFFERENT error -- 40069, "Cannot execute a switch statement
+    # where all the cases evaluate to false without a default", under
+    # `Failed to optimize pipeline` -- when every case is a constant it can
+    # fold at parse time. Reproducing that split means modelling constant
+    # folding for message text alone; see `tasks/remaining-work-plan.md` 1b.
+    raise ExpressionError(
+        "$switch could not find a matching branch for an input, and no default was specified.",
+        code=40066,
+        code_name="Location40066",
+    )
 
 
 # Mirror of query.py's pattern-length cap. Python `re` has no match
@@ -966,6 +2737,28 @@ def _add_months(d: _dt.datetime, months: int) -> _dt.datetime:
     return d.replace(year=new_year, month=new_month, day=new_day)
 
 
+def _shift_date_in_zone(
+    d: _dt.datetime, unit: str, amount: int, tz: _dt.tzinfo | None
+) -> _dt.datetime:
+    """`$dateAdd` / `$dateSubtract`, which shift a CALENDAR unit on the LOCAL
+    wall clock.
+
+    Probed 8.2.11 (2026-09-01): noon Eastern on 2026-03-07 plus one day is noon
+    Eastern on the 8th -- 23 real hours, because the spring-forward falls
+    between them -- while the same shift in UTC adds 24. The timezone was
+    ignored outright on both servers, so every calendar shift across a DST
+    boundary was an hour out. Sub-day units (`hour` and below) are absolute and
+    unaffected, which is why a 24-`hour` shift is NOT the same as a 1-`day` one.
+    """
+    if tz is None or unit in _SUBDAY_UNIT_MS:
+        return _shift_date(d, unit, amount)
+    aware = d if d.tzinfo is not None else d.replace(tzinfo=_dt.timezone.utc)
+    local = aware.astimezone(tz).replace(tzinfo=None)
+    shifted = _shift_date(local, unit, amount)
+    utc = _localize(shifted, tz).astimezone(_dt.timezone.utc)
+    return utc if d.tzinfo is not None else utc.replace(tzinfo=None)
+
+
 def _shift_date(d: _dt.datetime, unit: str, amount: int) -> _dt.datetime:
     if unit == "year":
         return _add_months(d, amount * 12)
@@ -1020,7 +2813,8 @@ def _op_date_add(arg: Any, ctx: _Ctx) -> Any:
             code=5166405,
             code_name="Location5166405",
         )
-    return _shift_date(start, unit, n)
+    tz = _resolve_timezone(arg.get("timezone")) if "timezone" in arg else None
+    return _shift_date_in_zone(start, unit, n, tz)
 
 
 def _op_date_subtract(arg: Any, ctx: _Ctx) -> Any:
@@ -1042,7 +2836,8 @@ def _op_date_subtract(arg: Any, ctx: _Ctx) -> Any:
             code=5166405,
             code_name="Location5166405",
         )
-    return _shift_date(start, unit, -n)
+    tz = _resolve_timezone(arg.get("timezone")) if "timezone" in arg else None
+    return _shift_date_in_zone(start, unit, -n, tz)
 
 
 def _op_date_trunc(arg: Any, ctx: _Ctx) -> Any:
@@ -1071,43 +2866,213 @@ def _op_date_trunc(arg: Any, ctx: _Ctx) -> Any:
             code=5439018,
             code_name="Location5439018",
         )
+    tz = (
+        _resolve_timezone(arg.get("timezone"), operator="$dateTrunc") if "timezone" in arg else None
+    )
+    return _truncate_date(date, unit, bin_size, tz, _eval(arg.get("startOfWeek"), ctx))
+
+
+_TRUNC_REFERENCE = _dt.datetime(2000, 1, 1)
+"""mongod bins every `$dateTrunc` unit from 2000-01-01T00:00:00 IN THE TARGET
+ZONE -- not from the epoch, and not from year 1. Probed 8.2.11 (2026-09-01):
+`binSize: 7` days over 2000-01-0N truncates to 2000-01-01 for N<8, and in
+`Asia/Kolkata` that same bin starts at 1999-12-31T18:30Z, i.e. local midnight."""
+
+_WEEKDAYS = ("monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday")
+
+# Integer MILLISECONDS, not float seconds. The first version of this divided
+# `timedelta.total_seconds()` -- a float -- by a float step, and the rounding
+# put `$dateDiff` in milliseconds one out over a twenty-year span (mongod and
+# the Rust engine both answer the exact integer). `timedelta // timedelta` is
+# exact integer floor division, so nothing here goes through a float.
+_SUBDAY_UNIT_MS = {
+    "hour": 3_600_000,
+    "minute": 60_000,
+    "second": 1000,
+    "millisecond": 1,
+}
+
+
+def _localize(naive: _dt.datetime, tz: _dt.tzinfo | None) -> _dt.datetime:
+    """A local wall-clock reading back to the instant it names."""
+    return naive.replace(tzinfo=tz or _dt.timezone.utc)
+
+
+def _date_bin_index(
+    aware: _dt.datetime,
+    unit: str,
+    bin_size: int,
+    zone: _dt.tzinfo,
+    start_of_week: Any = None,
+) -> int:
+    """Which `unit` bin an instant falls in, counting from the reference.
+
+    The single source for both `$dateTrunc` (which rebuilds the datetime from
+    this index) and `$dateDiff` (which subtracts two of them). mongod's
+    `$dateDiff` counts BOUNDARY CROSSINGS, not elapsed whole units -- probed
+    8.2.11 (2026-09-01): 02:30 to 03:10 is 1 hour, 02:00 to 02:59 is 0, and
+    02:59:59.9 to 03:00 is 1 -- so it is exactly this subtraction, and keeping
+    one function means the two operators cannot drift apart.
+
+    Two arithmetics, because mongod uses both:
+
+    * **year / quarter / month / week / day** are CALENDAR units, indexed off
+      the local wall clock, so a `day` bin boundary is local midnight even
+      though DST makes consecutive ones 23 or 25 real hours apart.
+    * **hour / minute / second / millisecond** index by REAL ELAPSED TIME from
+      the reference instant, so `binSize: 5` hours stays 5 real hours apart
+      across a DST shift instead of re-aligning to the wall clock. The anchor
+      is still LOCAL midnight of 2000-01-01, which is why a half-hour-offset
+      zone like `Asia/Kolkata` puts hour boundaries on the half hour.
+    """
+    local = aware.astimezone(zone).replace(tzinfo=None)
+    if unit in _SUBDAY_UNIT_MS:
+        reference = _localize(_TRUNC_REFERENCE, zone).astimezone(_dt.timezone.utc)
+        step = _dt.timedelta(milliseconds=_SUBDAY_UNIT_MS[unit] * bin_size)
+        return (aware - reference) // step
     if unit == "year":
-        new_year = date.year - ((date.year - 1) % bin_size)
-        return _dt.datetime(new_year, 1, 1, tzinfo=date.tzinfo)
+        return (local.year - _TRUNC_REFERENCE.year) // bin_size
     if unit == "quarter":
-        q_index = (date.month - 1) // 3
-        q_index -= q_index % bin_size
-        return _dt.datetime(date.year, q_index * 3 + 1, 1, tzinfo=date.tzinfo)
+        quarters = (local.year - _TRUNC_REFERENCE.year) * 4 + (local.month - 1) // 3
+        return quarters // bin_size
     if unit == "month":
-        m = date.month - ((date.month - 1) % bin_size)
-        return _dt.datetime(date.year, m, 1, tzinfo=date.tzinfo)
+        months = (local.year - _TRUNC_REFERENCE.year) * 12 + (local.month - 1)
+        return months // bin_size
     if unit == "week":
-        epoch = _dt.datetime(1970, 1, 5, tzinfo=date.tzinfo)  # Mondays
-        weeks = (date - epoch).days // 7
-        weeks -= weeks % bin_size
-        return epoch + _dt.timedelta(weeks=weeks)
+        days = (
+            _dt.datetime(local.year, local.month, local.day) - _week_reference(start_of_week)
+        ).days
+        return (days // 7) // bin_size
     if unit == "day":
-        epoch = _dt.datetime(1970, 1, 1, tzinfo=date.tzinfo)
-        days = (date - epoch).days
-        days -= days % bin_size
-        return epoch + _dt.timedelta(days=days)
-    if unit == "hour":
-        zeroed = date.replace(minute=0, second=0, microsecond=0)
-        zeroed = zeroed.replace(hour=zeroed.hour - (zeroed.hour % bin_size))
-        return zeroed
-    if unit == "minute":
-        zeroed = date.replace(second=0, microsecond=0)
-        zeroed = zeroed.replace(minute=zeroed.minute - (zeroed.minute % bin_size))
-        return zeroed
-    if unit == "second":
-        zeroed = date.replace(microsecond=0)
-        zeroed = zeroed.replace(second=zeroed.second - (zeroed.second % bin_size))
-        return zeroed
-    if unit == "millisecond":
-        ms = date.microsecond // 1000
-        ms -= ms % bin_size
-        return date.replace(microsecond=ms * 1000)
+        days = (_dt.datetime(local.year, local.month, local.day) - _TRUNC_REFERENCE).days
+        return days // bin_size
     raise ExpressionError(f"unknown time unit value: {unit}", code=9, code_name="FailedToParse")
+
+
+def _truncate_date(
+    date: _dt.datetime,
+    unit: str,
+    bin_size: int,
+    tz: _dt.tzinfo | None,
+    start_of_week: Any = None,
+) -> _dt.datetime:
+    """mongod's `$dateTrunc`, which truncates IN the timezone.
+
+    The timezone used to be ignored outright -- read off the spec, never
+    applied -- so every bucket landed on a UTC boundary. A daily rollup for
+    `America/New_York` bucketed at 00:00Z rather than 04:00Z, silently
+    attributing four hours of each day to the wrong bucket. Nothing errored.
+    """
+    aware = date if date.tzinfo is not None else date.replace(tzinfo=_dt.timezone.utc)
+    zone = tz or _dt.timezone.utc
+    index = _date_bin_index(aware, unit, bin_size, zone, start_of_week)
+
+    def answer(instant: _dt.datetime) -> _dt.datetime:
+        # Same awareness as the input. Documents hold NAIVE UTC datetimes here
+        # (pymongo decodes BSON dates that way), so returning an aware one makes
+        # every later comparison against a stored date raise TypeError.
+        utc = instant.astimezone(_dt.timezone.utc)
+        return utc if date.tzinfo is not None else utc.replace(tzinfo=None)
+
+    if unit in _SUBDAY_UNIT_MS:
+        # In UTC, deliberately. Adding a `timedelta` to a ZONE-AWARE datetime is
+        # WALL-CLOCK arithmetic: the local reading advances and the offset is
+        # re-resolved, so crossing a DST boundary silently moves the instant by
+        # an hour. Anchoring in UTC keeps this absolute.
+        reference = _localize(_TRUNC_REFERENCE, zone).astimezone(_dt.timezone.utc)
+        step = _dt.timedelta(milliseconds=_SUBDAY_UNIT_MS[unit] * bin_size)
+        return answer(reference + index * step)
+
+    if unit == "year":
+        truncated = _dt.datetime(_TRUNC_REFERENCE.year + index * bin_size, 1, 1)
+    elif unit == "quarter":
+        quarters = index * bin_size
+        truncated = _dt.datetime(_TRUNC_REFERENCE.year + quarters // 4, (quarters % 4) * 3 + 1, 1)
+    elif unit == "month":
+        months = index * bin_size
+        truncated = _dt.datetime(_TRUNC_REFERENCE.year + months // 12, months % 12 + 1, 1)
+    elif unit == "week":
+        truncated = _week_reference(start_of_week) + _dt.timedelta(weeks=index * bin_size)
+    else:  # day
+        truncated = _TRUNC_REFERENCE + _dt.timedelta(days=index * bin_size)
+
+    return answer(_localize(truncated, zone))
+
+
+def _week_reference(start_of_week: Any) -> _dt.datetime:
+    """The first `start_of_week` weekday ON OR AFTER 2000-01-01.
+
+    mongod's default is SUNDAY -- 2000-01-02 -- which is what makes
+    `$dateTrunc` by week land on a Sunday. The old code used 1970-01-05, a
+    Monday, so the default bucket was a day out for every week truncation.
+    """
+    name = "sunday" if start_of_week is None else start_of_week
+    if not isinstance(name, str) or name.lower() not in _WEEKDAYS:
+        raise ExpressionError(
+            f"unknown startOfWeek value: {name}", code=5439015, code_name="Location5439015"
+        )
+    want = _WEEKDAYS.index(name.lower())
+    ref = _TRUNC_REFERENCE
+    return ref + _dt.timedelta(days=(want - ref.weekday()) % 7)
+
+
+def _date_int(v: Any) -> int | None:
+    """An integer date argument (mongod amount / binSize): an int or a whole
+    double coerces to int; a fractional double / bool / non-numeric returns None
+    for the caller to reject."""
+    if isinstance(v, bool):
+        return None
+    if isinstance(v, int):
+        return v
+    if isinstance(v, float) and v.is_integer():
+        return int(v)
+    return None
+
+
+def _op_date_add(arg: Any, ctx: _Ctx) -> Any:
+    if not isinstance(arg, Mapping):
+        raise ExpressionError("$dateAdd requires a document spec")
+    start = _eval(arg.get("startDate"), ctx)
+    unit = _eval(arg.get("unit"), ctx)
+    amount = _eval(arg.get("amount"), ctx)
+    if start is None or amount is None:
+        return None
+    if not isinstance(start, _dt.datetime):
+        raise ExpressionError("$dateAdd startDate must be a datetime")
+    if not isinstance(unit, str):
+        raise ExpressionError("$dateAdd needs a string unit")
+    n = _date_int(amount)
+    if n is None:
+        raise ExpressionError(
+            "$dateAdd expects integer amount of time units",
+            code=5166405,
+            code_name="Location5166405",
+        )
+    tz = _resolve_timezone(arg.get("timezone")) if "timezone" in arg else None
+    return _shift_date_in_zone(start, unit, n, tz)
+
+
+def _op_date_subtract(arg: Any, ctx: _Ctx) -> Any:
+    if not isinstance(arg, Mapping):
+        raise ExpressionError("$dateSubtract requires a document spec")
+    start = _eval(arg.get("startDate"), ctx)
+    unit = _eval(arg.get("unit"), ctx)
+    amount = _eval(arg.get("amount"), ctx)
+    if start is None or amount is None:
+        return None
+    if not isinstance(start, _dt.datetime):
+        raise ExpressionError("$dateSubtract startDate must be a datetime")
+    if not isinstance(unit, str):
+        raise ExpressionError("$dateSubtract needs a string unit")
+    n = _date_int(amount)
+    if n is None:
+        raise ExpressionError(
+            "$dateSubtract expects integer amount of time units",
+            code=5166405,
+            code_name="Location5166405",
+        )
+    tz = _resolve_timezone(arg.get("timezone")) if "timezone" in arg else None
+    return _shift_date_in_zone(start, unit, -n, tz)
 
 
 def _op_date_to_parts(arg: Any, ctx: _Ctx) -> Any:
@@ -1267,7 +3232,13 @@ def _op_ts_second(arg: Any, ctx: _Ctx) -> Any:
     if v is None:
         return None
     if not isinstance(v, bson.Timestamp):
-        raise ExpressionError("Argument to $tsSecond must be a timestamp", code=5687301)
+        # The leading space is mongod's own, and it names the offending type
+        # (probed 8.2.11, 2026-09-02).
+        raise ExpressionError(
+            f" Argument to $tsSecond must be a timestamp, but is {_bson_type_name(v)}",
+            code=5687301,
+            code_name="Location5687301",
+        )
     return Int64(v.time)
 
 
@@ -1278,45 +3249,32 @@ def _op_ts_increment(arg: Any, ctx: _Ctx) -> Any:
     if v is None:
         return None
     if not isinstance(v, bson.Timestamp):
-        raise ExpressionError("Argument to $tsIncrement must be a timestamp", code=5687302)
+        raise ExpressionError(
+            f" Argument to $tsIncrement must be a timestamp, but is {_bson_type_name(v)}",
+            code=5687302,
+            code_name="Location5687302",
+        )
     return Int64(v.inc)
 
 
 def _type_name(v: Any) -> str:
-    """The BSON type string mongod's ``$type`` reports."""
-    from bson import Binary, MaxKey, MinKey, ObjectId, Regex, Timestamp
+    """The BSON type string mongod's ``$type`` reports.
 
-    if v is None:
-        return "null"
-    if isinstance(v, bool):
-        return "bool"
-    if isinstance(v, Int64):
-        return "long"
-    if isinstance(v, int):
-        return "int" if -(2**31) <= v < 2**31 else "long"
-    if isinstance(v, float):
-        return "double"
-    if isinstance(v, Decimal128):
-        return "decimal"
-    if isinstance(v, str):
-        return "string"
-    if isinstance(v, (bytes, Binary)):
-        return "binData"
-    if isinstance(v, ObjectId):
-        return "objectId"
-    if isinstance(v, _dt.datetime):
-        return "date"
-    if isinstance(v, Timestamp):
-        return "timestamp"
-    if isinstance(v, Regex):
-        return "regex"
-    if isinstance(v, MinKey):
-        return "minKey"
-    if isinstance(v, MaxKey):
-        return "maxKey"
-    if isinstance(v, list):
-        return "array"
-    return "object"
+    Delegates to `bsontypes.bson_type_name`, which is the ONE place that names a
+    BSON type. This used to be a fourth partial copy of that vocabulary -- the
+    exact drift `bsontypes` was created to end -- and it had the two bugs a
+    hand-rolled copy gets: it tested ``isinstance(v, str)`` with no ``Code``
+    case, so ``$type`` of a JavaScript value answered ``"string"``, and it had
+    no ``re.Pattern`` case, so a compiled pattern answered ``"object"``.
+
+    The error-message surface and ``$type`` were probed independently against
+    mongod 8.2.11 (2026-09-03) across 21 value classes and name every type
+    identically, ``javascriptWithScope`` included -- so one vocabulary is
+    correct here, not a coincidence worth re-deriving.
+    """
+    from secantus.bsontypes import bson_type_name
+
+    return bson_type_name(v)
 
 
 _TYPE_MISSING = object()
@@ -1326,6 +3284,8 @@ def _op_type(arg: Any, ctx: _Ctx) -> Any:
     """``$type``: the BSON type string of the argument. A field path that doesn't
     exist yields ``"missing"`` (mongod distinguishes an absent field from an
     explicit null)."""
+    if arg == "$$REMOVE":
+        return "missing"  # `$$REMOVE` IS the missing value -- probed
     if (
         isinstance(arg, str)
         and arg.startswith("$")
@@ -1348,21 +3308,17 @@ def _op_is_array(arg: Any, ctx: _Ctx) -> bool:
 
 
 def _strcasecmp_coerce(v: Any) -> str:
-    """Coerce a `$strcasecmp` operand to a string the way mongod does: null →
-    the empty string, a string stays, and any other value is `$toString`-coerced
-    (numbers → their string form, dates → their string form). A bool is the one
-    type mongod refuses to coerce → Location16007."""
-    if v is None:
-        return ""
-    if isinstance(v, str):
-        return v
-    if isinstance(v, bool):
-        raise ExpressionError(
-            "$strcasecmp only takes strings and numbers, not bool",
-            code=16007,
-            code_name="Location16007",
-        )
-    return _convert_value(v, "string")
+    """Coerce a `$strcasecmp` operand exactly as `$toLower` does.
+
+    ONE rule, not a per-operator one: `coerce_to_string` is what mongod runs
+    here, so a double, date or Decimal128 all render and everything it rejects
+    is `16007 can't convert from BSON type X to String`. This used
+    `$toString`'s conversion instead, which accepts a different SET of types
+    and worded the bool case as "$strcasecmp only takes strings and numbers"
+    -- neither is what mongod says (probed 8.2.11, 2026-09-03, where
+    `{$strcasecmp: [1.5, 1]}` answers 1 and an object is 16007, not 241).
+    """
+    return coerce_to_string(v)
 
 
 def _op_strcasecmp(arg: Any, ctx: _Ctx) -> int:
@@ -1371,7 +3327,10 @@ def _op_strcasecmp(arg: Any, ctx: _Ctx) -> int:
     vals = _eval_args(arg, ctx)
     if len(vals) != 2:
         raise ExpressionError("$strcasecmp requires two arguments")
-    au, bu = _strcasecmp_coerce(vals[0]).upper(), _strcasecmp_coerce(vals[1]).upper()
+    # ASCII-only upper, like `$toUpper` — `.upper()` folded `ß` to `SS` and
+    # reported `strcasecmp("ß", "SS")` as 0 where mongod says 1 (probed 8.2.11).
+    au = ascii_upper(_strcasecmp_coerce(vals[0]))
+    bu = ascii_upper(_strcasecmp_coerce(vals[1]))
     return -1 if au < bu else (1 if au > bu else 0)
 
 
@@ -1459,32 +3418,21 @@ def _op_date_diff(arg: Any, ctx: _Ctx) -> Any:
         raise ExpressionError("$dateDiff endpoints must be datetimes")
     if not isinstance(unit, str):
         raise ExpressionError("$dateDiff needs a string unit")
-    if unit == "year":
-        return end.year - start.year - (1 if (end.month, end.day) < (start.month, start.day) else 0)
-    if unit == "quarter":
-        sq = (start.year, (start.month - 1) // 3)
-        eq = (end.year, (end.month - 1) // 3)
-        return (eq[0] - sq[0]) * 4 + (eq[1] - sq[1])
-    if unit == "month":
-        return (
-            (end.year - start.year) * 12
-            + (end.month - start.month)
-            - (1 if end.day < start.day else 0)
-        )
-    delta = end - start
-    if unit == "week":
-        return delta.days // 7
-    if unit == "day":
-        return delta.days
-    if unit == "hour":
-        return int(delta.total_seconds() // 3600)
-    if unit == "minute":
-        return int(delta.total_seconds() // 60)
-    if unit == "second":
-        return int(delta.total_seconds())
-    if unit == "millisecond":
-        return int(delta.total_seconds() * 1000)
-    raise ExpressionError(f"unknown time unit value: {unit}", code=9, code_name="FailedToParse")
+    # mongod counts BOUNDARY CROSSINGS in the timezone, which is the same bin
+    # index `$dateTrunc` floors to -- so this is one subtraction, not a second
+    # implementation of the calendar. The timezone used to be ignored entirely
+    # and the calendar units computed "whole units elapsed" instead: 02:00Z to
+    # 23:00Z answered 0 days where New York answers 1 (locally that crosses
+    # midnight), and 2026-07-01 to 2026-07-31 answered 0 months where mongod
+    # answers 1. Both were silent wrong answers.
+    tz = _resolve_timezone(arg.get("timezone"), operator="$dateDiff") if "timezone" in arg else None
+    zone = tz or _dt.timezone.utc
+    start_aware = start if start.tzinfo is not None else start.replace(tzinfo=_dt.timezone.utc)
+    end_aware = end if end.tzinfo is not None else end.replace(tzinfo=_dt.timezone.utc)
+    start_of_week = _eval(arg.get("startOfWeek"), ctx) if "startOfWeek" in arg else None
+    return _date_bin_index(end_aware, unit, 1, zone, start_of_week) - _date_bin_index(
+        start_aware, unit, 1, zone, start_of_week
+    )
 
 
 def _op_regex_find_all(arg: Any, ctx: _Ctx) -> Any:
@@ -1539,13 +3487,20 @@ def _op_array_to_object(arg: Any, ctx: _Ctx) -> Any:
         elif isinstance(entry, list) and len(entry) == 2:
             out[str(entry[0])] = entry[1]
         else:
-            raise ExpressionError("$arrayToObject entries must be {k, v} docs or [k, v] pairs")
+            # mongod names the element's TYPE under its own 40398; this was a
+            # hand-written sentence under the generic 14 (probed 8.2.11,
+            # 2026-09-03).
+            raise ExpressionError(
+                f"Unrecognised input type format for $arrayToObject: {_bson_type_name(entry)}",
+                code=40398,
+                code_name="Location40398",
+            )
     return out
 
 
 def _op_split(arg: Any, ctx: _Ctx) -> Any:
     # mongod: exactly 2 args (16020); a null string/separator -> null; a
-    # non-string first/second arg -> 40085/40086; an empty separator -> 40087.
+    # non-string first/second arg -> 40085/10503900; an empty separator -> 40087.
     if not isinstance(arg, list) or len(arg) != 2:
         n = len(arg) if isinstance(arg, list) else 1
         raise ExpressionError(
@@ -1568,8 +3523,11 @@ def _op_split(arg: Any, ctx: _Ctx) -> Any:
         raise ExpressionError(
             "$split requires an expression that evaluates to a string as a second "
             f"argument, found: {_bson_type_name(sep)}",
-            code=40086,
-            code_name="Location40086",
+            # 10503900 on 8.2.11, not the 40086 this recorded -- the first
+            # argument keeps 40085 and only the SECOND moved (probed
+            # 2026-09-02). We target 8.x, so the newer code is the right one.
+            code=10503900,
+            code_name="Location10503900",
         )
     if sep == "":
         raise ExpressionError(
@@ -1615,11 +3573,14 @@ def _trim_impl(op: str, side: str, arg: Any, ctx: _Ctx) -> Any:
                 code=50700,
                 code_name="Location50700",
             )
+    # The DEFAULT set is mongod's own table, not Python's `strip()` set --
+    # see TRIM_WHITESPACE. An explicit `chars` is used verbatim either way.
+    cut = chars if chars else TRIM_WHITESPACE
     if side == "l":
-        return s.lstrip(chars) if chars else s.lstrip()
+        return s.lstrip(cut)
     if side == "r":
-        return s.rstrip(chars) if chars else s.rstrip()
-    return s.strip(chars) if chars else s.strip()
+        return s.rstrip(cut)
+    return s.strip(cut)
 
 
 def _op_trim(arg: Any, ctx: _Ctx) -> Any:
@@ -1668,7 +3629,10 @@ def _op_substr_cp(arg: Any, ctx: _Ctx) -> Any:
             f"value: {_fmt_double(length)}",
             code=34453,
         ) from None
-    if not isinstance(s, str) or not isinstance(start, int) or not isinstance(length, int):
+    # The first operand is COERCED, not required to be a string: mongod answers
+    # `{$substrCP: [123, 1, 2]}` with "23" (probed 8.2.11, 2026-09-03).
+    s = coerce_to_string(s)
+    if not isinstance(start, int) or not isinstance(length, int):
         raise ExpressionError("$substrCP requires string + ints")
     # Unlike $substrBytes, mongod rejects a negative start *and* a negative
     # length for $substrCP (distinct codes/messages, verbatim).
@@ -1687,7 +3651,8 @@ def _op_substr_cp(arg: Any, ctx: _Ctx) -> Any:
 
 def _op_str_len_cp(arg: Any, ctx: _Ctx) -> Any:
     s = _eval(arg, ctx)
-    if not isinstance(s, str):
+    # See `$strLenBytes`: a `bson.Code` is not a BSON string.
+    if not is_bson_string(s):
         raise ExpressionError(
             f"$strLenCP requires a string argument, found: {_bson_type_name(s)}",
             code=34471,
@@ -1696,32 +3661,41 @@ def _op_str_len_cp(arg: Any, ctx: _Ctx) -> Any:
     return len(s)
 
 
+#: `$indexOfArray` was given its OWN error codes at some point after the string
+#: forms got theirs, and mongod still carries both pairs (probed 8.2.11,
+#: 2026-09-01): the string operators raise 40096 / 40097, the array operator
+#: 9711600 / 9711601, with the same two message texts.
+_INDEX_OF_CODES = {"$indexOfArray": (9711600, 9711601)}
+_INDEX_OF_DEFAULT_CODES = (40096, 40097)
+
+
 def _index_of_pos(op: str, which: str, v: Any) -> int:
     """Validate a ``$indexOf*`` start / end index. mongod accepts an int or whole
-    double; a fractional double / bool / non-numeric is Location40096 (note its
-    verbatim missing space after the operator name), and a negative index is
-    Location40097."""
+    double; a fractional double / bool / non-numeric is the operator's "integral"
+    code (note the message's verbatim missing space after the operator name),
+    and a negative index is its "nonnegative" code."""
+    integral_code, nonneg_code = _INDEX_OF_CODES.get(op, _INDEX_OF_DEFAULT_CODES)
     if isinstance(v, bool) or not isinstance(v, (int, float)):
         raise ExpressionError(
             f"{op}requires an integral {which} index, found a value of type: "
             f"{_bson_type_name(v)}, with value: {_mongo_val_repr(v)}",
-            code=40096,
-            code_name="Location40096",
+            code=integral_code,
+            code_name=f"Location{integral_code}",
         )
     if isinstance(v, float):
         if not v.is_integer():
             raise ExpressionError(
                 f"{op}requires an integral {which} index, found a value of type: "
                 f"{_bson_type_name(v)}, with value: {_mongo_val_repr(v)}",
-                code=40096,
-                code_name="Location40096",
+                code=integral_code,
+                code_name=f"Location{integral_code}",
             )
         v = int(v)
     if v < 0:
         raise ExpressionError(
             f"{op} requires a nonnegative {which} index, found: {v}",
-            code=40097,
-            code_name="Location40097",
+            code=nonneg_code,
+            code_name=f"Location{nonneg_code}",
         )
     return v
 
@@ -1733,8 +3707,21 @@ def _op_index_of_cp(arg: Any, ctx: _Ctx) -> Any:
     needle = _eval(arg[1], ctx)
     if s is None:
         return None
-    if not isinstance(s, str) or not isinstance(needle, str):
-        raise ExpressionError("$indexOfCP requires string operands")
+    # mongod names the OFFENDING argument and its type, with a distinct code
+    # per position (probed 8.2.11): 40093 for the first, 40094 for the second.
+    if not is_bson_string(s):
+        raise ExpressionError(
+            f"$indexOfCP requires a string as the first argument, found: {_bson_type_name(s)}",
+            code=40093,
+            code_name="Location40093",
+        )
+    if not is_bson_string(needle):
+        raise ExpressionError(
+            f"$indexOfCP requires a string as the second argument, "
+            f"found: {_bson_type_name(needle)}",
+            code=40094,
+            code_name="Location40094",
+        )
     start = _index_of_pos("$indexOfCP", "starting", _eval(arg[2], ctx)) if len(arg) >= 3 else 0
     end = _index_of_pos("$indexOfCP", "ending", _eval(arg[3], ctx)) if len(arg) >= 4 else len(s)
     return s.find(needle, start, end)
@@ -1773,7 +3760,11 @@ def _op_index_of_bytes(arg: Any, ctx: _Ctx) -> Any:
 
 def _op_str_len_bytes(arg: Any, ctx: _Ctx) -> Any:
     s = _eval(arg, ctx)
-    if not isinstance(s, str):
+    # `is_bson_string`, not `isinstance(s, str)`: `bson.Code` subclasses `str`,
+    # so a JavaScript value passed that test and this RETURNED A LENGTH where
+    # mongod refuses the argument (probed 8.2.11, 2026-09-04). The error path
+    # below already named the type correctly -- it was simply never reached.
+    if not is_bson_string(s):
         raise ExpressionError(
             f"$strLenBytes requires a string argument, found: {_bson_type_name(s)}",
             code=34473,
@@ -1809,7 +3800,9 @@ def _op_substr_bytes(arg: Any, ctx: _Ctx) -> Any:
         start = int(start)
     if isinstance(length, float) and math.isfinite(length):
         length = int(length)
-    if not isinstance(s, str) or not isinstance(start, int) or not isinstance(length, int):
+    # Coerced, not required to be a string -- same rule as `$substrCP`.
+    s = coerce_to_string(s)
+    if not isinstance(start, int) or not isinstance(length, int):
         raise ExpressionError("$substrBytes requires string + ints")
     encoded = s.encode("utf-8")
     n = len(encoded)
@@ -1851,47 +3844,23 @@ def _op_index_of_array(arg: Any, ctx: _Ctx) -> Any:
             code_name="Location40090",
         )
     needle = _eval(arg[1], ctx)
-    start = _eval(arg[2], ctx) if len(arg) >= 3 else 0
-    end = _eval(arg[3], ctx) if len(arg) >= 4 else len(arr)
-    # mongod's message text is verbatim, including the missing space in
-    # "$indexOfArrayrequires" (a real mongod quirk) so a surrogate matches.
-    if isinstance(start, bool):
-        raise ExpressionError(
-            "$indexOfArrayrequires an integral starting index, found a value of "
-            f"type: bool, with value: {'true' if start else 'false'}",
-            code=40096,
-        )
-    if isinstance(end, bool):
-        raise ExpressionError(
-            "$indexOfArrayrequires an integral ending index, found a value of "
-            f"type: bool, with value: {'true' if end else 'false'}",
-            code=40096,
-        )
-    try:
-        start = _int_index(start)
-    except _FractionalIndex:
-        raise ExpressionError(
-            "$indexOfArrayrequires an integral starting index, found a value of "
-            f"type: double, with value: {_fmt_double(start)}",
-            code=40096,
-        ) from None
-    try:
-        end = _int_index(end)
-    except _FractionalIndex:
-        raise ExpressionError(
-            "$indexOfArrayrequires an integral ending index, found a value of "
-            f"type: double, with value: {_fmt_double(end)}",
-            code=40096,
-        ) from None
-    if not isinstance(start, int) or not isinstance(end, int):
-        return -1
-    for i in range(max(0, start), min(len(arr), end)):
+    # Shares the string forms' validator, which this used to duplicate by hand
+    # and get wrong in three ways (probed 8.2.11, 2026-09-01): the codes were
+    # the string operators' 40096 / 40097 rather than this operator's own
+    # 9711600 / 9711601; a non-numeric index (`"x"`) silently answered -1 where
+    # mongod refuses; and a NEGATIVE index was clamped to 0 by `max(0, start)`,
+    # so `{$indexOfArray: [[1, 2, 3], 3, -1]}` answered 2 where mongod raises.
+    start = _index_of_pos("$indexOfArray", "starting", _eval(arg[2], ctx)) if len(arg) >= 3 else 0
+    end = (
+        _index_of_pos("$indexOfArray", "ending", _eval(arg[3], ctx)) if len(arg) >= 4 else len(arr)
+    )
+    for i in range(start, min(len(arr), end)):
         if arr[i] == needle:
             return i
     return -1
 
 
-def _op_let(arg: Any, ctx: _Ctx) -> Any:
+def _op_let(arg: Any, ctx: _Ctx, ret: _Eval = None) -> Any:
     if not isinstance(arg, Mapping) or "vars" not in arg or "in" not in arg:
         raise ExpressionError("$let requires {vars, in}")
     bindings = arg["vars"]
@@ -1899,8 +3868,13 @@ def _op_let(arg: Any, ctx: _Ctx) -> Any:
         raise ExpressionError("$let.vars must be a document")
     inner = ctx
     for name, value_expr in bindings.items():
-        inner = inner.with_var(name, _eval(value_expr, ctx))
-    return _eval(arg["in"], inner)
+        # Bind in FIELD-VALUE position so a missing path stays MISSING rather
+        # than collapsing to null. mongod binds `$$v` from an absent field as
+        # missing, so `$eq: ["$$v", null]` is false -- we bound null and it was
+        # true. The same rule governs `$lookup`'s `let`, where it meant a
+        # document without the local field joined rows mongod excludes.
+        inner = inner.with_var(name, _eval_field_value(value_expr, ctx))
+    return (ret or _eval)(arg["in"], inner)
 
 
 # Hard cap on the size of a `$range` result. Without this, a single
@@ -1918,7 +3892,10 @@ def _op_range(arg: Any, ctx: _Ctx) -> Any:
     step = _eval(arg[2], ctx) if len(arg) == 3 else 1
     # Per-arg bool rejection with mongod's exact codes/messages (the step
     # message's "type:bool" missing space is verbatim from mongod).
-    if isinstance(start, bool) or not isinstance(start, (int, float)):
+    # A Decimal128 IS numeric here -- it fails the 32-bit check below, not this
+    # type check, so `{$range: [Decimal128("2.5"), 1]}` is 34444 and not 34443
+    # (probed 8.2.11, 2026-09-03).
+    if isinstance(start, bool) or not isinstance(start, (int, float, Decimal128)):
         raise ExpressionError(
             "$range requires a numeric starting value, found value of type: "
             f"{_bson_type_name(start)}",
@@ -1937,11 +3914,11 @@ def _op_range(arg: Any, ctx: _Ctx) -> Any:
     # A whole-number double is accepted (coerced to int); a fractional one is
     # rejected with mongod's per-arg "32-bit integer" code.
     try:
-        start = _int_index(start)
+        start = _range_int32(start)
     except _FractionalIndex:
         raise ExpressionError(
             "$range requires a starting value that can be represented as a "
-            f"32-bit integer, found value: {_fmt_double(start)}",
+            f"32-bit integer, found value: {_range_repr(start)}",
             code=34444,
         ) from None
     try:
@@ -1963,7 +3940,13 @@ def _op_range(arg: Any, ctx: _Ctx) -> Any:
     if not all(isinstance(v, int) for v in (start, end, step)):
         raise ExpressionError("$range requires integer arguments")
     if step == 0:
-        raise ExpressionError("$range step cannot be zero")
+        # Location34449 — the generic BadValue this used to raise had neither
+        # mongod's code nor its wording (probed 8.2.11, 2026-09-01).
+        raise ExpressionError(
+            "$range requires a non-zero step value",
+            code=34449,
+            code_name="Location34449",
+        )
     # Compute the size symbolically so we never call list(range(...)) on
     # a billion-element range.
     delta = end - start
@@ -2076,13 +4059,30 @@ def _ensure_datetime(value: Any) -> _dt.datetime | None:
 
 
 def _coerce_extractor_date(value: Any) -> _dt.datetime | None:
-    """A date-extractor operand (`$year`/`$dayOfYear`/…) must be a Date, null, or a
-    missing field. mongod raises ``Location16006`` on any other present value (a
-    string, a number, …); null / missing yield null."""
+    """A date-extractor operand (`$year`/`$dayOfYear`/…) resolved to a `datetime`.
+
+    mongod accepts every BSON type that CARRIES a timestamp -- Date, ObjectId
+    (its 4-byte generation time) and Timestamp (its seconds field) -- and raises
+    ``Location16006`` on anything else present; null / missing yield null.
+    Probed 8.2.11 (2026-09-02): `{$year: ObjectId("64b7f9a2…")}` answers 2023,
+    where this used to refuse the whole document as unconvertible. That was a
+    wrong ANSWER on 13 shapes: an error where mongod returns a value.
+    """
+    # mongod treats a ONE-ELEMENT array as the argument itself, so
+    # `{$year: [<date>]}` is `{$year: <date>}`. Any other length is a parse
+    # error caught before this (40536).
+    if isinstance(value, list) and len(value) == 1:
+        value = value[0]
     if isinstance(value, _dt.datetime):
         return value
     if value is None:
         return None
+    if isinstance(value, ObjectId):
+        # `generation_time` is tz-aware UTC; the rest of the date family works
+        # in naive UTC, so strip it rather than mixing the two.
+        return value.generation_time.replace(tzinfo=None)
+    if isinstance(value, Timestamp):
+        return _dt.datetime.fromtimestamp(value.time, _dt.timezone.utc).replace(tzinfo=None)
     raise ExpressionError(f"can't convert from BSON type {_type_name(value)} to Date", code=16006)
 
 
@@ -2194,7 +4194,30 @@ def _op_iso_week_year(arg: Any, ctx: _Ctx) -> Any:
     return d.isocalendar()[0] if d is not None else None
 
 
-def _resolve_timezone(name: Any) -> _dt.tzinfo | None:
+def resolve_timezone_argument(name: Any, *, operator: str | None = None) -> _dt.tzinfo | None:
+    """Public alias -- the aggregate layer validates literal timezones with it."""
+    return _resolve_timezone(name, operator=_WRAPPED_TZ_OPERATORS.get(operator or ""))
+
+
+# Only these two name the parameter in the message; every other date operator
+# reports the bare "unrecognized time zone identifier" (probed 8.2.11).
+_WRAPPED_TZ_OPERATORS = {"$dateTrunc": "$dateTrunc", "$dateDiff": "$dateDiff"}
+
+
+def _bad_timezone(name: str, operator: str | None) -> str:
+    """mongod's unrecognised-zone message, in the two forms it has.
+
+    `$dateTrunc` and `$dateDiff` name the parameter they were parsing;
+    every other date operator reports the bare message. Probed 8.2.11
+    (2026-09-01) -- and it really is only those two.
+    """
+    base = f'unrecognized time zone identifier: "{name}"'
+    if operator is None:
+        return base
+    return f"{operator} parameter 'timezone' value parsing failed :: caused by :: {base}"
+
+
+def _resolve_timezone(name: Any, *, operator: str | None = None) -> _dt.tzinfo | None:
     """Resolve MongoDB-style timezone strings to a Python ``tzinfo``.
 
     Accepts IANA names ("Europe/Dublin"), UTC offsets ("+05:30",
@@ -2219,12 +4242,24 @@ def _resolve_timezone(name: Any) -> _dt.tzinfo | None:
             hours = int(digits[:2])
             minutes = int(digits[2:])
             return _dt.timezone(sign * _dt.timedelta(hours=hours, minutes=minutes))
-        raise ExpressionError(f'unrecognized time zone identifier: "{name}"', code=40485)
+        raise ExpressionError(_bad_timezone(name, operator), code=40485)
+    # Case-sensitively, via the canonical name set. `zoneinfo.ZoneInfo` resolves
+    # through the filesystem, so on a case-INSENSITIVE one (macOS, Windows)
+    # "America/new_york" loads happily while mongod -- and this same server on
+    # Linux -- rejects it. That made the answer depend on the host filesystem.
+    if name not in _known_timezones():
+        # mongod: Location40485 "unrecognized time zone identifier: \"<name>\""
+        raise ExpressionError(_bad_timezone(name, operator), code=40485)
     try:
         return zoneinfo.ZoneInfo(name)
     except zoneinfo.ZoneInfoNotFoundError as exc:
-        # mongod: Location40485 "unrecognized time zone identifier: \"<name>\""
-        raise ExpressionError(f'unrecognized time zone identifier: "{name}"', code=40485) from exc
+        raise ExpressionError(_bad_timezone(name, operator), code=40485) from exc
+
+
+@functools.lru_cache(maxsize=1)
+def _known_timezones() -> frozenset[str]:
+    """Every IANA name this host knows, exactly as spelled."""
+    return frozenset(zoneinfo.available_timezones())
 
 
 def _op_date_from_string(arg: Any, ctx: _Ctx) -> Any:
@@ -2256,11 +4291,119 @@ def _op_date_from_string(arg: Any, ctx: _Ctx) -> Any:
     return parsed
 
 
+#: The month names `%b` / `%B` render. Hard-coded English: mongod does not
+#: consult a locale, and `strftime` does, so a machine with a non-English
+#: `LC_TIME` used to answer month names no mongod ever emits.
+_MONTH_ABBR = (
+    "Jan",
+    "Feb",
+    "Mar",
+    "Apr",
+    "May",
+    "Jun",
+    "Jul",
+    "Aug",
+    "Sep",
+    "Oct",
+    "Nov",
+    "Dec",
+)
+_MONTH_FULL = (
+    "January",
+    "February",
+    "March",
+    "April",
+    "May",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
+    "December",
+)
+
+
+def _render_date_format(d: _dt.datetime, fmt: str) -> str:
+    """``$dateToString``'s format language, which is NOT ``strftime``.
+
+    This used to hand the format to Python's ``strftime`` after rewriting three
+    tokens. Three consequences, all probed against 8.2.11 (2026-09-01):
+
+    * ``strftime`` accepts directives mongod REFUSES. The full accepted set is
+      ``%b %d %j %m %u %w %z %B %G %H %L %M %S %U %V %Y %%`` and nothing else;
+      everything from ``%a`` to ``%Y``'s neighbours is Location18536. We
+      rendered ``%a`` as ``Fri`` where mongod raises, so a typo'd format
+      silently produced a wrong string instead of an error.
+    * ``%z`` and ``%Z`` came out EMPTY, because the datetime is naive unless a
+      timezone was asked for. mongod always has an offset: ``%z`` is ``+0000``
+      and ``%Z`` is the offset in MINUTES as a bare integer (``0``, ``330``,
+      ``-240``) -- not a zone abbreviation, which is what the name suggests.
+    * ``%b`` / ``%B`` were locale-dependent.
+    """
+    offset = d.utcoffset() or _dt.timedelta(0)
+    off_minutes = int(offset.total_seconds()) // 60
+    sign = "-" if off_minutes < 0 else "+"
+    iso_year, iso_week, _ = d.isocalendar()
+    fields = {
+        "Y": f"{d.year:04d}",
+        "m": f"{d.month:02d}",
+        "d": f"{d.day:02d}",
+        "H": f"{d.hour:02d}",
+        "M": f"{d.minute:02d}",
+        "S": f"{d.second:02d}",
+        "L": f"{d.microsecond // 1000:03d}",
+        "j": f"{d.timetuple().tm_yday:03d}",
+        # mongod numbers days 1-Sunday through 7-Saturday; Python's `weekday()`
+        # is 0-Monday through 6-Sunday.
+        "w": str(((d.weekday() + 1) % 7) + 1),
+        "u": str(d.isoweekday()),
+        # glibc's `(tm_yday + 7 - tm_wday) / 7`, computed rather than delegated:
+        # `strftime("%U")` is the platform's libc, and this format has to answer
+        # the same on every platform SecantusDB runs on. The Rust engine
+        # computes it, so delegating here also put a libc between two engines
+        # the parity suite pins to each other.
+        "U": f"{(d.timetuple().tm_yday - 1 + 7 - (d.weekday() + 1) % 7) // 7:02d}",
+        "G": f"{iso_year:04d}",
+        "V": f"{iso_week:02d}",
+        "b": _MONTH_ABBR[d.month - 1],
+        "B": _MONTH_FULL[d.month - 1],
+        "z": f"{sign}{abs(off_minutes) // 60:02d}{abs(off_minutes) % 60:02d}",
+        "Z": str(off_minutes),
+        "%": "%",
+    }
+    out: list[str] = []
+    i = 0
+    while i < len(fmt):
+        ch = fmt[i]
+        if ch != "%":
+            out.append(ch)
+            i += 1
+            continue
+        directive = fmt[i + 1] if i + 1 < len(fmt) else ""
+        if directive not in fields:
+            raise ExpressionError(
+                f"Invalid format character '%{directive}' in format string",
+                code=18536,
+                code_name="Location18536",
+            )
+        out.append(fields[directive])
+        i += 2
+    return "".join(out)
+
+
 def _op_date_to_string(arg: Any, ctx: _Ctx) -> Any:
     if not isinstance(arg, Mapping):
         raise ExpressionError("$dateToString requires {date, format}")
     # A non-date, non-null 'date' is mongod Location16006 (was silently null).
-    d = _coerce_extractor_date(_eval(arg["date"], ctx))
+    for _k in arg:
+        if _k not in ("date", "format", "timezone", "onNull"):
+            raise ExpressionError(
+                f"Unrecognized argument to $dateToString: {_k}",
+                code=18534,
+                code_name="Location18534",
+            )
+    d = _coerce_extractor_date(_eval(arg.get("date"), ctx))
     if d is None:
         return None
     fmt = arg.get("format", "%Y-%m-%dT%H:%M:%S.%LZ")
@@ -2271,42 +4414,34 @@ def _op_date_to_string(arg: Any, ctx: _Ctx) -> Any:
         # Naive input is treated as UTC, matching MongoDB's BSON Date semantics.
         d_aware = d if d.tzinfo is not None else d.replace(tzinfo=_dt.timezone.utc)
         d = d_aware.astimezone(tz)
-    out = fmt
-    # Pre-process tokens whose mongod semantics differ from Python's
-    # strftime, then hand the rest off to strftime untouched.
-    # ``%L`` — 3-digit milliseconds (mongod-only token).
-    if "%L" in out:
-        out = out.replace("%L", f"{d.microsecond // 1000:03d}")
-    # ``%w`` — mongod numbers days 1-Sunday through 7-Saturday;
-    # Python's strftime numbers them 0-Sunday through 6-Saturday.
-    # Substitute the resolved digit directly so strftime never sees
-    # the token. Formula: ((weekday() + 1) % 7) + 1 maps
-    # Mon..Sun (0..6) → 2..7,1 i.e. mongod's Sunday=1 numbering.
-    if "%w" in out:
-        out = out.replace("%w", str(((d.weekday() + 1) % 7) + 1))
-    # ``%G`` (ISO year), ``%V`` (ISO week 1-53), ``%j`` (day of year
-    # 001-366), ``%U`` (Sunday-start week 00-53), ``%u`` (ISO weekday
-    # 1-Mon … 7-Sun), ``%Y``, ``%m``, ``%d``, ``%H``, ``%M``, ``%S``,
-    # ``%z``, ``%Z``, ``%%`` — all match mongod's tokens and pass
-    # straight through to Python's strftime.
-    return d.strftime(out)
+    return _render_date_format(d, fmt)
 
 
 def _op_array_elem_at(arg: Any, ctx: _Ctx) -> Any:
     arr_expr, idx_expr = arg
     arr = _eval(arr_expr, ctx)
     idx = _eval(idx_expr, ctx)
-    if isinstance(idx, bool):
+    # NULL and a MISSING field really are null here, but every other non-numeric
+    # is mongod's 28690, naming the type -- measured across 13 BSON types on
+    # 8.2.11 (2026-09-08). Only `bool` used to be checked, so
+    # `{$arrayElemAt: [[1, 2], "x"]}` was a silent WRONG VALUE (null) rather than
+    # an error. `isinstance(True, int)` is why bool needs testing first.
+    if idx is not None and idx is not MISSING and not _is_numeric(idx):
         raise ExpressionError(
-            "$arrayElemAt's second argument must be a numeric value, but is bool",
+            "$arrayElemAt's second argument must be a numeric value, but is "
+            f"{_bson_type_name(idx)}",
             code=28690,
         )
     try:
         idx = _int_index(idx)
     except _FractionalIndex:
+        # A `Decimal128` renders the same way a double does here
+        # (`1.5`, `1e+40` -- measured 8.2.11), and `_fmt_double` cannot format
+        # one, so convert before rendering.
+        raw = float(idx.to_decimal()) if isinstance(idx, Decimal128) else idx
         raise ExpressionError(
             "$arrayElemAt's second argument must be representable as a 32-bit "
-            f"integer: {_fmt_double(idx)}",
+            f"integer: {_fmt_double(raw)}",
             code=28691,
         ) from None
     _reject_non_array(
@@ -2455,7 +4590,9 @@ def _op_slice(arg: Any, ctx: _Ctx) -> Any:
         raise ExpressionError("$slice requires [array, n] or [array, position, n]")
     arr = _eval(arg[0], ctx)
     _reject_non_array(
-        arr, f"First argument to $slice must be an array, but is {_bson_type_name(arr)}", 28724
+        arr,
+        f"First argument to $slice must be an array, but is of type: {_bson_type_name(arr)}",
+        28724,
     )
     if not isinstance(arr, list):
         return None
@@ -2538,7 +4675,10 @@ def _op_in(arg: Any, ctx: _Ctx) -> bool:
             code=40081,
             code_name="Location40081",
         )
-    return needle in haystack
+    # `in` uses Python equality, where `False == 0`, so `{$in: [false, [0]]}`
+    # answered true; mongod says false, bool and number being different BSON
+    # types. `_set_eq` is the same rule the set operators already use.
+    return any(_set_eq(needle, x) for x in haystack)
 
 
 # `int(very_long_string)` is O(n^2) in CPython. Python 3.11+ enforces a
@@ -2549,100 +4689,225 @@ def _op_in(arg: Any, ctx: _Ctx) -> bool:
 _MAX_INT_STR_DIGITS = 4300
 
 
-def _safe_int_from_str(value: str, op_name: str) -> int:
-    if len(value) > _MAX_INT_STR_DIGITS:
-        raise ExpressionError(
-            f"{op_name} input string of {len(value)} chars exceeds the "
-            f"{_MAX_INT_STR_DIGITS}-char int-conversion cap"
-        )
-    try:
-        return int(value)
-    except ValueError as exc:
-        # mongod routes $toInt/$toLong/$convert(int/long) through $convert and
-        # reports an unparseable string as ConversionFailure (241), not the
-        # generic TypeMismatch (14).
-        raise ExpressionError(
-            f"Failed to parse number {value!r} in {op_name} with no onError value",
-            code=241,
-            code_name="ConversionFailure",
-        ) from exc
-
-
 _INT32_MIN, _INT32_MAX = -(2**31), 2**31 - 1
 _INT64_MIN, _INT64_MAX = -(2**63), 2**63 - 1
 _OVERFLOW_MSG = "Conversion would overflow target type in $convert"
 
+#: Strict integer syntax: an optional sign then ASCII digits, whole string.
+#: Python's own ``int()`` is much more permissive -- it strips surrounding
+#: whitespace and accepts PEP-515 underscores -- so ``$toInt: " 5 "`` and
+#: ``$toInt: "1_0"`` both returned a NUMBER where mongod rejects the string.
+#: Wrong values, not wrong messages (measured against 8.2.11, 2026-09-01).
+_STRICT_INT_RE = re.compile(r"[+-]?[0-9]+\Z")
+
+#: Strict C ``strtod`` syntax, which is what mongod's double / decimal parsing
+#: accepts: decimal or exponent form, plus the infinity and NaN spellings.
+#: Deliberately does NOT allow surrounding whitespace or underscores.
+_STRICT_FLOAT_RE = re.compile(
+    r"[+-]?(?:inf(?:inity)?|nan|(?:[0-9]+\.?[0-9]*|\.[0-9]+)(?:[eE][+-]?[0-9]+)?)\Z",
+    re.IGNORECASE,
+)
+
+#: The prefix of a numeric string that ``strtod`` WOULD consume. Used only to
+#: tell mongod's two "not a number" reasons apart: nothing consumed at all
+#: (``"x"``) versus a valid prefix with junk after it (``"12abc"``).
+_FLOAT_PREFIX_RE = re.compile(
+    r"[+-]?(?:inf(?:inity)?|nan|(?:[0-9]+\.?[0-9]*|\.[0-9]+)(?:[eE][+-]?[0-9]+)?)",
+    re.IGNORECASE,
+)
+
+#: mongod's hexadecimal gate is a LITERAL `startsWith("0x")` -- lower-case, and
+#: with no sign allowed before it. Probed 8.2.11 (2026-09-01): `"0x10"` is
+#: "Illegal hexadecimal input", while `"0X10"`, `"-0x10"` and `"+0x10"` all slip
+#: past it and are then handled by the ordinary per-target parser. This used to
+#: be `[+-]?0[xX]`, which caught all four and reported the hex message for three
+#: strings mongod describes differently -- and, for `$toDouble`, refused two it
+#: successfully converts.
+_HEX_PREFIX_RE = re.compile(r"0x")
+
+
+#: The spellings that legitimately MEAN infinity, so an infinite parse result
+#: is the answer rather than an out-of-range failure.
+_INFINITY_SPELLING_RE = re.compile(r"[+-]?inf(?:inity)?\Z", re.IGNORECASE)
+
+
+#: C99 hexadecimal-float syntax, which `strtod` accepts and `float()` does not.
+#: Only reachable for the spellings `_HEX_PREFIX_RE` lets through.
+_HEX_FLOAT_RE = re.compile(r"[+-]?0[xX][0-9a-fA-F]*\.?[0-9a-fA-F]*(?:[pP][+-]?[0-9]+)?\Z")
+
+
+#: The characters an ObjectId string may hold. Case-insensitive: mongod accepts
+#: `"507F1F77BCF86CD799439011"`.
+_HEX_DIGITS = frozenset("0123456789abcdefABCDEF")
+
+
+#: Sentinel reason selecting the hexadecimal message shape below.
+_HEX_REASON = "<hex>"
+
+
+def _number_parse_error(value: str, reason: str) -> ExpressionError:
+    """mongod's ConversionFailure for an unreadable numeric string.
+
+    Two shapes, both probed on 8.2.11 (2026-09-01)::
+
+        Failed to parse number 'x' in $convert with no onError value: Did not consume whole string.
+        Illegal hexadecimal input in $convert with no onError value: 0x10
+
+    The operator is always named ``$convert`` even when the caller wrote
+    ``$toInt`` -- mongod routes every conversion through it -- and the reason
+    suffix is what this used to omit entirely. It is an ordinary
+    ``ExpressionError``, so ``$convert``'s ``onError`` still catches it.
+    """
+    if reason == _HEX_REASON:
+        message = f"Illegal hexadecimal input in $convert with no onError value: {value}"
+    else:
+        message = f"Failed to parse number '{value}' in $convert with no onError value: {reason}"
+    return ExpressionError(message, code=241, code_name="ConversionFailure")
+
+
+def _parse_int_string(value: str) -> int:
+    """Parse ``value`` as mongod's int/long conversion does. Strict."""
+    if len(value) > _MAX_INT_STR_DIGITS:
+        raise ExpressionError(
+            f"$convert input string of {len(value)} chars exceeds the "
+            f"{_MAX_INT_STR_DIGITS}-char int-conversion cap"
+        )
+    if not value:
+        raise _number_parse_error(value, "No digits")
+    if _HEX_PREFIX_RE.match(value):
+        raise _number_parse_error(value, _HEX_REASON)
+    if not _STRICT_INT_RE.match(value):
+        raise _number_parse_error(value, "Did not consume whole string.")
+    return int(value)
+
+
+def _parse_float_string(value: str) -> float:
+    """Parse ``value`` as mongod's double conversion does. Strict."""
+    if not value:
+        raise _number_parse_error(value, "Empty string")
+    if value[0].isspace():
+        raise _number_parse_error(value, "Leading whitespace")
+    if _HEX_PREFIX_RE.match(value):
+        raise _number_parse_error(value, _HEX_REASON)
+    if _STRICT_FLOAT_RE.match(value):
+        parsed = float(value)
+        # `strtod` reports a magnitude it cannot represent as a RANGE error
+        # rather than saturating: `$toDouble: "1e400"` is a 241, not `inf`
+        # (probed 8.2.11). Python's `float()` happily answers `inf`, so this
+        # returned a wrong VALUE. A literal "inf" / "Infinity" spelling is of
+        # course still infinity.
+        if math.isinf(parsed) and not _INFINITY_SPELLING_RE.match(value):
+            raise _number_parse_error(value, "Out of range")
+        return parsed
+    if True:
+        # `strtod` is a C99 parser, so it reads HEXADECIMAL floats too -- the
+        # ones the gate above did not catch because they carry a sign or a
+        # capital X. mongod converts them: `$toDouble: "0X1f"` is 31.0 and
+        # `"-0x10"` is -16.0 (probed 8.2.11). Rejecting them was a wrong answer,
+        # not just a wrong message.
+        if _HEX_FLOAT_RE.match(value):
+            try:
+                return float.fromhex(value)
+            except ValueError:
+                pass
+        # Distinguish "strtod consumed nothing" from "strtod consumed a prefix".
+        prefix = _FLOAT_PREFIX_RE.match(value)
+        if prefix is None or prefix.end() == 0:
+            raise _number_parse_error(value, "Did not consume any digits")
+        raise _number_parse_error(value, "Did not consume whole string.")
+
+
+def _parse_decimal_string(value: str) -> Decimal128:
+    """Parse ``value`` as mongod's decimal conversion does. Strict.
+
+    Decimal has only ONE failure reason beyond the empty and hex cases -- it
+    does not separate "no digits" from "trailing junk" the way double does.
+    """
+    if not value:
+        raise _number_parse_error(value, "Empty string")
+    if _HEX_PREFIX_RE.match(value):
+        raise _number_parse_error(value, _HEX_REASON)
+    if len(value) > _MAX_INT_STR_DIGITS:
+        raise ExpressionError(
+            f"$convert (decimal) input string of {len(value)} chars "
+            f"exceeds the {_MAX_INT_STR_DIGITS}-char cap"
+        )
+    if not _STRICT_FLOAT_RE.match(value):
+        raise _number_parse_error(value, "Failed to parse string to decimal")
+    # mongod ROUNDS TOWARD ZERO to 34 digits (`1.23…12345|9` -> `…1234`,
+    # `-9999…9|9.5` -> `-9.999…E+34`), and fails with IEEE's two range
+    # conditions: overflow past an adjusted exponent of 6144, underflow for a
+    # SUBNORMAL result that is also inexact (`1E-6176` parses, `1E-6177` and a
+    # 35-digit `1.23…E-6150` do not). Measured on 8.2.11, 2026-09-19. This
+    # used `Decimal128(value)`, whose `Inexact` escaped as an internal error for
+    # every string past 34 digits, with or without `onError`.
+    ctx = _D128_STRING_CTX.copy()
+    try:
+        d = ctx.create_decimal(value)
+    except (InvalidOperation, ValueError) as exc:
+        raise _number_parse_error(value, "Failed to parse string to decimal") from exc
+    if ctx.flags[_decimal.Overflow]:
+        raise _number_parse_error(value, "Conversion from string to decimal would overflow")
+    if ctx.flags[_decimal.Underflow]:
+        raise _number_parse_error(value, "Conversion from string to decimal would underflow")
+    return Decimal128(d)
+
+
+#: Decimal128 as IEEE 754-2008 defines it -- 34 digits, adjusted exponents
+#: -6143..6144, clamped -- with mongod's string-conversion rounding.
+_D128_STRING_CTX = _decimal.Context(
+    prec=34,
+    rounding=_decimal.ROUND_DOWN,
+    Emin=-6143,
+    Emax=6144,
+    clamp=1,
+    traps=[],
+)
+
 
 def _op_to_int(arg: Any, ctx: _Ctx) -> Any:
+    """``$toInt: <expr>`` is exactly ``$convert`` to int.
+
+    Delegates rather than repeating the conversion. The two copies HAD drifted:
+    the ``$toX`` side answered its own overflow and unsupported-type messages,
+    missed mongod's separate NaN and infinity cases, and one path reached
+    ``int(Decimal("Infinity"))`` whose ``OverflowError`` escaped as
+    ``1 internal server error`` (found and fixed 2026-09-01).
+    """
     value = _eval(arg, ctx)
     if value is None:
         return None
-    if isinstance(value, bool):
-        return 1 if value else 0
-    if isinstance(value, int):
-        result = int(value)  # strip Int64 -> plain int (int32 on the wire)
-    elif isinstance(value, float):
-        if not math.isfinite(value):
-            raise ExpressionError(_OVERFLOW_MSG, code=241)
-        result = int(value)  # truncates toward zero
-    elif isinstance(value, Decimal128):
-        result = int(value.to_decimal())
-    elif isinstance(value, str):
-        result = _safe_int_from_str(value, "$toInt")
-    else:
-        raise ExpressionError(f"$toInt cannot convert {type(value).__name__}")
-    # mongod: an int32 target must fit [-2^31, 2^31-1], else overflow (241).
-    if not _INT32_MIN <= result <= _INT32_MAX:
-        raise ExpressionError(_OVERFLOW_MSG, code=241)
-    return result
+    return _convert_value(value, "int")
 
 
 def _op_to_long(arg: Any, ctx: _Ctx) -> Any:
-    # Mirrors `_op_to_int` but targets int64: a double truncates toward zero, a
-    # string parses, bool -> 0/1, and the result is wrapped as `Int64` so it
-    # renders as `$type: "long"`. An out-of-[-2^63, 2^63-1] result overflows (241).
+    """``$toLong: <expr>`` is exactly ``$convert`` to long.
+
+    Delegates rather than repeating the conversion. The two copies HAD drifted:
+    the ``$toX`` side answered its own overflow and unsupported-type messages,
+    missed mongod's separate NaN and infinity cases, and one path reached
+    ``int(Decimal("Infinity"))`` whose ``OverflowError`` escaped as
+    ``1 internal server error`` (found and fixed 2026-09-01).
+    """
     value = _eval(arg, ctx)
     if value is None:
         return None
-    if isinstance(value, bool):
-        return Int64(1 if value else 0)
-    if isinstance(value, int):
-        result = int(value)
-    elif isinstance(value, float):
-        if not math.isfinite(value):
-            raise ExpressionError(_OVERFLOW_MSG, code=241)
-        result = int(value)  # truncates toward zero
-    elif isinstance(value, Decimal128):
-        result = int(value.to_decimal())
-    elif isinstance(value, str):
-        result = _safe_int_from_str(value, "$toLong")
-    else:
-        raise ExpressionError(f"$toLong cannot convert {type(value).__name__}")
-    if not _INT64_MIN <= result <= _INT64_MAX:
-        raise ExpressionError(_OVERFLOW_MSG, code=241)
-    return Int64(result)
+    return _convert_value(value, "long")
 
 
 def _op_to_double(arg: Any, ctx: _Ctx) -> Any:
+    """``$toDouble: <expr>`` is exactly ``$convert`` to double.
+
+    Delegates rather than repeating the conversion. The two copies HAD drifted:
+    the ``$toX`` side answered its own overflow and unsupported-type messages,
+    missed mongod's separate NaN and infinity cases, and one path reached
+    ``int(Decimal("Infinity"))`` whose ``OverflowError`` escaped as
+    ``1 internal server error`` (found and fixed 2026-09-01).
+    """
     value = _eval(arg, ctx)
     if value is None:
         return None
-    if isinstance(value, bool):
-        return 1.0 if value else 0.0
-    if isinstance(value, (int, float)):
-        return float(value)
-    if isinstance(value, Decimal128):
-        return float(value.to_decimal())
-    if isinstance(value, str):
-        try:
-            return float(value)
-        except ValueError as exc:
-            raise ExpressionError(
-                f"Failed to parse number {value!r} in $convert with no onError value",
-                code=241,
-                code_name="ConversionFailure",
-            ) from exc
-    raise ExpressionError(f"$toDouble cannot convert {type(value).__name__}")
+    return _convert_value(value, "double")
 
 
 def _op_to_bool(arg: Any, ctx: _Ctx) -> Any:
@@ -2656,7 +4921,9 @@ def _op_to_bool(arg: Any, ctx: _Ctx) -> Any:
     if isinstance(value, Decimal128):
         return value.to_decimal() != Decimal(0)
     if isinstance(value, str):
-        return len(value) > 0
+        # Every string is true, the empty one included -- `{$toBool: ""}` is
+        # true on mongod (probed 8.2.11). This used Python's own truthiness.
+        return True
     return True
 
 
@@ -2680,7 +4947,421 @@ _CONVERT_TARGETS = {
 }
 
 
+#: The target-type NAME mongod uses in an "Unsupported conversion" message,
+#: keyed by the numeric BSON type code the target resolves to. A caller may
+#: have written the code rather than the name, and mongod always answers with
+#: the name.
+_CONVERT_TARGET_NAMES = {
+    1: "double",
+    2: "string",
+    7: "objectId",
+    8: "bool",
+    9: "date",
+    16: "int",
+    18: "long",
+    19: "decimal",
+}
+
+
+def _render_number(value: Any) -> str:
+    """A numeric value as mongod prints it in a conversion-overflow message.
+
+    Three different renderings, all probed on 8.2.11 (2026-09-01):
+
+    * a **double** is always ``%g`` -- six significant digits, two-digit
+      exponent (``3e+09``, ``2.14748e+09``, ``1.23457e+12``, ``1e+300``). The
+      ``abs(value) < 1e16`` guard this used to carry sent every ordinary
+      overflow through ``repr`` instead, so ``$toInt: 1e10`` named
+      ``10000000000.0`` where mongod names ``1e+10``.
+    * an **int64** names NOTHING -- mongod's message ends at the colon and a
+      space. Naming the number looked more helpful and was simply not what the
+      server says.
+    * a **Decimal128** keeps its own rendering (``1E+10``).
+    """
+    if isinstance(value, float):
+        return _fmt_double(value)
+    if isinstance(value, int) and not isinstance(value, bool):
+        return ""
+    return str(value)
+
+
+def _non_finite_conversion_error(value: float) -> ExpressionError:
+    """mongod names WHICH non-finite value it refused to convert."""
+    which = "NaN" if math.isnan(value) else "infinity"
+    return ExpressionError(
+        f"Attempt to convert {which} value to integer type in $convert with no onError value",
+        code=241,
+        code_name="ConversionFailure",
+    )
+
+
+def _overflow_error(rendered: str | None = None) -> ExpressionError:
+    """mongod's overflow message. The value is named only when it is a NUMBER;
+    a string overflow goes through :func:`_number_parse_error` instead."""
+    if rendered is None:
+        return ExpressionError(_OVERFLOW_MSG, code=241, code_name="ConversionFailure")
+    return ExpressionError(
+        f"{_OVERFLOW_MSG} with no onError value: {rendered}",
+        code=241,
+        code_name="ConversionFailure",
+    )
+
+
+#: The magnitude below which a decimal does NOT reach a normal double, as an
+#: exact decimal: `2**-1022 - 2**-1076`, TRUNCATED to decimal128's 34 digits.
+#:
+#: The boundary is neither `sys.float_info.min` nor "the rounded double is
+#: normal". IEEE decides tininess by rounding the exact value to a 53-bit
+#: significand with an UNBOUNDED exponent and asking whether THAT falls below
+#: `2**-1022`, which puts the cut a quarter of a subnormal ULP lower. Python's
+#: own `float()` cannot see it: subnormal spacing is twice as coarse, so every
+#: value in `[2**-1022 - 2**-1075, 2**-1022)` converts UP to `sys.float_info.min`
+#: and looks normal, while mongod refuses the lower half of that band.
+#:
+#: Bisected against 8.2.11 on 2026-09-07. The test is STRICTLY greater: the real
+#: cut lies between this truncation and the next 34-digit value, so no
+#: representable argument falls in the gap.
+_DEC_MIN_NORMAL_DOUBLE = _decimal.Decimal("2.225073858507201259573821257020768E-308")
+
+
+def _decimal_to_double(value: Decimal128) -> float:
+    """``$toDouble`` of a decimal, with mongod's range rule.
+
+    A decimal converts only when the double is NORMAL. Saturating to ``inf`` /
+    ``0.0`` -- which is what ``float()`` does over decimal128's much wider range
+    -- was a silently wrong VALUE where mongod raises ``241``: even
+    ``Decimal128("4.9E-324")``, representable as a *subnormal* double, is a
+    ``241``. Measured 8.2.11, 2026-09-07.
+    """
+    dec = value.to_decimal()
+    if dec.is_nan() or dec.is_infinite() or dec == 0:
+        return float(dec)
+    if abs(dec) > _DEC_MIN_NORMAL_DOUBLE and math.isfinite(float(dec)):
+        return float(dec)
+    raise _overflow_error(str(value))
+
+
+def _bindata_length_error(value: Binary) -> ExpressionError:
+    """mongod's 241 for a ``binData`` whose byte length no numeric target takes.
+
+    The rendering is mongod's own: subtype, the bytes as UPPERCASE hex in
+    quotes, then the length. Measured 8.2.11, 2026-09-08.
+    """
+    hexed = "".join(f"{b:02X}" for b in bytes(value))
+    return ExpressionError(
+        f"Failed to convert 'BinData({value.subtype}, \"{hexed}\")' to number "
+        f"in $convert because of invalid length: {len(bytes(value))}",
+        code=241,
+        code_name="ConversionFailure",
+    )
+
+
+def _bindata_as_int(value: Binary) -> int | None:
+    """A ``binData``'s bytes as a LITTLE-ENDIAN unsigned integer, or ``None``.
+
+    Only 1, 2, 4 and 8 bytes are accepted; the caller narrows further
+    (``$toInt`` takes 1 / 2 / 4, ``$toLong`` also 8). Little-endian is measured,
+    not assumed: ``BinData(0, "01020304")`` is ``67305985``, not ``16909060``.
+    The subtype is ignored.
+    """
+    raw = bytes(value)
+    if len(raw) not in (1, 2, 4, 8):
+        return None
+    n = int.from_bytes(raw, "little", signed=False)
+    return int.from_bytes(raw, "little", signed=True) if len(raw) == 8 else n
+
+
+def _nan_to_integer_error() -> ExpressionError:
+    return ExpressionError(
+        "Attempt to convert NaN value to integer type in $convert with no onError value",
+        code=241,
+        code_name="ConversionFailure",
+    )
+
+
+def _infinity_to_integer_error() -> ExpressionError:
+    return ExpressionError(
+        "Attempt to convert infinity value to integer type in $convert with no onError value",
+        code=241,
+        code_name="ConversionFailure",
+    )
+
+
+def _epoch_millis_to_date(millis: float) -> Any:
+    """Epoch milliseconds -> a naive UTC datetime, the way BSON dates decode.
+
+    A BSON date is any int64 of milliseconds, which reaches well outside
+    Python's `datetime` range: `{$toDate: Int64(2**63 - 1)}` is year 292278994
+    and mongod answers it. `datetime.fromtimestamp` raises `OverflowError`
+    there, which escaped as `internal server error` -- so the out-of-range case
+    returns `DatetimeMS`, pymongo's raw-millis date, which encodes to the same
+    BSON the Rust server already emits (probed 8.2.11, 2026-09-03).
+    """
+    from bson.datetime_ms import DatetimeMS
+
+    # A BSON date holds an int64 of milliseconds and nothing wider, so the
+    # non-finite and out-of-range cases are mongod's ordinary conversion
+    # errors -- the same two messages the int / long targets use.
+    if isinstance(millis, float):
+        if math.isnan(millis) or math.isinf(millis):
+            raise _non_finite_conversion_error(millis)
+        if not (-(2**63) <= millis < 2**63):
+            raise _overflow_error(_fmt_double(millis))
+    # A BSON date holds WHOLE milliseconds, so a fractional part is truncated
+    # TOWARD ZERO -- `{$toDate: 1.5}` is 1ms and `{$toDate: -1.5}` is -1ms
+    # (measured 8.2.11, 2026-09-08). Passing the fraction through produced a
+    # datetime with 1500 microseconds: a value BSON cannot hold, and one the
+    # Rust server (which truncates) disagreed with.
+    millis = math.trunc(millis)
+    try:
+        return _dt.datetime.fromtimestamp(millis / 1000.0, tz=_dt.timezone.utc).replace(tzinfo=None)
+    except (OverflowError, OSError, ValueError):
+        return DatetimeMS(int(millis))
+
+
+#: timelib's MILITARY timezone letters, which mongod inherits: `A`-`I` are
+#: UTC+1..+9, `J` is invalid ("local"), `K`-`M` are +10..+12, `N`-`Y` are
+#: -1..-12 and `Z` is UTC. Measured on 8.2.11 (2026-09-09) across ten letters --
+#: this is why `{$toDate: "2020-01-01T"}` answers `07:00:00` rather than
+#: midnight: the trailing `T` is not the ISO date/time separator there, it is
+#: the zone UTC-7. The value is deterministic, NOT host-local (a `TZ=UTC` server
+#: answers the same).
+_MILITARY_ZONES = {
+    **{chr(ord("A") + i): i + 1 for i in range(9)},  # A..I -> +1..+9
+    **{"K": 10, "L": 11, "M": 12},
+    **{chr(ord("N") + i): -(i + 1) for i in range(12)},  # N..Y -> -1..-12
+    "Z": 0,
+}
+
+_MONTH_NAMES = {
+    m: i + 1
+    for i, full in enumerate(
+        [
+            "january",
+            "february",
+            "march",
+            "april",
+            "may",
+            "june",
+            "july",
+            "august",
+            "september",
+            "october",
+            "november",
+            "december",
+        ]
+    )
+    for m in (full, full[:3])
+}
+
+#: The non-ISO shapes timelib accepts, tried in order after the ISO path.
+#: Each returns `(year, month, day)`; the optional time is parsed separately.
+_DATE_PATTERNS = [
+    # US month-first slash form. `31/12/2020` is REFUSED by mongod, so this is
+    # a locale RULE and not ambiguity-resolution (measured 2026-09-09).
+    (re.compile(r"^(\d{1,2})/(\d{1,2})/(\d{4})$"), ("m", "d", "y")),
+    # Year-first slash form, disambiguated by the four-digit leading field.
+    (re.compile(r"^(\d{4})/(\d{1,2})/(\d{1,2})$"), ("y", "m", "d")),
+    # Non-padded ISO. `fromisoformat` requires two digits.
+    (re.compile(r"^(\d{4})-(\d{1,2})-(\d{1,2})$"), ("y", "m", "d")),
+]
+
+_MONTH_FIRST = re.compile(r"^([A-Za-z]{3,9})\s+(\d{1,2}),?\s+(\d{4})$")
+_DAY_FIRST = re.compile(r"^(\d{1,2})\s+([A-Za-z]{3,9}),?\s+(\d{4})$")
+_AT_EPOCH = re.compile(r"^@(-?\d+)(\.\d+)?$")
+
+
+def _parse_clock(text: str) -> tuple[int, int, int, int] | None:
+    """`HH[:MM[:SS[.frac]]]` -> `(h, m, s, microseconds)`, or None."""
+    m = re.match(r"^(\d{1,2})(?::(\d{2}))?(?::(\d{2}))?(\.\d+)?$", text)
+    if not m:
+        return None
+    h, mi, se, frac = m.groups()
+    micro = 0
+    if frac:
+        # A BSON date holds whole milliseconds; timelib truncates past three.
+        micro = int(round(float(frac) * 1000)) * 1000
+    return int(h), int(mi or 0), int(se or 0), micro
+
+
+def _parse_timelib_forms(text: str) -> _dt.datetime | None:
+    """The non-ISO date shapes mongod accepts, or None if this is not one.
+
+    mongod's `$toDate` runs **timelib's** parser, not an ISO-8601 one, and
+    accepts a whole format table this server used to reject outright: the US
+    `MM/DD/YYYY` slash form, `YYYY/MM/DD`, month NAMES in either order,
+    non-padded ISO, and `@<unix seconds>`. Each shape was measured against
+    8.2.11 on 2026-09-09; the shapes NOT here (an ISO week date, the compact
+    `YYYYMMDD`) are already handled by `fromisoformat`.
+
+    Order matters: the month-NAME forms are matched against the whole string
+    before any split on whitespace, because their date part contains spaces --
+    a first version split first and could never see `Dec 31 2020`.
+    """
+    # These four are covered by `fromisoformat` on Python 3.11+ and NOT on
+    # 3.10, where it accepts only the strict ISO forms. Relying on it made the
+    # server's answer depend on which interpreter it runs under -- `20200101`
+    # parsed on 3.12 and raised on 3.10 -- which mongod's does not. Parsed
+    # explicitly here so every supported Python agrees (caught by CI's 3.10
+    # lane, 2026-09-09; the same trap `tasks`/the probe skill records for
+    # `TIMESTAMP '...'` in the SQL engine).
+    compact = re.match(r"^(\d{4})(\d{2})(\d{2})(?:[Tt](\d{2})(\d{2})(\d{2}))?$", text)
+    if compact:
+        y, mo, d, hh, mi, se = compact.groups()
+        return _build_datetime(int(y), int(mo), int(d), f"{hh}:{mi}:{se}" if hh is not None else "")
+    week = re.match(r"^(\d{4})-[Ww](\d{2})-(\d)$", text)
+    if week:
+        year, wk, day = (int(g) for g in week.groups())
+        if 1 <= wk <= 53 and 1 <= day <= 7:
+            # Week 1 holds the first Thursday and day 1 is Monday, so
+            # `2020-W01-1` is 2019-12-30.
+            jan4 = _dt.date(year, 1, 4)
+            week1_monday = jan4 - _dt.timedelta(days=jan4.weekday())
+            resolved = week1_monday + _dt.timedelta(weeks=wk - 1, days=day - 1)
+            return _dt.datetime(resolved.year, resolved.month, resolved.day)
+        return None
+    hour_only = re.match(r"^(\d{4}-\d{2}-\d{2})[Tt](\d{2})$", text)
+    if hour_only:
+        date_part, hour = hour_only.groups()
+        y, mo, d = (int(g) for g in date_part.split("-"))
+        return _build_datetime(y, mo, d, f"{hour}:00:00")
+    epoch = _AT_EPOCH.match(text)
+    if epoch:
+        whole, frac = epoch.groups()
+        seconds = int(whole) + (float(frac) if frac else 0.0)
+        return _dt.datetime(1970, 1, 1) + _dt.timedelta(seconds=seconds)
+    for pattern, day_first in ((_MONTH_FIRST, False), (_DAY_FIRST, True)):
+        m = pattern.match(text)
+        if not m:
+            continue
+        a, b, year = m.groups()
+        name, day = (b, a) if day_first else (a, b)
+        month = _MONTH_NAMES.get(name.lower())
+        if month:
+            return _build_datetime(int(year), month, int(day), "")
+    # The numeric forms may carry a trailing clock: `12/31/2020 10:30`.
+    body, _, clock = text.partition(" ")
+    for pattern, order in _DATE_PATTERNS:
+        m = pattern.match(body)
+        if not m:
+            continue
+        parts = dict(zip(order, (int(g) for g in m.groups()), strict=True))
+        return _build_datetime(parts["y"], parts["m"], parts["d"], clock.strip())
+    return None
+
+
+def _build_datetime(year: int, month: int, day: int, clock: str) -> _dt.datetime | None:
+    """Assemble a datetime, or None when a component is out of range.
+
+    mongod REFUSES `13/01/2020` and `12/32/2020`, so an out-of-range month or
+    day is a parse failure rather than a rollover.
+    """
+    hh = mm = ss = micro = 0
+    if clock:
+        parsed = _parse_clock(clock)
+        if parsed is None:
+            return None
+        hh, mm, ss, micro = parsed
+    try:
+        return _dt.datetime(year, month, day, hh, mm, ss, micro)
+    except ValueError:
+        return None
+
+
+def _parse_date_string(value: str) -> _dt.datetime:
+    """mongod's string -> date conversion.
+
+    The VALUE rules are reproduced (ISO-8601 with an optional time, an optional
+    fractional second truncated to milliseconds, ``Z`` or an offset, and
+    surrounding whitespace tolerated). The failure TEXT is not: mongod's parser
+    reports a per-character diagnosis (``Error parsing date string '20'; 0:
+    Unexpected character '2'; 1: Unexpected character '0'``) that depends on how
+    far its own state machine got, and a half-right imitation of that would look
+    authoritative while being wrong. Every failure here answers the code (241)
+    and the general wording mongod uses for a string it cannot start to read.
+    """
+    text = value.strip()
+    if not value:
+        raise ExpressionError(
+            # The character in mongod's message is a literal NUL, not a space.
+            f"Error parsing date string '{value}'; 0: Empty string '\x00'",
+            code=241,
+            code_name="ConversionFailure",
+        )
+    if not text:
+        # WHITESPACE-ONLY is not empty for mongod: `''` is "Empty string" but
+        # `'  '` is the incomplete-string message (measured 8.2.11, 2026-09-08).
+        # Testing the STRIPPED text conflated them and gave `'  '` the empty
+        # message.
+        raise ExpressionError(
+            f'an incomplete date/time string has been found, with elements missing: "{value}"',
+            code=241,
+            code_name="ConversionFailure",
+        )
+    candidate = text[:-1] + "+00:00" if text.endswith("Z") else text
+    # mongod truncates a sub-millisecond fraction rather than rejecting it;
+    # `fromisoformat` accepts only 3 or 6 fractional digits.
+    if "." in candidate:
+        head, _, tail = candidate.partition(".")
+        digits = ""
+        while tail and tail[0].isdigit():
+            digits, tail = digits + tail[0], tail[1:]
+        if digits:
+            # BSON dates hold MILLISECONDS, so mongod truncates the fraction to
+            # three digits rather than rejecting a longer one:
+            # ``...00.1234567Z`` is 123 ms, not 123456 us.
+            candidate = f"{head}.{digits[:3].ljust(3, '0')}000{tail}"
+    for form in (candidate, f"{candidate}-01" if len(candidate) == 7 else candidate):
+        try:
+            parsed = _dt.datetime.fromisoformat(form)
+        except ValueError:
+            continue
+        if parsed.tzinfo is not None:
+            parsed = parsed.astimezone(_dt.timezone.utc).replace(tzinfo=None)
+        return parsed
+    # A trailing MILITARY zone letter, which is why `"2020-01-01T"` is 07:00:00
+    # and not midnight -- see `_MILITARY_ZONES`. Stripped and re-parsed, then
+    # the offset applied; `J` is deliberately absent from the table so it stays
+    # a parse error, as it is on mongod.
+    stripped = text[:-1].rstrip()
+    if len(text) > 1 and text[-1].upper() in _MILITARY_ZONES and stripped:
+        offset = _MILITARY_ZONES[text[-1].upper()]
+        try:
+            inner = _parse_date_string(stripped)
+        except ExpressionError:
+            inner = None
+        if inner is not None:
+            return inner - _dt.timedelta(hours=offset)
+    # The non-ISO shapes timelib accepts -- slash forms, month names,
+    # non-padded components, `@<unix seconds>`.
+    other = _parse_timelib_forms(text)
+    if other is not None:
+        return other
+    raise ExpressionError(
+        f'an incomplete date/time string has been found, with elements missing: "{value}"',
+        code=241,
+        code_name="ConversionFailure",
+    )
+
+
 def _convert_value(value: Any, target: Any) -> Any:
+    """Convert ``value`` to ``target``, or raise mongod's ConversionFailure.
+
+    The string arms below test `is_bson_string`, NOT `isinstance(value, str)`:
+    `bson.Code` subclasses `str`, so a JavaScript value was reaching the string
+    PARSERS -- `{$toInt: Code("x=1")}` reported "Did not consume whole string"
+    where mongod answers `241 Unsupported conversion from javascript to int`,
+    and `$toDate` tried to parse the source text as a date. With the arms
+    tightened a Code simply falls through to the raise at the end, which already
+    produces mongod's message and picks up `javascriptWithScope` for a scoped
+    one.
+
+    The ``bool`` target is the DELIBERATE exception and keeps its plain
+    `isinstance` test: `{$toBool: Code("x=1")}` is `true` on mongod, not a
+    conversion failure. That asymmetry was measured across all eight targets
+    (8.2.11, 2026-09-04), not assumed -- guarding every target uniformly would
+    have broken the one that works.
+    """
     from bson import ObjectId as _ObjectId
 
     code = _CONVERT_TARGETS.get(target)
@@ -2692,20 +5373,68 @@ def _convert_value(value: Any, target: Any) -> Any:
         if isinstance(value, (int, float)):
             return float(value)
         if isinstance(value, Decimal128):
-            return float(value.to_decimal())
-        if isinstance(value, str):
-            return float(value)
+            return _decimal_to_double(value)
+        if isinstance(value, Binary):
+            # binData's BYTES are the float's own representation -- 4 bytes are
+            # an IEEE single widened, 8 a double. Nothing is parsed, and no
+            # other length is accepted (``$toInt`` takes 1 and 2, this does
+            # not). Measured 8.2.11, 2026-09-08.
+            raw = bytes(value)
+            if len(raw) == 4:
+                return float(struct.unpack("<f", raw)[0])
+            if len(raw) == 8:
+                return float(struct.unpack("<d", raw)[0])
+            raise _bindata_length_error(value)
+        if is_bson_string(value):
+            return _parse_float_string(value)
         if isinstance(value, _dt.datetime):
-            return value.timestamp() * 1000.0
+            # A BSON date decodes NAIVE, and a naive `.timestamp()` reads it
+            # as the host's LOCAL time -- so this was off by the host's UTC
+            # offset on any non-UTC server. Pin UTC, as `$toLong` below does.
+            return float(int(value.replace(tzinfo=_dt.timezone.utc).timestamp() * 1000))
     elif code == 2:
+        # ``str()`` is Python's rendering, not BSON's: it prints ``True`` for a
+        # bool and ``inf`` / ``nan`` for the non-finite doubles, and it happily
+        # stringifies an array or a document that mongod refuses outright
+        # (probed 8.2.11).
         if isinstance(value, _dt.datetime):
             return value.isoformat()
-        return str(value)
+        if isinstance(value, bool):
+            return "true" if value else "false"
+        if isinstance(value, float):
+            if math.isnan(value):
+                return "NaN"
+            if math.isinf(value):
+                return "Infinity" if value > 0 else "-Infinity"
+            return _render_number(value)
+        if isinstance(value, (str, int, Decimal128, ObjectId)):
+            return str(value)
     elif code == 7:
         if isinstance(value, _ObjectId):
             return value
-        if isinstance(value, str):
-            return _ObjectId(value)
+        if is_bson_string(value):
+            try:
+                return _ObjectId(value)
+            except Exception as exc:
+                # mongod reports the LENGTH only when the length is actually
+                # wrong; a 24-character string with a non-hex character in it
+                # names that CHARACTER instead (probed 8.2.11, 2026-09-01 --
+                # `"z" * 24` says "Invalid character found in hex string: z").
+                # Reporting "expected 24 but found 24" was a nonsense sentence.
+                if len(value) == 24:
+                    bad = next(c for c in value if c not in _HEX_DIGITS)
+                    reason = f"Invalid character found in hex string: {bad}"
+                else:
+                    reason = (
+                        f"Invalid string length for parsing to OID, expected 24 "
+                        f"but found {len(value)}"
+                    )
+                raise ExpressionError(
+                    f"Failed to parse objectId '{value}' in $convert with no onError "
+                    f"value: {reason}",
+                    code=241,
+                    code_name="ConversionFailure",
+                ) from exc
     elif code == 8:
         if isinstance(value, bool):
             return value
@@ -2714,46 +5443,107 @@ def _convert_value(value: Any, target: Any) -> Any:
         if isinstance(value, Decimal128):
             return value.to_decimal() != Decimal(0)
         if isinstance(value, str):
-            return len(value) > 0
+            # EVERY string is true, the empty one included (probed 8.2.11) --
+            # this is BSON truthiness, not Python's.
+            return True
         return True
     elif code == 9:
-        # mongod rejects bool -> date (no int coercion): ConversionFailure (241).
+        # bool and int32 are BOTH rejected (probed 8.2.11): only a LONG is
+        # epoch milliseconds. We accepted a plain int, so `{$toDate: 1}`
+        # answered 1970-01-01T00:00:00.001Z where mongod refuses the
+        # conversion outright -- a wrong value, not a wrong message.
         if isinstance(value, bool):
-            raise ExpressionError(
-                "Unsupported conversion from bool to date in $convert with no onError value",
-                code=241,
-                code_name="ConversionFailure",
-            )
-        if isinstance(value, _dt.datetime):
+            pass  # falls through to the unsupported-conversion tail
+        elif isinstance(value, _dt.datetime):
             return value
-        if isinstance(value, str):
-            return _dt.datetime.fromisoformat(value.replace("Z", "+00:00"))
-        if isinstance(value, (int, float)):
-            return _dt.datetime.fromtimestamp(value / 1000.0, tz=_dt.timezone.utc)
+        elif isinstance(value, ObjectId):
+            return value.generation_time.replace(tzinfo=None)
+        elif isinstance(value, Timestamp):
+            return _dt.datetime.fromtimestamp(value.time, tz=_dt.timezone.utc).replace(tzinfo=None)
+        elif isinstance(value, int):
+            # A LONG is epoch milliseconds; an int32 is not convertible at all
+            # (probed 8.2.11). The test is the BSON width, not the Python type:
+            # a plain Python ``int`` too large for int32 IS a long on the wire,
+            # and ``_bson_type_name`` already calls it one.
+            if not isinstance(value, Int64) and _INT32_MIN <= value <= _INT32_MAX:
+                pass  # falls through to the unsupported-conversion tail
+            else:
+                return _epoch_millis_to_date(int(value))
+        elif isinstance(value, float):
+            return _epoch_millis_to_date(value)
+        elif isinstance(value, Decimal128):
+            dec = value.to_decimal()
+            if dec.is_nan():
+                raise _nan_to_integer_error()
+            if dec.is_infinite():
+                raise _infinity_to_integer_error()
+            if not (-(2**63) <= dec < 2**63):
+                # mongod renders the DECIMAL in its own form here (`1E+30`),
+                # not through the double formatter, which prints `1e+30`.
+                raise _overflow_error(str(value))
+            return _epoch_millis_to_date(int(dec.to_integral_value(rounding=_decimal.ROUND_DOWN)))
+        elif is_bson_string(value):
+            return _parse_date_string(value)
     elif code in (16, 18):
         # 16 = int32, 18 = int64. Wrap as ``Int64`` for code 18 so the
         # result matches ``$type: "long"`` downstream — the bson decoder
         # preserves the int32/int64 distinction by type, and ``$convert``
         # must respect the requested target type.
-        def _wrap(n: int) -> int:
-            # int32 (16) / int64 (18) targets range-check like mongod (241).
-            lo, hi = (_INT64_MIN, _INT64_MAX) if code == 18 else (_INT32_MIN, _INT32_MAX)
+        lo, hi = (_INT64_MIN, _INT64_MAX) if code == 18 else (_INT32_MIN, _INT32_MAX)
+
+        def _wrap(n: int, rendered: str | None = None) -> int:
             if not lo <= n <= hi:
-                raise ExpressionError(_OVERFLOW_MSG, code=241)
+                raise _overflow_error(rendered)
             return Int64(n) if code == 18 else int(n)
 
+        if isinstance(value, _dt.datetime) and code == 18:
+            # A date is its epoch milliseconds -- but only for the LONG target.
+            # `$toInt` of a date is `241 Unsupported conversion from date to
+            # int`, so this cannot be one "numeric" arm (probed 8.2.11,
+            # 2026-09-02, where `$toLong` of a date answered 241 here).
+            return _wrap(int(value.replace(tzinfo=_dt.timezone.utc).timestamp() * 1000))
+        if isinstance(value, Binary):
+            # binData is REINTERPRETED as a little-endian integer, not parsed:
+            # ``BinData(0, "7A")`` is 122. ``$toInt`` takes 1 / 2 / 4 bytes and
+            # ``$toLong`` also 8; every other length is a length error.
+            # Measured 8.2.11, 2026-09-08.
+            width = len(bytes(value))
+            allowed = width in (1, 2, 4) or (code == 18 and width == 8)
+            n = _bindata_as_int(value) if allowed else None
+            if n is None:
+                raise _bindata_length_error(value)
+            return _wrap(n)
         if isinstance(value, bool):
             return _wrap(1 if value else 0)
         if isinstance(value, int):
-            return _wrap(int(value))
+            return _wrap(int(value), _render_number(value))
         if isinstance(value, float):
-            if not math.isfinite(value):
-                raise ExpressionError(_OVERFLOW_MSG, code=241)
-            return _wrap(int(value))
+            # mongod separates the three ways a float refuses to be an integer:
+            # NaN, infinity, and merely out of range each get their own message
+            # (probed 8.2.11). One ``_OVERFLOW_MSG`` covered all three.
+            if math.isnan(value):
+                raise _nan_to_integer_error()
+            if math.isinf(value):
+                raise _infinity_to_integer_error()
+            return _wrap(int(value), _render_number(value))
         if isinstance(value, Decimal128):
-            return _wrap(int(value.to_decimal()))
-        if isinstance(value, str):
-            return _wrap(_safe_int_from_str(value, "$convert (int/long)"))
+            dec = value.to_decimal()
+            if dec.is_nan():
+                raise _nan_to_integer_error()
+            if dec.is_infinite():
+                # This used to reach ``int(Decimal("Infinity"))``, whose
+                # ``OverflowError`` escaped the handler and answered the client
+                # ``1 internal server error``.
+                raise _infinity_to_integer_error()
+            return _wrap(int(dec), _render_number(value))
+        if is_bson_string(value):
+            n = _parse_int_string(value)
+            if not lo <= n <= hi:
+                # From a STRING, mongod reports the overflow as a parse
+                # failure, with the original text -- not as the conversion
+                # overflow a numeric input gets.
+                raise _number_parse_error(value, "Overflow")
+            return Int64(n) if code == 18 else int(n)
     elif code == 19:
         if isinstance(value, Decimal128):
             return value
@@ -2766,14 +5556,20 @@ def _convert_value(value: Any, target: Any) -> Any:
             from secantus.numerics import decimal_from_double
 
             return Decimal128(decimal_from_double(value))
-        if isinstance(value, str):
-            if len(value) > _MAX_INT_STR_DIGITS:
-                raise ExpressionError(
-                    f"$convert (decimal) input string of {len(value)} chars "
-                    f"exceeds the {_MAX_INT_STR_DIGITS}-char cap"
-                )
-            return Decimal128(value)
-    raise ExpressionError(f"$convert cannot convert {type(value).__name__} to {target!r}")
+        if is_bson_string(value):
+            return _parse_decimal_string(value)
+        if isinstance(value, _dt.datetime):
+            # Epoch milliseconds, like the long and double targets. `$toInt` of
+            # a date is still 241 -- so this is not one "numeric" arm.
+            return Decimal128(
+                Decimal(int(value.replace(tzinfo=_dt.timezone.utc).timestamp() * 1000))
+            )
+    raise ExpressionError(
+        f"Unsupported conversion from {_bson_type_name(value)} to "
+        f"{_CONVERT_TARGET_NAMES.get(code, target)} in $convert with no onError value",
+        code=241,
+        code_name="ConversionFailure",
+    )
 
 
 def _op_convert(arg: Any, ctx: _Ctx) -> Any:
@@ -2805,28 +5601,31 @@ def _op_convert(arg: Any, ctx: _Ctx) -> Any:
 
 
 def _op_to_decimal(arg: Any, ctx: _Ctx) -> Any:
+    """``$toDecimal: <expr>`` is exactly ``$convert`` to decimal.
+
+    Delegates rather than repeating the conversion. The two copies HAD drifted:
+    the ``$toX`` side answered its own overflow and unsupported-type messages,
+    missed mongod's separate NaN and infinity cases, and one path reached
+    ``int(Decimal("Infinity"))`` whose ``OverflowError`` escaped as
+    ``1 internal server error`` (found and fixed 2026-09-01).
+    """
     value = _eval(arg, ctx)
     if value is None:
         return None
-    if isinstance(value, Decimal128):
-        return value
-    if isinstance(value, (int, float)):
-        from secantus.numerics import decimal_from_double
+    return _convert_value(value, "decimal")
 
-        # mongod converts a double at 15 significant digits; ints stay exact.
-        return Decimal128(
-            decimal_from_double(value) if isinstance(value, float) else Decimal(value)
-        )
-    if isinstance(value, str):
-        try:
-            return Decimal128(value)
-        except (InvalidOperation, ValueError) as exc:
-            raise ExpressionError(
-                f"Failed to parse number {value!r} in $convert with no onError value",
-                code=241,
-                code_name="ConversionFailure",
-            ) from exc
-    raise ExpressionError(f"$toDecimal cannot convert {type(value).__name__}")
+
+def _op_to_object_id(arg: Any, ctx: _Ctx) -> Any:
+    """``$toObjectId: <expr>`` is ``$convert: {input: <expr>, to: "objectId"}``.
+
+    It was simply MISSING -- the whole operator answered ``Unrecognized
+    expression '$toObjectId'`` (168), which is what mongod says for an operator
+    that does not exist rather than one it ships (found 2026-09-01).
+    """
+    value = _eval(arg, ctx)
+    if value is None:
+        return None
+    return _convert_value(value, "objectId")
 
 
 def _op_to_date(arg: Any, ctx: _Ctx) -> Any:
@@ -2924,22 +5723,76 @@ _SET_OP_CODES = {
 }
 
 
-def _set_arrays(op: str, arg: Any, ctx: _Ctx, *, n: int | None = None) -> list[list[Any]]:
+# The set operators mongod requires at least two arguments for, checked before
+# it looks at their types.
+# Only `$setEquals`. Its siblings accept a single array and report a
+# non-array operand without counting arguments first (probed 8.2.11).
+_SET_OPS_NEEDING_TWO = frozenset({"$setEquals"})
+
+
+# The set operators for which a NULL operand makes the whole expression null,
+# rather than being reported as a wrong type.
+#
+# Not uniform, and not guessable: `$setUnion` / `$setIntersection` /
+# `$setDifference` answer null, while `$setEquals` and `$setIsSubset` refuse it
+# by type (`{$setIsSubset: [null, [1]]}` is 17046 naming `null`). Operands are
+# scanned LEFT TO RIGHT, so `{$setUnion: [null, 1]}` is null while
+# `{$setUnion: [1, null]}` raises on the int -- the order decides which rule
+# fires. Probed 8.2.11 (2026-09-02); before this every one of them raised.
+_SET_OPS_NULL_IS_NULL = frozenset({"$setUnion", "$setIntersection", "$setDifference"})
+
+#: `(first, second)` Location codes for the two-operand set operators, which
+#: report a wrong-typed operand under a DIFFERENT code per position.
+_SET_OPS_BY_POSITION = {
+    "$setDifference": (17048, 17049),
+    "$setIsSubset": (17046, 17042),
+}
+
+
+def _set_arrays(op: str, arg: Any, ctx: _Ctx, *, n: int | None = None) -> list[list[Any]] | None:
     """Evaluate a set operator's array arguments, validating each is an array
-    (mongod's per-operator Location code, not a generic TypeMismatch)."""
+    (mongod's per-operator Location code, not a generic TypeMismatch).
+
+    ``None`` when a null operand makes the whole expression null."""
     vals = _eval_args(arg, ctx)
     if n is not None and len(vals) != n:
         raise ExpressionError(f"{op} requires {n} arguments")
+    # ARITY first: `{$setEquals: [[1]]}` is "needs at least two arguments", not
+    # a complaint about the one array it did get (probed 8.2.11).
+    if op in _SET_OPS_NEEDING_TWO and len(vals) < 2:
+        raise ExpressionError(
+            f"{op} needs at least two arguments had: {len(vals)}",
+            code=17045,
+            code_name="Location17045",
+        )
     code = _SET_OP_CODES.get(op, 14)
     for i, v in enumerate(vals):
+        if v is None and op in _SET_OPS_NULL_IS_NULL:
+            return None
         if not isinstance(v, list):
-            if op in ("$setDifference", "$setIsSubset"):
+            if op in _SET_OPS_BY_POSITION:
+                # One code per POSITION, not one per operator: `$setDifference`
+                # is 17048 for the first operand and 17049 for the second,
+                # `$setIsSubset` 17046 and 17042. Probed 8.2.11 (2026-09-02);
+                # both used to report the first-argument code either way.
+                first_code, second_code = _SET_OPS_BY_POSITION[op]
+                code = first_code if i == 0 else second_code
                 which = "First" if i == 0 else "Second"
                 msg = (
                     f"both operands of {op} must be arrays. {which} argument is of type: "
                     f"{_bson_type_name(v)}"
                 )
             else:
+                # `$setEquals` NUMBERS the argument (1-based) and uses its own
+                # 5887502; `$setUnion` / `$setIntersection` say "One argument"
+                # and keep their own codes. Again: not one family.
+                if op == "$setEquals":
+                    raise ExpressionError(
+                        f"All operands of {op} must be arrays. {i + 1}-th argument is of "
+                        f"type: {_bson_type_name(v)}",
+                        code=5887502,
+                        code_name="Location5887502",
+                    )
                 msg = (
                     f"All operands of {op} must be arrays. One argument is of type: "
                     f"{_bson_type_name(v)}"
@@ -2948,15 +5801,20 @@ def _set_arrays(op: str, arg: Any, ctx: _Ctx, *, n: int | None = None) -> list[l
     return vals
 
 
-def _op_set_union(arg: Any, ctx: _Ctx) -> list[Any]:
+def _op_set_union(arg: Any, ctx: _Ctx) -> list[Any] | None:
+    arrays = _set_arrays("$setUnion", arg, ctx)
+    if arrays is None:
+        return None
     all_elems: list[Any] = []
-    for v in _set_arrays("$setUnion", arg, ctx):
+    for v in arrays:
         all_elems.extend(v)
     return _set_dedup_sorted(all_elems)
 
 
-def _op_set_intersection(arg: Any, ctx: _Ctx) -> list[Any]:
+def _op_set_intersection(arg: Any, ctx: _Ctx) -> list[Any] | None:
     arrays = _set_arrays("$setIntersection", arg, ctx)
+    if arrays is None:
+        return None
     if not arrays:
         return []
     result = [
@@ -2965,8 +5823,11 @@ def _op_set_intersection(arg: Any, ctx: _Ctx) -> list[Any]:
     return _set_dedup_sorted(result)
 
 
-def _op_set_difference(arg: Any, ctx: _Ctx) -> list[Any]:
-    a, b = _set_arrays("$setDifference", arg, ctx, n=2)
+def _op_set_difference(arg: Any, ctx: _Ctx) -> list[Any] | None:
+    arrays = _set_arrays("$setDifference", arg, ctx, n=2)
+    if arrays is None:
+        return None
+    a, b = arrays
     out: list[Any] = []
     for x in a:  # first-array order, deduplicated
         if not any(_set_eq(x, y) for y in b) and not any(_set_eq(x, y) for y in out):
@@ -2975,7 +5836,7 @@ def _op_set_difference(arg: Any, ctx: _Ctx) -> list[Any]:
 
 
 def _op_set_equals(arg: Any, ctx: _Ctx) -> bool:
-    arrays = _set_arrays("$setEquals", arg, ctx)
+    arrays = _set_arrays("$setEquals", arg, ctx) or []
     base = _set_dedup_sorted(arrays[0]) if arrays else []
     for other in arrays[1:]:
         o = _set_dedup_sorted(other)
@@ -2985,12 +5846,15 @@ def _op_set_equals(arg: Any, ctx: _Ctx) -> bool:
 
 
 def _op_set_is_subset(arg: Any, ctx: _Ctx) -> bool:
-    a, b = _set_arrays("$setIsSubset", arg, ctx, n=2)
+    a, b = _set_arrays("$setIsSubset", arg, ctx, n=2)  # type: ignore[misc]
     return all(any(_set_eq(x, y) for y in b) for x in a)
 
 
 def _op_all_elements_true(arg: Any, ctx: _Ctx) -> bool:
-    arr = _eval_args(arg, ctx)[0]
+    # `_eval` on the single operand, not `_eval_args(..)[0]`: `_apply_op`
+    # already unwraps the one-element list form, so the array arrives
+    # directly and `_eval_args` would iterate ITS elements instead.
+    arr = _eval(arg, ctx)
     if not isinstance(arr, list):
         raise ExpressionError(
             f"$allElementsTrue's argument must be an array, but is {_bson_type_name(arr)}",
@@ -3001,7 +5865,10 @@ def _op_all_elements_true(arg: Any, ctx: _Ctx) -> bool:
 
 
 def _op_any_element_true(arg: Any, ctx: _Ctx) -> bool:
-    arr = _eval_args(arg, ctx)[0]
+    # `_eval` on the single operand, not `_eval_args(..)[0]`: `_apply_op`
+    # already unwraps the one-element list form, so the array arrives
+    # directly and `_eval_args` would iterate ITS elements instead.
+    arr = _eval(arg, ctx)
     if not isinstance(arr, list):
         raise ExpressionError(
             f"$anyElementTrue's argument must be an array, but is {_bson_type_name(arr)}",
@@ -3015,7 +5882,11 @@ def _op_cmp(arg: Any, ctx: _Ctx) -> int:
     """``$cmp``: three-way comparison of two values by BSON order → -1 / 0 / 1."""
     from secantus.ordering import _bson_lt
 
-    a, b = _eval_args(arg, ctx)
+    a, b = _cmp_pair(arg, ctx)
+    if a is _MISSING_RANK or b is _MISSING_RANK:
+        if a is b:
+            return 0
+        return -1 if a is _MISSING_RANK else 1
     if _bson_lt(a, b):
         return -1
     return 1 if _bson_lt(b, a) else 0
@@ -3027,7 +5898,9 @@ def _op_binary_size(arg: Any, ctx: _Ctx) -> Any:
     v = _eval(arg, ctx)
     if v is None:
         return None
-    if isinstance(v, str):
+    # See `$strLenBytes`: a `bson.Code` is not a BSON string, and mongod
+    # refuses it here rather than measuring its source text.
+    if is_bson_string(v):
         return len(v.encode("utf-8"))
     if isinstance(v, (bytes, bson.Binary)):
         return len(v)
@@ -3053,27 +5926,27 @@ def _op_bson_size(arg: Any, ctx: _Ctx) -> Any:
 
 
 def _op_degrees_to_radians(arg: Any, ctx: _Ctx) -> Any:
-    import math
-
     v = _eval(arg, ctx)
     if v is None:
         return None
-    if isinstance(v, bool) or not isinstance(v, (int, float, Decimal128)):
-        raise ExpressionError("$degreesToRadians requires a number")
-    x = float(v.to_decimal()) if isinstance(v, Decimal128) else float(v)
-    return x * math.pi / 180.0
+    _require_math_numeric(v, "$degreesToRadians")
+    if _has_decimal(v):
+        return _decimal_result(lambda d: d * _DEC_RADIANS_PER_DEGREE, v)
+    # `x * (pi/180)`, not `x * pi / 180`: mongod multiplies by a single
+    # precomputed constant, and the two associations differ in the last bit
+    # (1.5 degrees -> 0.026179938779914945, not ...94). Probed 8.2.11.
+    return float(v) * _RADIANS_PER_DEGREE
 
 
 def _op_radians_to_degrees(arg: Any, ctx: _Ctx) -> Any:
-    import math
-
     v = _eval(arg, ctx)
     if v is None:
         return None
-    if isinstance(v, bool) or not isinstance(v, (int, float, Decimal128)):
-        raise ExpressionError("$radiansToDegrees requires a number")
-    x = float(v.to_decimal()) if isinstance(v, Decimal128) else float(v)
-    return x * 180.0 / math.pi
+    _require_math_numeric(v, "$radiansToDegrees")
+    if _has_decimal(v):
+        return _decimal_result(lambda d: d * _DEC_DEGREES_PER_RADIAN, v)
+    # One precomputed constant, as `$degreesToRadians` above.
+    return float(v) * _DEGREES_PER_RADIAN
 
 
 def _bit_operand(op: str, v: Any) -> tuple[int, bool]:
@@ -3081,13 +5954,39 @@ def _bit_operand(op: str, v: Any) -> tuple[int, bool]:
     operators accept only int (32-bit) and long (64-bit) — a bool, double,
     decimal, or anything else raises. ``bson.Int64`` marks a long; a plain ``int``
     is a 32-bit int (``bson`` widens on encode only when out of int32 range)."""
+    # A bool is not an operand for any of them, but the four do NOT agree on
+    # how to say so, and this raised one sentence for all of them:
+    # `{$bitOr: [1, true]}` is the fold family's bare 14 "only supports int and
+    # long operands." with NO type named, while `$bitNot` calls a bool
+    # non-numeric (28765). Probed 8.2.11 (2026-09-02). Checked before the `int`
+    # arm below because `isinstance(True, int)` is true in Python.
     if isinstance(v, bool):
-        raise ExpressionError(f"{op} only supports int and long operands, not bool")
+        if op != "$bitNot":
+            raise ExpressionError(f"{op} only supports int and long operands.")
+        raise ExpressionError(
+            f"{op} only supports numeric types, not bool",
+            code=28765,
+            code_name="Location28765",
+        )
     if isinstance(v, Int64):
         return int(v), True
     if isinstance(v, int):
         return v, False
-    raise ExpressionError(f"{op} only supports int and long operands, not {_bson_type_name(v)}")
+    # `$bitNot` alone splits by whether the operand is a NUMBER at all: a
+    # non-numeric type is 28765 "only supports numeric types, not string", while
+    # a double or decimal is the bare 14 "only supports int and long, not:
+    # double." (trailing period included). Its three siblings name NO type at
+    # all and always answer 14 "only supports int and long operands." -- the
+    # family looks uniform and is not (probed 8.2.11, all four).
+    if op != "$bitNot":
+        raise ExpressionError(f"{op} only supports int and long operands.")
+    if isinstance(v, (float, Decimal128)):
+        raise ExpressionError(f"{op} only supports int and long, not: {_bson_type_name(v)}.")
+    raise ExpressionError(
+        f"{op} only supports numeric types, not {_bson_type_name(v)}",
+        code=28765,
+        code_name="Location28765",
+    )
 
 
 def _bit_result(value: int, is_long: bool) -> Any:
@@ -3143,7 +6042,20 @@ def _expr_acc_values(arg: Any, ctx: _Ctx) -> list[Any]:
     """The values an expression-form accumulator (`$sum`/`$avg`/`$max`/`$min`)
     reduces over: an array argument contributes its elements, a missing/absent
     argument contributes nothing, and any other value is a single element.
-    Mirrors mongod's MongoDB-5.0+ expression-accumulator semantics."""
+    Mirrors mongod's MongoDB-5.0+ expression-accumulator semantics.
+
+    A ONE-ELEMENT array argument is the single argument, unwrapped before
+    anything else -- mongod's generic rule for a single-argument operator. So
+    ``{$sum: [[1, 2]]}`` sums the INNER array and answers 3, while
+    ``{$sum: [[1], [2]]}`` has two operands, both arrays, both ignored, and
+    answers 0. Without the unwrap ``{$sum: [[1]]}`` answered 0 where mongod
+    answers 1, and ``{$max: [[1]]}`` answered ``[1]`` where mongod answers 1 --
+    five wrong VALUES across $sum / $avg / $min / $max / $stdDevPop. Probed
+    8.2.11 (2026-09-03); a nested array is a shape the probe corpus did not
+    contain until that day.
+    """
+    if isinstance(arg, list) and len(arg) == 1:
+        arg = arg[0]
     v = _eval(arg, ctx)
     if isinstance(v, list):
         return v
@@ -3167,13 +6079,67 @@ def _op_expr_sum(arg: Any, ctx: _Ctx) -> Any:
 
 
 def _op_expr_avg(arg: Any, ctx: _Ctx) -> Any:
+    values = [x for x in _expr_acc_values(arg, ctx) if _expr_is_number(x)]
+    if not values:
+        return None
+    # A Decimal128 anywhere makes the whole average decimal128: `total += x`
+    # raised a TypeError against a `Decimal128`, which surfaced as an
+    # `internal server error`.
+    if _has_decimal(*values):
+        # Start the sum at ZERO, not at the first element: mongod's accumulator
+        # begins at +0, so a lone `Decimal128("-0")` averages to `0` and not
+        # `-0` (probed 8.2.11, 2026-09-03). The float branch below already
+        # started at 0, which is why only the decimal path diverged.
+        return _decimal_result(
+            lambda *ds: sum(ds, _decimal.Decimal(0)) / _decimal.Decimal(len(values)), *values
+        )
     total: Any = 0
-    n = 0
-    for x in _expr_acc_values(arg, ctx):
-        if _expr_is_number(x):
-            total += x
-            n += 1
-    return (total / n) if n else None
+    for x in values:
+        total += x
+    if isinstance(total, int) and not isinstance(total, bool):
+        # mongod converts the integer TOTAL to a double and then divides; it
+        # does NOT do an exact integer division. The two agree until the total
+        # passes 2**53, and then they do not:
+        #
+        #   $avg: [2**53+1, 2**53+3, 2**53+5]
+        #       mongod  9007199254740994.0        (float(sum) / n)
+        #       here    9007199254740996.0        (sum / n, correctly rounded)
+        #
+        # Python's `int / int` is correctly rounded over the exact quotient,
+        # which is a BETTER answer and the wrong one -- the conformance target
+        # is mongod's arithmetic, not the most accurate arithmetic. Measured
+        # 8.2.11, 2026-09-07.
+        return float(total) / len(values)
+    return total / len(values)
+
+
+def _op_expr_std_dev_pop(arg: Any, ctx: _Ctx) -> Any:
+    return _expr_std_dev(arg, ctx, pop=True)
+
+
+def _op_expr_std_dev_samp(arg: Any, ctx: _Ctx) -> Any:
+    return _expr_std_dev(arg, ctx, pop=False)
+
+
+def _expr_std_dev(arg: Any, ctx: _Ctx, *, pop: bool) -> Any:
+    """``$stdDevPop`` / ``$stdDevSamp`` in EXPRESSION position.
+
+    The accumulator forms shipped long ago; the expression forms -- over an
+    array argument in ``$project`` / ``$addFields`` -- did not, and answered
+    ``Unknown expression`` where mongod computes (probed 8.2.11, 2026-09-01:
+    ``{$stdDevPop: [1, 2, 3]}`` is ``0.816496580927726`` and ``$stdDevSamp`` is
+    ``1.0``). Shares ``aggregate._std_dev`` with the accumulators so the two
+    forms cannot answer different numbers, and non-numeric members are dropped
+    exactly as the accumulator drops them.
+    """
+    from secantus.aggregate import _std_dev, _std_dev_operand
+
+    values = [
+        _std_dev_operand(x)
+        for x in _expr_acc_values(arg, ctx)
+        if _expr_is_number(x) and not isinstance(x, bool)
+    ]
+    return _std_dev(values, pop=pop)
 
 
 def _op_expr_max(arg: Any, ctx: _Ctx) -> Any:
@@ -3201,6 +6167,8 @@ def _op_expr_min(arg: Any, ctx: _Ctx) -> Any:
 
 
 _OPS = {
+    "$stdDevPop": _op_expr_std_dev_pop,
+    "$stdDevSamp": _op_expr_std_dev_samp,
     "$sum": _op_expr_sum,
     "$avg": _op_expr_avg,
     "$max": _op_expr_max,
@@ -3321,6 +6289,7 @@ _OPS = {
     "$reverseArray": _op_reverse_array,
     "$in": _op_in,
     "$toInt": _op_to_int,
+    "$toObjectId": _op_to_object_id,
     "$toLong": _op_to_long,
     "$toDouble": _op_to_double,
     "$toBool": _op_to_bool,
@@ -3372,5 +6341,35 @@ def _percentile_expr(arg: Any, ctx: _Ctx, *, op: str) -> Any:
     return [_percentile_rank(values, p) for p in ps]
 
 
+#: Operator names the evaluator intercepts BEFORE the `_OPS` dispatch, so they
+#: never appear in that table. `$literal`'s argument is data rather than an
+#: expression, which is why it is handled early.
+_PRE_DISPATCH_OPS = frozenset({"$literal"})
+
+
+def is_known_expression_operator(op: str) -> bool:
+    """Will the evaluator dispatch `op`, rather than reject it as unknown?
+
+    `_OPS` is ALMOST the answer and asking it directly is a trap: `$literal` is
+    intercepted before the dispatch above and so is absent from the table. A
+    parse-time check built on `_OPS` alone therefore calls `$literal` unknown
+    and REJECTS A VALID PIPELINE -- `{$project: {n: {$literal: 5}}}` started
+    answering `31325 Unknown expression $literal` when exactly that was tried
+    on 2026-09-17. Ask this instead, and add any future pre-dispatch name to
+    `_PRE_DISPATCH_OPS` beside it.
+    """
+    return op in _OPS or op in _PRE_DISPATCH_OPS
+
+
 _OPS["$median"] = _op_median_expr
 _OPS["$percentile"] = _op_percentile_expr
+
+
+_MISSING_PROPAGATING.update(
+    {
+        "$cond": _op_cond,
+        "$switch": _op_switch,
+        "$let": _op_let,
+        "$ifNull": _op_if_null,
+    }
+)

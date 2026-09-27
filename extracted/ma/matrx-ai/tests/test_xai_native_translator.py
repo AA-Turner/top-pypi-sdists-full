@@ -27,6 +27,7 @@ from matrx_ai.config import (
 from matrx_ai.config.media_config import ImageContent
 from matrx_ai.providers.xai.translator import (
     XAITranslator,
+    billed_output_tokens_from_xai_usage,
     provider_charge_from_xai_usage,
 )
 from matrx_ai.testing.profile_factory import make_profile
@@ -203,3 +204,53 @@ def test_xai_provider_charge_is_preserved_as_exact_cost_evidence():
     assert charge is not None
     assert charge.raw_amount == 12_345_678
     assert charge.amount_usd == 0.0012345678
+
+
+# ------------------------------------------------------------- reasoning cost
+# xAI's usage_pb2.SamplingUsage carries reasoning_tokens as a field SEPARATE
+# from completion_tokens (total_tokens = prompt + completion + reasoning),
+# unlike OpenAI's Responses API / Anthropic, whose output_tokens already fold
+# reasoning/thinking in. Dropping it under-recorded a real bake-off run at
+# $0.74 vs xAI's own $3.92 (2026-09-26) because TokenUsage.output_tokens —
+# the field ``calculate_cost`` actually prices off — held only completion_tokens.
+def test_billed_output_tokens_adds_reasoning_to_completion():
+    # A realistic reasoning-heavy Grok run: small visible completion, large
+    # reasoning burn — the shape that produced the 5x ledger undercount.
+    usage = usage_pb2.SamplingUsage(
+        prompt_tokens=500,
+        completion_tokens=1200,
+        reasoning_tokens=6400,
+        total_tokens=8100,
+    )
+    assert billed_output_tokens_from_xai_usage(usage) == 1200 + 6400
+
+
+def test_billed_output_tokens_handles_no_reasoning_field():
+    # A plain (non-reasoning) usage payload with reasoning_tokens unset/zero
+    # must not be affected — output stays exactly completion_tokens.
+    usage = usage_pb2.SamplingUsage(prompt_tokens=10, completion_tokens=5, total_tokens=15)
+    assert billed_output_tokens_from_xai_usage(usage) == 5
+
+
+class _FakeReasoningUsage:
+    prompt_tokens = 500
+    completion_tokens = 1200
+    reasoning_tokens = 6400
+    total_tokens = 8100
+
+
+class _FakeReasoningResponse:
+    content = "It is sunny"
+    tool_calls = []
+    usage = _FakeReasoningUsage()
+    id = "r2"
+    finish_reason = "REASON_STOP"
+    citations = []
+    proto = _FakeProto()
+
+
+def test_from_xai_bills_reasoning_tokens_as_output():
+    u = XAITranslator().from_xai(_FakeReasoningResponse())
+    assert u.usage.input_tokens == 500
+    # Must equal completion + reasoning (1,200 + 6,400), never completion alone.
+    assert u.usage.output_tokens == 7600

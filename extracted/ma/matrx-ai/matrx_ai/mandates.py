@@ -110,6 +110,11 @@ class MandateResolution:
     #: variables the Holder runs on, or raises in words. ``None`` = the host
     #: offers no pipeline, and the site's values pass by name.
     materialize: Callable[[dict[str, Any]], Awaitable[dict[str, Any]]] | None = None
+    #: WORKFLOW PARITY for code calls: the host's runner for THIS workflow
+    #: resolution — ``(supplied, *, correlation_key, stream) -> answer dict``
+    #: (``matrx_ai.mandate_workflow_holder``). Set only on a workflow Holder;
+    #: ``None`` there means the host cannot run it, and the code call refuses.
+    run_workflow: Callable[..., Awaitable[dict[str, Any]]] | None = None
     # THE INPUT SIDE, mirroring output_kind: the provision this mandate's call
     # site declares (all values available at the call site) travels WITH the
     # resolution, so a consumer never re-queries — or disagrees about — what
@@ -507,6 +512,13 @@ class HeldCall:
     #: text that is not a turn (a retry nudge, a per-turn budget line) lives here
     #: as a variable default; :meth:`authored_text` reads it.
     holder_values: dict[str, str] = field(default_factory=dict)
+    #: ``"agent"`` or ``"workflow"``. A WORKFLOW-held call carries no model or
+    #: prompt (``model`` is ``workflow:<id>``, ``system`` is empty): the funnel
+    #: it reaches runs the workflow instead of a provider
+    #: (``matrx_ai.mandate_workflow_holder``), so the site needs no change.
+    holder_type: str = "agent"
+    #: The live workflow holding (strong ref: it lives as long as this call).
+    workflow: Any = None
 
     # ── THE ONE PRECEDENCE RULE for every held call (2026-09-25) ───────────
     # The Holder's settings apply. A caller's value wins ONLY when it was
@@ -539,6 +551,11 @@ class HeldCall:
         rebound to an agent that authors no user turn is refused in words —
         never an empty prompt sent to a model.
         """
+        if self.holder_type == "workflow":
+            # A workflow authors no turn: its inputs ARE the site's offered
+            # values, which the funnel delivers onto its input surface. The
+            # text sent is those values, so nothing reading it is lied to.
+            return json.dumps(self.variables, ensure_ascii=False, default=str)
         texts = [turn["content"] for turn in self.turns if turn.get("role") == "user"]
         if not texts:
             consumer = str((self.metadata.get("mandate_holder") or {}).get("consumer") or "")
@@ -563,6 +580,10 @@ class HeldCall:
         """
         from matrx_ai.config.prompt_values import prompt_safe_value
 
+        if self.holder_type == "workflow":
+            # No Holder-authored text exists; the workflow reads the offered
+            # values, never this turn. Say what it is instead of inventing one.
+            return f"({variable})"
         text = self.holder_values.get(variable, "")
         if not str(text).strip():
             consumer = str((self.metadata.get("mandate_holder") or {}).get("consumer") or "")
@@ -594,13 +615,26 @@ class HeldCall:
         """
         if self.complete is None:
             return
+        usage: dict[str, Any] = {}
+        facts: dict[str, Any] = {}
+        answer = getattr(self.workflow, "last_answer", None)
+        if self.holder_type == "workflow" and isinstance(answer, dict):
+            # The workflow's measured spend and its run, recorded with the call.
+            usage = dict(answer.get("cost") or {})
+            facts = {
+                "workflow_run_id": answer.get("run_id"),
+                "workflow_id": answer.get("workflow_id"),
+                "warnings": list(answer.get("warnings") or []),
+            }
         result = AgentRunResult(
             success=success,
             output=output or "",
             model_id=self.model,
             parsed=parsed,
             error=error,
-            error_kind="provider" if not success else None,
+            error_kind="execution" if not success else None,
+            usage=usage,
+            metadata=facts,
         )
         try:
             await self.complete(result, dict(self.variables), self.spilled_text)
@@ -612,6 +646,78 @@ class HeldCall:
                 f"{type(exc).__name__}: {exc}",
                 color="red",
             )
+
+
+class UncarriableHeldPart(ValueError):
+    """An authored Holder part a text-only held call cannot carry honestly."""
+
+
+def _speech_script_text(part: dict[str, Any]) -> str:
+    lines: list[str] = []
+    for turn in part.get("turns") or []:
+        if not isinstance(turn, dict):
+            continue
+        speaker = str(turn.get("speaker") or "").strip() or "Speaker"
+        direction = str(turn.get("direction") or "").strip()
+        label = f"{speaker} ({direction})" if direction else speaker
+        lines.append(f"{label}: {str(turn.get('text') or '').strip()}")
+    return "\n".join(lines)
+
+
+def held_turn_text(content: list[Any]) -> str:
+    """One authored turn's parts, as the text a held (text-only) call sends.
+
+    A held call hands plain ``{"role", "content": str}`` turns to a text funnel,
+    so every part must become text HONESTLY or be refused — never emptied. Text
+    stays text; decision questions become the same verbalized prose a text model
+    is given by the decision translator; decision answers become their JSON; a
+    speech script becomes its ``Speaker: line`` transcript. Anything else (media,
+    tool calls, …) cannot ride a text turn and raises :class:`UncarriableHeldPart`
+    naming the part — the caller refuses the call loudly.
+    """
+    pieces: list[str] = []
+    for part in content:
+        if isinstance(part, str):
+            pieces.append(part)
+            continue
+        if not isinstance(part, dict):
+            raise UncarriableHeldPart(
+                f"an authored message part of type {type(part).__name__} cannot be carried "
+                "as text by a held code call"
+            )
+        part_type = str(part.get("type") or "")
+        if part_type == "text":
+            pieces.append(str(part.get("text") or ""))
+        elif part_type == "decision_questions":
+            from matrx_ai.decisions.kinds import DecisionQuestions
+            from matrx_ai.decisions.translate import verbalized_instructions
+
+            batch = DecisionQuestions(questions=list(part.get("questions") or []))
+            pieces.append(verbalized_instructions({}, batch, subject_above=bool(pieces)))
+        elif part_type == "decision_answers":
+            carried = {
+                k: part.get(k)
+                for k in ("model", "method", "answers", "unanswerable")
+                if part.get(k) is not None
+            }
+            pieces.append(
+                "Decision answers:\n```json\n"
+                + json.dumps(carried, ensure_ascii=False, indent=2, default=str)
+                + "\n```"
+            )
+        elif part_type == "speech_script":
+            pieces.append(_speech_script_text(part))
+        else:
+            label = part_type or "untyped"
+            if part_type == "media" and part.get("kind"):
+                label = f"media ({part.get('kind')})"
+            raise UncarriableHeldPart(
+                f"its Holder authors a {label} part in a message, and a held code call "
+                "sends text turns only — the part cannot be carried and will not be "
+                "silently dropped. Run this mandate through run_mandated (the agent "
+                "funnel), or describe the part in text on the Holder"
+            )
+    return "\n".join(p for p in pieces if p)
 
 
 async def _refuse_code_call(mandate_key: str, consumer: str, reason: str) -> NoReturn:
@@ -646,12 +752,17 @@ async def hold_code_call(
     )
 
     resolution = await resolve_mandate_by_key(mandate_key, consumer=consumer)
+    if resolution.holder_type == "workflow":
+        return await _hold_by_workflow(
+            mandate_key, consumer=consumer, resolution=resolution,
+            variables=variables, metadata=metadata,
+        )
     if resolution.holder_type != "agent" or resolution.source is None:
         await _refuse_code_call(
             mandate_key,
             consumer,
-            f"it resolved to a {resolution.holder_type!r} Holder, and a code call needs an "
-            "AGENT Holder to take its model and instructions from — rebind it to an agent",
+            f"it resolved to a {resolution.holder_type!r} Holder, which a code call cannot "
+            "run — rebind it to an agent or a workflow",
         )
     try:
         agent = await resolution.source.load()
@@ -740,11 +851,10 @@ async def hold_code_call(
             continue
         content = message.get("content")
         if isinstance(content, list):
-            text = "\n".join(
-                str(part.get("text") or "")
-                for part in content
-                if isinstance(part, dict) and part.get("type") == "text"
-            )
+            try:
+                text = held_turn_text(content)
+            except UncarriableHeldPart as exc:
+                await _refuse_code_call(mandate_key, consumer, str(exc))
         else:
             text = str(content or "")
         turns.append({"role": role, "content": text})
@@ -771,6 +881,80 @@ async def hold_code_call(
         spilled_text=bound.spilled_text or None,
         complete=resolution.complete,
         holder_values=holder_values,
+    )
+
+
+async def _hold_by_workflow(
+    mandate_key: str,
+    *,
+    consumer: str,
+    resolution: MandateResolution,
+    variables: dict[str, Any] | None,
+    metadata: dict[str, Any] | None,
+) -> HeldCall:
+    """WORKFLOW PARITY: the HeldCall of a code call whose Holder is a workflow.
+
+    It carries no model and no prompt — there are none — and a live holding
+    the funnel finds through the Holder stamp, so ``execute_ai_request`` runs
+    the workflow in place of a provider and hands the site its answer in the
+    shape the site already reads. See ``matrx_ai.mandate_workflow_holder``.
+    """
+    from matrx_ai.mandate_workflow_holder import HELD_CALL_ID_KEY, register_holding
+    from matrx_ai.orchestrator.mandate_carrier import (
+        MANDATE_HOLDER_METADATA_KEY,
+        MANDATE_KEY_METADATA_KEY,
+    )
+
+    workflow_id = str(resolution.workflow_id or "")
+    if not workflow_id:
+        await _refuse_code_call(
+            mandate_key, consumer, "it resolved to a workflow Holder that names no workflow"
+        )
+    if resolution.run_workflow is None:
+        await _refuse_code_call(
+            mandate_key,
+            consumer,
+            "it resolved to a workflow Holder and this process's mandate resolver offers no "
+            "workflow runner (MandateResolution.run_workflow) — install one in the host "
+            "resolver; the workflow cannot be run from here",
+        )
+    offered = {k: to_template_value(v) for k, v in dict(variables or {}).items()}
+    holding = register_holding(
+        mandate_key=mandate_key,
+        consumer=consumer,
+        workflow_id=workflow_id,
+        workflow_version_id=resolution.workflow_version_id,
+        output_kind=resolution.output_kind,
+        offered_values=resolution.offered_values,
+        supplied=dict(variables or {}),
+        runner=resolution.run_workflow,
+    )
+    carried: dict[str, Any] = dict(metadata or {})
+    carried[MANDATE_KEY_METADATA_KEY] = mandate_key
+    carried[MANDATE_HOLDER_METADATA_KEY] = {
+        "mandate_key": mandate_key,
+        "holder_type": "workflow",
+        "workflow_id": workflow_id,
+        "workflow_version_id": resolution.workflow_version_id,
+        "version_number": resolution.version_number,
+        "consumer": consumer,
+        HELD_CALL_ID_KEY: holding.held_call_id,
+    }
+    return HeldCall(
+        mandate_key=mandate_key,
+        model=f"workflow:{workflow_id}",
+        system="",
+        temperature=None,
+        max_output_tokens=None,
+        turns=[],
+        config=None,
+        metadata=carried,
+        variables=offered,
+        spilled_text=None,
+        complete=resolution.complete,
+        holder_values={},
+        holder_type="workflow",
+        workflow=holding,
     )
 
 

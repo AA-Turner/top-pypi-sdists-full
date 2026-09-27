@@ -1,11 +1,12 @@
 Metadata-Version: 2.4
 Name: pikepdf
-Version: 10.13.0.post1
+Version: 10.14.0
 Summary: Read, write, repair, and transform PDFs in Python, powered by qpdf
 Keywords: PDF
 Author-Email: "James R. Barlow" <james@purplerock.ca>
 License-Expression: MPL-2.0
 License-File: LICENSE.txt
+License-File: third-party-licenses/CC-BY-4.0-veraPDF.txt
 License-File: third-party-licenses/GCC-exception-3.1.txt
 License-File: third-party-licenses/GPL-3.0.txt
 License-File: third-party-licenses/README.md
@@ -13,7 +14,9 @@ License-File: third-party-licenses/libjpeg-turbo-README.ijg.txt
 License-File: third-party-licenses/libjpeg-turbo.txt
 License-File: third-party-licenses/microsoft-visual-cpp-runtime.txt
 License-File: third-party-licenses/openssl.txt
+License-File: third-party-licenses/pdfminer.six.txt
 License-File: third-party-licenses/qpdf.txt
+License-File: third-party-licenses/sRGB-icc-profile.txt
 License-File: third-party-licenses/zlib.txt
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
@@ -27,10 +30,14 @@ Classifier: Programming Language :: Python :: Free Threading :: 3 - Stable
 Project-URL: documentation, https://pikepdf.readthedocs.io/
 Project-URL: repository, https://github.com/pikepdf/pikepdf
 Project-URL: changelog, https://pikepdf.readthedocs.io/en/latest/releasenotes/index.html
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Requires-Dist: Pillow>=10.0.1
 Requires-Dist: lxml>=4.8
 Requires-Dist: packaging
+Provides-Extra: pdfa
+Requires-Dist: jsonschema>=4.18; extra == "pdfa"
+Requires-Dist: referencing; extra == "pdfa"
+Requires-Dist: fonttools>=4.40; extra == "pdfa"
 Description-Content-Type: text/markdown
 
 <!-- SPDX-FileCopyrightText: 2022 James R. Barlow -->

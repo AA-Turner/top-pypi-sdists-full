@@ -133,6 +133,25 @@ def make_http_landing_hook(
         try:
             async with httpx.AsyncClient(timeout=LANDING_TIMEOUT_SECONDS) as http:
                 response = await http.post(url, json=landing, headers=headers)
+                if response.status_code == 401 and jwt and bridge_token:
+                    # A long-running producer (a site crawl runs for hours) outlives the login it
+                    # started under. The same person and organization are carried over the
+                    # platform bridge, whose far side re-verifies the membership — logged, so the
+                    # switch is never invisible.
+                    logger.warning(
+                        "source landing: the forwarded login expired; landing %s over the platform "
+                        "bridge as the same person",
+                        landing.get("canonical_identity"),
+                    )
+                    bridge_headers = {
+                        "Accept": "application/json",
+                        "X-Organization-Id": organization_id,
+                        "Authorization": f"Bearer {bridge_token}",
+                        "X-Matrx-User-Id": str((landing.get("provenance") or {}).get("user_id") or ""),
+                    }
+                    response = await http.post(
+                        f"{base}/api/sources/internal/land", json=landing, headers=bridge_headers
+                    )
         except httpx.HTTPError as exc:
             raise SourceLandingFailed(
                 "landing_unreachable",

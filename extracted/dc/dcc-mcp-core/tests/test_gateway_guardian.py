@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from http.client import BadStatusLine
 import json
+import logging
 import os
 from pathlib import Path
 import socket
@@ -12,7 +13,24 @@ import types
 
 import pytest
 
+import dcc_mcp_core._server._gateway_server_bin as gsb
 import dcc_mcp_core._server.gateway_guardian as gg
+
+
+@pytest.fixture(autouse=True)
+def _reset_server_bin_warning_ledgers():
+    """Give every test a process-fresh warning ledger.
+
+    Both ledgers are module-level, so a test that trips a once-per-process
+    warning would otherwise silence that warning for every test after it.
+    """
+    saved_drift = gsb._SERVER_VERSION_DRIFT_WARNED
+    saved_resolution = gsb._SERVER_BIN_WARNED
+    gsb._SERVER_VERSION_DRIFT_WARNED = set()
+    gsb._SERVER_BIN_WARNED = set()
+    yield
+    gsb._SERVER_VERSION_DRIFT_WARNED = saved_drift
+    gsb._SERVER_BIN_WARNED = saved_resolution
 
 
 def _wait_until(predicate, *, timeout: float = 10.0, interval: float = 0.01) -> bool:
@@ -167,7 +185,7 @@ def test_resolve_server_bin_uses_packaged_binary_when_path_missing(monkeypatch, 
     module.binary_path = lambda: binary
 
     monkeypatch.delenv("DCC_MCP_SERVER_BIN", raising=False)
-    monkeypatch.setattr(gg.shutil, "which", lambda _name: None)
+    monkeypatch.setattr(gsb.shutil, "which", lambda _name: None)
     monkeypatch.setitem(sys.modules, "dcc_mcp_server", module)
 
     assert gg._resolve_server_bin() == str(binary)
@@ -182,6 +200,164 @@ def test_resolve_server_bin_prefers_explicit_env(monkeypatch, tmp_path):
     monkeypatch.setitem(sys.modules, "dcc_mcp_server", module)
 
     assert gg._resolve_server_bin() == str(explicit)
+
+
+def test_resolve_server_bin_prefers_path_over_python_import(monkeypatch, tmp_path):
+    """A binary on PATH wins over any importable ``dcc_mcp_server`` package.
+
+    Under a managed resolve PATH points at the resolved binary, while a Python
+    import can silently hit a stale user-level copy.
+    """
+    on_path = tmp_path / "resolved" / "dcc-mcp-server"
+    stale = tmp_path / "stale" / "dcc-mcp-server"
+    module = types.ModuleType("dcc_mcp_server")
+    module.binary_path = lambda: stale
+    module.__version__ = "9.9.9"
+
+    monkeypatch.delenv("DCC_MCP_SERVER_BIN", raising=False)
+    monkeypatch.setattr(gsb.shutil, "which", lambda _name: str(on_path))
+    monkeypatch.setitem(sys.modules, "dcc_mcp_server", module)
+    monkeypatch.setattr(gsb, "_SERVER_VERSION_DRIFT_WARNED", set())
+
+    assert gg._resolve_server_bin() == str(on_path)
+
+
+def test_resolve_server_bin_warns_when_falling_back_to_module(monkeypatch, tmp_path, caplog):
+    binary = tmp_path / "dcc-mcp-server"
+    binary.write_text("", encoding="utf-8")
+    module = types.ModuleType("dcc_mcp_server")
+    module.binary_path = lambda: binary
+
+    monkeypatch.delenv("DCC_MCP_SERVER_BIN", raising=False)
+    monkeypatch.setattr(gsb.shutil, "which", lambda _name: None)
+    monkeypatch.setitem(sys.modules, "dcc_mcp_server", module)
+    monkeypatch.setattr(gsb, "_SERVER_VERSION_DRIFT_WARNED", set())
+
+    with caplog.at_level(logging.WARNING, logger=gsb.__name__):
+        resolved = gg._resolve_server_bin()
+
+    assert resolved == str(binary)
+    assert any("not on PATH" in record.getMessage() for record in caplog.records)
+
+
+def test_resolve_server_bin_warns_on_version_drift(monkeypatch, tmp_path, caplog):
+    """A major.minor mismatch between server and core is reported once."""
+    binary = tmp_path / "dcc-mcp-server"
+    binary.write_text("", encoding="utf-8")
+    module = types.ModuleType("dcc_mcp_server")
+    module.binary_path = lambda: binary
+    module.__version__ = "0.19.8"
+
+    monkeypatch.delenv("DCC_MCP_SERVER_BIN", raising=False)
+    monkeypatch.setattr(gsb.shutil, "which", lambda _name: None)
+    monkeypatch.setitem(sys.modules, "dcc_mcp_server", module)
+    monkeypatch.setenv(gsb.ENV_CORE_VERSION, "0.20.28")
+    monkeypatch.setattr(gsb, "_SERVER_VERSION_DRIFT_WARNED", set())
+
+    with caplog.at_level(logging.WARNING, logger=gsb.__name__):
+        gg._resolve_server_bin()
+        first = len(caplog.records)
+        gg._resolve_server_bin()
+
+    messages = [record.getMessage() for record in caplog.records]
+    assert any("0.19.8" in message and "0.20.28" in message for message in messages)
+    # The second call must not repeat an already-reported drift pair.
+    assert len([m for m in messages if "0.19.8" in m and "0.20.28" in m]) == 1
+    assert first >= 1
+
+
+def test_resolve_server_bin_silent_when_versions_match(monkeypatch, tmp_path, caplog):
+    binary = tmp_path / "dcc-mcp-server"
+    binary.write_text("", encoding="utf-8")
+    module = types.ModuleType("dcc_mcp_server")
+    module.binary_path = lambda: binary
+    module.__version__ = "0.20.31"
+
+    monkeypatch.delenv("DCC_MCP_SERVER_BIN", raising=False)
+    monkeypatch.setattr(gsb.shutil, "which", lambda _name: None)
+    monkeypatch.setitem(sys.modules, "dcc_mcp_server", module)
+    monkeypatch.setenv(gsb.ENV_CORE_VERSION, "0.20.28")
+    monkeypatch.setattr(gsb, "_SERVER_VERSION_DRIFT_WARNED", set())
+
+    with caplog.at_level(logging.WARNING, logger=gsb.__name__):
+        gg._resolve_server_bin()
+
+    assert not [record for record in caplog.records if "does not match" in record.getMessage()]
+
+
+def test_resolve_server_bin_warns_when_nothing_found(monkeypatch, caplog):
+    monkeypatch.delenv("DCC_MCP_SERVER_BIN", raising=False)
+    monkeypatch.setattr(gsb.shutil, "which", lambda _name: None)
+    monkeypatch.setitem(sys.modules, "dcc_mcp_server", None)
+    monkeypatch.setattr(gsb, "_SERVER_VERSION_DRIFT_WARNED", set())
+
+    with caplog.at_level(logging.WARNING, logger=gsb.__name__):
+        resolved = gg._resolve_server_bin()
+
+    assert resolved == "dcc-mcp-server"
+    assert any("unavailable" in record.getMessage() for record in caplog.records)
+
+
+def test_resolve_server_bin_reports_the_fallback_once_per_process(monkeypatch, tmp_path, caplog):
+    """The patrol re-resolves every few seconds; the fallback must not repeat.
+
+    A guardian patrol cycle defaults to 5s, so an unmanaged server used to log
+    this line on every cycle instead of once.
+    """
+    binary = tmp_path / "dcc-mcp-server"
+    binary.write_text("", encoding="utf-8")
+    module = types.ModuleType("dcc_mcp_server")
+    module.binary_path = lambda: binary
+
+    monkeypatch.delenv("DCC_MCP_SERVER_BIN", raising=False)
+    monkeypatch.setattr(gsb.shutil, "which", lambda _name: None)
+    monkeypatch.setitem(sys.modules, "dcc_mcp_server", module)
+
+    with caplog.at_level(logging.WARNING, logger=gsb.__name__):
+        gg._resolve_server_bin()
+        gg._resolve_server_bin()
+        gg._resolve_server_bin()
+
+    messages = [record.getMessage() for record in caplog.records]
+    assert len([message for message in messages if "not on PATH" in message]) == 1
+
+
+def test_resolve_server_bin_reports_an_unavailable_binary_once_per_process(monkeypatch, caplog):
+    monkeypatch.delenv("DCC_MCP_SERVER_BIN", raising=False)
+    monkeypatch.setattr(gsb.shutil, "which", lambda _name: None)
+    monkeypatch.setitem(sys.modules, "dcc_mcp_server", None)
+
+    with caplog.at_level(logging.WARNING, logger=gsb.__name__):
+        gg._resolve_server_bin()
+        gg._resolve_server_bin()
+
+    messages = [record.getMessage() for record in caplog.records]
+    assert len([message for message in messages if "binary unavailable" in message]) == 1
+    # The failed package lookup behind it is throttled the same way.
+    assert len([message for message in messages if "binary_path unavailable" in message]) == 1
+
+
+def test_resolve_server_bin_skips_drift_check_when_path_supplies_binary(monkeypatch, tmp_path, caplog):
+    """A PATH hit says nothing about the importable module's version.
+
+    Comparing them would report drift for a copy that never runs, so the check
+    only applies when the package itself supplies the binary.
+    """
+    on_path = tmp_path / "resolved" / "dcc-mcp-server"
+    module = types.ModuleType("dcc_mcp_server")
+    module.binary_path = lambda: tmp_path / "unused" / "dcc-mcp-server"
+    module.__version__ = "0.19.8"
+
+    monkeypatch.delenv("DCC_MCP_SERVER_BIN", raising=False)
+    monkeypatch.setattr(gsb.shutil, "which", lambda _name: str(on_path))
+    monkeypatch.setitem(sys.modules, "dcc_mcp_server", module)
+    monkeypatch.setenv(gsb.ENV_CORE_VERSION, "0.20.28")
+
+    with caplog.at_level(logging.WARNING, logger=gsb.__name__):
+        resolved = gg._resolve_server_bin()
+
+    assert resolved == str(on_path)
+    assert not [record for record in caplog.records if "does not match" in record.getMessage()]
 
 
 def test_ensure_gateway_daemon_spawns_and_becomes_healthy(tmp_path, monkeypatch):
@@ -466,6 +642,33 @@ def test_launch_lock_acquire_single_attempt_no_loop(tmp_path, monkeypatch):
 
     assert acquired is False
     assert lock_path.exists()
+
+
+def test_gateway_daemon_guardian_is_re_exported_from_the_patrol_module(monkeypatch):
+    """The patrol loop lives in its own module, reachable from the guardian.
+
+    The three guardian helpers the patrol calls must still be resolved through
+    the guardian module, or ``monkeypatch.setattr(gg, ...)`` stops steering the
+    loop and the whole suite silently tests a mock-free path.
+    """
+    import dcc_mcp_core._server._gateway_guardian_patrol as patrol
+
+    assert gg.GatewayDaemonGuardian is patrol.GatewayDaemonGuardian
+    assert patrol._guardian() is gg
+
+    calls = []
+    monkeypatch.setattr(gg, "_is_application_ready", lambda *_a, **_k: False)
+    monkeypatch.setattr(gg, "ensure_gateway_daemon", lambda **kwargs: calls.append(kwargs) or {"ok": True})
+    guardian = gg.GatewayDaemonGuardian(
+        gateway_host="127.0.0.1",
+        gateway_port=9765,
+        registry_dir=None,
+        dcc_type="maya",
+        failure_threshold=1,
+    )
+
+    assert guardian.probe_once()["ok"] is True
+    assert len(calls) == 1
 
 
 def test_gateway_daemon_guardian_restarts_after_failure_threshold(monkeypatch):

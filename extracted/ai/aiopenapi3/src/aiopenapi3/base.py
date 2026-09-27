@@ -1,25 +1,22 @@
-import typing
-import warnings
-from typing import Any, ForwardRef, Union, cast
-from collections.abc import Sequence
-
-import re
 import builtins
 import keyword
+import re
+import typing
 import uuid
-
+import warnings
+from collections.abc import Sequence
 from pathlib import Path
+from typing import Any, ForwardRef, TypeGuard, Union, cast
 
-from typing import TypeGuard
+from pydantic import AnyUrl, BaseModel, ConfigDict, Field, PrivateAttr, RootModel, TypeAdapter, model_validator
 
-from pydantic import RootModel, BaseModel, TypeAdapter, Field, AnyUrl, model_validator, PrivateAttr, ConfigDict
-
+from .errors import OperationParameterValidationError, ReferenceResolutionError
 from .json import JSONPointer, JSONReference
-from .errors import ReferenceResolutionError, OperationParameterValidationError
 
 if typing.TYPE_CHECKING:
     from aiopenapi3 import OpenAPI
-    from ._types import SchemaType, JSON, PathItemType, ParameterType, ReferenceType, DiscriminatorType
+
+    from ._types import JSON, DiscriminatorType, ParameterType, PathItemType, ReferenceType, SchemaType
 
 HTTP_METHODS = frozenset(["get", "delete", "head", "post", "put", "patch", "trace", "query"])
 
@@ -47,7 +44,7 @@ class ObjectExtended(ObjectBase):
             return None
         if not isinstance(values, dict):
             return values
-        e = dict()
+        e = {}
         rm = set()
         for k, v in values.items():
             if k.startswith("x-"):
@@ -56,7 +53,7 @@ class ObjectExtended(ObjectBase):
         if len(e):
             for i in rm:
                 del values[i]
-            if "extensions" in values.keys():
+            if "extensions" in values:
                 raise ValueError("extensions")
             values["extensions"] = e
 
@@ -88,7 +85,7 @@ class PathItemBase:
 class RootBase:
     @staticmethod
     def resolve(api: "OpenAPI", root: "RootBase", obj, _PathItem, _Reference):
-        from . import v20, v30, v31
+        from . import v20, v30, v31, v32
 
         def replaceSchemaReference(data):
             def replace(ivalue):
@@ -106,7 +103,7 @@ class RootBase:
                         data[idx] = n
 
             elif isinstance(data, dict):
-                new = dict()
+                new = {}
                 for _k, _v in data.items():
                     n = replace(_v)  # Swagger 2.0 Schema.ref resolver …
                     if _v != n:
@@ -124,14 +121,14 @@ class RootBase:
                     continue
 
                 # v3.1 - Schema $ref
-                if isinstance(root, (v20.root.Root, v30.root.Root, v31.root.Root)):
-                    if isinstance(value, SchemaBase):
+                if isinstance(root, (v20.root.Root, v30.root.Root, v31.root.Root, v32.root.Root)):  # noqa: SIM102
+                    if isinstance(value, SchemaBase):  # noqa: SIM102
                         if (r := getattr(value, "ref", None)) and not isinstance(r, ReferenceBase):
                             value = _Reference.model_construct(ref=r)
                             setattr(obj, slot, value)
 
-                if isinstance(root, (v30.root.Root, v31.root.Root)):
-                    if isinstance(value, (v30.Discriminator, v31.Discriminator)):
+                if isinstance(root, (v30.root.Root, v31.root.Root, v32.root.Root)):  # noqa: SIM102
+                    if isinstance(value, (v30.Discriminator, v31.Discriminator, v32.Discriminator)):
                         """
                         Discriminated Unions - implementing undefined behavior
                         sub-schemas not having the discriminated property "const" or enum or mismatching the mapping
@@ -144,7 +141,7 @@ class RootBase:
                         """
 
                         if not value.mapping:
-                            value.mapping = dict()
+                            value.mapping = {}
 
                             for v in (obj.oneOf or []) + (obj.anyOf or []):
                                 k = Path(JSONReference.split(v.ref)[1]).parts[-1]
@@ -156,8 +153,8 @@ class RootBase:
                             else:
                                 if v._target is None:
                                     continue
-                                from .model import Model
                                 from . import errors
+                                from .model import Model
 
                                 if "object" not in (t := sorted(Model.types(v._target))):
                                     raise errors.SpecError(f"Discriminated Union on a schema with types {t}")
@@ -195,7 +192,7 @@ class RootBase:
                     PathItem Ref is ambiguous
                     https://github.com/OAI/OpenAPI-Specification/issues/2635
                     """
-                    if isinstance(root, (v20.root.Root, v30.root.Root, v31.root.Root)):
+                    if isinstance(root, (v20.root.Root, v30.root.Root, v31.root.Root, v32.root.Root)):  # noqa: SIM102
                         if isinstance(obj, _PathItem) and slot == "ref":
                             ref = _Reference.model_construct(ref=value)
                             ref._target = api.resolve_jr(root, obj, ref)
@@ -219,7 +216,7 @@ class RootBase:
                 else:
                     raise TypeError(type(value), value)
         elif isinstance(obj, dict):
-            if isinstance(root, (v20.root.Root, v31.root.Root)):
+            if isinstance(root, (v20.root.Root, v31.root.Root, v32.root.Root)):
                 """
                 Resolving/Replacing Swagger 2.0 nested Schema.ref
                 Schema.properties[name] -> Schema.ref ==> Schema.properties[name] -> Reference
@@ -234,7 +231,7 @@ class RootBase:
                     RootBase.resolve(api, root, v, _PathItem, _Reference)
 
         elif isinstance(obj, list):
-            if isinstance(root, (v20.root.Root, v31.root.Root)):
+            if isinstance(root, (v20.root.Root, v31.root.Root, v32.root.Root)):
                 replaceSchemaReference(obj)
 
             # if it's a list, resolve its item's references
@@ -341,7 +338,7 @@ class SchemaBase(BaseModel):
     _model_types is used to store these different model representations of the same schema
     """
 
-    _identity: str = PrivateAttr(default=None)
+    _identity: str | None = PrivateAttr(default=None)
     """
     The _identity attribute is set during OpenAPI.__init__ and used to create the class name in get_type()
     """
@@ -354,14 +351,10 @@ class SchemaBase(BaseModel):
         :return:
         """
         r = BaseModel.__getstate__(self)
-        try:
-            for k, v in {"_model_type": None, "_model_types": list()}.items():
-                if k in r["__pydantic_private__"]:
-                    r["__pydantic_private__"] = r["__pydantic_private__"].copy()
-                    r["__pydantic_private__"][k] = v
-
-        except Exception:
-            pass
+        for k, v in {"_model_type": None, "_model_types": []}.items():
+            if k in r["__pydantic_private__"]:
+                r["__pydantic_private__"] = r["__pydantic_private__"].copy()
+                r["__pydantic_private__"][k] = v
         return r
 
     def _get_identity(self, prefix="XLS", name=None):
@@ -468,8 +461,8 @@ class OperationBase:
 
         assert self.parameters is not None
         assert pi_.parameters is not None
-        op: frozenset[str] = frozenset(map(lambda x: x.name, filter(parameter_in_path, self.parameters)))
-        pi: frozenset[str] = frozenset(map(lambda x: x.name, filter(parameter_in_path, pi_.parameters)))
+        op: frozenset[str] = frozenset(x.name for x in filter(parameter_in_path, self.parameters))
+        pi: frozenset[str] = frozenset(x.name for x in filter(parameter_in_path, pi_.parameters))
 
         invalid = sorted(filter(lambda x: re.match(r"^([a-zA-Z0-9\-\._~]+)$", x) is None or len(x) == 0, op | pi))
         if invalid:

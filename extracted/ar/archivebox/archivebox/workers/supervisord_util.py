@@ -121,7 +121,26 @@ def require_dependency_install_memory(available_bytes: int | None = None) -> Non
 
 
 def archivebox_cmd(*args: str) -> list[str]:
-    return [str(resolve_env_binary("archivebox")), *args]
+    # Pin the projected executable: its symlink may change while supervisord
+    # is still running, but an existing worker must keep its own runtime.
+    return [str(resolve_env_binary("archivebox").resolve()), *args]
+
+
+def _archivebox_worker_environment(command: list[str], **extra: str) -> str:
+    """Keep hook lookup aligned with the pinned ArchiveBox executable."""
+    executable = Path(command[0])
+    venv_dir = executable.parent.parent
+    binary_dir = executable.parent
+    inherited_venv = os.environ.get("VIRTUAL_ENV")
+    stale_bin = str(Path(inherited_venv) / "bin") if inherited_venv else None
+    paths = [str(binary_dir)]
+    paths.extend(path for path in os.environ.get("PATH", "").split(os.pathsep) if path and path != str(binary_dir) and path != stale_bin)
+    values = {
+        "PATH": os.pathsep.join(paths),
+        "VIRTUAL_ENV": str(venv_dir) if (venv_dir / "pyvenv.cfg").is_file() else "",
+        **extra,
+    }
+    return ",".join(f"{key}={json.dumps(value)}" for key, value in values.items())
 
 
 def resolve_env_binary(name: str) -> Path:
@@ -262,16 +281,17 @@ def _stop_older_supervisord_processes(*, current_pid: int, current_started_at: f
 
 
 def RUNNER_WORKER():
+    command = archivebox_cmd("run", "--daemon")
     return {
         "name": "worker_runner",
-        "command": _shell_join(archivebox_cmd("run", "--daemon")),
+        "command": _shell_join(command),
         "autostart": "false",
         "autorestart": "true",
         # Mark the long-lived runner child so its own SIGINT/SIGTERM path exits
         # with a signal code instead of running foreground server cleanup. That
         # keeps "kill just archivebox run --daemon" as a worker restart event;
         # only killing the parent server or supervisord should stop the stack.
-        "environment": 'PYTHONUNBUFFERED="1",COLUMNS="200",ARCHIVEBOX_RUNNER_DAEMON="1"',
+        "environment": _archivebox_worker_environment(command, PYTHONUNBUFFERED="1", COLUMNS="200", ARCHIVEBOX_RUNNER_DAEMON="1"),
         "stopasgroup": "true",
         "killasgroup": "true",
         "stopwaitsecs": "30",
@@ -280,27 +300,33 @@ def RUNNER_WORKER():
     }
 
 
-RUNNER_ONCE_WORKER = lambda args, name="worker_runner_once": {
-    **RUNNER_WORKER(),
-    "name": name,
-    "command": _shell_join(archivebox_cmd("run", "--no-stdin", *args)),
-    # One-shot foreground jobs are awaited by the command that launched them,
-    # so they keep the normal cooperative shutdown path instead of the daemon
-    # marker that tells supervisord to restart an independently killed worker.
-    "environment": 'PYTHONUNBUFFERED="1",COLUMNS="200"',
-    "autorestart": "false",
-    "stopwaitsecs": "1",
-    "stdout_logfile": f"logs/{name}.log",
-}
+def RUNNER_ONCE_WORKER(args, name="worker_runner_once"):
+    command = archivebox_cmd("run", "--no-stdin", *args)
+    return {
+        **RUNNER_WORKER(),
+        "name": name,
+        "command": _shell_join(command),
+        # One-shot foreground jobs are awaited by the command that launched them,
+        # so they keep the normal cooperative shutdown path instead of the daemon
+        # marker that tells supervisord to restart an independently killed worker.
+        "environment": _archivebox_worker_environment(command, PYTHONUNBUFFERED="1", COLUMNS="200"),
+        "autorestart": "false",
+        "stopwaitsecs": "1",
+        "stdout_logfile": f"logs/{name}.log",
+    }
 
-RUNNER_WATCH_WORKER = lambda bind_url: {
-    "name": "worker_runner_watch",
-    "command": _shell_join(archivebox_cmd("manage", "runner_watch", f"--bind-url={bind_url}")),
-    "autostart": "false",
-    "autorestart": "true",
-    "stdout_logfile": "logs/worker_runner_watch.log",
-    "redirect_stderr": "true",
-}
+
+def RUNNER_WATCH_WORKER(bind_url):
+    command = archivebox_cmd("manage", "runner_watch", f"--bind-url={bind_url}")
+    return {
+        "name": "worker_runner_watch",
+        "command": _shell_join(command),
+        "environment": _archivebox_worker_environment(command),
+        "autostart": "false",
+        "autorestart": "true",
+        "stdout_logfile": "logs/worker_runner_watch.log",
+        "redirect_stderr": "true",
+    }
 
 
 def SUPERVISORD_PARENT_WATCHDOG_WORKER(
@@ -333,29 +359,30 @@ def SUPERVISORD_PARENT_WATCHDOG_WORKER(
     }
 
 
-SERVER_WORKER = lambda host, port, extra_port=None: {
-    "name": "worker_daphne",
-    "command": _shell_join(
-        [
-            str(resolve_env_binary("daphne")),
-            f"--bind={host}",
-            f"--port={port}",
-            *(
-                ["--endpoint", "tcp:port={}:interface={}".format(extra_port, host.strip("[]").replace(":", r"\:"))]
-                if extra_port is not None
-                else []
-            ),
-            "archivebox.core.asgi:application",
-        ],
-    ),
-    "autostart": "false",
-    "autorestart": "true",
-    "stopasgroup": "true",
-    "killasgroup": "true",
-    "stopwaitsecs": "1",
-    "stdout_logfile": "logs/worker_daphne.log",
-    "redirect_stderr": "true",
-}
+def SERVER_WORKER(host: str, port: str) -> dict[str, str]:
+    # The shared binary projection may belong to another ArchiveBox install.
+    # Its Daphne shebang would load that install's plugins/templates even when
+    # the CLI and crawl workers use this runtime, so retain the caller's Python.
+    command = [
+        sys.executable,
+        "-m",
+        "daphne",
+        f"--bind={host}",
+        f"--port={port}",
+        "archivebox.core.asgi:application",
+    ]
+    return {
+        "name": "worker_daphne",
+        "command": _shell_join(command),
+        "environment": _archivebox_worker_environment(command),
+        "autostart": "false",
+        "autorestart": "true",
+        "stopasgroup": "true",
+        "killasgroup": "true",
+        "stopwaitsecs": "1",
+        "stdout_logfile": "logs/worker_daphne.log",
+        "redirect_stderr": "true",
+    }
 
 
 def RUNSERVER_WORKER(host: str, port: str, *, reload: bool, nothreading: bool = False):
@@ -365,19 +392,14 @@ def RUNSERVER_WORKER(host: str, port: str, *, reload: bool, nothreading: bool = 
     if nothreading:
         command.append("--nothreading")
 
-    environment = ['ARCHIVEBOX_RUNSERVER="1"']
+    environment = {"ARCHIVEBOX_RUNSERVER": "1"}
     if reload:
-        environment.extend(
-            [
-                'ARCHIVEBOX_AUTORELOAD="1"',
-                f'ARCHIVEBOX_RUNSERVER_BIND_URL="http://{host}:{port}"',
-            ],
-        )
+        environment.update(ARCHIVEBOX_AUTORELOAD="1", ARCHIVEBOX_RUNSERVER_BIND_URL=f"http://{host}:{port}")
 
     return {
         "name": "worker_runserver",
         "command": _shell_join(command),
-        "environment": ",".join(environment),
+        "environment": _archivebox_worker_environment(command, **environment),
         "autostart": "false",
         "autorestart": "true",
         "stopasgroup": "true",
@@ -1299,9 +1321,6 @@ def active_supervisord_runtime_components(*, supervisor=None) -> list[str]:
 
 def build_server_worker_plan(*, config, host: str, port: str, debug: bool, reload: bool, nothreading: bool, supervisor=None):
     bind_url = f"http://{host}:{port}"
-    # Docker does not expose its host port mappings to the container. Keep both
-    # image defaults reachable so existing mappings survive an image upgrade.
-    extra_port = {"5797": "8000", "8000": "5797"}.get(str(port)) if config.IN_DOCKER else None
 
     if debug:
         server_worker = RUNSERVER_WORKER(host=host, port=port, reload=reload, nothreading=nothreading)
@@ -1312,7 +1331,7 @@ def build_server_worker_plan(*, config, host: str, port: str, debug: bool, reloa
         if reload:
             log_files.insert(1, "logs/worker_runner_watch.log")
     else:
-        server_worker = SERVER_WORKER(host=host, port=port, extra_port=extra_port)
+        server_worker = SERVER_WORKER(host=host, port=port)
         bg_workers = [(RUNNER_WORKER(), False)]
         log_files = ["logs/worker_daphne.log", "logs/worker_runner.log"]
 
@@ -1342,19 +1361,15 @@ def build_server_worker_plan(*, config, host: str, port: str, debug: bool, reloa
             log_files.append(str(sonic_worker["stdout_logfile"]))
 
     workers = [(server_worker, False), *bg_workers]
-    if debug and extra_port is not None:
-        compatibility_worker = RUNSERVER_WORKER(host=host, port=extra_port, reload=reload, nothreading=nothreading)
-        compatibility_worker["name"] = "worker_runserver_compatibility"
-        compatibility_worker["stdout_logfile"] = "logs/worker_runserver_compatibility.log"
-        workers.insert(1, (compatibility_worker, False))
-        log_files.append(compatibility_worker["stdout_logfile"])
     if os.environ.get("DISPLAY") and (config.IN_DOCKER or os.environ.get("ARCHIVEBOX_VNC_PERSONA")):
         vnc_persona = os.environ.get("ARCHIVEBOX_VNC_PERSONA") or config.DEFAULT_PERSONA
+        vnc_command = archivebox_cmd("persona", "open", vnc_persona)
         workers.append(
             (
                 {
                     "name": "worker_vnc_browser",
-                    "command": _shell_join(archivebox_cmd("persona", "open", vnc_persona)),
+                    "command": _shell_join(vnc_command),
+                    "environment": _archivebox_worker_environment(vnc_command),
                     "autostart": "false",
                     "autorestart": "false",
                     "stopasgroup": "true",

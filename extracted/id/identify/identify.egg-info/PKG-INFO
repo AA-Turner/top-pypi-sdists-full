@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: identify
-Version: 2.6.19
+Version: 2.6.20
 Summary: File identification library for Python
 Home-page: https://github.com/pre-commit/identify
 Author: Chris Kuehl
@@ -15,6 +15,7 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Provides-Extra: license
 Requires-Dist: ukkonen; extra == "license"
+Dynamic: license-file
 
 [![build status](https://github.com/pre-commit/identify/actions/workflows/main.yml/badge.svg)](https://github.com/pre-commit/identify/actions/workflows/main.yml)
 [![pre-commit.ci status](https://results.pre-commit.ci/badge/github/pre-commit/identify/main.svg)](https://results.pre-commit.ci/latest/github/pre-commit/identify/main)

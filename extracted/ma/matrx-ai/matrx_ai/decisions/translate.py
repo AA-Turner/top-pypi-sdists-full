@@ -58,6 +58,7 @@ __all__ = [
     "prepare_verbalized_decision",
     "finalize_verbalized_decision",
     "restore_decision_turn_scope",
+    "render_decision_turn_for_preview",
 ]
 
 #: Media part kinds a text-only decision holder cannot consume. The value is
@@ -340,19 +341,41 @@ def decision_answers_from_system_one(
 # ---------------------------------------------------------------------------
 
 
-def verbalized_instructions(state: dict[str, Any], batch: DecisionQuestions) -> str:
-    """The prose a text model is given: the state, then each question."""
-    lines = [
-        "You are answering a fixed set of decision questions about the state below.",
-        "",
-        "## State",
-        "```json",
-        json.dumps(state, ensure_ascii=False, indent=2),
-        "```",
-        "",
-        "## Questions",
-        "",
-    ]
+def verbalized_instructions(
+    state: dict[str, Any],
+    batch: DecisionQuestions,
+    *,
+    subject_above: bool = False,
+) -> str:
+    """The prose a text model is given: the state, then each question.
+
+    ``subject_above`` says the subject is ALREADY on the wire as the text parts
+    of this same message (they stay where the author put them, immediately
+    above this prose). The state then carries only what is NOT already there —
+    the instruction and earlier conversation — instead of a second copy of the
+    subject. See ``prepare_verbalized_decision`` for why each fact is sent once.
+    """
+    if subject_above:
+        opening = (
+            "You are answering a fixed set of decision questions about the "
+            "message above."
+        )
+    else:
+        opening = (
+            "You are answering a fixed set of decision questions about the state below."
+        )
+    lines = [opening, ""]
+    if state:
+        lines.extend(
+            [
+                "## State",
+                "```json",
+                json.dumps(state, ensure_ascii=False, indent=2),
+                "```",
+                "",
+            ]
+        )
+    lines.extend(["## Questions", ""])
     for question in batch.questions:
         lines.append(f"### {question.name} ({question.type})")
         lines.append(question.instructions)
@@ -709,7 +732,24 @@ def prepare_verbalized_decision(
         for block in (getattr(message, "content", None) or [])
         if _content_type(block) != "decision_questions"
     ]
-    message.content.append(TextContent(text=verbalized_instructions(state, batch)))
+    # EACH FACT IS SENT ONCE. The subject is the other text parts of this
+    # message, and they stay on the wire where the author put them — so the
+    # rendered state must not carry them a second time. Until 2026-09-26 it
+    # did: the feedback-triage turn sent the report as its own text part AND
+    # again, JSON-escaped, as ``state.subject`` (conversation 61ba88e5, Gemini
+    # 3.8 Flash). The instruction rides the state exactly once: the system
+    # channel is suspended for the turn below. When a subject block carries
+    # only ``metadata.resolved_text`` (nothing the translator would send) the
+    # state keeps the subject, because then it is the ONLY copy.
+    wire_state = dict(state)
+    subject_above = "subject" in wire_state and _subject_is_on_the_wire(message)
+    if subject_above:
+        wire_state.pop("subject")
+    message.content.append(
+        TextContent(
+            text=verbalized_instructions(wire_state, batch, subject_above=subject_above)
+        )
+    )
 
     # A PLAIN DICT, never the model. ``UnifiedConfig`` is a dataclass with no
     # validation on assignment, and every translator reads this field with
@@ -729,7 +769,34 @@ def prepare_verbalized_decision(
     ).model_dump(by_alias=True, exclude_none=True)
     overlay = VerbalizedDecisionOverlay(batch, index, state, model_name=model_name)
     overlay.suspended = suspend_chat_furniture(config)
+    # THE CALL RECORD MATCHES THE CALL. Request prep stamped ``tools_on_call``
+    # on this user message from the conversation's toolset BEFORE the route was
+    # known; a decision turn then sends none of them (suspended above). Left
+    # alone, the durable row claimed ten tools were offered on a call that
+    # offered zero. The restore after the turn gives the CONFIG its tools back
+    # but never this record — it describes this call, and this call had none.
+    for stamped in (message, *reversed(messages)):
+        if stamped is not message and str(getattr(stamped, "role", "")) not in ("user", "Role.USER"):
+            continue
+        metadata = getattr(stamped, "metadata", None)
+        if isinstance(metadata, dict) and "tools_on_call" in metadata:
+            metadata["tools_on_call"] = []
+            break
     return overlay
+
+
+def _subject_is_on_the_wire(message: Any) -> bool:
+    """True when every block that contributes to ``state.subject`` carries its
+    text in ``.text`` — i.e. the translator will send it as-is."""
+    for block in getattr(message, "content", None) or []:
+        if _content_type(block) == "decision_questions":
+            continue
+        if not _text_of(block):
+            continue
+        text = getattr(block, "text", None)
+        if not (isinstance(text, str) and text.strip()):
+            return False
+    return True
 
 
 def finalize_verbalized_decision(
@@ -757,11 +824,19 @@ def finalize_verbalized_decision(
         raise DecisionCompatibilityError(
             f"{model_name!r} returned no message for a decision request."
         )
-    text = "\n".join(
+    # THE ANSWER IS THE REPLY'S TEXT PARTS — never its thinking. A reasoning
+    # model's reply also carries a ``thinking`` block with ``.text``, and it
+    # comes FIRST: joining every block that had a ``.text`` handed
+    # ``extract_json`` the model's own draft reasoning, whose first JSON-looking
+    # fragment (one question's object, no ``answers`` key) became the payload —
+    # so every question read "unanswerable" over a correct reply (grok-4.7,
+    # 2026-09-26, Model Battle). Text parts are concatenated as ONE stream:
+    # a structured reply split across parts must not gain separators inside it.
+    text = "".join(
         block.text
         for block in (getattr(messages[-1], "content", None) or [])
-        if isinstance(getattr(block, "text", None), str) and block.text.strip()
-    )
+        if _content_type(block) == "text" and isinstance(getattr(block, "text", None), str)
+    ).strip()
     payload = extract_json(text)
     if not isinstance(payload, dict):
         raise DecisionCompatibilityError(
@@ -786,3 +861,56 @@ def finalize_verbalized_decision(
         metadata["decision"] = True
         metadata["method"] = answers.method
     return response
+
+
+async def render_decision_turn_for_preview(config: Any) -> str | None:
+    """Put a dry-run config into the exact shape the dispatch will send.
+
+    The prompt preview (``dry_run``) stops before ``UnifiedAIClient`` runs, so
+    it used to show the chat-shaped config — the system prompt and the authored
+    text — while the model actually receives the questions rendered as prose,
+    no system channel and no tools (Arman, 2026-09-26: "is that all the model
+    gets?"). This resolves the route the dispatch would resolve and, for a text
+    model, applies the SAME ``prepare_verbalized_decision`` the dispatch
+    applies, so the preview is the wire. The config is a throwaway dry-run copy:
+    nothing is restored.
+
+    Returns one sentence for the preview to show, or ``None`` when the request
+    asks no decision questions. A native decision route is described, not
+    rewritten — the native holder receives the state and the typed questions.
+    """
+    messages = list(getattr(config, "messages", None) or [])
+    try:
+        find_decision_questions(messages)
+    except DecisionQuestionsMissing:
+        return None
+
+    from matrx_ai.catalog.resolve import resolve_tts_call_profile
+    from matrx_ai.providers.resolved_capabilities import StructuredOutputMode
+
+    profile = await resolve_tts_call_profile(
+        config.model,
+        getattr(config, "tts_quality", None),
+        offering_id=getattr(config, "routing_offering_id", None),
+    )
+    caps = profile.capabilities
+    if caps.interaction == "decision" or profile.client_attr == "decision":
+        return (
+            f"{profile.model_name} is a native decision model: it receives the "
+            "state (the message text, the instruction and earlier turns) and the "
+            "typed questions, and computes the probabilities itself."
+        )
+    prepare_verbalized_decision(
+        config,
+        model_name=profile.model_name,
+        supports_structured_output=(
+            caps.structured_output_mode is StructuredOutputMode.SCHEMA
+        ),
+    )
+    return (
+        f"This turn asks decision questions of {profile.model_name}, a text model. "
+        "Shown exactly as sent: the questions are rendered as text in the last user "
+        "message, the agent's instruction rides inside them instead of the system "
+        "prompt, no tools are sent, and the reply is bound to a schema that returns "
+        "the answers with their probabilities."
+    )

@@ -46,7 +46,12 @@ def concat(objs: Any, dim: str) -> NetCDF:
     A dimension's CF `(units, calendar)` is carried only when every part declares the
     same pair for it; a part declaring nothing counts as a disagreement, and the joined
     axis is left undecodable rather than stamped with a calendar that is wrong for half
-    its steps.
+    its steps. What is carried reaches the rebuilt store as well as the Python object, so
+    a joined cube written with `to_file` decodes its own stamps.
+
+    The parts share a grid — a mismatch is refused, not resampled — so the first part's
+    spatial axis names describe the join and travel with it: joining cubes on
+    `latitude` / `longitude` does not rename the grid to `y` / `x` (#1180).
 
     Args:
         objs: The cubes, in the order they are joined. Containers or variables, at least
@@ -83,6 +88,7 @@ def concat(objs: Any, dim: str) -> NetCDF:
         values, sentinel = _joined_values(cubes, parts, axis)
         values_map = dict(parts[0]._band_dim_values_map)
         values_map[dim] = _joined_coordinates(parts, dim)
+        carried = _carried_time_attrs(parts, band_names)
         result = first._stack_reduced_variable(
             result,
             name,
@@ -92,8 +98,14 @@ def concat(objs: Any, dim: str) -> NetCDF:
             sentinel,
             band_names,
             values_map,
+            # The parts share a grid — `_check_other_dimensions` refuses them otherwise —
+            # so the first one's axis names describe the join. Its CF units do not: a
+            # dimension the parts disagree about is left out of `carried`, so the store
+            # records what they agree on and nothing more.
+            source=parts[0],
+            time_attrs=carried,
         )
-        time_attrs.update(_carried_time_attrs(parts, band_names))
+        time_attrs.update(carried)
     cast("NetCDF", result)._band_dim_time_attrs = time_attrs
     return cast("NetCDF", result)
 
@@ -199,6 +211,17 @@ def merge(objs: Any, *, compat: str = "no_conflicts") -> NetCDF:
     two copies of a variable stamped differently are refused rather than fused into one
     step carrying the first's stamp. `concat` is the member for putting them end to end.
 
+    A dimension's CF `(units, calendar)` is carried onto the result only when every variable
+    that has it declares the same pair; a dimension two variables describe differently is
+    left undecodable rather than stamped with whichever of them was built last. The
+    consensus is settled across all the variables *before* the first one is built, because
+    the store's dimensions are created with that first variable — one reached afterwards
+    would live on the Python object and never reach a written file.
+
+    The result also keeps the source's spatial axis names: merging cubes on
+    `latitude` / `longitude` hands back a `latitude` / `longitude` grid, not a renamed
+    `y` / `x` one (#1180).
+
     Args:
         objs: The cubes, containers or variables, at least one and all on the same grid.
         compat: What to do with a variable more than one cube carries. `"no_conflicts"`
@@ -232,10 +255,14 @@ def merge(objs: Any, *, compat: str = "no_conflicts") -> NetCDF:
                 copies[name] = []
                 order.append(name)
             copies[name].append((cube, _variable_of(cube, name)))
+    # Settled before the first variable is built, not accumulated as they are: the store's
+    # dimensions are created with that first variable, so a consensus reached afterwards
+    # would never reach the file.
+    time_attrs = _agreed_time_attrs(copies, order)
     result = None
-    time_attrs: dict = {}
     for name in order:
         part = copies[name][0][1]
+        band_names = list(part._band_dim_names)
         result = cubes[0]._stack_reduced_variable(
             result,
             name,
@@ -243,18 +270,39 @@ def merge(objs: Any, *, compat: str = "no_conflicts") -> NetCDF:
             part.geotransform,
             crs_spec(part.epsg, part.crs),
             _read_no_data(part),
-            list(part._band_dim_names),
+            band_names,
             dict(part._band_dim_values_map),
+            source=part,
+            time_attrs={
+                dim: attrs for dim, attrs in time_attrs.items() if dim in band_names
+            },
         )
-        carried = _carried_time_attrs([part], list(part._band_dim_names))
-        for dim, attrs in carried.items():
-            # Two variables sharing a dimension and declaring it differently leave it
-            # undecodable rather than stamped with whichever was processed last.
-            time_attrs[dim] = attrs if time_attrs.get(dim, attrs) == attrs else None
-    cast("NetCDF", result)._band_dim_time_attrs = {
-        dim: attrs for dim, attrs in time_attrs.items() if attrs is not None
-    }
+    cast("NetCDF", result)._band_dim_time_attrs = time_attrs
     return cast("NetCDF", result)
+
+
+def _agreed_time_attrs(
+    copies: dict[str, list[tuple[NetCDF, NetCDF]]], order: list[str]
+) -> dict:
+    """The CF `(units, calendar)` every variable of a merge declares the same way.
+
+    Args:
+        copies: The `(cube, variable)` pairs per variable name.
+        order: The variable names, in the order `merge` builds them.
+
+    Returns:
+        dict: The units per dimension, less any dimension two variables describe
+        differently — that one is left undecodable rather than stamped with whichever
+        variable happened to be processed last.
+    """
+    agreed: dict = {}
+    for name in order:
+        part = copies[name][0][1]
+        for dim, attrs in _carried_time_attrs(
+            [part], list(part._band_dim_names)
+        ).items():
+            agreed[dim] = attrs if agreed.get(dim, attrs) == attrs else None
+    return {dim: attrs for dim, attrs in agreed.items() if attrs is not None}
 
 
 def _checked(objs: Any, caller: str) -> list[NetCDF]:
@@ -403,10 +451,10 @@ def _check_other_dimensions(parts: list[NetCDF], dim: str, name: str) -> None:
             name: The dimension's name.
 
         Returns:
-            tuple: The stamps as floats, or `()`.
+            tuple: The stamps as their own values, or `()`.
         """
         stamps = part._band_dim_values_map.get(name)
-        return () if stamps is None else tuple(float(one) for one in stamps)
+        return () if stamps is None else _comparable(stamps)
 
     def layout(part: NetCDF) -> list[tuple[str, int, tuple]]:
         """The variable's dimensions other than `dim`, as comparable `(name, size, stamps)`.
@@ -556,6 +604,24 @@ def _filled_from(
     return np.asarray(filled)
 
 
+def _comparable(values: Any) -> tuple:
+    """Coordinate values as a tuple of plain Python scalars, for equality comparison.
+
+    Carried as they are, not coerced to float: a text axis — WRF's `Time` of
+    `'2000-01-24_12:00:00'` stamps, a scenario name — is compared as strings, where
+    `float(one)` raised `could not convert string to float` (#1181). NumPy scalars are
+    unwrapped with `.item()` so a `str`/`int`/`float` compares and prints cleanly, and a
+    numeric axis still matches regardless of its width.
+
+    Args:
+        values: The coordinate values.
+
+    Returns:
+        tuple: The values as Python scalars.
+    """
+    return tuple(one.item() if hasattr(one, "item") else one for one in values)
+
+
 def _stamps(part: NetCDF, dim: str) -> tuple:
     """A dimension's coordinates as a comparable tuple, empty when it carries none.
 
@@ -564,10 +630,10 @@ def _stamps(part: NetCDF, dim: str) -> tuple:
         dim: The dimension's name.
 
     Returns:
-        tuple: The stamps as floats, or `()`.
+        tuple: The stamps as their own values, or `()`.
     """
     values = part._band_dim_values_map.get(dim)
-    return () if values is None else tuple(float(one) for one in values)
+    return () if values is None else _comparable(values)
 
 
 def _narrowed(filled: np.typing.NDArray, dtype: np.dtype) -> np.typing.NDArray:

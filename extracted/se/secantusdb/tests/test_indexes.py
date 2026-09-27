@@ -754,7 +754,7 @@ def test_hint_natural_uses_collection_scan(storage: Storage, monkeypatch) -> Non
     storage.create_index("db", "c", "x_1", {"x": 1}, {})
     storage.insert("db", "c", [{"_id": i, "x": i} for i in range(3)])
     calls = _spy_scans(storage, monkeypatch)
-    docs = storage.find_matching("db", "c", {"x": 1}, hint="$natural")
+    docs = storage.find_matching("db", "c", {"x": 1}, hint={"$natural": 1})
     assert [d["_id"] for d in docs] == [1]
     assert calls != []
 
@@ -1254,6 +1254,8 @@ def test_explain_plan_single_field_eq_uses_index(storage: Storage) -> None:
         "index_name": "x_1",
         "key_pattern": {"x": 1},
         "direction": "forward",
+        # No sort spec, so nothing is being satisfied by the walk order.
+        "sorted_by_index": False,
     }
 
 
@@ -1288,6 +1290,7 @@ def test_exists_true_uses_sparse_index(storage: Storage) -> None:
         "index_name": "f_1",
         "key_pattern": {"f": 1},
         "direction": "forward",
+        "sorted_by_index": False,
     }
     got = sorted(d["_id"] for d in storage.find_matching("db", "c", {"f": {"$exists": True}}))
     assert got == [1, 2, 4, 5]
@@ -1322,6 +1325,7 @@ def test_explain_plan_compound_eq_uses_compound_index(storage: Storage) -> None:
         "index_name": "ab_1",
         "key_pattern": {"a": 1, "b": 1},
         "direction": "forward",
+        "sorted_by_index": False,
     }
 
 
@@ -1355,6 +1359,7 @@ def test_explain_plan_hint_by_name(storage: Storage) -> None:
         "index_name": "x_1",
         "key_pattern": {"x": 1},
         "direction": "forward",
+        "sorted_by_index": False,
     }
 
 
@@ -1366,7 +1371,7 @@ def test_explain_plan_hint_by_keyspec(storage: Storage) -> None:
 
 def test_explain_plan_hint_natural_is_collscan(storage: Storage) -> None:
     storage.create_index("db", "c", "x_1", {"x": 1}, {})
-    plan = storage.explain_plan("db", "c", {"x": 5}, hint="$natural")
+    plan = storage.explain_plan("db", "c", {"x": 5}, hint={"$natural": 1})
     assert plan == {"kind": "COLLSCAN"}
 
 
@@ -1378,6 +1383,7 @@ def test_explain_plan_hint_id_index(storage: Storage) -> None:
         "index_name": "_id_",
         "key_pattern": {"_id": 1},
         "direction": "forward",
+        "sorted_by_index": False,
     }
 
 
@@ -1390,6 +1396,9 @@ def test_explain_plan_sort_no_filter_uses_index(storage: Storage) -> None:
         "index_name": "x_1",
         "key_pattern": {"x": 1},
         "direction": "forward",
+        # The walk IS the sort -- this is what stops ``explain`` reporting a
+        # blocking SORT stage above the scan.
+        "sorted_by_index": True,
     }
 
 
@@ -1938,7 +1947,7 @@ def test_multi_field_sort_uses_compound_index(storage: Storage) -> None:
     assert plan["direction"] == "forward"
 
     indexed = storage.find_matching("db", "c", {}, sort={"a": 1, "b": 1})
-    scanned = storage.find_matching("db", "c", {}, sort={"a": 1, "b": 1}, hint="$natural")
+    scanned = storage.find_matching("db", "c", {}, sort={"a": 1, "b": 1}, hint={"$natural": 1})
     assert [(d["a"], d["b"]) for d in indexed] == [(d["a"], d["b"]) for d in scanned]
 
 
@@ -1955,7 +1964,7 @@ def test_multi_field_sort_walks_backward_for_inverted_directions(
     assert plan["direction"] == "backward"
 
     indexed = storage.find_matching("db", "c", {}, sort={"a": -1, "b": -1})
-    scanned = storage.find_matching("db", "c", {}, sort={"a": -1, "b": -1}, hint="$natural")
+    scanned = storage.find_matching("db", "c", {}, sort={"a": -1, "b": -1}, hint={"$natural": 1})
     assert [(d["a"], d["b"]) for d in indexed] == [(d["a"], d["b"]) for d in scanned]
 
 
@@ -1985,7 +1994,7 @@ def test_multi_field_sort_mixed_direction_index_matches(storage: Storage) -> Non
     assert plan["direction"] == "forward"
 
     indexed = storage.find_matching("db", "c", {}, sort={"a": 1, "b": -1})
-    scanned = storage.find_matching("db", "c", {}, sort={"a": 1, "b": -1}, hint="$natural")
+    scanned = storage.find_matching("db", "c", {}, sort={"a": 1, "b": -1}, hint={"$natural": 1})
     assert [(d["a"], d["b"]) for d in indexed] == [(d["a"], d["b"]) for d in scanned]
 
 
@@ -2140,15 +2149,16 @@ def test_unpack_entry_reports_a_pre_recordid_entry_as_none() -> None:
 
 
 def test_created_index_records_the_entry_format(storage: Storage) -> None:
-    """Every index we create is stamped ``entryFormat: 2`` in the catalog — the
-    only on-disk signal of the entry layout (the WT key_format is ``SSSu`` either
-    way) — and that internal marker never reaches a client."""
-    from secantus.storage import _ENTRY_FORMAT_RECORDID
+    """Every index we create is stamped with the current ``entryFormat`` in the
+    catalog — the only on-disk signal of the entry layout (the WT key_format is
+    ``SSSu`` for every version) — and that internal marker never reaches a
+    client."""
+    from secantus.storage import _ENTRY_FORMAT
 
     storage.insert("db", "c", [{"x": 1}])
     storage.create_index("db", "c", "x_1", {"x": 1}, {})
     for _name, _key_spec, opts in storage._iter_indexes("db", "c"):
-        assert opts.get("entryFormat") == _ENTRY_FORMAT_RECORDID
+        assert opts.get("entryFormat") == _ENTRY_FORMAT
     # list_indexes is the storage-level view; the wire-level strip is in
     # commands._list_indexes (tested there).
     assert all(
@@ -2185,6 +2195,41 @@ def test_open_refuses_pre_recordid_index_entries(tmp_path) -> None:
     assert "x_1" in str(exc.value) and "entryFormat" in str(exc.value)
 
 
+def test_open_refuses_pre_javascript_rank_index_entries(tmp_path) -> None:
+    """A store at entryFormat 2 has index keys built when ``sortkey`` ranked
+    JavaScript as a string and MaxKey as 13.
+
+    Both of those rank bytes changed, so such entries sort in the OLD order
+    while ``ordering._bson_type_rank`` — which moved with the encoder — sorts in
+    the new one. Reading them back would mean an index that disagrees with a
+    collection scan, so the open must refuse instead. Unlike the version-1 case
+    above, the marker is PRESENT and merely too low, which is the branch this
+    covers.
+    """
+    import bson
+
+    from secantus.storage import _ENTRY_FORMAT, _IDX_TABLE, IncompatibleStorageFormatError
+
+    s = Storage(str(tmp_path), ttl_sweep_seconds=0)
+    try:
+        s.insert("db", "c", [{"x": 1}])
+        s.create_index("db", "c", "x_1", {"x": 1}, {})
+        with s._lock:
+            c = s._cursor(_IDX_TABLE)
+            c.set_key("db", "c", "x_1")
+            assert c.search() == 0
+            payload = bson.decode(bytes(c.get_value()))
+            payload["options"]["entryFormat"] = _ENTRY_FORMAT - 1
+            c.reset()
+            c["db", "c", "x_1"] = bson.encode(payload)
+    finally:
+        s.close()
+
+    with pytest.raises(IncompatibleStorageFormatError) as exc:
+        Storage(str(tmp_path), ttl_sweep_seconds=0)
+    assert "x_1" in str(exc.value) and str(_ENTRY_FORMAT) in str(exc.value)
+
+
 def test_rename_keeps_secondary_index_reachable(storage: Storage) -> None:
     """After a rename, an index scan on the destination finds the same documents
     a collection scan does.
@@ -2206,7 +2251,9 @@ def test_rename_keeps_secondary_index_reachable(storage: Storage) -> None:
     assert ok, err
 
     via_index = storage.find_matching("db", "dst", {"x": 1}, hint="x_1")
-    via_scan = [d for d in storage.find_matching("db", "dst", {}, hint="$natural") if d["x"] == 1]
+    via_scan = [
+        d for d in storage.find_matching("db", "dst", {}, hint={"$natural": 1}) if d["x"] == 1
+    ]
     assert sorted(d["_id"] for d in via_index) == sorted(d["_id"] for d in via_scan) == [1, 4, 7]
     # And the destination is still writable through the index.
     storage.insert("db", "dst", [{"_id": 99, "x": 1}])

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "imgw_pib"
-version = "2.5.2"
+version = "2.5.3"
 license = "Apache-2.0"
 description = "Python wrapper for IMGW-PIB API."
 readme = "README.md"

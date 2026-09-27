@@ -18,6 +18,11 @@ on:
         required: false
         type: boolean
         default: false
+      overwrite-release-assets:
+        description: "Replace same-named assets already attached to the GitHub Release instead of skipping them. Set only for an explicit asset backfill; a normal release must never overwrite."
+        required: false
+        type: boolean
+        default: false
   workflow_call:
     inputs:
       checkout-ref:
@@ -34,6 +39,15 @@ on:
         required: false
         type: boolean
         default: false
+      overwrite-release-assets:
+        description: "Replace same-named assets already attached to the GitHub Release instead of skipping them. Set only for an explicit asset backfill; a normal release must never overwrite."
+        required: false
+        type: boolean
+        default: false
+    secrets:
+      RELEASE_TOKEN:
+        description: "Token used to upload wheels to the GitHub Release. Falls back to GITHUB_TOKEN when unset."
+        required: false
 
 concurrency:
   # Scope by the resolved checkout target so a release-driven build for tag
@@ -153,7 +167,7 @@ jobs:
           # --find-interpreter can pick up a non-abi3 Python on Windows,
           # silently downgrading the wheel tag from cp38-abi3 to cp37.
           # Build without it so the abi3-py38 feature in WHEEL_FEATURES
-          # (justfile) produces the correct tag.  (PIP-2508)
+          # (justfile) produces the correct tag.
           maturin-extra-args: ''
           artifact-name: wheels-windows-x64
       - name: Checkout workflow compatibility tooling
@@ -454,7 +468,13 @@ jobs:
       - name: Upload wheels to GitHub Release
         uses: softprops/action-gh-release@v3
         with:
+          # The default GITHUB_TOKEN is rejected with
+          # "Resource not accessible by integration" on the release-update call
+          # that precedes every asset upload, which silently drops
+          # the whole asset set. release.yml passes the same token
+          # release-please uses to cut and publish the release.
+          token: ${{ secrets.RELEASE_TOKEN || github.token }}
           tag_name: ${{ inputs.release-tag-name }}
           files: dist/*
-          overwrite_files: false
+          overwrite_files: ${{ inputs.overwrite-release-assets }}
           fail_on_unmatched_files: true

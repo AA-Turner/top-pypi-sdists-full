@@ -5,6 +5,7 @@ from langchain_community.document_loaders import (
     PyMuPDFLoader,
     TextLoader,
     UnstructuredCSVLoader,
+UnstructuredEPubLoader,
     UnstructuredExcelLoader,
     UnstructuredMarkdownLoader,
     UnstructuredPowerPointLoader,
@@ -50,9 +51,14 @@ class DocumentLoader:
         for pages in await asyncio.gather(*tasks):
             for page in pages:
                 if page.page_content:
+                    # Loaders occasionally omit metadata["source"] (custom loaders,
+                    # some HTML partitions). Prefer source, then fall back to path.
+                    meta = getattr(page, "metadata", None) or {}
+                    source = meta.get("source") or meta.get("file_path") or ""
+                    url = os.path.basename(source) if source else ""
                     docs.append({
                         "raw_content": page.page_content,
-                        "url": os.path.basename(page.metadata['source'])
+                        "url": url,
                     })
                     
         if not docs:
@@ -65,6 +71,7 @@ class DocumentLoader:
         try:
             loader_dict = {
                 "pdf": PyMuPDFLoader(file_path),
+"epub": UnstructuredEPubLoader(file_path),
                 "txt": TextLoader(file_path),
                 "doc": UnstructuredWordDocumentLoader(file_path),
                 "docx": UnstructuredWordDocumentLoader(file_path),
@@ -82,7 +89,9 @@ class DocumentLoader:
                 try:
                     ret_data = loader.load()
                 except Exception as e:
-                    print(f"Failed to load HTML document : {file_path}")
+                    print(
+                        f"Failed to load {file_extension or 'unknown'} document: {file_path}"
+                    )
                     print(e)
 
         except Exception as e:

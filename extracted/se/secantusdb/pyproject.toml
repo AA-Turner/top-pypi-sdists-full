@@ -4,7 +4,7 @@
 # Python (Pillow → PIL, scikit-learn → sklearn). PyPI normalizes
 # `SecantusDB` → `secantusdb` for URLs and lookup; pip is case-insensitive.
 name = "SecantusDB"
-version = "0.6.0b16"
+version = "0.6.0b17"
 description = "An embeddable, MongoDB compatible, document database, built on WiredTiger"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -62,6 +62,7 @@ dev = [
     "anyio>=4.0",
     "pytest-cov>=3.0",
     "pytest-randomly>=3.5",
+    "pproxy>=2.7",  # the `proxy` fixture behind test_cancel_safe_* (Linux; see psycopg_validation.include_paths)
     # psycopg's tests/test_typing.py shells out to a bare `mypy` (125 tests) —
     # uv run puts .venv/bin on PATH, so carrying mypy here makes them count.
     "mypy>=1.14",
@@ -136,6 +137,19 @@ rust = [
     # parity tests / using the engines as a library. Built from the PyO3 bindings
     # crate crates/secantus-core-py/ (wrapping crates/secantus-core/).
     "secantus-core==0.5.2b15",
+    # Windows-only: bindgen (in `secantus-wt`'s build.rs) needs libclang, and the
+    # standard Windows dev box has no system libclang. This wheel bundles
+    # `libclang.dll`; `rust_tasks._libclang_dir` discovers it in the venv so
+    # `invoke rust-wt-build` / `rust-binary-build` work with no extra install. On
+    # Linux/macOS the system/Xcode libclang is used, so the marker excludes it
+    # there; the shipping `secantus` wheel never pulls the `rust` extra.
+    "libclang; sys_platform == 'win32'",
+    # Windows-only: the storage-engine wheel build (`invoke rust-wheel-build` /
+    # `rust-server-build`) compiles WiredTiger's Python bindings through SWIG.
+    # WiredTiger 7.0's typemaps reference the Python-2 C API, whose Py3
+    # compatibility shims SWIG removed in 4.3 — so the build needs SWIG < 4.3.
+    # Linux/macOS use the system swig (apt/brew), so the marker excludes them.
+    "swig<4.3; sys_platform == 'win32'",
 ]
 sql = [
     # The embedded SQL engine + (later) the PostgreSQL-wire server. sqlglot is
@@ -200,6 +214,9 @@ wheel.packages = ["src/secantus"]
 # vendor/wiredtiger contains GPL'd C source; cibuildwheel needs it.
 sdist.include = ["vendor/wiredtiger/**"]
 sdist.exclude = [
+    # Differential probes are a development tool (they need a live mongod
+    # alongside SecantusDB), same rationale as the gauge dirs below.
+    "tools/**",
     "vendor/wiredtiger/test/**",
     "vendor/wiredtiger/bench/**",
     "vendor/wiredtiger/examples/**",

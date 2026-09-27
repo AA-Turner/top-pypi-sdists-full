@@ -1,58 +1,61 @@
 import io
-from typing import Union, TYPE_CHECKING, Optional, cast, Any
-from collections.abc import Sequence
 import json
 import urllib.parse
+from collections.abc import Sequence
+from typing import TYPE_CHECKING, Any, Optional, cast
 
-import httpx
+import httpx2
 
 try:
-    import httpx_auth
-    from httpx_auth import SupportMultiAuth
     import inspect
+
+    import httpx2_auth
+    from httpx2_auth import SupportMultiAuth
 except ImportError:
-    httpx_auth = None
+    httpx2_auth = None
 else:
     HTTPX_AUTH_METHODS = {
-        name.lower(): getattr(httpx_auth, name)
-        for name in httpx_auth.__all__
-        if inspect.isclass(class_ := getattr(httpx_auth, name))
-        if issubclass(class_, httpx.Auth)
+        name.lower(): getattr(httpx2_auth, name)
+        for name in httpx2_auth.__all__
+        if inspect.isclass(class_ := getattr(httpx2_auth, name))
+        if issubclass(class_, httpx2.Auth)
     }
 
 import pydantic
 
 # import pydantic.json
-
 import aiopenapi3.v30.media
-from ..request import RequestBase, AsyncRequestBase
-from ..errors import HTTPStatusError, ContentTypeError, ResponseDecodingError, ResponseSchemaError, HeadersMissingError
+
+from ..errors import ContentTypeError, HeadersMissingError, HTTPStatusError, ResponseDecodingError, ResponseSchemaError
+from ..request import AsyncRequestBase, RequestBase
+from ..v31.root import Root as v31Root
 from .formdata import (
+    MultipartParameter,
+    encode_multipart_parameters,
     parameters_from_multipart,
     parameters_from_urlencoded,
-    encode_multipart_parameters,
-    MultipartParameter,
 )
-
 from .root import Root as v30Root
-from ..v31.root import Root as v31Root
 
 if TYPE_CHECKING:
     from .._types import (
-        SchemaType,
-        RequestParameters,
-        RequestData,
         ParameterType,
+        RequestData,
         RequestFileParameter,
-        ResponseHeadersType,
+        RequestParameters,
         ResponseDataType,
+        ResponseHeadersType,
+        SchemaType,
     )
+    from ..v31.paths import MediaType as v31MediaType
+    from ..v31.paths import Response as v31Response
+    from ..v32.paths import MediaType as v32MediaType
+    from ..v32.paths import Response as v32Response
+    from .paths import MediaType as v30MediaType
+    from .paths import Response as v30Response
 
-    from .paths import Response as v30Response, MediaType as v30MediaType
-    from ..v31.paths import Response as v31Response, MediaType as v31MediaType
-
-    v3xResponseType = Union[v30Response, v31Response]
-    v3xMediaTypeType = Union[v30MediaType, v31MediaType]
+    v3xResponseType = v30Response | v31Response | v32Response
+    v3xMediaTypeType = v30MediaType | v31MediaType | v32MediaType
 
 
 class Request(RequestBase):
@@ -91,7 +94,7 @@ class Request(RequestBase):
 
     def return_value(self, http_status: int = 200, content_type: str = "application/json") -> Optional["SchemaType"]:
         status_key = str(http_status)
-        if a := self.operation.responses.get(status_key) or self.operation.responses.get(status_key[0] + "XX"):
+        if a := self.operation.responses.get(status_key) or self.operation.responses.get(status_key[0] + "XX"):  # noqa: SIM102
             if b := a.content.get(content_type):
                 return b.schema_
         return None
@@ -103,25 +106,23 @@ class Request(RequestBase):
             return
 
         if not self.security:
-            if any([{} == i.root for i in security]):
+            if any({} == i.root for i in security):
                 return
             else:
                 options = " or ".join(
-                    sorted(map(lambda x: f"{{{x}}}", [" and ".join(sorted(i.root.keys())) for i in security]))
+                    sorted(f"{{{x}}}" for x in [" and ".join(sorted(i.root.keys())) for i in security])
                 )
                 raise ValueError(f"No security requirement satisfied (accepts {options})")
 
         for s in security:
             if frozenset(s.root.keys()) - frozenset(self.security.keys()):
                 continue
-            for scheme, _ in s.root.items():
+            for scheme in s.root:
                 value = self.security[scheme]
                 self._prepare_secschemes(scheme, value)
             break
         else:
-            options = " or ".join(
-                sorted(map(lambda x: f"{{{x}}}", [" and ".join(sorted(i.root.keys())) for i in security]))
-            )
+            options = " or ".join(sorted(f"{{{x}}}" for x in [" and ".join(sorted(i.root.keys())) for i in security]))
             raise ValueError(
                 f"No security requirement satisfied (accepts {options} given {{{' and '.join(sorted(self.security.keys()))}}}"
             )
@@ -133,7 +134,7 @@ class Request(RequestBase):
             and scheme in self.root.components.securitySchemes
             and self.root.components.securitySchemes[scheme].root
         )
-        if httpx_auth is not None:
+        if httpx2_auth is not None:
             self._prepare_secschemes_extra(scheme, value)
         else:
             self._prepare_secschemes_default(scheme, value)
@@ -146,14 +147,21 @@ class Request(RequestBase):
             and self.root.components.securitySchemes[scheme].root
         )
         ss = self.root.components.securitySchemes[scheme].root
-        from .. import v30, v31
+        from .. import v30, v31, v32
 
         if ss.type == "http":
-            assert isinstance(ss, (v30.security._SecuritySchemes.http, v31.security._SecuritySchemes.http))
+            assert isinstance(
+                ss,
+                (
+                    v30.security._SecuritySchemes.http,
+                    v31.security._SecuritySchemes.http,
+                    v32.security._SecuritySchemes.http,
+                ),
+            )
             if ss.scheme_ == "basic":
-                self.req.auth = httpx.BasicAuth(*value)
+                self.req.auth = httpx2.BasicAuth(*value)
             elif ss.scheme_ == "digest":
-                self.req.auth = httpx.DigestAuth(*value)
+                self.req.auth = httpx2.DigestAuth(*value)
             elif ss.scheme_ == "bearer":
                 self.req.headers["Authorization"] = f"Bearer {value:s}"
             else:
@@ -165,7 +173,14 @@ class Request(RequestBase):
         value = cast(str, value)
 
         if ss.type == "apiKey":
-            assert isinstance(ss, (v30.security._SecuritySchemes.apiKey, v31.security._SecuritySchemes.apiKey))
+            assert isinstance(
+                ss,
+                (
+                    v30.security._SecuritySchemes.apiKey,
+                    v31.security._SecuritySchemes.apiKey,
+                    v32.security._SecuritySchemes.apiKey,
+                ),
+            )
             if ss.in_ == "query":
                 # apiKey in query parameter
                 self.req.params[ss.name] = value
@@ -177,7 +192,7 @@ class Request(RequestBase):
             if ss.in_ == "cookie":
                 self.req.cookies[ss.name] = value
 
-    def _prepare_secschemes_extra(self, scheme: str, value: str | Sequence[str]) -> None:
+    def _prepare_secschemes_extra(self, scheme: str, value: str | Sequence[str]) -> None:  # pragma: no cover
         assert (
             self.root.components
             and self.root.components.securitySchemes
@@ -195,7 +210,7 @@ class Request(RequestBase):
             # REF: https://github.com/Colin-b/httpx_auth/issues/17
             if flow := ss.flows.implicit:
                 auths.append(
-                    httpx_auth.OAuth2Implicit(
+                    httpx2_auth.OAuth2Implicit(
                         **value,
                         authorization_url=flow.authorizationUrl,
                         scopes=flow.scopes,
@@ -204,7 +219,7 @@ class Request(RequestBase):
                 )
             if flow := ss.flows.password:
                 auths.append(
-                    httpx_auth.OAuth2ResourceOwnerPasswordCredentials(
+                    httpx2_auth.OAuth2ResourceOwnerPasswordCredentials(
                         **value,
                         token_url=flow.tokenUrl,
                         scopes=flow.scopes,
@@ -213,7 +228,7 @@ class Request(RequestBase):
                 )
             if flow := ss.flows.clientCredentials:
                 auths.append(
-                    httpx_auth.OAuth2ClientCredentials(
+                    httpx2_auth.OAuth2ClientCredentials(
                         **value,
                         token_url=flow.tokenUrl,
                         scopes=flow.scopes,
@@ -222,7 +237,7 @@ class Request(RequestBase):
                 )
             if flow := ss.flows.authorizationCode:
                 auths.append(
-                    httpx_auth.OAuth2AuthorizationCode(
+                    httpx2_auth.OAuth2AuthorizationCode(
                         **value,
                         authorization_url=flow.authorizationUrl,
                         token_url=flow.tokenUrl,
@@ -239,7 +254,7 @@ class Request(RequestBase):
                 elif isinstance(value, dict):
                     auths.append(auth(**value))
             elif ss.scheme_ == "bearer":
-                auths.append(httpx_auth.HeaderApiKey(f"Bearer {value}", "Authorization"))
+                auths.append(httpx2_auth.HeaderApiKey(f"Bearer {value}", "Authorization"))
             else:
                 raise ValueError(f"Authentication method {ss.type}/{ss.scheme_} is not supported by httpx-auth")
 
@@ -271,7 +286,7 @@ class Request(RequestBase):
           A unique parameter is defined by a combination of a name and location.
         """
 
-        provided = provided or dict()
+        provided = provided or {}
         possible = {_.name: _ for _ in self.operation.parameters + self.root.paths[self.path].parameters}
 
         from .. import v30, v31, v32
@@ -279,11 +294,11 @@ class Request(RequestBase):
         assert isinstance(self.operation, (v30.Operation, v31.Operation, v32.Operation))
 
         if self.operation.requestBody:
-            rbq: dict[str, str] = dict()  # requestBody Parameters
+            rbq: dict[str, str] = {}  # requestBody Parameters
             ct = "multipart/form-data"
             if ct in self.operation.requestBody.content:
                 assert self.operation.requestBody.content[ct].encoding is not None
-                for k, v in self.operation.requestBody.content[ct].encoding.items():
+                for v in self.operation.requestBody.content[ct].encoding.values():
                     assert v.headers is not None and isinstance(v.headers, dict)
                     rbq.update(v.headers)
                 possible.update(rbq)
@@ -305,7 +320,7 @@ class Request(RequestBase):
 
         available = frozenset(parameters.keys())
         accepted = frozenset(possible.keys())
-        required = frozenset(map(lambda x: x[0], filter(lambda y: y[1].required, possible.items())))
+        required = frozenset(x[0] for x in filter(lambda y: y[1].required, possible.items()))
         if available - accepted:
             raise ValueError(f"Parameter {sorted(available - accepted)} unknown (accepted {sorted(accepted)})")
         if required - available:
@@ -314,7 +329,7 @@ class Request(RequestBase):
             )
 
         path_parameters = {}
-        mph = dict()
+        mph = {}
         for name, value in parameters.items():
             spec = possible[name]
             values = spec._encode(name, value)
@@ -394,8 +409,8 @@ class Request(RequestBase):
                 self.req.content = msg.as_string()
                 self.req.headers["Content-Type"] = f'{msg.get_content_type()}; boundary="{msg.get_boundary()}"'
             elif isinstance(data_, list):
-                rfiles = list()
-                rdata: dict[str, str] = dict()
+                rfiles = []
+                rdata: dict[str, str] = {}
                 name: str
                 value: tuple[str, Any]
                 for name, value in cast(Sequence[tuple[str, Any]], data_):
@@ -414,13 +429,13 @@ class Request(RequestBase):
                         assert media.encoding is not None
                         if (e := media.encoding.get(name)) is not None:
                             assert e.headers
-                            headers.update({name: mph[name] for name in e.headers.keys() if name in mph})
+                            headers.update({name: mph[name] for name in e.headers if name in mph})
                         _value = (alias, fh, content_type, headers)
                         rfiles.append((name, _value))
                     elif isinstance(value, str):
                         rdata[name] = value
                     else:
-                        raise TypeError(type(value))  # noqa
+                        raise TypeError(type(value))
                 self.req.files = rfiles
                 self.req.data = rdata
             else:
@@ -463,7 +478,7 @@ class Request(RequestBase):
 
         elif (ct := "application/octet-stream") in self.operation.requestBody.content:
             self.req.headers["Content-Type"] = ct
-            value: "RequestFileParameter"
+            value: RequestFileParameter
             if isinstance(data_, tuple) and len(data_) >= 2:
                 # (name, file-like-object, …)
                 self.req.content = data_[1]
@@ -490,7 +505,7 @@ class Request(RequestBase):
         mph = self._prepare_parameters(parameters)
         self._prepare_body(data, mph)
 
-    def _process__status_code(self, result: httpx.Response, status_code: str) -> "v3xResponseType":
+    def _process__status_code(self, result: httpx2.Response, status_code: str) -> "v3xResponseType":
         expected_response = (
             self.operation.responses.get(status_code)
             or self.operation.responses.get(status_code[0] + "XX")
@@ -508,16 +523,13 @@ class Request(RequestBase):
         return expected_response
 
     def _process__headers(
-        self, result: httpx.Response, headers: dict[str, str], expected_response: "v3xResponseType"
+        self, result: httpx2.Response, headers: dict[str, str], expected_response: "v3xResponseType"
     ) -> "ResponseHeadersType":
-        rheaders = dict()
+        rheaders = {}
         if expected_response.headers:
-            required = dict(
-                map(
-                    lambda x: (x[0].lower(), x[1]),
-                    filter(lambda x: x[1].required is True, expected_response.headers.items()),
-                )
-            )
+            required = {
+                x[0].lower(): x[1] for x in filter(lambda x: x[1].required is True, expected_response.headers.items())
+            }
             available = frozenset(headers.keys())
             if missing := (required.keys() - available):
                 missed = {k: required[k] for k in missing}
@@ -530,7 +542,7 @@ class Request(RequestBase):
         return rheaders
 
     def _process__content_type(
-        self, result: httpx.Response, expected_response: "v3xResponseType", content_type: str | None
+        self, result: httpx2.Response, expected_response: "v3xResponseType", content_type: str | None
     ) -> tuple[str, "v3xMediaTypeType"]:
         if content_type:
             """
@@ -539,8 +551,8 @@ class Request(RequestBase):
             https://datatracker.ietf.org/doc/html/rfc7231#appendix-D
             media-range = ( "*/*" / ( type "/*" ) / ( type "/" subtype ) ) *( OWS ";" OWS parameter )
             """
-            content_type, _, encoding = content_type.partition(";")
-            expected_media: Optional["v3xMediaTypeType"] = (
+            content_type, _, _encoding = content_type.partition(";")
+            expected_media: v3xMediaTypeType | None = (
                 expected_response.content.get(content_type, None)
                 or expected_response.content.get(content_type.partition("/")[0] + "/*", None)
                 or expected_response.content.get("*/*", None)
@@ -560,7 +572,7 @@ class Request(RequestBase):
         assert content_type is not None
         return content_type, expected_media
 
-    def _process_stream(self, result: httpx.Response) -> tuple["ResponseHeadersType", Optional["SchemaType"]]:
+    def _process_stream(self, result: httpx2.Response) -> tuple["ResponseHeadersType", Optional["SchemaType"]]:
         status_code = str(result.status_code)
         content_type = result.headers.get("Content-Type", None)
 
@@ -571,7 +583,9 @@ class Request(RequestBase):
 
         return headers, expected_media.schema_
 
-    def _process_sequence(self, result: httpx.Response) -> tuple["ResponseHeadersType", Optional["SchemaType"], str]:
+    def _process_sequence(
+        self, result: httpx2.Response
+    ) -> tuple["ResponseHeadersType", Optional["v3xMediaTypeType"], str]:
         status_code = str(result.status_code)
         content_type = result.headers.get("Content-Type", None)
 
@@ -580,10 +594,10 @@ class Request(RequestBase):
 
         headers = self._process__headers(result, result.headers, expected_response)
 
-        return headers, expected_media.itemSchema, content_type
+        return headers, expected_media, content_type
 
-    def _process_request(self, result: httpx.Response) -> tuple["ResponseHeadersType", "ResponseDataType"]:
-        rheaders = dict()
+    def _process_request(self, result: httpx2.Response) -> tuple["ResponseHeadersType", "ResponseDataType"]:
+        rheaders = {}
         # spec enforces these are strings
         status_code = str(result.status_code)
         content_type = result.headers.get("Content-Type", None)

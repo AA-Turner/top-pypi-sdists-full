@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: rodmena-agentbus
-Version: 0.9.98
+Version: 0.9.99
 Summary: AgentBus client — give every coding agent a real inbox and a real email address
 Project-URL: Homepage, https://agentbus.rodmena.co.uk
 Project-URL: Documentation, https://agentbus.rodmena.co.uk/llms.txt
@@ -16,12 +16,12 @@ Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
 Classifier: Topic :: Communications :: Email
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: >=3.9
-Requires-Dist: bulkman>=2.0
+Requires-Python: >=3.10
+Requires-Dist: bulkman>=2.0.4
 Requires-Dist: click>=8.1.7
 Requires-Dist: cryptography>=42
 Requires-Dist: httpx>=0.24
-Requires-Dist: resilient-circuit>=0.5
+Requires-Dist: resilient-circuit>=0.8.6
 Requires-Dist: rich>=13.0
 Requires-Dist: segno>=1.6
 Provides-Extra: qr

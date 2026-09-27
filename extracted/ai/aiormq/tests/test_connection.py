@@ -1,20 +1,30 @@
 import asyncio
+import errno
+import inspect
 import itertools
+import logging
 import os
+import struct
 import ssl
+import sys
 import uuid
+import warnings
 from binascii import hexlify
 from typing import Any, Optional, Tuple
 
 import aiomisc
 import pytest
+from pamqp import exceptions as pamqp_exceptions
 from pamqp.commands import Basic
 from yarl import URL
 
 import aiormq
-from aiormq.abc import DeliveredMessage, SSLCerts
+from aiormq.abc import ChannelFrame, DeliveredMessage, SSLCerts
 from aiormq.auth import AuthBase, ExternalAuth, PlainAuth
+from aiormq.channel import Channel
+from aiormq.exceptions import AMQPConnectionError
 from aiormq.connection import (
+    Connection,
     SSLContextProvider,
     TransportFactory,
     parse_int,
@@ -60,7 +70,8 @@ async def test_simple(amqp_connection: aiormq.Connection):
 
     assert message.delivery.routing_key == deaclare_ok.queue + "foo"
     assert message.body == b"bar"
-    assert "'NO_ROUTE' for routing key" in repr(e.value)
+    assert "reply_text='NO_ROUTE'" in repr(e.value)
+    assert f"routing_key={message.delivery.routing_key!r}" in repr(e.value)
 
     cancel_ok = await channel.basic_cancel(consume_ok.consumer_tag)
     assert cancel_ok.consumer_tag == consume_ok.consumer_tag
@@ -150,14 +161,78 @@ class _TcpTransportFactory(TransportFactory):
 
 
 async def test_open_with_transport_factory(amqp_url):
-    amqp_connection = await aiormq.connect(
+    async with aiormq.connect(
         amqp_url,
         transport_factory=_TcpTransportFactory(),
-    )
+    ) as amqp_connection:
+        channel = await amqp_connection.channel()
+        await channel.close()
 
-    channel = await amqp_connection.channel()
-    await channel.close()
-    await amqp_connection.close()
+
+async def test_connect_context_manager(amqp_url: URL):
+    # aiormq.connect() prepares a connection. The context manager opens it
+    # and closes it on exit.
+    context = aiormq.connect(amqp_url)
+    assert isinstance(context.connection, aiormq.Connection)
+    assert not context.connection.is_opened
+
+    async with context as connection:
+        assert connection is context.connection
+        assert connection.is_opened
+        channel = await connection.channel()
+        await channel.close()
+
+    assert connection.is_closed
+
+
+async def test_connect_await(amqp_url: URL):
+    # The pre-7.1 form works without a warning.
+    with warnings.catch_warnings():
+        warnings.filterwarnings("error", message=".*aiormq.connect.*")
+        connection = await aiormq.connect(amqp_url)
+
+    assert isinstance(connection, aiormq.Connection)
+    assert connection.is_opened
+    await connection.close()
+
+
+async def test_connect_result_is_a_coroutine(amqp_url: URL, event_loop):
+    # Callers that need a real coroutine, such as asyncio.create_task(),
+    # keep working. connect() is still seen as a coroutine function:
+    # inspect.markcoroutinefunction() needs Python 3.12, on 3.11 only the
+    # asyncio check sees the legacy mark.
+    if sys.version_info >= (3, 12):
+        assert inspect.iscoroutinefunction(aiormq.connect)
+    else:
+        assert asyncio.iscoroutinefunction(aiormq.connect)
+
+    context = aiormq.connect(amqp_url)
+    assert asyncio.iscoroutine(context)
+
+    connection = await event_loop.create_task(context)
+    assert connection.is_opened
+    await connection.close()
+
+    # The Connection is created on first use, so a bad URL fails on
+    # await, not on the connect() call, as before.
+    context = aiormq.connect("not a url")
+    with pytest.raises(Exception):
+        await context
+
+
+async def test_connect_client_properties(amqp_url: URL):
+    async with aiormq.connect(
+        amqp_url, client_properties={"connection_name": "from-constructor"},
+    ) as connection:
+        assert connection.is_opened
+
+    # connect() still accepts client_properties and they win.
+    connection = aiormq.Connection(
+        amqp_url, client_properties={"connection_name": "from-constructor"},
+    )
+    await connection.connect({"connection_name": "from-connect"})
+    assert connection.is_opened
+    await connection.close()
 
 
 async def test_channel_close(amqp_connection):
@@ -172,9 +247,10 @@ async def test_channel_close(amqp_connection):
 
 async def test_conncetion_reject(event_loop):
     with pytest.raises(ConnectionError):
-        await aiormq.connect(
+        async with aiormq.connect(
             "amqp://guest:guest@127.0.0.1:59999/", loop=event_loop,
-        )
+        ):
+            pass
 
     connection = aiormq.Connection(
         "amqp://guest:guest@127.0.0.1:59999/", loop=event_loop,
@@ -302,7 +378,8 @@ async def test_heartbeat_not_int(amqp_direct_url, event_loop):
 
 async def test_bad_credentials(amqp_url: URL):
     with pytest.raises(aiormq.exceptions.ProbableAuthenticationError):
-        await aiormq.connect(amqp_url.with_password(uuid.uuid4().hex))
+        async with aiormq.connect(amqp_url.with_password(uuid.uuid4().hex)):
+            pass
 
 
 async def test_non_publisher_confirms(amqp_connection):
@@ -445,9 +522,7 @@ async def test_connection_stuck(proxy, amqp_url: URL):
         proxy.proxy_port,
     ).update_query(heartbeat="1")
 
-    connection = await aiormq.connect(url)
-
-    async with connection:
+    async with aiormq.connect(url) as connection:
         # delay the delivery of each packet by 5 seconds, which
         # is more than the heartbeat
         with proxy.slowdown(50, 50):
@@ -467,6 +542,202 @@ async def test_connection_stuck(proxy, amqp_url: URL):
 
         with pytest.raises(asyncio.CancelledError):
             assert reader_task.result()
+
+
+class WriterCapturingTransportFactory(TransportFactory):
+    """Wrap a transport factory and keep the last created StreamWriter."""
+
+    def __init__(self, inner: TransportFactory):
+        self.inner = inner
+        self.writer: Optional[asyncio.StreamWriter] = None
+
+    async def create(
+        self, url: URL, **kwargs: Any,
+    ) -> Tuple[asyncio.StreamReader, asyncio.StreamWriter]:
+        reader, writer = await self.inner.create(url, **kwargs)
+        self.writer = writer
+        return reader, writer
+
+
+@aiomisc.timeout(30)
+@pytest.mark.parametrize(
+    "scenario", ["server-close", "eof", "eof-reset", "heartbeat-timeout"],
+)
+async def test_writer_closed_on_connection_loss(
+    scenario: str, proxy, amqp_url: URL, event_loop,
+):
+    # Regression test for issue #231. The StreamWriter must be closed when
+    # the connection is lost without a client-initiated close.
+    url = amqp_url.with_host(
+        proxy.proxy_host,
+    ).with_port(
+        proxy.proxy_port,
+    ).update_query(heartbeat="1")
+
+    connection = Connection(url, loop=event_loop)
+    factory = WriterCapturingTransportFactory(connection._transport_factory)
+    connection._transport_factory = factory
+    await connection.connect()
+
+    writer = factory.writer
+    assert writer is not None
+    assert not writer.is_closing()
+
+    if scenario == "server-close":
+        # A channel method on channel 0 is a protocol error. The broker
+        # replies with Connection.Close (504 CHANNEL_ERROR).
+        connection.write_queue.put_nowait(
+            ChannelFrame.marshall(
+                channel_number=0, frames=[aiormq.spec.Basic.Ack()],
+            ),
+        )
+        await asyncio.wait([connection.closing], timeout=10)
+        assert isinstance(
+            connection.closing.exception(),
+            aiormq.exceptions.ConnectionClosed,
+        )
+    elif scenario == "eof":
+        await proxy.disconnect_all()
+        await asyncio.wait([connection.closing], timeout=10)
+    elif scenario == "eof-reset":
+        # After a TCP reset, write_eof() raises ENOTCONN. The writer must
+        # still be closed.
+        def write_eof() -> None:
+            raise OSError(errno.ENOTCONN, "Transport endpoint is not connected")
+
+        writer.write_eof = write_eof     # type: ignore[method-assign]
+        await proxy.disconnect_all()
+        await asyncio.wait([connection.closing], timeout=10)
+    elif scenario == "heartbeat-timeout":
+        # Delay each packet longer than the heartbeat grace timeout.
+        with proxy.slowdown(50, 50):
+            await asyncio.wait([connection.closing], timeout=20)
+
+    assert connection.closing.done()
+    assert writer.is_closing(), "StreamWriter is not closed"
+
+
+@aiomisc.timeout(30)
+@pytest.mark.parametrize("cancel_after", [0.0, 0.1, 0.3, 0.5])
+async def test_channel_open_cancelled(
+    cancel_after: float, proxy, amqp_url: URL, event_loop,
+):
+    # Regression test for issue #139. A cancelled channel open must not
+    # break the connection and must not leak the socket.
+    url = amqp_url.with_host(
+        proxy.proxy_host,
+    ).with_port(
+        proxy.proxy_port,
+    )
+
+    connection = Connection(url, loop=event_loop)
+    factory = WriterCapturingTransportFactory(connection._transport_factory)
+    connection._transport_factory = factory
+    await connection.connect()
+
+    # Each proxied packet is delayed, so Channel.Open and Confirm.Select
+    # take about 0.4 s each. The cancel points hit both RPC calls.
+    with proxy.slowdown(0.2, 0.2):
+        task = asyncio.ensure_future(connection.channel())
+        await asyncio.sleep(cancel_after)
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+
+    # The connection must stay usable.
+    channel = await connection.channel()
+    await channel.close()
+    assert not connection.channels
+
+    await connection.close()
+    assert factory.writer is not None
+    assert factory.writer.is_closing()
+
+
+@aiomisc.timeout(20)
+async def test_channel_open_cancelled_after_open_ok(
+    amqp_connection: aiormq.Connection, monkeypatch,
+):
+    # A cancel between Channel.OpenOk and Confirm.Select must close the
+    # channel on the broker. A local close would leave the broker channel
+    # open, and a later channel with the same number would break the
+    # connection.
+    original_rpc = Channel.rpc
+
+    async def rpc(self, frame, timeout=None):
+        if isinstance(frame, aiormq.spec.Confirm.Select):
+            task = asyncio.current_task()
+            assert task is not None
+            task.cancel()
+        return await original_rpc(self, frame, timeout=timeout)
+
+    monkeypatch.setattr(Channel, "rpc", rpc)
+    task = asyncio.ensure_future(amqp_connection.channel())
+    with pytest.raises(asyncio.CancelledError):
+        await task
+    monkeypatch.undo()
+
+    numbers = set(amqp_connection.channels)
+    assert len(numbers) == 1, "the number stays reserved until CloseOk"
+    number = numbers.pop()
+
+    # The broker confirms the close and the number becomes free.
+    while number in amqp_connection.channels:
+        await asyncio.sleep(0.05)
+
+    channel = await amqp_connection.channel(channel_number=number)
+    await channel.queue_declare(auto_delete=True)
+    await channel.close()
+
+
+FIRST_FRAME_FAILURES = {
+    # The server closes the connection before it sends a frame.
+    "eof": b"",
+    # The server sends bytes that are not an AMQP frame.
+    "garbage": b"HTTP/1.1 400 Bad Request\r\n\r\n",
+    # The server sends a valid frame that is not Connection.Start.
+    "heartbeat": b"\x08\x00\x00\x00\x00\x00\x00\xce",
+    "unknown-type": b"\x09\x00\x00\x00\x00\x00\x01\x00\xce",
+    "protocol-header": b"AMQP\x00\x00\x09\x01",
+}
+
+
+@aiomisc.timeout(10)
+@pytest.mark.parametrize("reply", list(FIRST_FRAME_FAILURES))
+async def test_connect_first_frame_failure_closes_transport(
+    reply: str, event_loop,
+):
+    # Regression test for issue #138. A failure before Connection.Start
+    # is received must close the transport.
+    async def serve(
+        reader: asyncio.StreamReader, writer: asyncio.StreamWriter,
+    ) -> None:
+        await reader.readexactly(8)     # the protocol header
+        writer.write(FIRST_FRAME_FAILURES[reply])
+        await writer.drain()
+        writer.close()
+
+    server = await asyncio.start_server(serve, "127.0.0.1", 0)
+    port = server.sockets[0].getsockname()[1]
+
+    try:
+        connection = Connection(
+            URL(f"amqp://guest:guest@127.0.0.1:{port}/"), loop=event_loop,
+        )
+        factory = WriterCapturingTransportFactory(
+            connection._transport_factory,
+        )
+        connection._transport_factory = factory
+
+        with pytest.raises(aiormq.AMQPError):
+            await connection.connect()
+
+        assert factory.writer is not None
+        assert factory.writer.is_closing(), "transport is not closed"
+        assert connection.is_closed
+    finally:
+        server.close()
+        await server.wait_closed()
 
 
 class BadNetwork:
@@ -530,7 +801,8 @@ async def test_connection_close_stairway(
     BadNetwork(proxy, stair, disconnect_time)
 
     async def run():
-        connection = await aiormq.connect(url)
+        connection = aiormq.Connection(url)
+        await connection.connect()
         queue = asyncio.Queue()
         channel = await connection.channel()
         declare_ok = await channel.queue_declare(auto_delete=True)
@@ -596,6 +868,35 @@ async def test_ssl_context_provider_created(event_loop):
     assert provided_context is second_provided_context
 
 
+async def test_connection_close_publish(proxy, amqp_url: URL):
+    url = amqp_url.with_host(
+        proxy.proxy_host,
+    ).with_port(
+        proxy.proxy_port,
+    ).update_query(heartbeat="1")
+
+    async def run():
+        connection = await aiormq.connect(url)
+        channel = await connection.channel()
+        declare_ok = await channel.queue_declare(auto_delete=True)
+
+        # This test a bug where a disconnection happening during a call waiting
+        # for the channel lock would result in a deadlock. Here we get the lock
+        # so the call to basic_publish end up holding the lock when we have the
+        # proxy disconnecting.
+        async with channel.lock:
+            task = asyncio.create_task(channel.basic_publish(
+                b"data", routing_key=declare_ok.queue
+            ))
+            await asyncio.sleep(0.5)
+            await proxy.disconnect_all()
+            await asyncio.sleep(0.5)
+
+        with pytest.raises(aiormq.ChannelInvalidStateError):
+            await task
+
+    await asyncio.wait_for(run(), timeout=5)
+
 PARSE_INT_PARAMS = (
     (1, 1),
     ("1", 1),
@@ -645,3 +946,171 @@ PARSE_BOOL_PARAMS = (
 @pytest.mark.parametrize("value,expected", PARSE_BOOL_PARAMS)
 def test_parse_bool(value, expected):
     assert parse_bool(value) == expected
+
+
+async def test_reader_failure_is_logged_with_cause(
+    proxy_connection: aiormq.Connection, proxy, caplog,
+):
+    # A frame with an unknown type makes pamqp fail inside the reader task
+    bad_frame = struct.pack(">BHI", 9, 0, 0) + b"\xce"
+
+    proxy.set_content_processors(
+        lambda chunk: chunk,
+        lambda chunk: bad_frame,
+    )
+
+    with caplog.at_level(logging.WARNING, logger="aiormq.connection"):
+        with pytest.raises(Exception):
+            await asyncio.wait_for(proxy_connection.channel(), timeout=5)
+
+        with pytest.raises(aiormq.AMQPError) as closed:
+            await asyncio.wait_for(proxy_connection.closing, timeout=5)
+
+    records = [
+        record for record in caplog.records
+        if record.getMessage().startswith(
+            "Cancelling cause reader exited abnormally",
+        )
+    ]
+
+    assert len(records) == 1
+    assert records[0].levelno == logging.WARNING
+    assert records[0].exc_info is not None
+
+    if proxy_connection.url.scheme == "amqps":
+        # The garbage breaks the TLS record before pamqp sees it
+        expected_cause = AMQPConnectionError
+    else:
+        expected_cause = aiormq.InvalidFrameError
+        assert isinstance(
+            records[0].exc_info[1].__cause__,
+            pamqp_exceptions.UnmarshalingException,
+        )
+
+    assert isinstance(records[0].exc_info[1], expected_cause)
+    assert closed.value is records[0].exc_info[1]
+
+
+@pytest.mark.parametrize("close_error", [False, True])
+@pytest.mark.parametrize("target", ["connection", "channel"])
+@pytest.mark.parametrize("cancel_method", ["cancel", "timeout"])
+@aiomisc.timeout(20)
+async def test_closing_waiter_cancellation(
+    amqp_url, event_loop, target, cancel_method, close_error,
+):
+    amqp_connection = Connection(amqp_url, loop=event_loop)
+    factory = WriterCapturingTransportFactory(
+        amqp_connection._transport_factory,
+    )
+    amqp_connection._transport_factory = factory
+    await amqp_connection.connect()
+    channel = await amqp_connection.channel()
+    resource = amqp_connection if target == "connection" else channel
+    observer = resource.closing
+    entered = asyncio.Event()
+
+    async def wait_for_close():
+        entered.set()
+        await resource.closing
+
+    waiter = asyncio.create_task(wait_for_close())
+    await entered.wait()
+    try:
+        if cancel_method == "cancel":
+            waiter.cancel()
+            with pytest.raises(asyncio.CancelledError):
+                await waiter
+        else:
+            with pytest.raises(asyncio.TimeoutError):
+                await asyncio.wait_for(waiter, timeout=0.01)
+
+        assert not resource.is_closed
+        assert not observer.done()
+        # The channel must still support RPC after an observer is cancelled.
+        await channel.basic_qos(prefetch_count=1)
+        reason = AMQPConnectionError("test close") if close_error else None
+        await resource.close(exc=reason)
+        if target == "channel":
+            with pytest.raises(aiormq.ChannelClosed):
+                await observer
+        elif close_error:
+            with pytest.raises(AMQPConnectionError) as caught:
+                await observer
+            assert caught.value is reason
+        else:
+            await observer
+        assert resource.is_closed
+        if target == "connection":
+            assert amqp_connection._reader_task.done()
+            assert amqp_connection._writer_task.done()
+            assert factory.writer.is_closing()
+        else:
+            assert not amqp_connection.is_closed
+    finally:
+        observer.cancel()
+        await amqp_connection.close()
+
+
+@pytest.mark.parametrize("target", ["connection", "channel"])
+@pytest.mark.parametrize("cancel_method", ["cancel", "timeout"])
+@pytest.mark.parametrize("failure", ["disconnect", "heartbeat-timeout"])
+@aiomisc.timeout(30)
+async def test_closing_waiter_cancelled_before_connection_loss(
+    proxy, amqp_url, event_loop, target, cancel_method, failure,
+):
+    url = amqp_url.with_host(proxy.proxy_host).with_port(
+        proxy.proxy_port,
+    ).update_query(heartbeat="1")
+    connection = Connection(url, loop=event_loop)
+    factory = WriterCapturingTransportFactory(connection._transport_factory)
+    connection._transport_factory = factory
+    await connection.connect()
+    channel = await connection.channel()
+    resource = connection if target == "connection" else channel
+    # Include heartbeat and channel tasks, not just the transport reader/writer.
+    background = tuple(connection._Base__future_store.futures)
+    observer = resource.closing
+    entered = asyncio.Event()
+
+    async def wait_for_close():
+        entered.set()
+        await resource.closing
+
+    waiter = asyncio.create_task(wait_for_close())
+    await entered.wait()
+    try:
+        if cancel_method == "cancel":
+            waiter.cancel()
+            with pytest.raises(asyncio.CancelledError):
+                await waiter
+        else:
+            with pytest.raises(asyncio.TimeoutError):
+                await asyncio.wait_for(waiter, timeout=0.01)
+
+        assert not resource.is_closed
+        assert not observer.done()
+        await channel.basic_qos(prefetch_count=1)
+
+        if failure == "disconnect":
+            await proxy.disconnect_all()
+            with pytest.raises(AMQPConnectionError):
+                await asyncio.wait_for(observer, timeout=10)
+        else:
+            # Keep TCP open but delay traffic beyond the heartbeat grace time.
+            with proxy.slowdown(50, 50):
+                with pytest.raises(asyncio.CancelledError):
+                    await asyncio.wait_for(observer, timeout=20)
+
+        # No explicit close() before these checks: the network failure must
+        # complete cleanup even after the first observer was cancelled.
+        await asyncio.wait_for(
+            asyncio.gather(*background, return_exceptions=True), timeout=5,
+        )
+        assert connection.is_closed
+        assert channel.is_closed
+        assert connection._reader_task.done()
+        assert connection._writer_task.done()
+        assert factory.writer.is_closing()
+    finally:
+        observer.cancel()
+        await connection.close()

@@ -110,6 +110,9 @@ from xhtml2pdf.tags import (  # noqa: F401
     pisaTagUL,
 )
 from xhtml2pdf.util import (
+    NO_RADIUS,
+    RADIUS_CORNERS,
+    RADIUS_PROPERTIES,
     Display,
     getAlign,
     getBox,
@@ -119,10 +122,15 @@ from xhtml2pdf.util import (
     getLengthOrAuto,
     getPos,
     getSize,
+    roundedBox,
     toList,
 )
 from xhtml2pdf.w3c import cssDOMElementInterface
-from xhtml2pdf.w3c.css import CSSTerminalFunction
+from xhtml2pdf.w3c.css import (
+    CSSSelectorAttributeQualifier,
+    CSSSelectorLogicalQualifier,
+    CSSTerminalFunction,
+)
 from xhtml2pdf.xhtml2pdf_reportlab import PmlLeftPageBreak, PmlRightPageBreak
 
 log = logging.getLogger(__name__)
@@ -336,11 +344,14 @@ def getCSSAttr(self, cssCascade, attrName, default=NotImplemented):
 
     if result == "inherit":
         if hasattr(self.parentNode, "getCSSAttr"):
+            # The parent's value. This used to fall through to the raise
+            # below, so "inherit" never took effect on any property.
             result = self.parentNode.getCSSAttr(cssCascade, attrName, default)
         elif default is not NotImplemented:
             return default
-        msg = f"Could not find inherited CSS attribute value for '{attrName}'"
-        raise LookupError(msg)
+        else:
+            msg = f"Could not find inherited CSS attribute value for '{attrName}'"
+            raise LookupError(msg)
 
     if result is not None:
         self.cssAttrs[attrName] = result
@@ -379,13 +390,12 @@ def collectCSSAttrs(node, cssCascade, attrNames) -> None:
         if result is None:
             continue
         if result == "inherit":
-            # Inheritance recurses into the parent element and, as
-            # getCSSAttr stands, always ends in a LookupError that is logged
-            # and stepped over. Delegated rather than reimplemented so there
-            # is one account of that, whatever it becomes.
+            # Delegated to getCSSAttr, which resolves it against the parent
+            # and records the value in node.cssAttrs, so there is one account
+            # of inheritance. The root element has no parent to ask.
             try:
                 node.getCSSAttr(cssCascade, attrName)
-            except Exception as e:
+            except LookupError as e:
                 log.debug("%r during CSS attr '%s'", e, attrName, exc_info=True)
             continue
         attrs[attrName] = result
@@ -452,29 +462,95 @@ POSITIONAL_PSEUDO_CLASSES: frozenset[str] = frozenset(
         "nth-of-type",
         "only-child",
         "only-of-type",
+        # What the element contains: its descendants and later siblings, and
+        # the text of a textarea.
+        "has",
+        "placeholder-shown",
     }
 )
+
+#: The attributes a pseudo-class reads on the element itself. Two siblings
+#: that differ in one of them must not share a cached result either.
+PSEUDO_CLASS_ATTRIBUTES: dict[str, frozenset[str]] = {
+    "lang": frozenset({"lang", "xml:lang"}),
+    "dir": frozenset({"dir"}),
+    "link": frozenset({"href"}),
+    "any-link": frozenset({"href"}),
+    "checked": frozenset({"checked", "selected", "type"}),
+    "default": frozenset({"checked", "selected", "type"}),
+    "disabled": frozenset({"disabled"}),
+    "enabled": frozenset({"disabled"}),
+    "required": frozenset({"required"}),
+    "optional": frozenset({"required"}),
+    "read-only": frozenset({"readonly", "disabled", "type"}),
+    "read-write": frozenset({"readonly", "disabled", "type"}),
+    "placeholder-shown": frozenset({"placeholder", "value", "type"}),
+}
+
+
+def iterSubjectQualifiers(selector):
+    """
+    Every constraint a selector puts on its subject: its own qualifiers, and
+    those of the arguments of :not(), :is(), :where() and "An+B of S", which
+    are about the same element.
+    """
+    for qualifier in getattr(selector, "qualifiers", ()):
+        yield qualifier
+        if (
+            isinstance(qualifier, CSSSelectorLogicalQualifier)
+            and qualifier.name != "has"
+        ):
+            for argument in qualifier.selectors:
+                yield from iterSubjectQualifiers(argument)
 
 
 def getPositionalTagNames(cssCascade) -> set[str]:
     """
     Tag names some rule selects by position, so their cache key needs one.
 
-    Only a pseudo-class on the selector's own subject counts. In
+    Only a constraint on the selector's own subject counts. In
     `ul li:first-child div` the constraint is on the li, and two div siblings
     under one li answer it the same way, so the div does not need a position
     in its key. "*" means every tag does.
+
+    A sibling combinator counts as a position: in `h1 + p` whether a p matches
+    depends on what comes before it, and without the position every p after
+    the first was handed the first one's result -- `h1 + p` coloured each
+    paragraph after the heading, and `h1 ~ p` none of them.
     """
     names: set[str] = set()
     for ruleset in cssCascade.iterCSSRulesets():
         for selector in ruleset:
-            qualifiers = getattr(selector, "qualifiers", ())
             if any(
-                qualifier.isPseudo() and qualifier.name in POSITIONAL_PSEUDO_CLASSES
-                for qualifier in qualifiers
+                (qualifier.isPseudo() and qualifier.name in POSITIONAL_PSEUDO_CLASSES)
+                or getattr(qualifier, "op", None) in {"+", "~"}
+                for qualifier in iterSubjectQualifiers(selector)
             ):
                 names.add(str(selector.name).lower())
     return names
+
+
+def getAttributeSelectorNames(cssCascade) -> frozenset[str]:
+    """
+    Attribute names some rule's subject is selected by, as in input[type=text].
+
+    Their values go in the cache key. Without them two siblings that differ
+    only in such an attribute -- a text input next to a checkbox -- shared the
+    first one's result. Only the subject counts, as for positions: an
+    attribute on an ancestor is told apart by the parent in the key.
+    """
+    names: set[str] = set()
+    for ruleset in cssCascade.iterCSSRulesets():
+        for selector in ruleset:
+            for qualifier in iterSubjectQualifiers(selector):
+                # A namespaced attribute's name is a tuple; it is left out.
+                if isinstance(qualifier, CSSSelectorAttributeQualifier) and isinstance(
+                    qualifier.name, str
+                ):
+                    names.add(qualifier.name)
+                elif qualifier.isPseudo():
+                    names |= PSEUDO_CLASS_ATTRIBUTES.get(qualifier.name, frozenset())
+    return frozenset(names)
 
 
 def getElementPosition(node) -> int:
@@ -509,9 +585,14 @@ class CSSAttrCacheKey(NamedTuple):
     style: str
     #: Only for tags some rule selects by position; see getPositionalTagNames.
     position: int | None = None
+    #: The values of the attributes rules select by; see
+    #: getAttributeSelectorNames.
+    attributes: tuple = ()
 
 
-def getCSSAttrCacheKey(node, positional_tags=frozenset()) -> CSSAttrCacheKey:
+def getCSSAttrCacheKey(
+    node, positional_tags=frozenset(), attribute_names=frozenset()
+) -> CSSAttrCacheKey:
     _cl = _id = _st = ""
     for k, v in node.attributes.items():
         if k == "class":
@@ -539,12 +620,16 @@ def getCSSAttrCacheKey(node, positional_tags=frozenset()) -> CSSAttrCacheKey:
         css_id=_id,
         style=_st,
         position=getElementPosition(node) if positional else None,
+        attributes=tuple(
+            (name, node.getAttribute(name) if node.hasAttribute(name) else None)
+            for name in sorted(attribute_names)
+        ),
     )
 
 
 def CSSCollect(node, c):
     if c.css:
-        key = getCSSAttrCacheKey(node, c.cssPositionalTags)
+        key = getCSSAttrCacheKey(node, c.cssPositionalTags, c.cssAttributeNames)
         cached = c.cssAttrCache.get(key)
         if cached is not None:
             node.cssAttrs = cached
@@ -718,7 +803,14 @@ _REPLACED_INLINE_TAGS = frozenset({"img", "br", "hr", "pdfbarcode"})
 def declaresInlineBox(context, tagName: str) -> bool:
     if tagName in _REPLACED_INLINE_TAGS:
         return False
-    return any(name in context.cssAttr for name in _INLINE_BOX_PROPERTIES)
+    cssAttr = context.cssAttr
+    # A radius makes a box of the element's own background colour, which
+    # otherwise is painted word by word: `border-radius: 1em` on a
+    # highlighted span is how a pill badge is written.
+    return any(name in cssAttr for name in _INLINE_BOX_PROPERTIES) or (
+        "background-color" in cssAttr
+        and any(name in cssAttr for name in RADIUS_PROPERTIES)
+    )
 
 
 #: The block groups that make an element's box: padding and borders, without
@@ -741,6 +833,8 @@ def _stripInlineBox(frag) -> None:
         setattr(frag, f"border{side}Width", 0)
         setattr(frag, f"border{side}Style", None)
         setattr(frag, f"border{side}Color", None)
+    for corner in RADIUS_CORNERS:
+        setattr(frag, f"border{corner}Radius", NO_RADIUS)
 
 
 def inlineBoxMarkers(context):
@@ -783,8 +877,17 @@ def inlineBoxMarkers(context):
         )
         for name in ("margin-left", "margin-right")
     )
+    rounded_color = (
+        "background-color" in cssAttr
+        and backColor
+        and roundedBox(style, 0.0, 0.0, 1.0, 1.0) is not None
+    )
     if not (
-        style.horizontal or style.vertical or style.backgroundImage or any(margins)
+        style.horizontal
+        or style.vertical
+        or style.backgroundImage
+        or any(margins)
+        or rounded_color
     ):
         return None
     # The box paints the background; the words inside it must not.

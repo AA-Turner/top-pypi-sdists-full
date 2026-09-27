@@ -7,8 +7,8 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Iterator, MutableMapping
-from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING, Any, Self
 from warnings import warn
 
 from pikepdf._version import __version__ as pikepdf_version
@@ -152,7 +152,7 @@ class PdfMetadata(MutableMapping):
                 "has no XMP equivalent, so it was discarded",
             )
 
-    def __enter__(self):
+    def __enter__(self) -> Self:
         """Open metadata for editing."""
         self._updating = True
         return self
@@ -215,7 +215,7 @@ class PdfMetadata(MutableMapping):
             # We were asked to mark the file as being edited by pikepdf
             self._setitem(
                 QName(XMP_NS_XMP, 'MetadataDate'),
-                datetime.now(timezone.utc).isoformat(),
+                datetime.now(UTC).isoformat(),
                 applying_mark=True,
             )
             self._setitem(
@@ -324,6 +324,18 @@ class PdfMetadata(MutableMapping):
         if not self._updating:
             raise RuntimeError("Metadata not opened for editing, use with block")
         del self._xmp_doc[key]
+
+    @property
+    def recovered(self) -> bool:
+        """True if the XMP could not be read as it was.
+
+        The XMP was not well-formed or was not XMP, and was repaired, or
+        replaced with empty XMP, as it was read. What this object holds may
+        differ from the PDF's XMP, and it replaces the PDF's XMP when
+        metadata opened for editing is saved. Open metadata with
+        ``strict=True`` to raise an exception instead of repairing.
+        """
+        return self._xmp_doc.recovered
 
     @property
     def pdfa_status(self) -> str:

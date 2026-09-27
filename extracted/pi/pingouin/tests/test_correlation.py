@@ -125,6 +125,20 @@ class TestCorrelation(TestCase):
         stats = corr(x, x, method="percbend")  # calls _correl_pvalue
         assert np.isclose(stats.at["percbend", "r"], 1)
         assert np.isclose(stats.at["percbend", "p_val"], 0)
+        # Perfect correlation in the opposite direction of a one-sided test
+        assert corr(x, x, alternative="less").at["pearson", "p_val"] == 1
+        assert corr(x, -x, alternative="greater").at["pearson", "p_val"] == 1
+        assert corr(x, x, alternative="greater").at["pearson", "p_val"] == 0
+
+        # One-sided Kendall p-values use the Kendall null distribution, not a t-approximation
+        from scipy.stats import kendalltau
+
+        rng = np.random.default_rng(0)
+        xk = rng.normal(size=30)
+        yk = 0.3 * xk + rng.normal(size=30)
+        for alt in ["greater", "less"]:
+            pval = corr(xk, yk, method="kendall", alternative=alt).at["kendall", "p_val"]
+            assert np.isclose(pval, kendalltau(xk, yk, alternative=alt)[1])
 
         # When one column is a constant, the correlation is not defined
         # and Pingouin return a DataFrame full of NaN, except for ``n``
@@ -238,6 +252,14 @@ class TestCorrelation(TestCase):
             pc_normal.at["pearson", "p_val"], pc_large.at["pearson", "p_val"], atol=1e-6
         )
 
+        # A constant variable (zero variance) returns NaN instead of failing
+        df_const = df_normal.assign(covar_1=1.0)
+        for method in ["pearson", "spearman"]:
+            for kwargs in [{"x": "covar_1", "covar": "covar_2"}, {"x": "x", "covar": "covar_1"}]:
+                stats = partial_corr(data=df_const, y="y", method=method, **kwargs)
+                assert stats.at[method, "n"] == n
+                assert np.isnan(stats.at[method, "r"])
+
     def test_rmcorr(self):
         """Test function rm_corr"""
         df = read_dataset("rm_corr")
@@ -275,3 +297,70 @@ class TestCorrelation(TestCase):
         with pytest.raises(ValueError):
             a[2, 4] = np.nan
             distance_corr(a, b)
+
+    def test_rcorr(self):
+        """Test function rcorr.
+
+        The multiple-comparison family must contain only the n * (n - 1) / 2 unique pairs (strict
+        upper triangle), not the diagonal / lower-triangle placeholders (GH #521). Adjusted
+        p-values are compared against statsmodels.
+        """
+        from itertools import product
+
+        from scipy.stats import pearsonr, spearmanr
+        from statsmodels.stats.multitest import multipletests
+
+        from pingouin.correlation import rcorr
+
+        rng = np.random.default_rng(42)
+        frame = pd.DataFrame(rng.normal(size=(80, 5)))
+        # Inject real correlations so that the adjusted p-values do not all clip to 1
+        frame[1] += 0.4 * frame[0]
+        frame[3] -= 0.5 * frame[2]
+        frame_na = frame.copy()
+        frame_na.iloc[:5, 0] = np.nan
+        frame_na.iloc[10:15, 2] = np.nan
+        i, j = np.triu_indices(frame.shape[1], k=1)
+        # Pingouin -> statsmodels method names
+        padjusts = {
+            None: None,
+            "bonf": "bonferroni",
+            "sidak": "sidak",
+            "holm": "holm",
+            "fdr_bh": "fdr_bh",
+            "fdr_by": "fdr_by",
+        }
+        pval_stars = {0.001: "***", 0.01: "**", 0.05: "*"}
+
+        def to_stars(p):
+            for key, value in pval_stars.items():
+                if p < key:
+                    return value
+            return ""
+
+        configs = product(["pearson", "spearman"], padjusts.items(), [frame, frame_na])
+        for method, (padjust, sm_method), data in configs:
+            corrfunc = pearsonr if method == "pearson" else spearmanr
+            raw = []
+            for a, b in zip(i, j):
+                pair = data.iloc[:, [a, b]].dropna()
+                raw.append(corrfunc(pair.iloc[:, 0], pair.iloc[:, 1])[1])
+            raw = np.asarray(raw)
+            expected = raw if padjust is None else multipletests(raw, method=sm_method)[1]
+            # Numeric p-values on the upper triangle
+            actual = rcorr(data, method=method, padjust=padjust, stars=False, decimals=12)
+            actual = actual.to_numpy()[i, j].astype(float)
+            np.testing.assert_allclose(actual, expected, atol=1e-12)
+            # Stars: the fixture must contain both significant and non-significant pairs so that
+            # this is a positive check (an all-NaN or all-1 regression would fail it)
+            expected_stars = [to_stars(p) for p in expected]
+            assert "" in expected_stars and "***" in expected_stars
+            actual_stars = rcorr(data, method=method, padjust=padjust).to_numpy()[i, j]
+            assert actual_stars.tolist() == expected_stars
+
+        # Empty test family (constant column -> the only p-value is NaN): no correction method
+        # may flag the pair as significant (Sidak used to return 0 = 1 - (1 - nan) ** 0)
+        const = pd.DataFrame({"a": rng.normal(size=20), "b": np.ones(20)})
+        for padjust in padjusts:
+            assert rcorr(const, padjust=padjust).at["a", "b"] == ""
+            assert rcorr(const, padjust=padjust, stars=False).at["a", "b"] == "nan"

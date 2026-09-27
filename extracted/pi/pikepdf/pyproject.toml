@@ -18,10 +18,10 @@ sdist.exclude = ["qpdf"]
 
 [project]
 name = "pikepdf"
-version = "10.13.0.post1"
+version = "10.14.0"
 description = "Read, write, repair, and transform PDFs in Python, powered by qpdf"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 keywords = ["PDF"]
 authors = [{ name = "James R. Barlow", email = "james@purplerock.ca" }]
 license = "MPL-2.0"
@@ -46,6 +46,9 @@ classifiers = [
   "Programming Language :: Python :: Free Threading :: 3 - Stable",
 ]
 dependencies = ["Pillow>=10.0.1", "lxml>=4.8", "packaging"]
+
+[project.optional-dependencies]
+pdfa = ["jsonschema>=4.18", "referencing", "fonttools>=4.40"]
 
 [project.urls]
 documentation = "https://pikepdf.readthedocs.io/"
@@ -74,8 +77,8 @@ skip = [
 build-frontend = "build"
 
 [tool.cibuildwheel.environment]
-QPDF_MIN_VERSION = "12.3.2"
-QPDF_VERSION = "12.3.2"
+QPDF_MIN_VERSION = "12.4.1"
+QPDF_VERSION = "12.4.1"
 QPDF_PATTERN = "https://github.com/qpdf/qpdf/releases/download/vVERSION/qpdf-VERSION.tar.gz"
 
 [tool.cibuildwheel.linux]
@@ -88,10 +91,11 @@ before-all = [
     zlib-devel \
   """,
   "sh -c 'yum install -y libxmp || true'",
-  "bash build-scripts/posix-download-qpdf.bash $QPDF_VERSION",
   "bash build-scripts/posix-build-wheel-deps.bash",
 ]
-environment-pass = ["CI"]
+# QPDF_CACHE_DIR lets before-all reuse a qpdf build cached by build.yml; the
+# build script downloads and compiles qpdf itself on a cache miss.
+environment-pass = ["CI", "QPDF_CACHE_DIR"]
 # For manylinux_2_28 we need this shim for auditwheel
 # https://github.com/pypa/auditwheel/pull/597
 repair-wheel-command = "LD_LIBRARY_PATH=\"/usr/local/lib:/usr/local/lib64\" auditwheel repair -w {dest_dir} {wheel}"
@@ -117,7 +121,6 @@ before-all = [
     wget \
     zlib-dev \
   """,
-  "bash build-scripts/posix-download-qpdf.bash $QPDF_VERSION",
   "bash build-scripts/posix-build-wheel-deps.bash",
 ]
 
@@ -132,14 +135,9 @@ before-all = [
 [[tool.cibuildwheel.overrides]]
 # macOS has many complex considerations.
 # See (and update) build_process.md.
-select = "*-macosx*x86_64"
-inherit.environment = "append"
-environment.MACOSX_DEPLOYMENT_TARGET = "15.0"
-
-[[tool.cibuildwheel.overrides]]
 select = "*-macosx*arm64"
 inherit.environment = "append"
-environment.MACOSX_DEPLOYMENT_TARGET = "14.0"
+environment.MACOSX_DEPLOYMENT_TARGET = "15.0"
 
 [tool.cibuildwheel.windows]
 before-build = "pip install delvewheel"
@@ -153,6 +151,10 @@ repair-wheel-command = "delvewheel repair --add-path d:\\qpdf\\bin -w {dest_dir}
 
 [tool.mypy]
 exclude = ["^_qpdf\\.py$"]
+
+[[tool.mypy.overrides]]
+module = ["fontTools", "fontTools.*", "jsonschema", "jsonschema.*"]
+ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 minversion = "6.0"
@@ -170,6 +172,7 @@ norecursedirs = [
 testpaths = ["tests"]
 addopts = "-n auto"
 markers = [
+  "slow: tests that take more than a few seconds; skip with `-m 'not slow'`.",
   "abi3_smoke: a small subset of tests that exercise pikepdf's C extension surface without touching optional Pillow/lxml/numpy runtime paths. Selected with `-m abi3_smoke` for the abi3 debug-Python CI job (where building those native deps from sdist is impractical). Default pytest runs include these tests like any other.",
 ]
 
@@ -196,7 +199,7 @@ directory = "coverage/pycov"
 
 [tool.ruff]
 src = ["src/pikepdf"]
-target-version = "py310"
+target-version = "py311"
 
 [tool.ruff.lint]
 select = [
@@ -238,6 +241,7 @@ convention = "google"
 "examples/*.py" = ["D103"]
 "fuzzing/*.py" = ["D", "E501"]
 "tests/*test*.py" = ["D", "E501"]
+"tests/test_pdfa_*.py" = ["D", "E402", "E501"]
 
 [tool.ruff.format]
 quote-style = "preserve"
@@ -261,12 +265,14 @@ docs = [
   "sphinx-design",
   "sphinx-issues",
   "sphinx-rtd-theme",
-  "tomli; python_version < '3.11'",
 ]
 mypy = ["lxml-stubs", "types-Pillow", "types-requests", "types-setuptools"]
 test = [
   "attrs>=20.2.0",
   "coverage[toml]",
+  "fonttools>=4.40",
+  "jsonschema>=4.18",
+  "referencing",
   "hypothesis>=6.36",
   "numpy>=1.21.0; platform_machine == 'x86_64' and platform_python_implementation == 'CPython'",
   "psutil>=5.9; os_name != 'nt'",
@@ -277,5 +283,4 @@ test = [
   "pytest-xdist>=2.5.0",
   "python-dateutil>=2.8.1",
   "python-xmp-toolkit>=2.0.1,<2.1.0; os_name != 'nt' and platform_machine == 'x86_64'",
-  "tomli; python_version < '3.11'",
 ]

@@ -80,6 +80,20 @@ private:
     uint saved_precision;
 };
 
+long long pdf_integer_from_pylong(const py::handle handle)
+{
+    int overflow = 0;
+    long long value = PyLong_AsLongLongAndOverflow(handle.ptr(), &overflow);
+    if (overflow != 0) {
+        PyErr_SetString(
+            PyExc_OverflowError, "value is out of range for a 64-bit PDF integer");
+        throw py::python_error();
+    }
+    if (value == -1 && PyErr_Occurred())
+        throw py::python_error();
+    return value;
+}
+
 QPDFObjectHandle objecthandle_encode(const py::handle handle)
 {
     if (handle.is_none())
@@ -101,7 +115,7 @@ QPDFObjectHandle objecthandle_encode(const py::handle handle)
         return QPDFObjectHandle::newUnicodeString(std::string(ptr, size));
     }
     if (type_ptr == &PyLong_Type) {
-        return QPDFObjectHandle::newInteger(py::cast<long long>(handle));
+        return QPDFObjectHandle::newInteger(pdf_integer_from_pylong(handle));
     }
     if (type_ptr == &PyBool_Type) {
         return QPDFObjectHandle::newBool(py::cast<bool>(handle));
@@ -129,7 +143,7 @@ QPDFObjectHandle objecthandle_encode(const py::handle handle)
             py::cast<QPDFObjectHandle::Rectangle>(handle));
     }
 
-    auto Decimal = py::module_::import_("decimal").attr("Decimal");
+    auto Decimal = get_decimal_type();
     if (py::isinstance(handle, Decimal)) {
         DecimalPrecision dp(get_decimal_precision());
         auto rounded = py::steal<py::object>(PyNumber_Positive(handle.ptr()));
@@ -162,7 +176,7 @@ QPDFObjectHandle objecthandle_encode(const py::handle handle)
 
 py::object decimal_from_pdfobject(QPDFObjectHandle h)
 {
-    auto Decimal = py::module_::import_("decimal").attr("Decimal");
+    auto Decimal = get_decimal_type();
 
     if (h.getTypeCode() == qpdf_object_type_e::ot_integer) {
         auto value = h.getIntValue();

@@ -1,10 +1,9 @@
 [project]
 name = "aiormq"
-version = "7.0.0"
+version = "7.2.0"
 description = "Pure python AMQP asynchronous client library"
-authors = [{ name = "Dmitry Orlov", email = "me@mosquito.su" }]
 requires-python = ">=3.11,<4"
-readme = "README.rst"
+readme = "README.md"
 license = "Apache-2.0"
 license-files = ["COPYING"]
 keywords = [
@@ -42,11 +41,15 @@ dependencies = [
     "yarl",
 ]
 
+[[project.authors]]
+name = "Dmitry Orlov"
+email = "me@mosquito.su"
+
 [project.urls]
 Homepage = "https://github.com/mosquito/aiormq"
 Source = "https://github.com/mosquito/aiormq"
 Tracker = "https://github.com/mosquito/aiormq/issues"
-Documentation = "https://github.com/mosquito/aiormq/blob/master/README.rst"
+Documentation = "https://github.com/mosquito/aiormq/blob/master/README.md"
 
 [dependency-groups]
 dev = [
@@ -55,9 +58,8 @@ dev = [
     "coveralls>=3.3.1,<5",
     "ruff",
     "pytest-cov>=4,<8",
-    "collective-checkdocs>=0.2,<0.3",
     "mypy>=1.18,<2",
-    "pytest-rst>=0.1,<0.3",
+    "markdown-pytest>=0.6.6,<0.7",
     "types-setuptools>=80.9,<82",
     "aiomisc-pytest>=2,<3",
     "setuptools>=80.9,<82",
@@ -71,10 +73,6 @@ default-groups = "all"
 module-name = ["aiormq"]
 module-root = ""
 source-include = ["tests/**"]
-
-[build-system]
-requires = ["uv_build>=0.10.4,<0.12"]
-build-backend = "uv_build"
 
 [tool.mypy]
 check_untyped_defs = true
@@ -94,9 +92,8 @@ files = "aiormq"
 
 [tool.pytest.ini_options]
 addopts = "-p no:asyncio"
-markers = [
-    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
-]
+markers = ["""slow: marks tests as slow (deselect with '-m "not slow"')"""]
+filterwarnings = ["ignore:'asyncio.iscoroutinefunction' is deprecated:DeprecationWarning"]
 
 [tool.coverage.run]
 branch = true
@@ -119,5 +116,14 @@ exclude = [
 ]
 
 [tool.ruff.lint]
-select = ["E", "W", "F", "C90"]
+select = [
+    "E",
+    "W",
+    "F",
+    "C90",
+]
 ignore = ["C901"]
+
+[build-system]
+requires = ["uv_build>=0.10.4,<0.12"]
+build-backend = "uv_build"

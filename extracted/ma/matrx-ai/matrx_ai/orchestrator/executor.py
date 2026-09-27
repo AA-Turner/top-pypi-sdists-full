@@ -438,6 +438,26 @@ async def execute_ai_request(
     """
     ctx = get_app_context()
 
+    # WORKFLOW PARITY (2026-09-26): a call HELD by a workflow
+    # (``hold_code_call`` resolved to a workflow Holder) never reaches a
+    # provider — the workflow runs in its place and its answer comes back in
+    # a provider turn's shape. One seam here gives every held site parity.
+    from matrx_ai.mandate_workflow_holder import holding_for_metadata
+
+    holding = holding_for_metadata(metadata)
+    if holding is False:
+        from matrx_ai.mandates import MandateResolutionUnavailable
+
+        raise MandateResolutionUnavailable(
+            str((metadata or {}).get("mandate_key") or mandate_key or ""),
+            "execute_ai_request",
+            "this request is held by a workflow, but the held call that owns it is gone "
+            "(its HeldCall was dropped or its metadata crossed a process) — keep the "
+            "HeldCall alive until its funnel returns",
+        )
+    if holding is not None:
+        return await holding.answer(config, metadata)
+
     # 🚨 THE RUNTIME MANDATE-CARRIER GATE. Every AI call in the platform funnels
     # through here, so this is the ONE place that can ask "who holds this call?"
     # — the question no static guard has ever been able to answer about our own
@@ -4741,6 +4761,19 @@ async def _execute_until_complete_inner(
                         )
                         warning_code = "max_retries_exceeded"
                         warning_level: Literal["low", "medium", "high"] = "high"
+                    elif _fr_for_msg is FinishReason.REFUSAL:
+                        # The model itself declined this turn (Anthropic's
+                        # stop_reason "refusal"). Expected model control flow,
+                        # not a provider failure, and often not repeatable: on
+                        # 2026-09-24 the identical turn went through when it was
+                        # sent again three minutes later.
+                        user_msg = (
+                            "The model declined to respond to this message, so nothing "
+                            "was done. Sending it again often works; if it keeps "
+                            "happening, rephrase the request."
+                        )
+                        warning_code = "model_refusal"
+                        warning_level = "medium"
                     elif _fr_for_msg in _SAFETY_REASONS:
                         user_msg = (
                             "The response was stopped by the provider's content-safety "
@@ -4778,7 +4811,7 @@ async def _execute_until_complete_inner(
                     # finish reason must reach the human-review queue too.
                     # Safety/content-policy stops are expected provider control
                     # flow and deliberately remain outside system_error.
-                    if _fr_for_msg not in _SAFETY_REASONS:
+                    if _fr_for_msg not in _SAFETY_REASONS and _fr_for_msg is not FinishReason.REFUSAL:
                         from matrx_connect.streaming.error_capture import capture_error
 
                         finish_exc = RuntimeError(
@@ -4813,7 +4846,15 @@ async def _execute_until_complete_inner(
                         metadata={
                             "status": "failed",
                             "finish_reason": str(api_response.finish_reason),
-                            "error": f"Model stopped with finish reason: {api_response.finish_reason}",
+                            # A refusal or safety stop is saved in words the
+                            # person can act on; the raw reason stays in
+                            # finish_reason for operators.
+                            "error": (
+                                user_msg
+                                if _fr_for_msg is FinishReason.REFUSAL
+                                or _fr_for_msg in _SAFETY_REASONS
+                                else f"Model stopped with finish reason: {api_response.finish_reason}"
+                            ),
                             "error_type": "finish_reason_error",
                         },
                         trigger_position=trigger_position,

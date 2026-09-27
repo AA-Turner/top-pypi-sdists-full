@@ -25,6 +25,7 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
+import errno
 import gc
 from json import dumps, loads
 
@@ -42,20 +43,34 @@ from apprise import (
     Apprise,
     AppriseAsset,
     AppriseAttachment,
-    NotifyFormat,
     NotifyType,
-    OverflowMode,
     PersistentStoreMode,
 )
-from apprise.plugins.matrix import MatrixDiscoveryException, NotifyMatrix
-
-# Use Matrix's internal limit and mode names for exact boundary assertions.
-from apprise.plugins.matrix.base import (
-    MATRIX_CONTENT_BYTE_LIMIT,
-    MatrixWebhookMode,
+from apprise.exception import (
+    AppriseImproperlyConfigured,
+    AppriseInvalidData,
+    ApprisePluginException,
+)
+from apprise.plugins.base import _delivery_tracker
+from apprise.plugins.matrix import (
+    MatrixDiscoveryException,
+    NotifyMatrix,
+    sas as matrix_sas,
 )
 
 logging.disable(logging.CRITICAL)
+
+
+class _Response(mock.Mock):
+    """Mock an HTTP response that supports Requests-style chunked reads."""
+
+    def iter_content(self, chunk_size=None):
+        content = self.content
+        if isinstance(content, str):
+            content = content.encode("utf-8")
+
+        return iter([content] if content else [])
+
 
 MATRIX_GOOD_RESPONSE = dumps(
     {
@@ -73,6 +88,14 @@ MATRIX_GOOD_RESPONSE = dumps(
         "m.identity_server": {"base_url": "https://vector.im"},
     }
 )
+
+
+def test_plugin_matrix_discovery_exception():
+    """Matrix discovery failures use the common plugin exception."""
+    exc = MatrixDiscoveryException("discovery failed")
+    assert isinstance(exc, ApprisePluginException)
+    assert exc.error_code == 600
+
 
 # Attachment Directory
 TEST_VAR_DIR = os.path.join(os.path.dirname(__file__), "var")
@@ -116,9 +139,9 @@ apprise_url_tests = (
     (
         "matrix://localhost",
         {
-            # response is TypeError because we'll try to initialize as
-            # a t2bot and fail (localhost is too short of a api key)
-            "instance": TypeError
+            # Initialization as t2bot fails because localhost is too short
+            # to be an API key.
+            "instance": AppriseImproperlyConfigured
         },
     ),
     (
@@ -189,7 +212,7 @@ apprise_url_tests = (
         "matrix://user:token@localhost:123/#general/?v=invalid",
         {
             # Invalid version specified
-            "instance": TypeError
+            "instance": AppriseImproperlyConfigured
         },
     ),
     (
@@ -270,21 +293,21 @@ apprise_url_tests = (
         "matrixs://user:pass@hostname:port/#room_alias",
         {
             # Invalid Port specified (was a string)
-            "instance": TypeError,
+            "instance": AppriseImproperlyConfigured,
         },
     ),
     (
         "matrixs://user:pass@hostname:0/#room_alias",
         {
             # Invalid Port specified (was a string)
-            "instance": TypeError,
+            "instance": AppriseImproperlyConfigured,
         },
     ),
     (
         "matrixs://user:pass@hostname:65536/#room_alias",
         {
             # Invalid Port specified (was a string)
-            "instance": TypeError,
+            "instance": AppriseImproperlyConfigured,
         },
     ),
     # More general testing...
@@ -327,7 +350,7 @@ apprise_url_tests = (
         "matrix://user:token@localhost?mode=On",
         {
             # invalid webhook specified (unexpected boolean)
-            "instance": TypeError,
+            "instance": AppriseImproperlyConfigured,
         },
     ),
     (
@@ -388,7 +411,7 @@ def test_plugin_matrix_general(mock_post, mock_get, mock_put):
         "access_token": "abcd1234",
         "home_server": "localhost",
     }
-    request = mock.Mock()
+    request = _Response()
     request.content = dumps(response_obj)
     request.status_code = requests.codes.ok
 
@@ -469,7 +492,7 @@ def test_plugin_matrix_general(mock_post, mock_get, mock_put):
     assert obj.send(body="test") is True
     assert obj.send(title="title", body="test") is True
 
-    with pytest.raises(TypeError):
+    with pytest.raises(AppriseImproperlyConfigured):
         # invalid message type specified
         kwargs = NotifyMatrix.parse_url(
             "matrix://user:passwd@hostname/#abcd?msgtype=invalid"
@@ -567,7 +590,7 @@ def test_plugin_matrix_fetch(mock_post, mock_get, mock_put):
     def fetch_failed(url, *args, **kwargs):
 
         # Default configuration
-        request = mock.Mock()
+        request = _Response()
         request.status_code = requests.codes.ok
         request.content = dumps(response_obj)
 
@@ -619,7 +642,7 @@ def test_plugin_matrix_fetch(mock_post, mock_get, mock_put):
     mock_post.side_effect = None
     mock_put.side_effect = None
 
-    request = mock.Mock()
+    request = _Response()
     request.status_code = requests.codes.ok
     request.content = dumps(response_obj)
     mock_post.return_value = request
@@ -656,6 +679,253 @@ def test_plugin_matrix_fetch(mock_post, mock_get, mock_put):
     request.content = dumps({"error": {}})
     postokay, _response, _ = obj._fetch("/retry/apprise/unit/test")
     assert postokay is False
+
+    # A caller with its own tight time budget can cap how long a 429's
+    # own server-requested wait is allowed to throttle for.
+    request.content = dumps({"retry_after_ms": 999999})
+    with mock.patch.object(obj, "throttle") as throttle:
+        postokay, _response, _ = obj._fetch(
+            "/retry/apprise/unit/test", max_retry_wait=1
+        )
+    assert postokay is False
+    # The second throttle uses the remaining shared 429 budget.
+    second_call_wait = throttle.call_args_list[1].kwargs["wait"]
+    assert second_call_wait == pytest.approx(1.0, abs=0.1)
+
+    # Restore success so object cleanup does not honor the mocked long retry.
+    request.status_code = requests.codes.ok
+    request.content = dumps(response_obj)
+    del obj
+
+
+@mock.patch("requests.put")
+@mock.patch("requests.get")
+@mock.patch("requests.post")
+def test_plugin_matrix_shared_retry_budget(mock_post, mock_get, mock_put):
+    """Every 429 response draws from one shared retry-wait budget."""
+    request = _Response()
+    request.status_code = 429
+    request.content = dumps({"retry_after_ms": 999999})
+    mock_post.return_value = request
+
+    obj = NotifyMatrix(host="host", user="user", password="passwd")
+    obj.access_token = "token"
+
+    waits = []
+
+    def fake_throttle(wait=None):
+        if wait is not None:
+            waits.append(wait)
+
+    with (
+        mock.patch.object(obj, "throttle", side_effect=fake_throttle),
+        mock.patch(
+            "apprise.plugins.matrix.base.monotonic",
+            # retry_deadline anchor, then each 429 draws a remaining-wait
+            # check before sleeping and a deadline recheck right after.
+            side_effect=[0, 0.5, 0.6, 1.8, 1.9],
+        ),
+    ):
+        postokay, _response, _ = obj._fetch(
+            "/retry/apprise/unit/test", max_retry_wait=2
+        )
+    assert postokay is False
+    # The two waits use the remaining portions of the same two-second budget.
+    assert waits[0] == pytest.approx(1.5)
+    assert waits[1] == pytest.approx(0.2)
+
+    # Restore success so object cleanup does not honor the mocked long retry.
+    request.status_code = requests.codes.ok
+    request.content = dumps(
+        {
+            "access_token": "abcd1234",
+            "user_id": "@apprise:localhost",
+            "home_server": "localhost",
+        }
+    )
+    del obj
+
+
+@mock.patch("requests.put")
+@mock.patch("requests.get")
+@mock.patch("requests.post")
+def test_plugin_matrix_exhausted_retry_budget(mock_post, mock_get, mock_put):
+    """An exhausted retry-wait budget ends the attempt without a new request.
+
+    Once no time remains, a 429 must not be followed by another sleep and
+    another request; it must give up immediately instead.
+    """
+    request = _Response()
+    request.status_code = 429
+    request.content = dumps({"retry_after_ms": 999999})
+    mock_post.return_value = request
+
+    obj = NotifyMatrix(host="host", user="user", password="passwd")
+    obj.access_token = "token"
+
+    with (
+        mock.patch.object(obj, "throttle") as throttle,
+        mock.patch(
+            "apprise.plugins.matrix.base.monotonic",
+            # retry_deadline anchor, then the very first remaining-wait
+            # check already finds the budget spent.
+            side_effect=[0, 2.0],
+        ),
+    ):
+        postokay, _response, _ = obj._fetch(
+            "/retry/apprise/unit/test", max_retry_wait=2
+        )
+
+    assert postokay is False
+    # throttle() is always called once before the initial request; giving
+    # up on the exhausted budget must not add a second, 429-driven wait.
+    throttle.assert_called_once_with()
+    assert mock_post.call_count == 1
+
+    # Restore success so object cleanup does not honor the mocked long retry.
+    request.status_code = requests.codes.ok
+    request.content = dumps(
+        {
+            "access_token": "abcd1234",
+            "user_id": "@apprise:localhost",
+            "home_server": "localhost",
+        }
+    )
+    del obj
+
+
+@mock.patch("requests.put")
+@mock.patch("requests.get")
+@mock.patch("requests.post")
+def test_plugin_matrix_retry_sleep_exhausts_budget(
+    mock_post, mock_get, mock_put
+):
+    """A budget consumed by the sleep itself also stops the retry loop.
+
+    The deadline is checked before sleeping and again right after -- a
+    wait that lands exactly on (or past) the deadline must not be
+    followed by one more request.
+    """
+    request = _Response()
+    request.status_code = 429
+    request.content = dumps({"retry_after_ms": 999999})
+    mock_post.return_value = request
+
+    obj = NotifyMatrix(host="host", user="user", password="passwd")
+    obj.access_token = "token"
+
+    with (
+        mock.patch.object(obj, "throttle") as throttle,
+        mock.patch(
+            "apprise.plugins.matrix.base.monotonic",
+            # retry_deadline anchor, a remaining-wait check that is still
+            # positive (so the wait proceeds), then the post-sleep
+            # recheck lands exactly on the deadline.
+            side_effect=[0, 0.5, 1.0],
+        ),
+    ):
+        postokay, _response, _ = obj._fetch(
+            "/retry/apprise/unit/test", max_retry_wait=1
+        )
+
+    assert postokay is False
+    # The 429 wait happens once; no second request follows it.
+    assert throttle.call_args_list[-1] == mock.call(wait=0.5)
+    assert mock_post.call_count == 1
+
+    # Restore success so object cleanup does not honor the mocked long retry.
+    request.status_code = requests.codes.ok
+    request.content = dumps(
+        {
+            "access_token": "abcd1234",
+            "user_id": "@apprise:localhost",
+            "home_server": "localhost",
+        }
+    )
+    del obj
+
+
+@mock.patch("requests.put")
+@mock.patch("requests.get")
+@mock.patch("requests.post")
+def test_plugin_matrix_fetch_response_limit(mock_post, mock_get, mock_put):
+    """Discard and close a response that exceeds the caller's limit."""
+    request = mock.Mock()
+    request.status_code = requests.codes.ok
+    request.iter_content.return_value = iter([b"x" * 1000, b"x" * 1001])
+    mock_post.return_value = request
+
+    obj = NotifyMatrix(host="host", user="user", password="passwd")
+    obj.access_token = "token"
+
+    postokay, response, status_code = obj._fetch(
+        "/some/path", max_response_bytes=2000
+    )
+
+    assert postokay is False
+    assert response == {}
+    assert status_code == requests.codes.ok
+    request.close.assert_called_once()
+
+    del obj
+
+
+@mock.patch("requests.put")
+@mock.patch("requests.get")
+@mock.patch("requests.post")
+def test_plugin_matrix_fetch_response_within_limit(
+    mock_post, mock_get, mock_put
+):
+    """Parse a bounded response while ignoring empty stream chunks."""
+    request = mock.Mock()
+    request.status_code = requests.codes.ok
+    request.iter_content.return_value = iter(
+        [b"", dumps({"ok": True}).encode()]
+    )
+    mock_post.return_value = request
+
+    obj = NotifyMatrix(host="host", user="user", password="passwd")
+    obj.access_token = "token"
+
+    postokay, response, _status_code = obj._fetch(
+        "/some/path", max_response_bytes=2000
+    )
+
+    assert postokay is True
+    assert response == {"ok": True}
+    # The stream is closed either way, not just on the oversized path.
+    request.close.assert_called_once()
+
+    del obj
+
+
+@mock.patch("requests.put")
+@mock.patch("requests.get")
+@mock.patch("requests.post")
+def test_plugin_matrix_fetch_stream_error(mock_post, mock_get, mock_put):
+    """Handle streamed download errors and close the response."""
+    request = mock.Mock()
+    request.status_code = requests.codes.ok
+
+    def broken_iter_content(chunk_size=None):
+        yield b"partial"
+        raise requests.exceptions.ChunkedEncodingError("broken transfer")
+
+    request.iter_content.side_effect = broken_iter_content
+    mock_post.return_value = request
+
+    obj = NotifyMatrix(host="host", user="user", password="passwd")
+    obj.access_token = "token"
+
+    postokay, response, status_code = obj._fetch(
+        "/some/path", max_response_bytes=2000
+    )
+
+    assert postokay is False
+    assert response == {}
+    assert status_code == requests.codes.ok
+    request.close.assert_called_once()
+
     del obj
 
 
@@ -673,7 +943,7 @@ def test_plugin_matrix_auth(mock_post, mock_get, mock_put):
     }
 
     # Default configuration
-    request = mock.Mock()
+    request = _Response()
     request.status_code = requests.codes.ok
     request.content = dumps(response_obj)
     mock_post.return_value = request
@@ -822,7 +1092,7 @@ def test_plugin_matrix_rooms(mock_post, mock_get, mock_put):
     }
 
     # Default configuration
-    request = mock.Mock()
+    request = _Response()
     request.status_code = requests.codes.ok
     request.content = dumps(response_obj)
     mock_post.return_value = request
@@ -864,7 +1134,7 @@ def test_plugin_matrix_rooms(mock_post, mock_get, mock_put):
     obj.hsreq = False
 
     def _join_side_effect(url, *args, **kwargs):
-        r = mock.Mock()
+        r = _Response()
 
         # With hsreq disabled, only the raw form should be attempted:
         if url.endswith("/_matrix/client/v3/join/%21abc123"):
@@ -1145,7 +1415,7 @@ def test_plugin_matrix_image_errors(mock_post, mock_get, mock_put):
             "home_server": "localhost",
         }
 
-        request = mock.Mock()
+        request = _Response()
         request.content = dumps(response_obj)
         request.status_code = requests.codes.ok
 
@@ -1166,7 +1436,7 @@ def test_plugin_matrix_image_errors(mock_post, mock_get, mock_put):
 
     # Notification was successful, however we could not post image and since
     # we had post errors (of any kind) we still report a failure.
-    assert obj.notify("test", "test") is False
+    assert bool(obj.notify("test", "test")) is False
     del obj
 
     obj = NotifyMatrix(host="host", include_image=False, version="2")
@@ -1175,7 +1445,7 @@ def test_plugin_matrix_image_errors(mock_post, mock_get, mock_put):
 
     # We didn't post an image (which was set to fail) and therefore our
     # post was okay
-    assert obj.notify("test", "test") is True
+    assert bool(obj.notify("test", "test")) is True
 
     # Force a object removal (thus a logout call)
     del obj
@@ -1191,7 +1461,7 @@ def test_plugin_matrix_image_errors(mock_post, mock_get, mock_put):
             "home_server": "localhost",
         }
 
-        request = mock.Mock()
+        request = _Response()
         request.content = dumps(response_obj)
         request.status_code = requests.codes.ok
 
@@ -1205,14 +1475,14 @@ def test_plugin_matrix_image_errors(mock_post, mock_get, mock_put):
     assert isinstance(obj, NotifyMatrix) is True
     assert obj.access_token is None
 
-    assert obj.notify("test", "test") is True
+    assert bool(obj.notify("test", "test")) is True
     del obj
 
     obj = NotifyMatrix(host="host", include_image=False)
     assert isinstance(obj, NotifyMatrix) is True
     assert obj.access_token is None
 
-    assert obj.notify("test", "test") is True
+    assert bool(obj.notify("test", "test")) is True
 
     # Force a object removal (thus a logout call)
     del obj
@@ -1225,12 +1495,12 @@ def test_plugin_matrix_attachments_api_v3(mock_post, mock_put):
     """NotifyMatrix() Attachment Checks (v3)"""
 
     # Prepare a good response
-    response = mock.Mock()
+    response = _Response()
     response.status_code = requests.codes.ok
     response.content = MATRIX_GOOD_RESPONSE.encode("utf-8")
 
     # Prepare a bad response
-    bad_response = mock.Mock()
+    bad_response = _Response()
     bad_response.status_code = requests.codes.internal_server_error
 
     # Prepare Mock return object
@@ -1244,11 +1514,13 @@ def test_plugin_matrix_attachments_api_v3(mock_post, mock_put):
     attach = AppriseAttachment(os.path.join(TEST_VAR_DIR, "apprise-test.gif"))
 
     assert (
-        obj.notify(
-            body="body",
-            title="title",
-            notify_type=NotifyType.INFO,
-            attach=attach,
+        bool(
+            obj.notify(
+                body="body",
+                title="title",
+                notify_type=NotifyType.INFO,
+                attach=attach,
+            )
         )
         is True
     )
@@ -1286,11 +1558,13 @@ def test_plugin_matrix_attachments_api_v3(mock_post, mock_put):
         os.path.join(TEST_VAR_DIR, "apprise-archive.zip")
     )
     assert (
-        obj.notify(
-            body="body",
-            title="title",
-            notify_type=NotifyType.INFO,
-            attach=attach,
+        bool(
+            obj.notify(
+                body="body",
+                title="title",
+                notify_type=NotifyType.INFO,
+                attach=attach,
+            )
         )
         is True
     )
@@ -1299,11 +1573,13 @@ def test_plugin_matrix_attachments_api_v3(mock_post, mock_put):
     path = os.path.join(TEST_VAR_DIR, "/invalid/path/to/an/invalid/file.jpg")
     attach = AppriseAttachment(path)
     assert (
-        obj.notify(
-            body="body",
-            title="title",
-            notify_type=NotifyType.INFO,
-            attach=path,
+        bool(
+            obj.notify(
+                body="body",
+                title="title",
+                notify_type=NotifyType.INFO,
+                attach=path,
+            )
         )
         is False
     )
@@ -1355,12 +1631,12 @@ def test_plugin_matrix_discovery_service(mock_post, mock_get, mock_put):
     """NotifyMatrix() Discovery Service."""
 
     # Prepare a good response
-    response = mock.Mock()
+    response = _Response()
     response.status_code = requests.codes.ok
     response.content = MATRIX_GOOD_RESPONSE.encode("utf-8")
 
     # Prepare a good response
-    bad_response = mock.Mock()
+    bad_response = _Response()
     bad_response.status_code = requests.codes.unauthorized
     bad_response.content = MATRIX_GOOD_RESPONSE.encode("utf-8")
 
@@ -1373,9 +1649,9 @@ def test_plugin_matrix_discovery_service(mock_post, mock_get, mock_put):
     obj = Apprise.instantiate(
         "matrixs://user:pass@example.com/#general?v=2&discovery=yes"
     )
-    assert obj.notify("body") is True
+    assert bool(obj.notify("body")) is True
 
-    response = mock.Mock()
+    response = _Response()
     response.status_code = requests.codes.unavailable
     resp = loads(MATRIX_GOOD_RESPONSE)
 
@@ -1416,7 +1692,7 @@ def test_plugin_matrix_discovery_service(mock_post, mock_get, mock_put):
     assert NotifyMatrix.discovery_identity_key not in obj.store
 
     # We fail our discovery and therefore can't send our notification
-    assert obj.notify("hello world") is False
+    assert bool(obj.notify("hello world")) is False
 
     # bad key
     resp["m.homeserver"] = {}
@@ -1444,7 +1720,7 @@ def test_plugin_matrix_discovery_service(mock_post, mock_get, mock_put):
     assert NotifyMatrix.discovery_identity_key in obj.store
 
     # Discovery passes so notifications work too
-    assert obj.notify("hello world") is True
+    assert bool(obj.notify("hello world")) is True
 
     # bad data
     resp["m.identity_server"] = "!garbage!:303"
@@ -1485,7 +1761,7 @@ def test_plugin_matrix_discovery_service(mock_post, mock_get, mock_put):
     assert obj.identity_url == "https://nuxref.com/base"
 
     # restore
-    resp["m.identity_server"] = {"base_url": '"https://vector.im'}
+    resp["m.identity_server"] = {"base_url": "https://vector.im"}
     response.content = dumps(resp).encode("utf-8")
 
     # Not found is an acceptable response (no exceptions thrown)
@@ -1502,7 +1778,7 @@ def test_plugin_matrix_discovery_service(mock_post, mock_get, mock_put):
 
     # Discovery passes so notifications work too
     response.status_code = requests.codes.ok
-    assert obj.notify("hello world") is True
+    assert bool(obj.notify("hello world")) is True
 
     response.status_code = requests.codes.ok
     mock_get.return_value = None
@@ -1555,16 +1831,77 @@ def test_plugin_matrix_discovery_service(mock_post, mock_get, mock_put):
 @mock.patch("requests.put")
 @mock.patch("requests.get")
 @mock.patch("requests.post")
+def test_plugin_matrix_rejects_unsafe_discovery(mock_post, mock_get, mock_put):
+    """Reject unsafe addresses returned by Matrix discovery."""
+
+    # Prepare a good response
+    response = _Response()
+    response.status_code = requests.codes.ok
+    response.content = MATRIX_GOOD_RESPONSE.encode("utf-8")
+
+    mock_post.return_value = response
+    mock_get.return_value = response
+    mock_put.return_value = response
+
+    obj = Apprise.instantiate(
+        "matrixs://user:pass@example.com/#general?v=2&discovery=yes"
+    )
+
+    # Each of these is an address we refuse to send our token to
+    for base_url in (
+        # An unencrypted address
+        "http://matrix.example.com",
+        # Embedded credentials
+        "https://attacker:secret@matrix.example.com",
+        # Not a host we can make sense of
+        "https://-nope-.example.com",
+    ):
+        resp = loads(MATRIX_GOOD_RESPONSE)
+        resp["m.homeserver"] = {"base_url": base_url}
+        response.content = dumps(resp).encode("utf-8")
+        obj.store.clear(
+            NotifyMatrix.discovery_base_key,
+            NotifyMatrix.discovery_identity_key,
+        )
+
+        with pytest.raises(MatrixDiscoveryException):
+            _ = obj.base_url
+
+        # Nothing is cached from a failed discovery
+        assert NotifyMatrix.discovery_base_key not in obj.store
+        assert NotifyMatrix.discovery_identity_key not in obj.store
+
+    # The identity server address is held to the same standard
+    resp = loads(MATRIX_GOOD_RESPONSE)
+    resp["m.identity_server"] = {"base_url": "http://identity.example.com"}
+    response.content = dumps(resp).encode("utf-8")
+    obj.store.clear(
+        NotifyMatrix.discovery_base_key, NotifyMatrix.discovery_identity_key
+    )
+
+    with pytest.raises(MatrixDiscoveryException):
+        _ = obj.base_url
+
+    assert NotifyMatrix.discovery_base_key not in obj.store
+    assert NotifyMatrix.discovery_identity_key not in obj.store
+
+    del obj
+    _force_del_cleanup()
+
+
+@mock.patch("requests.put")
+@mock.patch("requests.get")
+@mock.patch("requests.post")
 def test_plugin_matrix_attachments_api_v2(mock_post, mock_get, mock_put):
     """NotifyMatrix() Attachment Checks (v2)"""
 
     # Prepare a good response
-    response = mock.Mock()
+    response = _Response()
     response.status_code = requests.codes.ok
     response.content = MATRIX_GOOD_RESPONSE.encode("utf-8")
 
     # Prepare a bad response
-    bad_response = mock.Mock()
+    bad_response = _Response()
     bad_response.status_code = requests.codes.internal_server_error
 
     # Prepare Mock return object
@@ -1579,11 +1916,13 @@ def test_plugin_matrix_attachments_api_v2(mock_post, mock_get, mock_put):
     attach = AppriseAttachment(os.path.join(TEST_VAR_DIR, "apprise-test.gif"))
 
     assert (
-        obj.notify(
-            body="body",
-            title="title",
-            notify_type=NotifyType.INFO,
-            attach=attach,
+        bool(
+            obj.notify(
+                body="body",
+                title="title",
+                notify_type=NotifyType.INFO,
+                attach=attach,
+            )
         )
         is True
     )
@@ -1609,11 +1948,13 @@ def test_plugin_matrix_attachments_api_v2(mock_post, mock_get, mock_put):
     mock_put.reset_mock()
 
     assert (
-        obj.notify(
-            body="body",
-            title="title",
-            notify_type=NotifyType.INFO,
-            attach=attach,
+        bool(
+            obj.notify(
+                body="body",
+                title="title",
+                notify_type=NotifyType.INFO,
+                attach=attach,
+            )
         )
         is True
     )
@@ -1650,11 +1991,13 @@ def test_plugin_matrix_attachments_api_v2(mock_post, mock_get, mock_put):
         os.path.join(TEST_VAR_DIR, "apprise-archive.zip")
     )
     assert (
-        obj.notify(
-            body="body",
-            title="title",
-            notify_type=NotifyType.INFO,
-            attach=attach,
+        bool(
+            obj.notify(
+                body="body",
+                title="title",
+                notify_type=NotifyType.INFO,
+                attach=attach,
+            )
         )
         is True
     )
@@ -1663,11 +2006,13 @@ def test_plugin_matrix_attachments_api_v2(mock_post, mock_get, mock_put):
     path = os.path.join(TEST_VAR_DIR, "/invalid/path/to/an/invalid/file.jpg")
     attach = AppriseAttachment(path)
     assert (
-        obj.notify(
-            body="body",
-            title="title",
-            notify_type=NotifyType.INFO,
-            attach=path,
+        bool(
+            obj.notify(
+                body="body",
+                title="title",
+                notify_type=NotifyType.INFO,
+                attach=path,
+            )
         )
         is False
     )
@@ -1731,7 +2076,9 @@ def test_plugin_matrix_attachments_api_v2(mock_post, mock_get, mock_put):
 
     # image attachment didn't succeed
     assert (
-        obj.notify(body="body", title="title", notify_type=NotifyType.INFO)
+        bool(
+            obj.notify(body="body", title="title", notify_type=NotifyType.INFO)
+        )
         is False
     )
 
@@ -1755,7 +2102,7 @@ def test_plugin_matrix_attachments_api_v2(mock_post, mock_get, mock_put):
 def test_plugin_matrix_v2_compliance(mock_post, mock_put):
     """NotifyMatrix() Verify V2 uses PUT and TID for standard messages."""
     # Setup compliant response
-    response = mock.Mock()
+    response = _Response()
     response.status_code = requests.codes.ok
     response.content = MATRIX_GOOD_RESPONSE.encode("utf-8")
     mock_post.return_value = response
@@ -1765,7 +2112,7 @@ def test_plugin_matrix_v2_compliance(mock_post, mock_put):
     obj = Apprise.instantiate("matrix://user:pass@localhost/#general?v=2")
 
     # Send a standard notification
-    assert obj.notify(body="test message") is True
+    assert bool(obj.notify(body="test message")) is True
 
     # Confirm the fix:
     # 1. Path contains the transaction ID '0'
@@ -1782,7 +2129,7 @@ def test_plugin_matrix_v2_token_mode_no_txn_increment(
     mock_post, mock_get, mock_put
 ):
     """Token mode (access_token == password) skips transaction ID increment."""
-    response = mock.Mock()
+    response = _Response()
     response.status_code = requests.codes.ok
     response.content = MATRIX_GOOD_RESPONSE.encode("utf-8")
     mock_post.return_value = response
@@ -1797,7 +2144,7 @@ def test_plugin_matrix_v2_token_mode_no_txn_increment(
     assert obj is not None
 
     # Send with image inline enabled
-    assert obj.notify(body="token mode image test") is True
+    assert bool(obj.notify(body="token mode image test")) is True
 
     # Send with an attachment
     attach = AppriseAttachment(os.path.join(TEST_VAR_DIR, "apprise-test.gif"))
@@ -1816,7 +2163,7 @@ def test_plugin_matrix_parse_native_url_no_match():
 def test_plugin_matrix_hookshot_webhook(mock_post):
     """matrix-hookshot webhook mode uses hookshot URL/payload conventions."""
 
-    response = mock.Mock()
+    response = _Response()
     response.status_code = requests.codes.ok
     response.content = b"{}"
     mock_post.return_value = response
@@ -1827,7 +2174,7 @@ def test_plugin_matrix_hookshot_webhook(mock_post):
     )
     assert obj is not None
 
-    assert obj.notify(title="Title", body="<b>Body</b>") is True
+    assert bool(obj.notify(title="Title", body="<b>Body</b>")) is True
 
     assert mock_post.call_args.args[0] == (
         "https://hookshot.example/public-hooks/supersecret"
@@ -1835,7 +2182,7 @@ def test_plugin_matrix_hookshot_webhook(mock_post):
 
     payload = loads(mock_post.call_args.kwargs["data"])
     assert payload["username"] == "apprise"
-    # An omitted input format preserves v1's pass-through behavior.
+    # Undeclared passthrough content remains untouched.
     assert payload["text"] == "Title\r\n<b>Body</b>"
     assert payload["html"] == "<h1>Title</h1><b>Body</b>"
 
@@ -1843,8 +2190,9 @@ def test_plugin_matrix_hookshot_webhook(mock_post):
 @mock.patch("requests.post")
 def test_plugin_matrix_hookshot_webhook_empty_title(mock_post):
     """Hookshot webhook mode avoids extra separators for empty titles."""
+    from apprise.common import NotifyFormat
 
-    response = mock.Mock()
+    response = _Response()
     response.status_code = requests.codes.ok
     response.content = b"{}"
     mock_post.return_value = response
@@ -1855,12 +2203,43 @@ def test_plugin_matrix_hookshot_webhook_empty_title(mock_post):
     )
     assert obj is not None
 
-    assert obj.notify(body="**Body**") is True
+    # Declaring Markdown enables HTML rendering.
+    assert (
+        bool(obj.notify(body="**Body**", body_format=NotifyFormat.MARKDOWN))
+        is True
+    )
 
     payload = loads(mock_post.call_args.kwargs["data"])
     assert payload["username"] == "apprise"
-    assert payload["text"] == "**Body**"
+    # The text fallback comes from the rendered HTML.
+    assert payload["text"] == "Body"
     assert payload["html"] == "<p><strong>Body</strong></p>"
+
+
+@mock.patch("requests.post")
+def test_plugin_matrix_slack_webhook_markdown_untouched(mock_post):
+    """Slack webhooks forward CommonMark for Slack to render."""
+    from apprise.common import NotifyFormat
+
+    response = _Response()
+    response.status_code = requests.codes.ok
+    response.content = b"{}"
+    mock_post.return_value = response
+
+    obj = Apprise.instantiate(
+        "matrixs://apprise:supersecret@slack.example?mode=slack&format=markdown"
+    )
+    assert obj is not None
+
+    assert (
+        bool(obj.notify(body="**Body**", body_format=NotifyFormat.MARKDOWN))
+        is True
+    )
+
+    payload = loads(mock_post.call_args.kwargs["data"])
+    assert payload["mrkdwn"] is True
+    # Slack receives the original CommonMark.
+    assert payload["attachments"][0]["text"] == "**Body**"
 
 
 def test_plugin_matrix_hookshot_path_normalization():
@@ -1878,7 +2257,7 @@ def test_plugin_matrix_hookshot_path_normalization():
 def test_plugin_matrix_hookshot_root_path_text(mock_post):
     """Hookshot root paths and text mode stay literal."""
 
-    response = mock.Mock()
+    response = _Response()
     response.status_code = requests.codes.ok
     response.content = b"{}"
     mock_post.return_value = response
@@ -1888,7 +2267,7 @@ def test_plugin_matrix_hookshot_root_path_text(mock_post):
         "?mode=hookshot&format=text&path=%2F"
     )
     assert obj is not None
-    assert obj.notify(body="<b>Body</b>") is True
+    assert bool(obj.notify(body="<b>Body</b>")) is True
 
     assert mock_post.call_args.args[0] == (
         "https://hookshot.example/supersecret"
@@ -1907,12 +2286,12 @@ def test_plugin_matrix_transaction_ids_api_v3_no_cache(
     """NotifyMatrix() Transaction ID Checks (v3)"""
 
     # Prepare a good response
-    response = mock.Mock()
+    response = _Response()
     response.status_code = requests.codes.ok
     response.content = MATRIX_GOOD_RESPONSE.encode("utf-8")
 
     # Prepare a bad response
-    bad_response = mock.Mock()
+    bad_response = _Response()
     bad_response.status_code = requests.codes.internal_server_error
 
     # Prepare Mock return object
@@ -1933,7 +2312,11 @@ def test_plugin_matrix_transaction_ids_api_v3_no_cache(
 
         # Performs a login
         assert (
-            obj.notify(body="body", title="title", notify_type=NotifyType.INFO)
+            bool(
+                obj.notify(
+                    body="body", title="title", notify_type=NotifyType.INFO
+                )
+            )
             is True
         )
         assert mock_get.call_count == 0
@@ -1960,8 +2343,10 @@ def test_plugin_matrix_transaction_ids_api_v3_no_cache(
             mock_put.reset_mock()
 
             assert (
-                obj.notify(
-                    body="body", title="title", notify_type=NotifyType.INFO
+                bool(
+                    obj.notify(
+                        body="body", title="title", notify_type=NotifyType.INFO
+                    )
                 )
                 is True
             )
@@ -2002,12 +2387,12 @@ def test_plugin_matrix_transaction_ids_api_v3_w_cache(
     """NotifyMatrix() Transaction ID Checks (v3)"""
 
     # Prepare a good response
-    response = mock.Mock()
+    response = _Response()
     response.status_code = requests.codes.ok
     response.content = MATRIX_GOOD_RESPONSE.encode("utf-8")
 
     # Prepare a bad response
-    bad_response = mock.Mock()
+    bad_response = _Response()
     bad_response.status_code = requests.codes.internal_server_error
 
     # Prepare Mock return object
@@ -2042,7 +2427,11 @@ def test_plugin_matrix_transaction_ids_api_v3_w_cache(
 
         # Performs a login
         assert (
-            obj.notify(body="body", title="title", notify_type=NotifyType.INFO)
+            bool(
+                obj.notify(
+                    body="body", title="title", notify_type=NotifyType.INFO
+                )
+            )
             is True
         )
         assert mock_get.call_count == 0
@@ -2072,8 +2461,10 @@ def test_plugin_matrix_transaction_ids_api_v3_w_cache(
             mock_put.reset_mock()
 
             assert (
-                obj.notify(
-                    body="body", title="title", notify_type=NotifyType.INFO
+                bool(
+                    obj.notify(
+                        body="body", title="title", notify_type=NotifyType.INFO
+                    )
                 )
                 is True
             )
@@ -2115,7 +2506,7 @@ def test_plugin_matrix_v3_url_with_port_assembly(
     """NotifyMatrix() URL with Port Assembly Checks (v3)"""
 
     # Prepare a good response
-    response = mock.Mock()
+    response = _Response()
     response.status_code = requests.codes.ok
     response.content = MATRIX_GOOD_RESPONSE.encode("utf-8")
 
@@ -2135,7 +2526,9 @@ def test_plugin_matrix_v3_url_with_port_assembly(
     )
     # Performs a login
     assert (
-        obj.notify(body="body", title="title", notify_type=NotifyType.INFO)
+        bool(
+            obj.notify(body="body", title="title", notify_type=NotifyType.INFO)
+        )
         is True
     )
 
@@ -2205,7 +2598,7 @@ def test_plugin_matrix_no_room_create_on_non_not_found_join(
     """
 
     def _resp(status_code: int, content: Union[str, bytes]) -> mock.Mock:
-        r = mock.Mock()
+        r = _Response()
         r.status_code = status_code
         if isinstance(content, str):
             r.content = content.encode("utf-8")
@@ -2238,7 +2631,7 @@ def test_plugin_matrix_no_room_create_on_non_not_found_join(
     ap = Apprise()
     ap.add("matrixs://user:pass@matrix.vip/#backup?discovery=no")
 
-    assert ap.notify(title="t", body="b") is False
+    assert bool(ap.notify(title="t", body="b")) is False
 
     # Cleanup explicitly to ensure __del__ executes while mocks are active.
     import gc
@@ -2262,7 +2655,7 @@ def test_plugin_matrix_room_create_on_not_found_join(
     """Attempt room creation only when join reports 404 / M_NOT_FOUND."""
 
     def _resp(status_code: int, content: Union[str, bytes]) -> mock.Mock:
-        r = mock.Mock()
+        r = _Response()
         r.status_code = status_code
         if isinstance(content, str):
             r.content = content.encode("utf-8")
@@ -2313,7 +2706,7 @@ def test_plugin_matrix_room_create_on_not_found_join(
     ap = Apprise()
     ap.add("matrixs://user:pass@matrix.vip/#backup?discovery=no")
 
-    assert ap.notify(title="t", body="b") is True
+    assert bool(ap.notify(title="t", body="b")) is True
 
     import gc
 
@@ -2353,7 +2746,7 @@ def test_plugin_matrix_room_create_e2ee_initial_state(
         "home_server": "localhost",
         "room_id": "!abc123",
     }
-    r = mock.Mock()
+    r = _Response()
     r.status_code = requests.codes.ok
     r.content = dumps(response_obj).encode()
     mock_post.return_value = r
@@ -2455,6 +2848,2236 @@ def test_plugin_matrix_e2ee_helpers():
     assert out.startswith(b'{"a"')
 
 
+@pytest.mark.skipif(not CRYPTOGRAPHY_AVAILABLE, reason="Requires cryptography")
+def test_plugin_matrix_sas_responder_roundtrip():
+    """The custom SAS responder interoperates without libolm."""
+    import hashlib
+
+    from cryptography.hazmat.primitives.asymmetric.x25519 import (
+        X25519PrivateKey,
+        X25519PublicKey,
+    )
+    from cryptography.hazmat.primitives.serialization import (
+        Encoding,
+        PublicFormat,
+    )
+
+    from apprise.plugins.matrix.e2ee import (
+        MatrixOlmAccount,
+        MatrixSASVerification,
+        _b64dec,
+        _b64enc,
+        _canonical_json,
+        _hkdf_sha256,
+        _hmac_sha256,
+    )
+
+    own_user = peer_user = "@u:h"
+    own_device = "APPRISE"
+    peer_device = "ELEMENT"
+    transaction_id = "sas-transaction"
+    start = {
+        "from_device": peer_device,
+        "transaction_id": transaction_id,
+        "method": "m.sas.v1",
+        "key_agreement_protocols": ["curve25519-hkdf-sha256"],
+        "hashes": ["sha256"],
+        "message_authentication_codes": ["hkdf-hmac-sha256.v2"],
+        "short_authentication_string": ["decimal", "emoji"],
+    }
+    sas = MatrixSASVerification(
+        own_user,
+        own_device,
+        peer_user,
+        peer_device,
+        start,
+    )
+    accept = sas.accept_content()
+    commitment = hashlib.sha256(
+        sas.public_key.encode("ascii") + _canonical_json(start)
+    ).digest()
+    assert accept["commitment"] == _b64enc(commitment)
+    assert accept["message_authentication_code"] == ("hkdf-hmac-sha256.v2")
+
+    peer_private = X25519PrivateKey.generate()
+    peer_public = _b64enc(
+        peer_private.public_key().public_bytes(Encoding.Raw, PublicFormat.Raw)
+    )
+    sas.receive_key(peer_public)
+    assert sas.key_content()["key"] == sas.public_key
+    shared_secret = peer_private.exchange(
+        X25519PublicKey.from_public_bytes(_b64dec(sas.public_key))
+    )
+
+    def peer_mac(value, key_id):
+        info = (
+            "MATRIX_KEY_VERIFICATION_MAC"
+            + peer_user
+            + peer_device
+            + own_user
+            + own_device
+            + transaction_id
+            + key_id
+        ).encode("utf-8")
+        key = _hkdf_sha256(shared_secret, 32, salt=None, info=info)
+        return _b64enc(_hmac_sha256(key, value.encode("utf-8")))
+
+    own_account = MatrixOlmAccount()
+    own_mac = sas.mac_content(own_account.signing_key)
+    assert "ed25519:APPRISE" in own_mac["mac"]
+
+    peer_account = MatrixOlmAccount()
+    peer_key_id = "ed25519:{}".format(peer_device)
+    peer_content = {
+        "transaction_id": transaction_id,
+        "mac": {peer_key_id: peer_mac(peer_account.signing_key, peer_key_id)},
+        "keys": peer_mac(peer_key_id, "KEY_IDS"),
+    }
+    tampered = dict(peer_content)
+    tampered["keys"] = "invalid"
+    with pytest.raises(ValueError, match="key list MAC"):
+        sas.verify_peer_mac(tampered, {peer_key_id: peer_account.signing_key})
+    assert sas.verify_peer_mac(
+        peer_content, {peer_key_id: peer_account.signing_key}
+    )
+    assert sas.state == "verified"
+
+
+@pytest.mark.skipif(not CRYPTOGRAPHY_AVAILABLE, reason="Requires cryptography")
+def test_plugin_matrix_sas_init_validation():
+    """MatrixSASVerification rejects malformed SAS start content."""
+    from apprise.plugins.matrix.e2ee import MatrixSASVerification
+
+    own_user = peer_user = "@u:h"
+    own_device, peer_device = "APPRISE", "ELEMENT"
+    base_start = {
+        "from_device": peer_device,
+        "transaction_id": "tx",
+        "method": "m.sas.v1",
+        "key_agreement_protocols": ["curve25519-hkdf-sha256"],
+        "hashes": ["sha256"],
+        "message_authentication_codes": ["hkdf-hmac-sha256.v2"],
+        "short_authentication_string": ["decimal", "emoji"],
+    }
+
+    def build(**overrides):
+        content = dict(base_start)
+        content.update(overrides)
+        return content
+
+    cases = (
+        ({"transaction_id": ""}, "Missing SAS transaction"),
+        ({"from_device": "OTHER"}, "does not match request device"),
+        ({"method": "m.other.v1"}, "Unsupported SAS verification method"),
+        (
+            {"key_agreement_protocols": ["other"]},
+            "Unsupported SAS key agreement",
+        ),
+        ({"hashes": ["sha1"]}, "Unsupported SAS hash"),
+        (
+            {"message_authentication_codes": ["other"]},
+            "Unsupported SAS MAC",
+        ),
+        (
+            {"short_authentication_string": ["emoji"]},
+            "does not offer decimal",
+        ),
+    )
+    for overrides, match in cases:
+        with pytest.raises(ValueError, match=match):
+            MatrixSASVerification(
+                own_user,
+                own_device,
+                peer_user,
+                peer_device,
+                build(**overrides),
+            )
+
+    # A peer device ID is required with the transaction ID.
+    with pytest.raises(ValueError, match="Missing SAS transaction"):
+        MatrixSASVerification(own_user, own_device, peer_user, "", base_start)
+
+
+def _make_sas(own_user, own_device, peer_user, peer_device, transaction_id):
+    """Build a fresh MatrixSASVerification responder for *transaction_id*."""
+    from apprise.plugins.matrix.e2ee import MatrixSASVerification
+
+    start = {
+        "from_device": peer_device,
+        "transaction_id": transaction_id,
+        "method": "m.sas.v1",
+        "key_agreement_protocols": ["curve25519-hkdf-sha256"],
+        "hashes": ["sha256"],
+        "message_authentication_codes": ["hkdf-hmac-sha256.v2"],
+        "short_authentication_string": ["decimal", "emoji"],
+    }
+    return MatrixSASVerification(
+        own_user, own_device, peer_user, peer_device, start
+    )
+
+
+def _completed_sas_pair(
+    own_user,
+    own_device,
+    peer_user,
+    peer_device,
+    transaction_id,
+    own_account,
+    peer_account,
+):
+    """Build a responder and matching peer at the MAC stage.
+
+    The returned helper creates additional valid MAC values for edge cases.
+    """
+    from cryptography.hazmat.primitives.asymmetric.x25519 import (
+        X25519PrivateKey,
+        X25519PublicKey,
+    )
+    from cryptography.hazmat.primitives.serialization import (
+        Encoding,
+        PublicFormat,
+    )
+
+    from apprise.plugins.matrix.e2ee import (
+        _b64dec,
+        _b64enc,
+        _hkdf_sha256,
+        _hmac_sha256,
+    )
+
+    sas = _make_sas(
+        own_user, own_device, peer_user, peer_device, transaction_id
+    )
+    sas.accept_content()
+
+    peer_private = X25519PrivateKey.generate()
+    peer_public = _b64enc(
+        peer_private.public_key().public_bytes(Encoding.Raw, PublicFormat.Raw)
+    )
+    sas.receive_key(peer_public)
+    sas.mac_content(own_account.signing_key)
+
+    shared_secret = peer_private.exchange(
+        X25519PublicKey.from_public_bytes(_b64dec(sas.public_key))
+    )
+
+    def peer_mac(value, key_id):
+        info = (
+            "MATRIX_KEY_VERIFICATION_MAC"
+            + peer_user
+            + peer_device
+            + own_user
+            + own_device
+            + transaction_id
+            + key_id
+        ).encode("utf-8")
+        key = _hkdf_sha256(shared_secret, 32, salt=None, info=info)
+        return _b64enc(_hmac_sha256(key, value.encode("utf-8")))
+
+    key_id = "ed25519:{}".format(peer_device)
+    content = {
+        "transaction_id": transaction_id,
+        "mac": {key_id: peer_mac(peer_account.signing_key, key_id)},
+        "keys": peer_mac(key_id, "KEY_IDS"),
+    }
+    peer_keys = {key_id: peer_account.signing_key}
+    return sas, content, peer_keys, peer_mac
+
+
+@pytest.mark.skipif(not CRYPTOGRAPHY_AVAILABLE, reason="Requires cryptography")
+def test_plugin_matrix_sas_verification_state_guards():
+    """Out-of-order calls against MatrixSASVerification are rejected."""
+    own_user = peer_user = "@u:h"
+    own_device, peer_device = "APPRISE", "ELEMENT"
+
+    sas = _make_sas(own_user, own_device, peer_user, peer_device, "tx")
+    with pytest.raises(ValueError, match="peer key has not been received"):
+        sas.key_content()
+    with pytest.raises(ValueError, match="peer key has not been received"):
+        sas.mac_content("sig")
+    with pytest.raises(ValueError, match="Unexpected SAS key event"):
+        sas.receive_key("AAAA")
+
+    sas.accept_content()
+    with pytest.raises(ValueError, match="already accepted"):
+        sas.accept_content()
+    with pytest.raises(ValueError, match="Unexpected SAS MAC event"):
+        sas.verify_peer_mac({}, {})
+
+    with pytest.raises(
+        ValueError, match="shared secret has not been established"
+    ):
+        sas.decimal_sas()
+
+
+@pytest.mark.skipif(not CRYPTOGRAPHY_AVAILABLE, reason="Requires cryptography")
+def test_plugin_matrix_sas_invalid_peer_key():
+    """Reject malformed peer keys before decoding them."""
+    own_user = peer_user = "@u:h"
+    own_device, peer_device = "APPRISE", "ELEMENT"
+
+    for bad_key in ("", "A" * 513, None, 12345):
+        sas = _make_sas(own_user, own_device, peer_user, peer_device, "tx")
+        sas.accept_content()
+        with pytest.raises(ValueError, match="missing or malformed"):
+            sas.receive_key(bad_key)
+
+
+@pytest.mark.skipif(not CRYPTOGRAPHY_AVAILABLE, reason="Requires cryptography")
+def test_plugin_matrix_sas_mac_requires_secret():
+    """_calculate_mac refuses to run before the SAS key exchange."""
+    sas = _make_sas("@u:h", "APPRISE", "@u:h", "ELEMENT", "tx")
+    # Reach the MAC guard without creating a shared secret.
+    sas.state = "key_received"
+    with pytest.raises(
+        ValueError, match="shared secret has not been established"
+    ):
+        sas._calculate_mac("v", "kid", "@u:h", "APPRISE", "@u:h", "ELEMENT")
+
+
+@pytest.mark.skipif(not CRYPTOGRAPHY_AVAILABLE, reason="Requires cryptography")
+def test_plugin_matrix_sas_decimal_sas():
+    """decimal_sas derives the 3-number code the Matrix spec defines."""
+    from cryptography.hazmat.primitives.asymmetric.x25519 import (
+        X25519PrivateKey,
+    )
+    from cryptography.hazmat.primitives.serialization import (
+        Encoding,
+        PublicFormat,
+    )
+
+    from apprise.plugins.matrix.e2ee import _b64enc
+
+    sas = _make_sas("@u:h", "APPRISE", "@u:h", "ELEMENT", "tx")
+    sas.accept_content()
+    peer_private = X25519PrivateKey.generate()
+    peer_public = _b64enc(
+        peer_private.public_key().public_bytes(Encoding.Raw, PublicFormat.Raw)
+    )
+    sas.receive_key(peer_public)
+
+    # Check the decimal bit splitting independently with five known bytes.
+    with mock.patch(
+        "apprise.plugins.matrix.e2ee._hkdf_sha256",
+        return_value=bytes([0xFF] * 5),
+    ) as hkdf:
+        # All 40 bits set -> each 13-bit group is 8191 -> +1000 = 9191.
+        assert sas.decimal_sas() == (9191, 9191, 9191)
+    assert hkdf.call_args.args[1] == 5
+
+    with mock.patch(
+        "apprise.plugins.matrix.e2ee._hkdf_sha256",
+        return_value=bytes(5),
+    ):
+        # All bits clear -> each 13-bit group is 0 -> +1000 = 1000.
+        assert sas.decimal_sas() == (1000, 1000, 1000)
+
+    with mock.patch(
+        "apprise.plugins.matrix.e2ee._hkdf_sha256",
+        return_value=b"\x00\x01\x00\x00\x00",
+    ) as hkdf:
+        # Cross-check against the spec's byte-by-byte formula.
+        b0, b1, b2, b3, b4 = b"\x00\x01\x00\x00\x00"
+        expected = (
+            ((b0 << 5) | (b1 >> 3)) + 1000,
+            (((b1 & 0x7) << 10) | (b2 << 2) | (b3 >> 6)) + 1000,
+            (((b3 & 0x3F) << 7) | (b4 >> 1)) + 1000,
+        )
+        assert sas.decimal_sas() == expected
+
+    # Require the spec's exact separators and initiator-first field order.
+    info = hkdf.call_args.kwargs["info"]
+    assert info == (
+        "MATRIX_KEY_VERIFICATION_SAS|"
+        "@u:h|ELEMENT|" + peer_public + "|"
+        "@u:h|APPRISE|" + sas.public_key + "|"
+        "tx"
+    ).encode("utf-8")
+
+
+@pytest.mark.skipif(not CRYPTOGRAPHY_AVAILABLE, reason="Requires cryptography")
+def test_plugin_matrix_sas_verify_peer_mac_errors():
+    """verify_peer_mac rejects tampered or incomplete MAC content."""
+    from apprise.plugins.matrix.e2ee import MatrixOlmAccount
+
+    own_user = peer_user = "@u:h"
+    own_device, peer_device = "APPRISE", "ELEMENT"
+    own_account = MatrixOlmAccount()
+    peer_account = MatrixOlmAccount()
+
+    def build():
+        return _completed_sas_pair(
+            own_user,
+            own_device,
+            peer_user,
+            peer_device,
+            "tx",
+            own_account,
+            peer_account,
+        )
+
+    # Wrong transaction id
+    sas, content, peer_keys, _mac = build()
+    content["transaction_id"] = "other"
+    with pytest.raises(ValueError, match="transaction does not match"):
+        sas.verify_peer_mac(content, peer_keys)
+
+    # Missing/empty mac dict
+    sas, content, peer_keys, _mac = build()
+    content["mac"] = {}
+    with pytest.raises(ValueError, match="contains no keys"):
+        sas.verify_peer_mac(content, peer_keys)
+
+    # mac dict present but missing the peer's own device key id
+    sas, content, peer_keys, _mac = build()
+    content["mac"] = {"ed25519:someone-else": "AAAA"}
+    with pytest.raises(ValueError, match="omits the peer device key"):
+        sas.verify_peer_mac(content, peer_keys)
+
+    # An oversized key list is rejected before it is ever sorted/hashed.
+    sas, content, peer_keys, _mac = build()
+    device_key_id = next(iter(content["mac"]))
+    content["mac"] = {
+        device_key_id: content["mac"][device_key_id],
+        **{
+            f"ed25519:junk-{i}": "AAAA"
+            for i in range(matrix_sas.MatrixSASVerification.MAX_MAC_KEYS)
+        },
+    }
+    with pytest.raises(ValueError, match="too many keys"):
+        sas.verify_peer_mac(content, peer_keys)
+
+    # peer_keys is not a mapping at all (TypeError branch)
+    sas, content, peer_keys, _mac = build()
+    with pytest.raises(ValueError, match="unknown key"):
+        sas.verify_peer_mac(content, None)
+
+    # Reference an unknown key while keeping the key-list MAC valid.
+    sas, content, peer_keys, peer_mac = build()
+    device_key_id = next(iter(content["mac"]))
+    unknown_key_id = "ed25519:unknown-device"
+    macs = {
+        device_key_id: content["mac"][device_key_id],
+        unknown_key_id: peer_mac("garbage", unknown_key_id),
+    }
+    tampered = {
+        "transaction_id": "tx",
+        "mac": macs,
+        "keys": peer_mac(",".join(sorted(macs)), "KEY_IDS"),
+    }
+    with pytest.raises(ValueError, match="unknown key"):
+        sas.verify_peer_mac(tampered, peer_keys)
+
+    # Tampered per-device MAC value
+    sas, content, peer_keys, _mac = build()
+    content["mac"][device_key_id] = "tampered-value"
+    with pytest.raises(ValueError, match="device key MAC does not match"):
+        sas.verify_peer_mac(content, peer_keys)
+
+
+@pytest.mark.skipif(not CRYPTOGRAPHY_AVAILABLE, reason="Requires cryptography")
+def test_plugin_matrix_sas_mac_field_limits():
+    """Reject oversized MAC fields before processing them."""
+    from apprise.plugins.matrix.e2ee import MatrixOlmAccount
+
+    own_user = peer_user = "@u:h"
+    own_device, peer_device = "APPRISE", "ELEMENT"
+    own_account = MatrixOlmAccount()
+    peer_account = MatrixOlmAccount()
+
+    def build():
+        return _completed_sas_pair(
+            own_user,
+            own_device,
+            peer_user,
+            peer_device,
+            "tx",
+            own_account,
+            peer_account,
+        )
+
+    # Oversized MAC value for an otherwise-valid key ID.
+    sas, content, peer_keys, _mac = build()
+    device_key_id = next(iter(content["mac"]))
+    content["mac"][device_key_id] = "A" * 513
+    with pytest.raises(ValueError, match="malformed entry"):
+        sas.verify_peer_mac(content, peer_keys)
+
+    # Oversized key ID replacing the real one.
+    sas, content, peer_keys, _mac = build()
+    device_key_id = next(iter(content["mac"]))
+    content["mac"] = {"ed25519:" + "A" * 513: content["mac"][device_key_id]}
+    with pytest.raises(ValueError, match="malformed entry"):
+        sas.verify_peer_mac(content, peer_keys)
+
+    # Oversized aggregate key-list MAC.
+    sas, content, peer_keys, _mac = build()
+    content["keys"] = "A" * 513
+    with pytest.raises(ValueError, match="malformed key list MAC"):
+        sas.verify_peer_mac(content, peer_keys)
+
+    # Missing key-list MAC.
+    sas, content, peer_keys, _mac = build()
+    del content["keys"]
+    with pytest.raises(ValueError, match="malformed key list MAC"):
+        sas.verify_peer_mac(content, peer_keys)
+
+    # An oversized public key returned for the peer's device.
+    sas, content, peer_keys, _mac = build()
+    device_key_id = next(iter(content["mac"]))
+    peer_keys = dict(peer_keys, **{device_key_id: "A" * 513})
+    with pytest.raises(ValueError, match="malformed key"):
+        sas.verify_peer_mac(content, peer_keys)
+
+
+@pytest.mark.skipif(not CRYPTOGRAPHY_AVAILABLE, reason="Requires cryptography")
+def test_plugin_matrix_e2ee_binding_key():
+    """_e2ee_binding_key reflects the current device/account identity."""
+    from apprise.plugins.matrix.e2ee import MatrixOlmAccount
+
+    obj = NotifyMatrix(
+        host="h", user="u", password="pass", targets=["#r"], secure=True
+    )
+    assert obj._e2ee_binding_key() == ""
+
+    obj._e2ee_account = MatrixOlmAccount()
+    obj.user_id = "@u:h"
+    obj.device_id = "APPRISE"
+    assert obj._e2ee_binding_key() == "{}|{}|{}|{}".format(
+        "@u:h",
+        "APPRISE",
+        obj._e2ee_account.identity_key,
+        obj._e2ee_account.signing_key,
+    )
+
+
+def test_plugin_matrix_autoverify_implies_e2ee():
+    """autoverify=yes implies e2ee=yes unless e2ee is set explicitly."""
+
+    # autoverify alone turns e2ee on without spelling it out.
+    obj = NotifyMatrix(
+        host="h",
+        user="u",
+        password="pass",
+        targets=["#r"],
+        secure=True,
+        autoverify=True,
+    )
+    assert obj.autoverify is True
+    assert obj.e2ee is True
+
+    # An explicit e2ee=no is still honored even with autoverify=yes.
+    obj = NotifyMatrix(
+        host="h",
+        user="u",
+        password="pass",
+        targets=["#r"],
+        secure=True,
+        autoverify=True,
+        e2ee=False,
+    )
+    assert obj.autoverify is True
+    assert obj.e2ee is False
+
+    # An explicit e2ee=yes alongside autoverify=yes is unaffected.
+    obj = NotifyMatrix(
+        host="h",
+        user="u",
+        password="pass",
+        targets=["#r"],
+        secure=True,
+        autoverify=True,
+        e2ee=True,
+    )
+    assert obj.autoverify is True
+    assert obj.e2ee is True
+
+    # Without autoverify, e2ee keeps its own (already-True) default.
+    obj = NotifyMatrix(
+        host="h", user="u", password="pass", targets=["#r"], secure=True
+    )
+    assert obj.autoverify is False
+    assert obj.e2ee is True
+
+    # The implied e2ee=yes survives a URL round trip: autoverify=yes is
+    # emitted, e2ee=no is not, and re-parsing yields the same identity.
+    obj = NotifyMatrix(
+        host="h",
+        user="u",
+        password="pass",
+        targets=["#r"],
+        secure=True,
+        autoverify=True,
+    )
+    url = obj.url()
+    assert "autoverify=yes" in url
+    assert "e2ee=no" not in url
+
+    results = NotifyMatrix.parse_url(url)
+    obj2 = NotifyMatrix(**results)
+    assert obj2.autoverify is True
+    assert obj2.e2ee is True
+    assert obj.url_identifier == obj2.url_identifier
+
+
+def _matrix_sas_plugin(user_id="@u:h", device_id="APPRISE"):
+    """A NotifyMatrix instance with a ready-to-use E2EE identity."""
+    from apprise.plugins.matrix.e2ee import MatrixOlmAccount
+
+    obj = NotifyMatrix(
+        host="h",
+        user="u",
+        password="pass",
+        targets=["#r"],
+        e2ee=True,
+        autoverify=True,
+        secure=True,
+    )
+    obj.user_id = user_id
+    obj.device_id = device_id
+    obj._e2ee_account = MatrixOlmAccount()
+    return obj
+
+
+@pytest.mark.skipif(not CRYPTOGRAPHY_AVAILABLE, reason="Requires cryptography")
+def test_plugin_matrix_sas_send_event_and_cancel():
+    """_send_event builds the /sendToDevice request; _cancel/_fail no-op
+    without an active transaction."""
+    import re
+
+    obj = _matrix_sas_plugin()
+    verifier = matrix_sas.MatrixSASAutoVerifier(obj)
+
+    assert verifier._cancel("m.timeout", "x") is False
+    assert verifier._fail("m.timeout", "x") is False
+
+    with mock.patch.object(
+        obj, "_fetch", return_value=(True, {}, requests.codes.ok)
+    ) as fetch:
+        assert (
+            verifier._send_event(
+                "m.key.verification.ready", "@peer:h", "DEV", {"a": 1}
+            )
+            is True
+        )
+    args, kwargs = fetch.call_args
+    assert re.match(r"^/sendToDevice/[^/]+/[0-9a-f]{32}$", args[0])
+    assert kwargs["method"] == "PUT"
+    assert kwargs["payload"] == {"messages": {"@peer:h": {"DEV": {"a": 1}}}}
+    # To-device sends use the same bounded verification budget as sync.
+    assert kwargs["timeout"][0] > 0
+    assert kwargs["timeout"][1] > 0
+    assert 0 < kwargs["max_retry_wait"] <= obj.default_autoverify_timeout_sec
+
+    with mock.patch.object(obj, "_fetch", return_value=(False, {}, 500)):
+        assert (
+            verifier._send_event("m.key.verification.ready", "u", "d", {})
+            is False
+        )
+
+    verifier.active = {
+        "transaction_id": "tx",
+        "user_id": "@peer:h",
+        "device_id": "DEV",
+    }
+    with mock.patch.object(
+        obj, "_fetch", return_value=(True, {}, requests.codes.ok)
+    ) as fetch:
+        assert verifier._cancel("m.timeout", "reason") is True
+    _, kwargs = fetch.call_args
+    assert kwargs["payload"] == {
+        "messages": {
+            "@peer:h": {
+                "DEV": {
+                    "transaction_id": "tx",
+                    "code": "m.timeout",
+                    "reason": "reason",
+                }
+            }
+        }
+    }
+    assert verifier._fail("m.timeout", "reason") is False
+
+
+@pytest.mark.skipif(not CRYPTOGRAPHY_AVAILABLE, reason="Requires cryptography")
+def test_plugin_matrix_sas_peer_keys_branches():
+    """_peer_keys covers every failure and success path."""
+    from apprise.plugins.matrix.e2ee import MatrixOlmAccount
+
+    obj = _matrix_sas_plugin()
+    verifier = matrix_sas.MatrixSASAutoVerifier(obj)
+
+    with mock.patch.object(
+        obj, "_fetch", return_value=(False, {}, 500)
+    ) as fetch:
+        assert verifier._peer_keys("@peer:h", "DEV") is None
+    # Key queries use the same bounded verification budget.
+    kwargs = fetch.call_args.kwargs
+    assert kwargs["timeout"][0] > 0
+    assert kwargs["timeout"][1] > 0
+    assert 0 < kwargs["max_retry_wait"] <= obj.default_autoverify_timeout_sec
+
+    with mock.patch.object(
+        obj, "_fetch", return_value=(True, [], requests.codes.ok)
+    ):
+        assert verifier._peer_keys("@peer:h", "DEV") is None
+
+    with mock.patch.object(
+        obj,
+        "_fetch",
+        return_value=(True, {"device_keys": {}}, requests.codes.ok),
+    ):
+        assert verifier._peer_keys("@peer:h", "DEV") is None
+
+    # Null server fields are malformed but must not crash verification.
+    for malformed_response in (
+        {"device_keys": None},
+        {"device_keys": {"@peer:h": None}},
+        {"device_keys": "not-a-dict"},
+    ):
+        with mock.patch.object(
+            obj,
+            "_fetch",
+            return_value=(True, malformed_response, requests.codes.ok),
+        ):
+            assert verifier._peer_keys("@peer:h", "DEV") is None
+
+    bad_device = {
+        "user_id": "@peer:h",
+        "device_id": "DEV",
+        "keys": {},
+        "signatures": {},
+    }
+    with mock.patch.object(
+        obj,
+        "_fetch",
+        return_value=(
+            True,
+            {"device_keys": {"@peer:h": {"DEV": bad_device}}},
+            requests.codes.ok,
+        ),
+    ):
+        assert verifier._peer_keys("@peer:h", "DEV") is None
+
+    peer_account = MatrixOlmAccount()
+    device = peer_account.device_keys_payload("@peer:h", "DEV")
+    response = {
+        "device_keys": {"@peer:h": {"DEV": device}},
+        "master_keys": {"@peer:h": {"keys": {"ed25519:master": "abc"}}},
+    }
+    with mock.patch.object(
+        obj, "_fetch", return_value=(True, response, requests.codes.ok)
+    ):
+        keys = verifier._peer_keys("@peer:h", "DEV")
+    assert keys["ed25519:master"] == "abc"
+    assert "ed25519:DEV" in keys
+
+    # An implausibly large keys map is rejected rather than copied; a real
+    # device or master-key object only ever advertises a couple of keys.
+    oversized_keys = {
+        f"curve25519:{i}": "k" for i in range(matrix_sas.MAX_DEVICE_KEYS + 1)
+    }
+    oversized_device = dict(device, keys=oversized_keys)
+    with (
+        mock.patch.object(matrix_sas, "verify_device_keys", return_value=True),
+        mock.patch.object(
+            obj,
+            "_fetch",
+            return_value=(
+                True,
+                {"device_keys": {"@peer:h": {"DEV": oversized_device}}},
+                requests.codes.ok,
+            ),
+        ),
+    ):
+        keys = verifier._peer_keys("@peer:h", "DEV")
+    assert keys == {}
+
+    oversized_master = dict(
+        response,
+        master_keys={"@peer:h": {"keys": oversized_keys}},
+    )
+    with mock.patch.object(
+        obj, "_fetch", return_value=(True, oversized_master, requests.codes.ok)
+    ):
+        keys = verifier._peer_keys("@peer:h", "DEV")
+    assert "curve25519:0" not in keys
+    assert "ed25519:DEV" in keys
+
+    malformed = dict(response, master_keys={"@peer:h": "not-a-dict"})
+    with mock.patch.object(
+        obj, "_fetch", return_value=(True, malformed, requests.codes.ok)
+    ):
+        keys = verifier._peer_keys("@peer:h", "DEV")
+    assert "ed25519:master" not in keys
+
+    # Treat null or malformed optional master keys as absent.
+    for master_keys_value in (None, {"@peer:h": {"keys": None}}):
+        with mock.patch.object(
+            obj,
+            "_fetch",
+            return_value=(
+                True,
+                dict(response, master_keys=master_keys_value),
+                requests.codes.ok,
+            ),
+        ):
+            keys = verifier._peer_keys("@peer:h", "DEV")
+        assert "ed25519:master" not in keys
+        assert "ed25519:DEV" in keys
+
+
+@pytest.mark.skipif(not CRYPTOGRAPHY_AVAILABLE, reason="Requires cryptography")
+def test_plugin_matrix_sas_handle_request_branches():
+    """_handle_request covers ignore/fail/success outcomes."""
+    from time import time
+
+    obj = _matrix_sas_plugin()
+    verifier = matrix_sas.MatrixSASAutoVerifier(obj)
+    now_ms = int(time() * 1000)
+
+    assert verifier._handle_request("@u:h", {"timestamp": "nope"}) is None
+
+    stale = {
+        "timestamp": now_ms - 20 * 60 * 1000,
+        "transaction_id": "tx",
+        "from_device": "DEV",
+        "methods": ["m.sas.v1"],
+    }
+    assert verifier._handle_request("@u:h", stale) is None
+
+    future = dict(stale, timestamp=now_ms + 20 * 60 * 1000)
+    assert verifier._handle_request("@u:h", future) is None
+
+    missing_tx = {
+        "timestamp": now_ms,
+        "from_device": "DEV",
+        "methods": ["m.sas.v1"],
+    }
+    assert verifier._handle_request("@u:h", missing_tx) is None
+
+    missing_device = {
+        "timestamp": now_ms,
+        "transaction_id": "tx",
+        "methods": ["m.sas.v1"],
+    }
+    assert verifier._handle_request("@u:h", missing_device) is None
+
+    wrong_method = {
+        "timestamp": now_ms,
+        "transaction_id": "tx",
+        "from_device": "DEV",
+        "methods": ["other"],
+    }
+    assert verifier._handle_request("@u:h", wrong_method) is None
+
+    # A present-but-null "methods" field must not crash the "in" check.
+    null_methods = {
+        "timestamp": now_ms,
+        "transaction_id": "tx",
+        "from_device": "DEV",
+        "methods": None,
+    }
+    assert verifier._handle_request("@u:h", null_methods) is None
+
+    # Identifiers are validated by type and length, not just truthiness.
+    for bad_transaction_id, bad_from_device in (
+        (["tx"], "DEV"),
+        ("x" * (matrix_sas.MAX_ID_LEN + 1), "DEV"),
+        ("tx", 12345),
+        ("tx", "x" * (matrix_sas.MAX_ID_LEN + 1)),
+    ):
+        bad_ids = {
+            "timestamp": now_ms,
+            "transaction_id": bad_transaction_id,
+            "from_device": bad_from_device,
+            "methods": ["m.sas.v1"],
+        }
+        assert verifier._handle_request("@u:h", bad_ids) is None
+    assert verifier.active is None
+
+    valid = {
+        "timestamp": now_ms,
+        "transaction_id": "tx",
+        "from_device": "DEV",
+        "methods": ["m.sas.v1"],
+    }
+
+    with mock.patch.object(verifier, "_peer_keys", return_value=None):
+        assert verifier._handle_request("@u:h", valid) is False
+    assert verifier.active is None
+
+    # Reject a new request without changing the active transaction.
+    active = {
+        "transaction_id": "other",
+        "user_id": "@u:h",
+        "device_id": "OLD",
+    }
+    verifier.active = active
+    with mock.patch.object(verifier, "_send_event", return_value=True) as se:
+        assert verifier._handle_request("@u:h", valid) is None
+    se.assert_called_once_with(
+        matrix_sas.EVENT_CANCEL,
+        "@u:h",
+        "DEV",
+        {
+            "transaction_id": "tx",
+            "code": "m.unexpected_message",
+            "reason": "Another verification is already active",
+        },
+    )
+    assert verifier.active is active
+    verifier.active = None
+
+    # An exact replay of the request that started the active transaction
+    # is ignored silently -- it must not cancel our own exchange.
+    active = {
+        "transaction_id": "tx",
+        "user_id": "@u:h",
+        "device_id": "DEV",
+    }
+    verifier.active = active
+    with mock.patch.object(verifier, "_send_event") as se:
+        assert verifier._handle_request("@u:h", valid) is None
+    se.assert_not_called()
+    assert verifier.active is active
+    verifier.active = None
+
+    # A second transaction from the same device cancels both attempts.
+    active = {
+        "transaction_id": "other",
+        "user_id": "@u:h",
+        "device_id": "DEV",
+    }
+    verifier.active = active
+    with (
+        mock.patch.object(verifier, "_cancel", return_value=True) as cancel,
+        mock.patch.object(verifier, "_send_event", return_value=True) as se,
+    ):
+        assert verifier._handle_request("@u:h", valid) is None
+    cancel.assert_called_once_with(
+        "m.unexpected_message",
+        "A newer verification request superseded this one",
+    )
+    se.assert_called_once_with(
+        matrix_sas.EVENT_CANCEL,
+        "@u:h",
+        "DEV",
+        {
+            "transaction_id": "tx",
+            "code": "m.unexpected_message",
+            "reason": "Another verification is already active",
+        },
+    )
+    assert verifier.active is None
+
+    with (
+        mock.patch.object(
+            verifier, "_peer_keys", return_value={"ed25519:DEV": "k"}
+        ),
+        mock.patch.object(verifier, "_send_event", return_value=False) as se,
+    ):
+        assert verifier._handle_request("@u:h", valid) is False
+    se.assert_called_once()
+    verifier.active = None
+
+    with (
+        mock.patch.object(
+            verifier, "_peer_keys", return_value={"ed25519:DEV": "k"}
+        ),
+        mock.patch.object(verifier, "_send_event", return_value=True),
+    ):
+        assert verifier._handle_request("@u:h", valid) is None
+    assert verifier.active["transaction_id"] == "tx"
+
+
+@pytest.mark.skipif(not CRYPTOGRAPHY_AVAILABLE, reason="Requires cryptography")
+def test_plugin_matrix_sas_handle_cancel():
+    """_handle_cancel always reports failure."""
+    obj = _matrix_sas_plugin()
+    verifier = matrix_sas.MatrixSASAutoVerifier(obj)
+    assert verifier._handle_cancel({"reason": "user declined"}) is False
+    assert verifier._handle_cancel({}) is False
+
+
+@pytest.mark.skipif(not CRYPTOGRAPHY_AVAILABLE, reason="Requires cryptography")
+def test_plugin_matrix_sas_handle_start_branches():
+    """_handle_start covers the invalid-params, send-failure, and success
+    outcomes."""
+    obj = _matrix_sas_plugin()
+    verifier = matrix_sas.MatrixSASAutoVerifier(obj)
+    verifier.active = {
+        "transaction_id": "tx",
+        "user_id": "@peer:h",
+        "device_id": "DEV",
+    }
+
+    with mock.patch.object(verifier, "_cancel", return_value=True) as cancel:
+        assert (
+            verifier._handle_start("@peer:h", {"transaction_id": "tx"})
+            is False
+        )
+    cancel.assert_called_once_with(
+        "m.unknown_method", "Unsupported SAS verification parameters"
+    )
+
+    valid_start = {
+        "from_device": "DEV",
+        "transaction_id": "tx",
+        "method": "m.sas.v1",
+        "key_agreement_protocols": ["curve25519-hkdf-sha256"],
+        "hashes": ["sha256"],
+        "message_authentication_codes": ["hkdf-hmac-sha256.v2"],
+        "short_authentication_string": ["decimal", "emoji"],
+    }
+
+    with mock.patch.object(verifier, "_send_event", return_value=False):
+        assert verifier._handle_start("@peer:h", valid_start) is False
+    assert verifier.active["sas"] is not None
+
+    verifier.active["sas"] = None
+    with mock.patch.object(verifier, "_send_event", return_value=True):
+        assert verifier._handle_start("@peer:h", valid_start) is None
+    assert verifier.active["sas"] is not None
+    first_sas = verifier.active["sas"]
+
+    # A second start must not replace an already committed temporary key.
+    with mock.patch.object(verifier, "_cancel", return_value=True) as cancel:
+        assert verifier._handle_start("@peer:h", valid_start) is False
+    cancel.assert_called_once_with(
+        "m.unexpected_message", "SAS verification was already started"
+    )
+    assert verifier.active["sas"] is first_sas
+
+
+@pytest.mark.skipif(not CRYPTOGRAPHY_AVAILABLE, reason="Requires cryptography")
+def test_plugin_matrix_sas_handle_key_branches():
+    """_handle_key covers the invalid-key and send-failure/success paths."""
+    from cryptography.hazmat.primitives.asymmetric.x25519 import (
+        X25519PrivateKey,
+    )
+    from cryptography.hazmat.primitives.serialization import (
+        Encoding,
+        PublicFormat,
+    )
+
+    from apprise.plugins.matrix.e2ee import _b64enc
+
+    obj = _matrix_sas_plugin()
+    verifier = matrix_sas.MatrixSASAutoVerifier(obj)
+    verifier.active = {
+        "transaction_id": "tx",
+        "user_id": "@peer:h",
+        "device_id": "DEV",
+    }
+
+    invalid_sas = _make_sas(obj.user_id, obj.device_id, "@peer:h", "DEV", "tx")
+    invalid_sas.accept_content()
+    with mock.patch.object(verifier, "_cancel", return_value=True) as cancel:
+        assert (
+            verifier._handle_key(
+                invalid_sas, "@peer:h", {"key": "not-valid-base64!!"}
+            )
+            is False
+        )
+    cancel.assert_called_once_with(
+        "m.invalid_message", "Invalid SAS public key"
+    )
+
+    # A present-but-null "key" field must not crash before it is rejected
+    # as an invalid public key.
+    null_key_sas = _make_sas(
+        obj.user_id, obj.device_id, "@peer:h", "DEV", "tx"
+    )
+    null_key_sas.accept_content()
+    with mock.patch.object(verifier, "_cancel", return_value=True):
+        assert (
+            verifier._handle_key(null_key_sas, "@peer:h", {"key": None})
+            is False
+        )
+
+    peer_private = X25519PrivateKey.generate()
+    peer_public = _b64enc(
+        peer_private.public_key().public_bytes(Encoding.Raw, PublicFormat.Raw)
+    )
+
+    key_fail_sas = _make_sas(
+        obj.user_id, obj.device_id, "@peer:h", "DEV", "tx"
+    )
+    key_fail_sas.accept_content()
+    with mock.patch.object(verifier, "_send_event", return_value=False):
+        assert (
+            verifier._handle_key(key_fail_sas, "@peer:h", {"key": peer_public})
+            is False
+        )
+
+    mac_fail_sas = _make_sas(
+        obj.user_id, obj.device_id, "@peer:h", "DEV", "tx"
+    )
+    mac_fail_sas.accept_content()
+    with mock.patch.object(verifier, "_send_event", side_effect=[True, False]):
+        assert (
+            verifier._handle_key(mac_fail_sas, "@peer:h", {"key": peer_public})
+            is False
+        )
+
+    ok_sas = _make_sas(obj.user_id, obj.device_id, "@peer:h", "DEV", "tx")
+    ok_sas.accept_content()
+    with (
+        mock.patch.object(verifier, "_send_event", return_value=True),
+        mock.patch.object(obj.logger, "info") as log_info,
+    ):
+        assert (
+            verifier._handle_key(ok_sas, "@peer:h", {"key": peer_public})
+            is None
+        )
+    assert any(
+        "SAS code" in str(call.args[0]) for call in log_info.call_args_list
+    )
+
+
+@pytest.mark.skipif(not CRYPTOGRAPHY_AVAILABLE, reason="Requires cryptography")
+def test_plugin_matrix_sas_handle_mac_branches():
+    """_handle_mac covers the mismatch, send-failure, and completion
+    outcomes."""
+    from apprise.plugins.matrix.e2ee import MatrixOlmAccount
+
+    obj = _matrix_sas_plugin()
+    verifier = matrix_sas.MatrixSASAutoVerifier(obj)
+    own_account = obj._e2ee_account
+    peer_account = MatrixOlmAccount()
+
+    def build_active(peer_done):
+        sas, content, peer_keys, _mac = _completed_sas_pair(
+            obj.user_id,
+            obj.device_id,
+            "@peer:h",
+            "DEV",
+            "tx",
+            own_account,
+            peer_account,
+        )
+        verifier.active = {
+            "transaction_id": "tx",
+            "user_id": "@peer:h",
+            "device_id": "DEV",
+            "peer_keys": peer_keys,
+            "peer_done": peer_done,
+        }
+        return sas, content
+
+    sas, _content = build_active(False)
+    with mock.patch.object(verifier, "_cancel", return_value=True) as cancel:
+        assert (
+            verifier._handle_mac(sas, {"transaction_id": "tx", "mac": {}})
+            is False
+        )
+    cancel.assert_called_once_with(
+        "m.key_mismatch", "SAS device key MAC did not match"
+    )
+
+    sas, content = build_active(False)
+    with mock.patch.object(verifier, "_send_event", return_value=False):
+        assert verifier._handle_mac(sas, content) is False
+
+    sas, content = build_active(True)
+    with (
+        mock.patch.object(verifier, "_send_event", return_value=True),
+        mock.patch.object(
+            matrix_sas, "store_verified_binding", return_value=True
+        ) as store,
+    ):
+        assert verifier._handle_mac(sas, content) is True
+    store.assert_called_once_with(obj)
+
+    # A failed persistence write must not be reported as success.
+    sas, content = build_active(True)
+    with (
+        mock.patch.object(verifier, "_send_event", return_value=True),
+        mock.patch.object(
+            matrix_sas, "store_verified_binding", return_value=False
+        ),
+    ):
+        assert verifier._handle_mac(sas, content) is False
+
+    sas, content = build_active(False)
+    with mock.patch.object(verifier, "_send_event", return_value=True):
+        assert verifier._handle_mac(sas, content) is None
+
+
+@pytest.mark.skipif(not CRYPTOGRAPHY_AVAILABLE, reason="Requires cryptography")
+def test_plugin_matrix_sas_handle_done_branches():
+    """_handle_done only reports success once the local SAS is verified."""
+    obj = _matrix_sas_plugin()
+    verifier = matrix_sas.MatrixSASAutoVerifier(obj)
+    verifier.active = {"peer_done": False}
+
+    class _FakeSAS:
+        state = "mac_sent"
+
+    fake = _FakeSAS()
+    assert verifier._handle_done(fake) is None
+    assert verifier.active["peer_done"] is True
+
+    fake.state = "verified"
+    verifier.active["peer_done"] = False
+    with mock.patch.object(
+        matrix_sas, "store_verified_binding", return_value=True
+    ) as store:
+        assert verifier._handle_done(fake) is True
+    store.assert_called_once_with(obj)
+
+    # A failed persistence write must not be reported as success.
+    verifier.active["peer_done"] = False
+    with mock.patch.object(
+        matrix_sas, "store_verified_binding", return_value=False
+    ):
+        assert verifier._handle_done(fake) is False
+
+
+@pytest.mark.skipif(not CRYPTOGRAPHY_AVAILABLE, reason="Requires cryptography")
+def test_plugin_matrix_sas_handle_event_dispatch():
+    """_handle_event routes every to-device event type correctly."""
+    obj = _matrix_sas_plugin()
+    verifier = matrix_sas.MatrixSASAutoVerifier(obj)
+
+    assert verifier._handle_event("not-a-dict") is None
+    assert verifier._handle_event({"type": "x", "sender": "@other:h"}) is None
+    assert (
+        verifier._handle_event(
+            {"type": "x", "sender": obj.user_id, "content": "nope"}
+        )
+        is None
+    )
+
+    with mock.patch.object(verifier, "_handle_request", return_value="R") as h:
+        result = verifier._handle_event(
+            {
+                "type": matrix_sas.EVENT_REQUEST,
+                "sender": obj.user_id,
+                "content": {"a": 1},
+            }
+        )
+    assert result == "R"
+    h.assert_called_once_with(obj.user_id, {"a": 1})
+
+    # No active transaction yet -- every non-request event is ignored.
+    assert (
+        verifier._handle_event(
+            {
+                "type": matrix_sas.EVENT_START,
+                "sender": obj.user_id,
+                "content": {"transaction_id": "tx"},
+            }
+        )
+        is None
+    )
+
+    verifier.active = {
+        "transaction_id": "tx",
+        "user_id": obj.user_id,
+        "sas": None,
+    }
+
+    assert (
+        verifier._handle_event(
+            {
+                "type": matrix_sas.EVENT_START,
+                "sender": obj.user_id,
+                "content": {"transaction_id": "other"},
+            }
+        )
+        is None
+    )
+
+    # Defensive same-transaction-owner check.
+    verifier.active["user_id"] = "@different:h"
+    assert (
+        verifier._handle_event(
+            {
+                "type": matrix_sas.EVENT_START,
+                "sender": obj.user_id,
+                "content": {"transaction_id": "tx"},
+            }
+        )
+        is None
+    )
+    verifier.active["user_id"] = obj.user_id
+
+    with mock.patch.object(
+        verifier, "_handle_cancel", return_value=False
+    ) as h:
+        result = verifier._handle_event(
+            {
+                "type": matrix_sas.EVENT_CANCEL,
+                "sender": obj.user_id,
+                "content": {"transaction_id": "tx"},
+            }
+        )
+    assert result is False
+    h.assert_called_once()
+
+    with mock.patch.object(verifier, "_handle_start", return_value=None) as h:
+        result = verifier._handle_event(
+            {
+                "type": matrix_sas.EVENT_START,
+                "sender": obj.user_id,
+                "content": {"transaction_id": "tx"},
+            }
+        )
+    assert result is None
+    h.assert_called_once()
+
+    with mock.patch.object(verifier, "_cancel", return_value=True) as cancel:
+        result = verifier._handle_event(
+            {
+                "type": matrix_sas.EVENT_KEY,
+                "sender": obj.user_id,
+                "content": {"transaction_id": "tx"},
+            }
+        )
+    assert result is False
+    cancel.assert_called_once_with(
+        "m.unexpected_message", "SAS verification has not started"
+    )
+
+    verifier.active["sas"] = mock.Mock()
+    for event_type, method in (
+        (matrix_sas.EVENT_KEY, "_handle_key"),
+        (matrix_sas.EVENT_MAC, "_handle_mac"),
+        (matrix_sas.EVENT_DONE, "_handle_done"),
+    ):
+        with mock.patch.object(verifier, method, return_value=None) as h:
+            result = verifier._handle_event(
+                {
+                    "type": event_type,
+                    "sender": obj.user_id,
+                    "content": {"transaction_id": "tx"},
+                }
+            )
+        assert result is None
+        h.assert_called_once()
+
+    assert (
+        verifier._handle_event(
+            {
+                "type": "m.some.other.event",
+                "sender": obj.user_id,
+                "content": {"transaction_id": "tx"},
+            }
+        )
+        is None
+    )
+
+
+@pytest.mark.skipif(not CRYPTOGRAPHY_AVAILABLE, reason="Requires cryptography")
+def test_plugin_matrix_sas_run_loop_mechanics():
+    """run() covers sync failure, malformed responses, the since token,
+    early termination, and timeout handling."""
+    obj = _matrix_sas_plugin()
+
+    # Sync itself fails outright.
+    verifier = matrix_sas.MatrixSASAutoVerifier(obj)
+    with mock.patch.object(obj, "_fetch", return_value=(False, {}, 500)):
+        assert verifier.run() is False
+
+    # Sync succeeds but returns a non-dict body.
+    verifier = matrix_sas.MatrixSASAutoVerifier(obj)
+    with mock.patch.object(
+        obj, "_fetch", return_value=(True, [], requests.codes.ok)
+    ):
+        assert verifier.run() is False
+
+    # Reject missing or invalid sync tokens instead of polling repeatedly.
+    for bad_batch_response in (
+        {"to_device": {"events": []}},
+        {"next_batch": None, "to_device": {"events": []}},
+        {"next_batch": "", "to_device": {"events": []}},
+        {"next_batch": 123, "to_device": {"events": []}},
+    ):
+        verifier = matrix_sas.MatrixSASAutoVerifier(obj)
+        with mock.patch.object(
+            obj,
+            "_fetch",
+            return_value=(True, bad_batch_response, requests.codes.ok),
+        ):
+            assert verifier.run() is False
+
+    # A non-list "events" value is treated as empty rather than crashing.
+    verifier = matrix_sas.MatrixSASAutoVerifier(obj)
+    responses = iter(
+        [
+            (
+                True,
+                {
+                    "next_batch": "1",
+                    "to_device": {"events": "not-a-list"},
+                },
+                requests.codes.ok,
+            ),
+            (False, {}, 500),
+        ]
+    )
+    with mock.patch.object(
+        obj, "_fetch", side_effect=lambda *a, **k: next(responses)
+    ):
+        assert verifier.run() is False
+
+    # A present-but-null "to_device" field is treated the same way.
+    verifier = matrix_sas.MatrixSASAutoVerifier(obj)
+    responses = iter(
+        [
+            (True, {"next_batch": "1", "to_device": None}, requests.codes.ok),
+            (False, {}, 500),
+        ]
+    )
+    with mock.patch.object(
+        obj, "_fetch", side_effect=lambda *a, **k: next(responses)
+    ):
+        assert verifier.run() is False
+
+    # Skip malformed events and continue polling.
+    verifier = matrix_sas.MatrixSASAutoVerifier(obj)
+    responses = iter(
+        [
+            (
+                True,
+                {
+                    "next_batch": "1",
+                    "to_device": {"events": [{"type": "x"}]},
+                },
+                requests.codes.ok,
+            ),
+            (False, {}, 500),
+        ]
+    )
+    with (
+        mock.patch.object(
+            obj, "_fetch", side_effect=lambda *a, **k: next(responses)
+        ),
+        mock.patch.object(
+            verifier, "_handle_event", side_effect=AttributeError("boom")
+        ),
+    ):
+        assert verifier.run() is False
+
+    # Stop processing an oversized event batch at the deadline.
+    verifier = matrix_sas.MatrixSASAutoVerifier(obj)
+    # Set the construction-time deadline directly for this mocked clock.
+    verifier.deadline = 100
+    with (
+        mock.patch.object(
+            obj,
+            "_fetch",
+            return_value=(
+                True,
+                {
+                    "next_batch": "1",
+                    "to_device": {"events": [{"type": "a"}, {"type": "b"}]},
+                },
+                requests.codes.ok,
+            ),
+        ),
+        mock.patch.object(verifier, "_handle_event", return_value=None) as h,
+        mock.patch(
+            "apprise.plugins.matrix.sas.monotonic",
+            # while-check, remaining_ms, _bounded_fetch's own check,
+            # post-event-1 check, post-event-2 check (breaks), while
+            # re-check (exits).
+            side_effect=[1, 1, 1, 50, 150, 200],
+        ),
+    ):
+        assert verifier.run() is False
+    # The expired batch must not trigger another sync.
+    assert h.call_count == 2
+
+    # A terminal per-event result short-circuits the loop.
+    verifier = matrix_sas.MatrixSASAutoVerifier(obj)
+    with (
+        mock.patch.object(
+            obj,
+            "_fetch",
+            return_value=(
+                True,
+                {
+                    "next_batch": "1",
+                    "to_device": {"events": [{"type": "x"}]},
+                },
+                requests.codes.ok,
+            ),
+        ),
+        mock.patch.object(verifier, "_handle_event", return_value=True),
+    ):
+        assert verifier.run() is True
+
+    # The since token from one iteration is threaded into the next, and
+    # the reduced long-poll timeout is what actually gets sent.
+    verifier = matrix_sas.MatrixSASAutoVerifier(obj)
+    calls = []
+
+    def fake_fetch(path, params=None, method="GET", **kwargs):
+        calls.append(params)
+        if len(calls) == 1:
+            return (
+                True,
+                {"next_batch": "abc", "to_device": {"events": []}},
+                requests.codes.ok,
+            )
+        return (False, {}, 500)
+
+    with mock.patch.object(obj, "_fetch", side_effect=fake_fetch):
+        assert verifier.run() is False
+    assert "since" not in calls[0]
+    assert calls[0]["timeout"] == int(obj.socket_read_timeout * 1000 / 2)
+    assert calls[1]["since"] == "abc"
+
+    # Deadline reached with no active transaction -- fails closed with no
+    # network call for the no-op cancellation. Configure it before creation.
+    obj.default_autoverify_timeout_sec = 0
+    verifier = matrix_sas.MatrixSASAutoVerifier(obj)
+    with mock.patch.object(obj, "_fetch") as fetch:
+        assert verifier.run() is False
+    fetch.assert_not_called()
+
+    # Deadline reached with an active transaction -- the peer is told.
+    verifier = matrix_sas.MatrixSASAutoVerifier(obj)
+    verifier.active = {
+        "transaction_id": "tx",
+        "user_id": "@peer:h",
+        "device_id": "DEV",
+    }
+    with mock.patch.object(
+        obj, "_fetch", return_value=(True, {}, requests.codes.ok)
+    ) as fetch:
+        assert verifier.run() is False
+    assert fetch.call_args[0][0].startswith(
+        "/sendToDevice/m.key.verification.cancel/"
+    )
+    obj.default_autoverify_timeout_sec = (
+        NotifyMatrix.default_autoverify_timeout_sec
+    )
+
+
+@pytest.mark.skipif(not CRYPTOGRAPHY_AVAILABLE, reason="Requires cryptography")
+def test_plugin_matrix_sas_poll_timeout_margin():
+    """Sync uses bounded timeouts and does not mark the account online."""
+    import json
+
+    obj = _matrix_sas_plugin()
+    verifier = matrix_sas.MatrixSASAutoVerifier(obj)
+
+    with mock.patch.object(
+        obj, "_fetch", return_value=(False, {}, 500)
+    ) as fetch:
+        assert verifier.run() is False
+    sent_params = fetch.call_args.kwargs["params"]
+    assert sent_params["timeout"] == int(obj.socket_read_timeout * 1000 / 2)
+    assert sent_params["timeout"] < obj.socket_read_timeout * 1000
+    assert sent_params["set_presence"] == "offline"
+
+    # Both HTTP timeouts use the sanitized polling budget.
+    fetch_timeout = fetch.call_args.kwargs["timeout"]
+    expected = pytest.approx(sent_params["timeout"] / 1000 + 2)
+    assert fetch_timeout[0] == expected
+    assert fetch_timeout[1] == expected
+    assert fetch_timeout[1] < obj.socket_read_timeout * 10  # sane, not huge
+
+    # A 429 mid-poll must not be allowed to wait out the server's own
+    # arbitrary requested delay past what remains of this attempt.
+    assert fetch.call_args.kwargs["max_retry_wait"] == pytest.approx(
+        obj.default_autoverify_timeout_sec, abs=1
+    )
+
+    # Check filter behavior, including that any limits are positive.
+    parsed_filter = json.loads(sent_params["filter"])
+    assert parsed_filter["room"]["rooms"] == []
+    assert parsed_filter["presence"]["types"] == []
+    assert parsed_filter["account_data"]["types"] == []
+
+    def _walk_limits(node):
+        if isinstance(node, dict):
+            if "limit" in node:
+                yield node["limit"]
+            for value in node.values():
+                yield from _walk_limits(value)
+        elif isinstance(node, list):
+            for value in node:
+                yield from _walk_limits(value)
+
+    assert all(limit > 0 for limit in _walk_limits(parsed_filter))
+
+    # A custom ?rto= override scales the poll with it.
+    custom = NotifyMatrix(
+        host="h", user="u", password="pass", targets=["#r"], rto=10.0
+    )
+    custom.user_id = obj.user_id
+    custom.device_id = obj.device_id
+    custom._e2ee_account = obj._e2ee_account
+    custom_verifier = matrix_sas.MatrixSASAutoVerifier(custom)
+    with mock.patch.object(
+        custom, "_fetch", return_value=(False, {}, 500)
+    ) as fetch:
+        assert custom_verifier.run() is False
+    assert fetch.call_args.kwargs["params"]["timeout"] == 5000
+
+
+@pytest.mark.skipif(not CRYPTOGRAPHY_AVAILABLE, reason="Requires cryptography")
+def test_plugin_matrix_sas_expired_fetch():
+    """Do not start helper requests after the attempt deadline."""
+    obj = _matrix_sas_plugin()
+    verifier = matrix_sas.MatrixSASAutoVerifier(obj)
+    verifier.deadline = 0  # already expired relative to real monotonic time
+
+    with mock.patch.object(obj, "_fetch") as fetch:
+        result = verifier._bounded_fetch("/keys/query", payload={})
+
+    fetch.assert_not_called()
+    assert result == (False, {}, None)
+
+
+@pytest.mark.skipif(not CRYPTOGRAPHY_AVAILABLE, reason="Requires cryptography")
+def test_plugin_matrix_sas_expired_best_effort_fetch():
+    """A best-effort call still fires once the deadline has passed.
+
+    The terminal cancellation notice is deliberately sent past the
+    deadline -- that is exactly why the attempt is ending.
+    """
+    obj = _matrix_sas_plugin()
+    verifier = matrix_sas.MatrixSASAutoVerifier(obj)
+    verifier.deadline = 0  # already expired relative to real monotonic time
+
+    with mock.patch.object(
+        obj, "_fetch", return_value=(True, {}, requests.codes.ok)
+    ) as fetch:
+        result = verifier._bounded_fetch(
+            "/keys/query", payload={}, best_effort=True
+        )
+
+    fetch.assert_called_once()
+    assert result == (True, {}, requests.codes.ok)
+
+
+@pytest.mark.skipif(not CRYPTOGRAPHY_AVAILABLE, reason="Requires cryptography")
+def test_plugin_matrix_sas_fetch_response_limit():
+    """Every SAS request bounds how large a response it will accept."""
+    obj = _matrix_sas_plugin()
+    verifier = matrix_sas.MatrixSASAutoVerifier(obj)
+
+    with mock.patch.object(
+        obj, "_fetch", return_value=(True, {}, requests.codes.ok)
+    ) as fetch:
+        verifier._bounded_fetch("/keys/query", payload={})
+
+    assert (
+        fetch.call_args.kwargs["max_response_bytes"]
+        == matrix_sas.MAX_RESPONSE_BYTES
+    )
+
+
+@pytest.mark.skipif(not CRYPTOGRAPHY_AVAILABLE, reason="Requires cryptography")
+def test_plugin_matrix_sas_invalid_read_timeout():
+    """Invalid read timeouts use the safe polling fallback."""
+    obj = _matrix_sas_plugin()
+
+    for bad_value in (
+        float("nan"),
+        float("inf"),
+        float("-inf"),
+        0.0,
+        -5.0,
+        # Finite on its own, but 1e306 * 1000 overflows to inf -- this
+        # must be caught too, not just outright non-finite input.
+        1e306,
+    ):
+        obj.socket_read_timeout = bad_value
+        assert (
+            matrix_sas._sync_poll_ms(obj) == matrix_sas.FALLBACK_SYNC_POLL_MS
+        )
+
+    obj.socket_read_timeout = 8.0
+    assert matrix_sas._sync_poll_ms(obj) == 4000
+
+    # A tiny-but-valid timeout floors to a usable minimum poll rather
+    # than truncating toward a near-zero, busy-looping value.
+    obj.socket_read_timeout = 0.0001
+    assert matrix_sas._sync_poll_ms(obj) == matrix_sas.MIN_SYNC_POLL_MS
+
+    # The full run() loop must not raise either.
+    obj.socket_read_timeout = float("nan")
+    verifier = matrix_sas.MatrixSASAutoVerifier(obj)
+    with mock.patch.object(
+        obj, "_fetch", return_value=(False, {}, 500)
+    ) as fetch:
+        assert verifier.run() is False
+    assert (
+        fetch.call_args.kwargs["params"]["timeout"]
+        == matrix_sas.FALLBACK_SYNC_POLL_MS
+    )
+
+
+@pytest.mark.skipif(not CRYPTOGRAPHY_AVAILABLE, reason="Requires cryptography")
+def test_plugin_matrix_sas_poll_capped_by_deadline():
+    """The verification deadline also caps each poll request."""
+    obj = _matrix_sas_plugin()
+    obj.socket_read_timeout = 600.0  # would otherwise poll for 300s
+    obj.default_autoverify_timeout_sec = 5
+
+    verifier = matrix_sas.MatrixSASAutoVerifier(obj)
+    with mock.patch.object(
+        obj, "_fetch", return_value=(False, {}, 500)
+    ) as fetch:
+        assert verifier.run() is False
+    sent_timeout = fetch.call_args.kwargs["params"]["timeout"]
+    assert sent_timeout <= 5000
+    assert sent_timeout < int(obj.socket_read_timeout * 1000 / 2)
+    obj.default_autoverify_timeout_sec = (
+        NotifyMatrix.default_autoverify_timeout_sec
+    )
+
+
+@pytest.mark.skipif(not CRYPTOGRAPHY_AVAILABLE, reason="Requires cryptography")
+def test_plugin_matrix_sas_auto_verify_fast_paths():
+    """auto_verify() short-circuits when already verified or when the
+    plugin identity is not ready yet."""
+    obj = _matrix_sas_plugin()
+    binding = obj._e2ee_binding_key()
+    obj.store.set("e2ee_device_binding", binding, expires=60)
+    obj.store.set("e2ee_verified_binding", binding, expires=60)
+    with mock.patch.object(obj, "_fetch") as fetch:
+        assert matrix_sas.auto_verify(obj) is True
+    fetch.assert_not_called()
+
+    obj2 = NotifyMatrix(
+        host="h",
+        user="u",
+        password="pass",
+        targets=["#r"],
+        e2ee=True,
+        autoverify=True,
+    )
+    assert matrix_sas.auto_verify(obj2) is False
+
+    obj3 = _matrix_sas_plugin()
+    obj3.store.set("e2ee_device_binding", "unverified", expires=60)
+    with mock.patch.object(
+        matrix_sas.MatrixSASAutoVerifier, "run", return_value=True
+    ) as run:
+        assert matrix_sas.auto_verify(obj3) is True
+    run.assert_called_once()
+
+
+@pytest.mark.skipif(not CRYPTOGRAPHY_AVAILABLE, reason="Requires cryptography")
+def test_plugin_matrix_sas_auto_verify_cooldown():
+    """A failed attempt sets a cooldown so every later send is not
+    blocked for the full timeout until it expires."""
+    obj = _matrix_sas_plugin()
+    binding = obj._e2ee_binding_key()
+    obj.store.set("e2ee_device_binding", binding, expires=60)
+
+    with mock.patch.object(
+        matrix_sas.MatrixSASAutoVerifier, "run", return_value=False
+    ) as run:
+        assert matrix_sas.auto_verify(obj) is False
+    run.assert_called_once()
+
+    # The next call in the cooldown window returns immediately -- no new
+    # attempt, no network call.
+    with mock.patch.object(matrix_sas.MatrixSASAutoVerifier, "run") as run:
+        assert matrix_sas.auto_verify(obj) is False
+    run.assert_not_called()
+
+    # A changed identity is not blocked by another identity's cooldown.
+    obj.store.set("e2ee_device_binding", "a-different-binding", expires=60)
+    with mock.patch.object(
+        matrix_sas.MatrixSASAutoVerifier, "run", return_value=True
+    ) as run:
+        assert matrix_sas.auto_verify(obj) is True
+    run.assert_called_once()
+
+
+@pytest.mark.skipif(not CRYPTOGRAPHY_AVAILABLE, reason="Requires cryptography")
+def test_plugin_matrix_sas_auto_verify_concurrency():
+    """Let concurrent callers deliver while one caller verifies."""
+    import threading as _threading
+    import time as _time
+
+    obj = _matrix_sas_plugin()
+    obj.store.set("e2ee_device_binding", obj._e2ee_binding_key(), expires=60)
+
+    state_lock = _threading.Lock()
+    active = 0
+    max_concurrent = 0
+    calls = 0
+
+    def fake_run(_self):
+        nonlocal active, max_concurrent, calls
+        with state_lock:
+            active += 1
+            max_concurrent = max(max_concurrent, active)
+            calls += 1
+        # Long enough that a blocking wait for this call would make the
+        # elapsed-time assertion below fail.
+        _time.sleep(1.0)
+        with state_lock:
+            active -= 1
+        return True
+
+    results = []
+
+    def call_auto_verify():
+        results.append(matrix_sas.auto_verify(obj))
+
+    with mock.patch.object(matrix_sas.MatrixSASAutoVerifier, "run", fake_run):
+        threads = [
+            _threading.Thread(target=call_auto_verify) for _ in range(4)
+        ]
+        start = _time.monotonic()
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join(timeout=15)
+        elapsed = _time.monotonic() - start
+
+    # The group finishes near the single verifier's running time.
+    assert elapsed < 2.5
+    assert calls == 1
+    assert max_concurrent == 1
+    assert results.count(True) == 1
+    assert results.count(False) == 3
+
+
+@pytest.mark.skipif(not CRYPTOGRAPHY_AVAILABLE, reason="Requires cryptography")
+def test_plugin_matrix_sas_refresh_concurrency():
+    """A concurrent refresh does not wait on an in-progress verification.
+
+    The verification lock can be held by a live SAS exchange for up to the
+    full attempt timeout; refreshing trust must not block behind it.
+    """
+    import time as _time
+
+    obj = _matrix_sas_plugin()
+
+    # Simulate a verification attempt already holding the lock.
+    obj._autoverify_lock.acquire()
+    try:
+        start = _time.monotonic()
+        result = matrix_sas.refresh_verified_state(obj)
+        elapsed = _time.monotonic() - start
+    finally:
+        obj._autoverify_lock.release()
+
+    assert result is False
+    # Non-blocking lock acquisition never waits on the held lock; this is
+    # only guarding against an accidental blocking wait being introduced,
+    # so leave generous headroom for slow/loaded CI machines.
+    assert elapsed < 2.0
+
+
+@pytest.mark.skipif(not CRYPTOGRAPHY_AVAILABLE, reason="Requires cryptography")
+def test_plugin_matrix_sas_store_verified_binding():
+    """store_verified_binding no-ops without a device binding to trust."""
+    obj = _matrix_sas_plugin()
+    assert matrix_sas.store_verified_binding(obj) is False
+
+    obj.store.set("e2ee_device_binding", "B", expires=60)
+    assert matrix_sas.store_verified_binding(obj) is True
+    assert obj.store.get("e2ee_verified_binding") == "B"
+
+
+@pytest.mark.skipif(not CRYPTOGRAPHY_AVAILABLE, reason="Requires cryptography")
+def test_plugin_matrix_sas_refresh_state():
+    """Trust refresh requires matching identities and successful writes."""
+    obj = _matrix_sas_plugin()
+    assert matrix_sas.refresh_verified_state(obj) is False
+
+    binding = obj._e2ee_binding_key()
+    obj.store.set("e2ee_device_binding", binding, expires=60)
+    assert matrix_sas.refresh_verified_state(obj) is False
+
+    obj.store.set("e2ee_verified_binding", binding, expires=60)
+
+    obj.device_id = "OTHERDEV"
+    assert matrix_sas.refresh_verified_state(obj) is False
+    obj.device_id = "APPRISE"
+
+    with mock.patch.object(
+        obj.store, "set", side_effect=[True, False, True, True]
+    ):
+        assert matrix_sas.refresh_verified_state(obj) is False
+
+    assert matrix_sas.refresh_verified_state(obj) is True
+
+
+@pytest.mark.skipif(not CRYPTOGRAPHY_AVAILABLE, reason="Requires cryptography")
+def test_plugin_matrix_sas_auto_verify_flow():
+    """Exercise the full same-user SAS event flow."""
+    import re
+    from time import time
+
+    from cryptography.hazmat.primitives.asymmetric.x25519 import (
+        X25519PrivateKey,
+        X25519PublicKey,
+    )
+    from cryptography.hazmat.primitives.serialization import (
+        Encoding,
+        PublicFormat,
+    )
+
+    from apprise.plugins.matrix.e2ee import (
+        MatrixOlmAccount,
+        _b64dec,
+        _b64enc,
+        _hkdf_sha256,
+        _hmac_sha256,
+    )
+
+    user_id = "@u:h"
+    own_device = "APPRISE"
+    peer_device = "ELEMENT"
+    transaction_id = "sas-flow"
+    own_account = MatrixOlmAccount()
+    peer_account = MatrixOlmAccount()
+    peer_private = X25519PrivateKey.generate()
+    peer_public = _b64enc(
+        peer_private.public_key().public_bytes(Encoding.Raw, PublicFormat.Raw)
+    )
+    peer_device_keys = peer_account.device_keys_payload(user_id, peer_device)
+
+    obj = NotifyMatrix(
+        host="h",
+        user="u",
+        password="pass",
+        targets=["#r"],
+        e2ee=True,
+        autoverify=True,
+    )
+    obj.user_id = user_id
+    obj.device_id = own_device
+    obj._e2ee_account = own_account
+    binding = obj._e2ee_binding_key()
+    obj.store.set("e2ee_device_binding", binding, expires=60)
+
+    sent = []
+    sync_index = 0
+
+    def fake_fetch(path, payload=None, params=None, method="POST", **kwargs):
+        nonlocal sync_index
+        if path == "/keys/query":
+            return (
+                True,
+                {"device_keys": {user_id: {peer_device: peer_device_keys}}},
+                requests.codes.ok,
+            )
+        if path.startswith("/sendToDevice/"):
+            assert re.match(r"^/sendToDevice/[^/]+/[0-9a-f]{32}$", path)
+            event_type = path.split("/")[2]
+            target_user, devices = next(iter(payload["messages"].items()))
+            _target_device, content = next(iter(devices.items()))
+            sent.append((event_type, target_user, content))
+            return (True, {}, requests.codes.ok)
+
+        assert path == "/sync"
+        if sync_index == 0:
+            event_type = "m.key.verification.request"
+            content = {
+                "from_device": peer_device,
+                "transaction_id": transaction_id,
+                "methods": ["m.sas.v1"],
+                "timestamp": int(time() * 1000),
+            }
+        elif sync_index == 1:
+            event_type = "m.key.verification.start"
+            content = {
+                "from_device": peer_device,
+                "transaction_id": transaction_id,
+                "method": "m.sas.v1",
+                "key_agreement_protocols": ["curve25519-hkdf-sha256"],
+                "hashes": ["sha256"],
+                "message_authentication_codes": ["hkdf-hmac-sha256.v2"],
+                "short_authentication_string": ["decimal", "emoji"],
+            }
+        elif sync_index == 2:
+            event_type = "m.key.verification.key"
+            content = {
+                "transaction_id": transaction_id,
+                "key": peer_public,
+            }
+        elif sync_index == 3:
+            event_type = "m.key.verification.mac"
+            own_key_event = next(
+                item for item in sent if item[0] == "m.key.verification.key"
+            )
+            own_public = own_key_event[2]["key"]
+            shared_secret = peer_private.exchange(
+                X25519PublicKey.from_public_bytes(_b64dec(own_public))
+            )
+            key_id = "ed25519:{}".format(peer_device)
+
+            def calculate_mac(value, info_key_id):
+                info = (
+                    "MATRIX_KEY_VERIFICATION_MAC"
+                    + user_id
+                    + peer_device
+                    + user_id
+                    + own_device
+                    + transaction_id
+                    + info_key_id
+                ).encode("utf-8")
+                key = _hkdf_sha256(shared_secret, 32, salt=None, info=info)
+                return _b64enc(_hmac_sha256(key, value.encode("utf-8")))
+
+            content = {
+                "transaction_id": transaction_id,
+                "mac": {
+                    key_id: calculate_mac(peer_account.signing_key, key_id)
+                },
+                "keys": calculate_mac(key_id, "KEY_IDS"),
+            }
+        else:
+            event_type = "m.key.verification.done"
+            content = {"transaction_id": transaction_id}
+
+        sync_index += 1
+        return (
+            True,
+            {
+                "next_batch": "sync-{}".format(sync_index),
+                "to_device": {
+                    "events": [
+                        {
+                            "type": event_type,
+                            "sender": user_id,
+                            "content": content,
+                        }
+                    ]
+                },
+            },
+            requests.codes.ok,
+        )
+
+    with mock.patch.object(obj, "_fetch", side_effect=fake_fetch):
+        assert obj._e2ee_auto_verify() is True
+
+    assert [item[0] for item in sent] == [
+        "m.key.verification.ready",
+        "m.key.verification.accept",
+        "m.key.verification.key",
+        "m.key.verification.mac",
+        "m.key.verification.done",
+    ]
+    assert obj.store.get("e2ee_verified_binding") == binding
+
+
+@pytest.mark.skipif(not CRYPTOGRAPHY_AVAILABLE, reason="Requires cryptography")
+def test_plugin_matrix_sas_failure_allows_send():
+    """A failed SAS bootstrap does not prevent message delivery."""
+    obj = NotifyMatrix(
+        host="h",
+        user="u",
+        password="pass",
+        targets=["#r"],
+        e2ee=True,
+        autoverify=True,
+        secure=True,
+    )
+    obj.access_token = "token"
+    obj.user_id = "@u:h"
+    obj.device_id = "APPRISE"
+
+    with (
+        mock.patch.object(obj, "_e2ee_setup", return_value=True),
+        mock.patch.object(
+            obj, "_e2ee_auto_verify", return_value=False
+        ) as verify,
+        mock.patch.object(obj, "_room_join", return_value="!r:h") as join,
+        mock.patch.object(obj, "_e2ee_room_encrypted", return_value=True),
+        mock.patch.object(
+            obj, "_e2ee_send_to_room", return_value=True
+        ) as send,
+        mock.patch.object(
+            obj, "_e2ee_refresh_verified_state", return_value=False
+        ),
+    ):
+        assert obj._send_server_notification(body="test") is True
+
+    verify.assert_called_once()
+    join.assert_called_once()
+    send.assert_called_once()
+
+
+@pytest.mark.skipif(not CRYPTOGRAPHY_AVAILABLE, reason="Requires cryptography")
+def test_plugin_matrix_sas_refresh_is_minimal():
+    """Only identity state required to retain SAS trust is refreshed."""
+    from apprise.plugins.matrix.e2ee import MatrixOlmAccount
+
+    obj = NotifyMatrix(
+        host="h",
+        user="u",
+        password="pass",
+        targets=["#r"],
+        e2ee=True,
+        autoverify=True,
+        secure=True,
+    )
+    obj.user_id = "@u:h"
+    obj.device_id = "APPRISE"
+    obj._e2ee_account = MatrixOlmAccount()
+    binding = "{}|{}|{}|{}".format(
+        obj.user_id,
+        obj.device_id,
+        obj._e2ee_account.identity_key,
+        obj._e2ee_account.signing_key,
+    )
+    obj.store.set("e2ee_device_binding", binding, expires=60)
+    obj.store.set("e2ee_verified_binding", binding, expires=60)
+
+    with mock.patch.object(obj.store, "set", wraps=obj.store.set) as store_set:
+        assert obj._e2ee_refresh_verified_state() is True
+
+    assert [call.args[0] for call in store_set.call_args_list] == [
+        "device_id",
+        "e2ee_account",
+        "e2ee_device_binding",
+        "e2ee_verified_binding",
+        "e2ee_autoverify_refreshed_at",
+    ]
+    assert all(
+        call.kwargs["expires"] == obj.default_cache_expiry_sec
+        for call in store_set.call_args_list
+    )
+
+
+@pytest.mark.skipif(not CRYPTOGRAPHY_AVAILABLE, reason="Requires cryptography")
+def test_plugin_matrix_sas_refresh_throttled():
+    """A recent refresh is skipped entirely -- no rewrite of the
+    serialized E2EE account (or anything else) on every single send."""
+    from time import time as _time
+
+    obj = _matrix_sas_plugin()
+    binding = obj._e2ee_binding_key()
+    obj.store.set("e2ee_device_binding", binding, expires=60)
+    obj.store.set("e2ee_verified_binding", binding, expires=60)
+    obj.store.set("e2ee_autoverify_refreshed_at", _time(), expires=60)
+
+    with mock.patch.object(obj.store, "set") as store_set:
+        assert matrix_sas.refresh_verified_state(obj) is True
+    store_set.assert_not_called()
+
+    # Once the interval has genuinely elapsed, it refreshes normally.
+    obj.store.set(
+        "e2ee_autoverify_refreshed_at",
+        _time() - obj.default_autoverify_refresh_interval_sec - 1,
+        expires=60,
+    )
+    with mock.patch.object(obj.store, "set", wraps=obj.store.set) as store_set:
+        assert matrix_sas.refresh_verified_state(obj) is True
+    assert store_set.call_count == 5
+
+
+@pytest.mark.skipif(not CRYPTOGRAPHY_AVAILABLE, reason="Requires cryptography")
+def test_plugin_matrix_sas_refresh_trust_write_failure():
+    """A failed write of the trust marker itself must not be reported as
+    success, and must not go on to touch the refresh bookkeeping key."""
+    obj = _matrix_sas_plugin()
+    binding = obj._e2ee_binding_key()
+    obj.store.set("e2ee_device_binding", binding, expires=60)
+    obj.store.set("e2ee_verified_binding", binding, expires=60)
+
+    real_set = obj.store.set
+
+    def flaky_set(key, *args, **kwargs):
+        if key == "e2ee_verified_binding":
+            return False
+        return real_set(key, *args, **kwargs)
+
+    with mock.patch.object(
+        obj.store, "set", side_effect=flaky_set
+    ) as store_set:
+        assert matrix_sas.refresh_verified_state(obj) is False
+    assert "e2ee_autoverify_refreshed_at" not in [
+        call.args[0] for call in store_set.call_args_list
+    ]
+
+
+@pytest.mark.skipif(not CRYPTOGRAPHY_AVAILABLE, reason="Requires cryptography")
+def test_plugin_matrix_sas_refresh_invalid_timestamp():
+    """A malformed refresh timestamp is treated as missing."""
+    obj = _matrix_sas_plugin()
+    binding = obj._e2ee_binding_key()
+    obj.store.set("e2ee_device_binding", binding, expires=60)
+    obj.store.set("e2ee_verified_binding", binding, expires=60)
+    obj.store.set("e2ee_autoverify_refreshed_at", "not-a-number", expires=60)
+
+    assert matrix_sas.refresh_verified_state(obj) is True
+
+
+@pytest.mark.skipif(not CRYPTOGRAPHY_AVAILABLE, reason="Requires cryptography")
+def test_plugin_matrix_sas_refresh_writes_short_circuit():
+    """A failure partway through the identity refresh stops immediately
+    instead of continuing to write (and serialize) the rest regardless."""
+    obj = _matrix_sas_plugin()
+    binding = obj._e2ee_binding_key()
+
+    write_order = [
+        "device_id",
+        "e2ee_account",
+        "e2ee_device_binding",
+        "e2ee_verified_binding",
+    ]
+    for fail_at in write_order:
+        obj.store.set("e2ee_device_binding", binding, expires=60)
+        obj.store.set("e2ee_verified_binding", binding, expires=60)
+
+        def flaky_set(
+            key, *args, _fail_at=fail_at, _real_set=obj.store.set, **kwargs
+        ):
+            if key == _fail_at:
+                return False
+            return _real_set(key, *args, **kwargs)
+
+        with mock.patch.object(
+            obj.store, "set", side_effect=flaky_set
+        ) as store_set:
+            assert matrix_sas.refresh_verified_state(obj) is False
+
+        called_keys = [call.args[0] for call in store_set.call_args_list]
+        # Every key up to and including the failed one was attempted, in
+        # order, and nothing after it was.
+        assert called_keys == write_order[: write_order.index(fail_at) + 1]
+
+
+@pytest.mark.skipif(not CRYPTOGRAPHY_AVAILABLE, reason="Requires cryptography")
+@pytest.mark.parametrize("delivery_ok", [True, False])
+def test_plugin_matrix_sas_refresh_after_success(delivery_ok):
+    """A failed Matrix delivery must not extend SAS trust."""
+    obj = NotifyMatrix(
+        host="h",
+        user="u",
+        password="pass",
+        targets=["#r"],
+        e2ee=True,
+        autoverify=True,
+        secure=True,
+    )
+    obj.access_token = "token"
+    obj.user_id = "@u:h"
+    obj.device_id = "APPRISE"
+
+    with (
+        mock.patch.object(obj, "_e2ee_setup", return_value=True),
+        mock.patch.object(obj, "_e2ee_auto_verify", return_value=True),
+        mock.patch.object(obj, "_room_join", return_value="!r:h"),
+        mock.patch.object(obj, "_e2ee_room_encrypted", return_value=True),
+        mock.patch.object(obj, "_e2ee_send_to_room", return_value=delivery_ok),
+        mock.patch.object(
+            obj, "_e2ee_refresh_verified_state", return_value=True
+        ) as refresh,
+    ):
+        assert obj._send_server_notification(body="test") is delivery_ok
+
+    assert refresh.call_count == (1 if delivery_ok else 0)
+
+
 def test_plugin_matrix_e2ee_no_cryptography():
     """MATRIX_E2EE_SUPPORT is False when cryptography is unavailable."""
     import importlib
@@ -2551,7 +5174,7 @@ def test_plugin_matrix_e2ee_olm_session():
 
     # Decode and check the outer pre-key wire format.
     # Outer: version(0x03) | field1(OTK) | field2(EK) | field3(IK) |
-    #        field4(inner+mac) | outer_mac(8)
+    #        field4(inner+mac)
     # Inner (in field 4): version(0x03) | field1(ratchet_key) |
     #        field2(chain_index) | field4(ciphertext,tag=0x22) | inner_mac(8)
     raw = _b64dec(result["body"])
@@ -2569,17 +5192,11 @@ def test_plugin_matrix_e2ee_olm_session():
 
 @pytest.mark.skipif(not CRYPTOGRAPHY_AVAILABLE, reason="Requires cryptography")
 def test_plugin_matrix_e2ee_olm_roundtrip():
-    """Full Olm round-trip: Alice encrypts, Bob manually decrypts.
+    """Confirm that Bob can decrypt an Olm message from Alice.
 
-    This test implements the Bob (inbound) side of the Olm X3DH and
-    message-decryption protocol using the same cryptography primitives,
-    verifying that our Alice-side implementation produces wire bytes that
-    a conformant receiver can decrypt.
-
-    Critical invariant verified: the outer base-key (pre-key field 2)
-    equals the inner ratchet-key (normal-message field 1).  They MUST be
-    the same ephemeral key E_A or the receiver cannot reconstruct the
-    session and decryption fails.
+    The receiver-side reconstruction verifies compatible X3DH output.
+    It also confirms the outer base key matches the inner ratchet key,
+    which receivers need to reconstruct the session.
     """
     import hmac as _hmac_stdlib
 
@@ -2690,15 +5307,8 @@ def test_plugin_matrix_e2ee_olm_roundtrip():
 
     raw = _b64dec(result["body"])
 
-    # Outer pre-key message format (Olm spec Section 5.2):
-    #   version(1) | protobuf(field1=OTK, field2=base_key,
-    #                          field3=IK, field4=inner_message)
-    #
-    # There is NO outer MAC on the pre-key message.  Only the inner
-    # normal-message (field 4) has its own 8-byte MAC appended.
-    # Reference: olm.md Section 5.2; libolm session.cpp
-    # encode_one_time_key_message_length() (no MAC bytes allocated);
-    # vodozemac src/olm/messages/pre_key.rs decode() (no MAC consumed).
+    # The outer message contains the one-time, base, identity, and inner
+    # message fields. Only the inner message has a MAC.
     assert raw[0:1] == b"\x03", "outer version must be 0x03"
 
     # Parse the full outer protobuf body (all bytes after the version byte)
@@ -2829,6 +5439,18 @@ def test_plugin_matrix_e2ee_verify_keys():
     no_keys = {**dk, "keys": {f"curve25519:{dev}": acct.identity_key}}
     assert verify_device_keys(no_keys, uid, dev) is False
 
+    # Malformed homeserver keys must fail closed.
+    assert verify_device_keys(None, uid, dev) is False
+    assert verify_device_keys("not-a-dict", uid, dev) is False
+    assert verify_device_keys({**dk, "keys": None}, uid, dev) is False
+    assert verify_device_keys({**dk, "keys": "not-a-dict"}, uid, dev) is False
+    assert verify_device_keys({**dk, "signatures": None}, uid, dev) is False
+    assert verify_device_keys({**dk, "signatures": [1, 2]}, uid, dev) is False
+    assert (
+        verify_device_keys({**dk, "signatures": {uid: None}}, uid, dev)
+        is False
+    )
+
     # --- verify_signed_otk ---
 
     key_b64 = _rand_b64_32()
@@ -2897,6 +5519,13 @@ def test_plugin_matrix_e2ee_megolm_session():
     s2 = MatrixMegOlmSession.from_dict(d)
     assert s2.session_id == s.session_id
     assert s2._counter == s._counter
+
+    # Cache data from an unsupported version is invalid, not a setting error.
+    with pytest.raises(
+        AppriseInvalidData, match="Incompatible MegOLM session cache format"
+    ) as exc_info:
+        MatrixMegOlmSession.from_dict({"version": -1})
+    assert exc_info.value.error_code == errno.EINVAL
 
     # should_rotate: explicit count threshold
     assert not s.should_rotate(msg_count=MEGOLM_ROTATION_MSGS - 1)
@@ -2968,6 +5597,21 @@ def test_plugin_matrix_e2ee_url_roundtrip():
         "0",
     )
 
+    # Automatic verification is opt-in and survives URL round-trip.
+    obj3 = NotifyMatrix(
+        host="matrix.example.com",
+        user="user",
+        password="pass",
+        targets=["#room"],
+        autoverify=True,
+    )
+    assert obj3.autoverify is True
+    u3 = obj3.url()
+    assert "autoverify=yes" in u3
+    result = NotifyMatrix.parse_url(u3)
+    assert result is not None
+    assert result.get("autoverify") is True
+
 
 @mock.patch("requests.put")
 @mock.patch("requests.get")
@@ -2975,7 +5619,7 @@ def test_plugin_matrix_e2ee_url_roundtrip():
 @pytest.mark.skipif(not CRYPTOGRAPHY_AVAILABLE, reason="Requires cryptography")
 def test_plugin_matrix_e2ee_insecure_connection(mock_post, mock_get, mock_put):
     """e2ee=yes over insecure (matrix://) falls back to unencrypted."""
-    resp = mock.Mock()
+    resp = _Response()
     resp.status_code = requests.codes.ok
     resp.content = dumps(
         {
@@ -3009,7 +5653,7 @@ def test_plugin_matrix_e2ee_insecure_connection(mock_post, mock_get, mock_put):
 @pytest.mark.skipif(not CRYPTOGRAPHY_AVAILABLE, reason="Requires cryptography")
 def test_plugin_matrix_e2ee_no_support(mock_post, mock_get, mock_put):
     """e2ee=yes with MATRIX_E2EE_SUPPORT=False sends unencrypted."""
-    resp = mock.Mock()
+    resp = _Response()
     resp.status_code = requests.codes.ok
     resp.content = dumps(
         {
@@ -3078,7 +5722,7 @@ def test_plugin_matrix_e2ee_send(mock_post, mock_get, mock_put):
     }
 
     def _mk_resp(d):
-        r = mock.Mock()
+        r = _Response()
         r.status_code = requests.codes.ok
         r.content = dumps(d).encode()
         return r
@@ -3134,7 +5778,7 @@ def test_plugin_matrix_e2ee_send_cached_session(mock_post, mock_get, mock_put):
     }
 
     def _mk_resp(d):
-        r = mock.Mock()
+        r = _Response()
         r.status_code = requests.codes.ok
         r.content = dumps(d).encode()
         return r
@@ -3333,7 +5977,7 @@ def test_plugin_matrix_e2ee_upload_keys_http_fail(
     """_e2ee_upload_keys returns False on HTTP error."""
     from apprise.plugins.matrix.e2ee import MatrixOlmAccount
 
-    resp = mock.Mock()
+    resp = _Response()
     resp.status_code = 500
     resp.content = dumps({}).encode()
     mock_post.return_value = resp
@@ -3363,7 +6007,7 @@ def test_plugin_matrix_e2ee_upload_keys_success_marks_published(
     """Successful upload clears the current unpublished OTK batch."""
     from apprise.plugins.matrix.e2ee import MatrixOlmAccount
 
-    resp = mock.Mock()
+    resp = _Response()
     resp.status_code = requests.codes.ok
     resp.content = dumps(
         {
@@ -3407,7 +6051,7 @@ def test_plugin_matrix_whoami(mock_post, mock_get, mock_put):
     """_whoami() resolves user_id and device_id from GET /account/whoami."""
 
     def _mk_resp(d, code=requests.codes.ok):
-        r = mock.Mock()
+        r = _Response()
         r.status_code = code
         r.content = dumps(d).encode()
         return r
@@ -3552,7 +6196,7 @@ def test_plugin_matrix_e2ee_room_encrypted(mock_post, mock_get, mock_put):
     """_e2ee_room_encrypted: cached, GET success, GET failure paths."""
 
     def _mk_resp(d, code=requests.codes.ok):
-        r = mock.Mock()
+        r = _Response()
         r.status_code = code
         r.content = dumps(d).encode()
         return r
@@ -3596,7 +6240,7 @@ def test_plugin_matrix_e2ee_room_members(mock_post, mock_get, mock_put):
     """_e2ee_room_members handles HTTP failures and empty rooms."""
 
     def _mk_resp(d, code=requests.codes.ok):
-        r = mock.Mock()
+        r = _Response()
         r.status_code = code
         r.content = dumps(d).encode()
         return r
@@ -3670,7 +6314,7 @@ def test_plugin_matrix_e2ee_share_room_key_branches(
     )
 
     def _mk_resp(d, code=requests.codes.ok):
-        r = mock.Mock()
+        r = _Response()
         r.status_code = code
         r.content = dumps(d).encode()
         return r
@@ -3918,7 +6562,7 @@ def test_plugin_matrix_e2ee_replenish_otks(mock_post):
     otk_threshold = NotifyMatrix.default_e2ee_otk_replenish_threshold
 
     def _mk_resp(d, code=requests.codes.ok):
-        r = mock.Mock()
+        r = _Response()
         r.status_code = code
         r.content = dumps(d).encode()
         return r
@@ -4015,7 +6659,7 @@ def test_plugin_matrix_e2ee_send_to_room_formats(
     )
 
     def _mk_resp(d):
-        r = mock.Mock()
+        r = _Response()
         r.status_code = requests.codes.ok
         r.content = dumps(d).encode()
         return r
@@ -4094,7 +6738,7 @@ def test_plugin_matrix_e2ee_send_to_room_formats(
 @pytest.mark.skipif(not CRYPTOGRAPHY_AVAILABLE, reason="Requires cryptography")
 def test_plugin_matrix_e2ee_setup_failure(mock_post, mock_get, mock_put):
     """When E2EE setup fails, send falls back to unencrypted."""
-    resp = mock.Mock()
+    resp = _Response()
     resp.status_code = requests.codes.ok
     resp.content = dumps(
         {
@@ -4106,7 +6750,7 @@ def test_plugin_matrix_e2ee_setup_failure(mock_post, mock_get, mock_put):
         }
     ).encode()
     # upload keys call fails
-    fail_resp = mock.Mock()
+    fail_resp = _Response()
     fail_resp.status_code = 500
     fail_resp.content = dumps({}).encode()
     mock_put.return_value = resp
@@ -4151,7 +6795,7 @@ def test_plugin_matrix_e2ee_attachment_encrypted(
     upload_resp = {"content_uri": "mxc://h/enc123"}
 
     def _mk_resp(d):
-        r = mock.Mock()
+        r = _Response()
         r.status_code = requests.codes.ok
         r.content = dumps(d).encode()
         return r
@@ -4214,7 +6858,7 @@ def test_plugin_matrix_e2ee_send_attachment_errors(
     )
 
     def _mk_resp(d, code=requests.codes.ok):
-        r = mock.Mock()
+        r = _Response()
         r.status_code = code
         r.content = dumps(d).encode()
         return r
@@ -4275,7 +6919,7 @@ def test_plugin_matrix_e2ee_send_attachment_errors(
 
         # Upload succeeds but response body is not valid JSON -> treated as
         # missing content_uri -> False
-        bad_json_resp = mock.Mock()
+        bad_json_resp = _Response()
         bad_json_resp.status_code = requests.codes.ok
         bad_json_resp.content = b"not-json"
         with mock.patch("requests.post", return_value=bad_json_resp):
@@ -4385,7 +7029,7 @@ def test_plugin_matrix_e2ee_send_attachment_invalid(
     }
 
     def _mk_resp(d):
-        r = mock.Mock()
+        r = _Response()
         r.status_code = requests.codes.ok
         r.content = dumps(d).encode()
         return r
@@ -4474,7 +7118,7 @@ def test_plugin_matrix_e2ee_send_room_failure(mock_post, mock_get, mock_put):
     }
 
     def _mk_resp(d):
-        r = mock.Mock()
+        r = _Response()
         r.status_code = requests.codes.ok
         r.content = dumps(d).encode()
         return r
@@ -4513,7 +7157,7 @@ def test_plugin_matrix_e2ee_send_room_failure(mock_post, mock_get, mock_put):
 @mock.patch("requests.post")
 def test_plugin_matrix_register_with_device_id(mock_post, mock_get, mock_put):
     """Registration response that includes device_id persists it."""
-    r = mock.Mock()
+    r = _Response()
     r.status_code = requests.codes.ok
     r.content = dumps(
         {
@@ -4536,7 +7180,7 @@ def test_plugin_matrix_register_with_device_id(mock_post, mock_get, mock_put):
 @mock.patch("requests.post")
 def test_plugin_matrix_login_reuses_device_id(mock_post, mock_get, mock_put):
     """Login payload reuses the stored device ID when present."""
-    r = mock.Mock()
+    r = _Response()
     r.status_code = requests.codes.ok
     r.content = dumps(
         {
@@ -4563,7 +7207,7 @@ def test_plugin_matrix_register_reuses_device_id(
     mock_post, mock_get, mock_put
 ):
     """Register payload reuses the stored device ID when present."""
-    r = mock.Mock()
+    r = _Response()
     r.status_code = requests.codes.ok
     r.content = dumps(
         {
@@ -4670,7 +7314,7 @@ def test_plugin_matrix_dm_room_find_cached(mock_post, mock_get, mock_put):
     """_dm_room_find_or_create returns cached room ID without HTTP calls."""
 
     def _mk_resp(d, code=requests.codes.ok):
-        r = mock.Mock()
+        r = _Response()
         r.status_code = code
         r.content = dumps(d).encode()
         return r
@@ -4707,7 +7351,7 @@ def test_plugin_matrix_dm_room_find_via_mdirect(mock_post, mock_get, mock_put):
     """_dm_room_find_or_create finds existing room from m.direct data."""
 
     def _mk_resp(d, code=requests.codes.ok):
-        r = mock.Mock()
+        r = _Response()
         r.status_code = code
         r.content = dumps(d).encode()
         return r
@@ -4745,7 +7389,7 @@ def test_plugin_matrix_dm_room_create_new(mock_post, mock_get, mock_put):
     """_dm_room_find_or_create creates a new room when none exists."""
 
     def _mk_resp(d, code=requests.codes.ok):
-        r = mock.Mock()
+        r = _Response()
         r.status_code = code
         r.content = dumps(d).encode()
         return r
@@ -4784,7 +7428,7 @@ def test_plugin_matrix_dm_room_create_failure(mock_post, mock_get, mock_put):
     """_dm_room_find_or_create returns None when createRoom fails."""
 
     def _mk_resp(d, code=requests.codes.ok):
-        r = mock.Mock()
+        r = _Response()
         r.status_code = code
         r.content = dumps(d).encode()
         return r
@@ -4818,7 +7462,7 @@ def test_plugin_matrix_dm_room_create_no_room_id(
     """_dm_room_find_or_create returns None when createRoom omits room_id."""
 
     def _mk_resp(d, code=requests.codes.ok):
-        r = mock.Mock()
+        r = _Response()
         r.status_code = code
         r.content = dumps(d).encode()
         return r
@@ -4866,7 +7510,7 @@ def test_plugin_matrix_dm_send_notification(mock_post, mock_get, mock_put):
     """Sending to @user target resolves DM room and delivers message."""
 
     def _mk_resp(d, code=requests.codes.ok):
-        r = mock.Mock()
+        r = _Response()
         r.status_code = code
         r.content = dumps(d).encode()
         return r
@@ -4903,6 +7547,102 @@ def test_plugin_matrix_dm_send_notification(mock_post, mock_get, mock_put):
         assert obj.send(body="hello DM") is True
 
 
+def test_plugin_matrix_failed_dm_is_retried():
+    """A resolved DM is recorded only after its message succeeds."""
+
+    obj = NotifyMatrix(
+        host="h",
+        user="u",
+        password="pass",
+        targets=["@alice"],
+        discovery=False,
+        e2ee=False,
+    )
+    obj.access_token = "tok"
+    obj.user_id = "@u:h"
+    obj.home_server = "h"
+
+    tracker_token = _delivery_tracker.set(set())
+    try:
+        with (
+            mock.patch.object(
+                obj,
+                "_dm_room_find_or_create",
+                return_value="!dm:h",
+            ) as resolve,
+            mock.patch.object(obj, "_room_join", return_value="!dm:h"),
+            mock.patch.object(
+                obj,
+                "_fetch",
+                side_effect=[
+                    (False, {}, requests.codes.bad_request),
+                    (True, {}, requests.codes.ok),
+                ],
+            ),
+        ):
+            assert obj.send(body="hello") is False
+            assert obj.is_delivered(("user", "@alice")) is False
+
+            assert obj.send(body="hello") is True
+            assert resolve.call_count == 2
+            assert obj.is_delivered(("user", "@alice")) is True
+    finally:
+        _delivery_tracker.reset(tracker_token)
+
+
+def test_plugin_matrix_retry_does_not_repeat_attachment_message():
+    """Retry the failed body without repeating a visible attachment."""
+
+    obj = NotifyMatrix(
+        host="h",
+        user="u",
+        password="pass",
+        targets=["#general"],
+        discovery=False,
+        e2ee=False,
+    )
+    obj.access_token = "tok"
+    obj.user_id = "@u:h"
+    obj.home_server = "h"
+
+    attachment_payload = {
+        "msgtype": "m.file",
+        "body": "report.pdf",
+        "url": "mxc://h/file",
+    }
+    tracker_token = _delivery_tracker.set(set())
+    try:
+        with (
+            mock.patch.object(obj, "_room_join", return_value="!room:h"),
+            mock.patch.object(
+                obj,
+                "_send_attachments",
+                return_value=[attachment_payload.copy()],
+            ),
+            mock.patch.object(
+                obj,
+                "_fetch",
+                side_effect=[
+                    (True, {}, requests.codes.ok),
+                    (False, {}, requests.codes.bad_request),
+                    (True, {}, requests.codes.ok),
+                ],
+            ) as fetch,
+        ):
+            assert obj.send(body="hello", attach=[mock.Mock()]) is False
+            assert obj.send(body="hello", attach=[mock.Mock()]) is True
+
+    finally:
+        _delivery_tracker.reset(tracker_token)
+
+    attachment_calls = [
+        call
+        for call in fetch.call_args_list
+        if call.kwargs.get("payload", {}).get("msgtype") == "m.file"
+    ]
+    assert len(attachment_calls) == 1
+
+
 @mock.patch("requests.put")
 @mock.patch("requests.get")
 @mock.patch("requests.post")
@@ -4912,7 +7652,7 @@ def test_plugin_matrix_dm_only_users_no_rooms_skips_joined(
     """When only @user targets are present, _joined_rooms is not queried."""
 
     def _mk_resp(d, code=requests.codes.ok):
-        r = mock.Mock()
+        r = _Response()
         r.status_code = code
         r.content = dumps(d).encode()
         return r
@@ -4953,7 +7693,7 @@ def test_plugin_matrix_dm_room_create_mdirect_get_fails(
     """_dm_room_find_or_create still creates room if m.direct GET fails."""
 
     def _mk_resp(d, code=requests.codes.ok):
-        r = mock.Mock()
+        r = _Response()
         r.status_code = code
         r.content = dumps(d).encode()
         return r
@@ -4988,7 +7728,7 @@ def test_plugin_matrix_dm_room_create_no_user_id(
     the m.direct GET and PUT)."""
 
     def _mk_resp(d, code=requests.codes.ok):
-        r = mock.Mock()
+        r = _Response()
         r.status_code = code
         r.content = dumps(d).encode()
         return r
@@ -5026,7 +7766,7 @@ def test_plugin_matrix_dm_room_create_e2ee(mock_post, mock_get, mock_put):
         pytest.skip("cryptography package not installed")
 
     def _mk_resp(d, code=requests.codes.ok):
-        r = mock.Mock()
+        r = _Response()
         r.status_code = code
         r.content = dumps(d).encode()
         return r
@@ -5096,8 +7836,7 @@ def test_plugin_matrix_init_recovers_home_server_from_user_id(tmpdir):
     obj.store.flush()
 
     # Second instance with the same credentials (same url_id) reads the store.
-    # The recovery branch (lines 506-509) should derive home_server from
-    # the stored user_id.
+    # The recovery path should derive home_server from the stored user_id.
     obj2 = NotifyMatrix(
         host="h", user="u", password="pass", targets=["#r"], asset=asset
     )
@@ -5136,7 +7875,7 @@ def test_plugin_matrix_whoami_recovers_home_server_from_user_id(
 ):
     """_whoami() extracts home_server from user_id when the server does not
     return a home_server field and self.home_server is unset."""
-    r = mock.Mock()
+    r = _Response()
     r.status_code = requests.codes.ok
     r.content = dumps(
         {"user_id": "@u:whoami.example.com", "device_id": "DEVX"}
@@ -5218,149 +7957,13 @@ def test_plugin_matrix_room_id_returns_none_without_home_server():
     assert result is None
 
 
-def test_plugin_matrix_enforce_byte_budget():
-    """The byte budget shrinks Unicode without looping on empty text."""
-
-    # Give both Matrix body representations the same emoji-heavy content.
-    payload = {
-        "body": "\U0001f600" * 1000,
-        "formatted_body": "\U0001f600" * 1000,
-    }
-    # Apply a deliberately small budget so both fields must shrink.
-    NotifyMatrix._matrix_enforce_byte_budget(
-        payload, 500, keys=("formatted_body", "body")
-    )
-
-    # Measure the JSON exactly as Matrix serializes it.
-    assert len(dumps(payload, ensure_ascii=False).encode("utf-8")) <= 500
-
-    # Empty candidates exercise the helper's no-progress exit path.
-    empty_payload = {"body": "", "formatted_body": ""}
-
-    # A tiny impossible budget must return instead of looping forever.
-    result = NotifyMatrix._matrix_enforce_byte_budget(
-        empty_payload, 10, keys=("formatted_body", "body")
-    )
-    assert result == {"body": "", "formatted_body": ""}
-
-
-@mock.patch("requests.put")
-@mock.patch("requests.get")
-@mock.patch("requests.post")
-def test_plugin_matrix_emoji_byte_budget(mock_post, mock_get, mock_put):
-    """Emoji-heavy messages remain within Matrix's byte limit."""
-
-    # Reuse a successful Matrix response for login, lookup, and room joins.
-    response_obj = {
-        "room_id": "!abc123:localhost",
-        "room_alias": "#abc123:localhost",
-        "joined_rooms": ["!abc123:localhost"],
-        "access_token": "abcd1234",
-        "home_server": "localhost",
-    }
-    # Every mocked Matrix request receives the same successful response.
-    request = mock.Mock()
-    request.content = dumps(response_obj)
-    request.status_code = requests.codes.ok
-
-    # Cover each HTTP verb used by the direct Matrix send path.
-    mock_get.return_value = request
-    mock_post.return_value = request
-    mock_put.return_value = request
-
-    # Configure rich output so the payload contains two body fields.
-    kwargs = NotifyMatrix.parse_url(
-        "matrix://user:passwd@hostname/#abcd?format=html"
-    )
-    obj = NotifyMatrix(**kwargs)
-
-    # Send directly to exercise the byte-budget safety net.
-    assert obj.send(body="\U0001f600" * 20000) is True
-
-    # Inspect the final room event submitted through PUT.
-    payload = loads(mock_put.call_args.kwargs["data"])
-
-    # Confirm the wire representation stays inside Matrix's safe allowance.
-    encoded_len = len(dumps(payload, ensure_ascii=False).encode("utf-8"))
-    assert encoded_len <= MATRIX_CONTENT_BYTE_LIMIT
-
-    # Invalid Unicode is replaced instead of raising during serialization.
-    assert obj.send(body="\ud800") is True
-    # The invalid code point becomes a valid placeholder in the JSON body.
-    wire_payload = mock_put.call_args.kwargs["data"]
-    assert loads(wire_payload)["body"] == "?"
-
-
-def test_plugin_matrix_e2ee_body_limit():
-    """Matrix selects limits for formatting, encryption, and webhooks."""
-
-    # Begin with an explicitly unencrypted direct Matrix connection.
-    obj = NotifyMatrix(
-        host="h",
-        user="u",
-        password="pass",
-        targets=["#r"],
-        e2ee=False,
-        secure=True,
-    )
-    # Plain output receives the larger single-body allowance.
-    assert obj.e2ee is False
-    assert obj.body_maxlen == obj.body_maxlen_default
-
-    # Rich text carries a plain fallback beside its formatted body.
-    obj.notify_format = NotifyFormat.HTML
-    assert obj.body_maxlen == obj.body_maxlen_formatted
-
-    # Non-TLS connections cannot use encryption even when requested.
-    obj = NotifyMatrix(
-        host="h",
-        user="u",
-        password="pass",
-        targets=["#r"],
-        e2ee=True,
-        secure=False,
-    )
-    # The setting remains visible, but the normal formatted limit is used.
-    assert obj.e2ee is True
-    obj.notify_format = NotifyFormat.HTML
-    assert obj.body_maxlen == obj.body_maxlen_formatted
-
-    # A secure connection may use E2EE when crypto support is installed.
-    obj = NotifyMatrix(
-        host="h",
-        user="u",
-        password="pass",
-        targets=["#r"],
-        e2ee=True,
-        secure=True,
-    )
-    assert obj.e2ee is True
-    obj.notify_format = NotifyFormat.HTML
-
-    # Installed crypto support activates the smaller encrypted rich limit.
-    if CRYPTOGRAPHY_AVAILABLE:
-        assert obj.body_maxlen == obj.body_maxlen_e2ee_formatted
-        assert obj.body_maxlen < obj.body_maxlen_formatted
-
-        # Plain encrypted content only needs one Matrix body field.
-        obj.notify_format = NotifyFormat.TEXT
-        assert obj.body_maxlen == obj.body_maxlen_e2ee
-    else:
-        # Encryption also requires the optional cryptography package.
-        assert obj.body_maxlen == obj.body_maxlen_formatted
-
-    # Webhooks keep the original limit regardless of output format.
-    obj.mode = MatrixWebhookMode.HOOKSHOT
-    assert obj.body_maxlen == obj.body_maxlen_webhook
-
-
 @mock.patch("requests.put")
 @mock.patch("requests.get")
 @mock.patch("requests.post")
 def test_plugin_matrix_html_plain_fallback(mock_post, mock_get, mock_put):
-    """HTML messages include plain text without repeating their markup."""
+    """Declared HTML receives a plain-text fallback."""
+    from apprise.common import NotifyFormat
 
-    # Supply the minimum successful responses needed for a direct room send.
     response_obj = {
         "room_id": "!abc123:localhost",
         "room_alias": "#abc123:localhost",
@@ -5368,8 +7971,7 @@ def test_plugin_matrix_html_plain_fallback(mock_post, mock_get, mock_put):
         "access_token": "abcd1234",
         "home_server": "localhost",
     }
-    # Return success for each mocked Matrix endpoint.
-    request = mock.Mock()
+    request = _Response()
     request.content = dumps(response_obj)
     request.status_code = requests.codes.ok
 
@@ -5377,48 +7979,38 @@ def test_plugin_matrix_html_plain_fallback(mock_post, mock_get, mock_put):
     mock_post.return_value = request
     mock_put.return_value = request
 
-    # Select HTML as Matrix's single configured v1 output format.
     kwargs = NotifyMatrix.parse_url(
         "matrix://user:passwd@hostname/#abcd?format=html"
     )
     obj = NotifyMatrix(**kwargs)
 
-    # Known input provenance allows Matrix to build a plain fallback.
+    # Declaring the source confirms that the content is HTML.
     assert (
-        obj.send(
-            title="Title",
-            body="<b>Bold</b> text",
-            body_format=NotifyFormat.HTML,
+        bool(
+            obj.notify(
+                title="Title",
+                body="<b>Bold</b> text",
+                body_format=NotifyFormat.HTML,
+            )
         )
         is True
     )
 
-    # Read the unencrypted Matrix event submitted to the room.
     payload = loads(mock_put.call_args.kwargs["data"])
-
-    # Preserve the original markup in Matrix's formatted representation.
     assert payload["formatted_body"] == "<h1>Title</h1><b>Bold</b> text"
     # The plain-text fallback must not carry the raw markup a second time.
     assert "<b>" not in payload["body"]
     assert "Bold text" in payload["body"]
 
-    # No input format is v1's pass-through signal.
-    assert obj.send(body="<b>Upstream HTML</b>") is True
-
-    # Re-read the most recent PUT to verify pass-through behavior.
-    payload = loads(mock_put.call_args.kwargs["data"])
-    assert payload["body"] == "<b>Upstream HTML</b>"
-
 
 @mock.patch("requests.put")
 @mock.patch("requests.get")
 @mock.patch("requests.post")
-def test_plugin_matrix_html_split_preserves_body(
+def test_plugin_matrix_html_passthrough_untouched(
     mock_post, mock_get, mock_put
 ):
-    """HTML overflow splits before payload sizing so content is preserved."""
+    """Undeclared content remains unchanged when routed as rich text."""
 
-    # Make login, discovery, and room operations succeed for every chunk.
     response_obj = {
         "room_id": "!abc123:localhost",
         "room_alias": "#abc123:localhost",
@@ -5426,8 +8018,7 @@ def test_plugin_matrix_html_split_preserves_body(
         "access_token": "abcd1234",
         "home_server": "localhost",
     }
-    # Share one stable mock response across all Matrix HTTP methods.
-    request = mock.Mock()
+    request = _Response()
     request.content = dumps(response_obj)
     request.status_code = requests.codes.ok
 
@@ -5435,38 +8026,18 @@ def test_plugin_matrix_html_split_preserves_body(
     mock_post.return_value = request
     mock_put.return_value = request
 
-    # Disable E2EE so this test targets the unencrypted HTML tier.
     kwargs = NotifyMatrix.parse_url(
-        "matrix://user:passwd@hostname/#abcd?format=html&e2ee=no"
+        "matrix://user:passwd@hostname/#abcd?format=html"
     )
-    # Build a body that requires exactly three framework chunks.
     obj = NotifyMatrix(**kwargs)
-    body = "x" * (obj.body_maxlen * 2 + 100)
 
-    # Use the normal notification path so the framework performs the split.
-    assert (
-        obj.notify(
-            body=body,
-            body_format=NotifyFormat.HTML,
-            overflow=OverflowMode.SPLIT,
-        )
-        is True
-    )
+    # No body_format declared: a passthrough source.
+    assert bool(obj.notify(title="Title", body="<b>Bold</b> text")) is True
 
-    # Every original character remains across the resulting Matrix events.
-    payloads = [loads(call.kwargs["data"]) for call in mock_put.call_args_list]
-    # The conservative formatted limit should produce three events.
-    assert len(payloads) == 3
-
-    # Joining the formatted bodies must recreate the original input.
-    assert "".join(payload["formatted_body"] for payload in payloads) == body
-
-    # Each individual room event must remain within the byte allowance.
-    assert all(
-        len(dumps(payload, ensure_ascii=False).encode("utf-8"))
-        <= MATRIX_CONTENT_BYTE_LIMIT
-        for payload in payloads
-    )
+    payload = loads(mock_put.call_args.kwargs["data"])
+    assert payload["formatted_body"] == "<h1>Title</h1><b>Bold</b> text"
+    # Preserve the source when its format is unknown.
+    assert payload["body"] == "# Title\r\n<b>Bold</b> text"
 
 
 @mock.patch("requests.put")
@@ -5474,7 +8045,7 @@ def test_plugin_matrix_html_split_preserves_body(
 @mock.patch("requests.post")
 @pytest.mark.skipif(not CRYPTOGRAPHY_AVAILABLE, reason="Requires cryptography")
 def test_plugin_matrix_e2ee_html_plain_fallback(mock_post, mock_get, mock_put):
-    """Encrypted HTML messages also provide a plain-text fallback."""
+    """Encrypted HTML also receives a plain-text fallback."""
     from apprise.common import NotifyFormat
     from apprise.plugins.matrix.e2ee import (
         MatrixMegOlmSession,
@@ -5482,42 +8053,31 @@ def test_plugin_matrix_e2ee_html_plain_fallback(mock_post, mock_get, mock_put):
     )
 
     def _mk_resp(d):
-        # Build a successful Matrix response with JSON content.
-        r = mock.Mock()
+        r = _Response()
         r.status_code = requests.codes.ok
         r.content = dumps(d).encode()
         return r
 
-    # Room sends only need an empty successful response body here.
     mock_put.return_value = _mk_resp({})
 
-    # Prepare a logged-in Matrix object with E2EE enabled.
     obj = NotifyMatrix(
         host="h", user="u", password="pass", targets=["#r"], e2ee=True
     )
-    # Force the rich-output branch being exercised by this regression.
-    obj.notify_format = NotifyFormat.HTML
-
-    # Populate the identifiers normally learned during Matrix login.
     obj.access_token = "tok"
     obj.home_server = "h"
     obj.user_id = "@u:h"
     obj.device_id = "DEV"
-    # Supply an Olm account so the outer event has a sender key.
     obj._e2ee_account = MatrixOlmAccount()
 
-    # Seed a MegOLM session that has already been shared with the room.
     session = MatrixMegOlmSession()
     obj.store.set("e2ee_megolm_!r:h", session.to_dict())
     obj.store.set("e2ee_key_shared_!r:h", session.session_id)
 
-    # Capture the event before encryption so its fallback can be checked.
+    # Capture the event before encryption.
     captured = {}
-    # Retain the real encryption function after capturing its input.
     original_encrypt = MatrixMegOlmSession.encrypt
 
     def _spy_encrypt(self, event):
-        # Save the plaintext event immediately before MegOLM encryption.
         captured["event"] = event
         return original_encrypt(self, event)
 
@@ -5528,32 +8088,1075 @@ def test_plugin_matrix_e2ee_html_plain_fallback(mock_post, mock_get, mock_put):
                 "<b>Bold</b> text",
                 "Title",
                 NotifyType.INFO,
-                NotifyFormat.HTML,
+                body_format=NotifyFormat.HTML,
+                body_passthrough=False,
             )
             is True
         )
 
-    # Inspect both representations inside the captured plaintext event.
     msg_content = captured["event"]["content"]
-
-    # The rich representation retains all supplied HTML.
     assert msg_content["formatted_body"] == "<h1>Title</h1><b>Bold</b> text"
-
-    # The fallback remains readable without carrying duplicate markup.
     assert "<b>" not in msg_content["body"]
     assert "Bold text" in msg_content["body"]
 
-    # Reject unexpected envelope growth before the homeserver returns a 413.
-    # Record network activity before introducing an oversized device ID.
-    put_count = mock_put.call_count
 
-    # Simulate unexpected server metadata that consumes the entire budget.
-    obj.device_id = "d" * MATRIX_CONTENT_BYTE_LIMIT
-    assert (
-        obj._e2ee_send_to_room(
-            "!r:h", "Body", "", NotifyType.INFO, NotifyFormat.HTML
-        )
-        is False
+def test_plugin_matrix_e2ee_body_limit():
+    """Encrypted messages use a smaller limit when E2EE is available."""
+    obj = NotifyMatrix(
+        host="h",
+        user="u",
+        password="pass",
+        targets=["#r"],
+        e2ee=False,
+        secure=True,
     )
-    # Rejection must happen locally without another room request.
-    assert mock_put.call_count == put_count
+    assert obj.e2ee is False
+    assert obj.body_maxlen == obj.body_maxlen_default
+
+    # Non-TLS connections cannot use encryption.
+    obj = NotifyMatrix(
+        host="h",
+        user="u",
+        password="pass",
+        targets=["#r"],
+        e2ee=True,
+        secure=False,
+    )
+    assert obj.e2ee is True
+    assert obj.body_maxlen == obj.body_maxlen_default
+
+    obj = NotifyMatrix(
+        host="h",
+        user="u",
+        password="pass",
+        targets=["#r"],
+        e2ee=True,
+        secure=True,
+    )
+    assert obj.e2ee is True
+
+    if CRYPTOGRAPHY_AVAILABLE:
+        assert obj.body_maxlen == obj.body_maxlen_e2ee
+        assert obj.body_maxlen < obj.body_maxlen_default
+    else:
+        # Encryption also requires the optional cryptography package.
+        assert obj.body_maxlen == obj.body_maxlen_default
+
+
+def test_plugin_matrix_webhook_mode_body_maxlen_unaffected():
+    """Webhook modes keep their flat limit for their distinct payloads."""
+    from apprise.common import NotifyFormat, OverflowMode
+    from apprise.plugins.matrix import base as matrix_base
+    from apprise.plugins.matrix.base import MatrixWebhookMode
+
+    for mode in (
+        MatrixWebhookMode.SLACK,
+        MatrixWebhookMode.MATRIX,
+        MatrixWebhookMode.HOOKSHOT,
+    ):
+        obj = NotifyMatrix(
+            host="h", user="u", token="tok", mode=mode, secure=True
+        )
+        # Webhooks ignore the default E2EE setting.
+        assert obj.e2ee is True
+        assert obj.body_maxlen == obj.body_maxlen_default
+
+        list(
+            obj._build_send_calls(
+                body="hello world " * 20,
+                title="",
+                body_format=NotifyFormat.HTML,
+                overflow=OverflowMode.SPLIT,
+            )
+        )
+        # Webhook preparation does not activate content-aware sizing.
+        assert matrix_base._matrix_effective_body_maxlen_var.get() is None
+        assert obj.body_maxlen == obj.body_maxlen_default
+
+
+def test_plugin_matrix_body_maxlen_content_aware():
+    """Direct sends choose a content-aware limit while preparing chunks."""
+    from apprise.common import OverflowMode
+    from apprise.plugins.matrix import base as matrix_base
+
+    obj = NotifyMatrix(
+        host="h",
+        user="u",
+        password="pass",
+        targets=["#r"],
+        secure=True,
+        e2ee=False,
+    )
+
+    # No send in progress: fall back to the flat default.
+    assert matrix_base._matrix_effective_body_maxlen_var.get() is None
+    assert obj.body_maxlen == obj.body_maxlen_default
+
+    observed = {}
+
+    # Capture the computed limit while the generator is active.
+    original_property = NotifyMatrix.body_maxlen.fget
+
+    def _spy_body_maxlen(self):
+        observed["body_maxlen"] = (
+            matrix_base._matrix_effective_body_maxlen_var.get()
+        )
+        return original_property(self)
+
+    with mock.patch.object(
+        NotifyMatrix, "body_maxlen", property(_spy_body_maxlen)
+    ):
+        list(
+            obj._build_send_calls(
+                # This length makes UTF-8 density determine the limit.
+                body="\U0001f600" * 20000,
+                title="",
+                overflow=OverflowMode.SPLIT,
+            )
+        )
+
+    # Emoji require four UTF-8 bytes and therefore a smaller limit.
+    emoji_limit = observed["body_maxlen"]
+    assert emoji_limit < obj.body_maxlen_default
+
+    # Restored after the call completes.
+    assert matrix_base._matrix_effective_body_maxlen_var.get() is None
+
+    with mock.patch.object(
+        NotifyMatrix, "body_maxlen", property(_spy_body_maxlen)
+    ):
+        list(
+            obj._build_send_calls(
+                body="hello world " * 10000,
+                title="",
+                overflow=OverflowMode.SPLIT,
+            )
+        )
+
+    # Plain ASCII content allows a much larger character limit.
+    assert observed["body_maxlen"] > emoji_limit
+    assert matrix_base._matrix_effective_body_maxlen_var.get() is None
+
+
+@mock.patch("requests.put")
+@mock.patch("requests.get")
+@mock.patch("requests.post")
+def test_plugin_matrix_concentrated_density_split(
+    mock_post, mock_get, mock_put
+):
+    """Dense Unicode regions must fit even when ASCII lowers the average."""
+    from apprise.common import OverflowMode
+
+    response_obj = {
+        "room_id": "!abc123:localhost",
+        "room_alias": "#abc123:localhost",
+        "joined_rooms": ["!abc123:localhost"],
+        "access_token": "abcd1234",
+        "home_server": "localhost",
+    }
+    request = _Response()
+    request.content = dumps(response_obj)
+    request.status_code = requests.codes.ok
+
+    mock_get.return_value = request
+    mock_post.return_value = request
+    mock_put.return_value = request
+
+    obj = NotifyMatrix(host="hostname", user="user", password="passwd")
+
+    original_body = ("\U0001f600" * 20000) + ("a" * 80000)
+    assert (
+        bool(obj.notify(body=original_body, overflow=OverflowMode.SPLIT))
+        is True
+    )
+
+    assert mock_put.call_count > 1
+    reconstructed = ""
+    for call in mock_put.call_args_list:
+        payload = loads(call.kwargs["data"])
+        encoded_len = len(dumps(payload, ensure_ascii=False).encode("utf-8"))
+        assert encoded_len <= 65536
+        reconstructed += payload["body"]
+
+    # No content was dropped or duplicated across the split events.
+    assert reconstructed == original_body
+
+
+@mock.patch("requests.put")
+@mock.patch("requests.get")
+@mock.patch("requests.post")
+def test_plugin_matrix_json_escape_heavy_split(mock_post, mock_get, mock_put):
+    """Backslash-heavy bodies must fit after JSON escape expansion."""
+    from apprise.common import OverflowMode
+
+    response_obj = {
+        "room_id": "!abc123:localhost",
+        "room_alias": "#abc123:localhost",
+        "joined_rooms": ["!abc123:localhost"],
+        "access_token": "abcd1234",
+        "home_server": "localhost",
+    }
+    request = _Response()
+    request.content = dumps(response_obj)
+    request.status_code = requests.codes.ok
+
+    mock_get.return_value = request
+    mock_post.return_value = request
+    mock_put.return_value = request
+
+    obj = NotifyMatrix(host="hostname", user="user", password="passwd")
+
+    original_body = "\\" * 70000
+    assert (
+        bool(obj.notify(body=original_body, overflow=OverflowMode.SPLIT))
+        is True
+    )
+
+    assert mock_put.call_count > 1
+    reconstructed = ""
+    for call in mock_put.call_args_list:
+        payload = loads(call.kwargs["data"])
+        encoded_len = len(dumps(payload, ensure_ascii=False).encode("utf-8"))
+        assert encoded_len <= 65536
+        reconstructed += payload["body"]
+
+    assert reconstructed == original_body
+
+
+@mock.patch("requests.put")
+@mock.patch("requests.get")
+@mock.patch("requests.post")
+def test_plugin_matrix_mixed_escape_and_unicode_split(
+    mock_post, mock_get, mock_put
+):
+    """Mixed JSON escapes and Unicode must remain within the byte limit."""
+    from apprise.common import OverflowMode
+
+    response_obj = {
+        "room_id": "!abc123:localhost",
+        "room_alias": "#abc123:localhost",
+        "joined_rooms": ["!abc123:localhost"],
+        "access_token": "abcd1234",
+        "home_server": "localhost",
+    }
+    request = _Response()
+    request.content = dumps(response_obj)
+    request.status_code = requests.codes.ok
+
+    mock_get.return_value = request
+    mock_post.return_value = request
+    mock_put.return_value = request
+
+    obj = NotifyMatrix(host="hostname", user="user", password="passwd")
+
+    # Include escapes, a non-whitespace control, CJK, and emoji characters.
+    # Whitespace controls are avoided because chunk splitting may trim them.
+    cluster = '"\\\x01中\U0001f600'
+    original_body = cluster * 15000
+    assert (
+        bool(obj.notify(body=original_body, overflow=OverflowMode.SPLIT))
+        is True
+    )
+
+    assert mock_put.call_count > 1
+    reconstructed = ""
+    for call in mock_put.call_args_list:
+        payload = loads(call.kwargs["data"])
+        encoded_len = len(dumps(payload, ensure_ascii=False).encode("utf-8"))
+        assert encoded_len <= 65536
+        reconstructed += payload["body"]
+
+    assert reconstructed == original_body
+
+
+@mock.patch("requests.put")
+@mock.patch("requests.get")
+@mock.patch("requests.post")
+def test_plugin_matrix_html_dual_representation_split(
+    mock_post, mock_get, mock_put
+):
+    """HTML events fit with both plain and formatted representations."""
+    from apprise.common import NotifyFormat, OverflowMode
+
+    response_obj = {
+        "room_id": "!abc123:localhost",
+        "room_alias": "#abc123:localhost",
+        "joined_rooms": ["!abc123:localhost"],
+        "access_token": "abcd1234",
+        "home_server": "localhost",
+    }
+    request = _Response()
+    request.content = dumps(response_obj)
+    request.status_code = requests.codes.ok
+
+    mock_get.return_value = request
+    mock_post.return_value = request
+    mock_put.return_value = request
+
+    obj = NotifyMatrix(host="hostname", user="user", password="passwd")
+
+    body = ("word " * 12999) + "end"
+    assert (
+        bool(
+            obj.notify(
+                body=body,
+                body_format=NotifyFormat.HTML,
+                overflow=OverflowMode.SPLIT,
+            )
+        )
+        is True
+    )
+
+    assert mock_put.call_count > 1
+    for call in mock_put.call_args_list:
+        payload = loads(call.kwargs["data"])
+        assert "formatted_body" in payload
+        encoded_len = len(dumps(payload, ensure_ascii=False).encode("utf-8"))
+        assert encoded_len <= 65536
+
+
+@mock.patch("requests.put")
+@mock.patch("requests.get")
+@mock.patch("requests.post")
+@pytest.mark.skipif(not CRYPTOGRAPHY_AVAILABLE, reason="Requires cryptography")
+def test_plugin_matrix_e2ee_html_split(mock_post, mock_get, mock_put):
+    """Encrypted HTML chunks fit after formatting and MegOLM expansion."""
+    from apprise.common import NotifyFormat, OverflowMode
+    from apprise.plugins.matrix.e2ee import MatrixMegOlmSession
+
+    def _mk_resp(d):
+        r = _Response()
+        r.status_code = requests.codes.ok
+        r.content = dumps(d).encode()
+        return r
+
+    login_resp = {
+        "access_token": "tok",
+        "user_id": "@u:h",
+        "home_server": "h",
+        "device_id": "DEV",
+    }
+    mock_post.side_effect = [
+        _mk_resp(login_resp),
+        _mk_resp({}),  # keys/upload
+        _mk_resp({"room_id": "!r:h"}),  # join
+        _mk_resp({}),  # logout
+    ]
+    mock_get.return_value = _mk_resp({})
+    mock_put.return_value = _mk_resp({})
+
+    obj = NotifyMatrix(
+        host="h",
+        user="u",
+        password="pass",
+        targets=["!r:h"],
+        e2ee=True,
+        secure=True,
+        discovery=False,
+    )
+    # Pre-seed encryption state so the test only sends message events.
+    session = MatrixMegOlmSession()
+    obj.store.set("e2ee_room_enc_!r:h", True)
+    obj.store.set("e2ee_megolm_!r:h", session.to_dict())
+    obj.store.set("e2ee_key_shared_!r:h", session.session_id)
+
+    body = ("<b>hello world this is a test</b> " * 2000).strip()
+    assert (
+        bool(
+            obj.notify(
+                body=body,
+                body_format=NotifyFormat.HTML,
+                overflow=OverflowMode.SPLIT,
+            )
+        )
+        is True
+    )
+
+    assert mock_put.call_count > 1
+    for call in mock_put.call_args_list:
+        payload = loads(call.kwargs["data"])
+        assert payload["algorithm"] == "m.megolm.v1.aes-sha2"
+        encoded_len = len(dumps(payload, ensure_ascii=False).encode("utf-8"))
+        assert encoded_len <= 65536
+
+
+@mock.patch("requests.put")
+@mock.patch("requests.get")
+@mock.patch("requests.post")
+@pytest.mark.skipif(not CRYPTOGRAPHY_AVAILABLE, reason="Requires cryptography")
+@pytest.mark.parametrize("device_id_len", [3, 128, 255, 1000])
+def test_plugin_matrix_e2ee_long_device_id_and_title(
+    mock_post, mock_get, mock_put, device_id_len
+):
+    """Long device IDs and escaped titles must fit encrypted events.
+
+    Both values are measured because neither raw character counts nor a
+    fixed envelope estimate represent their final JSON byte cost.
+    """
+    from apprise.common import NotifyFormat, OverflowMode
+    from apprise.plugins.matrix.e2ee import MatrixMegOlmSession
+
+    def _mk_resp(d):
+        r = _Response()
+        r.status_code = requests.codes.ok
+        r.content = dumps(d).encode()
+        return r
+
+    mock_get.return_value = _mk_resp({})
+    mock_put.return_value = _mk_resp({})
+    mock_post.return_value = _mk_resp({})
+
+    obj = NotifyMatrix(
+        host="h",
+        user="u",
+        password="pass",
+        targets=["!r:h"],
+        e2ee=True,
+        secure=True,
+        discovery=False,
+    )
+    session = MatrixMegOlmSession()
+    obj.store.set("e2ee_room_enc_!r:h", True)
+    obj.store.set("e2ee_megolm_!r:h", session.to_dict())
+    obj.store.set("e2ee_key_shared_!r:h", session.session_id)
+    obj.access_token = "tok"
+    obj.home_server = "h"
+    obj.user_id = "@u:h"
+    # A known device_id (as if cached from a prior login) is measured
+    # exactly rather than falling back to the generous default.
+    obj.device_id = "D" * device_id_len
+
+    title = "\x01" * 250  # near title_maxlen, maximal 6-byte JSON escape
+    body = "\x01" * 200000
+
+    assert (
+        bool(
+            obj.notify(
+                body=body,
+                title=title,
+                body_format=NotifyFormat.HTML,
+                overflow=OverflowMode.SPLIT,
+            )
+        )
+        is True
+    )
+
+    assert mock_put.call_count > 1
+    for call in mock_put.call_args_list:
+        payload = loads(call.kwargs["data"])
+        assert payload["algorithm"] == "m.megolm.v1.aes-sha2"
+        encoded_len = len(dumps(payload, ensure_ascii=False).encode("utf-8"))
+        assert encoded_len <= 65536
+
+
+@pytest.mark.skipif(not CRYPTOGRAPHY_AVAILABLE, reason="Requires cryptography")
+def test_plugin_matrix_e2ee_rejects_late_oversize():
+    """Refuse a first-login event that becomes too large after sizing.
+
+    The final device ID must not consume the safety margin reserved for
+    homeserver-added metadata.
+    """
+    from apprise.common import NotifyFormat, OverflowMode
+    from apprise.plugins.matrix.base import (
+        MATRIX_EVENT_BYTE_LIMIT,
+        MATRIX_EVENT_SAFETY_MARGIN,
+    )
+    from apprise.plugins.matrix.e2ee import (
+        MatrixMegOlmSession,
+        MatrixOlmAccount,
+    )
+
+    safe_byte_budget = MATRIX_EVENT_BYTE_LIMIT - MATRIX_EVENT_SAFETY_MARGIN
+
+    obj = NotifyMatrix(
+        host="h",
+        user="u",
+        password="pass",
+        targets=["!r:h"],
+        e2ee=True,
+        secure=True,
+        discovery=False,
+    )
+    obj.access_token = "tok"
+    obj.home_server = "h"
+    obj.user_id = "@u:h"
+    # Unknown at sizing time: _build_send_calls() uses the fallback.
+    obj.device_id = None
+    obj._e2ee_account = MatrixOlmAccount()
+
+    # A small, fixed body/title: content isn't what's under test here,
+    # device_id's contribution is. device_id sits outside the encrypted
+    # ciphertext (a plain sibling JSON field), so every extra character
+    # added to it adds exactly one byte to the final encrypted payload,
+    # letting the boundary below be targeted precisely.
+    calls = list(
+        obj._build_send_calls(
+            body="hello", title="", overflow=OverflowMode.SPLIT
+        )
+    )
+    first = calls[0]
+
+    session = MatrixMegOlmSession()
+    obj.store.set("e2ee_room_enc_!r:h", True)
+    obj.store.set("e2ee_megolm_!r:h", session.to_dict())
+    obj.store.set("e2ee_key_shared_!r:h", session.session_id)
+
+    def send_with_device_id(device_id_len):
+        # The real device_id becomes known only now, as if login
+        # happened after sizing already ran.
+        obj.device_id = "D" * device_id_len
+        with (
+            mock.patch.object(obj, "_e2ee_share_room_key", return_value=True),
+            mock.patch.object(
+                obj, "_fetch", return_value=(True, {}, 200)
+            ) as mock_fetch,
+        ):
+            result = obj._e2ee_send_to_room(
+                "!r:h",
+                first["body"],
+                first["title"],
+                NotifyType.INFO,
+                NotifyFormat.HTML,
+                False,
+            )
+        sent = mock_fetch.call_count > 0
+        assert result is sent
+        if sent:
+            payload = mock_fetch.call_args.kwargs["payload"]
+            return len(dumps(payload, ensure_ascii=False).encode("utf-8"))
+        return None
+
+    # Measure this content's baseline (device_id excluded) once.
+    baseline_bytes = send_with_device_id(0)
+
+    # Exactly at the safe budget: still accepted.
+    at_budget_len = safe_byte_budget - baseline_bytes
+    assert send_with_device_id(at_budget_len) == safe_byte_budget
+
+    # One byte into the reserved margin -- between the safe budget and
+    # the hard ceiling, previously accepted by mistake -- must now be
+    # refused.
+    past_budget_len = at_budget_len + 1
+    assert send_with_device_id(past_budget_len) is None
+
+    # Comfortably past the full ceiling: also refused.
+    assert send_with_device_id(MATRIX_EVENT_BYTE_LIMIT) is None
+
+
+@mock.patch("requests.put")
+@mock.patch("requests.get")
+@mock.patch("requests.post")
+@pytest.mark.skipif(not CRYPTOGRAPHY_AVAILABLE, reason="Requires cryptography")
+def test_plugin_matrix_surrogate_sanitized_end_to_end(
+    mock_post, mock_get, mock_put
+):
+    """A lone UTF-16 surrogate in the body/title must not crash delivery
+    on any send path -- direct-server, E2EE, or webhook."""
+    from apprise.common import NotifyFormat
+    from apprise.plugins.matrix.base import MatrixWebhookMode
+    from apprise.plugins.matrix.e2ee import MatrixMegOlmSession
+
+    def _mk_resp(d):
+        r = _Response()
+        r.status_code = requests.codes.ok
+        r.content = dumps(d).encode()
+        return r
+
+    lone_surrogate_body = "hello " + chr(0xD800) + " world"
+    lone_surrogate_title = "t" + chr(0xDC00) + "t"
+
+    # Direct-server plaintext path.
+    response_obj = {
+        "room_id": "!abc:localhost",
+        "room_alias": "#abc:localhost",
+        "joined_rooms": ["!abc:localhost"],
+        "access_token": "abcd1234",
+        "home_server": "localhost",
+    }
+    mock_get.return_value = _mk_resp(response_obj)
+    mock_post.return_value = _mk_resp(response_obj)
+    mock_put.return_value = _mk_resp({})
+    obj = NotifyMatrix(host="hostname", user="user", password="passwd")
+    assert bool(obj.notify(body=lone_surrogate_body)) is True
+    payload = loads(mock_put.call_args.kwargs["data"])
+    # The lone surrogate is replaced, never crashing serialization.
+    payload["body"].encode("utf-8")
+
+    # E2EE path.
+    mock_get.return_value = _mk_resp({})
+    mock_put.return_value = _mk_resp({})
+    mock_post.return_value = _mk_resp({})
+    obj = NotifyMatrix(
+        host="h",
+        user="u",
+        password="pass",
+        targets=["!r:h"],
+        e2ee=True,
+        secure=True,
+        discovery=False,
+    )
+    session = MatrixMegOlmSession()
+    obj.store.set("e2ee_room_enc_!r:h", True)
+    obj.store.set("e2ee_megolm_!r:h", session.to_dict())
+    obj.store.set("e2ee_key_shared_!r:h", session.session_id)
+    obj.access_token = "tok"
+    obj.home_server = "h"
+    obj.user_id = "@u:h"
+    obj.device_id = "DEV"
+    assert (
+        bool(
+            obj.notify(
+                body="hello",
+                title=lone_surrogate_title,
+                body_format=NotifyFormat.HTML,
+            )
+        )
+        is True
+    )
+
+    # Webhook (Slack-compatible) path.
+    mock_post.return_value = _mk_resp({})
+    obj = NotifyMatrix(
+        host="h", user="u", token="tok", mode=MatrixWebhookMode.SLACK
+    )
+    assert bool(obj.notify(body=lone_surrogate_body)) is True
+
+
+@mock.patch("requests.put")
+@mock.patch("requests.get")
+@mock.patch("requests.post")
+def test_plugin_matrix_caps_before_scanning_density(
+    mock_post, mock_get, mock_put
+):
+    """The payload cap is applied before UTF-8 density is scanned."""
+    from apprise.asset import AppriseAsset
+    from apprise.common import OverflowMode
+
+    response_obj = {
+        "room_id": "!abc123:localhost",
+        "room_alias": "#abc123:localhost",
+        "joined_rooms": ["!abc123:localhost"],
+        "access_token": "abcd1234",
+        "home_server": "localhost",
+    }
+    request = _Response()
+    request.content = dumps(response_obj)
+    request.status_code = requests.codes.ok
+
+    mock_get.return_value = request
+    mock_post.return_value = request
+    mock_put.return_value = request
+
+    asset = AppriseAsset(payload_max_size=100)
+    obj = NotifyMatrix(
+        host="hostname", user="user", password="passwd", asset=asset
+    )
+
+    # Only the capped 100 characters should be scanned.
+    huge_body = "a" * 10_000_000
+    assert (
+        bool(obj.notify(body=huge_body, overflow=OverflowMode.SPLIT)) is True
+    )
+
+    # Capped to 100 characters up front, so a single small event is sent.
+    assert mock_put.call_count == 1
+    payload = loads(mock_put.call_args.kwargs["data"])
+    assert len(payload["body"]) <= 100
+
+
+@mock.patch("requests.put")
+@mock.patch("requests.get")
+@mock.patch("requests.post")
+def test_plugin_matrix_caps_before_sanitizing(mock_post, mock_get, mock_put):
+    """Apply the payload cap before scanning text for invalid surrogates.
+
+    Webhook mode isolates the cap performed by ``_build_send_calls()``.
+    """
+    from apprise.asset import AppriseAsset
+    from apprise.plugins.matrix.base import MatrixWebhookMode
+
+    request = _Response()
+    request.content = dumps({})
+    request.status_code = requests.codes.ok
+    mock_post.return_value = request
+
+    asset = AppriseAsset(payload_max_size=100)
+    obj = NotifyMatrix(
+        host="h",
+        user="u",
+        token="tok",
+        mode=MatrixWebhookMode.SLACK,
+        asset=asset,
+    )
+
+    seen_lengths = []
+    from apprise.plugins.matrix import (
+        base as matrix_base,
+        sizing as matrix_sizing,
+    )
+
+    real_sanitize_fn = matrix_sizing.sanitize_text
+
+    def spy_sanitize(text):
+        seen_lengths.append(len(text) if text else 0)
+        return real_sanitize_fn(text)
+
+    huge_body = "a" * 10_000_000
+    with (
+        mock.patch.object(matrix_sizing, "sanitize_text", spy_sanitize),
+        mock.patch.object(matrix_base, "_matrix_sanitize_text", spy_sanitize),
+    ):
+        assert bool(obj.notify(body=huge_body)) is True
+
+    # Every call into the sanitizer saw only the already-capped text, never
+    # the original 10,000,000-character body.
+    assert seen_lengths
+    assert max(seen_lengths) <= 100
+
+
+def test_plugin_matrix_preview_avoids_extra_full_strip():
+    """Avoid stripping and copying a large input during sizing.
+
+    The framework performs the one required full-input strip. The sizing
+    preview finds trim boundaries without making another full-size copy.
+    """
+    from apprise.asset import AppriseAsset
+    from apprise.common import OverflowMode
+
+    calls = []
+
+    class _TrackingStr(str):
+        def rstrip(self, *args, **kwargs):
+            calls.append(("rstrip", len(self)))
+            return super().rstrip(*args, **kwargs)
+
+        def strip(self, *args, **kwargs):
+            calls.append(("strip", len(self)))
+            return super().strip(*args, **kwargs)
+
+    asset = AppriseAsset(payload_max_size=100)
+    obj = NotifyMatrix(
+        host="h", user="u", password="pass", targets=["#r"], asset=asset
+    )
+
+    huge_body = _TrackingStr("a" * 10_000_000 + " ")
+    huge_title = _TrackingStr(" " * 10_000_000 + "hi")
+
+    list(
+        obj._build_send_calls(
+            body=huge_body,
+            title=huge_title,
+            overflow=OverflowMode.SPLIT,
+        )
+    )
+
+    full_length_rstrip_calls = [
+        c for c in calls if c == ("rstrip", len(huge_body))
+    ]
+    full_length_strip_calls = [
+        c for c in calls if c == ("strip", len(huge_title))
+    ]
+    assert len(full_length_rstrip_calls) == 1
+    assert len(full_length_strip_calls) == 1
+
+
+@mock.patch("requests.put")
+@mock.patch("requests.get")
+@mock.patch("requests.post")
+def test_plugin_matrix_whitespace_title_does_not_steal_cap(
+    mock_post, mock_get, mock_put
+):
+    """Whitespace-only titles must not consume the payload cap.
+
+    The sizing preview follows the framework's strip-then-cap order so the
+    useful body receives the space vacated by the title.
+    """
+    from apprise.asset import AppriseAsset
+    from apprise.common import OverflowMode
+
+    response_obj = {
+        "room_id": "!abc123:localhost",
+        "room_alias": "#abc123:localhost",
+        "joined_rooms": ["!abc123:localhost"],
+        "access_token": "abcd1234",
+        "home_server": "localhost",
+    }
+    request = _Response()
+    request.content = dumps(response_obj)
+    request.status_code = requests.codes.ok
+    mock_get.return_value = request
+    mock_post.return_value = request
+    mock_put.return_value = request
+
+    asset = AppriseAsset(payload_max_size=300)
+    obj = NotifyMatrix(
+        host="hostname", user="user", password="passwd", asset=asset
+    )
+
+    title = " " * 250
+    body = "x" * 300
+
+    assert bool(
+        obj.notify(body=body, title=title, overflow=OverflowMode.SPLIT)
+    )
+    payload = loads(mock_put.call_args_list[0].kwargs["data"])
+    # The whitespace-only title contributes nothing once stripped, so the
+    # full body -- not a truncated fragment -- fits within the cap.
+    assert payload["body"] == body
+
+
+def test_plugin_matrix_title_leading_whitespace_past_cap():
+    """Keep meaningful title text beyond leading whitespace.
+
+    The preview must follow the framework's trim-then-cap behavior so title
+    overhead is measured correctly.
+    """
+    from apprise.asset import AppriseAsset
+    from apprise.common import NotifyFormat, OverflowMode
+
+    asset = AppriseAsset(payload_max_size=100)
+    obj = NotifyMatrix(
+        host="h", user="u", password="pass", targets=["#r"], asset=asset
+    )
+
+    # More leading whitespace than the cap, followed by an escape-heavy
+    # meaningful title (each char costs 6 JSON-escaped bytes).
+    title = (" " * 150) + ("\x01" * 50)
+    body = "hello world"
+
+    from apprise.plugins.matrix import sizing as matrix_sizing
+
+    observed = {}
+    real_overhead_fn = matrix_sizing.title_overhead_bytes
+
+    def spy_title_overhead(title_arg, body_format, escape_html):
+        observed["title_arg"] = title_arg
+        return real_overhead_fn(title_arg, body_format, escape_html)
+
+    with mock.patch.object(
+        matrix_sizing, "title_overhead_bytes", spy_title_overhead
+    ):
+        list(
+            obj._build_send_calls(
+                body=body,
+                title=title,
+                body_format=NotifyFormat.HTML,
+                overflow=OverflowMode.SPLIT,
+            )
+        )
+
+    # The preview must have seen the real, meaningful title content --
+    # not an empty string produced by slicing into the leading whitespace.
+    assert observed["title_arg"] == "\x01" * 50
+
+
+@mock.patch("requests.put")
+@mock.patch("requests.get")
+@mock.patch("requests.post")
+def test_plugin_matrix_truncation_warning_fires(mock_post, mock_get, mock_put):
+    """A genuinely oversized payload must still log the framework's normal
+    truncation warning -- sizing this content-aware must not suppress it
+    by pre-trimming before the framework's own check ever runs."""
+    from apprise.asset import AppriseAsset
+    from apprise.common import OverflowMode
+
+    response_obj = {
+        "room_id": "!abc123:localhost",
+        "room_alias": "#abc123:localhost",
+        "joined_rooms": ["!abc123:localhost"],
+        "access_token": "abcd1234",
+        "home_server": "localhost",
+    }
+    request = _Response()
+    request.content = dumps(response_obj)
+    request.status_code = requests.codes.ok
+    mock_get.return_value = request
+    mock_post.return_value = request
+    mock_put.return_value = request
+
+    asset = AppriseAsset(payload_max_size=100)
+    obj = NotifyMatrix(
+        host="hostname", user="user", password="passwd", asset=asset
+    )
+
+    with mock.patch.object(obj, "logger") as mock_logger:
+        assert bool(
+            obj.notify(
+                body="x" * 300, title="Alert", overflow=OverflowMode.SPLIT
+            )
+        )
+        assert any(
+            "trimmed" in call.args[0]
+            for call in mock_logger.warning.call_args_list
+        )
+
+
+def test_plugin_matrix_body_limit_thread_isolation():
+    """Keep content-aware body limits isolated across threads.
+
+    The context variable is exercised directly so the test is deterministic
+    and does not depend on reproducing a timing-sensitive race.
+    """
+    import threading
+
+    from apprise.plugins.matrix import base as matrix_base
+
+    obj = NotifyMatrix(
+        host="h", user="u", password="pass", targets=["#r"], secure=True
+    )
+
+    # Sizing state lives in a context var, not on the instance itself.
+    assert "_matrix_effective_body_maxlen" not in obj.__dict__
+
+    var = matrix_base._matrix_effective_body_maxlen_var
+    seen_in_other_thread = {}
+
+    def set_and_check_from_other_thread():
+        token = var.set(999)
+        try:
+            seen_in_other_thread["value"] = var.get()
+        finally:
+            var.reset(token)
+
+    token = var.set(111)
+    try:
+        t = threading.Thread(target=set_and_check_from_other_thread)
+        t.start()
+        t.join(timeout=5)
+
+        # The other thread's write must not have leaked into this one.
+        assert var.get() == 111
+    finally:
+        var.reset(token)
+
+    # And this thread's write must not have leaked into the other one.
+    assert seen_in_other_thread["value"] == 999
+
+
+@mock.patch("requests.put")
+@mock.patch("requests.get")
+@mock.patch("requests.post")
+def test_plugin_matrix_emoji_split_preserves_content(
+    mock_post, mock_get, mock_put
+):
+    """Emoji splitting preserves content within the byte limit."""
+    from apprise.common import OverflowMode
+
+    response_obj = {
+        "room_id": "!abc123:localhost",
+        "room_alias": "#abc123:localhost",
+        "joined_rooms": ["!abc123:localhost"],
+        "access_token": "abcd1234",
+        "home_server": "localhost",
+    }
+    request = _Response()
+    request.content = dumps(response_obj)
+    request.status_code = requests.codes.ok
+
+    mock_get.return_value = request
+    mock_post.return_value = request
+    mock_put.return_value = request
+
+    obj = NotifyMatrix(host="hostname", user="user", password="passwd")
+
+    original_body = "\U0001f600" * 20000
+    assert (
+        bool(obj.notify(body=original_body, overflow=OverflowMode.SPLIT))
+        is True
+    )
+
+    # Each event must independently fit Matrix's byte limit.
+    assert mock_put.call_count > 1
+    reconstructed = ""
+    for call in mock_put.call_args_list:
+        payload = loads(call.kwargs["data"])
+        encoded_len = len(dumps(payload, ensure_ascii=False).encode("utf-8"))
+        assert encoded_len <= 65536
+        reconstructed += payload["body"]
+
+    # No emoji was dropped or duplicated across the split events.
+    assert reconstructed == original_body
+
+
+@mock.patch("requests.put")
+@mock.patch("requests.get")
+@mock.patch("requests.post")
+def test_plugin_matrix_emoji_split_counters(mock_post, mock_get, mock_put):
+    """Emoji split counters match the number of events sent."""
+    from apprise.common import OverflowMode
+
+    response_obj = {
+        "room_id": "!abc123:localhost",
+        "room_alias": "#abc123:localhost",
+        "joined_rooms": ["!abc123:localhost"],
+        "access_token": "abcd1234",
+        "home_server": "localhost",
+    }
+    request = _Response()
+    request.content = dumps(response_obj)
+    request.status_code = requests.codes.ok
+
+    mock_get.return_value = request
+    mock_post.return_value = request
+    mock_put.return_value = request
+
+    obj = NotifyMatrix(host="hostname", user="user", password="passwd")
+
+    assert (
+        bool(
+            obj.notify(
+                title="Title",
+                body="\U0001f600" * 20000,
+                overflow=OverflowMode.SPLIT,
+            )
+        )
+        is True
+    )
+
+    total = mock_put.call_count
+    assert total > 1
+
+    # Counters use the framework's zero-padded width.
+    digits = len(str(total))
+    last_payload = loads(mock_put.call_args_list[-1].kwargs["data"])
+    assert f"[{total:0{digits}d}/{total:0{digits}d}]" in last_payload["body"]
+
+
+@mock.patch("requests.put")
+@mock.patch("requests.get")
+@mock.patch("requests.post")
+def test_plugin_matrix_discovery_is_unauthenticated(
+    mock_post, mock_get, mock_put
+):
+    """Keep the access token out of every discovery request."""
+
+    def _resp(payload):
+        response = _Response()
+        response.status_code = requests.codes.ok
+        response.content = dumps(payload).encode("utf-8")
+        response.headers = {}
+        return response
+
+    well_known = {
+        "m.homeserver": {"base_url": "https://matrix.example.com"},
+        "m.identity_server": {"base_url": "https://identity.example.com"},
+    }
+    mock_get.side_effect = [_resp(well_known), _resp({}), _resp({})]
+    mock_post.return_value = _resp({})
+    mock_put.return_value = _resp({})
+
+    obj = Apprise.instantiate(
+        "matrixs://user:pass@example.com/#general?v=2&discovery=yes"
+    )
+
+    # Pretend we already hold a session from an earlier notification
+    obj.access_token = "secret-token"
+    assert obj.base_url == "https://matrix.example.com"
+
+    # The well-known lookup and both probes went out without it
+    assert mock_get.call_count == 3
+    for call in mock_get.call_args_list:
+        assert "Authorization" not in call[1]["headers"]
+
+    del obj
+    _force_del_cleanup()

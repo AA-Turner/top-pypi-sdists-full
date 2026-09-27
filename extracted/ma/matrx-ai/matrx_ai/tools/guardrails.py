@@ -21,17 +21,21 @@ class _CallRecord:
     args_hash: str
     timestamp: float
     iteration: int
+    #: The request (one person's turn) that made the call. The repeat guards
+    #: judge ONE request: identical calls in different requests are a person
+    #: asking again, not a loop (Lane AU3, 2026-09-26).
+    request_id: str | None = None
 
 
 class GuardrailEngine:
     """Centralized guardrails that run before every tool execution.
 
     Checks:
-      1. Duplicate detection — identical call within recent history
+      1. Duplicate detection — identical call within this request
       2. Rate limiting — max calls per minute per tool
       3. Conversation limit — max total calls per tool per conversation
       4. Cost budget — remaining budget vs estimated cost
-      5. Loop detection — same tool called with similar args repeatedly
+      5. Loop detection — same tool called with identical args within this request
       6. Recursion depth — prevent runaway agent-in-agent chains
     """
 
@@ -66,8 +70,30 @@ class GuardrailEngine:
                 args_hash=self._hash_args(arguments),
                 timestamp=time.time(),
                 iteration=ctx.iteration,
+                request_id=self._request_id(ctx),
             )
         )
+
+    @staticmethod
+    def _request_id(ctx: ToolContext) -> str | None:
+        try:
+            return ctx.request_id
+        except Exception:
+            return None
+
+    def _this_request(self, ctx: ToolContext) -> list[_CallRecord]:
+        """This conversation's calls made inside the CURRENT request only.
+
+        A stuck loop is a model repeating itself within one turn. Counting the
+        whole conversation blocked a person on a long-lived thread (a Personal
+        Staff text thread is one per person, forever) the third time they asked
+        the same question across separate texts — a "Triplicate call" on an
+        honest request. Rate and conversation limits stay conversation-wide.
+        """
+        request_id = self._request_id(ctx)
+        return [
+            r for r in self._history.get(ctx.conversation_id, []) if r.request_id == request_id
+        ]
 
     def clear_conversation(self, conversation_id: str) -> None:
         self._history.pop(conversation_id, None)
@@ -92,7 +118,7 @@ class GuardrailEngine:
         if tool_def.dedupe_exempt:
             return GuardrailResult(blocked=False)
 
-        records = self._history.get(ctx.conversation_id, [])
+        records = self._this_request(ctx)
         current_hash = self._hash_args(arguments)
 
         is_no_args = not arguments
@@ -283,7 +309,7 @@ class GuardrailEngine:
         # loop). A tool over external MUTABLE state whose identical-args calls
         # return DIFFERENT results (a status poller) must be dedupe_exempt —
         # that flag is exactly its intended use, and it short-circuits above.
-        records = self._history.get(ctx.conversation_id, [])
+        records = self._this_request(ctx)
         recent_same = [r for r in records if r.tool_name == tool_name][-recency_window:]
 
         if len(recent_same) < loop_threshold:

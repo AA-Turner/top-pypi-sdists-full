@@ -12,7 +12,9 @@ import pytest
 from coord import merge_queue as mq
 from coord.config import Config, PipelineConfig, ReviewsConfig
 from coord.gates import (
+    HUMAN_REQUIRED_BLOCKED,
     REVIEW_REQUIRED,
+    SKIPPED_BLOCKED,
     SMOKE_REQUIRED,
     build_gate_report,
     format_gate_report,
@@ -353,9 +355,15 @@ class TestDecision:
         assert by_gate["test"].anchor is None  # MISSING, not STALE
         assert by_gate["merge"].reason == SMOKE_REQUIRED
 
-    def test_stale_base_names_1479_and_shas(self, config: Config) -> None:
-        # #1479: the verdict was recorded against an old base SHA; the base
-        # has since moved. The branch's own head/patch-id are unchanged.
+    def test_base_move_alone_does_not_stale_1479(self, config: Config) -> None:
+        """#3443: the verdict was recorded against an old base SHA and the
+        base has since moved, but the branch's own head/patch-id are
+        CONFIRMED unchanged — no rebase happened, so the base move alone
+        must not stale a `passed` verdict (see
+        ``test_stale_base_names_1479_and_shas_when_branch_also_moved``
+        below for the case where the branch DID move). Superseded
+        ``test_stale_base_names_1479_and_shas``, which asserted the
+        opposite (the #3443 bug itself) before this fix."""
         work = _work(
             test_state="passed", test_reason="headless smoke",
             test_head_sha="branchsha", test_base_sha="oldbase",
@@ -363,6 +371,36 @@ class TestDecision:
         review = _review("w1", verdict="approve", review_head_sha="branchsha")
         board = Board(active=[], completed=[work, review])
         gh = FakeGh(branch_sha="branchsha", base_sha="newbase", patch_id="samepatch")
+        report = build_gate_report(board, config, "api", 42, gh_ops=gh)
+
+        by_gate = {d.gate: d for d in report.decisions}
+        test_decision = by_gate["test"]
+        assert test_decision.ok is True
+        assert by_gate["merge"].reason != SMOKE_REQUIRED
+        # gh_ops was actually consulted for both the branch and the base —
+        # the #3443 spare is a POSITIVE confirmation, not a skipped check.
+        assert ("acme/api", "issue-42-foo") in gh.sha_calls
+        assert ("acme/api", "main") in gh.sha_calls
+
+    def test_stale_base_names_1479_and_shas_when_branch_also_moved(
+        self, config: Config,
+    ) -> None:
+        # #1479: the verdict was recorded against an old base SHA; the base
+        # has since moved, AND the branch itself was rebased (its head moved
+        # too) — #3443 spares a base move alone, so this needs both to still
+        # exercise the stale-verdict report.
+        work = _work(
+            test_state="passed", test_reason="headless smoke",
+            test_head_sha="branchsha-old", test_base_sha="oldbase",
+        )
+        # review_head_sha matches the CURRENT (post-rebase) branch head, so
+        # the review gate stays fresh and only the test/smoke gate is under
+        # test here.
+        review = _review("w1", verdict="approve", review_head_sha="branchsha-new")
+        board = Board(active=[], completed=[work, review])
+        gh = FakeGh(
+            branch_sha="branchsha-new", base_sha="newbase", patch_id="samepatch",
+        )
         report = build_gate_report(board, config, "api", 42, gh_ops=gh)
 
         by_gate = {d.gate: d for d in report.decisions}
@@ -788,6 +826,212 @@ class TestApplyGate:
         assert "MERGED, NOT APPLIED" not in text
 
 
+# ── merge-queue latched state (#3445) ────────────────────────────────────────
+# `mq.live_gate_entry` (used for the review/test/registry gates above) is a
+# SYNTHETIC, never-persisted QueuedMerge — it always reads state=PENDING, so
+# it was blind to a latched CONFLICT/HUMAN_REQUIRED/SKIPPED row. These tests
+# cover the REAL, persisted `merge_queue` table read this issue adds.
+
+class TestMergeQueueHumanRequired:
+    def test_no_merge_queue_entry_means_no_merge_queue_line(
+        self, config: Config, coord_db,
+    ) -> None:
+        work = _work(test_state=None)
+        review = _review("w1", verdict="approve")
+        board = Board(active=[], completed=[work, review])
+        report = build_gate_report(board, config, "api", 42, gh_ops=FakeGh())
+
+        by_gate = {d.gate: d for d in report.decisions}
+        assert "merge_queue" not in by_gate
+        assert by_gate["merge"].reason == SMOKE_REQUIRED
+
+    def test_pending_merge_queue_entry_does_not_override_smoke_required(
+        self, config: Config, coord_db,
+    ) -> None:
+        work = _work(test_state=None)
+        review = _review("w1", verdict="approve")
+        board = Board(active=[], completed=[work, review])
+        mq.save_queue([
+            mq.QueuedMerge(
+                assignment_id="w1", repo_name="api", repo_github="acme/api",
+                branch="issue-42-foo", target_branch="main", issue_number=42,
+                issue_title="t", state=mq.PENDING,
+            )
+        ])
+        report = build_gate_report(board, config, "api", 42, gh_ops=FakeGh())
+
+        by_gate = {d.gate: d for d in report.decisions}
+        assert by_gate["merge_queue"].state == "PENDING"
+        assert by_gate["merge_queue"].ok is True
+        assert by_gate["merge"].reason == SMOKE_REQUIRED
+        assert "merge-queue : PENDING" in format_gate_report(report)
+
+    def test_human_required_entry_outranks_smoke_required(
+        self, config: Config, coord_db,
+    ) -> None:
+        # #3445 repro (vimcode#523/#526): smoke never ran (test_state=None)
+        # AND the merge-queue entry already latched HUMAN_REQUIRED — a
+        # stale-rebase worker refused to push a non-content-preserving
+        # rebase. Clearing the smoke gate cannot unstick that, so it must be
+        # the merge gate's HEADLINE reason, not "smoke_required".
+        work = _work(test_state=None)
+        review = _review("w1", verdict="approve")
+        board = Board(active=[], completed=[work, review])
+        mq.save_queue([
+            mq.QueuedMerge(
+                assignment_id="w1", repo_name="api", repo_github="acme/api",
+                branch="issue-42-foo", target_branch="main", issue_number=42,
+                issue_title="t", state=mq.HUMAN_REQUIRED,
+                error=(
+                    "stale-rebase worker refused to push: rebase was not "
+                    "content-preserving — manual resolution required"
+                ),
+                last_attempt=1_700_000_000.0,
+            )
+        ])
+        report = build_gate_report(board, config, "api", 42, gh_ops=FakeGh())
+
+        by_gate = {d.gate: d for d in report.decisions}
+        mq_decision = by_gate["merge_queue"]
+        assert mq_decision.state == "HUMAN_REQUIRED"
+        assert mq_decision.ok is False
+        assert "stale-rebase worker refused to push" in mq_decision.reason
+        assert "--override-human-required" in mq_decision.reason
+
+        merge = by_gate["merge"]
+        assert merge.ok is False
+        assert merge.reason != SMOKE_REQUIRED
+        assert merge.reason.startswith(HUMAN_REQUIRED_BLOCKED)
+        assert "HUMAN_REQUIRED" in merge.reason
+
+        text = format_gate_report(report)
+        assert "HUMAN_REQUIRED" in text
+        assert "stale-rebase worker refused to push" in text
+        assert "--override-human-required" in text
+        assert "merge-queue : HUMAN_REQUIRED" in text
+        assert "smoke_required" not in text
+
+    def test_human_required_with_no_recorded_error_still_reports(
+        self, config: Config, coord_db,
+    ) -> None:
+        """A HUMAN_REQUIRED entry with no `error` text at all (shouldn't
+        normally happen, but the reader must not crash or go silent)."""
+        work = _work(test_state="passed")
+        review = _review("w1", verdict="approve")
+        board = Board(active=[], completed=[work, review])
+        mq.save_queue([
+            mq.QueuedMerge(
+                assignment_id="w1", repo_name="api", repo_github="acme/api",
+                branch="issue-42-foo", target_branch="main", issue_number=42,
+                issue_title="t", state=mq.HUMAN_REQUIRED,
+            )
+        ])
+        report = build_gate_report(board, config, "api", 42, gh_ops=FakeGh())
+
+        by_gate = {d.gate: d for d in report.decisions}
+        assert "no reason recorded" in by_gate["merge_queue"].reason
+        assert "latched time unknown" in by_gate["merge_queue"].reason
+        assert by_gate["merge"].reason.startswith(HUMAN_REQUIRED_BLOCKED)
+
+    def test_skipped_entry_also_outranks_smoke_required(
+        self, config: Config, coord_db,
+    ) -> None:
+        """#3445 review: SKIPPED is the sibling terminal, needs-attention
+        state to HUMAN_REQUIRED (unlike CONFLICT, which self-heals via
+        `dispatch_conflict_fix`) — it must outrank `smoke_required` as the
+        merge gate's headline reason too, not just HUMAN_REQUIRED."""
+        work = _work(test_state=None)
+        review = _review("w1", verdict="approve")
+        board = Board(active=[], completed=[work, review])
+        mq.save_queue([
+            mq.QueuedMerge(
+                assignment_id="w1", repo_name="api", repo_github="acme/api",
+                branch="issue-42-foo", target_branch="main", issue_number=42,
+                issue_title="t", state=mq.SKIPPED,
+                error="closed as duplicate of #99",
+            )
+        ])
+        report = build_gate_report(board, config, "api", 42, gh_ops=FakeGh())
+
+        by_gate = {d.gate: d for d in report.decisions}
+        mq_decision = by_gate["merge_queue"]
+        assert mq_decision.state == "SKIPPED"
+        assert mq_decision.ok is False
+
+        merge = by_gate["merge"]
+        assert merge.ok is False
+        assert merge.reason != SMOKE_REQUIRED
+        assert merge.reason.startswith(SKIPPED_BLOCKED)
+        assert "SKIPPED" in merge.reason
+
+        text = format_gate_report(report)
+        assert "merge-queue : SKIPPED" in text
+        assert "smoke_required" not in text
+
+    def test_conflict_entry_does_not_outrank_smoke_required(
+        self, config: Config, coord_db,
+    ) -> None:
+        """CONFLICT is excluded from the headline override on purpose — it
+        self-heals via a `coord merge --only` retry (`dispatch_conflict_fix`,
+        #1474), so `smoke_required` stays the accurate headline reason."""
+        work = _work(test_state=None)
+        review = _review("w1", verdict="approve")
+        board = Board(active=[], completed=[work, review])
+        mq.save_queue([
+            mq.QueuedMerge(
+                assignment_id="w1", repo_name="api", repo_github="acme/api",
+                branch="issue-42-foo", target_branch="main", issue_number=42,
+                issue_title="t", state=mq.CONFLICT,
+                error="merge conflict in foo.py",
+            )
+        ])
+        report = build_gate_report(board, config, "api", 42, gh_ops=FakeGh())
+
+        by_gate = {d.gate: d for d in report.decisions}
+        assert by_gate["merge_queue"].state == "CONFLICT"
+        assert by_gate["merge_queue"].ok is False
+        assert by_gate["merge"].reason == SMOKE_REQUIRED
+
+    def test_multiple_rows_for_same_issue_picks_first_match_in_list_order(
+        self, config: Config, coord_db,
+    ) -> None:
+        """#3445 review: when more than one `merge_queue` row matches
+        `(repo_name, issue_number)` and none matches the winning work row's
+        assignment id, `coord gates` must pick the SAME row every other
+        `merge_queue` consumer would — `coord.drive_state._merge_entry`
+        takes the first match in list order (oldest/lowest id), not the most
+        recent, so this mirrors that instead of silently disagreeing with
+        `coord drive-queue block-log`/`coord status`/`_decide_merge` about
+        which row is "the" entry for this issue."""
+        work = _work(test_state=None)
+        review = _review("w1", verdict="approve")
+        board = Board(active=[], completed=[work, review])
+        mq.save_queue([
+            mq.QueuedMerge(
+                assignment_id="stale-aid", repo_name="api", repo_github="acme/api",
+                branch="issue-42-old-branch", target_branch="main", issue_number=42,
+                issue_title="t", state=mq.HUMAN_REQUIRED,
+                error="first (older) row — left behind by a retarget",
+            ),
+            mq.QueuedMerge(
+                assignment_id="other-stale-aid", repo_name="api", repo_github="acme/api",
+                branch="issue-42-newer-branch", target_branch="main", issue_number=42,
+                issue_title="t", state=mq.PENDING,
+                error="second (newer) row",
+            ),
+        ])
+        report = build_gate_report(board, config, "api", 42, gh_ops=FakeGh())
+
+        by_gate = {d.gate: d for d in report.decisions}
+        mq_decision = by_gate["merge_queue"]
+        # Neither row's assignment_id matches the winning work row ("w1"),
+        # so the fallback-by-assignment-id narrowing never kicks in — the
+        # first (oldest) row in insertion order wins.
+        assert mq_decision.assignment_id == "stale-aid"
+        assert mq_decision.state == "HUMAN_REQUIRED"
+        assert "first (older) row" in mq_decision.reason
+
+
 # ── is_interactive enrichment (#748/#632: not an Assignment dataclass field) ─
 
 class TestIsInteractive:
@@ -813,12 +1057,18 @@ class TestIsInteractive:
 
 class TestFormatting:
     def test_format_includes_stale_wording(self, config: Config) -> None:
+        """#3443: the branch must also have moved (a rebase) — a base move
+        alone, with the branch head confirmed unchanged, no longer stales
+        the verdict at all, so this has nothing to render as STALE."""
         work = _work(
-            test_state="passed", test_head_sha="branchsha", test_base_sha="oldbase",
+            test_state="passed",
+            test_head_sha="branchsha-old", test_base_sha="oldbase",
         )
-        review = _review("w1", verdict="approve", review_head_sha="branchsha")
+        review = _review("w1", verdict="approve", review_head_sha="branchsha-new")
         board = Board(active=[], completed=[work, review])
-        gh = FakeGh(branch_sha="branchsha", base_sha="newbase", patch_id="samepatch")
+        gh = FakeGh(
+            branch_sha="branchsha-new", base_sha="newbase", patch_id="samepatch",
+        )
         report = build_gate_report(board, config, "api", 42, gh_ops=gh)
 
         text = format_gate_report(report)

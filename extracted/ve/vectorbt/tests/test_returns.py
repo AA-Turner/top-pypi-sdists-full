@@ -3,9 +3,11 @@ from datetime import datetime
 import numpy as np
 import pandas as pd
 import pytest
+from scipy.stats import kurtosis, norm, skew
 
 import vectorbt as vbt
 from tests.utils import isclose
+from vectorbt.returns.metrics import approx_exp_max_sharpe
 
 qs_available = True
 try:
@@ -292,12 +294,50 @@ class TestAccessors:
     def test_deflated_sharpe_ratio(self):
         pd.testing.assert_series_equal(
             rets.vbt.returns.deflated_sharpe_ratio(risk_free=0.01),
-            pd.Series([np.nan, np.nan, 0.0005355605507117676], index=rets.columns, name="deflated_sharpe_ratio"),
+            pd.Series(
+                [0.2374973566617728, 5.910048655681186e-16, 0.0032783041604936523],
+                index=rets.columns,
+                name="deflated_sharpe_ratio",
+            ),
         )
         pd.testing.assert_series_equal(
             rets.vbt.returns.deflated_sharpe_ratio(risk_free=0.03),
-            pd.Series([np.nan, np.nan, 0.0003423112350834066], index=rets.columns, name="deflated_sharpe_ratio"),
+            pd.Series(
+                [0.15146264148773053, 5.864288083101271e-16, 0.002229547585230213],
+                index=rets.columns,
+                name="deflated_sharpe_ratio",
+            ),
         )
+
+    def test_deflated_sharpe_ratio_reference(self):
+        np.random.seed(seed)
+        n = 500
+        arr = np.random.standard_t(4, size=(n, 3)) * 0.01 + 0.001
+        arr[np.random.uniform(size=(n, 3)) < 0.05] = np.nan
+        acc = pd.DataFrame(arr, index=pd.date_range("2020", periods=n)).vbt.returns(freq="D", year_freq="365 days")
+        sharpe = acc.sharpe_ratio().values
+        sr = sharpe / np.sqrt(365)
+        sr0 = approx_exp_max_sharpe(0, np.var(sharpe, ddof=1) / 365, 3)
+        t = np.sum(~np.isnan(arr), axis=0)
+        g3 = skew(arr, nan_policy="omit")
+        g4 = kurtosis(arr, fisher=False, nan_policy="omit")
+        np.testing.assert_allclose(
+            acc.deflated_sharpe_ratio().values,
+            norm.cdf((sr - sr0) * np.sqrt(t - 1) / np.sqrt(1 - g3 * sr + (g4 - 1) / 4 * sr**2)),
+        )
+
+    def test_deflated_sharpe_ratio_nan(self):
+        np.random.seed(seed)
+        n = 300
+        df = pd.DataFrame(np.random.standard_t(4, size=(n, 3)) * 0.01 + 0.001, index=pd.date_range("2020", periods=n))
+        df.iloc[10:60, 0] = np.nan
+
+        def dsr(obj):
+            acc = obj.vbt.returns(freq="D", year_freq="365 days")
+            return acc.deflated_sharpe_ratio(risk_free=0.0, var_sharpe=0.01, nb_trials=5).iloc[0]
+
+        assert dsr(df) == pytest.approx(dsr(df.dropna()), rel=1e-12)
+        assert dsr(df) != pytest.approx(dsr(df.fillna(0.0)), rel=1e-3)
 
     def test_downside_risk(self):
         assert isclose(rets["a"].vbt.returns.downside_risk(required_return=0.1), 0.0)

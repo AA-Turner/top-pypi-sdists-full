@@ -194,6 +194,8 @@ class LLMParams(BaseModel):
         Literal["auto", "none", "minimal", "low", "medium", "high", "xhigh", "max"] | None
     ) = None
     reasoning_summary: Literal["concise", "detailed", "never", "auto", "always"] | None = None
+    # Deep Research agents: charts/images in the report ("auto") or none ("off").
+    visualization: Literal["auto", "off"] | None = None
 
     thinking_level: Literal["minimal", "low", "medium", "high"] | None = None
     include_thoughts: bool | None = None

@@ -94,17 +94,19 @@ async def fs_read(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     except OSError as exc:
         return _err(started_at, ctx, "fs_read", "filesystem", f"Read failed: {exc}")
 
+    from matrx_ai.tools.implementations.filesystem import FS_READ_MAX_CHARS
+
     full_size = len(data)
-    if parsed.offset:
-        data = data[parsed.offset :]
+    start = min(parsed.offset, full_size)
+    read_limit = min(parsed.limit, FS_READ_MAX_CHARS) if parsed.limit > 0 else FS_READ_MAX_CHARS
+    end = min(full_size, start + read_limit)
+    # Never split a UTF-8 sequence at the page edge (next_offset is a byte offset).
+    while end < full_size and end > start and (data[end] & 0xC0) == 0x80:
+        end -= 1
+    truncated = end < full_size
 
-    read_limit = parsed.limit if parsed.limit > 0 else MAX_READ_SIZE
-    truncated = len(data) > read_limit
-    if truncated:
-        data = data[:read_limit]
-
-    text = data.decode("utf-8", errors="replace")
-    return _ok(
+    text = data[start:end].decode("utf-8", errors="replace")
+    result = _ok(
         started_at,
         ctx,
         "fs_read",
@@ -112,9 +114,14 @@ async def fs_read(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
             content=text,
             size=full_size,
             truncated=truncated,
+            offset=start,
+            limit=read_limit,
+            next_offset=end if truncated else None,
             path=parsed.path,
         ).model_dump(mode="json"),
     )
+    result.output_self_capped = True
+    return result
 
 
 async def fs_write(args: dict[str, Any], ctx: ToolContext) -> ToolResult:

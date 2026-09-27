@@ -1,18 +1,15 @@
-import dataclasses
-from typing import TYPE_CHECKING, Any, Optional
 import abc
-
-from typing import TypeGuard
-
-
-from pydantic import BaseModel
+import dataclasses
+from typing import TYPE_CHECKING, Any, ClassVar, Optional, TypeGuard
 
 import yarl
+from pydantic import BaseModel
 
 if TYPE_CHECKING:
+    import httpx2
+
     from aiopenapi3 import OpenAPI
 
-    import httpx
     from .base import PathItemBase, SchemaBase
     from .request import RequestBase
 
@@ -26,7 +23,7 @@ class Plugin(abc.ABC):
     class Context: ...
 
     def __init__(self) -> None:
-        self._api: Optional["OpenAPI"] = None
+        self._api: OpenAPI | None = None
 
     @property
     def api(self):
@@ -53,19 +50,19 @@ class Init(Plugin):
 
     def schemas(self, ctx: "Init.Context") -> "Init.Context":  # pragma: no cover
         """modify the Schema before creating Models"""
-        return ctx  # noqa
+        return ctx
 
     def resolved(self, ctx: "Init.Context") -> "Init.Context":  # pragma: no cover
         """modify the resolved paths/PathItems before initializing the Operations"""
-        return ctx  # noqa
+        return ctx
 
     def paths(self, ctx: "Init.Context") -> "Init.Context":  # pragma: no cover
         """modify the paths/PathItems before initializing the Operations"""
-        return ctx  # noqa
+        return ctx
 
     def initialized(self, ctx: "Init.Context") -> "Init.Context":  # pragma: no cover
         """it is initialized"""
-        return ctx  # noqa
+        return ctx
 
 
 class Document(Plugin):
@@ -82,11 +79,11 @@ class Document(Plugin):
 
     def loaded(self, ctx: "Document.Context") -> "Document.Context":  # pragma: no cover
         """modify the text before parsing"""
-        return ctx  # noqa
+        return ctx
 
     def parsed(self, ctx: "Document.Context") -> "Document.Context":  # pragma: no cover
         """modify the parsed dict before …"""
-        return ctx  # noqa
+        return ctx
 
 
 class Message(Plugin):
@@ -112,7 +109,7 @@ class Message(Plugin):
         """available :func:`~aiopenapi3.plugin.Message.sending` """
         received: bytes | None = None
         """available :func:`~aiopenapi3.plugin.Message.received` """
-        headers: "httpx.Headers" = None
+        headers: "httpx2.Headers" = None
         """available :func:`~aiopenapi3.plugin.Message.sending` :func:`~aiopenapi3.plugin.Message.received` """
         cookies: dict[str, str] = None
         """available :func:`~aiopenapi3.plugin.Message.sending` """
@@ -131,31 +128,31 @@ class Message(Plugin):
         """
         modify the dict before sending
         """
-        return ctx  # noqa
+        return ctx
 
     def sending(self, ctx: "Message.Context") -> "Message.Context":  # pragma: no cover
         """
         modify the text before sending
         """
-        return ctx  # noqa
+        return ctx
 
     def received(self, ctx: "Message.Context") -> "Message.Context":  # pragma: no cover
         """
         modify the received text
         """
-        return ctx  # noqa
+        return ctx
 
     def parsed(self, ctx: "Message.Context") -> "Message.Context":  # pragma: no cover
         """
         modify the parsed dict structure
         """
-        return ctx  # noqa
+        return ctx
 
     def unmarshalled(self, ctx: "Message.Context") -> "Message.Context":  # pragma: no cover
         """
         modify the object
         """
-        return ctx  # noqa
+        return ctx
 
 
 class Domain:
@@ -193,7 +190,7 @@ class Method:
 
 
 class Plugins:
-    _domains: dict[str, type[Plugin]] = {"init": Init, "document": Document, "message": Message}
+    _domains: ClassVar[dict[str, type[Plugin]]] = {"init": Init, "document": Document, "message": Message}
 
     def __init__(self, plugins: list[Plugin]):
         for p in plugins:
@@ -206,7 +203,7 @@ class Plugins:
     def _get_domain(self, name: str, plugins: list[Plugin]) -> "Domain":
         domain: type[Plugin] | None
         if (domain := self._domains.get(name)) is None:
-            raise ValueError(name)  # noqa
+            raise ValueError(name)
 
         def domain_type_f(p: Plugin) -> TypeGuard[Plugin]:
             return isinstance(p, domain)

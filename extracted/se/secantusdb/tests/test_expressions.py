@@ -509,7 +509,7 @@ def test_date_misc_typeguard_error_codes() -> None:
         ({"$let": {"vars": {}, "in": "$$x"}}, 17276),
         ({"$switch": {"branches": []}}, 40068),
         ({"$ifNull": [1]}, 1257300),
-        ({"$getField": {"field": 5, "input": {}}}, 5654602),
+        ({"$getField": {"field": 5, "input": {}}}, 3041704),
         ({"$setField": {"field": 5, "input": {}, "value": 1}}, 4161107),
         ({"$sortArray": {"input": [1], "sortBy": "x"}}, 2942507),
         ({"$convert": {"input": 5}}, 9),
@@ -582,7 +582,9 @@ def test_to_double_conversions() -> None:
 def test_to_bool_conversions() -> None:
     assert evaluate({"$toBool": 0}, {}) is False
     assert evaluate({"$toBool": "x"}, {}) is True
-    assert evaluate({"$toBool": ""}, {}) is False
+    # EVERY string is true to mongod, the empty one included (probed 8.2.11).
+    # This asserted Python's own truthiness.
+    assert evaluate({"$toBool": ""}, {}) is True
 
 
 def test_filter_basic() -> None:
@@ -652,12 +654,15 @@ def test_split() -> None:
 
 
 def test_split_argument_validation() -> None:
-    # mongod codes: empty separator 40087, non-string first/second 40085/40086,
-    # wrong arg count 16020; a null string / separator -> null.
+    # mongod codes: empty separator 40087, non-string first/second
+    # 40085/10503900, wrong arg count 16020; a null string / separator -> null.
+    # The SECOND argument's code is not 40086 -- 8.2.11 answers 10503900, while
+    # the first argument keeps 40085 (probed 2026-09-02, and caught by the Rust
+    # parity suite when only one engine had been moved).
     for expr, code in [
         ({"$split": ["a,b", ""]}, 40087),
         ({"$split": [5, ","]}, 40085),
-        ({"$split": ["a,b", 5]}, 40086),
+        ({"$split": ["a,b", 5]}, 10503900),
         ({"$split": ["a,b"]}, 16020),
         ({"$split": ["a,b", ",", "x"]}, 16020),
     ]:
@@ -974,8 +979,11 @@ def test_date_arg_validation() -> None:
     assert evaluate(
         {"$dateAdd": {"startDate": d, "unit": "day", "amount": 2.0}}, {}
     ) == dt.datetime(2021, 1, 3)
+    # 2020, not 2021: `$dateTrunc` bins from 2000-01-01, so an even binSize
+    # lands on even years (probed mongod 8.2.11). This asserted 2021 while the
+    # implementation binned from year 1.
     assert evaluate({"$dateTrunc": {"date": d, "unit": "year", "binSize": 2.0}}, {}) == dt.datetime(
-        2021, 1, 1
+        2020, 1, 1
     )
     # $dateAdd / $dateSubtract amount: fractional / bool / non-numeric -> 5166405.
     for op in ("$dateAdd", "$dateSubtract"):
@@ -1296,9 +1304,16 @@ def test_to_date_noop_on_date() -> None:
 def test_to_date_from_int_millis() -> None:
     import datetime as dt
 
-    # milliseconds since the Unix epoch -> 2023-11-14T22:13:20Z
+    # milliseconds since the Unix epoch -> 2023-11-14T22:13:20Z.
+    #
+    # NAIVE UTC, matching how a stored BSON date decodes. It used to come back
+    # tz-AWARE, which compares fine against a literal but raises ``TypeError``
+    # against a date read out of a document -- the common case. Verified over
+    # the wire against mongod 8.2.11: ``{$eq: [{$toDate: "$ms"}, "$d"]}`` is
+    # true on both (2026-09-01).
     out = evaluate({"$toDate": 1700000000000}, {})
-    assert out == dt.datetime(2023, 11, 14, 22, 13, 20, tzinfo=dt.timezone.utc)
+    assert out == dt.datetime(2023, 11, 14, 22, 13, 20)
+    assert out.tzinfo is None
 
 
 def test_to_date_from_string() -> None:
@@ -1512,8 +1527,8 @@ def test_bool_argument_rejected_where_int_expected() -> None:
         ({"$range": [True, 5]}, 34443),
         ({"$range": [0, True]}, 34445),
         ({"$range": [0, 5, True]}, 34447),
-        ({"$indexOfArray": [[1, 2, 3], 2, True]}, 40096),
-        ({"$indexOfArray": [[1, 2, 3], 2, 0, True]}, 40096),
+        ({"$indexOfArray": [[1, 2, 3], 2, True]}, 9711600),
+        ({"$indexOfArray": [[1, 2, 3], 2, 0, True]}, 9711600),
     ]:
         with pytest.raises(ExpressionError) as exc:
             evaluate(expr, {}, None)
@@ -1542,8 +1557,8 @@ def test_whole_number_double_index_accepted_fractional_rejected() -> None:
         ({"$slice": [[1, 2, 3, 4], 2.7]}, 28726),
         ({"$slice": [[1, 2, 3, 4], 1.7, 2]}, 28726),
         ({"$slice": [[1, 2, 3, 4], 1, 1.7]}, 28728),
-        ({"$indexOfArray": [[1, 2, 3], 2, 0.7]}, 40096),
-        ({"$indexOfArray": [[1, 2, 3], 2, 0, 0.7]}, 40096),
+        ({"$indexOfArray": [[1, 2, 3], 2, 0.7]}, 9711600),
+        ({"$indexOfArray": [[1, 2, 3], 2, 0, 0.7]}, 9711600),
         ({"$substrCP": ["hello", 1.7, 2]}, 34451),
         ({"$substrCP": ["hello", 1, 1.7]}, 34453),
         ({"$range": [0.7, 5]}, 34444),
@@ -1634,3 +1649,136 @@ def test_pow_domain_and_type_validation() -> None:
         with pytest.raises(ExpressionError) as exc:
             evaluate(expr, {}, None)
         assert exc.value.code == code, expr
+
+
+# --- the two string conversions and the integer width rule -----------------
+#
+# `tests/test_mongod_differential.py` pins all of this against a live mongod,
+# but that gate needs a `mongod` on PATH and CI has none — so these unit tests
+# carry the same measured values (8.2.11) into the run that always executes.
+
+
+def test_coerce_to_string_is_not_to_string() -> None:
+    """`$toLower`/`$toUpper` and `$toString` are DIFFERENT conversions.
+
+    They accept different types and render doubles differently — the reason
+    `$toLower` of 1099511627776.0 is `1.09951e+12` while `$toString` of it is
+    `1099511627776`. Probed against mongod 8.2.11.
+    """
+    import datetime
+
+    from bson import Binary, Code, Decimal128, ObjectId
+
+    from secantus.expressions import coerce_to_string, convert_to_string
+
+    date = datetime.datetime(2026, 1, 2, 3, 4, 5)
+    oid = ObjectId("64b7f9a2c1d2e3f4a5b6c7d8")
+    # (value, coerceToString, $toString) — a code means that side raises it.
+    table: list[tuple[object, object, object]] = [
+        (4.0, "4", "4"),
+        (1.5, "1.5", "1.5"),
+        (1099511627776.0, "1.09951e+12", "1099511627776"),
+        (0.0, "0", "0"),
+        (float("nan"), "nan", "NaN"),
+        (float("inf"), "inf", "Infinity"),
+        (7, "7", "7"),
+        (Decimal128("2.5"), "2.5", "2.5"),
+        ("aB", "aB", "aB"),
+        (None, "", None),
+        (date, "2026-01-02T03:04:05.000Z", "2026-01-02T03:04:05.000Z"),
+        (Code("aB"), "aB", 241),
+        (True, 16007, "true"),
+        (False, 16007, "false"),
+        (oid, 16007, "64b7f9a2c1d2e3f4a5b6c7d8"),
+        (Binary(b"ab"), 16007, "YWI="),
+        ([1], 16007, 241),
+        ({"k": 1}, 16007, 241),
+    ]
+    for value, want_coerce, want_convert in table:
+        for fn, want in ((coerce_to_string, want_coerce), (convert_to_string, want_convert)):
+            if isinstance(want, int) and not isinstance(want, bool):
+                with pytest.raises(ExpressionError) as exc:
+                    fn(value)
+                assert exc.value.code == want, (fn.__name__, value)
+            else:
+                assert fn(value) == want, (fn.__name__, value)
+
+
+def test_rounding_operators_preserve_the_bson_type() -> None:
+    """A double in is a double out, and a long stays a long.
+
+    `math.floor` returns a Python int for either, which silently changed the
+    BSON type of every double that reached it, and `Int64.__abs__` hands back a
+    plain int that narrows to int32 on the wire. Probed 8.2.11.
+    """
+    from bson import Int64
+
+    for op in ("$ceil", "$floor", "$trunc", "$round"):
+        result = evaluate({op: 1.5}, {}, None)
+        assert isinstance(result, float), op
+        assert isinstance(evaluate({op: Int64(5)}, {}, None), Int64), op
+        assert isinstance(evaluate({op: 5}, {}, None), int), op
+    assert evaluate({"$ceil": 1.5}, {}, None) == 2.0
+    assert evaluate({"$floor": 1.5}, {}, None) == 1.0
+    assert isinstance(evaluate({"$abs": Int64(-5)}, {}, None), Int64)
+
+
+def test_integer_width_promotion_and_overflow() -> None:
+    """`long` is contagious, int32 overflow widens, int64 overflow saturates.
+
+    The last one used to reach `bson.encode` as an unbounded Python int, whose
+    `OverflowError` surfaced to the client as an internal server error.
+    Probed 8.2.11.
+    """
+    from bson import Int64
+
+    assert isinstance(evaluate({"$add": [Int64(1), 1]}, {}, None), Int64)
+    assert isinstance(evaluate({"$subtract": [Int64(5), 1]}, {}, None), Int64)
+    assert isinstance(evaluate({"$multiply": [Int64(5), 2]}, {}, None), Int64)
+    assert isinstance(evaluate({"$mod": [Int64(5), 2]}, {}, None), Int64)
+    assert isinstance(evaluate({"$pow": [Int64(2), 3]}, {}, None), Int64)
+    assert isinstance(evaluate({"$add": [1, 2]}, {}, None), int)
+    assert not isinstance(evaluate({"$add": [1, 2]}, {}, None), Int64)
+    # int32 overflow widens to long
+    assert isinstance(evaluate({"$add": [2147483647, 1]}, {}, None), Int64)
+    assert isinstance(evaluate({"$abs": -2147483648}, {}, None), Int64)
+    # int64 overflow becomes a double rather than failing
+    biggest = 9223372036854775807
+    assert evaluate({"$add": [Int64(biggest), 1]}, {}, None) == 9.223372036854776e18
+    assert evaluate({"$pow": [2, 64]}, {}, None) == 1.8446744073709552e19
+    assert evaluate({"$pow": [10, 400]}, {}, None) == math.inf
+
+
+def test_mod_truncates_toward_zero() -> None:
+    """mongod's `$mod` is C's fmod, so the remainder takes the DIVIDEND's sign.
+    Python's `%` floors, which answered the wrong sign for three of these four.
+    Probed 8.2.11."""
+    assert evaluate({"$mod": [-5, 2]}, {}, None) == -1
+    assert evaluate({"$mod": [5, -2]}, {}, None) == 1
+    assert evaluate({"$mod": [-5, -2]}, {}, None) == -1
+    assert evaluate({"$mod": [-5.5, 2]}, {}, None) == -1.5
+    assert evaluate({"$mod": [5, 2]}, {}, None) == 1
+
+
+def test_decimal128_circular_trig_keeps_its_type() -> None:
+    """A Decimal128 operand answers a Decimal128, not a narrowed double.
+
+    `decimal` has no sin/cos/tan/atan, so these fell through to the float path
+    and returned the wrong BSON type. The values below are mongod 8.2.11's,
+    except where noted: for `$sin` and `$tan` mongod's last digit is 1-2 ulp
+    LOW of the correctly-rounded 34-digit value, which is what we answer.
+    """
+    from bson import Decimal128
+
+    for op, want in [
+        ("$cos", "-0.8011436155469337148335027904673517"),
+        ("$atan", "1.190289949682531732927733774829318"),
+    ]:
+        got = evaluate({op: Decimal128("2.5")}, {}, None)
+        assert isinstance(got, Decimal128) and str(got) == want, op
+    for op in ("$sin", "$tan", "$asin", "$acos"):
+        operand = Decimal128("2.5") if op in ("$sin", "$tan") else Decimal128("0.5")
+        assert isinstance(evaluate({op: operand}, {}, None), Decimal128), op
+    atan2 = evaluate({"$atan2": [Decimal128("2.5"), 1]}, {}, None)
+    assert isinstance(atan2, Decimal128)
+    assert str(atan2) == "1.190289949682531732927733774829318"

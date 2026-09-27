@@ -1292,3 +1292,47 @@ class NonInheritedPropertiesTest(TestCase):
         self.assertEqual("row", frag.flexDirection)
         self.assertEqual(1.0, frag.flexShrink)
         self.assertEqual("none", frag.maxWidth.kind)
+
+
+class BorderRadiusCascadeTest(TestCase):
+    """border-radius reaches the block that declares it and no further."""
+
+    @staticmethod
+    def _radii(html: bytes) -> list:
+        styles = [f.style for f in pisaStory(html).story if hasattr(f, "style")]
+        return [
+            tuple(
+                getattr(style, f"border{corner}Radius").resolve(100, 50)
+                for corner in ("TopLeft", "TopRight", "BottomRight", "BottomLeft")
+            )
+            for style in styles
+        ]
+
+    def test_the_declaring_block_carries_each_corner(self) -> None:
+        (radii,) = self._radii(b"<p style='border-radius: 3pt 50% / 6pt'>x</p>")
+        self.assertEqual(((3, 6), (50, 6), (3, 6), (50, 6)), radii)
+
+    def test_em_is_the_element_own_font_size(self) -> None:
+        (radii,) = self._radii(
+            b"<p style='font-size: 20pt; border-radius: 0.5em'>x</p>"
+        )
+        self.assertEqual(((10, 10),) * 4, radii)
+
+    def test_inherit_takes_the_parent_value(self) -> None:
+        # "inherit" used to be dropped for every property: getCSSAttr found
+        # the parent's value and then raised all the same.
+        for child in (b"border-radius: inherit", b"border-top-left-radius: inherit"):
+            with self.subTest(child=child):
+                radii = self._radii(
+                    b"<div style='border-radius: 4pt 2pt'><p style='"
+                    + child
+                    + b"'>child</p>own text</div>"
+                )
+                self.assertEqual(((4, 4), (2, 2), (4, 4), (2, 2)), radii[1])
+                self.assertEqual(radii[1][:1], radii[0][:1])
+
+    def test_it_is_not_inherited(self) -> None:
+        radii = self._radii(
+            b"<div style='border-radius: 4pt'><p>child</p>own text</div>"
+        )
+        self.assertEqual([((0, 0),) * 4, ((4, 4),) * 4], radii)

@@ -35,7 +35,7 @@ def storage(tmp_path, session):
             DB,
             "CREATE TABLE t (id int PRIMARY KEY, txt text, vc varchar(10), n int, "
             "big bigint, num numeric, flag boolean, d date, ts timestamp, "
-            "b bytea, u uuid, j jsonb, m money, tm time)",
+            "b bytea, u uuid, j jsonb, jj json, m money, tm time)",
             session=session,
         )
         run_sql(
@@ -60,9 +60,13 @@ def run(storage, session, sql):
 @pytest.fixture
 def rule(storage):
     """The analysis verdict for one statement against the real catalog: None
-    when the comparison is resolvable (or undecidable), else the 42883
-    message. Drives ``check_statement`` directly so the verdict is observable
-    without the rest of the planner in the way."""
+    when the expression is resolvable (or undecidable), else the message.
+    Drives ``check_statement`` directly so the verdict is observable without
+    the rest of the planner in the way.
+
+    Two SQLSTATEs are legitimate here: ``42883`` for an unresolvable COMPARISON
+    and ``42804`` for an unassignable ``UPDATE … SET`` value, which is a
+    separate rule (assignment casts, not implicit ones)."""
     catalog = Catalog(storage)
 
     def verdict(sql):
@@ -70,7 +74,7 @@ def rule(storage):
         try:
             typecheck.check_statement(stmt, catalog, DB)
         except errors.SQLError as exc:
-            assert exc.sqlstate == "42883"
+            assert exc.sqlstate in ("42883", "42804"), exc.sqlstate
             return exc.message
         return None
 
@@ -93,6 +97,11 @@ def rule(storage):
         ("n = lower(txt)", "operator does not exist: integer = text"),
         ("n = substr(txt, 1, 1)", "operator does not exist: integer = text"),
         ("txt = length(txt)", "operator does not exist: text = integer"),
+        # json / jsonb: no implicit cast to text or numeric, and none between
+        # the two. All four measured against PostgreSQL 14.13 on 2026-09-01.
+        ("j = txt", "operator does not exist: jsonb = text"),
+        ("j = 42", "operator does not exist: jsonb = integer"),
+        ("j = n", "operator does not exist: jsonb = integer"),
     ],
 )
 def test_incomparable_pairs_are_42883(rule, where, message):
@@ -122,11 +131,17 @@ def test_incomparable_pairs_are_42883(rule, where, message):
         # Casts that agree.
         "txt = n::text",
         "n = txt::int",
-        # Categories we deliberately refuse to judge: bytea, uuid, json, money,
-        # time, interval, arrays, ranges, geo, network, bit.
+        # Categories we deliberately refuse to judge: bytea, uuid, money,
+        # time, interval, arrays, ranges, geo, network, bit. json/jsonb moved
+        # OUT of this list on 2026-09-01 — `j = txt` is
+        # `42883 operator does not exist: jsonb = text` in PostgreSQL 14.13,
+        # so the leniency was hiding a real error (see the rejected list above).
         "b = txt",
         "b = 42",
-        "j = txt",
+        # `jsonb = json` IS 42883 in Postgres, but a json and a jsonb column
+        # share one storage type_tag here, so there is nothing to key the
+        # distinction on — lenient, and safe.
+        "j = jj",
         # NULL is not a type.
         "txt = NULL",
         # Function whose argument type we cannot pin stays unjudged.
@@ -167,11 +182,21 @@ def test_enum_column_is_named_by_its_declared_type(storage, session):
 
 
 def test_update_set_assignment_is_not_a_comparison(rule):
-    # sqlglot parses ``SET txt = 42`` as an EQ, but Postgres reports an
-    # unassignable value as 42804 datatype_mismatch, under assignment-cast
-    # rules — a different analysis, so this one keeps its hands off.
+    # sqlglot parses ``SET txt = 42`` as an EQ, but it is not a comparison:
+    # assignment goes through ASSIGNMENT casts, so it gets 42804 (or nothing)
+    # rather than the 42883 a comparison would get. See
+    # tests/test_sql_assignment_types.py for the full rule.
+    #
+    # `txt = 42` is ACCEPTED — everything has an assignment cast to text — where
+    # the comparison `txt = 42` is 42883. That contrast is the point of this
+    # test. `flag = 1` (boolean ← integer) has no assignment cast either way,
+    # so Postgres rejects it with 42804 (probed on 14.13); this asserted `None`
+    # while assignment was analysed by nothing at all.
     assert rule("UPDATE t SET txt = 42 WHERE id = 1") is None
-    assert rule("UPDATE t SET flag = 1 WHERE id = 1") is None
+    assert (
+        rule("UPDATE t SET flag = 1 WHERE id = 1")
+        == 'column "flag" is of type boolean but expression is of type integer'
+    )
     # …but the WHERE clause of the same statement is still analysed.
     assert rule("UPDATE t SET n = 1 WHERE txt = 42") == "operator does not exist: text = integer"
 
@@ -269,3 +294,83 @@ def test_cte_is_not_judged(storage, session):
         "WITH c AS (SELECT n AS v FROM t) SELECT v FROM c WHERE v = 42",
     )
     assert rows == [(42,)]
+
+
+# --- arithmetic ------------------------------------------------------------ #
+#
+# Postgres defines NO arithmetic operator on a text-category operand, so the
+# column's *content* is irrelevant: `txt + 1` errors on a column holding '42'
+# exactly as on one holding 'abc'. The scalar evaluator cannot see this — by the
+# time it runs, a typed text column and an unknown literal are both a Python
+# `str`, and it coerced both, so `txt + 1` silently answered 43.
+
+
+@pytest.mark.parametrize(
+    "sql,message",
+    [
+        ("SELECT txt + 1 FROM t", "operator does not exist: text + integer"),
+        ("SELECT txt - 1 FROM t", "operator does not exist: text - integer"),
+        ("SELECT txt * 2 FROM t", "operator does not exist: text * integer"),
+        ("SELECT txt / 2 FROM t", "operator does not exist: text / integer"),
+        ("SELECT 1 + txt FROM t", "operator does not exist: integer + text"),
+        # Postgres names the DECLARED type, so varchar reports as such.
+        ("SELECT vc + 1 FROM t", "operator does not exist: character varying + integer"),
+        ("SELECT txt + num FROM t", "operator does not exist: text + numeric"),
+        ("SELECT txt + txt FROM t", "operator does not exist: text + text"),
+        ("SELECT id FROM t WHERE txt + 1 = 2", "operator does not exist: text + integer"),
+    ],
+)
+def test_arithmetic_over_text_is_undefined(rule, sql, message):
+    assert rule(sql) == message
+
+
+@pytest.mark.parametrize(
+    "sql",
+    [
+        # Numeric columns are the ordinary case and must keep working.
+        "SELECT n + 1 FROM t",
+        "SELECT num * n FROM t",
+        "SELECT big - 1 FROM t",
+        # A text-returning FUNCTION of a text column is text, but length() is
+        # integer — the operand that reaches the operator is numeric.
+        "SELECT length(txt) + 1 FROM t",
+        # Date arithmetic is a real Postgres operator.
+        "SELECT d + 1 FROM t",
+        # Casting OUT of text is exactly how a user is meant to do this.
+        "SELECT txt::int + 1 FROM t",
+        # An unknown literal is not typed — it coerces, and must not be judged.
+        "SELECT '1' + 1",
+        # A parameter's type is unknown here; guessing would be unsound.
+        "SELECT txt + $1 FROM t",
+        # Concatenation is not arithmetic.
+        "SELECT txt || '1' FROM t",
+    ],
+)
+def test_arithmetic_that_must_stay_lenient(rule, sql):
+    assert rule(sql) is None
+
+
+def test_reflected_table_arithmetic_is_not_judged(storage):
+    """The dual-protocol exemption applies to arithmetic too. A schema-on-read
+    column declared ``text`` from a 50-document sample may hold numbers, so a
+    42883 there would break working queries over pymongo-written data.
+
+    Asserted on the ANALYSIS rather than end-to-end: the reflected read path
+    pushes ``v + 0`` down to Mongo's ``$add``, which rejects a string operand
+    for its own reasons. That is pre-existing and separate — what must hold
+    here is that this analysis stays silent."""
+    storage.insert(
+        DB, "mixednum", [{"_id": bson.Int64(1), "v": "7"}, {"_id": bson.Int64(2), "v": 7}]
+    )
+    catalog = Catalog(storage)
+    stmt = planner.parse("SELECT _id FROM mixednum WHERE v + 0 = 7")[0]
+    typecheck.check_statement(stmt, catalog, DB)  # must not raise
+
+
+def test_arithmetic_in_a_subquery_scope_is_not_judged(storage, session):
+    rows = run(
+        storage,
+        session,
+        "SELECT id FROM t WHERE n = (SELECT max(n) FROM t WHERE txt = '42')",
+    )
+    assert rows == [(1,)]

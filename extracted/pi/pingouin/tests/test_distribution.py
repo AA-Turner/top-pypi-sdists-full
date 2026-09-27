@@ -8,7 +8,6 @@ from pingouin import read_dataset
 from pingouin.distribution import (
     anderson,
     epsilon,
-    gzscore,
     homoscedasticity,
     normality,
     sphericity,
@@ -58,11 +57,6 @@ pab1 = df3.pivot_table(index=idx, columns=within, values=dv)
 class TestDistribution(TestCase):
     """Test distribution.py."""
 
-    def test_gzscore(self):
-        """Test function gzscore."""
-        raw = np.random.lognormal(size=100)
-        gzscore(raw)
-
     def test_normality(self):
         """Test function test_normality."""
         # List / 1D array
@@ -92,6 +86,8 @@ class TestDistribution(TestCase):
     def test_homoscedasticity(self):
         """Test function test_homoscedasticity."""
         hl = homoscedasticity(data=[x, y], alpha=0.05)
+        # Method name is case-insensitive
+        assert hl.equals(homoscedasticity(data=[x, y], method="Levene", alpha=0.05))
         homoscedasticity(data=[x, y], method="bartlett", alpha=0.05)
         hd = homoscedasticity(data={"x": x, "y": y}, alpha=0.05)
         hd2 = homoscedasticity(data={"x": x, "y": y}, alpha=0.05, center="mean")
@@ -101,6 +97,19 @@ class TestDistribution(TestCase):
         homoscedasticity(df_pivot)
         # Long-format
         homoscedasticity(df, dv="Scores", group="Time")
+        # Integer inputs (scipy.stats.bartlett fails with integers in SciPy >= 1.17)
+        a, b = [4, 8, 9, 20, 14], [5, 8, 15, 45, 12]
+        for data in [[a, np.array(b)], {"a": a, "b": b}, pd.DataFrame({"a": a, "b": b})]:
+            hb = homoscedasticity(data, method="bartlett")
+            assert np.isclose(hb.at["bartlett", "T"], 2.873569)
+            assert np.isclose(hb.at["bartlett", "pval"], 0.090045)
+        # Missing values are removed separately in each sample
+        a_nan, b_nan = [*a, np.nan], [np.nan, *b, np.nan]
+        hb = homoscedasticity(data={"a": a, "b": b}, method="bartlett")
+        for data in [[a_nan, b_nan], pd.DataFrame({"a": [*a_nan, np.nan], "b": b_nan})]:
+            assert hb.equals(homoscedasticity(data, method="bartlett"))
+        df_nan = pd.DataFrame({"g": ["a"] * 6 + ["b"] * 7, "y": a_nan + b_nan})
+        assert hb.equals(homoscedasticity(df_nan, dv="y", group="g", method="bartlett"))
 
     def test_epsilon(self):
         """Test function epsilon."""
@@ -140,7 +149,14 @@ class TestDistribution(TestCase):
         assert np.allclose(epsilon(pa1, correction="hf"), 1.0)
         assert np.allclose(epsilon(pb1), 0.9716288)
         assert np.allclose(epsilon(pb1, correction="hf"), 1.0)
-        assert 0.8 < epsilon(pab1) < 0.90  # Pingouin = .822, ez = .856
+        # Interaction of a (3, 4) design: compare with R afex::aov_ez
+        # See https://github.com/raphaelvallat/pingouin/issues/19
+        assert np.isclose(epsilon(pab1), 0.8562148)
+        assert np.isclose(epsilon(pab1, correction="hf"), 0.9684172)
+        assert epsilon(pab1, correction="lb") == 1 / 6
+        assert np.isclose(epsilon(pab1), epsilon(pab1.swaplevel(axis=1)))
+        # The order of the columns does not matter
+        assert np.isclose(epsilon(pab1), epsilon(pab1.iloc[:, ::-1]))
         eps_gg_rm = epsilon(df3, subject="subj", dv="dv", within=["within1", "within2"])
         assert eps_gg_rm == epsilon(pab1)
         # With missing values
@@ -168,6 +184,12 @@ class TestDistribution(TestCase):
         # JNS
         sphericity(df_pivot, method="jns")
         sphericity(df, dv="Scores", subject="Subject", within=["Time"], method="jns")
+        # Under the null hypothesis, JNS should reject sphericity at the nominal rate
+        rng = np.random.default_rng(42)
+        pvals = [
+            sphericity(pd.DataFrame(rng.normal(size=(50, 4))), method="jns")[4] for _ in range(200)
+        ]
+        assert 0.01 < np.mean(np.array(pvals) < 0.05) < 0.1
         # Two-way design of shape (2, N)
         spher = sphericity(pab)
         assert round(spher[1], 3) == 0.625
@@ -189,12 +211,21 @@ class TestDistribution(TestCase):
         spher2 = sphericity(df3, subject="subj", dv="dv", within=["within2"])
         assert spher[1] == spher2[1]
         assert spher[4] == spher2[4]
-        # And then interaction (ValueError)
-        with pytest.raises(ValueError):
-            sphericity(pab1)
-        # Same with long-format
-        with pytest.raises(ValueError):
-            sphericity(df3, subject="subj", dv="dv", within=["within1", "within2"])
+        # And then interaction: compare with R afex::aov_ez
+        # See https://github.com/raphaelvallat/pingouin/issues/19
+        spher = sphericity(pab1)
+        assert spher[0]
+        assert np.isclose(spher[1], 0.58944, atol=1e-5)  # W
+        assert spher[3] == 20  # dof
+        assert np.isclose(spher[4], 0.21311, atol=1e-5)  # P-value
+        spher_long = sphericity(df3, subject="subj", dv="dv", within=["within1", "within2"])
+        assert np.isclose(spher[4], spher_long[4])
+        assert np.isclose(spher[4], sphericity(pab1.swaplevel(axis=1))[4])
+        assert np.isclose(spher[4], sphericity(pab1.iloc[:, ::-1])[4])
+        sphericity(pab1, method="jns")  # For coverage
+        # Missing combination of the two within-subject factors
+        with pytest.raises(ValueError, match="exactly once"):
+            sphericity(pab1.iloc[:, 1:])
         # 3 repeated measures factor
         with pytest.raises(ValueError):
             sphericity(pab_3fac)

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: uiprotect
-Version: 16.16.1
+Version: 17.1.1
 Summary: Python API for Unifi Protect (Unofficial)
 License-Expression: MIT
 License-File: LICENSE
@@ -100,7 +100,7 @@ Full documentation for the project is available at [uiprotect.readthedocs.io](ht
 
 If you want to install `uiprotect` natively, the below are the requirements:
 
-- [UniFi Protect](https://ui.com/camera-security) version 7.1+
+- [UniFi Protect](https://ui.com/camera-security) version 7.2+
   - The library is generally tested against the latest stable version.
 - [Python](https://www.python.org/) 3.11+
 - POSIX compatible system
@@ -206,7 +206,6 @@ uiprotect nvr
 - `uiprotect viewers` - Viewer management
 - `uiprotect liveviews` - Live view configuration
 - `uiprotect chimes` - Chime management
-- `uiprotect aiports` - AI port management
 
 For more details on any command, use `uiprotect <command> --help`.
 
@@ -261,10 +260,10 @@ await protect.update_public()
 for siren in await protect.get_sirens_public():
     print(siren.name)
 
-# the public API exposes no NVR mac; get_console_mac() resolves it out-of-band
-# via the UniFi-OS /api/system endpoint. For new code, prefer the public-API
-# primary key (nvr.id) as the device identity rather than the mac.
-console_mac = await protect.get_console_mac()
+# resolve the console identity; the mac comes straight off the public NVR.
+# For new code, prefer the public-API primary key (nvr.id) as the device
+# identity rather than the mac.
+console_mac = await protect.resolve_nvr_mac()
 ```
 
 ## Usage

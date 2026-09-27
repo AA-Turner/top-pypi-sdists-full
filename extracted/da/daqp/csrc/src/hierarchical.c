@@ -1,5 +1,6 @@
 #include "hierarchical.h"
 #include "types.h"
+#include "auxiliary.h"
 #include <stdlib.h>
 
 int daqp_hiqp(DAQPWorkspace *work, c_float *lambda){
@@ -11,12 +12,26 @@ int daqp_hiqp(DAQPWorkspace *work, c_float *lambda){
     // If only one hiearchy -> just solve normal LDP
     if(!DAQP_IS_HIERARCHICAL(work)) return daqp_ldp(work);
 
+    // A previous solve shifted d by the slacks of the soft levels, so it has
+    // to be reformed by an update first (without a qp, the caller resets d)
+    if((work->state & DAQP_UPDATE_d) && work->qp != NULL) return DAQP_EXIT_UNSUPPORTED;
+
     // Reset lambda for output
     if(lambda != NULL) for(i=0;i<work->m;i++) lambda[i]=0;
 
     // Start moving down the hierarchy
     c_float w;
     start=work->break_points[0];
+    // A previous solve leaves constraints of the soft levels in the working
+    // set; restart from the (hard) first level, whose active set is kept.
+    for(i = 0; i < work->n_active; i++) if(work->WS[i] >= start) break;
+    if(i < work->n_active){
+        work->m = start;
+        reset_daqp_workspace(work);
+        exitflag = daqp_activate_constraints(work);
+        if(exitflag < 0) return exitflag;
+        exitflag = 0;
+    }
     int nfree = work->n;
     for(i =1; i < work->nh; i++){
         // initialize current level
@@ -30,9 +45,16 @@ int daqp_hiqp(DAQPWorkspace *work, c_float *lambda){
                     daqp_add_constraint(work,j, -1.0);
                 else
                     daqp_add_constraint(work,j, 1.0);
-                if(work->sing_ind != DAQP_EMPTY_IND)
-                    return DAQP_EXIT_OVERDETERMINED_INITIAL;
+                if(work->sing_ind != DAQP_EMPTY_IND){
+                    // Dependent constraint (e.g., from a warm start): leave it
+                    // out, and make it mutable so that it is not ignored
+                    DAQP_SET_INACTIVE(j);
+                    DAQP_SET_MUTABLE(j);
+                    work->n_active--;
+                    work->sing_ind = DAQP_EMPTY_IND;
+                    if(work->reuse_ind > work->n_active) work->reuse_ind = work->n_active;
                 }
+            }
         }
 
         // Solve best solution in case daqp_ldp fails
@@ -51,7 +73,7 @@ int daqp_hiqp(DAQPWorkspace *work, c_float *lambda){
         for(j=0; j<work->n_active;j++){
             id=work->WS[j];
             if(DAQP_IS_SOFT(id)){
-                w = work->lam_star[j]*work->settings->rho_soft;
+                w = daqp_soft_slack(work,j);
                 if(w < -work->settings->primal_tol)
                     work->dlower[id]+=w;
                 else if(w > work->settings->primal_tol)
@@ -104,5 +126,6 @@ int daqp_hiqp(DAQPWorkspace *work, c_float *lambda){
         exitflag = 3; // signify no degrees of freedoom left
     }
     work->iterations = iterations; // Append total number of iterations
+    work->state |= DAQP_UPDATE_d; // The levels have shifted d
     return exitflag;
 }

@@ -33,7 +33,9 @@
 
 pub mod admin;
 pub mod aggregate;
+pub mod argtypes;
 pub mod auth;
+mod bulkwrite;
 pub mod changestream;
 pub mod crud;
 pub mod cursors;
@@ -48,6 +50,7 @@ pub mod mapreduce;
 pub mod rbac;
 pub mod roles;
 pub mod storage;
+pub mod topstats;
 pub mod transactions;
 mod util;
 
@@ -59,13 +62,20 @@ pub use cursors::{CursorError, CursorRegistry};
 pub use secantus_wire::{MAX_BSON_OBJECT_SIZE, MAX_MESSAGE_SIZE};
 pub use storage::{Storage, StorageError, UpdateOutcome};
 
-/// Max wire protocol version advertised in `hello` (mongod 7.0).
-pub const WIRE_VERSION: i32 = 17;
+/// Max wire protocol version advertised in `hello` (mongod 8.2).
+///
+/// The advertised version is a CAPABILITY CONTRACT, not a label: drivers gate
+/// features on it, and the spec suites gate tests on it in both directions
+/// (`maxServerVersion: "7.99"` asserts a feature is REJECTED, `minServerVersion:
+/// "8.0"` that it works). So it moves only when the 8.0 features it promises
+/// exist -- `bulkWrite`, `sort` on updateOne/replaceOne, and change-event
+/// `nsType`, all landed alongside this bump. Matches the probed server (8.2.11).
+pub const WIRE_VERSION: i32 = 27;
 /// `version` reported by `buildInfo` — the MongoDB-compatibility value drivers
 /// gate feature flags on (change streams, pre-images, …).
-pub const SERVER_VERSION: &str = "7.0.0";
+pub const SERVER_VERSION: &str = "8.2.11";
 /// `versionArray` companion to [`SERVER_VERSION`].
-pub const SERVER_VERSION_ARRAY: [i32; 4] = [7, 0, 0, 0];
+pub const SERVER_VERSION_ARRAY: [i32; 4] = [8, 2, 11, 0];
 /// Default cursor batch size when the client doesn't specify one.
 ///
 /// This is the FIRST-batch default only. mongod's 101-document default applies
@@ -147,6 +157,9 @@ pub struct CommandContext {
     /// Live connection counts for `serverStatus.connections`, snapshotted by the
     /// server when it builds the context. `None` off-server (unit tests) ⇒ zeros.
     pub conn_stats: Option<ConnStats>,
+    /// Server-wide per-namespace operation accounting, read by `top`. `None`
+    /// off-server (unit tests) ⇒ `top` reports zeros, as it always used to.
+    pub top_stats: Option<Arc<topstats::TopStats>>,
     /// Set by a cursor-producing handler (`find` / `getMore`) to hand the
     /// server the reply's document batch as **pre-encoded blobs** instead of an
     /// owned `Bson::Array` inside the reply document. The reply the handler
@@ -200,6 +213,7 @@ impl CommandContext {
             conn_killer: None,
             logs: None,
             conn_stats: None,
+            top_stats: None,
             pending_batch: None,
             raw_insert_documents: None,
         }
@@ -249,6 +263,11 @@ impl CommandContext {
     }
 
     /// Attach this instant's connection counts (builder-style).
+    pub fn with_top_stats(mut self, stats: Arc<topstats::TopStats>) -> Self {
+        self.top_stats = Some(stats);
+        self
+    }
+
     pub fn with_conn_stats(mut self, stats: ConnStats) -> Self {
         self.conn_stats = Some(stats);
         self
@@ -383,6 +402,7 @@ fn lookup(name: &str) -> Option<Handler> {
         "ping" => handshake::ping,
         "replSetGetStatus" => handshake::repl_set_get_status,
         "buildInfo" | "buildinfo" => handshake::build_info,
+        "bulkWrite" => bulkwrite::bulk_write,
         "insert" => crud::insert,
         "update" => crud::update,
         "delete" => crud::delete,
@@ -424,11 +444,10 @@ fn lookup(name: &str) -> Option<Handler> {
         "validate" => admin::validate,
         "profile" => admin::profile,
         "startSession" => diagnostics::start_session,
-        "endSessions"
-        | "refreshSessions"
-        | "killSessions"
-        | "killAllSessions"
-        | "killAllSessionsByPattern" => diagnostics::ok_session_noop,
+        "endSessions" => end_sessions,
+        "killSessions" => kill_sessions,
+        "killAllSessions" | "killAllSessionsByPattern" => kill_all_sessions,
+        "refreshSessions" => diagnostics::ok_session_noop,
         "commitTransaction" => commit_transaction,
         "abortTransaction" => abort_transaction,
         "saslStart" => auth::sasl_start,
@@ -559,16 +578,24 @@ fn is_write_concern_command(name: &str) -> bool {
 /// `"majority"` → `UnknownReplWriteConcern` (79); an integer `w` outside `[0, 50]`
 /// → `FailedToParse` (9). `None` when absent or well-formed. (`w > 1` still
 /// succeeds with a `writeConcernError` attached — see `attach_write_concern_error`.)
-fn validate_write_concern(doc: &Document) -> Option<CommandError> {
+fn validate_write_concern(doc: &Document, command: &str) -> Option<CommandError> {
     let wc = match doc.get("writeConcern") {
-        None => return None,
+        // An explicit `writeConcern: null` is ACCEPTED — the BSON-field family's
+        // null-means-absent rule. This used to reject it.
+        None | Some(Bson::Null) => return None,
         Some(Bson::Document(d)) => d,
-        Some(_) => {
+        Some(v) => {
+            // Was a bespoke "writeConcern must be a document"; mongod uses the
+            // ordinary BSON-field wording, naming the command and the type.
             return Some(CommandError::new(
                 14,
                 "TypeMismatch",
-                "writeConcern must be a document",
-            ))
+                format!(
+                    "BSON field '{command}.writeConcern' is the wrong type '{}', \
+                     expected type 'object'",
+                    secantus_core::query::bson_type_name(v)
+                ),
+            ));
         }
     };
     if let Some(w) = wc.get("w") {
@@ -720,6 +747,16 @@ fn dispatch_inner(doc: &Document, ctx: &mut CommandContext) -> Document {
 
     match lookup(name) {
         Some(handler) => {
+            // `maxTimeMS` is a generic command field — mongod's IDL validates
+            // it on every command, so it belongs here rather than in the three
+            // handlers that used to call it (the other 21 took a wrong-typed
+            // value silently). Both neighbours were measured against an
+            // auth-enabled mongod 8.2.1: CommandNotFound (59) WINS over this
+            // check, so it sits inside the `Some(handler)` arm; this check WINS
+            // over authorization (13), so it sits above `authorize`.
+            if let Err(e) = argtypes::require_max_time_ms(doc, name) {
+                return e.into_reply();
+            }
             // Auth gating + RBAC run after CommandNotFound but before the
             // handler (mirrors `commands.py::dispatch`), so an unknown command
             // is still `59` rather than `13` even under `--auth`.
@@ -731,7 +768,15 @@ fn dispatch_inner(doc: &Document, ctx: &mut CommandContext) -> Document {
             // it only carries a writeConcernError) let it run and attach the
             // block afterwards. `configureFailPoint` itself is exempt.
             let fp = if name != "configureFailPoint" {
-                ctx.failpoints.as_ref().and_then(|r| r.match_command(name))
+                ctx.failpoints.as_ref().and_then(|r| {
+                    let recorded = ctx
+                        .conn_auth
+                        .as_ref()
+                        .and_then(|a| a.lock().ok())
+                        .and_then(|g| g.client_metadata.clone());
+                    let app = failpoints::failpoint_app_name(name, doc, recorded.as_ref());
+                    r.match_command(name, app.as_deref())
+                })
             } else {
                 None
             };
@@ -776,11 +821,15 @@ fn dispatch_inner(doc: &Document, ctx: &mut CommandContext) -> Document {
                     return reply;
                 }
             }
+            if max_time_forced_to_expire(name, doc, ctx) {
+                return CommandError::new(50, "MaxTimeMSExpired", "operation exceeded time limit")
+                    .into_reply();
+            }
             // Malformed writeConcern is rejected before a write command runs
             // (mirrors commands.py, which prepends _validate_write_concern to each
             // write handler). Reads don't carry a writeConcern.
             if is_write_concern_command(name) {
-                if let Some(e) = validate_write_concern(doc) {
+                if let Some(e) = validate_write_concern(doc, name) {
                     return e.into_reply();
                 }
             }
@@ -793,13 +842,31 @@ fn dispatch_inner(doc: &Document, ctx: &mut CommandContext) -> Document {
             // `system.profile` entry when the per-database level requires it.
             let start = profile_eligible(name, doc).then(std::time::Instant::now);
             let mut reply = run_with_txn_envelope(name, handler, doc, ctx);
-            // A failpoint-configured writeConcernError attaches to a successful reply.
+            // A failpoint-configured writeConcernError attaches to a successful reply,
+            // AND so do the failpoint's errorLabels. The labels are what make the
+            // write retryable in the driver's eyes: without `RetryableWriteError`
+            // libmongoc never retries, so the two commandStartedEvents that
+            // /command_monitoring/unified/writeConcernError expects never happen.
+            // Attaching the wce alone left that test red on this server even after
+            // the replay fix (#1069) cleared it on the Python server -- caught by
+            // running BOTH C lanes rather than assuming they moved together.
             if let Some(m) = &fp {
                 if let Some(wce) = &m.write_concern_error {
                     if reply.get_f64("ok").unwrap_or(0.0) == 1.0
                         && !reply.contains_key("writeConcernError")
                     {
                         reply.insert("writeConcernError", Bson::Document(wce.clone()));
+                        if !m.error_labels.is_empty() && !reply.contains_key("errorLabels") {
+                            reply.insert(
+                                "errorLabels",
+                                Bson::Array(
+                                    m.error_labels
+                                        .iter()
+                                        .map(|l| Bson::String(l.clone()))
+                                        .collect(),
+                                ),
+                            );
+                        }
                     }
                 }
             }
@@ -824,6 +891,43 @@ fn commit_transaction(doc: &Document, ctx: &mut CommandContext) -> HandlerResult
         },
         _ => Ok(doc! { "ok": 1.0 }),
     }
+}
+
+/// Abort the in-progress transaction of every session listed under `key`
+/// (`endSessions` / `killSessions`). Mirrors `commands.py::_end_sessions` /
+/// `_kill_sessions`. Ending a session must release its transaction: otherwise
+/// its uncommitted writes keep conflicting with every later write to the same
+/// documents until the transaction lifetime expires.
+fn abort_listed_sessions(doc: &Document, key: &str, ctx: &CommandContext) -> HandlerResult {
+    if let (Some(reg), Ok(entries)) = (&ctx.transactions, doc.get_array(key)) {
+        for entry in entries {
+            if let Some(lsid) = lsid_bytes_from_arg(Some(entry)) {
+                reg.abort_for_session(&lsid);
+            }
+        }
+    }
+    Ok(doc! { "ok": 1.0 })
+}
+
+fn end_sessions(doc: &Document, ctx: &mut CommandContext) -> HandlerResult {
+    abort_listed_sessions(doc, "endSessions", ctx)
+}
+
+fn kill_sessions(doc: &Document, ctx: &mut CommandContext) -> HandlerResult {
+    abort_listed_sessions(doc, "killSessions", ctx)
+}
+
+/// `killAllSessions` / `killAllSessionsByPattern` — abort every open
+/// transaction. Mirrors `commands.py::_kill_all_sessions`, which likewise
+/// ignores the user / pattern filter. Driver test runners call it between
+/// tests precisely to clear a transaction an earlier test left open; as a
+/// no-op it let one leaked transaction turn every later write into a
+/// `WriteConflict` retry storm (pymongo's unified transaction tests, 2026-09-25).
+fn kill_all_sessions(_doc: &Document, ctx: &mut CommandContext) -> HandlerResult {
+    if let Some(reg) = &ctx.transactions {
+        reg.abort_all();
+    }
+    Ok(doc! { "ok": 1.0 })
 }
 
 /// `abortTransaction` — roll back the session's transaction via the registry.
@@ -948,8 +1052,68 @@ fn maybe_record_profile(
 /// Run `handler`, mapping its `Err` into the standard error reply.
 fn run_handler(handler: Handler, doc: &Document, ctx: &mut CommandContext) -> Document {
     match handler(doc, ctx) {
-        Ok(reply) => reply,
+        Ok(reply) => {
+            if max_time_ms_budget(doc) > 0 {
+                mark_time_limited_cursor(&reply, ctx);
+            }
+            reply
+        }
         Err(e) => e.into_reply(),
+    }
+}
+
+/// The command's `maxTimeMS` as a time limit, or 0 for none. A `getMore`'s own
+/// `maxTimeMS` is the awaitData wait, not a limit (`commands.py`'s
+/// `_MAX_TIME_MS_NOT_A_DEADLINE`).
+fn max_time_ms_budget(doc: &Document) -> i64 {
+    if doc.keys().next().map(String::as_str) == Some("getMore") {
+        return 0;
+    }
+    doc.get("maxTimeMS")
+        .and_then(util::as_i64)
+        .unwrap_or(0)
+        .max(0)
+}
+
+/// Whether the `maxTimeAlwaysTimeOut` failpoint expires this operation. Mirrors
+/// `commands.py::_max_time_forced_to_expire`: an operation with a time limit
+/// fails at its first interrupt check; so does a `getMore` on a cursor whose
+/// originating `find` / `aggregate` had one, because mongod bounds a
+/// non-tailable cursor's getMores by it.
+fn max_time_forced_to_expire(name: &str, doc: &Document, ctx: &CommandContext) -> bool {
+    let Some(fp) = ctx.failpoints.as_ref() else {
+        return false;
+    };
+    if !fp.max_time_always_armed() {
+        return false;
+    }
+    if max_time_ms_budget(doc) > 0 {
+        return fp.consume_max_time_always();
+    }
+    if name == "getMore" {
+        if let (Some(id), Some(cursors)) = (doc.get("getMore").and_then(util::as_i64), &ctx.cursors)
+        {
+            if cursors.is_time_limited(id) {
+                return fp.consume_max_time_always();
+            }
+        }
+    }
+    false
+}
+
+/// Remember that the cursor a reply opened carries a `maxTimeMS` (read only by
+/// `max_time_forced_to_expire`).
+fn mark_time_limited_cursor(reply: &Document, ctx: &CommandContext) {
+    let id = reply
+        .get_document("cursor")
+        .ok()
+        .and_then(|c| c.get("id"))
+        .and_then(util::as_i64)
+        .unwrap_or(0);
+    if id != 0 {
+        if let Some(cursors) = &ctx.cursors {
+            cursors.mark_time_limited(id);
+        }
     }
 }
 

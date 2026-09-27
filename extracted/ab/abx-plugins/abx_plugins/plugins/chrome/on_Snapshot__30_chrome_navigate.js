@@ -29,7 +29,7 @@ const {
   writeFileAtomic,
 } = require("../base/utils.js");
 ensureNodeModuleResolution(module);
-const { connectToPage, resolvePuppeteerModule } = require("./chrome_utils.js");
+const { connectToPage, resolvePuppeteerModule, withTimeout } = require("./chrome_utils.js");
 const puppeteer = resolvePuppeteerModule();
 
 const PLUGIN_NAME = "chrome_navigate";
@@ -76,6 +76,7 @@ async function navigate(url) {
   const waitUntil = getWaitCondition();
 
   let browser = null;
+  let observedResponse = null;
   const navStartTime = Date.now();
 
   try {
@@ -87,6 +88,40 @@ async function navigate(url) {
     });
     browser = conn.browser;
     const page = conn.page;
+    const network = await page.createCDPSession();
+    const { frameTree } = await network.send("Page.getFrameTree");
+    let mainRequestId = null;
+    const earlyResponses = new Map();
+    const rememberResponse = (requestId, status, headers, mimeType = null) => {
+      if (status < 200 || status >= 300) return;
+      const response = {
+        status,
+        contentType: Object.entries(headers || {}).find(
+          ([name]) => name.toLowerCase() === "content-type"
+        )?.[1] || mimeType,
+      };
+      if (requestId === mainRequestId) observedResponse = response;
+      else if (mainRequestId === null) earlyResponses.set(requestId, response);
+    };
+    network.on("Network.requestWillBeSent", (event) => {
+      if (event.type !== "Document" || event.frameId !== frameTree.frame.id) return;
+      mainRequestId = event.requestId;
+      observedResponse = earlyResponses.get(mainRequestId) || null;
+      earlyResponses.clear();
+    });
+    network.on("Network.responseReceived", ({ requestId, response }) => {
+      rememberResponse(requestId, response.status, response.headers, response.mimeType);
+    });
+    // Downloads abort page navigation and may never become Puppeteer Response
+    // objects. ExtraInfo still carries their actual HTTP status and headers.
+    // Correlate by the main document request, not URL suffix or another tab's
+    // download. Buffer metadata until its request is identified instead of
+    // assigning responses by arrival order. HTML-only hooks need this metadata to
+    // avoid treating the leftover about:blank document as the downloaded page.
+    network.on("Network.responseReceivedExtraInfo", (event) => {
+      rememberResponse(event.requestId, event.statusCode, event.headers);
+    });
+    await network.send("Network.enable");
 
     const remainingBudget = hookBudget - (Date.now() - navStartTime);
     if (remainingBudget <= 0) {
@@ -113,7 +148,14 @@ async function navigate(url) {
     const status = response ? response.status() : null;
     // Use the browser's interpretation, including MIME sniffing, rather than
     // URL extensions or response headers. Persist once for Python and JS hooks.
-    const contentType = await page.evaluate(() => document.contentType).catch(() => null);
+    const mimeTimeoutMs = Math.max(0, Math.min(10000, hookBudget - (Date.now() - navStartTime)));
+    const contentType = mimeTimeoutMs > 0
+      ? await withTimeout(
+          () => page.evaluate(() => document.contentType),
+          mimeTimeoutMs,
+          "Document MIME lookup timed out"
+        ).catch(() => null)
+      : null;
     const elapsed = Date.now() - navStartTime;
 
     // Write navigation state as JSON
@@ -140,6 +182,8 @@ async function navigate(url) {
     return {
       success: false,
       error: `${e.name}: ${e.message}`,
+      status: observedResponse?.status || null,
+      contentType: observedResponse?.contentType || null,
       waitUntil,
       elapsed,
     };
@@ -178,6 +222,8 @@ async function main() {
       elapsed: result.elapsed,
       url,
       error: result.error,
+      status: result.status,
+      content_type: result.contentType,
       timestamp: new Date().toISOString(),
     };
     writeFileAtomic(

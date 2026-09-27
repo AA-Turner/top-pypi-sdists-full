@@ -37,7 +37,7 @@ use s2::latlng::LatLng;
 use s2::rect::Rect;
 use s2::region::RegionCoverer;
 use secantus_core::collation::Collation;
-use secantus_core::diff::compute_update_description;
+use secantus_core::diff::compute_update_description_for;
 use secantus_core::order;
 use secantus_core::query::matches as query_matches;
 use secantus_core::sortkey::{self, COMPOUND_SEP, RANK_MINKEY};
@@ -186,6 +186,38 @@ impl Drop for UserTransactionHandle {
         // that rollback completes is safe — the ranges just become permanent
         // seq holes, which the shard merge tolerates.
         self.deregister_minted();
+    }
+}
+
+/// One row of `pg_prepared_xacts`: a transaction parked by `PREPARE
+/// TRANSACTION`, as recorded in [`PREPARED_XACT_TABLE`].
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PreparedXact {
+    pub gid: String,
+    pub owner: String,
+    pub database: String,
+    pub prepared: bson::DateTime,
+    pub xid: i64,
+}
+
+impl PreparedXact {
+    fn from_row(row: &Document) -> Result<Self> {
+        let text = |k: &str| {
+            row.get_str(k).map(str::to_string).map_err(|_| {
+                StorageError::Internal(format!("prepared transaction record lacks {k}"))
+            })
+        };
+        Ok(Self {
+            gid: text("gid")?,
+            owner: text("owner")?,
+            database: text("database")?,
+            prepared: row.get_datetime("prepared").copied().map_err(|_| {
+                StorageError::Internal("prepared transaction record lacks prepared".into())
+            })?,
+            xid: row.get_i64("xid").map_err(|_| {
+                StorageError::Internal("prepared transaction record lacks xid".into())
+            })?,
+        })
     }
 }
 
@@ -367,7 +399,12 @@ fn unframe_doc_value(value: &[u8]) -> Result<(&[u8], &[u8])> {
 /// born-sharded store's legacy table is empty, so this is a quick no-op scan on
 /// open. Runs on the bootstrap session before the connection serves requests.
 fn migrate_legacy_docs(session: &Session, data_nonlogged: bool) -> Result<()> {
-    let src = session.open_cursor(DOC_TABLE, None)?;
+    // Never created on a born-sharded store: nothing to fold in.
+    let src = match session.open_cursor(DOC_TABLE, None) {
+        Ok(c) => c,
+        Err(e) if e.is_missing_table() => return Ok(()),
+        Err(e) => return Err(e.into()),
+    };
     let mut rows: Vec<(String, String, Vec<u8>, Vec<u8>)> = Vec::new();
     let mut more = src.next()?;
     while more {
@@ -495,12 +532,12 @@ fn reject_legacy_index_entry_format(session: &Session) -> Result<()> {
                 .ok()
                 .and_then(|o| o.get_i32("entryFormat").ok())
                 .unwrap_or(1);
-            if fmt < ENTRY_FORMAT_RECORDID {
+            if fmt < ENTRY_FORMAT {
                 return Err(StorageError::Internal(format!(
                     "SecantusDB storage at this path has index entries written by a \
                      build before the RecordId index-entry change: index '{name}' on \
                      '{db}.{coll}' is entryFormat {fmt}, but this build requires \
-                     {ENTRY_FORMAT_RECORDID}. There is no in-place upgrade (pre-1.0 \
+                     {ENTRY_FORMAT}. There is no in-place upgrade (pre-1.0 \
                      beta, no migration) — start from a fresh data directory, drop and \
                      recreate the indexes, or downgrade to the build that wrote it."
                 )));
@@ -1040,6 +1077,13 @@ pub enum ExplainPlan {
         index_name: String,
         key_pattern: Document,
         direction: String,
+        /// Whether the index walk already comes out in the requested sort
+        /// order -- true only when the index's LEADING field is the one being
+        /// sorted on (or when a compound index matches the whole sort spec).
+        /// `explain` reads it to decide whether to report a blocking `SORT`
+        /// stage, which is the question a client runs explain to answer.
+        /// Mirrors `storage.explain_plan`'s `sorted_by_index`.
+        sorted_by_index: bool,
     },
 }
 
@@ -1236,7 +1280,10 @@ pub struct UniqueConflict {
     pub key_value: Document,
 }
 
-/// A query hint: either an index name (or `"$natural"` / `"_id_"`) or a key-spec
+/// A query hint: either an index name (or the `"_id_"` sentinel) or a key-spec
+/// document. `$natural` is accepted ONLY as `{$natural: ±1}`; the bare string
+/// is rejected, matching mongod (probed 8.2.11). Note `ResolvedHint::Natural`
+/// is what the document form resolves TO -- input and resolved form differ.
 /// document (`{a: 1, b: -1}` / `{$natural: 1}` / `{_id: 1}`).
 #[derive(Debug, Clone)]
 pub enum Hint {
@@ -1248,6 +1295,13 @@ pub enum Hint {
 enum ResolvedHint {
     /// `$natural` — force a collection scan.
     Natural,
+    /// `{$natural: -1}` — a collection scan walked BACKWARDS. The direction is
+    /// part of the hint: mongod returns [5,4,3,2,1] where `{$natural: 1}`
+    /// returns [1,2,3,4,5]. Collapsing both onto `Natural` dropped it, so a
+    /// caller asking for reverse insertion order silently got forward order.
+    /// The Python server fixed this in the 2026-08-29 index sweep; this port
+    /// did not, so the two servers disagreed until 2026-08-31.
+    NaturalReverse,
     /// The virtual `_id_` index (doc-table order).
     IdIndex,
     /// A stored index by name.
@@ -1357,15 +1411,20 @@ const QU_COMPRESSED_CFG: &str = "key_format=q,value_format=u";
 // collections + documents tables, but creating the rest keeps the on-disk schema
 // identical so later sub-phases don't need a migration.
 const BOOTSTRAP: &[(&str, &str)] = &[
+    // NOTE: DOC_TABLE (the pre-shard single documents table) and
+    // table:secantus_natural (the old forward seq -> id_key index) are LEGACY
+    // formats nothing writes any more, so they are NOT created here. Creating
+    // them cost ~9.7 ms each on every open just so the migration and the drop
+    // paths could find them empty. A store that HAS them still migrates and
+    // drops correctly -- every reader treats an absent table as empty.
+    // Mirrors the Python `Storage` bootstrap.
     (COLL_TABLE, "key_format=SS,value_format=u"),
     (TOMB_TABLE, "key_format=SS,value_format=u"),
-    (DOC_TABLE, DOC_TABLE_CFG),
     ("table:secantus_indexes", "key_format=SSS,value_format=u"),
     (
         "table:secantus_index_entries",
         "key_format=SSSu,value_format=u",
     ),
-    ("table:secantus_natural", "key_format=SSq,value_format=u"),
     (
         "table:secantus_unique_keys",
         "key_format=SSSu,value_format=q",
@@ -1383,7 +1442,15 @@ const BOOTSTRAP: &[(&str, &str)] = &[
         "table:secantus_profile_settings",
         "key_format=S,value_format=u",
     ),
+    (PREPARED_XACT_TABLE, "key_format=S,value_format=u"),
 ];
+
+/// Durable record of every prepared (two-phase) transaction: `gid -> BSON
+/// {gid, owner, database, prepared, xid, minted, ops}`. Written at `PREPARE
+/// TRANSACTION`, removed at `COMMIT PREPARED` / `ROLLBACK PREPARED`; the
+/// `ops` are the transaction's oplog entries, replayed when the commit comes
+/// after a restart. See [`Storage::prepare_user_transaction`].
+const PREPARED_XACT_TABLE: &str = "table:secantus_prepared_xacts";
 
 #[derive(Debug)]
 pub enum StorageError {
@@ -1413,11 +1480,32 @@ pub enum StorageError {
     /// An update the engine refused for a reason mongod names exactly — today
     /// a non-numeric `$inc` / `$mul`, which mongod answers with TypeMismatch
     /// (14). Distinct from `QueryUnsupported`, which means "can't evaluate".
-    UpdateTypeMismatch(String),
+    UpdateTypeMismatch(String, bool),
+    /// Two update operators target overlapping paths (mongod: code 40).
+    UpdatePathConflict(String),
+    /// An update would create a field under a non-document -- mongod's
+    /// `PathNotViable` (28). Without this the refusal deferred, and a defer on
+    /// this server is a generic BadValue (2).
+    UpdatePathNotViable(String),
     /// A query filter used a construct the Rust query engine can't evaluate
     /// (the `matches` "defer to Python" signal). The server's engine selection
     /// is responsible for not routing such queries to the Rust storage.
     QueryUnsupported,
+    /// A query filter the Rust engine REFUSES, with mongod's own code and
+    /// message -- `{v: {$gt: /re/}}` is BadValue "Can't have RegEx as arg to a
+    /// non-equality predicate", not an unsupported construct. Same reason
+    /// `UpdatePathNotViable` above exists: without a variant that carries the
+    /// error, the refusal collapses into the generic BadValue (2) "not
+    /// supported by the Rust server", which tells the caller the wrong thing.
+    QueryError {
+        code: i32,
+        errmsg: String,
+        /// Whether this is an EXECUTION-time update error, which mongod wraps in
+        /// `Plan executor error during <command> :: caused by ::`. See
+        /// `secantus_core::fallback::Fallback::Mongo::exec`; the adapter carries
+        /// it to the command layer, which knows the command name to interpolate.
+        exec: bool,
+    },
     /// A multi-document transaction's buffered write volume exceeded the
     /// cache-derived dirty budget (see `Storage::txn_dirty_limit`). Raised
     /// BEFORE the transaction can pin enough unevictable dirty content to
@@ -1428,7 +1516,7 @@ pub enum StorageError {
     /// a mongod `BadValue`).
     BadHint(String),
     /// A `fullDocument` / `fullDocumentBeforeChange: "required"` change-stream
-    /// lookup missed (mongod code 280, `ChangeStreamFatalError`).
+    /// lookup missed (mongod code 47, `NoMatchingDocument`).
     ChangeStreamFatal(String),
     /// An internal invariant failure (e.g. a transaction operation on an
     /// already-closed handle). Surfaces as a command-level `InternalError`.
@@ -1446,6 +1534,25 @@ pub enum StorageError {
     /// An update would modify the immutable `_id` field. Surfaces as mongod's
     /// `ImmutableField` (66).
     ImmutableField,
+    /// `PREPARE TRANSACTION` named a gid that is already prepared (PostgreSQL
+    /// 42710).
+    PreparedTransactionExists(String),
+    /// `COMMIT PREPARED` / `ROLLBACK PREPARED` named a gid nothing prepared
+    /// (PostgreSQL 42704).
+    PreparedTransactionNotFound(String),
+}
+
+/// Map a query-engine fault to a storage error, keeping mongod's code and
+/// message when the engine named one.
+pub(crate) fn query_fault(fault: secantus_core::fallback::Fallback) -> StorageError {
+    match fault.as_mongo() {
+        Some((code, errmsg)) => StorageError::QueryError {
+            code,
+            errmsg: errmsg.to_string(),
+            exec: fault.is_exec(),
+        },
+        None => StorageError::QueryUnsupported,
+    }
 }
 
 impl std::fmt::Display for StorageError {
@@ -1464,10 +1571,13 @@ impl std::fmt::Display for StorageError {
             StorageError::CreateIndexUnsupported(m) => write!(f, "{m}"),
             StorageError::IndexOptionsConflict(m) => write!(f, "{m}"),
             StorageError::IndexKeySpecsConflict(m) => write!(f, "{m}"),
-            StorageError::UpdateTypeMismatch(m) => write!(f, "{m}"),
+            StorageError::UpdateTypeMismatch(m, _) => write!(f, "{m}"),
+            StorageError::UpdatePathConflict(m) => write!(f, "{m}"),
+            StorageError::UpdatePathNotViable(m) => write!(f, "{m}"),
             StorageError::QueryUnsupported => {
                 write!(f, "query construct not supported by the Rust query engine")
             }
+            StorageError::QueryError { errmsg, .. } => write!(f, "{errmsg}"),
             StorageError::TransactionTooLargeForCache => write!(
                 f,
                 "Transaction is too large and will not fit in the storage engine cache"
@@ -1476,6 +1586,12 @@ impl std::fmt::Display for StorageError {
                 f,
                 "Performing an update on the path '_id' would modify the immutable field '_id'"
             ),
+            StorageError::PreparedTransactionExists(gid) => {
+                write!(f, "transaction identifier \"{gid}\" is already in use")
+            }
+            StorageError::PreparedTransactionNotFound(gid) => {
+                write!(f, "prepared transaction with identifier \"{gid}\" does not exist")
+            }
             StorageError::BadHint(m) => write!(f, "{m}"),
             StorageError::ChangeStreamFatal(m) => write!(f, "{m}"),
             StorageError::Internal(m) => write!(f, "{m}"),
@@ -1632,10 +1748,10 @@ fn update_would_change_id(update: &Document, old_id: &Bson) -> bool {
                 }
             }
             "$unset" | "$inc" | "$mul" | "$min" | "$max" | "$pop" | "$push" | "$pull"
-            | "$pullAll" | "$addToSet" | "$bit" | "$currentDate" => {
-                if touches_id(fields) {
-                    return true;
-                }
+            | "$pullAll" | "$addToSet" | "$bit" | "$currentDate"
+                if touches_id(fields) =>
+            {
+                return true;
             }
             "$rename" => {
                 for (from, to) in fields {
@@ -1689,12 +1805,43 @@ fn resolve_current_date(update: &Document) -> Result<Document> {
             // A boolean (true OR false) sets the current Date, matching mongod
             // and the Python `$currentDate` branch.
             Bson::Boolean(_) => date.clone(),
-            Bson::Document(o) => match o.get_str("$type") {
-                Ok("date") => date.clone(),
-                Ok("timestamp") => ts.clone(),
-                _ => return Err(StorageError::QueryUnsupported),
-            },
-            _ => return Err(StorageError::QueryUnsupported),
+            Bson::Document(o) => {
+                // An unrecognized KEY is reported before the `$type` value is
+                // looked at, so `{$type: "date", a: 1}` names `a` even though
+                // the `$type` is valid (probed 8.2.11). These three all used to
+                // be a generic "not supported".
+                if let Some(bad) = o.keys().find(|k| k.as_str() != "$type") {
+                    return Err(StorageError::QueryError {
+                        code: 2,
+                        errmsg: format!("Unrecognized $currentDate option: {bad}"),
+                        exec: false,
+                    });
+                }
+                match o.get_str("$type") {
+                    Ok("date") => date.clone(),
+                    Ok("timestamp") => ts.clone(),
+                    _ => {
+                        return Err(StorageError::QueryError {
+                            code: 2,
+                            errmsg: "The '$type' string field is required to be 'date' or \
+                                     'timestamp': {$currentDate: {field : {$type: 'date'}}}"
+                                .to_string(),
+                            exec: false,
+                        });
+                    }
+                }
+            }
+            other => {
+                return Err(StorageError::QueryError {
+                    code: 2,
+                    errmsg: format!(
+                        "{} is not valid type for $currentDate. Please use a boolean \
+                         ('true') or a $type expression ({{$type: 'timestamp/date'}}).",
+                        secantus_core::query::bson_type_name(other)
+                    ),
+                    exec: false,
+                });
+            }
         };
         set.insert(path.clone(), value);
     }
@@ -1793,12 +1940,21 @@ fn escape_kb(kb: &[u8]) -> Vec<u8> {
 }
 
 /// On-disk index-ENTRY format version, recorded per index as
-/// `options.entryFormat` in the index catalog. 1 (implicit, absent) = step-1
-/// entries whose trailing half is the doc's `id_key`; 2 = step-2 entries whose
-/// trailing half is the 8-byte RecordId. The catalog is the only place this is
-/// visible — the WT `key_format` is `SSSu` either way — so an absent marker is
-/// how a legacy store is detected (`reject_legacy_index_entry_format`).
-const ENTRY_FORMAT_RECORDID: i32 = 2;
+/// `options.entryFormat` in the index catalog:
+///
+/// * 1 (implicit, absent) — entries whose trailing half is the doc's `id_key`.
+/// * 2 — entries whose trailing half is the 8-byte RecordId.
+/// * 3 — `sortkey` gives JavaScript its own type rank (13) instead of the
+///   string rank, which shifts MaxKey from 13 to 14. Every key byte for a
+///   JavaScript or MaxKey value therefore changes. A version-2 store would read
+///   back in the OLD order, and since `order::type_rank` moved with it, the
+///   index and a collection scan would disagree — an index that changes the
+///   sort answer.
+///
+/// The catalog is the only place this is visible — the WT `key_format` is
+/// `SSSu` for all three — so the marker is how an older store is detected
+/// (`reject_legacy_index_entry_format`). Mirrors the Python `_ENTRY_FORMAT`.
+const ENTRY_FORMAT: i32 = 3;
 
 /// Pack an index-entry payload into a single trailing `u` column:
 /// `escape(kb) + b"\x00\x00" + RecordId(8B big-endian)`. WiredTiger
@@ -1806,7 +1962,7 @@ const ENTRY_FORMAT_RECORDID: i32 = 2;
 /// order — so both halves live in one column and the B-tree sorts by
 /// `escape(kb)` first, then by RecordId.
 ///
-/// **Step 2 format (`ENTRY_FORMAT_RECORDID`).** The trailing half used to be the
+/// **Step 2 format (`ENTRY_FORMAT` 2).** The trailing half used to be the
 /// doc's `id_key`, which made an IXSCAN fetch pay `id_key → _id index → RecordId
 /// → doc`. Storing the RecordId directly drops that hop (measured at +14.7% on
 /// `find_indexed_range` — see `tasks/rust-recordid-plan.md`). Big-endian is
@@ -1903,6 +2059,100 @@ fn index_field_exists(doc: &Document, field: &str) -> bool {
     !get_path_values(doc, field).0.is_empty()
 }
 
+/// Does a SPARSE index over `key_spec` hold an entry for `doc`?
+///
+/// mongod's rule for a compound sparse index is "at least ONE of the indexed
+/// fields is present" — a document missing some of them is still indexed, with
+/// the missing ones keyed as null. This required ALL of them, which silently
+/// dropped documents from the index and then, because the pickers happily used
+/// that index, from query RESULTS: with a sparse `{a: 1, b: 1}` over
+/// `[{a: 1, b: 1}, {a: 1}]`, `find({a: 1})` returned one document where mongod
+/// returns two. Measured against mongod 8.2.11; the Python server carried the
+/// same bug and was fixed in the same batch (`storage._sparse_covers`).
+///
+/// An index BUILT before this fix under-indexes until it is dropped and
+/// recreated; nothing rewrites existing entries.
+fn sparse_covers(doc: &Document, key_spec: &Document) -> bool {
+    key_spec.keys().any(|f| index_field_exists(doc, f))
+}
+
+/// The comparison operators that match an ABSENT field when their operand is
+/// null. `$lt` / `$gt` are included conservatively: they match nothing against
+/// null, so listing them costs at most a collection scan.
+const NULL_COMPARABLE_OPS: &[&str] = &["$eq", "$lte", "$gte", "$lt", "$gt"];
+
+/// Can this field predicate match a document where the field is ABSENT?
+///
+/// mongod's query language treats a missing field as null, so `{a: null}`
+/// matches `{}` — and the negations (`$ne` / `$nin` / `$not` /
+/// `$exists: false`) match it too, as does ANY comparison against null, not
+/// just `$eq`. Anything else (an equality against a non-null value, a range
+/// bound, `$exists: true`) requires the field to be there.
+///
+/// This is the sparse-index gate: an index that omits the absent-field
+/// documents cannot answer a query those documents could match.
+fn predicate_may_match_missing(clause: Option<&Bson>) -> bool {
+    let clause = match clause {
+        None => return true, // the query does not constrain this field at all
+        Some(Bson::Null) => return true,
+        Some(c) => c,
+    };
+    let doc = match clause.as_document() {
+        Some(d) => d,
+        None => return false,
+    };
+    if !doc.keys().any(|k| k.starts_with('$')) {
+        return false; // an equality against a whole sub-document
+    }
+    for (op, arg) in doc {
+        if NULL_COMPARABLE_OPS.contains(&op.as_str()) && matches!(arg, Bson::Null) {
+            return true;
+        }
+        if op == "$in" {
+            if let Some(arr) = arg.as_array() {
+                if arr.iter().any(|v| matches!(v, Bson::Null)) {
+                    return true;
+                }
+            }
+        }
+        if op == "$exists" && !bson_truthy_exists(arg) {
+            return true;
+        }
+        if matches!(op.as_str(), "$ne" | "$nin" | "$not") {
+            return true;
+        }
+    }
+    false
+}
+
+/// `$exists`'s argument as a boolean, mongod-style.
+fn bson_truthy_exists(v: &Bson) -> bool {
+    match v {
+        Bson::Boolean(b) => *b,
+        Bson::Null => false,
+        Bson::Int32(n) => *n != 0,
+        Bson::Int64(n) => *n != 0,
+        Bson::Double(d) => *d != 0.0,
+        _ => true,
+    }
+}
+
+/// May a SPARSE index over `key_spec` serve a query filtered by `filter`?
+///
+/// Only when at least one indexed field carries a predicate that GUARANTEES the
+/// field is present — that is what guarantees every matching document has an
+/// entry in the index (see `sparse_covers`).
+///
+/// Without this gate a sparse index silently loses rows: a sparse index on `a`
+/// made `find({a: null})` skip every document missing `a`, and a sort over one
+/// skipped them too, because a sort walks the WHOLE index. Measured against
+/// mongod 8.2.11; mirrors `storage._sparse_index_usable`.
+fn sparse_index_usable(key_spec: &Document, filter: &Document) -> bool {
+    key_spec
+        .keys()
+        .any(|field| !predicate_may_match_missing(filter.get(field)))
+}
+
 /// True if any field of `key_spec` is array-valued in `doc` — either an array
 /// leaf or a dotted path descending through an array. That's the signal that
 /// marks an index multikey. Mirrors `storage._doc_makes_multikey`.
@@ -1913,16 +2163,16 @@ fn doc_makes_multikey(doc: &Document, key_spec: &Document) -> bool {
 /// All byte-keys `doc` contributes to an index under `key_spec`. Scalars give
 /// one key; arrays give one key per (deduped) element *plus* the whole-array
 /// key (the multikey layout); compound indexes take the cartesian product
-/// across each field's candidate values. A `sparse` index produces no keys when
-/// any indexed field is missing. Missing fields otherwise encode as `null`.
-/// Mirrors `storage._index_key_variants`.
+/// across each field's candidate values. A `sparse` index produces no keys only
+/// when the doc has NONE of the indexed fields (see `sparse_covers`). Missing
+/// fields otherwise encode as `null`. Mirrors `storage._index_key_variants`.
 fn index_key_variants(doc: &Document, key_spec: &Document, sparse: bool) -> Result<Vec<Vec<u8>>> {
     let fields: Vec<(&String, i32)> = key_spec
         .iter()
         .map(|(k, v)| (k, direction_of(v).unwrap_or(1)))
         .collect();
 
-    if sparse && fields.iter().any(|(f, _)| !index_field_exists(doc, f)) {
+    if sparse && !sparse_covers(doc, key_spec) {
         return Ok(Vec::new());
     }
 
@@ -2138,6 +2388,15 @@ fn is_op_doc(v: &Bson) -> bool {
 /// `(pop, pv)`? Comparison uses `encode_value` so it follows MongoDB's
 /// cross-type BSON sort order. Returns `false` for any pairing it can't prove
 /// (soundness over completeness). Mirrors `storage._op_implies_bound`.
+/// The BSON comparison bracket of an `encode_value` result.
+///
+/// `sortkey`'s layout is `<rank_byte><payload>`, so the leading byte IS the type
+/// rank — and the numeric types deliberately share one, exactly like mongod's
+/// "numbers compare with numbers" bracket.
+fn type_bracket(encoded: &[u8]) -> i16 {
+    encoded.first().map_or(-1, |b| i16::from(*b))
+}
+
 fn op_implies_bound(qop: &str, qv: &Bson, pop: &str, pv: &Bson) -> bool {
     let (a, b) = match (
         sortkey::encode_value(qv, None),
@@ -2146,6 +2405,34 @@ fn op_implies_bound(qop: &str, qv: &Bson, pop: &str, pv: &Bson) -> bool {
         (Ok(a), Ok(b)) => (a, b),
         _ => return false,
     };
+    // The range operators are TYPE-BRACKETED: `{b: {$gt: 0}}` matches numbers
+    // greater than zero and NOTHING of another type, even though a string sorts
+    // above every number in BSON order. Comparing across brackets is what a
+    // plain `encode_value` byte compare does, and it made this claim that
+    // `{b: "x"}` implies `{b: {$gt: 0}}` — so a partial index on that filter was
+    // used for a query whose matching documents it does not contain, and
+    // `find({a: 5, b: "x"})` returned NOTHING. Measured against mongod 8.2.11;
+    // the Python server carried the same bug (`storage._op_implies_bound`).
+    // NaN satisfies NO range comparison -- `{b: {$lte: 1.5}}` and even
+    // `{b: {$gte: -Infinity}}` exclude it -- but it IS equal to itself, so
+    // `{b: NaN}` matches. The byte compare cannot see that: NaN's sort key
+    // orders below every number, so this concluded `{b: NaN}` implies
+    // `{b: {$lte: 1.5}}`, used a partial index that does not contain the
+    // document, and `find({b: NaN})` returned NOTHING where a collection scan
+    // and mongod both return it. Silent data loss on BOTH servers; measured
+    // 8.2.11, 2026-09-03.
+    //
+    // The type bracket below does NOT catch it -- NaN is inside the numeric
+    // bracket, and that comment's "within one bracket the byte compare is
+    // exactly right" has this one exception.
+    if pop != "$eq"
+        && (secantus_core::query::is_nan_bson(qv) || secantus_core::query::is_nan_bson(pv))
+    {
+        return false;
+    }
+    if pop != "$eq" && type_bracket(&a) != type_bracket(&b) {
+        return false;
+    }
     let (le, lt, ge, gt, eq) = (a <= b, a < b, a >= b, a > b, a == b);
     match pop {
         // query upper-bounds the field; need its max <= / < pv.
@@ -2271,38 +2558,161 @@ fn multi_sort_spec(sort: Option<&Document>) -> Option<Vec<(String, i32)>> {
 /// Byte key for an in-memory sort. **Not an index entry** — the only two callers
 /// are the post-fetch sorts below, so the empty-array special case here never
 /// reaches disk and the persisted rank scheme is untouched.
-fn sort_key(doc: &Document, spec: &[(String, i32)], coll: Option<&Collation>) -> Result<Vec<u8>> {
+/// Per-field sort-key parts for `doc`, each ASCENDING-encoded.
+///
+/// Direction is applied when the parts are COMPARED (`compare_sort_keys`), not
+/// by inverting the bytes. Inverting is how a descending column is stored in
+/// the B-tree, where the physical byte order has to be the sort order — but it
+/// is wrong for an in-memory sort, because **inversion does not reverse a
+/// PREFIX relationship**. `encode_value` gives `""` a key that is a strict
+/// prefix of `"a"`'s, which is right ascending (shorter sorts first) and stays
+/// "first" after inversion, so a descending sort put `""` at the FRONT. It was
+/// not only the empty string: every prefix chain came out ascending inside the
+/// descending result (measured against mongod 8.2.11, 2026-09-06):
+///
+/// ```text
+/// values  ["", "a", "ab", "abc", "b"]   sort {x: -1}
+/// mongod  ["b", "abc", "ab", "a", ""]
+/// before  ["", "b", "a", "ab", "abc"]
+/// ```
+///
+/// Comparing ascending encodings and negating avoids the problem entirely:
+/// prefix-shorter-first is exactly right ascending, and its reverse is exactly
+/// right descending. Nothing here is persisted, so the flat single-key form
+/// (which needed the inversion) buys nothing.
+fn sort_key(
+    doc: &Document,
+    spec: &[(String, i32)],
+    coll: Option<&Collation>,
+) -> Result<Vec<Vec<u8>>> {
     let mut parts = Vec::with_capacity(spec.len());
     for (f, d) in spec {
-        let v = get_path(doc, f).cloned().unwrap_or(Bson::Null);
-        // mongod sorts an array-valued field by one representative element: its
-        // minimum ascending, its maximum descending. Comparing whole arrays put
-        // every array after every scalar and disagreed with our own index path,
-        // where a multikey index's per-element entries already produced mongod's
-        // order. Mirrors `ordering.py::_array_sort_value`.
-        let v = order::array_sort_value(v, *d < 0).ok_or(StorageError::UnsupportedValue)?;
+        // mongod refuses a sort path whose component names both an array index
+        // and a key of that array's elements -- per document, at execution time.
+        if let Some(err) = ambiguous_sort_path(doc, f) {
+            return Err(err);
+        }
+        // `sort_field_value` resolves the path AND picks the representative
+        // element (mongod sorts an array-valued field by its minimum ascending,
+        // its maximum descending). Applying `array_sort_value` again here
+        // descended a second time and put `x: [[5]]` among the NUMBERS instead
+        // of the arrays -- caught by re-measuring `sort {x: 1}` against the
+        // pre-change binary rather than assuming only the dotted case moved.
+        let v = sort_field_value(doc, f, *d < 0);
         // An empty array has no representative element; mongod sorts it between
-        // MinKey and Null. The persisted rank bytes cannot express that, so emit a
-        // key just above bare MinKey — inverted for a descending column, matching
-        // `encode_value_directed`'s own convention.
+        // MinKey and Null. The rank bytes cannot express that, so emit a key just
+        // above bare MinKey. No direction fix-up is needed now that the
+        // comparator owns direction.
         if matches!(v, Bson::Undefined) {
-            let bytes = if *d < 0 {
-                vec![0xFF - RANK_MINKEY, 0x00]
-            } else {
-                vec![RANK_MINKEY, 0xFF]
-            };
-            parts.push(bytes);
+            parts.push(vec![RANK_MINKEY, 0xFF]);
             continue;
         }
         // Collation-aware sort: a strength/caseLevel collation folds string keys
         // before encoding. A collation the encoder can't reproduce (non-ASCII /
         // numericOrdering) surfaces as UnsupportedValue → command BadValue.
+        // The ORDERING key, not the index key: this is the sort path.
         parts.push(
-            sortkey::encode_value_directed(&v, *d, coll)
-                .map_err(|_| StorageError::UnsupportedValue)?,
+            sortkey::encode_sort_value(&v, coll).map_err(|_| StorageError::UnsupportedValue)?,
         );
     }
-    Ok(compound_join(&parts))
+    Ok(parts)
+}
+
+/// The refusal mongod raises when a sort path component names BOTH an array
+/// index and a key of that array's elements -- see
+/// [`secantus_core::ambiguous_sort_path`] for the measured rule. Shared
+/// with the aggregation `$sort` stage so the two sort paths cannot drift.
+fn ambiguous_sort_path(doc: &Document, field: &str) -> Option<StorageError> {
+    let (part, items) = secantus_core::ambiguous_sort_path(doc, field)?;
+    Some(StorageError::QueryError {
+        code: 16746,
+        errmsg: secantus_core::ambiguous_sort_message(part, items),
+        exec: true,
+    })
+}
+
+/// The value a document sorts by for one field of the sort spec.
+///
+/// Resolved with `secantus_core::sort_path_values`, which walks a dotted
+/// path THROUGH an array exactly one level, rather than `get_path`, which does
+/// not walk one at all.
+/// mongod ranks `x: [{y: 1}]` among the documents that HAVE an `x.y` -- by 1 --
+/// and both servers ranked it with those that have none, so a
+/// `sort({"x.y": 1})` over array-of-subdocument data came back in the wrong
+/// order. Wrong order is wrong RESULTS as soon as a `limit` is involved
+/// (probed 8.2.11, 2026-09-06).
+///
+/// One level, not any: `x: [[{y: 5}]]` has no `x.y` on mongod either, and
+/// `sort_path_values` already stops there. Using it also makes the in-memory
+/// sort agree with the INDEX path, which generates its multikey entries from
+/// the same resolver -- an index must change speed, never results.
+///
+/// A path yielding several values (`x: [{y: 5}, {y: 6}]`) sorts by the
+/// representative element the direction asks for, the same rule
+/// `order::array_sort_value` applies within one array value.
+///
+/// Mirrors `ordering._sort_value`.
+fn sort_field_value(doc: &Document, field: &str, reverse: bool) -> Bson {
+    let values = secantus_core::sort_path_values(doc, field);
+    if values.is_empty() {
+        // Absent: `get_path` returned `None` here before and this still ranks
+        // with null.
+        return Bson::Null;
+    }
+    let mut best: Option<Vec<u8>> = None;
+    let mut best_val = Bson::Null;
+    for (v, indexed) in values {
+        // An array reached by an explicit INDEX is the sort value as it stands;
+        // one reached by a field name is descended a level. See
+        // `secantus_core::sort_path_values`.
+        let rep = if indexed {
+            v.clone()
+        } else {
+            match order::array_sort_value(v.clone(), reverse) {
+                Some(rep) => rep,
+                None => continue,
+            }
+        };
+        // Compare candidates on the ASCENDING encoding and pick the max for a
+        // descending column -- never the inverted bytes, which do not reverse a
+        // prefix relationship (see `encode_value_directed`).
+        let Ok(enc) = sortkey::encode_value(&rep, None) else {
+            // Unencodable: fall back to the first candidate rather than drop
+            // the document from the sort.
+            if best.is_none() {
+                best_val = rep;
+                best = Some(Vec::new());
+            }
+            continue;
+        };
+        let better = match &best {
+            None => true,
+            Some(b) => {
+                if reverse {
+                    enc > *b
+                } else {
+                    enc < *b
+                }
+            }
+        };
+        if better {
+            best = Some(enc);
+            best_val = rep;
+        }
+    }
+    best_val
+}
+
+/// Compare two `sort_key` part lists under `spec`'s per-field directions.
+fn compare_sort_keys(a: &[Vec<u8>], b: &[Vec<u8>], spec: &[(String, i32)]) -> std::cmp::Ordering {
+    for (i, (_, d)) in spec.iter().enumerate() {
+        let ord = a[i].cmp(&b[i]);
+        let ord = if *d < 0 { ord.reverse() } else { ord };
+        if ord != std::cmp::Ordering::Equal {
+            return ord;
+        }
+    }
+    std::cmp::Ordering::Equal
 }
 
 /// Build an `IxScan` plan, setting `direction` to `"backward"` when the sort
@@ -2322,10 +2732,15 @@ fn make_ixscan_plan(
             }
         }
     }
+    // The walk comes out in sort order only when the index's LEADING field is
+    // the one being sorted on -- mirrors `_candidates_from_hint`'s
+    // `in_sort_order`.
+    let leading = key_spec.keys().next().map(String::as_str);
     ExplainPlan::IxScan {
         index_name: name,
         key_pattern: key_spec.clone(),
         direction: direction.to_string(),
+        sorted_by_index: sort_field.is_some() && sort_field == leading,
     }
 }
 
@@ -2409,6 +2824,21 @@ pub struct Storage {
     /// writing must take the appropriate write lock — `collection_uuid`'s
     /// mint path does.
     lock: Mutex<()>,
+    /// Idle WiredTiger sessions kept for the next user transaction.
+    ///
+    /// The PG server opens a transaction handle for EVERY autocommit
+    /// statement -- measured 2026-09-20 at exactly 1.00 session open per
+    /// statement, including `select 1`, which reads no row -- and a session
+    /// open/close costs ~4.5us of a ~25us gap against PostgreSQL. Sessions
+    /// are reusable once their transaction has finished: `commit` / `rollback`
+    /// leave none open, and a `Cursor` closes with its own scope.
+    ///
+    /// Bounded, because a session is a WiredTiger resource governed by
+    /// `session_max`: over the cap the session is dropped instead of parked,
+    /// so the pool can never grow past what concurrent work actually needed.
+    /// A session whose commit FAILED is never returned -- its `Drop` is what
+    /// rolls the dead transaction back.
+    txn_session_pool: Mutex<Vec<crate::Session>>,
     /// Per-collection write locks: CRUD on `(db, coll)` serialises here so
     /// writes to different collections run in parallel. Entries are created
     /// on first reference and never removed — the lock identity for a
@@ -2462,6 +2892,14 @@ pub struct Storage {
     /// `timeseries_doc_suffix`). Wraps at 16 bits; combined with a nanosecond
     /// timestamp it keeps duplicate-`_id` rows distinct across reopens.
     ts_suffix_counter: AtomicU64,
+    /// Prepared (two-phase) transactions whose WiredTiger transaction is still
+    /// open in THIS process, by gid: the handle keeps the writes invisible and
+    /// the row locks held until `COMMIT PREPARED` / `ROLLBACK PREPARED`, from
+    /// whichever connection sends it. Every entry has a durable twin in
+    /// [`PREPARED_XACT_TABLE`]; a handle lost to a restart is resolved from
+    /// that row instead. Cleared (rolled back) first thing on `Drop`, before
+    /// the connection closes under its sessions.
+    prepared_xacts: Mutex<HashMap<String, UserTransactionHandle>>,
     /// Whether to force a WiredTiger checkpoint on close (`Drop`). Mirrors the
     /// Python `Storage._durable` flag. WT's connection close does NOT implicitly
     /// checkpoint while logging is enabled, so without a close-time checkpoint a
@@ -3565,6 +4003,22 @@ impl Drop for Storage {
     /// logged, never silent: in a database a close-time write error is a
     /// durability signal.
     fn drop(&mut self) {
+        // Prepared transactions still open in this process roll back here
+        // (their sessions must close before the connection does); each keeps
+        // its durable row, so the next open resolves it by replay.
+        self.prepared_xacts
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .clear();
+        // Idle sessions parked for reuse close here for the same reason, and
+        // NOT by field-drop order: `conn` is declared above the pool, so the
+        // connection's `Arc` could reach zero first and leave these sessions
+        // closing against a dead connection. They hold raw WiredTiger
+        // pointers, so that is a use-after-free, not an error return.
+        self.txn_session_pool
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .clear();
         // Stop the background oplog pruner first: it opens WT sessions, so it
         // must be gone before the connection closes below. A parked pruner
         // wakes on the notify; a mid-sweep one finishes its bounded sweep.
@@ -3851,6 +4305,7 @@ impl Storage {
             conn,
             home: home.to_string(),
             lock: Mutex::new(()),
+            txn_session_pool: Mutex::new(Vec::new()),
             coll_locks: Mutex::new(HashMap::new()),
             write_tickets: crate::admission::Tickets::new(opts.write_tickets.unwrap_or(0)),
             ddl_generation: AtomicU64::new(0),
@@ -3862,6 +4317,7 @@ impl Storage {
             prune_ctx,
             prune_join,
             ts_suffix_counter: AtomicU64::new(0),
+            prepared_xacts: Mutex::new(HashMap::new()),
             // Unlogged data tables are only as durable as their last
             // checkpoint, so the close-time checkpoint is NOT optional in this
             // mode — a fast-storage (durable=false) clean close would lose
@@ -3939,7 +4395,7 @@ impl Storage {
 
     /// Whether the calling thread is inside a user (multi-document)
     /// transaction (its session installed by `with_user_transaction`).
-    fn in_user_txn(&self) -> bool {
+    pub fn in_user_txn(&self) -> bool {
         !ACTIVE_TXN_SESSION.with(|c| c.get()).is_null()
     }
 
@@ -4782,8 +5238,7 @@ impl Storage {
         for (_seq, blob) in rows {
             let d = decode_doc(&blob)?;
             if filter.is_empty()
-                || query_matches(&d, filter, vars, coll_opt)
-                    .map_err(|_| StorageError::QueryUnsupported)?
+                || query_matches(&d, filter, vars, coll_opt).map_err(query_fault)?
             {
                 out.push((d, blob));
             }
@@ -4799,11 +5254,11 @@ impl Storage {
                     out.reverse();
                 }
             } else if let Some(spec) = multi_sort_spec(sort) {
-                let mut keyed: Vec<(Vec<u8>, Vec<u8>)> = Vec::with_capacity(out.len());
+                let mut keyed: Vec<(Vec<Vec<u8>>, Vec<u8>)> = Vec::with_capacity(out.len());
                 for (d, blob) in out {
                     keyed.push((sort_key(&d, &spec, coll_opt)?, blob));
                 }
-                keyed.sort_by(|a, b| a.0.cmp(&b.0));
+                keyed.sort_by(|a, b| compare_sort_keys(&a.0, &b.0, &spec));
                 return Ok(keyed.into_iter().map(|(_, b)| b).collect());
             }
         }
@@ -5276,6 +5731,10 @@ impl Storage {
         let session = self.conn.open_session()?;
         ensure_collection(&session, db, coll, self.data_nonlogged)?;
         let mut current = coll_options(&session, db, coll)?.unwrap_or_default();
+        // The options BEFORE the merge below: mongod puts these on the `modify`
+        // change event as `stateBeforeChange`, and stores them in the oplog
+        // entry's `o2.collectionOptions_old` (probed 8.2.11).
+        let state_before = current.clone();
         for (k, v) in opts {
             current.insert(k.clone(), v.clone());
         }
@@ -5287,11 +5746,24 @@ impl Storage {
             for (k, v) in opts {
                 o.insert(k.clone(), v.clone());
             }
+            // `uuid` is set explicitly and any inbound one dropped, so the
+            // stored value is the BSON binary form and leads the document --
+            // mongod's key order.
+            let mut old_opts = Document::new();
+            old_opts.insert("uuid", uuid_binary(&ui));
+            for (k, v) in &state_before {
+                if k != "uuid" {
+                    old_opts.insert(k.clone(), v.clone());
+                }
+            }
+            let mut o2 = Document::new();
+            o2.insert("collectionOptions_old", Bson::Document(old_opts));
             let mut entry = Document::new();
             entry.insert("op", "c");
             entry.insert("ns", format!("{db}.$cmd"));
             entry.insert("ui", uuid_binary(&ui));
             entry.insert("o", Bson::Document(o));
+            entry.insert("o2", Bson::Document(o2));
             self.emit_oplog(&session, vec![entry], vec![None])?;
         }
         Ok(())
@@ -5716,8 +6188,18 @@ impl Storage {
     /// Open a dedicated WT session for a new multi-document transaction. The WT
     /// `begin_transaction` is deferred to the first `with_user_transaction`.
     pub fn begin_user_transaction(&self) -> Result<UserTransactionHandle> {
-        let _g = self.lock.lock().unwrap_or_else(|e| e.into_inner());
-        let session = self.conn.open_session()?;
+        let pooled = self
+            .txn_session_pool
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .pop();
+        let session = match pooled {
+            Some(s) => s,
+            None => {
+                let _g = self.lock.lock().unwrap_or_else(|e| e.into_inner());
+                self.conn.open_session()?
+            }
+        };
         Ok(UserTransactionHandle {
             session: Some(session),
             began: false,
@@ -5727,6 +6209,70 @@ impl Storage {
             oplog_cv: Arc::clone(&self.oplog_cv),
             dirty_bytes: 0,
         })
+    }
+
+    /// Run `f` OUTSIDE the thread's user transaction, if one is installed:
+    /// every storage call it makes runs on its own autocommit session and is
+    /// committed on return, whatever the enclosing transaction later does.
+    ///
+    /// For server bookkeeping that must not ride the user's block -- a
+    /// counter minted like PostgreSQL's OID counter, which two open
+    /// transactions advance independently and a `ROLLBACK` never rewinds.
+    /// Advanced inside the block, the counter row was one key both blocks
+    /// rewrote, and the second hit a WiredTiger write conflict. Nested /
+    /// re-entrant use is safe: the previous state is restored on return,
+    /// panic included.
+    ///
+    /// The enclosing statement's per-thread oplog bookkeeping is stashed for
+    /// the duration and restored afterwards. Without that, the autocommit
+    /// statements `f` runs inside `with_statement_txn` scopes whose exit
+    /// guard drains EVERYTHING in `PENDING_MINTED` (and, in async mode, whose
+    /// entry clears `PENDING_OPLOG`) — the enclosing transaction's own
+    /// minted ranges included. Found 2026-09-17: `CREATE TABLE` mints its
+    /// composite oid this way between its catalog writes, and the seqs those
+    /// writes had parked vanished from the handle, so `PREPARE TRANSACTION`
+    /// recorded a write set with no table in it and `COMMIT PREPARED` after
+    /// a restart replayed the row into a table that did not exist.
+    pub fn outside_user_transaction<T>(&self, f: impl FnOnce() -> T) -> T {
+        struct Restore {
+            session: *const Session,
+            minted: Vec<(i64, i64)>,
+            dirty: u64,
+            in_sync: bool,
+            oplog: Vec<(OplogEntry, Option<Vec<u8>>)>,
+            in_async: bool,
+        }
+        impl Drop for Restore {
+            fn drop(&mut self) {
+                ACTIVE_TXN_SESSION.with(|c| c.set(self.session));
+                IN_SYNC_STMT.with(|f| f.set(self.in_sync));
+                IN_ASYNC_STMT.with(|f| f.set(self.in_async));
+                // The inner scopes drain what they park, so these are empty
+                // in practice; prepend the outer state either way.
+                PENDING_MINTED.with(|p| {
+                    let mut p = p.borrow_mut();
+                    let inner = std::mem::take(&mut *p);
+                    *p = std::mem::take(&mut self.minted);
+                    p.extend(inner);
+                });
+                PENDING_DIRTY_BYTES.with(|c| c.set(c.get() + self.dirty));
+                PENDING_OPLOG.with(|p| {
+                    let mut p = p.borrow_mut();
+                    let inner = std::mem::take(&mut *p);
+                    *p = std::mem::take(&mut self.oplog);
+                    p.extend(inner);
+                });
+            }
+        }
+        let _restore = Restore {
+            session: ACTIVE_TXN_SESSION.with(|c| c.replace(std::ptr::null())),
+            minted: PENDING_MINTED.with(|p| std::mem::take(&mut *p.borrow_mut())),
+            dirty: PENDING_DIRTY_BYTES.with(|c| c.replace(0)),
+            in_sync: IN_SYNC_STMT.with(|f| f.replace(false)),
+            oplog: PENDING_OPLOG.with(|p| std::mem::take(&mut *p.borrow_mut())),
+            in_async: IN_ASYNC_STMT.with(|f| f.replace(false)),
+        };
+        f()
     }
 
     /// Run `f` with `handle`'s session installed as this thread's transaction
@@ -5876,9 +6422,27 @@ impl Storage {
                 let pending = std::mem::take(&mut handle.pending_async);
                 self.mint_and_enqueue(pending);
             }
-            // `session` drops here → the dedicated WT session is closed.
+            // The transaction is over and the session holds nothing: park it
+            // for the next one rather than closing it. Only reached on a
+            // SUCCESSFUL commit -- every failure path above returns early, so
+            // a session with a dead transaction on it still drops and closes.
+            self.park_txn_session(session);
         }
         Ok(())
+    }
+
+    /// Return a finished transaction's session to the pool, or close it if the
+    /// pool is already at its cap. See `txn_session_pool`.
+    fn park_txn_session(&self, session: crate::Session) {
+        const MAX_IDLE: usize = 64;
+        let mut pool = self
+            .txn_session_pool
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        if pool.len() < MAX_IDLE {
+            pool.push(session);
+        }
+        // else: `session` drops here and WiredTiger closes it.
     }
 
     /// Roll back the transaction's WT session, then **close** it. Idempotent;
@@ -5899,6 +6463,263 @@ impl Storage {
             // `session` drops here → the dedicated WT session is closed.
         }
         Ok(())
+    }
+
+    // -- prepared (two-phase) transactions ----------------------------------
+    //
+    // PostgreSQL's PREPARE TRANSACTION parks a block's work under a gid so a
+    // later COMMIT PREPARED / ROLLBACK PREPARED -- from any connection, after
+    // the preparing one is gone, after a server restart -- resolves it. Two
+    // halves carry that here. The handle's WiredTiger transaction stays open
+    // in `prepared_xacts`, so while this process lives the writes are exactly
+    // as invisible and as locked as they were before the PREPARE, and the
+    // commit is the ordinary one. For the restart case the transaction's
+    // oplog entries -- its complete write set, DDL included -- are copied out
+    // of its own session (they are its uncommitted rows) into a durable row
+    // written on an autocommit session, and a commit that finds no live handle
+    // replays them through the ordinary write paths.
+
+    /// Park `handle`'s transaction under `gid`. Consumes the handle: the
+    /// caller's block is over, the work is neither committed nor discarded.
+    pub fn prepare_user_transaction(
+        &self,
+        mut handle: UserTransactionHandle,
+        gid: &str,
+        owner: &str,
+        database: &str,
+    ) -> Result<PreparedXact> {
+        let mut live = self
+            .prepared_xacts
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        if live.contains_key(gid) || self.read_prepared_row(gid)?.is_some() {
+            // The preparing transaction dies with the error, as it does in
+            // PostgreSQL: dropping the handle rolls it back.
+            return Err(StorageError::PreparedTransactionExists(gid.to_string()));
+        }
+        let ops = self.transaction_write_set(&mut handle)?;
+        // A transaction id for `pg_prepared_xacts.transaction`: one oplog seq,
+        // monotonic across restarts, never written (the merge tolerates the
+        // hole exactly as it does a rolled-back mint's).
+        let (xid, _) = self.mint_seq_and_ts(1, false);
+        let minted: Vec<Bson> = handle
+            .minted_ranges
+            .iter()
+            .flat_map(|(start, end)| [Bson::Int64(*start), Bson::Int64(*end)])
+            .collect();
+        let record = PreparedXact {
+            gid: gid.to_string(),
+            owner: owner.to_string(),
+            database: database.to_string(),
+            prepared: bson::DateTime::from_millis(now_millis()),
+            xid,
+        };
+        let row = bson::doc! {
+            "gid": gid,
+            "owner": owner,
+            "database": database,
+            "prepared": record.prepared,
+            "xid": xid,
+            "minted": minted,
+            "ops": ops
+                .into_iter()
+                .map(|blob| Bson::Binary(Binary { subtype: BinarySubtype::Generic, bytes: blob }))
+                .collect::<Vec<Bson>>(),
+        };
+        let session = self.conn.open_session()?;
+        let cur = session.open_cursor(PREPARED_XACT_TABLE, None)?;
+        cur.set_key_s(gid);
+        cur.set_value_u(&encode_doc(&row)?);
+        cur.insert()?;
+        drop(cur);
+        live.insert(gid.to_string(), handle);
+        Ok(record)
+    }
+
+    /// The transaction's oplog entries, in emit order, read back through its
+    /// own session (the rows are uncommitted, so no other session can see
+    /// them). Async oplog mode buffers them on the handle instead.
+    fn transaction_write_set(&self, handle: &mut UserTransactionHandle) -> Result<Vec<Vec<u8>>> {
+        if self.async_oplog.is_some() {
+            let mut out = Vec::with_capacity(handle.pending_async.len());
+            for (entry, _pre) in &handle.pending_async {
+                out.push(match entry {
+                    OplogEntry::Doc(d) => encode_doc(d)?,
+                    OplogEntry::Raw(buf) => buf.as_bytes().to_vec(),
+                });
+            }
+            return Ok(out);
+        }
+        let Some(session) = handle.session.as_ref() else {
+            return Err(StorageError::Internal("transaction already closed".into()));
+        };
+        let mut ranges = handle.minted_ranges.clone();
+        ranges.sort_unstable();
+        let mut out = Vec::new();
+        for (start, end) in ranges {
+            // Same routing as the emit: a batch lives whole in the shard its
+            // first seq selects.
+            let shard = oplog_shard_name(start.rem_euclid(oplog_route_shards()));
+            let cur = session.open_cursor(&shard, None)?;
+            for seq in start..end {
+                cur.reset()?;
+                cur.set_key_q(seq);
+                // Every seq of a minted range was written by the emit that
+                // minted it, so a miss is corruption, not a hole.
+                cur.search().map_err(|e| {
+                    StorageError::Internal(format!(
+                        "prepared transaction: oplog seq {seq} missing from {shard}: {e}"
+                    ))
+                })?;
+                out.push(cur.get_value_u()?);
+            }
+        }
+        Ok(out)
+    }
+
+    fn read_prepared_row(&self, gid: &str) -> Result<Option<Document>> {
+        let session = self.conn.open_session()?;
+        let cur = session.open_cursor(PREPARED_XACT_TABLE, None)?;
+        cur.set_key_s(gid);
+        match cur.search() {
+            Ok(()) => Ok(Some(decode_doc(&cur.get_value_u()?)?)),
+            Err(e) if e.is_not_found() => Ok(None),
+            Err(e) => Err(e.into()),
+        }
+    }
+
+    fn delete_prepared_row(session: &Session, gid: &str) -> Result<()> {
+        let cur = session.open_cursor(PREPARED_XACT_TABLE, None)?;
+        cur.set_key_s(gid);
+        match cur.remove() {
+            Ok(()) => Ok(()),
+            Err(e) if e.is_not_found() => Ok(()),
+            Err(e) => Err(e.into()),
+        }
+    }
+
+    /// Every prepared transaction, oldest first -- `pg_prepared_xacts`.
+    pub fn list_prepared_xacts(&self) -> Result<Vec<PreparedXact>> {
+        let session = self.conn.open_session()?;
+        let cur = session.open_cursor(PREPARED_XACT_TABLE, None)?;
+        let mut out = Vec::new();
+        while cur.next()? {
+            let row = decode_doc(&cur.get_value_u()?)?;
+            out.push(PreparedXact::from_row(&row)?);
+        }
+        out.sort_by_key(|x| x.xid);
+        Ok(out)
+    }
+
+    /// Whether any of the sync-mode oplog seqs a prepared transaction minted
+    /// is readable: its rows commit with its data, so a visible one means the
+    /// transaction committed (a crash landed between that commit and the
+    /// row's removal).
+    fn prepared_already_committed(&self, row: &Document) -> Result<bool> {
+        if self.async_oplog.is_some() {
+            return Ok(false);
+        }
+        let Ok(minted) = row.get_array("minted") else {
+            return Ok(false);
+        };
+        let Some(Bson::Int64(start)) = minted.first() else {
+            return Ok(false);
+        };
+        let session = self.conn.open_session()?;
+        let shard = oplog_shard_name(start.rem_euclid(oplog_route_shards()));
+        let cur = match session.open_cursor(&shard, None) {
+            Ok(c) => c,
+            Err(e) if e.is_not_found() => return Ok(false),
+            Err(e) => return Err(e.into()),
+        };
+        cur.set_key_q(*start);
+        match cur.search() {
+            Ok(()) => Ok(true),
+            Err(e) if e.is_not_found() => Ok(false),
+            Err(e) => Err(e.into()),
+        }
+    }
+
+    /// `COMMIT PREPARED`. A transaction still open in this process commits as
+    /// it stands; one from a previous run of the process is rebuilt by
+    /// replaying its recorded write set inside a fresh transaction (which
+    /// removes the record in the same WiredTiger transaction, so the two land
+    /// or fail together).
+    pub fn commit_prepared(&self, gid: &str) -> Result<()> {
+        let live = self
+            .prepared_xacts
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .remove(gid);
+        if let Some(mut handle) = live {
+            // A failed commit is the transaction's death (see
+            // `commit_user_transaction`); the record stays, and the next
+            // COMMIT PREPARED replays it from there.
+            self.commit_user_transaction(&mut handle)?;
+            let session = self.conn.open_session()?;
+            return Self::delete_prepared_row(&session, gid);
+        }
+        let Some(row) = self.read_prepared_row(gid)? else {
+            return Err(StorageError::PreparedTransactionNotFound(gid.to_string()));
+        };
+        if self.prepared_already_committed(&row)? {
+            let session = self.conn.open_session()?;
+            return Self::delete_prepared_row(&session, gid);
+        }
+        let ops: Vec<Document> = row
+            .get_array("ops")
+            .map_err(|_| StorageError::Internal("prepared transaction record lacks ops".into()))?
+            .iter()
+            .map(|b| match b {
+                Bson::Binary(bin) => decode_doc(&bin.bytes),
+                _ => Err(StorageError::Internal(
+                    "prepared transaction record: malformed op".into(),
+                )),
+            })
+            .collect::<Result<_>>()?;
+        let mut handle = self.begin_user_transaction()?;
+        let applied = self.with_user_transaction(&mut handle, || -> Result<()> {
+            for op in &ops {
+                replay::apply_entry_strict(self, op)?;
+            }
+            // Same transaction as the replayed writes: the row goes when they
+            // do, never before, never without them.
+            match self.op_session()? {
+                OpSession::Txn(session) => Self::delete_prepared_row(session, gid),
+                OpSession::Fresh(session) => Self::delete_prepared_row(&session, gid),
+            }
+        });
+        match applied.and_then(|r| r) {
+            Ok(()) => self.commit_user_transaction(&mut handle),
+            Err(e) => {
+                self.rollback_user_transaction(&mut handle)?;
+                Err(e)
+            }
+        }
+    }
+
+    /// `ROLLBACK PREPARED`: discard the transaction, live or recorded.
+    pub fn rollback_prepared(&self, gid: &str) -> Result<()> {
+        let live = self
+            .prepared_xacts
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .remove(gid);
+        let session = self.conn.open_session()?;
+        if let Some(mut handle) = live {
+            self.rollback_user_transaction(&mut handle)?;
+            return Self::delete_prepared_row(&session, gid);
+        }
+        let Some(row) = self.read_prepared_row(gid)? else {
+            return Err(StorageError::PreparedTransactionNotFound(gid.to_string()));
+        };
+        if self.prepared_already_committed(&row)? {
+            return Err(StorageError::Internal(format!(
+                "prepared transaction \"{gid}\" already committed before the last shutdown; \
+                 COMMIT PREPARED clears it"
+            )));
+        }
+        Self::delete_prepared_row(&session, gid)
     }
 
     /// Insert one BSON-encoded document. Assigns an `ObjectId` `_id` if absent.
@@ -6527,8 +7348,14 @@ impl Storage {
     }
 
     pub fn collection_exists(&self, db: &str, coll: &str) -> Result<bool> {
-        // Lock-free read (see the `lock` field's invariants).
-        let session = self.conn.open_session()?;
+        // Lock-free read (see the `lock` field's invariants). Inside a user
+        // transaction the read is on the TRANSACTION's session, so a
+        // collection that transaction created (or dropped) and has not yet
+        // committed answers the way its own later statements see it -- a
+        // fresh session cannot see uncommitted DDL, and the PG server's
+        // savepoint restore relied on this answer to decide whether a
+        // `ROLLBACK TO` had a collection to drop.
+        let session = self.op_session()?;
         let cur = session.open_cursor(COLL_TABLE, None)?;
         cur.set_key_ss(db, coll);
         match cur.search() {
@@ -7875,7 +8702,7 @@ impl Storage {
         // step-1 ones. Not a user option: `listIndexes` strips it (like
         // `multikey`), and the options-conflict check compares only the
         // enumerated user-facing options, so it never provokes a false conflict.
-        stored_options.insert("entryFormat", ENTRY_FORMAT_RECORDID);
+        stored_options.insert("entryFormat", ENTRY_FORMAT);
         let entries: Vec<(Vec<u8>, i64)> = if let Some(geo) = &geo {
             // 2d geo index: one geohash cell per point-valued doc. Always flagged
             // multikey so the regular (numeric) pickers skip it.
@@ -7929,9 +8756,7 @@ impl Storage {
             for (rid, _id_k, blob) in self.scan_docs(session, db, coll)? {
                 let d = decode_doc(&blob)?;
                 if let Some(pf) = &partial {
-                    if !query_matches(&d, pf, &Document::new(), None)
-                        .map_err(|_| StorageError::QueryUnsupported)?
-                    {
+                    if !query_matches(&d, pf, &Document::new(), None).map_err(query_fault)? {
                         continue;
                     }
                 }
@@ -8493,36 +9318,47 @@ impl Storage {
     /// Drop every natural-order entry for `(db, coll)` (both directions) — called
     /// on drop / rename so a later re-create can't resurrect stale positions.
     fn drop_nat_collection(&self, session: &Session, db: &str, coll: &str) -> Result<()> {
-        // Forward (db, coll, seq): collect this collection's seqs, then remove.
-        let nat = session.open_cursor(NAT_TABLE, None)?;
-        nat.set_key_ssq(db, coll, i64::MIN);
-        let mut more = match nat.search_near() {
-            Ok(cmp) => {
-                if cmp < 0 {
-                    nat.next()?
-                } else {
-                    true
+        // Forward (db, coll, seq) in the LEGACY table: collect this
+        // collection's seqs, then remove. The table is not created on a new
+        // store, and an absent one simply has no rows -- but this must NOT
+        // return early, because the reverse half below cleans NAT_SEQ_TABLE,
+        // the live `_id` index. Skipping that leaves stale index entries that
+        // reject a re-insert into the recreated namespace with a duplicate
+        // key (caught by drop_chunk::drop_collection_survives_a_small_cache).
+        if let Some(nat) = match session.open_cursor(NAT_TABLE, None) {
+            Ok(c) => Some(c),
+            Err(e) if e.is_missing_table() => None,
+            Err(e) => return Err(e.into()),
+        } {
+            nat.set_key_ssq(db, coll, i64::MIN);
+            let mut more = match nat.search_near() {
+                Ok(cmp) => {
+                    if cmp < 0 {
+                        nat.next()?
+                    } else {
+                        true
+                    }
+                }
+                Err(e) if e.is_not_found() => false,
+                Err(e) => return Err(e.into()),
+            };
+            let mut seqs: Vec<i64> = Vec::new();
+            while more {
+                let (d, c, seq) = nat.get_key_ssq()?;
+                if d != db || c != coll {
+                    break;
+                }
+                seqs.push(seq);
+                more = nat.next()?;
+            }
+            for seq in seqs {
+                nat.set_key_ssq(db, coll, seq);
+                if nat.search().is_ok() {
+                    nat.remove()?;
                 }
             }
-            Err(e) if e.is_not_found() => false,
-            Err(e) => return Err(e.into()),
-        };
-        let mut seqs: Vec<i64> = Vec::new();
-        while more {
-            let (d, c, seq) = nat.get_key_ssq()?;
-            if d != db || c != coll {
-                break;
-            }
-            seqs.push(seq);
-            more = nat.next()?;
         }
-        for seq in seqs {
-            nat.set_key_ssq(db, coll, seq);
-            if nat.search().is_ok() {
-                nat.remove()?;
-            }
-        }
-        // Reverse (db, coll, id_key).
+        // Reverse (db, coll, id_key) in the LIVE `_id` index -- always run.
         let rev = session.open_cursor(NAT_SEQ_TABLE, None)?;
         rev.set_key_ssu(db, coll, b"");
         let mut more = match rev.search_near() {
@@ -9024,8 +9860,7 @@ impl Storage {
     fn doc_in_partial(&self, doc: &Document, desc: &IndexDesc) -> Result<bool> {
         match &desc.partial {
             None => Ok(true),
-            Some(pf) => query_matches(doc, pf, &Document::new(), None)
-                .map_err(|_| StorageError::QueryUnsupported),
+            Some(pf) => query_matches(doc, pf, &Document::new(), None).map_err(query_fault),
         }
     }
 
@@ -9301,33 +10136,44 @@ impl Storage {
         coll: &str,
         limit: usize,
     ) -> Result<usize> {
-        let nat = session.open_cursor(NAT_TABLE, None)?;
-        nat.set_key_ssq(db, coll, i64::MIN);
-        let mut more = match nat.search_near() {
-            Ok(cmp) => {
-                if cmp < 0 {
-                    nat.next()?
-                } else {
-                    true
-                }
-            }
-            Err(e) if e.is_not_found() => false,
-            Err(e) => return Err(e.into()),
-        };
+        // Forward half, in the LEGACY table. It is not created on a new store,
+        // and an absent one has no rows -- but this must NOT return early: the
+        // reverse half below purges NAT_SEQ_TABLE, the live `_id` index, and
+        // skipping it leaves entries that reject a re-insert into the
+        // recreated namespace (caught by
+        // drop_chunk::drop_collection_survives_a_small_cache).
         let mut seqs: Vec<i64> = Vec::new();
-        while more && seqs.len() < limit {
-            let (d, c, seq) = nat.get_key_ssq()?;
-            if d != db || c != coll {
-                break;
+        if let Some(nat) = match session.open_cursor(NAT_TABLE, None) {
+            Ok(c) => Some(c),
+            Err(e) if e.is_missing_table() => None,
+            Err(e) => return Err(e.into()),
+        } {
+            nat.set_key_ssq(db, coll, i64::MIN);
+            let mut more = match nat.search_near() {
+                Ok(cmp) => {
+                    if cmp < 0 {
+                        nat.next()?
+                    } else {
+                        true
+                    }
+                }
+                Err(e) if e.is_not_found() => false,
+                Err(e) => return Err(e.into()),
+            };
+            while more && seqs.len() < limit {
+                let (d, c, seq) = nat.get_key_ssq()?;
+                if d != db || c != coll {
+                    break;
+                }
+                seqs.push(seq);
+                more = nat.next()?;
             }
-            seqs.push(seq);
-            more = nat.next()?;
-        }
-        for seq in &seqs {
-            nat.reset()?;
-            nat.set_key_ssq(db, coll, *seq);
-            if nat.search().is_ok() {
-                nat.remove()?;
+            for seq in &seqs {
+                nat.reset()?;
+                nat.set_key_ssq(db, coll, *seq);
+                if nat.search().is_ok() {
+                    nat.remove()?;
+                }
             }
         }
         let mut deleted = seqs.len();
@@ -9690,7 +10536,7 @@ impl Storage {
                 let raw = bson::RawDocument::from_bytes(&blob)
                     .map_err(|_| StorageError::QueryUnsupported)?;
                 if secantus_core::query::matches_raw(raw, filter, vars, coll_opt)
-                    .map_err(|_| StorageError::QueryUnsupported)?
+                    .map_err(query_fault)?
                 {
                     out.push(blob);
                 }
@@ -9703,12 +10549,12 @@ impl Storage {
                 // documents only (the filter already discarded the rest). Decorate
                 // -sort-undecorate on the byte-sortable compound key (collation-
                 // folded when a collation is active).
-                let mut keyed: Vec<(Vec<u8>, Vec<u8>)> = Vec::with_capacity(out.len());
+                let mut keyed: Vec<(Vec<Vec<u8>>, Vec<u8>)> = Vec::with_capacity(out.len());
                 for blob in out {
                     let d = decode_doc(&blob)?;
                     keyed.push((sort_key(&d, &spec, coll_opt)?, blob));
                 }
-                keyed.sort_by(|a, b| a.0.cmp(&b.0));
+                keyed.sort_by(|a, b| compare_sort_keys(&a.0, &b.0, &spec));
                 return Ok(keyed.into_iter().map(|(_, b)| b).collect());
             }
         }
@@ -9795,7 +10641,7 @@ impl Storage {
                 let raw = bson::RawDocument::from_bytes(&blob)
                     .map_err(|_| StorageError::QueryUnsupported)?;
                 if secantus_core::query::matches_raw(raw, filter, &vars, coll_opt)
-                    .map_err(|_| StorageError::QueryUnsupported)?
+                    .map_err(query_fault)?
                 {
                     n += 1;
                 }
@@ -9881,7 +10727,10 @@ impl Storage {
         // (`find_positional_matches`), `$[]`/`$[ident]` from `array_filters`.
         // `let_vars` are visible to `$expr` in the filter (command `let`);
         // `coll_opt` forces a collation-aware COLLSCAN match.
-        let is_replacement = !update.keys().any(|k| k.starts_with('$'));
+        // `is_operator_form`, not `any(starts_with('$'))`: mongod decides the form
+        // on the FIRST key alone, so `{z: 2, $set: {..}}` is a replacement. The
+        // engine was moved to that rule; this copy had been left behind.
+        let is_replacement = !secantus_core::update::is_operator_form(update);
         // Resolve `$currentDate` to a concrete clock value once per operation (so
         // a multi-update stamps every matched doc with the same time), keeping the
         // deterministic core engine free of the clock.
@@ -9896,6 +10745,7 @@ impl Storage {
             multi,
             upsert,
             is_replacement,
+            Some(update),
             validator,
             validator_moderate,
             want_post_image,
@@ -9910,13 +10760,44 @@ impl Storage {
                 }
                 let pos = secantus_core::update::find_positional_matches(doc, filter);
                 secantus_core::update::apply_update_with(doc, update, up, array_filters, &pos)
-                    .map_err(|_| {
-                        // Prefer the error mongod actually names. A bare defer
-                        // becomes a generic BadValue (2) on this server, which
-                        // has no Python to fall back to, where mongod answers
-                        // TypeMismatch (14).
-                        match secantus_core::update::arith_type_error(doc, update) {
-                            Some(m) => StorageError::UpdateTypeMismatch(m),
+                    .map_err(|fault| {
+                        // The engine names most of them itself now; this used to
+                        // be `map_err(|_| ...)`, which threw that away and left
+                        // every one of them a generic BadValue.
+                        if let Some((code, errmsg)) = fault.as_mongo() {
+                            return StorageError::QueryError {
+                                code,
+                                errmsg: errmsg.to_string(),
+                                exec: fault.is_exec(),
+                            };
+                        }
+                        // The three below are recovered by RE-RUNNING a
+                        // narrower check, because they are properties of the
+                        // update as a whole rather than of one operator.
+                        if let Some(m) = secantus_core::update::path_conflict_error(update) {
+                            // Overlapping operator paths -> mongod's code 40.
+                            return StorageError::UpdatePathConflict(m);
+                        }
+                        if let Some(m) = secantus_core::update::path_not_viable_error(doc, update) {
+                            // Creating through a non-document -> mongod's code 28.
+                            return StorageError::UpdatePathNotViable(m);
+                        }
+                        if let Some((m, exec)) =
+                            secantus_core::update::arith_type_error(doc, update)
+                        {
+                            // A non-numeric field / operand -> mongod's code 14.
+                            // `exec` says which of mongod's two wrappers applies.
+                            return StorageError::UpdateTypeMismatch(m, exec);
+                        }
+                        match secantus_core::update::arith_overflow_error(doc, update) {
+                            // An $inc / $mul past int64 -> mongod's code 2. Not a
+                            // "construct we don't support": the server does $inc,
+                            // it was the RESULT that did not fit.
+                            Some(m) => StorageError::QueryError {
+                                code: 2,
+                                errmsg: m,
+                                exec: true,
+                            },
                             None => StorageError::QueryUnsupported,
                         }
                     })
@@ -9959,6 +10840,7 @@ impl Storage {
             multi,
             upsert,
             false,
+            None, // pipeline update: mongod diffs these by value
             validator,
             validator_moderate,
             want_post_image,
@@ -9969,7 +10851,7 @@ impl Storage {
                     let_vars,
                     None,
                 )
-                .map_err(|_| StorageError::QueryUnsupported)?;
+                .map_err(query_fault)?;
                 let mut new = out
                     .into_iter()
                     .next()
@@ -10002,6 +10884,10 @@ impl Storage {
         multi: bool,
         upsert: bool,
         is_replacement: bool,
+        // The operator update that produced the post-image, so the change-stream
+        // diff can report arrays the way mongod does (see secantus_core::diff).
+        // `None` for a pipeline update: mongod diffs those by value.
+        update_spec: Option<&Document>,
         validator: Option<&Document>,
         // `validationLevel: "moderate"` — exempt documents that ALREADY failed
         // the validator from update-time validation (inserts are still checked).
@@ -10025,6 +10911,7 @@ impl Storage {
                 coll_opt,
                 upsert,
                 is_replacement,
+                update_spec,
                 validator,
                 validator_moderate,
                 transform,
@@ -10039,6 +10926,7 @@ impl Storage {
             multi,
             upsert,
             is_replacement,
+            update_spec,
             validator,
             validator_moderate,
             want_post_image,
@@ -10068,6 +10956,10 @@ impl Storage {
         coll_opt: Option<&Collation>,
         upsert: bool,
         is_replacement: bool,
+        // The operator update that produced the post-image, so the change-stream
+        // diff can report arrays the way mongod does (see secantus_core::diff).
+        // `None` for a pipeline update: mongod diffs those by value.
+        update_spec: Option<&Document>,
         validator: Option<&Document>,
         // `validationLevel: "moderate"` — see `update_matching_core`.
         validator_moderate: bool,
@@ -10090,7 +10982,7 @@ impl Storage {
                     let raw = bson::RawDocument::from_bytes(&blob)
                         .map_err(|_| StorageError::QueryUnsupported)?;
                     if secantus_core::query::matches_raw(raw, filter, vars, coll_opt)
-                        .map_err(|_| StorageError::QueryUnsupported)?
+                        .map_err(query_fault)?
                     {
                         rids.push(recordid);
                     }
@@ -10114,6 +11006,7 @@ impl Storage {
                                 vars,
                                 coll_opt,
                                 is_replacement,
+                                update_spec,
                                 validator,
                                 validator_moderate,
                                 transform,
@@ -10141,6 +11034,7 @@ impl Storage {
                 true,
                 upsert,
                 is_replacement,
+                update_spec,
                 validator,
                 validator_moderate,
                 false,
@@ -10170,6 +11064,10 @@ impl Storage {
         vars: &Document,
         coll_opt: Option<&Collation>,
         is_replacement: bool,
+        // The operator update that produced the post-image, so the change-stream
+        // diff can report arrays the way mongod does (see secantus_core::diff).
+        // `None` for a pipeline update: mongod diffs those by value.
+        update_spec: Option<&Document>,
         validator: Option<&Document>,
         // `validationLevel: "moderate"` — see `update_matching_core`.
         validator_moderate: bool,
@@ -10211,14 +11109,18 @@ impl Storage {
             let raw =
                 bson::RawDocument::from_bytes(&blob).map_err(|_| StorageError::QueryUnsupported)?;
             if !secantus_core::query::matches_raw(raw, filter, vars, coll_opt)
-                .map_err(|_| StorageError::QueryUnsupported)?
+                .map_err(query_fault)?
             {
                 continue;
             }
             let doc = decode_doc(&blob)?;
             matched += 1;
             let new = transform(&doc, false)?;
-            if new == doc {
+            // The encoded bytes decide, plus mongod's one rule they cannot show:
+            // an arithmetic write whose result is a NaN counts as a
+            // modification, while an operator that DECLINED to write does not.
+            // See `secantus_core::diff::doc_changed` and `update::arith_wrote_nan`.
+            if !doc_was_modified(&new, &doc, update_spec) {
                 continue;
             }
             if let Some(v) = validator {
@@ -10261,8 +11163,8 @@ impl Storage {
                     o.insert(
                         "diff",
                         Bson::Document(
-                            compute_update_description(&doc, &new)
-                                .map_err(|_| StorageError::QueryUnsupported)?,
+                            compute_update_description_for(&doc, &new, update_spec)
+                                .map_err(query_fault)?,
                         ),
                     );
                     o_owned = encode_doc(&o)?;
@@ -10301,6 +11203,10 @@ impl Storage {
         multi: bool,
         upsert: bool,
         is_replacement: bool,
+        // The operator update that produced the post-image, so the change-stream
+        // diff can report arrays the way mongod does (see secantus_core::diff).
+        // `None` for a pipeline update: mongod diffs those by value.
+        update_spec: Option<&Document>,
         validator: Option<&Document>,
         // `validationLevel: "moderate"` — exempt documents that ALREADY failed
         // the validator from update-time validation (inserts are still checked).
@@ -10339,7 +11245,7 @@ impl Storage {
                     let raw = bson::RawDocument::from_bytes(&blob)
                         .map_err(|_| StorageError::QueryUnsupported)?;
                     if !secantus_core::query::matches_raw(raw, filter, vars, coll_opt)
-                        .map_err(|_| StorageError::QueryUnsupported)?
+                        .map_err(query_fault)?
                     {
                         continue;
                     }
@@ -10354,7 +11260,8 @@ impl Storage {
                         // it) skips the full-document clone.
                         post_image = Some(new.clone());
                     }
-                    if new != doc {
+                    // See the sibling site above.
+                    if doc_was_modified(&new, &doc, update_spec) {
                         // Collection validator on the post-apply doc (mongod rejects an
                         // update that would leave a document failing validation). A
                         // validator the query engine can't evaluate is treated as
@@ -10409,8 +11316,8 @@ impl Storage {
                                 o.insert(
                                     "diff",
                                     Bson::Document(
-                                        compute_update_description(&doc, &new)
-                                            .map_err(|_| StorageError::QueryUnsupported)?,
+                                        compute_update_description_for(&doc, &new, update_spec)
+                                            .map_err(query_fault)?,
                                     ),
                                 );
                                 o_owned = encode_doc(&o)?;
@@ -10444,14 +11351,45 @@ impl Storage {
                     // e.g. a compound `_id`) is a real predicate and must be seeded —
                     // dropping it would mint a fresh ObjectId instead of using it.
                     let mut seed = Document::new();
-                    for (k, v) in filter {
-                        if !k.starts_with('$') && !is_op_doc(v) {
-                            seed.insert(k.clone(), v.clone());
+                    let mut implied: Vec<(String, Bson)> = Vec::new();
+                    let mut seen = std::collections::HashSet::new();
+                    if let Err(path) = collect_upsert_seed(filter, &mut implied, &mut seen) {
+                        // mongod's own text and code, as an EXECUTION-time error.
+                        return Err(StorageError::QueryError {
+                            code: 54,
+                            errmsg: format!(
+                                "cannot infer query fields to set, path '{path}' is matched twice"
+                            ),
+                            exec: true,
+                        });
+                    }
+                    implied.sort_by(|a, b| a.0.cmp(&b.0));
+                    for (k, v) in &implied {
+                        {
+                            // A DOTTED equality names a nested path, and mongod
+                            // builds the nesting: `{"a.b.c": 5}` upserts
+                            // `{a: {b: {c: 5}}}`. A plain `insert` stored a
+                            // literal key with dots in it — a document mongod
+                            // cannot produce, which then does not match the very
+                            // query that created it, so the SAME upsert run twice
+                            // inserted TWO documents (measured 8.2.11,
+                            // 2026-09-06). The Python side has had `set_path`
+                            // here since it hit the same bug.
+                            secantus_core::update::set_document_path(&mut seed, k, v.clone())
+                                .map_err(query_fault)?;
                         }
                     }
+                    let seeded: Vec<String> = seed.keys().cloned().collect();
                     let mut new = transform(&seed, true)?;
                     if !new.contains_key("_id") {
                         new.insert("_id", Bson::ObjectId(ObjectId::new()));
+                    }
+                    // mongod's field order for an upserted document -- see
+                    // `order_upserted_doc`. Only an OPERATOR upsert gets it; a
+                    // REPLACEMENT upsert inserts the document the client sent,
+                    // in the client's own order.
+                    if !is_replacement {
+                        new = order_upserted_doc(new, &seeded);
                     }
                     // Validator on an upsert-inserted document, too.
                     if let Some(v) = validator {
@@ -10562,7 +11500,7 @@ impl Storage {
                 let raw = bson::RawDocument::from_bytes(&blob)
                     .map_err(|_| StorageError::QueryUnsupported)?;
                 if secantus_core::query::matches_raw(raw, filter, let_vars, coll_opt)
-                    .map_err(|_| StorageError::QueryUnsupported)?
+                    .map_err(query_fault)?
                 {
                     rids.push(recordid);
                 }
@@ -10643,7 +11581,7 @@ impl Storage {
             let raw =
                 bson::RawDocument::from_bytes(&blob).map_err(|_| StorageError::QueryUnsupported)?;
             if !secantus_core::query::matches_raw(raw, filter, let_vars, coll_opt)
-                .map_err(|_| StorageError::QueryUnsupported)?
+                .map_err(query_fault)?
             {
                 continue;
             }
@@ -10722,7 +11660,7 @@ impl Storage {
                     let raw = bson::RawDocument::from_bytes(&blob)
                         .map_err(|_| StorageError::QueryUnsupported)?;
                     if !secantus_core::query::matches_raw(raw, filter, let_vars, coll_opt)
-                        .map_err(|_| StorageError::QueryUnsupported)?
+                        .map_err(query_fault)?
                     {
                         continue;
                     }
@@ -10792,7 +11730,7 @@ impl Storage {
                 Err(e) => return Err(e),
             };
             return match resolved {
-                ResolvedHint::Natural => Ok(ExplainPlan::CollScan),
+                ResolvedHint::Natural | ResolvedHint::NaturalReverse => Ok(ExplainPlan::CollScan),
                 ResolvedHint::IdIndex => {
                     let direction = if sort_field == Some("_id") && sort_dir == -1 {
                         "backward"
@@ -10805,6 +11743,7 @@ impl Storage {
                         index_name: ID_INDEX_NAME.to_string(),
                         key_pattern: kp,
                         direction: direction.to_string(),
+                        sorted_by_index: sort_field == Some("_id"),
                     })
                 }
                 ResolvedHint::Named(name) => match self.key_spec_for(&session, db, coll, &name)? {
@@ -10836,6 +11775,10 @@ impl Storage {
                                 index_name: name,
                                 key_pattern: key_spec,
                                 direction: if reverse { "backward" } else { "forward" }.to_string(),
+                                // The whole point of this branch: the compound
+                                // key spec matches (or fully inverts) the sort,
+                                // so the walk IS the sort.
+                                sorted_by_index: true,
                             });
                         }
                     }
@@ -10865,9 +11808,14 @@ impl Storage {
     ) -> Result<ResolvedHint> {
         match hint {
             Hint::Name(s) => {
-                if s == "$natural" {
-                    return Ok(ResolvedHint::Natural);
-                }
+                // NOT `"$natural"`. mongod takes only the DOCUMENT form
+                // (`{$natural: 1}` / `{$natural: -1}`) and answers BadValue for
+                // the string -- re-probed 8.2.11 (2026-08-31). We accepted it
+                // as a documented convenience, so `pymongo`'s natural
+                // `.hint("$natural")` scanned here and errored against a real
+                // server. `ResolvedHint::Natural` is still the resolved value
+                // of the document form; only user input of the string is
+                // refused. Mirrors `storage._resolve_hint`.
                 if s == ID_INDEX_NAME {
                     return Ok(ResolvedHint::IdIndex);
                 }
@@ -10882,6 +11830,12 @@ impl Storage {
             }
             Hint::KeySpec(spec) => {
                 if spec.len() == 1 && spec.contains_key("$natural") {
+                    // The DIRECTION is part of the hint -- see `NaturalReverse`.
+                    // A non-numeric value is not a direction; mongod treats the
+                    // hint as forward, which is what `direction_of`'s None does.
+                    if spec.get("$natural").and_then(direction_of) == Some(-1) {
+                        return Ok(ResolvedHint::NaturalReverse);
+                    }
                     return Ok(ResolvedHint::Natural);
                 }
                 if spec.len() == 1 && spec.get("_id").and_then(direction_of) == Some(1) {
@@ -10892,8 +11846,17 @@ impl Storage {
                         return Ok(ResolvedHint::Named(name));
                     }
                 }
+                // `{spec:?}` was Rust's `Debug` on a `Document`, which leaked
+                // the RUST TYPE NAMES to the client:
+                // `hint Document({"nope": Int32(1)}) does not correspond…`.
+                // Neither `Document(` nor `Int32(` means anything to a MongoDB
+                // client. mongod's own text here is a planner diagnostic this
+                // project deliberately does not reproduce (see the note at the
+                // command layer), but naming the hint should still name the
+                // VALUE.
                 Err(StorageError::BadHint(format!(
-                    "hint {spec:?} does not correspond to an existing index"
+                    "hint {} does not correspond to an existing index",
+                    secantus_core::aggregate::render_value_compact(&Bson::Document(spec.clone()))
                 )))
             }
         }
@@ -10913,6 +11876,11 @@ impl Storage {
         match resolved {
             // `$natural` is insertion order — walk the natural-order index.
             ResolvedHint::Natural => Ok((self.scan_blobs_natural(session, db, coll)?, false)),
+            ResolvedHint::NaturalReverse => {
+                let mut blobs = self.scan_blobs_natural(session, db, coll)?;
+                blobs.reverse();
+                Ok((blobs, false))
+            }
             ResolvedHint::IdIndex => {
                 // The doc table is keyed by id_key, so this scan IS _id order.
                 let mut docs = self.scan_blobs(session, db, coll)?;
@@ -11013,6 +11981,13 @@ impl Storage {
             sort_fields.iter().map(|(f, d)| (f.clone(), -d)).collect();
         for (name, key_spec, opts) in self.iter_indexes(session, db, coll)? {
             if opts.get_bool("multikey").unwrap_or(false) {
+                continue;
+            }
+            // A sort walks the WHOLE index, so a sparse one drops every
+            // document it omits straight out of the result set. This picker is
+            // only reached with an EMPTY filter, so nothing can guarantee the
+            // indexed fields are present.
+            if opts.get_bool("sparse").unwrap_or(false) {
                 continue;
             }
             let idx_pairs: Vec<(String, i32)> = match key_spec
@@ -11263,6 +12238,9 @@ impl Storage {
                 if !query_implies_partial(query, pf) {
                     continue;
                 }
+            }
+            if desc.sparse && !sparse_index_usable(&desc.key_spec, query) {
+                continue;
             }
             let n_fields = desc.key_spec.len();
             let leads = desc
@@ -11871,6 +12849,9 @@ impl Storage {
         let filter_fields: HashSet<&str> = filter.keys().map(|s| s.as_str()).collect();
         let mut best: Option<(String, Document)> = None;
         for desc in self.index_descs(session, db, coll)? {
+            if desc.sparse && !sparse_index_usable(&desc.key_spec, filter) {
+                continue;
+            }
             let eff_fields: HashSet<&str> = match &desc.partial {
                 Some(pf) => {
                     if !query_implies_partial(filter, pf) {
@@ -11937,6 +12918,26 @@ impl Storage {
             .copied()
             .filter(|f| filter.contains_key(f.as_str()))
             .collect();
+        if prefix_fields.is_empty() {
+            // A PARTIAL index whose `partialFilterExpression` already covers
+            // every field the query names — e.g. an index on `a` partial on
+            // `{b: {$gt: 0}}`, queried as `{b: 5}`. There is no key prefix to
+            // pin, and every entry satisfies the implied clauses, so the whole
+            // index is the candidate set (`matches()` still applies the exact
+            // filter). This used to build an EMPTY prefix and then prefix-scan
+            // for the bare separator, which matches no key at all — so the query
+            // silently returned nothing. (The Python server hit the same shape
+            // as an `IndexError` out of the command handler; here it was quiet.)
+            // An empty prefix matches every entry of this index.
+            return Ok(Some(self.scan_index_for_id_keys(
+                session,
+                db,
+                coll,
+                &name,
+                &[],
+                true,
+            )?));
+        }
         let mut parts: Vec<Vec<u8>> = Vec::with_capacity(prefix_fields.len());
         for f in &prefix_fields {
             let dir = direction_of(key_spec.get(f.as_str()).unwrap()).unwrap();
@@ -11974,6 +12975,9 @@ impl Storage {
         let target = eq_set.len();
         let mut best: Option<(String, Document)> = None;
         for desc in self.index_descs(session, db, coll)? {
+            if desc.sparse && !sparse_index_usable(&desc.key_spec, filter) {
+                continue;
+            }
             if let Some(pf) = &desc.partial {
                 if !query_implies_partial(filter, pf) {
                     continue;
@@ -12280,6 +13284,145 @@ fn uuid_binary(bytes: &[u8]) -> Bson {
     })
 }
 
+/// Did this update modify the document, by mongod's rule?
+///
+/// Two halves, because mongod's `nModified` is not a pure document comparison:
+///
+/// * the encoded BSON differs (`diff::doc_changed`) -- which sees a signed zero
+///   and a numeric type change, and does NOT fire on a document that merely
+///   contains a NaN; and
+/// * an arithmetic operator wrote a NaN (`update::arith_wrote_nan`) -- which
+///   mongod counts even though the bytes are identical, and which distinguishes
+///   `{$inc: {a: 1}}` over `a: NaN` (modified) from `{$min: {a: 5}}` over the
+///   same document (not modified, because `$min` declined to write).
+///
+/// `update_spec` is `None` for a pipeline update; mongod diffs those by value,
+/// so the byte comparison alone is the rule there.
+fn doc_was_modified(new: &Document, old: &Document, update_spec: Option<&Document>) -> bool {
+    if secantus_core::diff::doc_changed(new, old) {
+        return true;
+    }
+    update_spec.is_some_and(|u| secantus_core::update::arith_wrote_nan(new, u))
+}
+
+/// mongod's field order for an UPSERTED document: `_id` first, then the fields
+/// seeded from the query's equalities, then whatever the update added, sorted by
+/// name. `seeded` is the query-derived top-level key list. Port of
+/// `secantus.storage._order_upserted_doc`, which the Rust upsert path never had
+/// — it inserted in seed-then-update order, so `{$set: {z: 1, a: 2}}` came out
+/// `[_id, .., z, a]` where mongod gives `[_id, .., a, z]`. BSON field order is on
+/// the wire and drivers compare raw bytes (mongo-php-library's codec tests do).
+///
+/// **Only the update-added half is reproducible.** mongod's order for the
+/// query-seeded fields is an internal hash order: it is not source order, not
+/// alphabetical, and it VARIES BETWEEN RUNS for identical input (measured
+/// 8.2.11, 2026-09-06 — the same query gave `[z, c, m]` on one run and
+/// `[m, c, z]` on the next three). Sorting them is the approximation the Python
+/// server already makes, and matching it is what keeps the two servers
+/// byte-identical to each other.
+/// The single equality a field clause implies, or `None`.
+///
+/// mongod seeds an upserted document from the query and reads more than bare
+/// equality. Measured against 8.2.11 on 2026-09-08 across twenty clause shapes:
+/// `{$eq: 5}`, a ONE-element `$in`, and a ONE-element `$all` each seed `5`; a
+/// longer `$in`, and `$gt` / `$ne` / `$exists` / `$type` / `$not` /
+/// `$elemMatch`, seed nothing. Seeding only bare equality lost the field
+/// entirely -- a silently wrong INSERT.
+fn implied_equality(value: &Bson) -> Option<Bson> {
+    if !is_op_doc(value) {
+        return Some(value.clone()); // bare equality, literal subdocument included
+    }
+    let Bson::Document(d) = value else {
+        return Some(value.clone());
+    };
+    if let Some(v) = d.get("$eq") {
+        return Some(v.clone());
+    }
+    for op in ["$in", "$all"] {
+        if let Some(Bson::Array(items)) = d.get(op) {
+            if items.len() == 1 {
+                return Some(items[0].clone());
+            }
+        }
+    }
+    None
+}
+
+/// Walk `query` and record every equality it implies.
+///
+/// `$and` recurses into every branch and `$or` into a SINGLE branch -- with two
+/// or more nothing is implied, and `$nor` never seeds. Two clauses implying the
+/// same path give `Err(path)`, which the caller turns into mongod's
+/// `54 cannot infer query fields to set, path 'a' is matched twice`
+/// (`{$all: [1, 2]}` and `{$and: [{a: 1}, {a: 1}]}` both hit it).
+fn collect_upsert_seed(
+    query: &Document,
+    into: &mut Vec<(String, Bson)>,
+    seen: &mut std::collections::HashSet<String>,
+) -> std::result::Result<(), String> {
+    for (key, value) in query {
+        if key == "$and" || key == "$or" {
+            let Bson::Array(branches) = value else {
+                continue;
+            };
+            if key == "$or" && branches.len() != 1 {
+                continue;
+            }
+            for branch in branches {
+                if let Bson::Document(d) = branch {
+                    collect_upsert_seed(d, into, seen)?;
+                }
+            }
+            continue;
+        }
+        if key.starts_with('$') {
+            continue; // $nor, $expr, $where, ... imply nothing
+        }
+        if let Bson::Document(d) = value {
+            if is_op_doc(value) {
+                if let Some(Bson::Array(items)) = d.get("$all") {
+                    if items.len() > 1 {
+                        return Err(key.clone());
+                    }
+                }
+            }
+        }
+        let Some(seed_value) = implied_equality(value) else {
+            continue;
+        };
+        if !seen.insert(key.clone()) {
+            return Err(key.clone());
+        }
+        into.push((key.clone(), seed_value));
+    }
+    Ok(())
+}
+
+fn order_upserted_doc(new: Document, seeded: &[String]) -> Document {
+    let mut from_query: Vec<&String> = Vec::new();
+    let mut from_update: Vec<&String> = Vec::new();
+    for k in new.keys() {
+        if k == "_id" {
+            continue;
+        }
+        if seeded.iter().any(|s| s == k) {
+            from_query.push(k);
+        } else {
+            from_update.push(k);
+        }
+    }
+    from_query.sort();
+    from_update.sort();
+    let mut ordered = Document::new();
+    if let Some(id) = new.get("_id") {
+        ordered.insert("_id".to_string(), id.clone());
+    }
+    for k in from_query.into_iter().chain(from_update) {
+        ordered.insert(k.clone(), new.get(k).expect("key came from `new`").clone());
+    }
+    ordered
+}
+
 /// An empty options document (`{}`) as BSON bytes — the collections-table value.
 fn empty_options() -> Vec<u8> {
     encode_doc(&Document::new()).expect("encoding an empty document cannot fail")
@@ -12486,10 +13629,7 @@ mod tests {
             c.search().unwrap();
             let mut d = decode_doc(&c.get_value_u().unwrap()).unwrap();
             let mut opts = d.get_document("options").cloned().unwrap_or_default();
-            assert_eq!(
-                opts.get_i32("entryFormat").ok(),
-                Some(ENTRY_FORMAT_RECORDID)
-            );
+            assert_eq!(opts.get_i32("entryFormat").ok(), Some(ENTRY_FORMAT));
             opts.remove("entryFormat");
             d.insert("options", Bson::Document(opts));
             c.reset().unwrap();
@@ -12773,6 +13913,442 @@ mod tests {
             decode_doc(assigned).unwrap().get_object_id("_id").is_ok(),
             "missing _id must be assigned an ObjectId"
         );
+    }
+
+    /// An upsert seeded from a DOTTED equality must build the nesting.
+    ///
+    /// This was a real data bug: the seed did `insert("a.b", v)`, storing a
+    /// document with a literal dotted key -- one mongod cannot produce, and one
+    /// that does NOT match the query that created it. So the same upsert run
+    /// twice inserted TWO documents, silently, where mongod matches the first
+    /// and inserts nothing (measured 8.2.11, 2026-09-06). The idempotent upsert
+    /// is the canonical use of the feature, so this broke it outright.
+    ///
+    /// The Python server has used `set_path` here since it hit the same bug;
+    /// this is the "user-supplied path used as a dict key" shape `CLAUDE.md`
+    /// names.
+    #[test]
+    fn a_dotted_upsert_key_builds_the_nesting_and_stays_idempotent() {
+        let dir = tempfile::tempdir().unwrap();
+        let home = dir.path().join("src");
+        std::fs::create_dir_all(&home).unwrap();
+        let s = Storage::open(home.to_str().unwrap()).unwrap();
+
+        let cases: Vec<(Document, Document)> = vec![
+            (doc! {"a.b": 5i32}, doc! {"a": {"b": 5i32}}),
+            (doc! {"a.b.c": 5i32}, doc! {"a": {"b": {"c": 5i32}}}),
+            (
+                doc! {"a.b": 1i32, "a.c": 2i32},
+                doc! {"a": {"b": 1i32, "c": 2i32}},
+            ),
+        ];
+        for (i, (filter, want_nested)) in cases.into_iter().enumerate() {
+            let coll = format!("c{i}");
+            let upsert = |s: &Storage| {
+                s.update_matching(
+                    "db",
+                    &coll,
+                    &filter,
+                    &doc! {"$set": {"z": 1i32}},
+                    false,
+                    true,
+                    &[],
+                    &Document::new(),
+                    None,
+                    None,
+                    false,
+                )
+                .unwrap()
+            };
+            upsert(&s);
+            let all = s.scan_collection("db", &coll).unwrap();
+            assert_eq!(
+                all.len(),
+                1,
+                "{filter:?}: one document after the first upsert"
+            );
+            let stored = decode_doc(&all[0]).unwrap();
+            for (k, v) in want_nested.iter() {
+                assert_eq!(stored.get(k), Some(v), "{filter:?} stored {stored:?}");
+            }
+            assert!(
+                !stored.keys().any(|k| k.contains('.')),
+                "{filter:?} stored a literal dotted key: {stored:?}"
+            );
+
+            // The whole point: the upserted document matches the query that
+            // created it, so running the same upsert again inserts nothing.
+            upsert(&s);
+            let all = s.scan_collection("db", &coll).unwrap();
+            assert_eq!(
+                all.len(),
+                1,
+                "{filter:?}: re-running the same upsert must not insert a second document"
+            );
+        }
+    }
+
+    /// mongod's field order for an upserted document -- see `order_upserted_doc`.
+    /// The Rust upsert path had no ordering at all and emitted seed-then-update
+    /// order, so `{$set: {z: 1, a: 2}}` came out `[_id, .., z, a]`.
+    #[test]
+    fn an_operator_upsert_sorts_the_fields_the_update_added() {
+        let dir = tempfile::tempdir().unwrap();
+        let home = dir.path().join("src");
+        std::fs::create_dir_all(&home).unwrap();
+        let s = Storage::open(home.to_str().unwrap()).unwrap();
+        s.update_matching(
+            "db",
+            "c",
+            &doc! {"c": 1i32},
+            &doc! {"$set": {"z": 2i32, "a": 3i32}},
+            false,
+            true,
+            &[],
+            &Document::new(),
+            None,
+            None,
+            false,
+        )
+        .unwrap();
+        let all = s.scan_collection("db", "c").unwrap();
+        let stored = decode_doc(&all[0]).unwrap();
+        assert_eq!(
+            stored.keys().collect::<Vec<_>>(),
+            vec!["_id", "c", "a", "z"],
+            "got {stored:?}"
+        );
+    }
+
+    /// A REPLACEMENT upsert is not reordered: it inserts the document the client
+    /// sent, in the client's own order with `_id` first.
+    #[test]
+    fn a_replacement_upsert_keeps_the_documents_own_order() {
+        let dir = tempfile::tempdir().unwrap();
+        let home = dir.path().join("src");
+        std::fs::create_dir_all(&home).unwrap();
+        let s = Storage::open(home.to_str().unwrap()).unwrap();
+        s.update_matching(
+            "db",
+            "c",
+            &doc! {"_id": 9i32},
+            &doc! {"z": 1i32, "a": 2i32},
+            false,
+            true,
+            &[],
+            &Document::new(),
+            None,
+            None,
+            false,
+        )
+        .unwrap();
+        let all = s.scan_collection("db", "c").unwrap();
+        let stored = decode_doc(&all[0]).unwrap();
+        assert_eq!(
+            stored.keys().collect::<Vec<_>>(),
+            vec!["_id", "z", "a"],
+            "got {stored:?}"
+        );
+    }
+
+    #[test]
+    fn order_upserted_doc_sorts_each_half_independently() {
+        let new = doc! {"z": 1i32, "m": 2i32, "b": 3i32, "_id": 9i32, "y": 4i32};
+        let seeded = vec!["z".to_string(), "m".to_string()];
+        assert_eq!(
+            super::order_upserted_doc(new, &seeded)
+                .keys()
+                .collect::<Vec<_>>(),
+            vec!["_id", "m", "z", "b", "y"]
+        );
+    }
+
+    /// A `$set` whose only difference is the SIGN OF A ZERO must be stored.
+    ///
+    /// This was silent data loss: the write guard compared `new != doc`, and
+    /// `Bson::Double`'s `f64 ==` calls `0.0` equal to `-0.0`, so the write was
+    /// skipped, `nModified` was 0, no oplog entry was emitted, and a read-back
+    /// returned the OLD zero. The value the caller asked to store was never
+    /// stored. mongod stores it and reports `nModified: 1` (probed 8.2.11,
+    /// 2026-09-06); the Python server was fixed in #1317 and this crate kept
+    /// the bare guard, which nothing covered -- the parity suites pin the pure
+    /// engines, not storage.
+    #[test]
+    fn signed_zero_update_is_stored_not_dropped() {
+        let dir = tempfile::tempdir().unwrap();
+        let home = dir.path().join("src");
+        std::fs::create_dir_all(&home).unwrap();
+        let s = Storage::open(home.to_str().unwrap()).unwrap();
+
+        // `(seed, update, expected stored value)` -- every one of these is a
+        // change mongod stores and counts.
+        let cases: Vec<(Document, Document, Bson)> = vec![
+            (
+                doc! {"_id": 1i32, "a": 0.0},
+                doc! {"$set": {"a": -0.0}},
+                Bson::Double(-0.0),
+            ),
+            (
+                doc! {"_id": 2i32, "a": -0.0},
+                doc! {"$set": {"a": 0.0}},
+                Bson::Double(0.0),
+            ),
+            (
+                doc! {"_id": 3i32, "a": {"b": 0.0}},
+                doc! {"$set": {"a.b": -0.0}},
+                Bson::Document(doc! {"b": -0.0}),
+            ),
+            (
+                doc! {"_id": 4i32, "a": [0.0]},
+                doc! {"$set": {"a.0": -0.0}},
+                Bson::Array(vec![Bson::Double(-0.0)]),
+            ),
+        ];
+
+        for (seed, update, expected) in cases {
+            let id = seed.get("_id").unwrap().clone();
+            s.insert("db", "c", vec![bson::to_vec(&seed).unwrap()], true)
+                .unwrap();
+            let out = s
+                .update_matching(
+                    "db",
+                    "c",
+                    &doc! {"_id": id.clone()},
+                    &update,
+                    false,
+                    false,
+                    &[],
+                    &Document::new(),
+                    None,
+                    None,
+                    false,
+                )
+                .unwrap();
+            assert_eq!(
+                out.modified, 1,
+                "{update:?} over {seed:?} must report one modified"
+            );
+            let stored = decode_doc(&s.find_by_id("db", "c", &id).unwrap().unwrap()).unwrap();
+            let got = stored.get("a").unwrap();
+            // Compare the ENCODED bytes: `assert_eq!` on `Bson::Double` would
+            // pass on the very value confusion this test exists to catch.
+            assert_eq!(
+                bson::to_vec(&doc! {"v": got}).unwrap(),
+                bson::to_vec(&doc! {"v": &expected}).unwrap(),
+                "{update:?} over {seed:?} stored {got:?}, want {expected:?}"
+            );
+        }
+    }
+
+    /// The other half: a genuinely-unchanged document must still be skipped, or
+    /// every no-op update would write and report `nModified: 1`.
+    #[test]
+    fn identical_update_still_reports_nothing_modified() {
+        let dir = tempfile::tempdir().unwrap();
+        let home = dir.path().join("src");
+        std::fs::create_dir_all(&home).unwrap();
+        let s = Storage::open(home.to_str().unwrap()).unwrap();
+        s.insert(
+            "db",
+            "c",
+            vec![bson::to_vec(&doc! {"_id": 1i32, "a": 0.0}).unwrap()],
+            true,
+        )
+        .unwrap();
+        let out = s
+            .update_matching(
+                "db",
+                "c",
+                &doc! {"_id": 1i32},
+                &doc! {"$set": {"a": 0.0}},
+                false,
+                false,
+                &[],
+                &Document::new(),
+                None,
+                None,
+                false,
+            )
+            .unwrap();
+        assert_eq!(out.matched, 1);
+        assert_eq!(out.modified, 0, "a no-op update must not count as modified");
+    }
+
+    /// An index must never change which documents a query returns. Each case
+    /// below was a real divergence from mongod 8.2.11 (measured 2026-09-01) and
+    /// three of them are silent DATA LOSS — fewer documents came back WITH the
+    /// index than without it, no error. The Python server carried the same four
+    /// and was fixed in the same batch; nothing caught these on the Rust side
+    /// because the parity suites cover the pure operator engines, not storage.
+    #[test]
+    fn sparse_index_never_drops_absent_field_documents() {
+        let dir = tempfile::tempdir().unwrap();
+        let home = dir.path().join("src");
+        std::fs::create_dir_all(&home).unwrap();
+        let s = Storage::open(home.to_str().unwrap()).unwrap();
+        s.create_index(
+            "app",
+            "t",
+            "a_sparse",
+            &doc! {"a": 1i32},
+            &doc! {"sparse": true},
+        )
+        .unwrap();
+        s.insert(
+            "app",
+            "t",
+            vec![
+                encode_doc(&doc! {"_id": 1i32, "a": Bson::Null, "b": 1i32}).unwrap(),
+                // `a` ABSENT — the document a sparse index omits.
+                encode_doc(&doc! {"_id": 2i32, "b": 1i32}).unwrap(),
+                encode_doc(&doc! {"_id": 3i32, "a": 5i32, "b": 1i32}).unwrap(),
+            ],
+            true,
+        )
+        .unwrap();
+
+        let ids = |f: Document| -> Vec<i32> {
+            let mut out: Vec<i32> = s
+                .find_matching("app", "t", &f)
+                .unwrap()
+                .iter()
+                .map(|b| decode_doc(b).unwrap().get_i32("_id").unwrap())
+                .collect();
+            out.sort_unstable();
+            out
+        };
+
+        // `{a: null}` MATCHES a missing field, so the sparse index cannot serve
+        // it — using it skipped `_id: 2` entirely.
+        assert_eq!(ids(doc! {"a": Bson::Null}), vec![1, 2]);
+        assert_eq!(ids(doc! {"a": {"$eq": Bson::Null}}), vec![1, 2]);
+        assert_eq!(ids(doc! {"a": {"$in": [Bson::Null, 5i32]}}), vec![1, 2, 3]);
+        // A RANGE bound against null matches an absent field too, not just $eq.
+        assert_eq!(ids(doc! {"a": {"$lte": Bson::Null}}), vec![1, 2]);
+        assert_eq!(ids(doc! {"a": {"$gte": Bson::Null}}), vec![1, 2]);
+        // Unaffected: this cannot match an absent field, so the index stays
+        // usable for it.
+        assert_eq!(ids(doc! {"a": 5i32}), vec![3]);
+    }
+
+    #[test]
+    fn compound_sparse_index_holds_documents_missing_some_fields() {
+        let dir = tempfile::tempdir().unwrap();
+        let home = dir.path().join("src");
+        std::fs::create_dir_all(&home).unwrap();
+        let s = Storage::open(home.to_str().unwrap()).unwrap();
+        s.create_index(
+            "app",
+            "t",
+            "ab_sparse",
+            &doc! {"a": 1i32, "b": 1i32},
+            &doc! {"sparse": true},
+        )
+        .unwrap();
+        s.insert(
+            "app",
+            "t",
+            vec![
+                encode_doc(&doc! {"_id": 1i32, "a": 1i32, "b": 1i32}).unwrap(),
+                // has `a` but not `b` — mongod indexes it, we used to not
+                encode_doc(&doc! {"_id": 2i32, "a": 1i32}).unwrap(),
+                encode_doc(&doc! {"_id": 3i32, "b": 1i32}).unwrap(),
+                encode_doc(&doc! {"_id": 4i32, "a": 1i32, "b": Bson::Null}).unwrap(),
+                // neither — the only doc a sparse compound index legitimately omits
+                encode_doc(&doc! {"_id": 5i32}).unwrap(),
+            ],
+            true,
+        )
+        .unwrap();
+        let mut ids: Vec<i32> = s
+            .find_matching("app", "t", &doc! {"a": 1i32})
+            .unwrap()
+            .iter()
+            .map(|b| decode_doc(b).unwrap().get_i32("_id").unwrap())
+            .collect();
+        ids.sort_unstable();
+        assert_eq!(ids, vec![1, 2, 4]);
+    }
+
+    #[test]
+    fn partial_filter_implication_is_type_bracketed() {
+        let dir = tempfile::tempdir().unwrap();
+        let home = dir.path().join("src");
+        std::fs::create_dir_all(&home).unwrap();
+        let s = Storage::open(home.to_str().unwrap()).unwrap();
+        s.create_index(
+            "app",
+            "t",
+            "ix",
+            &doc! {"a": 1i32},
+            &doc! {"partialFilterExpression": {"b": {"$gt": 0i32}}},
+        )
+        .unwrap();
+        s.insert(
+            "app",
+            "t",
+            vec![
+                encode_doc(&doc! {"_id": 1i32, "a": 5i32, "b": "x"}).unwrap(),
+                encode_doc(&doc! {"_id": 2i32, "a": 5i32, "b": 7i32}).unwrap(),
+            ],
+            true,
+        )
+        .unwrap();
+        let ids = |f: Document| -> Vec<i32> {
+            s.find_matching("app", "t", &f)
+                .unwrap()
+                .iter()
+                .map(|b| decode_doc(b).unwrap().get_i32("_id").unwrap())
+                .collect()
+        };
+        // A string sorts above every number in BSON order, but `$gt: 0` is
+        // type-bracketed and matches numbers only — so `{b: "x"}` does NOT imply
+        // the partial filter, and the index does not contain `_id: 1`. Comparing
+        // across brackets used the index anyway and returned nothing.
+        assert_eq!(ids(doc! {"a": 5i32, "b": "x"}), vec![1]);
+        // Same-bracket implication still holds, so the index is still used here.
+        assert_eq!(ids(doc! {"a": 5i32, "b": 7i32}), vec![2]);
+    }
+
+    #[test]
+    fn query_covered_entirely_by_a_partial_filter_returns_its_rows() {
+        let dir = tempfile::tempdir().unwrap();
+        let home = dir.path().join("src");
+        std::fs::create_dir_all(&home).unwrap();
+        let s = Storage::open(home.to_str().unwrap()).unwrap();
+        s.create_index(
+            "app",
+            "t",
+            "ix",
+            &doc! {"a": 1i32},
+            &doc! {"partialFilterExpression": {"b": {"$gt": 0i32}}},
+        )
+        .unwrap();
+        s.insert(
+            "app",
+            "t",
+            vec![
+                encode_doc(&doc! {"_id": 1i32, "a": 1i32, "b": 5i32}).unwrap(),
+                encode_doc(&doc! {"_id": 2i32, "a": 2i32, "b": 0i32}).unwrap(),
+                encode_doc(&doc! {"_id": 3i32, "b": 9i32}).unwrap(),
+            ],
+            true,
+        )
+        .unwrap();
+        let ids = |f: Document| -> Vec<i32> {
+            s.find_matching("app", "t", &f)
+                .unwrap()
+                .iter()
+                .map(|b| decode_doc(b).unwrap().get_i32("_id").unwrap())
+                .collect()
+        };
+        // The query names ONLY the partial filter's own field, so no key prefix
+        // can be pinned. This used to prefix-scan for the bare separator, which
+        // matches no key, and silently returned nothing.
+        assert_eq!(ids(doc! {"b": 5i32}), vec![1]);
+        assert_eq!(ids(doc! {"b": 9i32}), vec![3]);
+        // `b: 0` does not imply `b > 0`, so this one legitimately falls back.
+        assert_eq!(ids(doc! {"b": 0i32}), vec![2]);
     }
 
     #[test]
@@ -13254,6 +14830,141 @@ mod tests {
         packed.extend_from_slice(b"an-id-key");
         let (_esc, rid) = unpack_entry(&packed);
         assert_eq!(rid, None);
+    }
+
+    /// A dotted sort key walks ONE array level. `x: [{y: 1}]` HAS an `x.y` and
+    /// must rank among the documents that do; `x: [[{y: 5}]]` does not, because
+    /// that is two levels — mongod agrees on both (probed 8.2.11, 2026-09-06).
+    /// The sort used `get_path`, which walks none.
+    #[test]
+    fn a_dotted_sort_key_walks_one_array_level() {
+        let cases: [(Document, Option<i32>); 5] = [
+            (doc! {"x": [{"y": 1i32}]}, Some(1)),
+            (doc! {"x": {"y": 1i32}}, Some(1)),
+            // Several values: ascending takes the minimum.
+            (doc! {"x": [{"y": 5i32}, {"y": 1i32}]}, Some(1)),
+            // Two levels is not one: absent.
+            (doc! {"x": [[{"y": 5i32}]]}, None),
+            (doc! {"x": [5i32]}, None),
+        ];
+        for (d, want) in cases {
+            let got = sort_field_value(&d, "x.y", false);
+            match want {
+                Some(n) => assert_eq!(got, Bson::Int32(n), "{d:?}"),
+                None => assert_eq!(got, Bson::Null, "{d:?} has no x.y"),
+            }
+        }
+        // Descending takes the maximum of the several values.
+        assert_eq!(
+            sort_field_value(&doc! {"x": [{"y": 5i32}, {"y": 1i32}]}, "x.y", true),
+            Bson::Int32(5)
+        );
+    }
+
+    /// The regression this fix nearly shipped: the representative-element rule
+    /// was briefly applied TWICE, which resolved `x: [[5]]` to the number 5
+    /// instead of the array `[5]` and moved it out of the array group in an
+    /// UNDOTTED sort.
+    #[test]
+    fn an_undotted_sort_key_descends_exactly_once() {
+        assert_eq!(
+            sort_field_value(&doc! {"x": [[5i32]]}, "x", false),
+            Bson::Array(vec![Bson::Int32(5)]),
+            "one level: the representative element is the inner ARRAY"
+        );
+        assert_eq!(
+            sort_field_value(&doc! {"x": [5i32]}, "x", false),
+            Bson::Int32(5)
+        );
+        assert_eq!(
+            sort_field_value(&doc! {"x": 5i32}, "x", false),
+            Bson::Int32(5)
+        );
+        // Descending picks the maximum element, as before.
+        assert_eq!(
+            sort_field_value(&doc! {"x": [1i32, 9i32]}, "x", true),
+            Bson::Int32(9)
+        );
+    }
+
+    /// A DESCENDING sort must reverse a PREFIX chain, which the old
+    /// invert-the-bytes key could not: `""`'s key is a strict prefix of
+    /// `"a"`'s, and a shorter byte string sorts first both before and after
+    /// inversion. So `["", "a", "ab", "abc", "b"]` sorted descending came back
+    /// `["", "b", "a", "ab", "abc"]` -- every prefix chain ascending, inside a
+    /// descending result (measured against mongod 8.2.11, 2026-09-06).
+    #[test]
+    fn descending_sort_reverses_a_prefix_chain() {
+        let spec = vec![("x".to_string(), -1)];
+        let docs: Vec<Document> = ["", "a", "ab", "abc", "b"]
+            .iter()
+            .map(|s| doc! {"x": *s})
+            .collect();
+        let mut keyed: Vec<(Vec<Vec<u8>>, &str)> = docs
+            .iter()
+            .zip(["", "a", "ab", "abc", "b"])
+            .map(|(d, label)| (sort_key(d, &spec, None).unwrap(), label))
+            .collect();
+        keyed.sort_by(|a, b| compare_sort_keys(&a.0, &b.0, &spec));
+        assert_eq!(
+            keyed.iter().map(|(_, l)| *l).collect::<Vec<_>>(),
+            vec!["b", "abc", "ab", "a", ""]
+        );
+    }
+
+    #[test]
+    fn ascending_sort_is_unchanged_by_the_comparator() {
+        let spec = vec![("x".to_string(), 1)];
+        let labels = ["", "a", "ab", "abc", "b"];
+        let mut keyed: Vec<(Vec<Vec<u8>>, &str)> = labels
+            .iter()
+            .map(|s| (sort_key(&doc! {"x": *s}, &spec, None).unwrap(), *s))
+            .collect();
+        keyed.sort_by(|a, b| compare_sort_keys(&a.0, &b.0, &spec));
+        assert_eq!(keyed.iter().map(|(_, l)| *l).collect::<Vec<_>>(), labels);
+    }
+
+    /// Direction is per FIELD, so a mixed compound sort must reverse only the
+    /// columns that ask for it.
+    #[test]
+    fn compare_sort_keys_applies_direction_per_field() {
+        type Row<'a> = (Vec<Vec<u8>>, (&'a str, &'a str));
+        let spec = vec![("a".to_string(), 1), ("b".to_string(), -1)];
+        let mut rows: Vec<Row<'_>> = [("x", ""), ("x", "z"), ("w", "")]
+            .iter()
+            .map(|(a, b)| {
+                (
+                    sort_key(&doc! {"a": *a, "b": *b}, &spec, None).unwrap(),
+                    (*a, *b),
+                )
+            })
+            .collect();
+        rows.sort_by(|l, r| compare_sort_keys(&l.0, &r.0, &spec));
+        // `a` ascending, then `b` descending -- and `""` must come LAST in `b`.
+        assert_eq!(
+            rows.iter().map(|(_, v)| *v).collect::<Vec<_>>(),
+            vec![("w", ""), ("x", "z"), ("x", "")]
+        );
+    }
+
+    /// An empty array still sorts between MinKey and Null, and the comparator
+    /// (not a hand-inverted byte pattern) now supplies the direction.
+    #[test]
+    fn an_empty_array_keeps_its_place_in_both_directions() {
+        for (dir, want) in [(1, vec!["[]", "null", "s"]), (-1, vec!["s", "null", "[]"])] {
+            let spec = vec![("x".to_string(), dir)];
+            let rows: Vec<(Document, &str)> = vec![
+                (doc! {"x": []}, "[]"),
+                (doc! {"x": Bson::Null}, "null"),
+                (doc! {"x": "s"}, "s"),
+            ];
+            let mut keyed: Vec<(Vec<Vec<u8>>, &str)> = rows
+                .iter()
+                .map(|(d, l)| (sort_key(d, &spec, None).unwrap(), *l))
+                .collect();
+            keyed.sort_by(|a, b| compare_sort_keys(&a.0, &b.0, &spec));
+            assert_eq!(keyed.iter().map(|(_, l)| *l).collect::<Vec<_>>(), want);
+        }
     }
 
     #[test]

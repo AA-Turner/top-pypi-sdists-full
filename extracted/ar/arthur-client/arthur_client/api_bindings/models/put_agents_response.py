@@ -18,8 +18,9 @@ import re  # noqa: F401
 import json
 
 from pydantic import BaseModel, ConfigDict, Field
-from typing import Any, ClassVar, Dict, List
+from typing import Any, ClassVar, Dict, List, Optional
 from arthur_client.api_bindings.models.agent_response import AgentResponse
+from arthur_client.api_bindings.models.rejected_agent import RejectedAgent
 from typing import Optional, Set
 from typing_extensions import Self
 
@@ -28,7 +29,8 @@ class PutAgentsResponse(BaseModel):
     Response body for creating or updating agents.
     """ # noqa: E501
     agents: List[AgentResponse] = Field(description="List of agents that were created or updated.")
-    __properties: ClassVar[List[str]] = ["agents"]
+    rejected: Optional[List[RejectedAgent]] = Field(default=None, description="Agents from the request that were not stored, with the reason for each, in request order. One invalid agent does not stop the rest from being stored, so a publisher has to read this to know what landed.")
+    __properties: ClassVar[List[str]] = ["agents", "rejected"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -76,6 +78,13 @@ class PutAgentsResponse(BaseModel):
                 if _item_agents:
                     _items.append(_item_agents.to_dict())
             _dict['agents'] = _items
+        # override the default output from pydantic by calling `to_dict()` of each item in rejected (list)
+        _items = []
+        if self.rejected:
+            for _item_rejected in self.rejected:
+                if _item_rejected:
+                    _items.append(_item_rejected.to_dict())
+            _dict['rejected'] = _items
         return _dict
 
     @classmethod
@@ -88,7 +97,8 @@ class PutAgentsResponse(BaseModel):
             return cls.model_validate(obj)
 
         _obj = cls.model_validate({
-            "agents": [AgentResponse.from_dict(_item) for _item in obj["agents"]] if obj.get("agents") is not None else None
+            "agents": [AgentResponse.from_dict(_item) for _item in obj["agents"]] if obj.get("agents") is not None else None,
+            "rejected": [RejectedAgent.from_dict(_item) for _item in obj["rejected"]] if obj.get("rejected") is not None else None
         })
         return _obj
 
