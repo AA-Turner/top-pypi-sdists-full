@@ -116,18 +116,13 @@ async def _soft_delete(db, file_id: str, user_id: str) -> bool:
     return await db.soft_delete_file_async(file_id)
 
 
-async def _hard_delete(db, file_id: str, user_id: str) -> bool:
-    """Access-checked hard delete (row + versions + S3) via the canonical purge
-    primitive — cascades the DB rows AND purges every storage object. Requires
-    ``admin`` on the file. Falls back to soft delete if the primitive raises."""
-    record = await _authorized(file_id, user_id, "admin")
-    if not record:
-        return False
-    try:
-        await _get_sync_engine().hard_delete_and_purge_async(file_id, record.get("storage_uri"))
-        return True
-    except Exception:
-        return await _soft_delete(db, file_id, user_id)
+#: Arman's law: soft-delete everything important — an agent never destroys a
+#: person's file. The tool archives (``deleted_at``) even when ``hard=true`` is
+#: asked, and says so; permanent purge stays a person's act in the Files trash.
+HARD_DELETE_REFUSED = (
+    "Permanent deletion is not available to agents: the file was ARCHIVED instead "
+    "(recoverable). A person can purge it for good from the Files trash."
+)
 
 
 # ---------------------------------------------------------------------------
@@ -219,13 +214,13 @@ async def cloud_file(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         if not file_id:
             return _validation_error("file_id is required for action=delete.", started_at, ctx)
         try:
-            ok = await (_hard_delete(db, file_id, user_id) if hard else _soft_delete(db, file_id, user_id))
+            ok = await _soft_delete(db, file_id, user_id)
             if not ok:
                 return _not_found_error(file_id, started_at, ctx)
-            return _stamp(
-                ToolResult(success=True, output={"deleted": True, "file_id": file_id, "hard": hard}),
-                started_at, ctx,
-            )
+            out = {"deleted": True, "archived": True, "file_id": file_id, "hard": False}
+            if hard:
+                out["notice"] = HARD_DELETE_REFUSED
+            return _stamp(ToolResult(success=True, output=out), started_at, ctx)
         except Exception as exc:
             return _stamp(
                 ToolResult(success=False, error=ToolError.from_exception(
@@ -284,8 +279,7 @@ async def cloud_file(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
             started_at, ctx,
         )
     try:
-        op = _hard_delete if hard else _soft_delete
-        results = await asyncio.gather(*[op(db, fid, user_id) for fid in file_ids])
+        results = await asyncio.gather(*[_soft_delete(db, fid, user_id) for fid in file_ids])
         deleted = [fid for fid, ok in zip(file_ids, results, strict=False) if ok]
         failed = [fid for fid, ok in zip(file_ids, results, strict=False) if not ok]
         return _stamp(
@@ -296,7 +290,9 @@ async def cloud_file(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
                     "deleted_count": len(deleted),
                     "failed": failed,
                     "failed_count": len(failed),
-                    "hard": hard,
+                    "archived": True,
+                    "hard": False,
+                    **({"notice": HARD_DELETE_REFUSED} if hard else {}),
                 },
             ),
             started_at, ctx,

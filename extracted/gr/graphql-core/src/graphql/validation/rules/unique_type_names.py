@@ -1,7 +1,11 @@
-from typing import Any, Dict
+"""Unique type names rule"""
+
+from __future__ import annotations
+
+from typing import Any
 
 from ...error import GraphQLError
-from ...language import NameNode, TypeDefinitionNode, VisitorAction, SKIP
+from ...language import SKIP, NameNode, TypeDefinitionNode, VisitorAction
 from . import SDLValidationContext, SDLValidationRule
 
 __all__ = ["UniqueTypeNamesRule"]
@@ -11,14 +15,33 @@ class UniqueTypeNamesRule(SDLValidationRule):
     """Unique type names
 
     A GraphQL document is only valid if all defined types have unique names.
+
+    :param context: The validation context used while checking the document.
+
+    >>> from graphql import build_schema
+    >>> from graphql.validation import UniqueTypeNamesRule
+    >>> from graphql.validation.specified_rules import specified_sdl_rules
+    >>> UniqueTypeNamesRule in specified_sdl_rules
+    True
+    >>> sdl = 'type Query { name: String } type Query { other: String }'
+    >>> build_schema(sdl)
+    Traceback (most recent call last):
+    ...
+    TypeError: There can be only one type named 'Query'.
+    >>> sdl = 'type Query { name: String } type Other { name: String }'
+    >>> schema = build_schema(sdl)
     """
 
-    def __init__(self, context: SDLValidationContext):
+    def __init__(self, context: SDLValidationContext) -> None:
         super().__init__(context)
-        self.known_type_names: Dict[str, NameNode] = {}
+        self.known_type_names: dict[str, NameNode] = {}
         self.schema = context.schema
 
     def check_type_name(self, node: TypeDefinitionNode, *_args: Any) -> VisitorAction:
+        """Report type definitions with the same name.
+
+        :meta private:
+        """
         type_name = node.name.value
 
         if self.schema and self.schema.get_type(type_name):

@@ -119,13 +119,14 @@ fn collector_health_classifies_failure_boundaries_and_saturation() {
         (u32::MAX, UsageCollectorHealthState::Failing, Some(NOW)),
     ] {
         schedule.consecutive_failures = failures;
-        let health = collector_health_from_schedule(Some(&schedule)).unwrap();
+        let health =
+            collector_health_from_schedule(Some(&schedule), NOW).unwrap();
         assert_eq!(health.state, expected_state);
         assert_eq!(health.consecutive_failures, failures);
         assert_eq!(health.last_success_at, Some(NOW - 10.0));
         assert_eq!(health.failing_since, expected_since);
     }
-    assert!(collector_health_from_schedule(None).is_none());
+    assert!(collector_health_from_schedule(None, NOW).is_none());
 }
 
 #[test]
@@ -326,6 +327,11 @@ fn usage_refresh_admission_joins_defers_and_recovers_after_expiry() {
             account_generation: 1,
             cadence_seconds: 300.0,
             explicit: false,
+            adaptive: false,
+            min_interval_seconds: None,
+            cli_fingerprint: None,
+            active_cadence_seconds: None,
+            warn_percent: None,
         },
         NOW,
     )
@@ -341,6 +347,11 @@ fn usage_refresh_admission_joins_defers_and_recovers_after_expiry() {
         ttl_seconds: 10.0,
         cadence_seconds: 300.0,
         explicit: false,
+        adaptive: false,
+        min_interval_seconds: None,
+        cli_fingerprint: None,
+        active_cadence_seconds: None,
+        warn_percent: None,
     };
     let first = admit_provider_usage_refresh(temp.path(), request.clone(), NOW)
         .unwrap();
@@ -376,6 +387,10 @@ fn usage_refresh_admission_joins_defers_and_recovers_after_expiry() {
             outcome: "ok".to_string(),
             retry_after_seconds: None,
             cadence_seconds: 300.0,
+            reason_code: None,
+            min_interval_seconds: None,
+            cli_fingerprint: None,
+            adaptive: false,
         },
         NOW + 2.0,
     )
@@ -403,6 +418,11 @@ fn usage_refresh_admission_joins_defers_and_recovers_after_expiry() {
         temp.path(),
         ProviderUsageRefreshAdmitRequestWire {
             explicit: true,
+            adaptive: false,
+            min_interval_seconds: None,
+            cli_fingerprint: None,
+            active_cadence_seconds: None,
+            warn_percent: None,
             operation_id: "op-2".to_string(),
             ..request.clone()
         },
@@ -419,6 +439,11 @@ fn usage_refresh_admission_joins_defers_and_recovers_after_expiry() {
         temp.path(),
         ProviderUsageRefreshAdmitRequestWire {
             explicit: true,
+            adaptive: false,
+            min_interval_seconds: None,
+            cli_fingerprint: None,
+            active_cadence_seconds: None,
+            warn_percent: None,
             operation_id: "op-3".to_string(),
             ttl_seconds: 5.0,
             ..request
@@ -441,6 +466,11 @@ fn usage_refresh_admission_joins_defers_and_recovers_after_expiry() {
             ttl_seconds: 2.0,
             cadence_seconds: 300.0,
             explicit: false,
+            adaptive: false,
+            min_interval_seconds: None,
+            cli_fingerprint: None,
+            active_cadence_seconds: None,
+            warn_percent: None,
         },
         NOW,
     )
@@ -459,6 +489,11 @@ fn usage_refresh_admission_joins_defers_and_recovers_after_expiry() {
             ttl_seconds: 2.0,
             cadence_seconds: 300.0,
             explicit: false,
+            adaptive: false,
+            min_interval_seconds: None,
+            cli_fingerprint: None,
+            active_cadence_seconds: None,
+            warn_percent: None,
         },
         NOW + 3.0,
     )
@@ -532,6 +567,10 @@ fn usage_refresh_future_disable_expiry_preserves_marker_and_recovers_cadence() {
             outcome: "ok".to_string(),
             retry_after_seconds: None,
             cadence_seconds: CADENCE,
+            reason_code: None,
+            min_interval_seconds: None,
+            cli_fingerprint: None,
+            adaptive: false,
         },
         NOW + 1.0,
     )
@@ -547,6 +586,11 @@ fn usage_refresh_future_disable_expiry_preserves_marker_and_recovers_cadence() {
         ttl_seconds: 10.0,
         cadence_seconds: CADENCE,
         explicit: false,
+        adaptive: false,
+        min_interval_seconds: None,
+        cli_fingerprint: None,
+        active_cadence_seconds: None,
+        warn_percent: None,
     };
     let first_cadence = admit_provider_usage_refresh(
         temp.path(),
@@ -581,6 +625,10 @@ fn usage_refresh_future_disable_expiry_preserves_marker_and_recovers_cadence() {
             outcome: "ok".to_string(),
             retry_after_seconds: None,
             cadence_seconds: CADENCE,
+            reason_code: None,
+            min_interval_seconds: None,
+            cli_fingerprint: None,
+            adaptive: false,
         },
         NOW + CADENCE + 2.0,
     )
@@ -618,6 +666,10 @@ fn usage_refresh_future_disable_expiry_preserves_marker_and_recovers_cadence() {
             outcome: "ok".to_string(),
             retry_after_seconds: None,
             cadence_seconds: CADENCE,
+            reason_code: None,
+            min_interval_seconds: None,
+            cli_fingerprint: None,
+            adaptive: false,
         },
         NOW + 2.0 * CADENCE + 3.0,
     )
@@ -640,6 +692,11 @@ fn usage_refresh_future_disable_expiry_preserves_marker_and_recovers_cadence() {
             account_generation: generation,
             cadence_seconds: CADENCE,
             explicit: false,
+            adaptive: false,
+            min_interval_seconds: None,
+            cli_fingerprint: None,
+            active_cadence_seconds: None,
+            warn_percent: None,
         },
         reminder_at,
     )
@@ -656,6 +713,10 @@ fn usage_refresh_future_disable_expiry_preserves_marker_and_recovers_cadence() {
             outcome: "ok".to_string(),
             retry_after_seconds: None,
             cadence_seconds: CADENCE,
+            reason_code: None,
+            min_interval_seconds: None,
+            cli_fingerprint: None,
+            adaptive: false,
         },
         reminder_at + 1.0,
     )
@@ -729,6 +790,10 @@ fn usage_refresh_mark_due_is_once_per_reason_and_survives_future_due() {
             outcome: "ok".to_string(),
             retry_after_seconds: None,
             cadence_seconds: 300.0,
+            reason_code: None,
+            min_interval_seconds: None,
+            cli_fingerprint: None,
+            adaptive: false,
         },
         NOW + 1.0,
     )
@@ -741,6 +806,11 @@ fn usage_refresh_mark_due_is_once_per_reason_and_survives_future_due() {
             account_generation: 1,
             cadence_seconds: 300.0,
             explicit: false,
+            adaptive: false,
+            min_interval_seconds: None,
+            cli_fingerprint: None,
+            active_cadence_seconds: None,
+            warn_percent: None,
         },
         NOW + 2.0,
     )
@@ -755,6 +825,11 @@ fn usage_refresh_mark_due_is_once_per_reason_and_survives_future_due() {
             account_generation: 1,
             cadence_seconds: 300.0,
             explicit: false,
+            adaptive: false,
+            min_interval_seconds: None,
+            cli_fingerprint: None,
+            active_cadence_seconds: None,
+            warn_percent: None,
         },
         NOW + 61.0,
     )

@@ -3,14 +3,36 @@
 mod canonical;
 mod catalog;
 mod fingerprint;
+mod handoff_wire;
+pub mod receipt;
 mod store;
+mod triage;
 mod wire;
 
-pub use catalog::normalize_tool_definition;
+pub use catalog::{
+    normalize_receipt_policy, normalize_tool_definition, parse_receipt_ttl,
+    receipt_ttl_seconds,
+};
 pub use fingerprint::{canonicalize_tool_fingerprint, unknown_evidence};
+pub use handoff_wire::*;
+pub use receipt::{
+    build_receipt_proof, diff_proof_against_fingerprint, is_safe_relative_path,
+    proof_from_json, proof_to_json, receipt_id_for_run, sha256_hex,
+    ReceiptProofDirtyWire, ReceiptProofInputMatchWire, ReceiptProofInputWire,
+    ReceiptProofRepoWire, ReceiptProofToolchainWire, ReceiptProofWire,
+    RECEIPT_MAX_CHANGED_PATHS, RECEIPT_MAX_TTL_SECONDS, RECEIPT_POLICY_VERSION,
+};
 pub use store::{
-    append_event, begin, finish, list_runs, observe, reconcile,
-    retention_apply, retention_preview, show_run, store_stats, summarize,
+    append_event, begin, claim, finish, list_runs, observe, receipt_lookup,
+    receipt_settle, reconcile, request_stop, retention_apply,
+    retention_preview, show_run, store_stats, summarize, tool_run_failures,
+    tool_run_receipts_report, triage_record, triage_settle, triage_show,
+    triage_stage,
+};
+pub use triage::*;
+pub use triage::{
+    compare_triage_signatures, extract_triage_items,
+    TOOL_RUN_TRIAGE_DISPLAY_MAX_CHARS, TOOL_RUN_TRIAGE_STAGE_KEY_RUN_OUTPUT,
 };
 pub use wire::*;
 
@@ -26,6 +48,7 @@ pub enum ToolRunError {
     InvalidTransition { from: String, to: String },
     ConflictingEvent { event_id: String, reason: String },
     NotFound { run_id: String },
+    DuplicateRun { run_id: String },
     Busy { message: String },
     ReadOnly { message: String },
     Io { message: String },
@@ -76,6 +99,9 @@ impl fmt::Display for ToolRunError {
             }
             Self::NotFound { run_id } => {
                 write!(formatter, "tool run {run_id} was not found")
+            }
+            Self::DuplicateRun { run_id } => {
+                write!(formatter, "tool run {run_id} already exists")
             }
             Self::Busy { message } => {
                 write!(formatter, "tool run store is busy: {message}")

@@ -937,6 +937,8 @@ class CivitaiTrpcAPI():
             "techniques"    : int,
             "modelId"       : int,
             "modelVersionId": int,
+            "followed"      : _bool,
+            "newCreators"   : _bool,
             "remixesOnly"   : _bool,
             "nonRemixesOnly": _bool,
             "withMeta"      : _bool,

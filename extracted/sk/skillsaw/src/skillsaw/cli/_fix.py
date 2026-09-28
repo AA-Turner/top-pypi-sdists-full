@@ -6,6 +6,7 @@ import difflib
 import sys
 
 from ..context import RepositoryContext
+from ..diagnostics import terminal_safe
 from ..linter import Linter
 from ..rule import AutofixConfidence
 from ._config import load_config, resolve_fix_level
@@ -14,6 +15,7 @@ from ._helpers import (
     _ansi_colors,
     _resolve_lint_paths,
     color_enabled,
+    warn_removed_skip_rules,
 )
 
 
@@ -25,12 +27,22 @@ def _rel(path, root):
         return path
 
 
+def _diff_safe(line):
+    """*line* with terminal controls neutralized but tabs kept.
+
+    :func:`terminal_safe` replaces tabs, which would misrepresent a
+    tab-indented file in the ``--dry-run`` preview.
+    """
+    return "\t".join(terminal_safe(part) for part in line.split("\t"))
+
+
 def _run_fix(args):
     rule_ids = set(args.rule_ids) if args.rule_ids else None
     skip_rule_ids = set(args.skip_rule_ids) if args.skip_rule_ids else None
     if rule_ids and skip_rule_ids:
         print("Error: --rule and --skip-rule cannot be combined", file=sys.stderr)
         sys.exit(1)
+    removed_skips = set(skip_rule_ids or ())
 
     # Resolving a named leaf symlink erases the identity needed by the
     # autofix policy. Admit inputs before resolving them, including dangling
@@ -63,7 +75,7 @@ def _run_fix(args):
     suggested = []
     failed = []
     skipped = dict(input_skips)
-    deprecation_messages = []
+    advisory_messages = []
     for fix_path in paths:
         context = RepositoryContext(
             fix_path,
@@ -83,6 +95,8 @@ def _run_fix(args):
         except ValueError as e:
             print(f"Error: {e}", file=sys.stderr)
             sys.exit(1)
+
+        removed_skips.intersection_update(linter.removed_skip_rule_ids)
 
         rule_progress = _RuleProgress(args)
         try:
@@ -128,40 +142,46 @@ def _run_fix(args):
         for path, reason in path_skips:
             skipped.setdefault((path, reason), context.root_path)
 
-        # fix output only lists fixes, so the deprecation notices carried in
+        # fix output only lists fixes, so the advisory notices carried in
         # the violations list would otherwise never reach the user.
-        for notice in linter.deprecation_notices():
-            if notice.message not in deprecation_messages:
-                deprecation_messages.append(notice.message)
+        for notice in linter.advisory_notices():
+            if notice.message not in advisory_messages:
+                advisory_messages.append(notice.message)
 
+    if paths:
+        warn_removed_skip_rules(removed_skips)
     c = _ansi_colors(color_enabled(sys.stdout, args.color))
 
-    for message in deprecation_messages:
-        print(f"{c['yellow']}⚠ {message}{c['reset']}")
-    if deprecation_messages:
+    for message in advisory_messages:
+        print(f"{c['yellow']}⚠ {terminal_safe(message)}{c['reset']}")
+    if advisory_messages:
         print()
 
     # Single-root runs print repo-relative paths, matching lint output.
     # Multi-root runs keep absolute paths — the same relative name in two
     # repos (e.g. CLAUDE.md) would be ambiguous.
     def _display(file_path, root):
-        return _rel(file_path, root) if len(paths) == 1 and not input_skips else file_path
+        shown = _rel(file_path, root) if len(paths) == 1 and not input_skips else file_path
+        return terminal_safe(shown)
 
     if applied:
         label = "Would fix" if dry_run else "Fixed"
         print(f"{label} {len(applied)} issue(s):")
         for fix, root in applied:
             rel = _rel(fix.file_path, root)
-            print(f"  {c['bold']}✓ [{_display(fix.file_path, root)}] {fix.description}{c['reset']}")
+            print(
+                f"  {c['bold']}✓ [{_display(fix.file_path, root)}] "
+                f"{terminal_safe(fix.description)}{c['reset']}"
+            )
             if dry_run and fix.original_content != fix.fixed_content:
                 diff_lines = difflib.unified_diff(
                     fix.original_content.splitlines(keepends=True),
                     fix.fixed_content.splitlines(keepends=True),
-                    fromfile=f"a/{rel}",
-                    tofile=f"b/{rel}",
+                    fromfile=f"a/{terminal_safe(rel)}",
+                    tofile=f"b/{terminal_safe(rel)}",
                 )
                 for line in diff_lines:
-                    line = line.rstrip("\n")
+                    line = _diff_safe(line.rstrip("\r\n"))
                     if line.startswith("+") and not line.startswith("+++"):
                         print(f"      {c['green']}{line}{c['reset']}")
                     elif line.startswith("-") and not line.startswith("---"):
@@ -180,14 +200,14 @@ def _run_fix(args):
     if suggested:
         print(f"\nSuggested fixes ({len(suggested)} — review before applying):")
         for fix, root in suggested:
-            print(f"  ? [{_display(fix.file_path, root)}] {fix.description}")
+            print(f"  ? [{_display(fix.file_path, root)}] {terminal_safe(fix.description)}")
         print("\nRun `skillsaw fix --suggest` to apply suggested fixes.")
         print("Run `skillsaw fix --suggest --dry-run` to preview changes.")
 
     if skipped:
         print(f"\nSkipped {len(skipped)} path(s):")
         for (path, reason), root in skipped.items():
-            print(f"  - [{_display(path, root)}] {reason}")
+            print(f"  - [{_display(path, root)}] {terminal_safe(reason)}")
 
     if dry_run and (applied or skipped):
         print(f"\n{c['yellow']}dry-run — no files were modified{c['reset']}")
@@ -201,7 +221,9 @@ def _run_fix(args):
         print(f"\n{c['red']}Failed to complete {len(failed)} fix(es):{c['reset']}", file=sys.stderr)
         for fix, error, root in failed:
             print(
-                f"  ✗ [{_display(fix.file_path, root)}] {fix.description}: {error}", file=sys.stderr
+                f"  ✗ [{_display(fix.file_path, root)}] "
+                f"{terminal_safe(fix.description)}: {terminal_safe(error)}",
+                file=sys.stderr,
             )
         sys.exit(1)
 

@@ -15,7 +15,8 @@ assert_sdl_valid = partial(assert_sdl_errors, errors=[])
 
 def describe_validate_unique_argument_definition_names():
     def no_args():
-        assert_sdl_valid("""
+        assert_sdl_valid(
+            """
             type SomeObject {
               someField: String
             }
@@ -25,10 +26,12 @@ def describe_validate_unique_argument_definition_names():
             }
 
             directive @someDirective on QUERY
-            """)
+            """
+        )
 
     def one_argument():
-        assert_sdl_valid("""
+        assert_sdl_valid(
+            """
             type SomeObject {
               someField(foo: String): String
             }
@@ -46,10 +49,12 @@ def describe_validate_unique_argument_definition_names():
             }
 
             directive @someDirective(foo: String) on QUERY
-            """)
+            """
+        )
 
     def multiple_arguments():
-        assert_sdl_valid("""
+        assert_sdl_valid(
+            """
             type SomeObject {
               someField(
                 foo: String
@@ -82,7 +87,8 @@ def describe_validate_unique_argument_definition_names():
               foo: String
               bar: String
             ) on QUERY
-            """)
+            """
+        )
 
     def duplicating_arguments():
         assert_sdl_errors(

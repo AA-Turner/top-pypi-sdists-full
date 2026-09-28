@@ -1,19 +1,32 @@
 """Test router chat model integration."""
 
-from typing import Any, Callable, Dict, List
+import json
+import logging
+from collections.abc import Callable
+from typing import Any
 from unittest.mock import patch
 
 import litellm
 import pytest
-from langchain_core.messages import AIMessage
+from langchain_core.messages import AIMessage, HumanMessage
 
 from langchain_litellm._version import __version__
 from langchain_litellm.chat_models import ChatLiteLLMRouter
 from langchain_litellm.chat_models.litellm_router import _deployment_metadata
-from tests.utils import make_router
+from tests.utils import (
+    OPUS_4_7_THINKS_ADAPTIVELY,
+    chat_completion_reply,
+    function_call_item,
+    make_router,
+    message_item,
+    responses_api_events,
+    responses_api_reply,
+    serve_http,
+    web_search_call_item,
+)
 
 
-def _completion_double(seen: List[Dict[str, Any]]) -> Callable[..., Any]:
+def _completion_double(seen: list[dict[str, Any]]) -> Callable[..., Any]:
     """Record the outbound kwargs and answer in the shape `stream` asked for.
 
     A double that returns one canned value either way hands a streaming request a
@@ -44,7 +57,7 @@ def _completion_double(seen: List[Dict[str, Any]]) -> Callable[..., Any]:
     return _completion
 
 
-def _acompletion_double(seen: List[Dict[str, Any]]) -> Callable[..., Any]:
+def _acompletion_double(seen: list[dict[str, Any]]) -> Callable[..., Any]:
     """Async twin of `_completion_double`."""
 
     async def _acompletion(**kwargs: Any) -> Any:
@@ -218,9 +231,129 @@ def test_router_create_chat_result_sets_usage_metadata() -> None:
     assert msg.usage_metadata["total_tokens"] == 20
 
 
+def _router_serving(model: str) -> litellm.Router:
+    return litellm.Router(
+        model_list=[
+            {
+                "model_name": "gpt-4o-mini",
+                "litellm_params": {"model": model, "api_key": "k"},
+            }
+        ]
+    )
+
+
+@pytest.mark.parametrize("method", ["invoke", "ainvoke"])
+@pytest.mark.asyncio
+async def test_router_split_reply_keeps_its_tool_calls(
+    monkeypatch: pytest.MonkeyPatch, method: str
+) -> None:
+    """The Router builds its own result, so it must rejoin a split reply too."""
+    serve_http(
+        monkeypatch,
+        responses_api_reply(
+            message_item("Let me check."),
+            function_call_item("call_1", '{"city": "Paris"}'),
+        ),
+    )
+    llm = ChatLiteLLMRouter(router=_router_serving("openai/responses/gpt-4o-mini"))
+
+    if method == "invoke":
+        message = llm.invoke("weather?")
+    else:
+        message = await llm.ainvoke("weather?")
+
+    assert message.content == "Let me check."
+    assert [
+        (call["name"], call["args"], call["id"]) for call in message.tool_calls
+    ] == [("get_weather", {"city": "Paris"}, "call_1")]
+
+
+def get_weather(city: str) -> str:
+    """Report the weather in a city."""
+    return city
+
+
+def _streamed_search_and_answer(reply: dict[str, Any]) -> list[dict[str, Any]]:
+    """The events the Responses API streams for ``reply``: a web search, then text."""
+    search, answer = reply["output"]
+    return responses_api_events(
+        {
+            "type": "response.created",
+            "response": {**reply, "status": "in_progress", "output": []},
+        },
+        {
+            "type": "response.output_item.added",
+            "output_index": 0,
+            "item": {**search, "status": "in_progress"},
+        },
+        *(
+            {
+                "type": f"response.web_search_call.{state}",
+                "output_index": 0,
+                "item_id": search["id"],
+            }
+            for state in ("in_progress", "searching", "completed")
+        ),
+        {"type": "response.output_item.done", "output_index": 0, "item": search},
+        {
+            "type": "response.output_text.delta",
+            "output_index": 1,
+            "item_id": answer["id"],
+            "content_index": 0,
+            "delta": answer["content"][0]["text"],
+            "logprobs": [],
+        },
+        {"type": "response.completed", "response": reply},
+    )
+
+
+@pytest.mark.parametrize("method", ["invoke", "ainvoke", "stream", "astream"])
+@pytest.mark.asyncio
+async def test_router_sends_built_in_tools_through_a_responses_deployment(
+    monkeypatch: pytest.MonkeyPatch, method: str
+) -> None:
+    """Chat Completions rejects built-in tools, so the deployment's name routes them.
+
+    The search runs on the provider's side, so it never comes back as a tool call.
+    """
+    reply = responses_api_reply(web_search_call_item(), message_item("Sunny."))
+    requests = serve_http(monkeypatch, reply, _streamed_search_and_answer(reply))
+    llm = ChatLiteLLMRouter(
+        router=_router_serving("openai/responses/gpt-4o-mini")
+    ).bind_tools([get_weather, {"type": "web_search"}], tool_choice="auto")
+
+    if method == "invoke":
+        message = llm.invoke("weather in Paris?")
+    elif method == "ainvoke":
+        message = await llm.ainvoke("weather in Paris?")
+    elif method == "stream":
+        message = _merge(list(llm.stream("weather in Paris?")))
+    else:
+        message = _merge([chunk async for chunk in llm.astream("weather in Paris?")])
+
+    assert [str(request.url) for request in requests] == [
+        "https://api.openai.com/v1/responses"
+    ]
+    tools = json.loads(requests[0].content)["tools"]
+    assert [tool["type"] for tool in tools] == ["function", "web_search"]
+    assert message.content == "Sunny."
+    assert message.tool_calls == []
+
+
+def test_router_n_above_one_keeps_each_completion(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    serve_http(monkeypatch, chat_completion_reply("A", "B"))
+    llm = ChatLiteLLMRouter(router=_router_serving("openai/gpt-4o-mini"))
+
+    result = llm.generate([[HumanMessage("hi")]], n=2)
+
+    assert [generation.text for generation in result.generations[0]] == ["A", "B"]
+
+
 def test_router_stream_options_default_to_include_usage() -> None:
     """Providers other than OpenAI only report usage when it is asked for."""
-    seen: List[Dict[str, Any]] = []
+    seen: list[dict[str, Any]] = []
     llm = ChatLiteLLMRouter(router=make_router())
 
     with patch.object(llm.router, "completion", side_effect=_completion_double(seen)):
@@ -231,7 +364,7 @@ def test_router_stream_options_default_to_include_usage() -> None:
 
 def test_router_stream_honours_a_per_call_stream_options() -> None:
     """`stream_options` is caller configuration, so a per-call value is not replaced."""
-    seen: List[Dict[str, Any]] = []
+    seen: list[dict[str, Any]] = []
     llm = ChatLiteLLMRouter(router=make_router())
 
     with patch.object(llm.router, "completion", side_effect=_completion_double(seen)):
@@ -243,7 +376,7 @@ def test_router_stream_honours_a_per_call_stream_options() -> None:
 @pytest.mark.asyncio
 async def test_router_astream_honours_a_per_call_stream_options() -> None:
     """The async path carries the same caller configuration as the sync one."""
-    seen: List[Dict[str, Any]] = []
+    seen: list[dict[str, Any]] = []
     llm = ChatLiteLLMRouter(router=make_router())
 
     with patch.object(llm.router, "acompletion", side_effect=_acompletion_double(seen)):
@@ -259,7 +392,7 @@ async def test_router_per_call_stream_options_none_matches_the_base_class(
     method: str,
 ) -> None:
     """The two classes must not disagree about what an explicit None means."""
-    seen: List[Dict[str, Any]] = []
+    seen: list[dict[str, Any]] = []
     llm = ChatLiteLLMRouter(router=make_router())
 
     if method == "stream":
@@ -301,13 +434,161 @@ def test_router_is_claude_model_reads_the_matching_deployment() -> None:
     assert ChatLiteLLMRouter(router=router, model_name="mixed")._is_claude_model()
 
 
+_THINKING = {"thinking": {"type": "enabled", "budget_tokens": 1024}}
+_LOOKUP = {"type": "function", "function": {"name": "lookup", "parameters": {}}}
+
+
+def _claude_router(
+    model: str = "anthropic/claude-sonnet-4-5",
+    deployment: dict[str, Any] | None = None,
+    defaults: dict[str, Any] | None = None,
+) -> litellm.Router:
+    return litellm.Router(
+        model_list=[
+            {
+                "model_name": "claude",
+                "litellm_params": {
+                    "model": model,
+                    "api_key": "k",
+                    **(deployment or {}),
+                },
+            }
+        ],
+        default_litellm_params=defaults,
+    )
+
+
+@pytest.mark.parametrize(
+    ("router", "model_kwargs", "bind_kwargs"),
+    [
+        (lambda: _claude_router(deployment=_THINKING), {}, {}),
+        (lambda: _claude_router(defaults=dict(_THINKING)), {}, {}),
+        (_claude_router, _THINKING, {}),
+        (_claude_router, {}, _THINKING),
+        (lambda: _claude_router(deployment=_THINKING), {}, {"thinking": None}),
+        (
+            lambda: _claude_router(
+                "anthropic/claude-sonnet-4-6",
+                deployment=_THINKING,
+                defaults={"reasoning_effort": "high"},
+            ),
+            {},
+            {},
+        ),
+    ],
+    ids=[
+        "deployment",
+        "router-defaults",
+        "model-kwargs",
+        "bind-kwargs",
+        "deployment-under-a-bound-none",
+        "deployment-beside-a-default-effort",
+    ],
+)
+def test_router_downgrades_a_forced_choice_for_a_thinking_deployment(
+    router: Callable[[], litellm.Router],
+    model_kwargs: dict[str, Any],
+    bind_kwargs: dict[str, Any],
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """The Router picks the deployment, so thinking can be configured there alone."""
+    llm = ChatLiteLLMRouter(router=router(), model_kwargs=model_kwargs)
+
+    with caplog.at_level(
+        logging.WARNING, logger="langchain_litellm.chat_models.litellm"
+    ):
+        bound = llm.bind_tools([_LOOKUP], tool_choice="required", **bind_kwargs)
+
+    assert bound.kwargs["tool_choice"] == "auto"  # type: ignore[attr-defined]
+    assert "incompatible with thinking" in caplog.text
+
+
+def test_router_keeps_a_forced_choice_no_claude_deployment_refuses() -> None:
+    """Only a Claude deployment with manual thinking refuses the forced tool."""
+    router = litellm.Router(
+        model_list=[
+            {
+                "model_name": "mixed",
+                "litellm_params": {
+                    "model": "anthropic/claude-sonnet-4-6",
+                    "api_key": "k",
+                    "reasoning_effort": "high",
+                },
+            },
+            {
+                "model_name": "mixed",
+                "litellm_params": {
+                    "model": "deepseek/deepseek-chat",
+                    "api_key": "k",
+                    **_THINKING,
+                },
+            },
+        ]
+    )
+
+    bound = ChatLiteLLMRouter(router=router, model_name="mixed").bind_tools(
+        [_LOOKUP], tool_choice="required"
+    )
+
+    assert bound.kwargs["tool_choice"] == "required"  # type: ignore[attr-defined]
+
+
+@pytest.mark.skipif(
+    not OPUS_4_7_THINKS_ADAPTIVELY, reason="this litellm sends it manual thinking"
+)
+def test_router_keeps_a_forced_choice_a_deployment_sends_beside_adaptive_thinking() -> (
+    None
+):
+    """A deployment's thinking counts only as litellm sends it."""
+    router = _claude_router("anthropic/claude-opus-4-7", deployment=_THINKING)
+
+    bound = ChatLiteLLMRouter(router=router).bind_tools(
+        [_LOOKUP], tool_choice="required"
+    )
+
+    assert bound.kwargs["tool_choice"] == "required"  # type: ignore[attr-defined]
+
+
+# Newer litellm Routers drop a deployment's thinking under a request's reasoning_effort.
+_REQUEST_EFFORT_REPLACES_DEPLOYMENT_THINKING = hasattr(
+    litellm.Router, "_deployment_params_with_request_reasoning_override"
+)
+
+
+@pytest.mark.skipif(
+    not _REQUEST_EFFORT_REPLACES_DEPLOYMENT_THINKING,
+    reason="this litellm's Router sends both",
+)
+def test_router_keeps_a_forced_choice_when_a_request_effort_replaces_thinking() -> None:
+    """The deployment's manual thinking is dropped, and effort on Sonnet 4.6 is adaptive."""
+    router = _claude_router("anthropic/claude-sonnet-4-6", deployment=_THINKING)
+    llm = ChatLiteLLMRouter(router=router, model_kwargs={"reasoning_effort": "high"})
+
+    bound = llm.bind_tools([_LOOKUP], tool_choice="required")
+
+    assert bound.kwargs["tool_choice"] == "required"  # type: ignore[attr-defined]
+
+
+def test_router_structured_output_stops_forcing_for_a_thinking_deployment() -> None:
+    """Structured output reads the same deployments as bind_tools."""
+    llm = ChatLiteLLMRouter(router=_claude_router(deployment=_THINKING))
+
+    with pytest.warns(UserWarning, match="Structured output via function calling"):
+        structured = llm.with_structured_output(
+            {"title": "Answer", "type": "object", "properties": {}},
+            method="function_calling",
+        )
+
+    assert structured.first.kwargs["tool_choice"] is None  # type: ignore[attr-defined]
+
+
 def test_router_generate_does_not_inherit_a_streaming_default() -> None:
     """This branch parses a mapping, so a caller's `stream=False` must reach litellm.
 
     A `streaming=True` instance otherwise sends `stream=True` and is handed an
     iterator where it expects a mapping.
     """
-    seen: List[Dict[str, Any]] = []
+    seen: list[dict[str, Any]] = []
     llm = ChatLiteLLMRouter(router=make_router(), streaming=True)
 
     with patch.object(llm.router, "completion", side_effect=_completion_double(seen)):
@@ -320,7 +601,7 @@ def test_router_generate_does_not_inherit_a_streaming_default() -> None:
 @pytest.mark.asyncio
 async def test_router_agenerate_does_not_inherit_a_streaming_default() -> None:
     """The async twin of the same branch."""
-    seen: List[Dict[str, Any]] = []
+    seen: list[dict[str, Any]] = []
     llm = ChatLiteLLMRouter(router=make_router(), streaming=True)
 
     with patch.object(llm.router, "acompletion", side_effect=_acompletion_double(seen)):
@@ -379,7 +660,7 @@ def test_router_stream_sets_model_provider_in_response_metadata() -> None:
     assert chunks[1].message.response_metadata == {}
 
 
-def _router_chunks_with_cost() -> List[Dict[str, Any]]:
+def _router_chunks_with_cost() -> list[dict[str, Any]]:
     """The shape the router streams back: every chunk names the deployment."""
     deployment = {"model_id": "deployment-A"}
     return [
@@ -406,7 +687,7 @@ def _router_chunks_with_cost() -> List[Dict[str, Any]]:
     ]
 
 
-def _merge(chunks: List[Any]) -> Any:
+def _merge(chunks: list[Any]) -> Any:
     """Merge a stream the way a caller consuming it does."""
     merged = chunks[0]
     for chunk in chunks[1:]:
@@ -466,7 +747,7 @@ def test_router_names_the_deployment_once_across_a_stream() -> None:
     assert _merge(chunks).response_metadata["model_id"] == "deployment-A"
 
 
-def _router_chunks_costing_twice() -> List[Dict[str, Any]]:
+def _router_chunks_costing_twice() -> list[dict[str, Any]]:
     """A deployment that attaches usage, and so a cost, to content chunks."""
     deployment = {"model_id": "deployment-A"}
     return [
@@ -693,12 +974,14 @@ def test_router_generate_honours_max_retries() -> None:
     router = make_router()
     llm = ChatLiteLLMRouter(router=router, max_retries=4)
 
-    with patch.object(
-        llm.router, "completion", side_effect=_rate_limit_error()
-    ) as mock_completion:
-        with patch("time.sleep", return_value=None):  # skip tenacity backoff
-            with pytest.raises(litellm.RateLimitError):
-                llm.invoke("hi")
+    with (
+        patch.object(
+            llm.router, "completion", side_effect=_rate_limit_error()
+        ) as mock_completion,
+        patch("time.sleep", return_value=None),  # skip tenacity backoff
+        pytest.raises(litellm.RateLimitError),
+    ):
+        llm.invoke("hi")
 
     assert mock_completion.call_count == 4
 
@@ -708,12 +991,14 @@ def test_router_stream_honours_max_retries() -> None:
     router = make_router()
     llm = ChatLiteLLMRouter(router=router, max_retries=4, streaming=True)
 
-    with patch.object(
-        llm.router, "completion", side_effect=_rate_limit_error()
-    ) as mock_completion:
-        with patch("time.sleep", return_value=None):
-            with pytest.raises(litellm.RateLimitError):
-                list(llm.stream("hi"))
+    with (
+        patch.object(
+            llm.router, "completion", side_effect=_rate_limit_error()
+        ) as mock_completion,
+        patch("time.sleep", return_value=None),
+        pytest.raises(litellm.RateLimitError),
+    ):
+        list(llm.stream("hi"))
 
     assert mock_completion.call_count == 4
 
@@ -727,12 +1012,12 @@ async def test_router_agenerate_honours_max_retries() -> None:
     async def _raise(**kwargs: object) -> None:
         raise _rate_limit_error()
 
-    with patch.object(
-        llm.router, "acompletion", side_effect=_raise
-    ) as mock_acompletion:
-        with patch("asyncio.sleep", return_value=None):  # skip tenacity backoff
-            with pytest.raises(litellm.RateLimitError):
-                await llm.ainvoke("hi")
+    with (
+        patch.object(llm.router, "acompletion", side_effect=_raise) as mock_acompletion,
+        patch("asyncio.sleep", return_value=None),  # skip tenacity backoff
+        pytest.raises(litellm.RateLimitError),
+    ):
+        await llm.ainvoke("hi")
 
     assert mock_acompletion.call_count == 4
 
@@ -751,13 +1036,13 @@ async def test_router_astream_honours_max_retries() -> None:
     async def _raise(**kwargs: object) -> None:
         raise _rate_limit_error()
 
-    with patch.object(
-        llm.router, "acompletion", side_effect=_raise
-    ) as mock_acompletion:
-        with patch("asyncio.sleep", return_value=None):  # skip tenacity backoff
-            with pytest.raises(litellm.RateLimitError):
-                async for _ in llm.astream("hi"):
-                    pass
+    with (
+        patch.object(llm.router, "acompletion", side_effect=_raise) as mock_acompletion,
+        patch("asyncio.sleep", return_value=None),  # skip tenacity backoff
+        pytest.raises(litellm.RateLimitError),
+    ):
+        async for _ in llm.astream("hi"):
+            pass
 
     assert mock_acompletion.call_count == 4
 
@@ -815,6 +1100,42 @@ def test_router_set_default_model_changes_the_model_sent() -> None:
 
     assert first.call_args.kwargs["model"] == "gpt-4"
     assert second.call_args.kwargs["model"] == "gpt-3.5-turbo"
+
+
+@pytest.mark.parametrize(
+    ("config", "call"),
+    [
+        ({"use_responses_api": True}, {}),
+        ({"model_kwargs": {"use_responses_api": True}}, {}),
+        ({}, {"use_responses_api": True}),
+    ],
+)
+def test_router_refuses_use_responses_api(
+    config: dict[str, Any], call: dict[str, Any]
+) -> None:
+    """The Router picks the deployment, so only a deployment can name the route."""
+    llm = ChatLiteLLMRouter(router=make_router(), **config)
+
+    with (
+        patch.object(llm.router, "completion") as completion,
+        pytest.raises(ValueError, match="<provider>/responses/<model>"),
+    ):
+        llm.invoke("hi", **call)
+
+    completion.assert_not_called()
+
+
+@pytest.mark.parametrize("value", [False, None])
+def test_router_calls_with_use_responses_api_left_off(value: bool | None) -> None:
+    """A config that spells the flag out as off must still reach the Router."""
+    llm = ChatLiteLLMRouter(router=make_router(), use_responses_api=value)
+
+    with patch.object(
+        llm.router, "completion", return_value=_router_usage()
+    ) as completion:
+        llm.invoke("hi")
+
+    assert completion.call_args.kwargs["model"] == "gpt-4"
 
 
 def test_router_is_claude_model_reads_the_deployment() -> None:

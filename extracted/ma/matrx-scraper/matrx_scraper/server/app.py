@@ -412,6 +412,113 @@ async def _run_work_item_reaper(engine) -> None:
         await asyncio.sleep(WORK_ITEM_REAPER_INTERVAL_SECONDS)
 
 
+#: How long a primed ``knowledge.scraper`` knob snapshot is trusted before a
+#: background re-read (aidream's twin: ``feature_knobs.KNOB_CACHE_TTL_SECONDS``).
+PARSER_KNOB_TTL_SECONDS = 60.0
+
+
+class _FeatureKnobSnapshot:
+    """``platform.feature_knob`` rows for ONE feature, readable synchronously.
+
+    The parser and crawler read knobs from sync code (``parser_knob``), so this
+    host primes the rows at startup and answers from memory; a read older than
+    the TTL schedules one background refresh (stale-while-revalidate), so an
+    admin's change lands within one TTL with no deploy. A key with no row, or a
+    snapshot never primed, RAISES — ``parser_knob`` then announces it once and
+    keeps its mirrored default (``matrx_scraper/parser/knobs.py``).
+
+    Reads through the server's OWN registered database (``matrx_web``, the ONE
+    database) — this package never imports aidream.
+    """
+
+    def __init__(self, feature: str, loader=None, *, ttl: float = PARSER_KNOB_TTL_SECONDS):
+        self.feature = feature
+        self._loader = loader or self._load_from_db
+        self._ttl = ttl
+        self._values: dict[str, object] | None = None
+        self._loaded_at = 0.0
+        self._refresh_task: asyncio.Task | None = None
+
+    async def _load_from_db(self) -> dict[str, object]:
+        import json
+
+        from matrx_orm.core.async_db_manager import AsyncDatabaseManager
+
+        rows = await AsyncDatabaseManager.execute_query(
+            WEB_DB_NAME,
+            "SELECT key, value::text AS value_json FROM platform.feature_knob WHERE feature = $1",
+            self.feature,
+        )
+        return {str(r["key"]): json.loads(r["value_json"]) for r in rows}
+
+    async def refresh(self) -> dict[str, object]:
+        import time
+
+        values = await self._loader()
+        self._values, self._loaded_at = dict(values), time.monotonic()
+        return self._values
+
+    def _schedule_refresh(self) -> None:
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            return
+        if self._refresh_task is not None and not self._refresh_task.done():
+            return
+
+        async def _go() -> None:
+            try:
+                await self.refresh()
+            except Exception as e:  # noqa: BLE001 — announced; the stale snapshot keeps serving
+                print(
+                    f"[scraper-server] knob refresh for {self.feature!r} failed; serving the "
+                    f"stale snapshot: {e!r}",
+                    file=sys.stderr,
+                    flush=True,
+                )
+
+        self._refresh_task = loop.create_task(_go())
+
+    def read(self, key: str) -> object:
+        import time
+
+        if self._values is None:
+            self._schedule_refresh()
+            raise RuntimeError(
+                f"feature knobs for {self.feature!r} were never loaded on this server"
+            )
+        if time.monotonic() - self._loaded_at >= self._ttl:
+            self._schedule_refresh()
+        if key not in self._values:
+            raise KeyError(f"{self.feature}.{key} is not registered in platform.feature_knob")
+        return self._values[key]
+
+
+async def _bind_parser_knobs(loader=None) -> _FeatureKnobSnapshot:
+    """Bind ``configure_parser_knobs`` to this server's own knob snapshot.
+
+    Never fatal: a failed first load leaves the reader bound (it retries on the
+    next read) and every knob read falls back to its mirror LOUDLY, per key.
+    """
+    from matrx_scraper.parser.knobs import FEATURE, configure_parser_knobs
+
+    snapshot = _FeatureKnobSnapshot(FEATURE, loader)
+    try:
+        values = await asyncio.wait_for(snapshot.refresh(), timeout=10.0)
+        state = f"{len(values)} row(s) primed"
+    except Exception as e:  # noqa: BLE001 — announced below; reads fall back loudly per key
+        state = f"FIRST LOAD FAILED ({e!r}); reads use mirrored defaults until a refresh succeeds"
+    configure_parser_knobs(snapshot.read)
+    print(
+        f"[scraper-server] parser/crawler knobs bound: configure_parser_knobs -> "
+        f"platform.feature_knob feature={FEATURE!r} via {WEB_DB_NAME} "
+        f"(TTL {int(PARSER_KNOB_TTL_SECONDS)}s; {state})",
+        file=sys.stderr,
+        flush=True,
+    )
+    return snapshot
+
+
 @asynccontextmanager
 async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     config: ServerConfig = app.state.config
@@ -505,6 +612,11 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     from matrx_utils.conf import configure_context
 
     configure_context(try_get_app_context)
+
+    # Crawls run HERE, not in aidream, so the `knowledge.scraper` knobs
+    # (`crawl.*`, parser thresholds) must be bound on this host too — aidream's
+    # own binding in package_integration never reaches this process.
+    await _bind_parser_knobs()
     # 🚨 A BLOCK IS A FINDING, and for weeks this service threw every one of them away
     # (board row H7). The sink itself is installed by the package, off the database binding
     # above (`matrx_scraper.db.web._wire_block_ledger`), so it cannot be forgotten by a new

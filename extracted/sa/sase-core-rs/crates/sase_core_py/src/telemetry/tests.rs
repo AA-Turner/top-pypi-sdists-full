@@ -280,6 +280,181 @@ fn tool_run_bindings_round_trip_python_dicts() {
         .unwrap();
         let summary = py_to_json_value(summary.bind(py)).unwrap();
         assert_eq!(summary["typical_duration_ms"], json!(12));
+        let handoff_begin_obj = json_value_to_py(
+            py,
+            &json!({
+                "schema_version": 1,
+                "tool_name": "check",
+                "definition": {
+                    "schema_version": 1,
+                    "name": "check",
+                    "argv": ["just", "check"],
+                    "description": "check",
+                    "stages": "run_silent",
+                    "inputs": ["Justfile"],
+                    "env": [],
+                    "args": "deny",
+                    "fingerprint": {"repos": [], "toolchain": {}}
+                },
+                "display_argv": ["just", "check"],
+                "project": "sase",
+                "now_ts": 30,
+                "commit_running": false,
+                "launch_mode": "handoff",
+                "owner_kind": "proc",
+                "owner_id": "proc-1",
+                "owner_log_path": "logs/proc-1.log",
+                "wrapper_pid": 111,
+                "boot_id": "boot-1",
+                "process_start_identity": "boot-1:111",
+                "launch": {
+                    "argv": ["just", "check"],
+                    "tool_name": "check",
+                    "extra_args": [],
+                    "display_argv": ["just", "check"],
+                    "definition": {
+                        "schema_version": 1,
+                        "name": "check",
+                        "argv": ["just", "check"],
+                        "description": "check",
+                        "stages": "run_silent",
+                        "inputs": ["Justfile"],
+                        "env": [],
+                        "args": "deny",
+                        "fingerprint": {"repos": [], "toolchain": {}}
+                    },
+                    "digest": digest,
+                    "adhoc": false
+                }
+            }),
+        )
+        .unwrap();
+        let handoff_begin_request =
+            handoff_begin_obj.bind(py).downcast::<PyDict>().unwrap();
+        let handoff_started = py_tool_run_begin(
+            py,
+            path.to_str().unwrap(),
+            handoff_begin_request,
+            1_000,
+        )
+        .unwrap();
+        let handoff_started =
+            py_to_json_value(handoff_started.bind(py)).unwrap();
+        assert_eq!(handoff_started["run"]["state"], json!("created"));
+        assert_eq!(handoff_started["run"]["launch_mode"], json!("handoff"));
+        let handoff_id = handoff_started["run"]["run_id"]
+            .as_str()
+            .unwrap()
+            .to_string();
+        let claim_obj = json_value_to_py(
+            py,
+            &json!({
+                "schema_version": 1,
+                "run_id": handoff_id,
+                "owner_kind": "proc",
+                "owner_id": "proc-1",
+                "wrapper_pid": 4242,
+                "boot_id": "boot-1",
+                "process_start_identity": "boot-1:4242",
+                "owner_log_path": "logs/proc-1.log",
+                "now_ts": 31
+            }),
+        )
+        .unwrap();
+        let claim_request = claim_obj.bind(py).downcast::<PyDict>().unwrap();
+        let claimed =
+            py_tool_run_claim(py, path.to_str().unwrap(), claim_request, 1_000)
+                .unwrap();
+        let claimed = py_to_json_value(claimed.bind(py)).unwrap();
+        assert_eq!(claimed["outcome"], json!("claimed"));
+        assert_eq!(claimed["replayed"], json!(false));
+        assert_eq!(claimed["launch"]["argv"], json!(["just", "check"]));
+        let replayed_claim =
+            py_tool_run_claim(py, path.to_str().unwrap(), claim_request, 1_000)
+                .unwrap();
+        let replayed_claim = py_to_json_value(replayed_claim.bind(py)).unwrap();
+        assert_eq!(replayed_claim["outcome"], json!("claimed"));
+        assert_eq!(replayed_claim["replayed"], json!(true));
+        let handoff_finish_obj = json_value_to_py(
+            py,
+            &json!({
+                "schema_version": 1,
+                "run_id": handoff_id,
+                "state": "succeeded",
+                "exit_code": 0,
+                "duration_ms": 5,
+                "terminal_cause": "exited",
+                "now_ts": 32
+            }),
+        )
+        .unwrap();
+        let handoff_finish_request =
+            handoff_finish_obj.bind(py).downcast::<PyDict>().unwrap();
+        let handoff_finished = py_tool_run_finish(
+            py,
+            path.to_str().unwrap(),
+            handoff_finish_request,
+            1_000,
+        )
+        .unwrap();
+        let handoff_finished =
+            py_to_json_value(handoff_finished.bind(py)).unwrap();
+        assert_eq!(handoff_finished["run"]["state"], json!("succeeded"));
+        assert_eq!(handoff_finished["run"]["terminal_cause"], json!("exited"));
+        let stop_obj = json_value_to_py(
+            py,
+            &json!({
+                "schema_version": 1,
+                "run_id": handoff_id,
+                "requested_by": "agent-1",
+                "reason": "late stop",
+                "now_ts": 33
+            }),
+        )
+        .unwrap();
+        let stop_request = stop_obj.bind(py).downcast::<PyDict>().unwrap();
+        let stopped = py_tool_run_request_stop(
+            py,
+            path.to_str().unwrap(),
+            stop_request,
+            1_000,
+        )
+        .unwrap();
+        let stopped = py_to_json_value(stopped.bind(py)).unwrap();
+        assert_eq!(stopped["outcome"], json!("already_settled"));
+        let reconcile_obj = json_value_to_py(
+            py,
+            &json!({
+                "schema_version": 1,
+                "facts": [{
+                    "run_id": handoff_id,
+                    "wrapper_pid": 4242,
+                    "boot_id": "boot-1",
+                    "process_start_identity": "boot-1:4242",
+                    "observation": "dead",
+                    "owner": {
+                        "kind": "proc",
+                        "id": "proc-1",
+                        "state": "terminal",
+                        "exit_code": 0,
+                        "termination_reason": "success"
+                    }
+                }],
+                "now_ts": 34
+            }),
+        )
+        .unwrap();
+        let reconcile_request =
+            reconcile_obj.bind(py).downcast::<PyDict>().unwrap();
+        let reconciled = py_tool_run_reconcile(
+            py,
+            path.to_str().unwrap(),
+            reconcile_request,
+            1_000,
+        )
+        .unwrap();
+        let reconciled = py_to_json_value(reconciled.bind(py)).unwrap();
+        assert_eq!(reconciled["persisted"], json!(true));
     });
 }
 
@@ -327,5 +502,652 @@ fn perf_logs_query_binding_round_trips_python_dict() {
             json!(1.25)
         );
         assert_eq!(result["coverage"][0]["records_in_window"], json!(1));
+    });
+}
+
+#[test]
+fn tool_run_triage_bindings_round_trip() {
+    pyo3::prepare_freethreaded_python();
+    Python::with_gil(|py| {
+        let temp = tempdir().unwrap();
+        let path = temp.path().join("tools").join("runs.sqlite");
+        // Begin + observe (with fingerprint_before) + finish a named run.
+        let begin_obj = json_value_to_py(
+            py,
+            &json!({
+                "schema_version": 1,
+                "tool_name": "check",
+                "definition": {
+                    "schema_version": 1,
+                    "name": "check",
+                    "argv": ["just", "check"],
+                    "description": "check",
+                    "stages": "run_silent",
+                    "inputs": ["Justfile"],
+                    "env": [],
+                    "args": "deny",
+                    "fingerprint": {"repos": [], "toolchain": {}}
+                },
+                "display_argv": ["just", "check"],
+                "project": "sase",
+                "now_ts": 10,
+                "commit_running": true
+            }),
+        )
+        .unwrap();
+        let begin_request = begin_obj.bind(py).downcast::<PyDict>().unwrap();
+        let started =
+            py_tool_run_begin(py, path.to_str().unwrap(), begin_request, 1_000)
+                .unwrap();
+        let started = py_to_json_value(started.bind(py)).unwrap();
+        let run_id = started["run"]["run_id"].as_str().unwrap().to_string();
+        let observe_obj = json_value_to_py(
+            py,
+            &json!({
+                "schema_version": 1,
+                "run_id": run_id,
+                "child_pid": 1,
+                "fingerprint_before": {
+                    "schema_version": 1,
+                    "repos": [{
+                        "identity": "sase",
+                        "head": "abc",
+                        "dirty_paths": [],
+                    }],
+                    "inputs": [],
+                    "env": {},
+                    "toolchain": {},
+                    "completeness": {"complete": true, "missing": []},
+                }
+            }),
+        )
+        .unwrap();
+        let observe_request =
+            observe_obj.bind(py).downcast::<PyDict>().unwrap();
+        let observed = py_tool_run_observe(
+            py,
+            path.to_str().unwrap(),
+            observe_request,
+            1_000,
+        )
+        .unwrap();
+        let observed = py_to_json_value(observed.bind(py)).unwrap();
+        assert!(observed["run"]["fingerprint_before"].is_object());
+        let finish_obj = json_value_to_py(
+            py,
+            &json!({
+                "schema_version": 1,
+                "run_id": run_id,
+                "state": "failed",
+                "exit_code": 1,
+                "duration_ms": 5,
+                "now_ts": 20
+            }),
+        )
+        .unwrap();
+        let finish_request = finish_obj.bind(py).downcast::<PyDict>().unwrap();
+        let finished = py_tool_run_finish(
+            py,
+            path.to_str().unwrap(),
+            finish_request,
+            1_000,
+        )
+        .unwrap();
+        let finished = py_to_json_value(finished.bind(py)).unwrap();
+        assert_eq!(finished["run"]["state"], json!("failed"));
+        // Extract a symvision output.
+        let extract_obj = json_value_to_py(
+            py,
+            &json!({
+                "schema_version": 1,
+                "stage_key": "lint (symvision)",
+                "output": "Unused public functions/classes:\n  my_helper in src/helpers.py\n",
+            }),
+        )
+        .unwrap();
+        let extract_request =
+            extract_obj.bind(py).downcast::<PyDict>().unwrap();
+        let extracted =
+            py_tool_run_triage_extract(py, extract_request).unwrap();
+        let extracted = py_to_json_value(extracted.bind(py)).unwrap();
+        assert_eq!(extracted["status"], json!("parsed"));
+        assert_eq!(extracted["items"].as_array().unwrap().len(), 1);
+        let mut item = extracted["items"][0].clone();
+        item["stage_key"] = json!("lint (symvision)");
+        // Record its items.
+        let record_obj = json_value_to_py(
+            py,
+            &json!({
+                "schema_version": 1,
+                "run_id": run_id,
+                "stages": [{
+                    "schema_version": 1,
+                    "stage_key": "lint (symvision)",
+                    "stage_id": "stage-1",
+                    "extraction_status": "parsed",
+                    "output_path": "logs/stage.log",
+                    "items": [item],
+                }],
+                "run_facts": {
+                    "schema_version": 1,
+                    "continuation_mode": "never",
+                    "triaged_ts": 21,
+                },
+                "now_ts": 22
+            }),
+        )
+        .unwrap();
+        let record_request = record_obj.bind(py).downcast::<PyDict>().unwrap();
+        let recorded = py_tool_run_triage_record(
+            py,
+            path.to_str().unwrap(),
+            record_request,
+            1_000,
+        )
+        .unwrap();
+        let recorded = py_to_json_value(recorded.bind(py)).unwrap();
+        assert_eq!(recorded["items_inserted"], json!(1));
+        // Show them back.
+        let show_obj = json_value_to_py(
+            py,
+            &json!({"schema_version": 1, "run_id": run_id}),
+        )
+        .unwrap();
+        let show_request = show_obj.bind(py).downcast::<PyDict>().unwrap();
+        let shown = py_tool_run_triage_show(
+            py,
+            path.to_str().unwrap(),
+            show_request,
+            1_000,
+        )
+        .unwrap();
+        let shown = py_to_json_value(shown.bind(py)).unwrap();
+        assert_eq!(shown["run_found"], json!(true));
+        assert_eq!(shown["triaged"], json!(true));
+        assert_eq!(shown["items"].as_array().unwrap().len(), 1);
+        // Replay reports items_existing.
+        let replayed = py_tool_run_triage_record(
+            py,
+            path.to_str().unwrap(),
+            record_request,
+            1_000,
+        )
+        .unwrap();
+        let replayed = py_to_json_value(replayed.bind(py)).unwrap();
+        assert_eq!(replayed["items_inserted"], json!(0));
+        assert_eq!(replayed["items_existing"], json!(1));
+    });
+}
+
+#[test]
+fn tool_run_triage_classification_bindings_round_trip() {
+    pyo3::prepare_freethreaded_python();
+    Python::with_gil(|py| {
+        let temp = tempdir().unwrap();
+        let path = temp.path().join("tools").join("runs.sqlite");
+        let begin_obj = json_value_to_py(
+            py,
+            &json!({
+                "schema_version": 1,
+                "tool_name": "check",
+                "definition": {
+                    "schema_version": 1,
+                    "name": "check",
+                    "argv": ["just", "check"],
+                    "description": "check",
+                    "stages": "run_silent",
+                    "inputs": ["Justfile"],
+                    "env": [],
+                    "args": "deny",
+                    "fingerprint": {"repos": [], "toolchain": {}}
+                },
+                "display_argv": ["just", "check"],
+                "project": "sase",
+                "workspace": "ws-a",
+                "now_ts": 10,
+                "commit_running": true
+            }),
+        )
+        .unwrap();
+        let begin_request = begin_obj.bind(py).downcast::<PyDict>().unwrap();
+        let started =
+            py_tool_run_begin(py, path.to_str().unwrap(), begin_request, 1_000)
+                .unwrap();
+        let started = py_to_json_value(started.bind(py)).unwrap();
+        let run_id = started["run"]["run_id"].as_str().unwrap().to_string();
+        let observe_obj = json_value_to_py(
+            py,
+            &json!({
+                "schema_version": 1,
+                "run_id": run_id,
+                "child_pid": 1,
+                "fingerprint_before": {
+                    "schema_version": 1,
+                    "repos": [{
+                        "identity": "sase",
+                        "head": "head-3",
+                        "dirty_paths": [],
+                    }],
+                    "inputs": [],
+                    "env": {},
+                    "toolchain": {},
+                    "completeness": {"complete": true, "missing": []},
+                }
+            }),
+        )
+        .unwrap();
+        let observe_request =
+            observe_obj.bind(py).downcast::<PyDict>().unwrap();
+        py_tool_run_observe(py, path.to_str().unwrap(), observe_request, 1_000)
+            .unwrap();
+        let finish_obj = json_value_to_py(
+            py,
+            &json!({
+                "schema_version": 1,
+                "run_id": run_id,
+                "state": "failed",
+                "exit_code": 1,
+                "duration_ms": 5,
+                "terminal_cause": "exited",
+                "now_ts": 20
+            }),
+        )
+        .unwrap();
+        let finish_request = finish_obj.bind(py).downcast::<PyDict>().unwrap();
+        py_tool_run_finish(py, path.to_str().unwrap(), finish_request, 1_000)
+            .unwrap();
+        // Pure classify: untouched with no evidence -> UNKNOWN.
+        let classify_obj = json_value_to_py(
+            py,
+            &json!({
+                "schema_version": 1,
+                "subject_run": {
+                    "run_id": "subject-1",
+                    "project": "sase",
+                    "tool": "check",
+                    "extra_args_digest": "args-1",
+                    "workspace": "ws-a",
+                    "base_head": "head-3",
+                    "dirty_paths": [],
+                    "complete_fingerprint": true,
+                    "fingerprint_digest": "fp-1",
+                    "ad_hoc": false
+                },
+                "subjects": [{
+                    "stage_key": "lint (mypy)",
+                    "extractor": "mypy",
+                    "extractor_version": 1,
+                    "signature": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                    "locator_paths": ["src/foo.py"]
+                }],
+                "evidence_runs": [],
+                "ancestry": ["head-3"],
+                "knobs": {"min_witnesses": 1, "touched_requires_clean_witness": false},
+                "now_ts": 30
+            }),
+        )
+        .unwrap();
+        let classify_request =
+            classify_obj.bind(py).downcast::<PyDict>().unwrap();
+        let classified =
+            py_tool_run_triage_classify(py, classify_request).unwrap();
+        let classified = py_to_json_value(classified.bind(py)).unwrap();
+        assert_eq!(classified["labels"][0]["class"], json!("unknown"));
+        // Pure verdict: verification with UNKNOWN -> undetermined.
+        let verdict_obj = json_value_to_py(
+            py,
+            &json!({
+                "schema_version": 1,
+                "exit_code": 1,
+                "terminal_cause": "exited",
+                "has_completed_stage": true,
+                "has_failed_stage": true,
+                "all_stages_complete": true,
+                "recipe_finished": true,
+                "is_stageful_tool": true,
+                "triaged": true,
+                "items": [{"class": "unknown"}]
+            }),
+        )
+        .unwrap();
+        let verdict_request =
+            verdict_obj.bind(py).downcast::<PyDict>().unwrap();
+        let verdict = py_tool_run_triage_verdict(py, verdict_request).unwrap();
+        let verdict = py_to_json_value(verdict.bind(py)).unwrap();
+        assert_eq!(verdict["verdict"], json!("undetermined"));
+        // Store stage: extract + classify + persist one stage.
+        let stage_obj = json_value_to_py(
+            py,
+            &json!({
+                "schema_version": 1,
+                "run_id": run_id,
+                "stage": {
+                    "stage_key": "lint (mypy)",
+                    "stage_id": "stage-1",
+                    "output": "src/foo.py:10:5: error: Bad thing  [attr-defined]\n",
+                },
+                "ancestry": ["head-3"],
+                "now_ts": 31
+            }),
+        )
+        .unwrap();
+        let stage_request = stage_obj.bind(py).downcast::<PyDict>().unwrap();
+        let staged = py_tool_run_triage_stage(
+            py,
+            path.to_str().unwrap(),
+            stage_request,
+            1_000,
+        )
+        .unwrap();
+        let staged = py_to_json_value(staged.bind(py)).unwrap();
+        assert_eq!(staged["items"].as_array().unwrap().len(), 1);
+        // Store settle: returns kind/verdict and triaged items.
+        let settle_obj = json_value_to_py(
+            py,
+            &json!({
+                "schema_version": 1,
+                "run_id": run_id,
+                "stages": [],
+                "ancestry": ["head-3"],
+                "recipe_finished_ts": 40,
+                "now_ts": 41
+            }),
+        )
+        .unwrap();
+        let settle_request = settle_obj.bind(py).downcast::<PyDict>().unwrap();
+        let settled = py_tool_run_triage_settle(
+            py,
+            path.to_str().unwrap(),
+            settle_request,
+            1_000,
+        )
+        .unwrap();
+        let settled = py_to_json_value(settled.bind(py)).unwrap();
+        assert_eq!(settled["triaged"], json!(true));
+        assert!(settled["verdict"].is_string());
+        // Show carries kind and verdict.
+        let show_obj = json_value_to_py(
+            py,
+            &json!({"schema_version": 1, "run_id": run_id}),
+        )
+        .unwrap();
+        let show_request = show_obj.bind(py).downcast::<PyDict>().unwrap();
+        let shown = py_tool_run_triage_show(
+            py,
+            path.to_str().unwrap(),
+            show_request,
+            1_000,
+        )
+        .unwrap();
+        let shown = py_to_json_value(shown.bind(py)).unwrap();
+        assert!(shown["failure_kind"].is_string());
+        assert!(shown["verdict"].is_string());
+        // Failures aggregation lists the group.
+        let failures_obj = json_value_to_py(
+            py,
+            &json!({
+                "schema_version": 1,
+                "project": "sase",
+                "tool": "check",
+                "days": 7,
+                "limit": 50,
+                "now_ts": 50
+            }),
+        )
+        .unwrap();
+        let failures_request =
+            failures_obj.bind(py).downcast::<PyDict>().unwrap();
+        let failures = py_tool_run_failures(
+            py,
+            path.to_str().unwrap(),
+            failures_request,
+            1_000,
+        )
+        .unwrap();
+        let failures = py_to_json_value(failures.bind(py)).unwrap();
+        assert_eq!(failures["groups"].as_array().unwrap().len(), 1);
+    });
+}
+
+#[test]
+fn tool_run_receipt_bindings_round_trip() {
+    pyo3::prepare_freethreaded_python();
+    Python::with_gil(|py| {
+        let temp = tempdir().unwrap();
+        let path = temp.path().join("tools").join("runs.sqlite");
+        let fp = json!({
+            "schema_version": 1,
+            "repos": [{
+                "identity": "sase",
+                "head": "head-1",
+                "index_tree": "tree-1",
+                "dirty_paths": []
+            }],
+            "inputs": [],
+            "env": {},
+            "toolchain": {},
+            "completeness": {"complete": true, "missing": []},
+            "diagnostics": []
+        });
+        let begin_obj = json_value_to_py(
+            py,
+            &json!({
+                "schema_version": 1,
+                "tool_name": "check",
+                "definition": {
+                    "schema_version": 1,
+                    "name": "check",
+                    "argv": ["just", "check"],
+                    "description": "check",
+                    "stages": "run_silent",
+                    "inputs": ["Justfile"],
+                    "env": [],
+                    "args": "deny",
+                    "fingerprint": {"repos": [], "toolchain": {}}
+                },
+                "display_argv": ["just", "check"],
+                "project": "sase",
+                "now_ts": 100,
+                "commit_running": true
+            }),
+        )
+        .unwrap();
+        let begin_request = begin_obj.bind(py).downcast::<PyDict>().unwrap();
+        let started =
+            py_tool_run_begin(py, path.to_str().unwrap(), begin_request, 1_000)
+                .unwrap();
+        let started = py_to_json_value(started.bind(py)).unwrap();
+        let run_id = started["run"]["run_id"].as_str().unwrap().to_string();
+        let definition_digest = started["run"]["definition_digest"]
+            .as_str()
+            .unwrap()
+            .to_string();
+        let extra_args_digest = started["run"]["extra_args_digest"]
+            .as_str()
+            .unwrap()
+            .to_string();
+        let observe_obj = json_value_to_py(
+            py,
+            &json!({
+                "schema_version": 1,
+                "run_id": run_id,
+                "child_pid": 1,
+                "child_pgid": 1,
+                "fingerprint_before": fp
+            }),
+        )
+        .unwrap();
+        let observe_request =
+            observe_obj.bind(py).downcast::<PyDict>().unwrap();
+        py_tool_run_observe(py, path.to_str().unwrap(), observe_request, 1_000)
+            .unwrap();
+        let finish_obj = json_value_to_py(
+            py,
+            &json!({
+                "schema_version": 1,
+                "run_id": run_id,
+                "state": "succeeded",
+                "exit_code": 0,
+                "duration_ms": 5,
+                "fingerprint_after": fp,
+                "mutated_input": false,
+                "terminal_cause": "exited",
+                "now_ts": 110
+            }),
+        )
+        .unwrap();
+        let finish_request = finish_obj.bind(py).downcast::<PyDict>().unwrap();
+        py_tool_run_finish(py, path.to_str().unwrap(), finish_request, 1_000)
+            .unwrap();
+        let settle_obj = json_value_to_py(
+            py,
+            &json!({
+                "schema_version": 1,
+                "run_id": run_id,
+                "recipe_finished_ts": 111,
+                "now_ts": 112
+            }),
+        )
+        .unwrap();
+        let settle_request = settle_obj.bind(py).downcast::<PyDict>().unwrap();
+        py_tool_run_triage_settle(
+            py,
+            path.to_str().unwrap(),
+            settle_request,
+            1_000,
+        )
+        .unwrap();
+        let receipt_settle_obj = json_value_to_py(
+            py,
+            &json!({
+                "schema_version": 1,
+                "run_id": run_id,
+                "policy": {
+                    "schema_version": 1,
+                    "accept": ["pass"],
+                    "ttl": "2h"
+                },
+                "bypassed": false,
+                "now_ts": 120
+            }),
+        )
+        .unwrap();
+        let receipt_settle_request =
+            receipt_settle_obj.bind(py).downcast::<PyDict>().unwrap();
+        let settled = py_tool_run_receipt_settle(
+            py,
+            path.to_str().unwrap(),
+            receipt_settle_request,
+            1_000,
+        )
+        .unwrap();
+        let settled = py_to_json_value(settled.bind(py)).unwrap();
+        assert_eq!(settled["schema_version"], json!(1));
+        assert_eq!(settled["minted"], json!(true));
+        let lookup_obj = json_value_to_py(
+            py,
+            &json!({
+                "schema_version": 1,
+                "project": "sase",
+                "tool_name": "check",
+                "definition_digest": definition_digest,
+                "extra_args_digest": extra_args_digest,
+                "fingerprint": fp,
+                "accept": ["pass"],
+                "now_ts": 130
+            }),
+        )
+        .unwrap();
+        let lookup_request = lookup_obj.bind(py).downcast::<PyDict>().unwrap();
+        let looked = py_tool_run_receipt_lookup(
+            py,
+            path.to_str().unwrap(),
+            lookup_request,
+            1_000,
+        )
+        .unwrap();
+        let looked = py_to_json_value(looked.bind(py)).unwrap();
+        assert_eq!(looked["schema_version"], json!(1));
+        assert_eq!(looked["outcome"], json!("covered"));
+    });
+}
+
+#[test]
+fn tool_run_receipts_report_round_trip_and_rejects_bad_schema() {
+    pyo3::prepare_freethreaded_python();
+    Python::with_gil(|py| {
+        let temp = tempdir().unwrap();
+        let path = temp.path().join("tools").join("runs.sqlite");
+        let missing = temp.path().join("missing.sqlite");
+        // Empty store: zero report with the missing-store diagnostic.
+        let empty_obj = json_value_to_py(
+            py,
+            &json!({
+                "schema_version": 1,
+                "project": "sase",
+                "days": 7,
+                "now_ts": 1_700_000_000,
+                "project_root": temp.path().to_string_lossy(),
+            }),
+        )
+        .unwrap();
+        let empty_request = empty_obj.bind(py).downcast::<PyDict>().unwrap();
+        let empty = py_tool_run_receipts_report(
+            py,
+            missing.to_str().unwrap(),
+            empty_request,
+            1_000,
+        )
+        .unwrap();
+        let empty = py_to_json_value(empty.bind(py)).unwrap();
+        assert_eq!(empty["schema_version"], json!(1));
+        assert_eq!(empty["receipts"]["count"], json!(0));
+        assert_eq!(empty["opportunities"]["group_count"], json!(0));
+        assert_eq!(empty["runs_scanned"], json!(0));
+        assert!(empty["note"].as_str().unwrap().contains("measurement only"));
+        assert!(empty["diagnostics"][0]
+            .as_str()
+            .unwrap()
+            .contains("does not exist"));
+
+        // Negative days must fail; invalid schema versions must fail.
+        let bad_days_obj = json_value_to_py(
+            py,
+            &json!({
+                "schema_version": 1,
+                "project": "sase",
+                "days": -1,
+                "now_ts": 10,
+                "project_root": temp.path().to_string_lossy(),
+            }),
+        )
+        .unwrap();
+        let bad_days = bad_days_obj.bind(py).downcast::<PyDict>().unwrap();
+        assert!(py_tool_run_receipts_report(
+            py,
+            path.to_str().unwrap(),
+            bad_days,
+            1_000
+        )
+        .is_err());
+        let bad_schema_obj = json_value_to_py(
+            py,
+            &json!({
+                "schema_version": 999,
+                "project": "sase",
+                "days": 7,
+                "now_ts": 10,
+                "project_root": temp.path().to_string_lossy(),
+            }),
+        )
+        .unwrap();
+        let bad_schema = bad_schema_obj.bind(py).downcast::<PyDict>().unwrap();
+        assert!(py_tool_run_receipts_report(
+            py,
+            path.to_str().unwrap(),
+            bad_schema,
+            1_000
+        )
+        .is_err());
     });
 }

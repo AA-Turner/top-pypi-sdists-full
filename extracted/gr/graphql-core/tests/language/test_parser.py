@@ -1,6 +1,8 @@
-from typing import cast, Optional, Tuple
+from __future__ import annotations
 
-from pytest import raises
+from typing import TypeAlias, cast
+
+import pytest
 
 from graphql.error import GraphQLSyntaxError
 from graphql.language import (
@@ -16,8 +18,8 @@ from graphql.language import (
     ListTypeNode,
     ListValueNode,
     MemberCoordinateNode,
-    NameNode,
     NamedTypeNode,
+    NameNode,
     NonNullTypeNode,
     NullValueNode,
     ObjectFieldNode,
@@ -25,30 +27,30 @@ from graphql.language import (
     OperationDefinitionNode,
     OperationType,
     SelectionSetNode,
+    Source,
     StringValueNode,
+    Token,
+    TokenKind,
     TypeCoordinateNode,
     ValueNode,
     VariableDefinitionNode,
     VariableNode,
-    Token,
-    TokenKind,
     parse,
+    parse_const_value,
     parse_schema_coordinate,
     parse_type,
     parse_value,
-    parse_const_value,
-    Source,
 )
 from graphql.pyutils import inspect
 
 from ..fixtures import kitchen_sink_query  # noqa: F401
 from ..utils import dedent
 
-Location = Optional[Tuple[int, int]]
+Location: TypeAlias = tuple[int, int] | None
 
 
 def assert_syntax_error(text: str, message: str, location: Location) -> None:
-    with raises(GraphQLSyntaxError) as exc_info:
+    with pytest.raises(GraphQLSyntaxError) as exc_info:
         parse(text)
     error = exc_info.value
     assert error.message == f"Syntax Error: {message}"
@@ -58,19 +60,21 @@ def assert_syntax_error(text: str, message: str, location: Location) -> None:
 
 def describe_parser():
     def parse_provides_useful_errors():
-        with raises(GraphQLSyntaxError) as exc_info:
+        with pytest.raises(GraphQLSyntaxError) as exc_info:
             parse("{")
         error = exc_info.value
         assert error.message == "Syntax Error: Expected Name, found <EOF>."
         assert error.positions == [1]
         assert error.locations == [(1, 2)]
-        assert str(error) == dedent("""
+        assert str(error) == dedent(
+            """
             Syntax Error: Expected Name, found <EOF>.
 
             GraphQL request:1:2
             1 | {
               |  ^
-            """)
+            """
+        )
         assert_syntax_error(
             "\n      { ...MissingOn }\n      fragment MissingOn Type",
             "Expected 'on', found Name 'Type'.",
@@ -84,37 +88,38 @@ def describe_parser():
         assert_syntax_error('{ ""', "Expected Name, found String ''.", (1, 3))
 
     def parse_provides_useful_error_when_using_source():
-        with raises(GraphQLSyntaxError) as exc_info:
+        with pytest.raises(GraphQLSyntaxError) as exc_info:
             parse(Source("query", "MyQuery.graphql"))
         error = exc_info.value
-        assert str(error) == dedent("""
+        assert str(error) == dedent(
+            """
             Syntax Error: Expected '{', found <EOF>.
 
             MyQuery.graphql:1:6
             1 | query
               |      ^
-            """)
+            """
+        )
 
     def exposes_the_token_count():
         assert parse("{ foo }").token_count == 3
         assert parse('{ foo(bar: "baz") }').token_count == 8
 
-    def limits_maximum_number_of_tokens():
-        assert parse("{ foo }", max_tokens=3)
-        with raises(
+    def limits_by_a_maximum_number_of_tokens():
+        parse("{ foo }", max_tokens=3)
+        with pytest.raises(
             GraphQLSyntaxError,
-            match="Syntax Error: Document contains more than 2 tokens."
-            " Parsing aborted.",
+            match="Syntax Error:"
+            r" Document contains more than 2 tokens\. Parsing aborted\.",
         ):
-            assert parse("{ foo }", max_tokens=2)
-
-        assert parse('{ foo(bar: "baz") }', max_tokens=8)
-        with raises(
+            parse("{ foo }", max_tokens=2)
+        parse('{ foo(bar: "baz") }', max_tokens=8)
+        with pytest.raises(
             GraphQLSyntaxError,
-            match="Syntax Error: Document contains more than 7 tokens."
-            " Parsing aborted.",
+            match="Syntax Error:"
+            r" Document contains more than 7 tokens\. Parsing aborted\.",
         ):
-            assert parse('{ foo(bar: "baz") }', max_tokens=7)
+            parse('{ foo(bar: "baz") }', max_tokens=7)
 
     def counts_comment_tokens_towards_the_maximum():
         # Comment tokens are read and allocated by the lexer but skipped over; they
@@ -126,7 +131,7 @@ def describe_parser():
 
         # An interspersed comment pushes the document over the limit.
         parse("{ # c\n foo }", max_tokens=4)
-        with raises(
+        with pytest.raises(
             GraphQLSyntaxError,
             match="Syntax Error:"
             r" Document contains more than 3 tokens\. Parsing aborted\.",
@@ -134,12 +139,12 @@ def describe_parser():
             parse("{ # c\n foo }", max_tokens=3)
 
         # Neither leading nor trailing comment padding can bypass the limit.
-        with raises(
+        with pytest.raises(
             GraphQLSyntaxError,
             match=r"Document contains more than 5 tokens\. Parsing aborted\.",
         ):
             parse("# c\n" * 1000 + "{ a }", max_tokens=5)
-        with raises(
+        with pytest.raises(
             GraphQLSyntaxError,
             match=r"Document contains more than 5 tokens\. Parsing aborted\.",
         ):
@@ -185,25 +190,26 @@ def describe_parser():
 
     def parses_multi_byte_characters():
         # Note: \u0A0A could be naively interpreted as two line-feed chars.
-        doc = parse("""
+        doc = parse(
+            """
             # This comment has a \u0a0a multi-byte character.
             { field(arg: "Has a \u0a0a multi-byte character.") }
-            """)
+            """
+        )
         definitions = doc.definitions
         assert isinstance(definitions, tuple)
         assert len(definitions) == 1
-        selection_set = cast(OperationDefinitionNode, definitions[0]).selection_set
+        selection_set = cast("OperationDefinitionNode", definitions[0]).selection_set
         selections = selection_set.selections
         assert isinstance(selections, tuple)
         assert len(selections) == 1
-        arguments = cast(FieldNode, selections[0]).arguments
+        arguments = cast("FieldNode", selections[0]).arguments
         assert isinstance(arguments, tuple)
         assert len(arguments) == 1
         value = arguments[0].value
         assert isinstance(value, StringValueNode)
         assert value.value == "Has a \u0a0a multi-byte character."
 
-    # noinspection PyShadowingNames
     def parses_kitchen_sink(kitchen_sink_query):  # noqa: F811
         parse(kitchen_sink_query)
 
@@ -233,56 +239,68 @@ def describe_parser():
             parse(document)
 
     def parses_anonymous_mutation_operations():
-        parse("""
+        parse(
+            """
             mutation {
               mutationField
             }
-            """)
+            """
+        )
 
     def parses_anonymous_subscription_operations():
-        parse("""
+        parse(
+            """
             subscription {
               subscriptionField
             }
-            """)
+            """
+        )
 
     def parses_named_mutation_operations():
-        parse("""
+        parse(
+            """
             mutation Foo {
               mutationField
             }
-            """)
+            """
+        )
 
     def parses_named_subscription_operations():
-        parse("""
+        parse(
+            """
             subscription Foo {
               subscriptionField
             }
-            """)
+            """
+        )
 
     def creates_ast():
-        doc = parse(dedent("""
+        doc = parse(
+            dedent(
+                """
                 {
                   node(id: 4) {
                     id,
                     name
                   }
                 }
-                """))
+                """
+            )
+        )
         assert isinstance(doc, DocumentNode)
         assert doc.loc == (0, 40)
         definitions = doc.definitions
         assert isinstance(definitions, tuple)
         assert len(definitions) == 1
-        definition = cast(OperationDefinitionNode, definitions[0])
+        definition = cast("OperationDefinitionNode", definitions[0])
         assert isinstance(definition, DefinitionNode)
         assert definition.loc == (0, 40)
         assert definition.operation == OperationType.QUERY
         assert definition.description is None
         assert definition.name is None
-        assert definition.variable_definitions == ()
-        assert definition.directives == ()
-        selection_set: Optional[SelectionSetNode] = definition.selection_set
+        assert definition.variable_definitions is None
+        assert definition.directives is None
+        selection_set: SelectionSetNode | None = definition.selection_set
         assert isinstance(selection_set, SelectionSetNode)
         assert selection_set.loc == (0, 40)
         selections = selection_set.selections
@@ -311,7 +329,7 @@ def describe_parser():
         assert value.loc == (13, 14)
         assert value.value == "4"
         assert argument.loc == (9, 14)
-        assert field.directives == ()
+        assert field.directives is None
         selection_set = field.selection_set
         assert isinstance(selection_set, SelectionSetNode)
         selections = selection_set.selections
@@ -325,19 +343,8 @@ def describe_parser():
         assert isinstance(name, NameNode)
         assert name.loc == (22, 24)
         assert name.value == "id"
-        assert field.arguments == ()
-        assert field.directives == ()
-        assert field.selection_set is None
-        field = selections[0]
-        assert isinstance(field, FieldNode)
-        assert field.loc == (22, 24)
-        assert field.alias is None
-        name = field.name
-        assert isinstance(name, NameNode)
-        assert name.loc == (22, 24)
-        assert name.value == "id"
-        assert field.arguments == ()
-        assert field.directives == ()
+        assert field.arguments is None
+        assert field.directives is None
         assert field.selection_set is None
         field = selections[1]
         assert isinstance(field, FieldNode)
@@ -347,18 +354,22 @@ def describe_parser():
         assert isinstance(name, NameNode)
         assert name.loc == (30, 34)
         assert name.value == "name"
-        assert field.arguments == ()
-        assert field.directives == ()
+        assert field.arguments is None
+        assert field.directives is None
         assert field.selection_set is None
 
     def creates_ast_from_nameless_query_without_variables():
-        doc = parse(dedent("""
+        doc = parse(
+            dedent(
+                """
                 query {
                   node {
                     id
                   }
                 }
-                """))
+                """
+            )
+        )
         assert isinstance(doc, DocumentNode)
         assert doc.loc == (0, 29)
         definitions = doc.definitions
@@ -370,9 +381,9 @@ def describe_parser():
         assert definition.operation == OperationType.QUERY
         assert definition.description is None
         assert definition.name is None
-        assert definition.variable_definitions == ()
-        assert definition.directives == ()
-        selection_set: Optional[SelectionSetNode] = definition.selection_set
+        assert definition.variable_definitions is None
+        assert definition.directives is None
+        selection_set: SelectionSetNode | None = definition.selection_set
         assert isinstance(selection_set, SelectionSetNode)
         assert selection_set.loc == (6, 29)
         selections = selection_set.selections
@@ -386,8 +397,8 @@ def describe_parser():
         assert isinstance(name, NameNode)
         assert name.loc == (10, 14)
         assert name.value == "node"
-        assert field.arguments == ()
-        assert field.directives == ()
+        assert field.arguments is None
+        assert field.directives is None
         selection_set = field.selection_set
         assert isinstance(selection_set, SelectionSetNode)
         assert selection_set.loc == (15, 27)
@@ -402,19 +413,23 @@ def describe_parser():
         assert isinstance(name, NameNode)
         assert name.loc == (21, 23)
         assert name.value == "id"
-        assert field.arguments == ()
-        assert field.directives == ()
+        assert field.arguments is None
+        assert field.directives is None
         assert field.selection_set is None
 
     def creates_ast_from_nameless_query_with_description():
-        doc = parse(dedent("""
+        doc = parse(
+            dedent(
+                """
                 "Description"
                 query {
                   node {
                     id
                   }
                 }
-                """))
+                """
+            )
+        )
         assert isinstance(doc, DocumentNode)
         assert doc.loc == (0, 43)
         definitions = doc.definitions
@@ -430,9 +445,9 @@ def describe_parser():
         assert description.block is False
         assert definition.operation == OperationType.QUERY
         assert definition.name is None
-        assert definition.variable_definitions == ()
-        assert definition.directives == ()
-        selection_set: Optional[SelectionSetNode] = definition.selection_set
+        assert definition.variable_definitions is None
+        assert definition.directives is None
+        selection_set: SelectionSetNode | None = definition.selection_set
         assert isinstance(selection_set, SelectionSetNode)
         assert selection_set.loc == (20, 43)
         selections = selection_set.selections
@@ -446,8 +461,8 @@ def describe_parser():
         assert isinstance(name, NameNode)
         assert name.loc == (24, 28)
         assert name.value == "node"
-        assert field.arguments == ()
-        assert field.directives == ()
+        assert field.arguments is None
+        assert field.directives is None
         selection_set = field.selection_set
         assert isinstance(selection_set, SelectionSetNode)
         assert selection_set.loc == (29, 41)
@@ -462,18 +477,30 @@ def describe_parser():
         assert isinstance(name, NameNode)
         assert name.loc == (35, 37)
         assert name.value == "id"
-        assert field.arguments == ()
-        assert field.directives == ()
+        assert field.arguments is None
+        assert field.directives is None
         assert field.selection_set is None
 
     def allows_parsing_without_source_location_information():
         result = parse("{ id }", no_location=True)
         assert result.loc is None
 
-    def legacy_allows_parsing_fragment_defined_variables():
+    def allows_parsing_fragment_defined_variables():
         document = "fragment a($v: Boolean = false) on t { f(v: $v) }"
-        parse(document, allow_legacy_fragment_variables=True)
-        with raises(GraphQLSyntaxError):
+        parse(document, experimental_fragment_arguments=True)
+
+    def disallows_parsing_fragment_defined_variables_without_experimental_flag():
+        document = "fragment a($v: Boolean = false) on t { f(v: $v) }"
+        with pytest.raises(GraphQLSyntaxError):
+            parse(document)
+
+    def allows_parsing_fragment_spread_arguments():
+        document = "fragment a on t { ...b(v: $v) }"
+        parse(document, experimental_fragment_arguments=True)
+
+    def disallows_parsing_fragment_spread_arguments_without_experimental_flag():
+        document = "fragment a on t { ...b(v: $v) }"
+        with pytest.raises(GraphQLSyntaxError):
             parse(document)
 
     def contains_location_information_that_only_stringifies_start_end():
@@ -485,7 +512,8 @@ def describe_parser():
     def contains_references_to_source():
         source = Source("{ id }")
         result = parse(source)
-        assert result.loc and result.loc.source is source
+        assert result.loc
+        assert result.loc.source is source
 
     def contains_references_to_start_and_end_tokens():
         result = parse("{ id }")
@@ -498,19 +526,24 @@ def describe_parser():
 
     def allows_comments_everywhere_in_the_source():
         # make sure first and last line can be comment
-        result = parse("""# top comment
+        result = parse(
+            """# top comment
             {
               field # field comment
             }
-            # bottom comment""")
+            # bottom comment"""
+        )
         top_comment = result.loc and result.loc.start_token.next
-        assert top_comment and top_comment.kind is TokenKind.COMMENT
+        assert top_comment
+        assert top_comment.kind is TokenKind.COMMENT
         assert top_comment.value == " top comment"
         field_comment = top_comment.next.next.next  # type: ignore
-        assert field_comment and field_comment.kind is TokenKind.COMMENT
+        assert field_comment
+        assert field_comment.kind is TokenKind.COMMENT
         assert field_comment.value == " field comment"
         bottom_comment = field_comment.next.next  # type: ignore
-        assert bottom_comment and bottom_comment.kind is TokenKind.COMMENT
+        assert bottom_comment
+        assert bottom_comment.kind is TokenKind.COMMENT
         assert bottom_comment.value == " bottom comment"
 
     def describe_operation_and_variable_definition_descriptions():
@@ -561,7 +594,7 @@ def describe_parser():
             assert type_.name.value == "Int"
             assert type_.loc == (72, 75)
             assert var_def.default_value is None
-            assert var_def.directives == ()
+            assert var_def.directives is None
             var_def = var_defs[1]
             assert isinstance(var_def, VariableDefinitionNode)
             assert var_def.loc == (79, 130)
@@ -580,8 +613,8 @@ def describe_parser():
             assert type_.name.value == "String"
             assert type_.loc == (124, 130)
             assert var_def.default_value is None
-            assert var_def.directives == ()
-            assert op_def.directives == ()
+            assert var_def.directives is None
+            assert op_def.directives is None
             selection_set = op_def.selection_set
             assert isinstance(selection_set, SelectionSetNode)
             assert selection_set.loc == (133, 158)
@@ -599,7 +632,7 @@ def describe_parser():
             assert args[1].loc == (150, 155)
 
         def descriptions_on_a_short_hand_query_produce_a_sensible_error():
-            with raises(GraphQLSyntaxError) as exc_info:
+            with pytest.raises(GraphQLSyntaxError) as exc_info:
                 parse('"""Invalid"""\n        { __typename }')
             assert exc_info.value.message == (
                 "Syntax Error: Unexpected description,"
@@ -607,16 +640,21 @@ def describe_parser():
             )
 
         def parses_variable_definition_with_description_default_and_directives():
-            doc = parse(dedent("""
-                query (
-                  "desc"
-                  $foo: Int = 42 @dir
-                ) {
-                  field(foo: $foo)
-                }
-                """))
+            doc = parse(
+                dedent(
+                    """
+                    query (
+                      "desc"
+                      $foo: Int = 42 @dir
+                    ) {
+                      field(foo: $foo)
+                    }
+                    """
+                )
+            )
             op_def = doc.definitions[0]
             assert isinstance(op_def, OperationDefinitionNode)
+            assert op_def.variable_definitions is not None
             var_def = op_def.variable_definitions[0]
             assert isinstance(var_def, VariableDefinitionNode)
             assert var_def.loc == (10, 38)
@@ -630,7 +668,7 @@ def describe_parser():
             directive = directives[0]
             assert directive.name.value == "dir"
             assert directive.name.loc == (35, 38)
-            assert directive.arguments == ()
+            assert directive.arguments is None
             assert directive.loc == (34, 38)
             description = var_def.description
             assert isinstance(description, StringValueNode)
@@ -647,13 +685,14 @@ def describe_parser():
             assert type_.name.value == "Int"
             assert type_.loc == (25, 28)
 
-        def parses_fragment_with_variable_description_legacy():
+        def parses_fragment_with_variable_description():
             doc = parse(
                 'fragment Foo("desc" $foo: Int) on Bar { baz }',
-                allow_legacy_fragment_variables=True,
+                experimental_fragment_arguments=True,
             )
             frag_def = doc.definitions[0]
             assert isinstance(frag_def, FragmentDefinitionNode)
+            assert frag_def.variable_definitions is not None
             var_def = frag_def.variable_definitions[0]
             assert isinstance(var_def, VariableDefinitionNode)
             assert var_def.loc == (13, 29)
@@ -672,7 +711,7 @@ def describe_parser():
             assert type_.name.value == "Int"
             assert type_.loc == (26, 29)
             assert var_def.default_value is None
-            assert var_def.directives == ()
+            assert var_def.directives is None
 
 
 def describe_parse_value():
@@ -743,7 +782,7 @@ def describe_parse_value():
         assert name.value == "var"
 
     def correct_message_for_incomplete_variable():
-        with raises(GraphQLSyntaxError) as exc_info:
+        with pytest.raises(GraphQLSyntaxError) as exc_info:
             parse_value("$")
         assert exc_info.value == {
             "message": "Syntax Error: Expected Name, found <EOF>.",
@@ -751,7 +790,7 @@ def describe_parse_value():
         }
 
     def correct_message_for_unexpected_token():
-        with raises(GraphQLSyntaxError) as exc_info:
+        with pytest.raises(GraphQLSyntaxError) as exc_info:
             parse_value(":")
         assert exc_info.value == {
             "message": "Syntax Error: Unexpected ':'.",
@@ -777,7 +816,7 @@ def describe_parse_const_value():
         assert value.block is False
 
     def does_not_allow_variables():
-        with raises(GraphQLSyntaxError) as exc_info:
+        with pytest.raises(GraphQLSyntaxError) as exc_info:
             parse_const_value("{ field: $var }")
         assert exc_info.value == {
             "message": "Syntax Error: Unexpected variable '$var' in constant value.",
@@ -785,7 +824,7 @@ def describe_parse_const_value():
         }
 
     def correct_message_for_unexpected_token():
-        with raises(GraphQLSyntaxError) as exc_info:
+        with pytest.raises(GraphQLSyntaxError) as exc_info:
             parse_const_value("$$")
         assert exc_info.value == {
             "message": "Syntax Error: Unexpected '$'.",
@@ -876,7 +915,7 @@ def describe_parse_schema_coordinate():
         assert member_name.value == "field"
 
     def rejects_name_dot_name_dot_name():
-        with raises(GraphQLSyntaxError) as exc_info:
+        with pytest.raises(GraphQLSyntaxError) as exc_info:
             parse_schema_coordinate("MyType.field.deep")
         assert exc_info.value == {
             "message": "Syntax Error: Expected <EOF>, found '.'.",
@@ -901,7 +940,7 @@ def describe_parse_schema_coordinate():
         assert argument_name.value == "arg"
 
     def rejects_name_dot_name_argument_with_value():
-        with raises(GraphQLSyntaxError) as exc_info:
+        with pytest.raises(GraphQLSyntaxError) as exc_info:
             parse_schema_coordinate("MyType.field(arg: value)")
         assert exc_info.value == {
             "message": "Syntax Error: Invalid character: ' '.",
@@ -970,7 +1009,7 @@ def describe_parse_schema_coordinate():
         assert argument_name.value == "arg"
 
     def rejects_directive_dot_name():
-        with raises(GraphQLSyntaxError) as exc_info:
+        with pytest.raises(GraphQLSyntaxError) as exc_info:
             parse_schema_coordinate("@myDirective.field")
         assert exc_info.value == {
             "message": "Syntax Error: Expected <EOF>, found '.'.",

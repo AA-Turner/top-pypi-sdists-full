@@ -240,6 +240,60 @@ def _is_request_cancelled(request_id: str | None) -> bool:
     return RequestControlRegistry.get_instance().is_cancelled(request_id)
 
 
+class ProviderCallStopped(Exception):
+    """The person stopped the run WHILE the provider was generating."""
+
+    def __init__(self, reason: str) -> None:
+        super().__init__(reason)
+        self.reason = reason
+
+
+# How often a running provider call re-checks the stop layers. The in-process
+# registry is a dict read (cheap, every tick); the runtime spine is a DB read
+# (cross-process — a cancel POST can land on another worker), polled slower.
+_STOP_POLL_SECONDS = 0.25
+_SPINE_STOP_POLL_SECONDS = 2.0
+
+
+async def _execute_stoppable(call: Any, request_id: str | None) -> Any:
+    """Await one provider call, but stop it the moment the run is cancelled.
+
+    Before this, ``POST /ai/cancel`` was only polled at ITERATION boundaries, so
+    a single-turn agent (one provider call, no tools — every Fact Checker run)
+    could never be stopped: the call generated to the end and the run was
+    recorded complete (page-pass 2026-09-27, conversation e23b3153). Now the
+    call runs as a task beside a stop poll; a cancel (in-process registry, or
+    the durable spine row from another worker) cancels the provider stream —
+    generation actually stops — and raises ``ProviderCallStopped`` for the
+    caller's cancelled-run path.
+    """
+    task = asyncio.ensure_future(call)
+    last_spine = time.monotonic()
+    try:
+        while True:
+            done, _ = await asyncio.wait({task}, timeout=_STOP_POLL_SECONDS)
+            if done:
+                return task.result()
+            reason: str | None = None
+            if _is_request_cancelled(request_id):
+                reason = "Request cancelled while the model was generating."
+            elif time.monotonic() - last_spine >= _SPINE_STOP_POLL_SECONDS:
+                last_spine = time.monotonic()
+                spine = await _spine_stop_reason()
+                if spine:
+                    reason = f"Request stopped by execution control: {spine}"
+            if reason:
+                task.cancel()
+                try:
+                    await task
+                except BaseException:  # noqa: BLE001 — the cancelled call's own unwinding
+                    pass
+                raise ProviderCallStopped(reason)
+    except asyncio.CancelledError:
+        task.cancel()
+        raise
+
+
 def _is_request_interrupted(request_id: str | None) -> bool:
     if not request_id:
         return False
@@ -582,6 +636,118 @@ def _build_skipped_tool_results(
         )
         for tc in unpaired
     ]
+
+
+def _interrupted_tool_results(
+    response: UnifiedResponse,
+    current_request: AIMatrixRequest,
+    *,
+    reason: str,
+) -> list[ToolResultContent]:
+    """One honest ``ToolResultContent`` per UNPAIRED tool_use in ``response``.
+
+    Used when a turn is cut off while its tool calls are being dispatched
+    (cancel, client disconnect, server shutdown, iteration error). The status
+    comes from the turn's tool-call ledger — the in-process mirror of the
+    chat.tool_call rows — so a call that really finished is not reported as a
+    failure and a call that was still running (or never started) is never
+    reported as a success. The durable row stays the source of truth for the
+    output: the tool-result message only carries pointer blocks, and the
+    rebuild reads output / is_error from the row it now links to.
+    """
+    from matrx_ai.tools.turn_ledger import get_turn_ledger
+
+    paired: set[str] = set()
+    for msg in current_request.config.messages.to_list():
+        for content in getattr(msg, "content", None) or []:
+            if isinstance(content, ToolResultContent):
+                _tid = getattr(content, "tool_use_id", None) or getattr(content, "call_id", None)
+                if _tid:
+                    paired.add(_tid)
+
+    ledger = get_turn_ledger()
+    by_key = getattr(ledger, "_by_key", {}) if ledger is not None else {}
+
+    results: list[ToolResultContent] = []
+    for msg in response.messages:
+        for content in getattr(msg, "content", None) or []:
+            if not isinstance(content, ToolCallContent) or not content.id:
+                continue
+            if content.id in paired:
+                continue
+            entry = by_key.get(content.id)
+            status = getattr(entry, "status", None)
+            if status == "completed":
+                text = (
+                    f"The tool finished, but the turn was {reason} before its "
+                    "result reached the model."
+                )
+                is_error = False
+            elif status in ("error", "rejected"):
+                text = (
+                    f"The tool failed and the turn was then {reason}: "
+                    f"{getattr(entry, 'error_text', None) or 'Unknown error'}"
+                )
+                is_error = True
+            else:
+                text = (
+                    f"Interrupted: the turn was {reason} before this tool returned a result."
+                )
+                is_error = True
+            results.append(
+                ToolResultContent(
+                    tool_use_id=content.id,
+                    call_id=content.id,
+                    name=content.name,
+                    content=text,
+                    is_error=is_error,
+                )
+            )
+    return results
+
+
+def _attach_interrupted_tool_turn(
+    current_request: AIMatrixRequest,
+    state: ExecutionState | None,
+    *,
+    reason: str,
+) -> AIMatrixRequest:
+    """Carry the in-flight tool-dispatch turn into ``current_request``.
+
+    While ``state.tool_dispatch_response`` is set, the assistant tool_use turn
+    exists nowhere else: the loop appends it only AFTER ``handle_tool_calls``
+    returns. An interrupt that skips this persisted only an empty assistant
+    placeholder, no tool-result message, and left every chat.tool_call row of
+    the turn with message_id NULL — so a reload showed nothing (or a stub)
+    where the live turn had shown the calls and their errors. Appending the
+    response with one honest result per call lets the normal finalize write
+    both messages and link every row by call_id. Idempotent (the state field is
+    consumed) and never raises: a persistence helper must not break the unwind
+    it is trying to save.
+    """
+    if state is None:
+        return current_request
+    response = state.tool_dispatch_response
+    state.tool_dispatch_response = None
+    if response is None or not getattr(response, "messages", None):
+        return current_request
+    try:
+        tool_results = _interrupted_tool_results(response, current_request, reason=reason)
+        updated = AIMatrixRequest.add_response(
+            original_request=current_request,
+            response=response,
+            tool_results=tool_results or None,
+        )
+        state.current_request = updated
+        return updated
+    except Exception as _err:
+        vcprint(
+            f"[execute_until_complete] interrupted tool turn could not be attached "
+            f"({type(_err).__name__}: {_err}) — its chat.tool_call rows will keep "
+            f"message_id NULL and the reload will not show this turn's tool calls.",
+            color="red",
+        )
+        return current_request
 
 
 async def _exit_with_loop_guard(
@@ -3640,7 +3806,20 @@ async def execute_until_complete(
                 if isinstance(_completed_response, UnifiedResponse)
                 else UnifiedResponse(messages=[])
             )
-            if _interrupt_final_resp.messages:
+            _dispatch_resp = state.tool_dispatch_response
+            if _dispatch_resp is not None:
+                # Cut off WHILE its tool calls ran: the provider turn is
+                # complete — persist it (tool_use + one honest result per call)
+                # instead of the streamed-text fallback, so every chat.tool_call
+                # row of the turn links to its tool-result message.
+                state.current_request = _attach_interrupted_tool_turn(
+                    state.current_request,
+                    state,
+                    reason="cancelled (client disconnect or server shutdown)",
+                )
+                _interrupt_final_resp = _dispatch_resp
+                _partial_text = ""
+            elif _interrupt_final_resp.messages:
                 try:
                     state.current_request = AIMatrixRequest.add_response(
                         original_request=state.current_request,
@@ -4304,7 +4483,35 @@ async def _execute_until_complete_inner(
                 mark_first_provider_call()
                 try:
                     async with buffer_error_events():
-                        api_response: UnifiedResponse = await client.execute(current_request)
+                        api_response: UnifiedResponse = await _execute_stoppable(
+                            client.execute(current_request), request_control_id
+                        )
+                except ProviderCallStopped as _stopped:
+                    if _wire_config is not None:
+                        current_request.config = _orig_config
+                    await exec_ctx.emitter.send_phase("complete")
+                    await exec_ctx.emitter.send_info(
+                        InfoPayload(
+                            code="request_cancelled",
+                            system_message=_stopped.reason,
+                            user_message="Request cancelled.",
+                            metadata={"iteration": iteration, "retry_attempt": retry_attempt},
+                        )
+                    )
+                    return await _finalize_and_persist(
+                        current_request=current_request,
+                        iteration=iteration,
+                        final_response=UnifiedResponse(messages=[]),
+                        metadata={
+                            "status": "cancelled",
+                            "error": _stopped.reason,
+                            "cancelled_iteration": iteration,
+                        },
+                        trigger_position=trigger_position,
+                        pre_execution_message_count=pre_execution_message_count,
+                        debug=debug,
+                        state=state,
+                    )
                 except Exception as _provider_exc:
                     if _wire_config is not None:
                         current_request.config = _orig_config
@@ -5601,7 +5808,8 @@ async def _execute_until_complete_inner(
         # SSE dies or the server restarts during the wait, the conversation is
         # still fully reconstructable from cx_message + cx_tool_call rows.
         iteration_message_id: str | None = None
-        if _response_has_live_client_delegated_call(response):
+        _has_client_delegated_call = _response_has_live_client_delegated_call(response)
+        if _has_client_delegated_call:
             iteration_message_id = await _flush_assistant_message_mid_loop(
                 response=response,
                 current_request=current_request,
@@ -5662,6 +5870,13 @@ async def _execute_until_complete_inner(
 
         # Process tool calls
         try:
+            # Until add_response below carries it, this turn's tool_use exists
+            # only here — an interrupt attaches it (_attach_interrupted_tool_turn).
+            # A client-delegated turn is excluded: its assistant row was flushed
+            # above and its results arrive by POST /tool_results + /resume, so an
+            # interrupt must leave the delegated call open, never answer it.
+            if state is not None and not _has_client_delegated_call:
+                state.tool_dispatch_response = response
             # Check for tool calls
             t0 = time.time()
             (
@@ -5701,6 +5916,7 @@ async def _execute_until_complete_inner(
             # between here and the next loop top, the outer handler still has
             # the full accumulated cost.
             state.current_request = current_request
+            state.tool_dispatch_response = None
 
             # Turn-directive scan (host seam) — the model can groom context
             # mid-prose via an inline fence without spending a tool call; the
@@ -6613,6 +6829,13 @@ async def _execute_until_complete_inner(
                     color="yellow",
                     verbose=debug,
                 )
+
+            # A failure DURING tool dispatch: the tool_use turn is not in
+            # current_request yet — attach it with honest results so its
+            # messages persist and its chat.tool_call rows are linked.
+            current_request = _attach_interrupted_tool_turn(
+                current_request, state, reason=f"stopped by an error ({type(e).__name__})"
+            )
 
             # Return a CompletedRequest with error information
             # This ensures the client never loses accumulated data

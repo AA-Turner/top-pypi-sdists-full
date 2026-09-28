@@ -1,11 +1,11 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: geoarrow-pandas
-Version: 0.1.1
+Version: 0.1.3
 Author-email: Dewey Dunnington <dewey@dunnington.ca>
 License: Apache-2.0
 Project-URL: homepage, https://arrow.apache.org
 Project-URL: repository, https://github.com/geoarrow/geoarrow-python
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Requires-Dist: geoarrow-pyarrow
 Requires-Dist: pandas
 Requires-Dist: pyarrow

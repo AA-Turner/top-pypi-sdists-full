@@ -95,4 +95,4 @@ def test_no_organization_anywhere_refuses_by_name(monkeypatch):
     assert "org-scoped" in message
     # The remedy names where the organization comes from, and says plainly that
     # the database is never the one to guess it.
-    assert "personal organization" in message
+    assert "an organization nobody chose" in message

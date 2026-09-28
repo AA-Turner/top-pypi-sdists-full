@@ -1,19 +1,13 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: openbb-etf
-Version: 1.6.2
+Version: 2.0.0
 Summary: ETF extension for OpenBB
-License: AGPL-3.0-only
-Author: OpenBB Team
-Author-email: hello@openbb.co
-Requires-Python: >=3.10,<4
-Classifier: License :: OSI Approved :: GNU Affero General Public License v3
-Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
-Classifier: Programming Language :: Python :: 3.12
-Classifier: Programming Language :: Python :: 3.13
-Classifier: Programming Language :: Python :: 3.14
-Requires-Dist: openbb-core (>=1.6.10,<2.0.0)
+Project-URL: Homepage, https://openbb.co
+Project-URL: Repository, https://github.com/OpenBB-finance/OpenBB
+Author-email: OpenBB Team <hello@openbb.co>
+License: Apache-2.0
+Requires-Python: <4,>=3.10
+Requires-Dist: openbb-core>=2.0.0
 Description-Content-Type: text/markdown
 
 # ETF data extension for OpenBB SDK
@@ -27,4 +21,3 @@ To install the extension, run the following command in this folder:
 ```bash
 pip install openbb-etf
 ```
-

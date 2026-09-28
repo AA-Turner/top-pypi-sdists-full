@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: gql
-Version: 4.0.0
+Version: 4.4.0
 Summary: GraphQL client for Python
 Home-page: https://github.com/graphql-python/gql
 Author: Syrus Akbary
@@ -13,75 +13,82 @@ Classifier: Intended Audience :: Developers
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Implementation :: PyPy
-Requires-Python: >=3.8.1
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: graphql-core<3.3,>=3.2
+Requires-Dist: graphql-core<3.4,>=3.3.0a3
 Requires-Dist: yarl<2.0,>=1.6
-Requires-Dist: backoff<3.0,>=1.11.1
+Requires-Dist: tenacity<10.0,>=9.1.2
 Requires-Dist: anyio<5,>=3.0
+Requires-Dist: typing_extensions>=4.0.0; python_version < "3.11"
 Provides-Extra: all
 Requires-Dist: aiohttp<4,>=3.11.2; extra == "all"
 Requires-Dist: requests<3,>=2.26; extra == "all"
 Requires-Dist: requests_toolbelt<2,>=1.0.0; extra == "all"
-Requires-Dist: httpx<1,>=0.27.0; extra == "all"
-Requires-Dist: websockets<16,>=14.2; extra == "all"
+Requires-Dist: httpx2<3,>=2.0.0; extra == "all"
+Requires-Dist: websockets<18,>=14.2; python_version >= "3.11" and extra == "all"
+Requires-Dist: websockets<17,>=14.2; python_version < "3.11" and extra == "all"
 Requires-Dist: botocore<2,>=1.21; extra == "all"
 Requires-Dist: aiofiles; extra == "all"
 Provides-Extra: test
 Requires-Dist: aiohttp<4,>=3.11.2; extra == "test"
 Requires-Dist: requests<3,>=2.26; extra == "test"
 Requires-Dist: requests_toolbelt<2,>=1.0.0; extra == "test"
-Requires-Dist: httpx<1,>=0.27.0; extra == "test"
-Requires-Dist: websockets<16,>=14.2; extra == "test"
+Requires-Dist: httpx2<3,>=2.0.0; extra == "test"
+Requires-Dist: websockets<18,>=14.2; python_version >= "3.11" and extra == "test"
+Requires-Dist: websockets<17,>=14.2; python_version < "3.11" and extra == "test"
 Requires-Dist: botocore<2,>=1.21; extra == "test"
 Requires-Dist: aiofiles; extra == "test"
 Requires-Dist: parse==1.20.2; extra == "test"
-Requires-Dist: pytest==8.3.4; extra == "test"
-Requires-Dist: pytest-asyncio==0.25.3; extra == "test"
+Requires-Dist: packaging>=21.0; extra == "test"
+Requires-Dist: pytest==9.1.1; extra == "test"
+Requires-Dist: pytest-asyncio==1.4.0; extra == "test"
 Requires-Dist: pytest-console-scripts==1.4.1; extra == "test"
-Requires-Dist: pytest-cov==6.0.0; extra == "test"
-Requires-Dist: vcrpy==7.0.0; extra == "test"
+Requires-Dist: pytest-cov==7.1.0; extra == "test"
+Requires-Dist: vcrpy==8.2.1; extra == "test"
 Requires-Dist: aiofiles; extra == "test"
 Provides-Extra: test-no-transport
 Requires-Dist: parse==1.20.2; extra == "test-no-transport"
-Requires-Dist: pytest==8.3.4; extra == "test-no-transport"
-Requires-Dist: pytest-asyncio==0.25.3; extra == "test-no-transport"
+Requires-Dist: packaging>=21.0; extra == "test-no-transport"
+Requires-Dist: pytest==9.1.1; extra == "test-no-transport"
+Requires-Dist: pytest-asyncio==1.4.0; extra == "test-no-transport"
 Requires-Dist: pytest-console-scripts==1.4.1; extra == "test-no-transport"
-Requires-Dist: pytest-cov==6.0.0; extra == "test-no-transport"
-Requires-Dist: vcrpy==7.0.0; extra == "test-no-transport"
+Requires-Dist: pytest-cov==7.1.0; extra == "test-no-transport"
+Requires-Dist: vcrpy==8.2.1; extra == "test-no-transport"
 Requires-Dist: aiofiles; extra == "test-no-transport"
 Provides-Extra: dev
 Requires-Dist: aiohttp<4,>=3.11.2; extra == "dev"
 Requires-Dist: requests<3,>=2.26; extra == "dev"
 Requires-Dist: requests_toolbelt<2,>=1.0.0; extra == "dev"
-Requires-Dist: httpx<1,>=0.27.0; extra == "dev"
-Requires-Dist: websockets<16,>=14.2; extra == "dev"
+Requires-Dist: httpx2<3,>=2.0.0; extra == "dev"
+Requires-Dist: websockets<18,>=14.2; python_version >= "3.11" and extra == "dev"
+Requires-Dist: websockets<17,>=14.2; python_version < "3.11" and extra == "dev"
 Requires-Dist: botocore<2,>=1.21; extra == "dev"
 Requires-Dist: aiofiles; extra == "dev"
-Requires-Dist: black==25.1.0; extra == "dev"
+Requires-Dist: black==26.5.1; extra == "dev"
 Requires-Dist: check-manifest<1,>=0.42; extra == "dev"
-Requires-Dist: flake8==7.1.2; extra == "dev"
-Requires-Dist: isort==6.0.1; extra == "dev"
-Requires-Dist: mypy==1.15; extra == "dev"
-Requires-Dist: sphinx<8,>=7.0.0; python_version <= "3.9" and extra == "dev"
-Requires-Dist: sphinx<9,>=8.1.0; python_version > "3.9" and extra == "dev"
+Requires-Dist: flake8==7.3.0; extra == "dev"
+Requires-Dist: isort==8.0.1; extra == "dev"
+Requires-Dist: mypy==2.1.0; extra == "dev"
+Requires-Dist: sphinx<9,>=8.1.0; extra == "dev"
 Requires-Dist: sphinx_rtd_theme<4,>=3.0.2; extra == "dev"
 Requires-Dist: sphinx-argparse==0.5.2; extra == "dev"
 Requires-Dist: types-aiofiles; extra == "dev"
 Requires-Dist: types-requests; extra == "dev"
 Requires-Dist: parse==1.20.2; extra == "dev"
-Requires-Dist: pytest==8.3.4; extra == "dev"
-Requires-Dist: pytest-asyncio==0.25.3; extra == "dev"
+Requires-Dist: packaging>=21.0; extra == "dev"
+Requires-Dist: pytest==9.1.1; extra == "dev"
+Requires-Dist: pytest-asyncio==1.4.0; extra == "dev"
 Requires-Dist: pytest-console-scripts==1.4.1; extra == "dev"
-Requires-Dist: pytest-cov==6.0.0; extra == "dev"
-Requires-Dist: vcrpy==7.0.0; extra == "dev"
+Requires-Dist: pytest-cov==7.1.0; extra == "dev"
+Requires-Dist: vcrpy==8.2.1; extra == "dev"
 Requires-Dist: aiofiles; extra == "dev"
 Provides-Extra: aiohttp
 Requires-Dist: aiohttp<4,>=3.11.2; extra == "aiohttp"
@@ -90,8 +97,11 @@ Requires-Dist: requests<3,>=2.26; extra == "requests"
 Requires-Dist: requests_toolbelt<2,>=1.0.0; extra == "requests"
 Provides-Extra: httpx
 Requires-Dist: httpx<1,>=0.27.0; extra == "httpx"
+Provides-Extra: httpx2
+Requires-Dist: httpx2<3,>=2.0.0; extra == "httpx2"
 Provides-Extra: websockets
-Requires-Dist: websockets<16,>=14.2; extra == "websockets"
+Requires-Dist: websockets<18,>=14.2; python_version >= "3.11" and extra == "websockets"
+Requires-Dist: websockets<17,>=14.2; python_version < "3.11" and extra == "websockets"
 Provides-Extra: botocore
 Requires-Dist: botocore<2,>=1.21; extra == "botocore"
 Provides-Extra: aiofiles
@@ -140,13 +150,14 @@ The complete documentation for GQL can be found at
 
 ## Features
 
-* Execute GraphQL queries using [different protocols](https://gql.readthedocs.io/en/latest/transports/index.html):
+* Execute GraphQL requests using [different protocols](https://gql.readthedocs.io/en/latest/transports/index.html):
   * http
+    * including the multipart protocol for subscriptions
   * websockets:
     * apollo or graphql-ws protocol
     * Phoenix channels
-    * AWS AppSync realtime protocol (experimental)
-* Possibility to [validate the queries locally](https://gql.readthedocs.io/en/latest/usage/validation.html) using a GraphQL schema provided locally or fetched from the backend using an instrospection query
+    * AWS AppSync realtime protocol
+* Possibility to [validate the requests locally](https://gql.readthedocs.io/en/latest/usage/validation.html) using a GraphQL schema provided locally or fetched from the backend using an instrospection query
 * Supports GraphQL queries, mutations and [subscriptions](https://gql.readthedocs.io/en/latest/usage/subscriptions.html)
 * Supports [sync](https://gql.readthedocs.io/en/latest/usage/sync_usage.html) or [async](https://gql.readthedocs.io/en/latest/usage/async_usage.html) usage, [allowing concurrent requests](https://gql.readthedocs.io/en/latest/advanced/async_advanced_usage.html#async-advanced-usage)
 * Supports [File uploads](https://gql.readthedocs.io/en/latest/usage/file_upload.html)

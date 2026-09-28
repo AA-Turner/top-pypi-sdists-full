@@ -1,7 +1,7 @@
 use super::identity::{
     canonical_global_local_name, classify_owner_pair,
     localize_current_owner_name, localize_source_global_name,
-    owner_rooted_parse_roots_for_projection, parse_agent_family_name,
+    owner_rooted_parse_roots_for_projection, parse_agent_session_name,
     parse_owned_agent_name, source_owner_root_for_destination,
     AgentIdentityError, AgentOwnerIdentity, AgentOwnershipClassification,
 };
@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 use thiserror::Error;
 
-pub const AGENT_RELATIONSHIP_SCHEMA_VERSION: u32 = 2;
+pub const AGENT_RELATIONSHIP_SCHEMA_VERSION: u32 = 3;
 
 const MAX_RUNS: usize = 4_096;
 const MAX_CONTAINERS: usize = 2_048;
@@ -45,14 +45,15 @@ pub struct AgentRunWire {
 )]
 #[serde(rename_all = "snake_case")]
 pub enum AgentContainerKind {
-    Family,
+    #[serde(rename = "session", alias = "family")]
+    Session,
     Clan,
 }
 
 impl AgentContainerKind {
     const fn as_str(self) -> &'static str {
         match self {
-            Self::Family => "family",
+            Self::Session => "session",
             Self::Clan => "clan",
         }
     }
@@ -348,17 +349,17 @@ pub enum AgentRelationshipError {
     },
 
     #[error(
-        "family container '{global_name}' contains run '{run_id}' from family '{actual_family}', expected '{expected_family}'"
+        "agent session container '{global_name}' contains run '{run_id}' from agent session '{actual_agent_session}', expected '{expected_agent_session}'"
     )]
-    FamilyContainerMemberMismatch {
+    AgentSessionContainerMemberMismatch {
         global_name: String,
         run_id: String,
-        actual_family: String,
-        expected_family: String,
+        actual_agent_session: String,
+        expected_agent_session: String,
     },
 
     #[error(
-        "{kind} container '{global_name}' must name a structural base, not family member '{local_name}'"
+        "{kind} container '{global_name}' must name a structural base, not agent session member '{local_name}'"
     )]
     InvalidContainerName {
         kind: &'static str,
@@ -457,7 +458,10 @@ pub enum AgentRelationshipError {
 pub fn validate_agent_relationship_batch(
     batch: &AgentRelationshipBatchWire,
 ) -> Result<ValidatedAgentRelationshipSummaryWire, AgentRelationshipError> {
-    if batch.schema_version != AGENT_RELATIONSHIP_SCHEMA_VERSION {
+    // Published agents-sidecar snapshots are durable and still stamp their
+    // batches with the pre-agent-session-contract v2; those differ only in
+    // the legacy `family` container kind, which deserializes as a session.
+    if !matches!(batch.schema_version, 2 | AGENT_RELATIONSHIP_SCHEMA_VERSION) {
         return Err(AgentRelationshipError::UnsupportedSchema {
             actual: batch.schema_version,
             expected: AGENT_RELATIONSHIP_SCHEMA_VERSION,
@@ -1000,7 +1004,7 @@ fn validate_containers(
             }
         })?;
         let parsed =
-            parse_agent_family_name(&local_name).map_err(|source| {
+            parse_agent_session_name(&local_name).map_err(|source| {
                 AgentRelationshipError::InvalidGlobalName {
                     context: format!("{} container", container.kind.as_str()),
                     name: container.global_name.clone(),
@@ -1048,23 +1052,23 @@ fn validate_containers(
                     run_id: run_id.clone(),
                 });
             }
-            if container.kind == AgentContainerKind::Family {
+            if container.kind == AgentContainerKind::Session {
                 let member_local_name = &run_local_names[run_id];
-                let member_family = parse_agent_family_name(member_local_name)
-                    .map_err(|source| {
-                        AgentRelationshipError::InvalidGlobalName {
+                let member_agent_session =
+                    parse_agent_session_name(member_local_name).map_err(
+                        |source| AgentRelationshipError::InvalidGlobalName {
                             context: format!("run '{run_id}'"),
                             name: member_local_name.clone(),
                             source: Box::new(source),
-                        }
-                    })?;
-                if member_family.family_name != local_name {
+                        },
+                    )?;
+                if member_agent_session.agent_session_name != local_name {
                     return Err(
-                        AgentRelationshipError::FamilyContainerMemberMismatch {
+                        AgentRelationshipError::AgentSessionContainerMemberMismatch {
                             global_name: container.global_name.clone(),
                             run_id: run_id.clone(),
-                            actual_family: member_family.family_name,
-                            expected_family: local_name.clone(),
+                            actual_agent_session: member_agent_session.agent_session_name,
+                            expected_agent_session: local_name.clone(),
                         },
                     );
                 }
@@ -1469,7 +1473,7 @@ mod tests {
             ],
             containers: vec![
                 AgentRunContainerWire {
-                    kind: AgentContainerKind::Family,
+                    kind: AgentContainerKind::Session,
                     global_name: "alice.athena.foo".to_string(),
                     owner: owner("alice", "athena"),
                     member_source_run_ids: vec![
@@ -1504,18 +1508,18 @@ mod tests {
     fn valid_mixed_batch_returns_canonical_summary() {
         let summary =
             validate_agent_relationship_batch(&valid_batch()).unwrap();
-        assert_eq!(summary.schema_version, 2);
+        assert_eq!(summary.schema_version, 3);
         assert_eq!(summary.run_count, 4);
         assert_eq!(summary.run_order, ["run-1", "run-2", "run-3", "run-4"]);
         assert_eq!(
             summary.container_order,
-            ["clan:alice.athena.work", "family:alice.athena.foo"]
+            ["clan:alice.athena.work", "session:alice.athena.foo"]
         );
         assert_eq!(summary.relationship_order.len(), 4);
     }
 
     #[test]
-    fn historical_family_names_validate_in_relationship_batches() {
+    fn historical_agent_session_names_validate_in_relationship_batches() {
         let batch = AgentRelationshipBatchWire {
             schema_version: AGENT_RELATIONSHIP_SCHEMA_VERSION,
             owner: owner("alice", "athena"),
@@ -1524,7 +1528,7 @@ mod tests {
                 run("run-2", "fi--code.f0--code"),
             ],
             containers: vec![AgentRunContainerWire {
-                kind: AgentContainerKind::Family,
+                kind: AgentContainerKind::Session,
                 global_name: "alice.athena.fi--code.f0".to_string(),
                 owner: owner("alice", "athena"),
                 member_source_run_ids: vec![
@@ -1539,7 +1543,50 @@ mod tests {
         assert_eq!(summary.run_count, 2);
         assert_eq!(
             summary.container_order,
-            ["family:alice.athena.fi--code.f0"]
+            ["session:alice.athena.fi--code.f0"]
+        );
+    }
+
+    #[test]
+    fn pre_contract_v2_batch_with_family_container_still_validates() {
+        let mut value = serde_json::to_value(valid_batch()).unwrap();
+        value["schema_version"] = json!(2);
+        value["containers"][0]["kind"] = json!("family");
+        let batch: AgentRelationshipBatchWire =
+            serde_json::from_value(value).unwrap();
+
+        let summary = validate_agent_relationship_batch(&batch).unwrap();
+
+        assert_eq!(summary.schema_version, AGENT_RELATIONSHIP_SCHEMA_VERSION);
+        assert_eq!(summary.container_count, 2);
+        assert!(summary
+            .container_order
+            .contains(&"session:alice.athena.foo".to_string()));
+    }
+
+    #[test]
+    fn container_kind_accepts_legacy_family_and_serializes_session() {
+        let legacy: AgentRunContainerWire =
+            serde_json::from_value(serde_json::json!({
+                "kind": "family",
+                "global_name": "alice.athena.foo",
+                "owner": {"username": "alice", "machine_name": "athena"},
+                "member_source_run_ids": ["run-1"],
+            }))
+            .unwrap();
+        let new: AgentRunContainerWire =
+            serde_json::from_value(serde_json::json!({
+                "kind": "session",
+                "global_name": "alice.athena.foo",
+                "owner": {"username": "alice", "machine_name": "athena"},
+                "member_source_run_ids": ["run-1"],
+            }))
+            .unwrap();
+        assert_eq!(legacy, new);
+        assert_eq!(legacy.kind, AgentContainerKind::Session);
+        assert_eq!(
+            serde_json::to_value(&legacy).unwrap()["kind"],
+            serde_json::json!("session"),
         );
     }
 
@@ -1640,7 +1687,9 @@ mod tests {
         batch.containers[0].member_source_run_ids = vec!["run-3".to_string()];
         assert!(matches!(
             validate_agent_relationship_batch(&batch),
-            Err(AgentRelationshipError::FamilyContainerMemberMismatch { .. })
+            Err(
+                AgentRelationshipError::AgentSessionContainerMemberMismatch { .. }
+            )
         ));
     }
 

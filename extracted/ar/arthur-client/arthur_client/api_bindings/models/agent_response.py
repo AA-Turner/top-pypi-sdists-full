@@ -40,7 +40,7 @@ class AgentResponse(BaseModel):
     created_at: datetime = Field(description="Timestamp when this agent was created.")
     updated_at: datetime = Field(description="Timestamp when this agent was last updated.")
     name: StrictStr = Field(description="Name of the agent.")
-    data_plane_id: StrictStr = Field(description="UUID of the data plane where this agent was detected.")
+    data_plane_id: StrictStr = Field(description="ID of the engine this agent was detected on. Data plane is the legacy API name for an engine.")
     task_id: StrictStr = Field(description="UUID of the associated task.")
     provenance: Optional[ProvenanceInput] = None
     model_id: Optional[StrictStr] = None
@@ -51,17 +51,17 @@ class AgentResponse(BaseModel):
     muted_until: Optional[datetime] = None
     id: StrictStr = Field(description="Agent ID.")
     workspace_id: StrictStr = Field(description="UUID of the workspace this agent belongs to.")
-    evidence: Optional[List[EvidenceResponse]] = Field(default=None, description="Every sensor's report of this agent, one record each. A list rather than the singular creation_source it replaces: two sensors disagree about how much they can see, when they last looked and whether they are still reporting, and flattening them would make one of those answers win arbitrarily. Merged per sensor on upsert rather than replaced, so a fetch job scoped to one discovery source cannot wipe another source's evidence.")
+    evidence: Optional[List[EvidenceResponse]] = Field(default=None, description="Every source's report of this agent, one record each. A list rather than the singular creation_source it replaces: two sources disagree about how much they can see, when they last looked and whether they are still reporting, and flattening them would make one of those answers win arbitrarily. Merged per source on upsert rather than replaced, so a fetch job scoped to one discovery source cannot wipe another source's evidence.")
     creation_source: AgentCreationSource = Field(description="DEPRECATED -- use `evidence`. Retained so publishers that predate the evidence model keep working: on write it is wrapped into a single evidence record, and on read it is served from the agent's primary evidence record.")
     tools: Optional[List[ToolResponse]] = Field(default=None, description="Tools used by this agent.")
     sub_agents: Optional[List[SubAgentResponse]] = Field(default=None, description="Sub-agents used by this agent.")
     llm_models: Optional[List[LLMModelResponse]] = Field(default=None, description="LLM models used by this agent.")
     data_sources: Optional[List[DataSourceResponse]] = Field(default=None, description="Data sources used by this agent.")
-    infrastructure: RunsOn = Field(description="Where the machine hosting this agent is, served from `provenance.runs_on`. Typed as RunsOn rather than the data plane's Infrastructure enum because that enum describes how the ENGINE was deployed and cannot say `endpoint` or `unknown` -- so a Jamf finding used to report the engine's cloud. Agents with no provenance fall back to their data plane's infrastructure, which is what it has always meant for them.")
-    is_stale: Optional[StrictBool] = Field(default=False, description="Whether every sensor reporting this agent has gone quiet. An AND across evidence, not an OR: a finding corroborated by a live Splunk query is not stale because a decommissioned Jamf source stopped answering. False for an agent with no evidence, which is every agent predating discovery.")
+    infrastructure: RunsOn = Field(description="Where the machine hosting this agent is, served from `provenance.runs_on`. Typed as RunsOn rather than the data plane's Infrastructure enum because that enum describes how the ENGINE was deployed and cannot say `endpoint` or `unknown` -- so a Jamf record used to report the engine's cloud. Agents with no provenance fall back to their data plane's infrastructure, which is what it has always meant for them.")
+    is_stale: Optional[StrictBool] = Field(default=False, description="Whether every source reporting this agent has gone quiet. An AND across evidence, not an OR: a record corroborated by a live Splunk query is not stale because a decommissioned Jamf source stopped answering. False for an agent with no evidence, which is every agent predating discovery.")
     source_ids: Optional[List[StrictStr]] = Field(default=None, description="Discovery sources behind this agent, in evidence order. Backs the inventory's \"Found by\" column and the source_id filter. Evidence with no configured source behind it -- OTEL, manual, anything predating discovery -- contributes nothing here.")
-    external_ids: Optional[List[StrictStr]] = Field(default=None, description="The sources' own identifiers for this agent, in evidence order. Canonical identity, never reconciled across sensors, so an agent seen by two sources legitimately carries two different values.")
-    source_classes: Optional[List[SourceClass]] = Field(default=None, description="Where this agent has been observed from -- cloud, siem, endpoint, otel or manual -- in evidence order. Backs the \"Found by\" column and the source_type filter.")
+    external_ids: Optional[List[StrictStr]] = Field(default=None, description="The sources' own identifiers for this agent, in evidence order. Canonical identity, never reconciled across sources, so an agent seen by two sources legitimately carries two different values.")
+    source_classes: Optional[List[SourceClass]] = Field(default=None, description="Where this agent has been observed from -- cloud, siem, endpoint, otel or manual -- in evidence order. Backs the \"Found by\" column and the source_classes filter.")
     __properties: ClassVar[List[str]] = ["created_at", "updated_at", "name", "data_plane_id", "task_id", "provenance", "model_id", "num_spans", "is_autocreated", "rules", "last_fetched", "muted_until", "id", "workspace_id", "evidence", "creation_source", "tools", "sub_agents", "llm_models", "data_sources", "infrastructure", "is_stale", "source_ids", "external_ids", "source_classes"]
 
     model_config = ConfigDict(

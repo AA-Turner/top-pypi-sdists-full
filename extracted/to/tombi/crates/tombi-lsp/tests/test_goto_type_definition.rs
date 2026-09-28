@@ -852,6 +852,31 @@ mod goto_type_definition_tests {
         );
     }
 
+    mod issue_2164_compound_schema {
+        use super::*;
+
+        fn fixture_path() -> std::path::PathBuf {
+            tombi_test_lib::project_root_path()
+                .join("crates/tombi-lsp/tests/fixtures/issue-2164-compound-schema")
+        }
+
+        test_goto_type_definition!(
+            #[tokio::test]
+            async fn navigates_to_embedded_resource_in_bundle(
+                r#"
+                [tool.tombi]
+                strict█ = true
+                "#,
+                SourcePath(fixture_path().join("input.toml")),
+                SchemaPath(fixture_path().join("schema.json")),
+                tombi_lsp::backend::Options {
+                    offline: Some(true),
+                    no_cache: Some(true),
+                },
+            ) -> Ok(fixture_path().join("schema.json"));
+        );
+    }
+
     #[macro_export]
     macro_rules! test_goto_type_definition {
         (#[tokio::test] async fn $name:ident(

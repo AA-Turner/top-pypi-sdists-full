@@ -4,6 +4,7 @@ import logging
 from collections.abc import Callable
 from typing import Any
 
+from .const import ProgramFrequency
 from .exceptions import RainbirdCodingException
 from .resources import (
     DECODER,
@@ -16,6 +17,30 @@ from .resources import (
 )
 
 _LOGGER = logging.getLogger(__name__)
+
+# The LCR series (ESP-RZXe / ST8) encodes the schedule frequency of a zone with
+# a different set of values than the program based devices, following the order
+# the Rain Bird app shows them in: custom, odd, even, cyclic.
+_LCR_FREQUENCY: dict[int, int] = {
+    0: ProgramFrequency.CUSTOM,
+    1: ProgramFrequency.ODD,
+    2: ProgramFrequency.EVEN,
+    3: ProgramFrequency.CYCLIC,
+}
+
+_LCR_FREQUENCY_CODE: dict[int, int] = {v: k for k, v in _LCR_FREQUENCY.items()}
+
+# Number of start times an LCR series zone can hold, and the value used for the
+# slots that are left unused.
+_LCR_MAX_STARTS = 6
+_LCR_UNUSED_START = 0x90
+
+# The resolution the LCR series stores start times with.
+_LCR_START_RESOLUTION = 10
+
+# Minutes in a day. A start time slot that does not hold a valid time of day is
+# reported as 0x90 (1440 minutes) by the ESP-RZXe and as 0xFF by other devices.
+_MINUTES_PER_DAY = 24 * 60
 
 
 def decode_template(data: str, cmd_template: dict[str, Any]) -> dict[str, int]:
@@ -58,7 +83,7 @@ def decode_schedule(data: str, cmd_template: dict[str, Any]) -> dict[str, Any]:
         if len(rest) < 10:
             return {}
         program = subcommand & ~16
-        fields = list(int(rest[i : i + 2], 16) for i in range(0, len(rest), 2))
+        fields = [int(rest[i : i + 2], 16) for i in range(0, len(rest), 2)]
         return {
             "programInfo": {
                 "program": program,
@@ -76,7 +101,7 @@ def decode_schedule(data: str, cmd_template: dict[str, Any]) -> dict[str, Any]:
             return {}
         program = subcommand & ~96
         # Note: 65535 is disabled
-        entries = list(int(rest[i : i + 4], 16) for i in range(0, len(rest), 4))
+        entries = [int(rest[i : i + 4], 16) for i in range(0, len(rest), 4)]
         return {
             "programStartInfo": {
                 "program": program,
@@ -89,7 +114,7 @@ def decode_schedule(data: str, cmd_template: dict[str, Any]) -> dict[str, Any]:
             return {}
         station = subcommand & ~128
         rest = bytes(data[6:], "utf-8")
-        durations = list(int(rest[i : i + 4], 16) for i in range(0, len(rest), 4))
+        durations = [int(rest[i : i + 4], 16) for i in range(0, len(rest), 4)]
         numPrograms = int(len(durations) / 2)
         return {
             "durations": [
@@ -108,18 +133,19 @@ def decode_schedule(data: str, cmd_template: dict[str, Any]) -> dict[str, Any]:
     if 0 < subcommand < 16 and len(data) == 28:
         duration = int(rest[0:2], 16)
         starts = []
-        for i in range(0, 6):
-            val = int(rest[2 + i * 2 : 4 + i * 2], 16)
-            if val != 255:
-                starts.append(val * 10)
+        for i in range(6):
+            val = int(rest[2 + i * 2 : 4 + i * 2], 16) * 10
+            if val < _MINUTES_PER_DAY:
+                starts.append(val)
 
+        frequency = int(rest[14:16], 16)
         return {
             "zoneInfo": {
                 subcommand: {
                     "zone": subcommand,
                     "duration": duration,
                     "startTime": starts,
-                    "frequency": int(rest[14:16], 16),
+                    "frequency": _LCR_FREQUENCY.get(frequency, frequency),
                     "daysOfWeekMask": int(rest[16:18], 16),
                     "period": int(rest[18:20], 16),
                     "synchro": int(rest[20:22], 16) & 0x7F,
@@ -128,6 +154,46 @@ def decode_schedule(data: str, cmd_template: dict[str, Any]) -> dict[str, Any]:
         }
 
     return {"data": data}
+
+
+def encode_zone_schedule(
+    duration: int,
+    starts: list[int],
+    frequency: int = ProgramFrequency.CUSTOM,
+    days_of_week_mask: int = 0,
+    period: int = 0,
+    synchro: int = 0,
+) -> str:
+    """Encode the schedule body of a zone of an LCR series device.
+
+    This is the counterpart of the zone information returned by
+    `decode_schedule` and is passed to a `SetScheduleRequest`. Durations and
+    start times are in minutes; start times are stored with a resolution of
+    ten minutes.
+    """
+    if not 1 <= duration <= 255:
+        raise RainbirdCodingException(
+            f"Duration must be between 1 and 255 minutes: {duration}"
+        )
+    if len(starts) > _LCR_MAX_STARTS:
+        raise RainbirdCodingException(
+            f"A zone holds at most {_LCR_MAX_STARTS} start times: {starts}"
+        )
+    slots = []
+    for start in starts:
+        if not 0 <= start < _MINUTES_PER_DAY or start % _LCR_START_RESOLUTION:
+            raise RainbirdCodingException(
+                f"Start time must be a time of day on a "
+                f"{_LCR_START_RESOLUTION} minute boundary: {start}"
+            )
+        slots.append(start // _LCR_START_RESOLUTION)
+    if (frequency_code := _LCR_FREQUENCY_CODE.get(frequency)) is None:
+        raise RainbirdCodingException(f"Unsupported frequency: {frequency}")
+    slots.extend([_LCR_UNUSED_START] * (_LCR_MAX_STARTS - len(slots)))
+    body = bytes(
+        [duration, *slots, frequency_code, days_of_week_mask & 0x7F, period, synchro]
+    )
+    return body.hex().upper()
 
 
 def decode_queue(data: str, cmd_template: dict[str, Any]) -> dict[str, Any]:
@@ -162,14 +228,14 @@ def decode_queue(data: str, cmd_template: dict[str, Any]) -> dict[str, Any]:
     if page == 1:
         queue = []
         if len(data) == 70:  # TM2
-            for i in range(0, 11):
+            for i in range(11):
                 base = i * 6
                 zone = int(data[base + 4 : base + 6], 16) & 31
                 runtime = int(data[base + 6 : base + 10], 16)
                 if zone:
                     queue.append({"zone": zone, "seconds": runtime})
         else:  # ME3
-            for i in range(0, 8):
+            for i in range(8):
                 base = i * 8
                 program = int(data[base + 4 : base + 6], 16)
                 zone = int(data[base + 6 : base + 8], 16)
@@ -182,7 +248,7 @@ def decode_queue(data: str, cmd_template: dict[str, Any]) -> dict[str, Any]:
 
     if len(data) == 100:
         queue = []
-        for i in range(0, 8):
+        for i in range(8):
             base = i * 12
             program = int(data[base + 4 : base + 6], 16)
             zone = int(data[base + 6 : base + 8], 16)
@@ -240,29 +306,24 @@ def encode_command(command_set: dict[str, Any], *args) -> str:
 
     if length == 1 or "parameter" in command_set or "parameterOne" in command_set:
         # TODO: Replace old style encoding with new encoding below
-        params = (cmd_code,) + tuple(map(lambda x: int(x), args))
+        params = (cmd_code,) + tuple(int(x) for x in args)
         arg_placeholders = (
-            ("%%0%dX" % ((length - len(args)) * 2)) if len(args) > 0 else ""
+            (f"%0{(length - len(args)) * 2}X") if len(args) > 0 else ""
         ) + ("%02X" * (len(args) - 1))
-        return ("%s" + arg_placeholders) % (params)
+        return (f"%s{arg_placeholders}") % (params)
 
     data = cmd_code + ("00" * (length - 1))
     args_list = list(args)
-    for k in command_set:
+    for k, command_arg in command_set.items():
         if k in RESERVED_FIELDS:
             continue
-        command_arg = command_set[k]
         command_arg_length = command_arg[LENGTH]
         arg = args_list.pop(0)
         if isinstance(arg, str):
             arg = int(arg, 16)
-        param_template = "%%0%dX" % (command_arg_length)
+        param_template = f"%0{command_arg_length}X"
         start_ = command_arg[POSITION]
         end_ = start_ + command_arg_length
-        data = "%s%s%s" % (
-            data[:start_],
-            # TODO: Replace with kwargs
-            (param_template % arg),
-            data[end_:],
-        )
+        param = param_template % arg
+        data = f"{data[:start_]}{param}{data[end_:]}"
     return data

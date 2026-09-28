@@ -70,7 +70,7 @@ impl FindCompletionContents for LocalTimeSchema {
 
         async move {
             let mut completion_items = vec![];
-            let schema_uri = current_schema.map(|schema| schema.schema_uri.as_ref());
+            let schema_base_uri = current_schema.map(|schema| schema.schema_base_uri.as_ref());
 
             if let Some(const_value) = &self.const_value {
                 let label = const_value.to_string();
@@ -80,7 +80,7 @@ impl FindCompletionContents for LocalTimeSchema {
                     self.title.clone(),
                     self.description.clone(),
                     edit,
-                    schema_uri,
+                    schema_base_uri,
                     self.deprecated(),
                 ));
 
@@ -108,7 +108,7 @@ impl FindCompletionContents for LocalTimeSchema {
                         self.title.clone(),
                         self.description.clone(),
                         edit,
-                        schema_uri,
+                        schema_base_uri,
                         self.deprecated(),
                     ));
                 }
@@ -136,7 +136,7 @@ impl FindCompletionContents for LocalTimeSchema {
                     self.title.clone(),
                     self.description.clone(),
                     edit,
-                    schema_uri,
+                    schema_base_uri,
                     self.deprecated(),
                 ));
             }
@@ -153,7 +153,7 @@ impl FindCompletionContents for LocalTimeSchema {
                         self.title.clone(),
                         self.description.clone(),
                         edit,
-                        schema_uri,
+                        schema_base_uri,
                         self.deprecated(),
                     ));
                 }
@@ -162,14 +162,14 @@ impl FindCompletionContents for LocalTimeSchema {
             if completion_items.is_empty() {
                 completion_items.extend(type_hint_local_time(
                     position,
-                    schema_uri,
+                    schema_base_uri,
                     completion_hint,
                 ));
 
                 if schema_context.has_string_format(StringFormat::TimeLocal) {
                     completion_items.extend(super::string::type_hint_string(
                         position,
-                        schema_uri,
+                        schema_base_uri,
                         completion_hint,
                     ));
                 }
@@ -195,7 +195,7 @@ impl FindCompletionContents for LocalTimeSchema {
 
 pub fn type_hint_local_time(
     position: tombi_text::Position,
-    schema_uri: Option<&SchemaUri>,
+    schema_base_uri: Option<&SchemaUri>,
     completion_hint: Option<CompletionHint>,
 ) -> Vec<CompletionContent> {
     let mut today = chrono::Local::now();
@@ -213,6 +213,6 @@ pub fn type_hint_local_time(
         label,
         "LocalTime",
         edit,
-        schema_uri,
+        schema_base_uri,
     )]
 }

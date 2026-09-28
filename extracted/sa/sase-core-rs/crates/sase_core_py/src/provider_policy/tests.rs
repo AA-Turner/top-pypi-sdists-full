@@ -1103,6 +1103,84 @@ fn provider_usage_bindings_project_remaining_and_reject_invalid() {
 }
 
 #[test]
+fn provider_usage_project_indicator_binding_honors_floors() {
+    pyo3::prepare_freethreaded_python();
+    Python::with_gil(|py| {
+        let now = 1_800_000_000.0;
+        let observation = json!({
+            "schema_version": 1,
+            "provider": "alpha",
+            "context_id": "ctx-alpha",
+            "account_generation": 1,
+            "ordering_token": now - 200.0,
+            "received_at": now - 199.0,
+            "source": "probe",
+            "outcome": "ok",
+            "reason_code": null,
+            "diagnostic": null,
+            "completeness": "complete",
+            "account_mode": "subscription",
+            "plan": null,
+            "windows": [{
+                "key": "week",
+                "label": "Weekly",
+                "used_percent": 10.0,
+                "resets_at": now + 3600.0,
+                "duration_seconds": null,
+                "period_start": null,
+                "applicability": {"kind": "account"},
+                "observed_at": now - 200.0,
+                "source": "probe",
+                "vendor_state": "allowed"
+            }]
+        });
+        let observation_obj = json_value_to_py(py, &observation).unwrap();
+        let observation_dict =
+            observation_obj.bind(py).downcast::<PyDict>().unwrap();
+        let observations = PyList::empty_bound(py);
+        observations.append(observation_dict.as_any()).unwrap();
+        let snapshot = py_provider_usage_project_snapshot(
+            py,
+            &observations,
+            now,
+            60.0,
+            75.0,
+            90.0,
+        )
+        .unwrap();
+        let snapshot_value = py_to_json_value(snapshot.bind(py)).unwrap();
+
+        let project_with_floors = |floors: serde_json::Value| {
+            let request = json!({
+                "schema_version": 1,
+                "snapshot": snapshot_value,
+                "indicator": {"default": "always"},
+                "now": now,
+                "provider_min_intervals": floors,
+                "cadence_seconds": 60.0,
+                "warn_percent": 75.0,
+                "critical_percent": 90.0
+            });
+            let request_obj = json_value_to_py(py, &request).unwrap();
+            let request_dict =
+                request_obj.bind(py).downcast::<PyDict>().unwrap();
+            py_provider_usage_project_indicator(py, request_dict).map(
+                |projection| py_to_json_value(projection.bind(py)).unwrap(),
+            )
+        };
+        // Age 200 with cadence 60 is stale without a floor, fresh with one.
+        let bare = project_with_floors(json!({})).unwrap();
+        assert_eq!(bare["entries"][0]["freshness"], json!("stale"));
+        let floored = project_with_floors(json!({"alpha": 300.0})).unwrap();
+        assert_eq!(floored["entries"][0]["freshness"], json!("fresh"));
+
+        // Invalid floors are rejected like the floor-aware store read.
+        assert!(project_with_floors(json!({"alpha": 30.0})).is_err());
+        assert!(project_with_floors(json!({"": 300.0})).is_err());
+    });
+}
+
+#[test]
 fn provider_usage_normalize_grok_billing_round_trips_and_rejects_nonfinite() {
     pyo3::prepare_freethreaded_python();
     Python::with_gil(|py| {
@@ -1427,7 +1505,8 @@ fn provider_usage_store_bindings_record_load_context_and_reserve() {
         assert_eq!(write_value["accepted"], json!(true));
 
         let read =
-            py_provider_usage_load(py, &home, now, 300.0, 75.0, 90.0).unwrap();
+            py_provider_usage_load(py, &home, now, 300.0, 75.0, 90.0, None)
+                .unwrap();
         let read_value = py_to_json_value(read.bind(py)).unwrap();
         assert_eq!(read_value["version"], json!(1));
         assert_eq!(
@@ -1496,5 +1575,412 @@ fn provider_usage_store_bindings_record_load_context_and_reserve() {
             now + 4.0,
         )
         .unwrap());
+    });
+}
+
+#[test]
+fn provider_usage_record_attempt_binding_covers_adaptive_fields() {
+    pyo3::prepare_freethreaded_python();
+    Python::with_gil(|py| {
+        let now = 1_800_000_000.0;
+        let temp = tempdir().unwrap();
+        let home = temp.path().to_string_lossy().to_string();
+
+        // Legacy dicts without the new keys keep working.
+        let legacy = json!({
+            "provider": "alpha",
+            "context_id": "ctx",
+            "account_generation": 1,
+            "outcome": "error",
+            "retry_after_seconds": null,
+            "cadence_seconds": 300.0,
+        });
+        let legacy_obj = json_value_to_py(py, &legacy).unwrap();
+        let legacy_dict = legacy_obj.bind(py).downcast::<PyDict>().unwrap();
+        let out = py_provider_usage_record_refresh_attempt(
+            py,
+            &home,
+            legacy_dict,
+            now,
+        )
+        .unwrap();
+        let value = py_to_json_value(out.bind(py)).unwrap();
+        assert_eq!(value["consecutive_failures"], json!(1));
+        assert_eq!(value["cooldown_until"], json!(now + 5.0));
+
+        // Adaptive rate-limit attempts clamp Retry-After and escalate.
+        let adaptive = json!({
+            "provider": "alpha",
+            "context_id": "ctx",
+            "account_generation": 1,
+            "outcome": "error",
+            "retry_after_seconds": 60.0,
+            "cadence_seconds": 300.0,
+            "reason_code": "rate_limited",
+            "min_interval_seconds": 120.0,
+            "cli_fingerprint": "fp-1",
+            "adaptive": true,
+        });
+        let adaptive_obj = json_value_to_py(py, &adaptive).unwrap();
+        let adaptive_dict = adaptive_obj.bind(py).downcast::<PyDict>().unwrap();
+        let out = py_provider_usage_record_refresh_attempt(
+            py,
+            &home,
+            adaptive_dict,
+            now + 1.0,
+        )
+        .unwrap();
+        let value = py_to_json_value(out.bind(py)).unwrap();
+        assert_eq!(value["retry_after_until"], json!(now + 1.0 + 900.0));
+        assert_eq!(value["consecutive_rate_limits"], json!(1));
+        assert_eq!(value["cooldown_until"], json!(now + 1.0 + 60.0));
+        assert_eq!(value["last_failure_reason"], json!("rate_limited"));
+
+        // Unknown reason codes and bad floors are rejected.
+        let unknown = json!({
+            "provider": "alpha",
+            "context_id": "ctx",
+            "account_generation": 1,
+            "outcome": "error",
+            "retry_after_seconds": null,
+            "cadence_seconds": 300.0,
+            "reason_code": "vendor_changed",
+            "adaptive": true,
+        });
+        let unknown_obj = json_value_to_py(py, &unknown).unwrap();
+        let unknown_dict = unknown_obj.bind(py).downcast::<PyDict>().unwrap();
+        assert!(py_provider_usage_record_refresh_attempt(
+            py,
+            &home,
+            unknown_dict,
+            now + 2.0,
+        )
+        .is_err());
+        let bad_floor = json!({
+            "provider": "alpha",
+            "context_id": "ctx",
+            "account_generation": 1,
+            "outcome": "error",
+            "retry_after_seconds": null,
+            "cadence_seconds": 300.0,
+            "reason_code": "timeout",
+            "min_interval_seconds": 10.0,
+            "adaptive": true,
+        });
+        let bad_floor_obj = json_value_to_py(py, &bad_floor).unwrap();
+        let bad_floor_dict =
+            bad_floor_obj.bind(py).downcast::<PyDict>().unwrap();
+        assert!(py_provider_usage_record_refresh_attempt(
+            py,
+            &home,
+            bad_floor_dict,
+            now + 2.0,
+        )
+        .is_err());
+    });
+}
+
+#[test]
+fn provider_usage_observation_binding_clamps_retry_after() {
+    pyo3::prepare_freethreaded_python();
+    Python::with_gil(|py| {
+        let now = 1_800_000_000.0;
+        let observation = json!({
+            "schema_version": 1,
+            "provider": "alpha",
+            "context_id": "ctx",
+            "account_generation": 1,
+            "ordering_token": now - 10.0,
+            "received_at": now - 5.0,
+            "source": "probe",
+            "outcome": "error",
+            "reason_code": "rate_limited",
+            "retry_after_seconds": 100_000.0,
+            "diagnostic": null,
+            "completeness": "partial",
+            "authoritative_empty": false,
+            "account_mode": null,
+            "plan": null,
+            "windows": []
+        });
+        let observation_obj = json_value_to_py(py, &observation).unwrap();
+        let observation_dict =
+            observation_obj.bind(py).downcast::<PyDict>().unwrap();
+        let validated =
+            py_provider_usage_validate_observation(py, observation_dict, now)
+                .unwrap();
+        let value = py_to_json_value(validated.bind(py)).unwrap();
+        assert_eq!(value["reason_code"], json!("rate_limited"));
+        assert_eq!(value["retry_after_seconds"], json!(86_400.0));
+    });
+}
+
+fn binding_dict<'py>(
+    py: Python<'py>,
+    value: serde_json::Value,
+) -> Bound<'py, PyDict> {
+    json_value_to_py(py, &value)
+        .unwrap()
+        .bind(py)
+        .downcast::<PyDict>()
+        .unwrap()
+        .clone()
+}
+
+#[test]
+fn provider_usage_adaptive_due_and_admit_bindings() {
+    pyo3::prepare_freethreaded_python();
+    Python::with_gil(|py| {
+        let now = 1_800_000_000.0;
+        let temp = tempdir().unwrap();
+        let home = temp.path().to_string_lossy().to_string();
+
+        // Legacy admit dicts without the new keys still reserve.
+        let admit = binding_dict(
+            py,
+            json!({
+                "provider": "alpha",
+                "context_id": "ctx",
+                "account_generation": 1,
+                "operation_id": "op-1",
+                "ttl_seconds": 60.0,
+                "cadence_seconds": 300.0,
+                "explicit": false,
+            }),
+        );
+        let reserved =
+            py_provider_usage_admit_refresh(py, &home, &admit, now).unwrap();
+        let reserved_value = py_to_json_value(reserved.bind(py)).unwrap();
+        assert_eq!(reserved_value["status"], json!("reserved"));
+
+        // An adaptive floor defers the next automatic request.
+        let floored_due = binding_dict(
+            py,
+            json!({
+                "provider": "alpha",
+                "context_id": "ctx",
+                "account_generation": 1,
+                "cadence_seconds": 300.0,
+                "explicit": false,
+                "adaptive": true,
+                "min_interval_seconds": 300.0,
+            }),
+        );
+        let floored =
+            py_provider_usage_refresh_due(py, &home, &floored_due, now + 1.0)
+                .unwrap();
+        let floored_value = py_to_json_value(floored.bind(py)).unwrap();
+        assert_eq!(floored_value["due"], json!(false));
+        assert_eq!(floored_value["reason"], json!("floor"));
+
+        // A parked provider unparks on a CLI fingerprint change.
+        let attempt = binding_dict(
+            py,
+            json!({
+                "provider": "beta",
+                "context_id": "ctx",
+                "account_generation": 1,
+                "outcome": "unsupported",
+                "retry_after_seconds": null,
+                "cadence_seconds": 300.0,
+                "reason_code": "not_installed",
+                "cli_fingerprint": "fp-1",
+                "adaptive": true,
+            }),
+        );
+        py_provider_usage_record_refresh_attempt(py, &home, &attempt, now)
+            .unwrap();
+        let parked_due = binding_dict(
+            py,
+            json!({
+                "provider": "beta",
+                "context_id": "ctx",
+                "account_generation": 1,
+                "cadence_seconds": 300.0,
+                "explicit": false,
+                "adaptive": true,
+                "cli_fingerprint": "fp-1",
+            }),
+        );
+        let parked =
+            py_provider_usage_refresh_due(py, &home, &parked_due, now + 1.0)
+                .unwrap();
+        assert_eq!(
+            py_to_json_value(parked.bind(py)).unwrap()["reason"],
+            json!("parked")
+        );
+        let changed_due = binding_dict(
+            py,
+            json!({
+                "provider": "beta",
+                "context_id": "ctx",
+                "account_generation": 1,
+                "cadence_seconds": 300.0,
+                "explicit": false,
+                "adaptive": true,
+                "cli_fingerprint": "fp-2",
+            }),
+        );
+        let changed =
+            py_provider_usage_refresh_due(py, &home, &changed_due, now + 1.0)
+                .unwrap();
+        let changed_value = py_to_json_value(changed.bind(py)).unwrap();
+        assert_eq!(changed_value["due"], json!(true));
+        assert_eq!(changed_value["reason"], json!("cli_changed"));
+
+        // Bad adaptive fields are rejected.
+        let bad_floor = binding_dict(
+            py,
+            json!({
+                "provider": "alpha",
+                "context_id": "ctx",
+                "account_generation": 1,
+                "cadence_seconds": 300.0,
+                "explicit": false,
+                "adaptive": true,
+                "min_interval_seconds": 10.0,
+            }),
+        );
+        assert!(
+            py_provider_usage_refresh_due(py, &home, &bad_floor, now).is_err()
+        );
+    });
+}
+
+#[test]
+fn provider_usage_hot_and_reservation_listing_bindings() {
+    pyo3::prepare_freethreaded_python();
+    Python::with_gil(|py| {
+        let now = 1_800_000_000.0;
+        let temp = tempdir().unwrap();
+        let home = temp.path().to_string_lossy().to_string();
+
+        let hot = binding_dict(
+            py,
+            json!({
+                "provider": "alpha",
+                "context_id": "ctx",
+                "account_generation": 1,
+                "until": now + 900.0,
+            }),
+        );
+        let marked = py_provider_usage_mark_hot(py, &home, &hot, now).unwrap();
+        let marked_value = py_to_json_value(marked.bind(py)).unwrap();
+        assert_eq!(marked_value["marked"], json!(true));
+        assert_eq!(marked_value["hot_until"], json!(now + 900.0));
+        let again =
+            py_provider_usage_mark_hot(py, &home, &hot, now + 1.0).unwrap();
+        assert_eq!(
+            py_to_json_value(again.bind(py)).unwrap()["marked"],
+            json!(false)
+        );
+
+        let reserve = binding_dict(
+            py,
+            json!({
+                "provider": "alpha",
+                "context_id": "ctx",
+                "account_generation": 1,
+                "operation_id": "op-1",
+                "ttl_seconds": 10.0,
+            }),
+        );
+        py_provider_usage_reserve_refresh(py, &home, &reserve, now).unwrap();
+        let live =
+            py_provider_usage_list_refresh_reservations(py, &home, now + 1.0)
+                .unwrap();
+        let live_value = py_to_json_value(live.bind(py)).unwrap();
+        assert_eq!(live_value["reservations"].as_array().unwrap().len(), 1);
+        assert_eq!(
+            live_value["reservations"][0]["operation_id"],
+            json!("op-1")
+        );
+        let expired =
+            py_provider_usage_list_refresh_reservations(py, &home, now + 11.0)
+                .unwrap();
+        assert!(py_to_json_value(expired.bind(py)).unwrap()["reservations"]
+            .as_array()
+            .unwrap()
+            .is_empty());
+    });
+}
+
+#[test]
+fn provider_usage_load_with_floors_binding() {
+    pyo3::prepare_freethreaded_python();
+    Python::with_gil(|py| {
+        let now = 1_800_000_000.0;
+        let temp = tempdir().unwrap();
+        let home = temp.path().to_string_lossy().to_string();
+
+        let observation = json!({
+            "schema_version": 1,
+            "provider": "alpha",
+            "context_id": "ctx",
+            "account_generation": 1,
+            "ordering_token": now - 700.0,
+            "received_at": now - 699.0,
+            "source": "probe",
+            "outcome": "ok",
+            "reason_code": null,
+            "diagnostic": null,
+            "completeness": "complete",
+            "authoritative_empty": false,
+            "account_mode": "subscription",
+            "plan": null,
+            "windows": [{
+                "key": "week",
+                "label": "Weekly",
+                "used_percent": 10.0,
+                "resets_at": now + 3600.0,
+                "duration_seconds": null,
+                "period_start": null,
+                "applicability": {"kind": "account"},
+                "observed_at": now - 700.0,
+                "source": "probe",
+                "vendor_state": "allowed"
+            }]
+        });
+        let observation_dict = binding_dict(py, observation);
+        py_provider_usage_record_observation(py, &home, &observation_dict, now)
+            .unwrap();
+
+        let base =
+            py_provider_usage_load(py, &home, now, 300.0, 75.0, 90.0, None)
+                .unwrap();
+        assert_eq!(
+            py_to_json_value(base.bind(py)).unwrap()["snapshot"]["providers"]
+                [0]["windows"][0]["freshness"],
+            json!("stale")
+        );
+
+        let floors = binding_dict(py, json!({"alpha": 600.0}));
+        let floored = py_provider_usage_load(
+            py,
+            &home,
+            now,
+            300.0,
+            75.0,
+            90.0,
+            Some(&floors),
+        )
+        .unwrap();
+        assert_eq!(
+            py_to_json_value(floored.bind(py)).unwrap()["snapshot"]
+                ["providers"][0]["windows"][0]["freshness"],
+            json!("fresh")
+        );
+
+        let bad_floors = binding_dict(py, json!({"alpha": 10.0}));
+        assert!(py_provider_usage_load(
+            py,
+            &home,
+            now,
+            300.0,
+            75.0,
+            90.0,
+            Some(&bad_floors)
+        )
+        .is_err());
     });
 }

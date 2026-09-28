@@ -22,16 +22,17 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import TYPE_CHECKING
 
-from office365.migration._util import emit_progress
 from office365.migration.assessment.containers import ScanContainer
 from office365.migration.assessment.issue import AssessmentIssue
 from office365.migration.assessment.report import AssessmentReport
 from office365.migration.assessment.runner import ScanRunner
 from office365.migration.assessment.scanners import AssessmentOptions
 from office365.migration.sharepoint.adapters import is_taxonomy_validation
+from office365.migration.sharepoint.options import SharePointAssessmentOptions
 from office365.migration.sharepoint.registry import sharepoint_scan_pairs
 from office365.migration.sharepoint.scanners.summary import SiteScanSummary
 from office365.runtime.client_result import ClientResult
+from office365.runtime.operations import emit_progress
 from office365.sharepoint.entity import Entity
 
 if TYPE_CHECKING:
@@ -56,7 +57,7 @@ class MigrationAssessor(Entity):
     def __init__(self, web: "Web", options: AssessmentOptions | None = None) -> None:
         super().__init__(web.context)
         self._web = web
-        self._options = options or AssessmentOptions()
+        self._options = options or SharePointAssessmentOptions()
 
     # ── Configuration ────────────────────────────────────────────
 
@@ -104,7 +105,11 @@ class MigrationAssessor(Entity):
         report = runner.report
 
         needs_site = bool(runner.scanners(ScanContainer.SITE))
-        needs_list_metadata = needs_site  # item counts / last-modified for the summary
+        needs_site_template = any(
+            scanner.scan_name == "UnsupportedSiteTemplates" for scanner in runner.scanners(ScanContainer.SITE)
+        )
+        # item counts / last-modified feed the SITE summary and the LIST-container scans
+        needs_list_metadata = needs_site or bool(runner.scanners(ScanContainer.LIST))
         summary = SiteScanSummary()
 
         def _flag_failure(location: str, error: Exception) -> None:
@@ -138,9 +143,14 @@ class MigrationAssessor(Entity):
         # site collection metadata (usage/storage, owner) for SITE-container scans
         if needs_site:
             site = self._web.context.site
+            columns = ["Id", "Url", "UsageInfo", "Owner/Title", "Owner/Email"]
+            expands = ["Owner"]
+            if needs_site_template:  # the root web template feeds UnsupportedSiteTemplates
+                columns += ["RootWeb/WebTemplate", "RootWeb/Configuration"]
+                expands.append("RootWeb")
             (
-                site.select(["Id", "Url", "UsageInfo", "Owner/Title", "Owner/Email"])
-                .expand(["Owner"])
+                site.select(columns)
+                .expand(expands)
                 .get()
                 .on_error(lambda e: _flag_failure("web", e))
                 .after_execute(lambda site: self._on_site_loaded(site, summary, needs_site))
@@ -182,6 +192,20 @@ class MigrationAssessor(Entity):
             site.root_web.associated_owner_group.users.get().on_error(lambda e: None).after_execute(
                 lambda users: self._set_site_admins(summary, users)
             )
+        root_web = site.properties.get("RootWeb")
+        if root_web is not None:
+            summary.web_template = self._web_template(root_web)
+
+    @staticmethod
+    def _web_template(web: "Web") -> str | None:
+        """The root web's ``WebTemplate`` plus its configuration id (e.g. ``STS#0``)."""
+        template = web.properties.get("WebTemplate")
+        if not template:
+            return None
+        if "#" in template:
+            return template
+        configuration = web.properties.get("Configuration")
+        return f"{template}#{configuration}" if configuration is not None else template
 
     @staticmethod
     def _set_site_admins(summary: SiteScanSummary, users) -> None:
@@ -247,16 +271,19 @@ class MigrationAssessor(Entity):
         has_fields = bool(runner.scanners(ScanContainer.FIELDS))
         has_items = bool(runner.scanners(ScanContainer.ITEMS, "default"))
         has_unique_items = bool(runner.scanners(ScanContainer.ITEMS, "unique"))
+        has_list = bool(runner.scanners(ScanContainer.LIST))
 
         def _progress(lst) -> None:
             completed["count"] += 1
             emit_progress(progress, done=completed["count"], total=total, stage="assessing", items=[lst])
 
         for lst in lists:
+            location = f"{prefix}/lists/{lst.title}"
+            if has_list:
+                runner.dispatch(ScanContainer.LIST, lst, location)
             if lst.hidden:
                 _progress(lst)
                 continue
-            location = f"{prefix}/lists/{lst.title}"
             pending = {"count": 0}
 
             def _scan_done(lst=lst, pending=pending) -> None:
@@ -278,9 +305,18 @@ class MigrationAssessor(Entity):
                 )
             if has_items:
                 pending["count"] += 1
-                lst.items.select(["FileRef", "FileLeafRef", "File/Length"]).expand(["File"]).get().on_error(
-                    _fail
-                ).after_execute(
+                lst.items.select(
+                    [
+                        "FileRef",
+                        "FileLeafRef",
+                        "File/Length",
+                        "File/MajorVersion",
+                        "File/MinorVersion",
+                        "File/CheckOutType",
+                        "File/TimeCreated",
+                        "File/TimeLastModified",
+                    ]
+                ).expand(["File", "File/ModifiedBy", "File/CheckedOutByUser"]).get().on_error(_fail).after_execute(
                     lambda col, lst=lst, loc=location, done=_scan_done: (
                         self._scan_items(runner, col, loc),
                         done(lst),

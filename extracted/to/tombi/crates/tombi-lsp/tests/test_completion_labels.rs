@@ -1296,7 +1296,7 @@ mod completion_labels {
                 },
                 {
                     "label": "value",
-                    "documentation": ")\n---\n\nsecond anyOf value",
+                    "documentation": ")\n\n---\n\nsecond anyOf value",
                 },
             ]);
         }
@@ -1316,7 +1316,7 @@ mod completion_labels {
                 },
                 {
                     "label": "\"red\"",
-                    "documentation": ")\n---\n\nsecond enum value",
+                    "documentation": ")\n\n---\n\nsecond enum value",
                 },
                 {
                     "label": "\"blue\"",
@@ -1340,7 +1340,7 @@ mod completion_labels {
                 },
                 {
                     "label": "\"bbb\"",
-                    "documentation": ")\n---\n\nsecond constrained value",
+                    "documentation": ")\n\n---\n\nsecond constrained value",
                 },
                 {
                     "label": "\"cccc\"",
@@ -1348,7 +1348,7 @@ mod completion_labels {
                 },
                 {
                     "label": "\"cccc\"",
-                    "documentation": ")\n---\n\nsecond constrained value",
+                    "documentation": ")\n\n---\n\nsecond constrained value",
                 },
             ]);
         }
@@ -3216,6 +3216,30 @@ mod completion_labels {
                 "''",
                 "''''''",
             ]);
+        }
+    }
+
+    mod issue_2164_compound_schema {
+        use super::*;
+
+        fn fixture_path() -> std::path::PathBuf {
+            project_root_path().join("crates/tombi-lsp/tests/fixtures/issue-2164-compound-schema")
+        }
+
+        test_completion_labels! {
+            #[tokio::test]
+            async fn completes_value_from_embedded_resource(
+                r#"
+                [tool.tombi]
+                strict = █
+                "#,
+                SourcePath(fixture_path().join("input.toml")),
+                SchemaPath(fixture_path().join("schema.json")),
+                tombi_lsp::backend::Options {
+                    offline: Some(true),
+                    no_cache: Some(true),
+                },
+            ) -> Ok(["true", "false"]);
         }
     }
 

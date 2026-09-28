@@ -10,7 +10,7 @@ use globset::Glob;
 use prek_consts::env_vars::EnvVars;
 use serde::{Deserialize, Serialize};
 
-use crate::config::{HookType, Language, Stage};
+use crate::config::{HideStatus, HookType, Language, Stage};
 use crate::fs::expand_tilde;
 
 mod cache_clean;
@@ -37,6 +37,7 @@ mod yaml_to_toml;
 pub(crate) use cache_clean::cache_clean;
 pub(crate) use cache_gc::cache_gc;
 pub(crate) use cache_size::cache_size;
+pub(crate) use completion::generate_shell_completion;
 use completion::selector_completer;
 pub(crate) use exec::exec;
 pub(crate) use hook_impl::hook_impl;
@@ -260,6 +261,18 @@ pub(crate) enum Command {
     /// Run configured hooks.
     Run(Box<RunArgs>),
     /// Run a command in the environment prepared for a configured hook.
+    ///
+    /// The selector must resolve to exactly one hook. Its environment is prepared
+    /// first if necessary, including its toolchain, dependencies, and environment
+    /// variables.
+    ///
+    /// Everything after `--` replaces the hook's configured `entry` and `args`.
+    /// This command does not select files, schedule other hooks, or stash changes.
+    /// The child process runs in the current working directory after `--cd`,
+    /// inherits standard input, output, and error, and returns its exit status.
+    ///
+    /// The `docker`, `docker_image`, `fail`, `julia`, and `pygrep` languages are
+    /// unsupported. Builtin and meta hooks are also unsupported.
     Exec(ExecArgs),
     /// List configured hooks.
     List(ListArgs),
@@ -692,6 +705,7 @@ pub(crate) struct RunOptions {
     ///
     /// Can be specified multiple times or as a comma-separated list. This does
     /// not change hook execution or exit codes.
+    /// Overrides `hide_status` in project and user configuration.
     #[arg(
         long,
         value_name = "STATUS",
@@ -699,7 +713,11 @@ pub(crate) struct RunOptions {
         value_delimiter = ',',
         help_heading = "Run options"
     )]
-    pub(crate) hide_status: Vec<run::HideStatus>,
+    pub(crate) hide_status: Vec<HideStatus>,
+
+    /// Show all hook reports, overriding `hide_status` in configuration.
+    #[arg(long, conflicts_with = "hide_status", help_heading = "Run options")]
+    pub(crate) no_hide_status: bool,
 
     #[command(flatten)]
     pub(crate) extra: RunExtraArgs,
@@ -1123,7 +1141,8 @@ pub(crate) enum UtilCommand {
     /// Convert a YAML configuration file to prek.toml.
     YamlToToml(YamlToTomlArgs),
     /// Generate shell completion scripts.
-    #[command(hide = true)]
+    ///
+    /// Load the generated script in your shell configuration to enable completion.
     GenerateShellCompletion(GenerateShellCompletionArgs),
 }
 
@@ -1216,7 +1235,7 @@ pub(crate) struct SelfUpdateArgs {
 
 #[derive(Debug, Args)]
 pub(crate) struct GenerateShellCompletionArgs {
-    /// The shell to generate the completion script for
+    /// The shell to generate the completion script for.
     #[arg(value_enum)]
     pub shell: clap_complete::Shell,
 }

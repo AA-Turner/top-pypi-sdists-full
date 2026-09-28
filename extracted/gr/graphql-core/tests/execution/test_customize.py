@@ -1,6 +1,12 @@
-from graphql.execution import execute, ExecutionContext
+from inspect import isasyncgen
+
+import pytest
+
+from graphql.execution import Executor, execute, subscribe
 from graphql.language import parse
-from graphql.type import GraphQLSchema, GraphQLObjectType, GraphQLString, GraphQLField
+from graphql.type import GraphQLField, GraphQLObjectType, GraphQLSchema, GraphQLString
+
+pytestmark = pytest.mark.anyio
 
 
 def describe_customize_execution():
@@ -20,7 +26,7 @@ def describe_customize_execution():
             None,
         )
 
-    def uses_a_custom_execution_context_class():
+    def uses_a_custom_executor_class():
         query = parse("{ foo }")
 
         schema = GraphQLSchema(
@@ -30,12 +36,108 @@ def describe_customize_execution():
             )
         )
 
-        class TestExecutionContext(ExecutionContext):
-            def execute_field(self, parent_type, source, field_nodes, path):
-                result = super().execute_field(parent_type, source, field_nodes, path)
-                return result * 2  # type: ignore
+        class TestExecutor(Executor):
+            def __init__(self, *args, **kwargs):
+                assert kwargs.pop("custom_arg", None) == "baz"
+                super().__init__(*args, **kwargs)
 
-        assert execute(schema, query, execution_context_class=TestExecutionContext) == (
+            def execute_field(
+                self,
+                parent_type,
+                source,
+                field_details_list,
+                path,
+                position_context,
+            ):
+                result = super().execute_field(
+                    parent_type,
+                    source,
+                    field_details_list,
+                    path,
+                    position_context,
+                )
+                assert isinstance(result, str)
+                return result * 2
+
+        assert execute(
+            schema,
+            query,
+            executor_class=TestExecutor,
+            custom_arg="baz",
+        ) == (
             {"foo": "barbar"},
             None,
         )
+
+
+def describe_customize_subscription():
+    async def uses_a_custom_subscribe_field_resolver():
+        schema = GraphQLSchema(
+            query=GraphQLObjectType("Query", {"foo": GraphQLField(GraphQLString)}),
+            subscription=GraphQLObjectType(
+                "Subscription", {"foo": GraphQLField(GraphQLString)}
+            ),
+        )
+
+        class Root:
+            @staticmethod
+            async def custom_foo():
+                yield {"foo": "FooValue"}
+
+        subscription = subscribe(
+            schema,
+            document=parse("subscription { foo }"),
+            root_value=Root(),
+            subscribe_field_resolver=lambda root, _info: root.custom_foo(),
+        )
+        assert isasyncgen(subscription)
+
+        assert await anext(subscription) == (
+            {"foo": "FooValue"},
+            None,
+        )
+
+        await subscription.aclose()
+
+    async def uses_a_custom_executor_class():
+        class TestExecutor(Executor):
+            def __init__(self, *args, **kwargs):
+                assert kwargs.pop("custom_arg", None) == "baz"
+                super().__init__(*args, **kwargs)
+
+            def build_resolve_info(self, *args, **kwargs):
+                resolve_info = super().build_resolve_info(*args, **kwargs)
+                resolve_info.context["foo"] = "bar"
+                return resolve_info
+
+        async def generate_foo(_obj, info):
+            yield info.context["foo"]
+
+        def resolve_foo(message, _info):
+            return message
+
+        schema = GraphQLSchema(
+            query=GraphQLObjectType("Query", {"foo": GraphQLField(GraphQLString)}),
+            subscription=GraphQLObjectType(
+                "Subscription",
+                {
+                    "foo": GraphQLField(
+                        GraphQLString,
+                        resolve=resolve_foo,
+                        subscribe=generate_foo,
+                    )
+                },
+            ),
+        )
+
+        document = parse("subscription { foo }")
+        subscription = subscribe(
+            schema,
+            document,
+            context_value={},
+            executor_class=TestExecutor,
+            custom_arg="baz",
+        )
+        assert isasyncgen(subscription)
+
+        assert await anext(subscription) == ({"foo": "bar"}, None)

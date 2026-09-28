@@ -1,6 +1,6 @@
 //! Catalog-from-index assembly shared by the gateway and Python oracle.
 //!
-//! Selection, root-versus-shell classification, bounded family context, and
+//! Selection, root-versus-turn classification, bounded agent session context, and
 //! row projection inputs live here. The gateway stays an observer/cache
 //! wrapper; Python invokes the same builder without standing up HTTP.
 
@@ -13,10 +13,16 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
 use crate::agent_scan::{
-    query_agent_artifact_index, resolve_family_dismissal_lineage,
+    query_agent_artifact_index, resolve_agent_session_dismissal_lineage,
     AgentArtifactIndexFreshnessWire, AgentArtifactIndexQueryWire,
     AgentArtifactRecordShapeWire, AgentArtifactRecordWire,
-    AgentArtifactScanOptionsWire, FamilyDismissalLineageCandidateWire,
+    AgentArtifactScanOptionsWire, AgentSessionDismissalLineageCandidateWire,
+};
+use crate::fleet_agent_session::{
+    agent_session_id_for_record, agent_session_key_for_record,
+    agent_session_turn, concrete_agent_session_turn_kind,
+    record_is_concrete_agent_session_turn, tracked_parent_timestamp,
+    ConcreteAgentSessionTurnKind,
 };
 use crate::fleet_contract::{
     ensure_installation_identity, instance_locator_key, logical_locator_key,
@@ -27,11 +33,6 @@ use crate::fleet_contract::{
     OwnerResolutionFactsWire, ProjectLocatorWire,
     ResolvedAgentProjectionRequestWire, ResolvedAgentSummaryWire,
     ResourceRevisionWire, FLEET_CONTRACT_SCHEMA_VERSION,
-};
-use crate::fleet_family::{
-    concrete_family_shell_kind, family_id_for_record, family_key_for_record,
-    family_shell, record_is_concrete_family_shell, tracked_parent_timestamp,
-    ConcreteFamilyShellKind,
 };
 use crate::fleet_owner_facts::{
     derive_owner_record_facts, HostOwnerFileObserver, InjectedOwnerFilesWire,
@@ -49,7 +50,7 @@ use crate::list_project_records;
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct PresentationRecordFacts {
     pub timestamp: String,
-    pub family_id: Option<String>,
+    pub agent_session_id: Option<String>,
     pub parent_timestamp: Option<String>,
     pub agent_clan: Option<String>,
     pub agent_clan_generation: Option<String>,
@@ -65,7 +66,7 @@ pub struct PresentationRecordFacts {
 pub struct PresentationContext {
     direct_by_dir: BTreeMap<String, PresentationRecordFacts>,
     by_timestamp: BTreeMap<String, PresentationRecordFacts>,
-    root_by_family_id: BTreeMap<String, PresentationRecordFacts>,
+    root_by_agent_session_id: BTreeMap<String, PresentationRecordFacts>,
     clan_tribe_by_key: BTreeMap<String, String>,
 }
 
@@ -102,13 +103,13 @@ impl PresentationContext {
                         .or_insert_with(|| clan_tribe.clone());
                 }
             }
-            if !record_is_concrete_family_shell(record)
+            if !record_is_concrete_agent_session_turn(record)
                 && facts.parent_timestamp.is_none()
             {
-                if let Some(family_id) = &facts.family_id {
+                if let Some(agent_session_id) = &facts.agent_session_id {
                     context
-                        .root_by_family_id
-                        .entry(family_id.clone())
+                        .root_by_agent_session_id
+                        .entry(agent_session_id.clone())
                         .or_insert_with(|| facts.clone());
                 }
             }
@@ -139,22 +140,26 @@ impl PresentationContext {
             .as_ref()
             .and_then(|timestamp| self.by_timestamp.get(timestamp))
             .cloned();
-        let family_root = facts
-            .family_id
+        let agent_session_root = facts
+            .agent_session_id
             .as_ref()
-            .and_then(|family_id| self.root_by_family_id.get(family_id))
+            .and_then(|agent_session_id| {
+                self.root_by_agent_session_id.get(agent_session_id)
+            })
             .cloned()
             .or_else(|| parent.clone());
-        let related = parent.as_ref().or(family_root.as_ref());
+        let related = parent.as_ref().or(agent_session_root.as_ref());
 
-        if facts.family_id.is_none() {
-            facts.family_id = related.and_then(|value| value.family_id.clone());
+        if facts.agent_session_id.is_none() {
+            facts.agent_session_id =
+                related.and_then(|value| value.agent_session_id.clone());
         }
         if facts.parent_timestamp.is_none()
-            && record_is_concrete_family_shell(record)
+            && record_is_concrete_agent_session_turn(record)
         {
-            if let Some(root) = family_root.as_ref().filter(|root| {
-                root.timestamp != record.timestamp && root.family_id.is_some()
+            if let Some(root) = agent_session_root.as_ref().filter(|root| {
+                root.timestamp != record.timestamp
+                    && root.agent_session_id.is_some()
             }) {
                 facts.parent_timestamp = Some(root.timestamp.clone());
             }
@@ -173,8 +178,9 @@ impl PresentationContext {
                     .and_then(|key| self.clan_tribe_by_key.get(&key).cloned())
                 });
         }
-        if let Some(root_start) =
-            family_root.as_ref().and_then(|value| value.started_at_unix)
+        if let Some(root_start) = agent_session_root
+            .as_ref()
+            .and_then(|value| value.started_at_unix)
         {
             facts.started_at_unix = Some(root_start);
         }
@@ -211,13 +217,13 @@ pub fn select_fleet_presentation(
             protected: record.waiting.is_some()
                 || record.pending_question.is_some(),
             completion_time_unix: completion_time_for_record(record, now_unix),
-            family_root_dismissed: dismissed_by_identity
+            agent_session_root_dismissed: dismissed_by_identity
                 .get(&record.artifact_dir)
                 .copied()
                 .unwrap_or(false),
-            family_member: record_is_concrete_family_shell(record),
-            family_key: family_key_for_record(record),
-            family_anchor: record_is_concrete_family_shell(record)
+            agent_session_member: record_is_concrete_agent_session_turn(record),
+            agent_session_key: agent_session_key_for_record(record),
+            agent_session_anchor: record_is_concrete_agent_session_turn(record)
                 && tracked_parent_timestamp(record).is_none(),
             process_identity_mismatch: observation.process_identity_mismatch(),
             lifecycle_evidence: record_has_lifecycle_evidence(record),
@@ -253,7 +259,7 @@ pub fn select_fleet_presentation(
         FleetCatalogScopeWire::History => presentation_candidates
             .iter()
             .filter(|candidate| {
-                !candidate.family_root_dismissed
+                !candidate.agent_session_root_dismissed
                     && !candidate.process_identity_mismatch
             })
             .map(|candidate| candidate.identity.clone())
@@ -351,34 +357,37 @@ pub fn assemble_fleet_catalog(
                 )
             })
             .collect();
-    let lineage_candidates: Vec<FamilyDismissalLineageCandidateWire> = scan
-        .records
-        .iter()
-        .map(|record| FamilyDismissalLineageCandidateWire {
-            identity: record.artifact_dir.clone(),
-            project_name: record.project_name.clone(),
-            workflow_dir_name: record.workflow_dir_name.clone(),
-            timestamp: record.timestamp.clone(),
-            seed_definitively_dead: matches!(
-                observation_by_identity.get(&record.artifact_dir),
-                Some(
-                    OwnerProcessObservation::Dead
-                        | OwnerProcessObservation::NotProcess
-                        | OwnerProcessObservation::IdentityMismatch
-                )
-            ),
-        })
-        .collect();
-    let dismissed_by_identity: BTreeMap<String, bool> =
-        resolve_family_dismissal_lineage(&index_path, &lineage_candidates)
-            .map_err(|error| {
-                FleetContractError::Validation(format!(
-                    "family_dismissal_lineage: {error}"
-                ))
-            })?
-            .into_iter()
-            .map(|result| (result.identity, result.family_root_dismissed))
+    let lineage_candidates: Vec<AgentSessionDismissalLineageCandidateWire> =
+        scan.records
+            .iter()
+            .map(|record| AgentSessionDismissalLineageCandidateWire {
+                identity: record.artifact_dir.clone(),
+                project_name: record.project_name.clone(),
+                workflow_dir_name: record.workflow_dir_name.clone(),
+                timestamp: record.timestamp.clone(),
+                seed_definitively_dead: matches!(
+                    observation_by_identity.get(&record.artifact_dir),
+                    Some(
+                        OwnerProcessObservation::Dead
+                            | OwnerProcessObservation::NotProcess
+                            | OwnerProcessObservation::IdentityMismatch
+                    )
+                ),
+            })
             .collect();
+    let dismissed_by_identity: BTreeMap<String, bool> =
+        resolve_agent_session_dismissal_lineage(
+            &index_path,
+            &lineage_candidates,
+        )
+        .map_err(|error| {
+            FleetContractError::Validation(format!(
+                "agent_session_dismissal_lineage: {error}"
+            ))
+        })?
+        .into_iter()
+        .map(|result| (result.identity, result.agent_session_root_dismissed))
+        .collect();
     let host_files = HostOwnerFileObserver::default();
     let files: &dyn OwnerFileObserver = match &request.owner_files {
         Some(injected) => injected,
@@ -439,8 +448,8 @@ fn project_summary_for_record(
 ) -> Result<ResolvedAgentSummaryWire, FleetContractError> {
     let mut logical_locator =
         logical_locator_for_record(installation_id, record);
-    if let Some(family_id) = &presentation.family_id {
-        logical_locator.family_id = Some(family_id.clone());
+    if let Some(agent_session_id) = &presentation.agent_session_id {
+        logical_locator.agent_session_id = Some(agent_session_id.clone());
     }
     let logical_key = logical_locator_key(&logical_locator)?;
     let row_revision = ResourceRevisionWire {
@@ -493,7 +502,7 @@ fn project_summary_for_record(
                 started_at_unix: presentation.started_at_unix,
                 run_started_at_unix: presentation.run_started_at_unix,
                 stopped_at_unix: stopped_at_unix_for_record(record),
-                family_id: presentation.family_id.clone(),
+                agent_session_id: presentation.agent_session_id.clone(),
                 parent_timestamp: presentation.parent_timestamp.clone(),
                 workspace_num: workspace_num_for_record(record),
                 project_label: project_labels
@@ -507,10 +516,10 @@ fn project_summary_for_record(
                 tribe: presentation.tribe.clone(),
                 row_kind,
                 current_instance: !presentation_terminal
-                    && row_kind == FleetRowKindWire::AgentShell,
+                    && row_kind == FleetRowKindWire::AgentTurn,
                 dismissable: presentation_terminal,
                 needs_attention: record.pending_question.is_some(),
-                occupied_runner_slot: row_kind == FleetRowKindWire::AgentShell
+                occupied_runner_slot: row_kind == FleetRowKindWire::AgentTurn
                     && liveness == OwnerLivenessWire::Alive,
                 container_projected_concrete_agent: false,
                 capabilities: CapabilitySetWire {
@@ -531,11 +540,13 @@ fn project_summary_for_record(
 pub fn row_kind_for_record(
     record: &AgentArtifactRecordWire,
 ) -> FleetRowKindWire {
-    match concrete_family_shell_kind(record) {
-        Some(ConcreteFamilyShellKind::Proc) => FleetRowKindWire::Proc,
-        Some(ConcreteFamilyShellKind::Monitor) => FleetRowKindWire::Monitor,
-        Some(ConcreteFamilyShellKind::Gate) => FleetRowKindWire::Gate,
-        _ => FleetRowKindWire::AgentShell,
+    match concrete_agent_session_turn_kind(record) {
+        Some(ConcreteAgentSessionTurnKind::Proc) => FleetRowKindWire::Proc,
+        Some(ConcreteAgentSessionTurnKind::Monitor) => {
+            FleetRowKindWire::Monitor
+        }
+        Some(ConcreteAgentSessionTurnKind::Gate) => FleetRowKindWire::Gate,
+        _ => FleetRowKindWire::AgentTurn,
     }
 }
 
@@ -559,14 +570,14 @@ fn logical_locator_for_record(
                 meta.and_then(|value| value.artifact_agent_id.as_deref()),
                 meta.and_then(|value| value.name.as_deref()),
                 record.done.as_ref().and_then(|value| value.name.as_deref()),
-                family_shell(meta, record.done.as_ref())
+                agent_session_turn(meta, record.done.as_ref())
                     .and_then(|value| value.id.as_deref()),
                 Some(record.timestamp.as_str()),
             ])
             .unwrap_or("agent"),
             "agent",
         ),
-        family_id: family_id_for_record(record)
+        agent_session_id: agent_session_id_for_record(record)
             .map(|value| safe_identifier(&value, "family")),
     }
 }
@@ -584,7 +595,7 @@ fn exact_locator_for_record(
     AgentInstanceLocatorWire {
         schema_version: FLEET_CONTRACT_SCHEMA_VERSION,
         logical,
-        shell_id: safe_identifier(&record.workflow_dir_name, "shell"),
+        turn_id: safe_identifier(&record.workflow_dir_name, "shell"),
         run_id: safe_identifier(&record.timestamp, "run"),
         attempt_id: safe_identifier(&attempt, "attempt"),
     }
@@ -599,7 +610,7 @@ pub fn direct_presentation_facts_for_record(
     let derived = derive_owner_record_facts(record, liveness, files);
     PresentationRecordFacts {
         timestamp: record.timestamp.clone(),
-        family_id: family_id_for_record(record),
+        agent_session_id: agent_session_id_for_record(record),
         parent_timestamp: tracked_parent_timestamp(record).map(str::to_string),
         agent_clan: meta.and_then(|value| value.agent_clan.clone()),
         agent_clan_generation: meta
@@ -782,7 +793,7 @@ pub fn stable_revision(
     }
     hasher.update(b"\0presentation\0");
     if let Ok(bytes) = serde_json::to_vec(&(
-        &presentation.family_id,
+        &presentation.agent_session_id,
         &presentation.parent_timestamp,
         &presentation.clan_tribe,
         &presentation.tribe,

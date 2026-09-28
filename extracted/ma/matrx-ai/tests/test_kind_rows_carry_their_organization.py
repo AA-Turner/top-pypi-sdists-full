@@ -3,7 +3,7 @@
 THE LAW (``common-docs/policies/context-is-carried-never-rebuilt.md``, rule 4):
 below the boundary the organization is READ off the carried context, and an
 absent one is a REFUSAL — never a row the database's ``_stamp_org_default``
-backstop files in the creator's personal workspace.
+backstop files in an organization picked for the creator.
 
 Both tools used to write the key only ``if org_id:``. The create then ran
 anyway, so a tool call that had lost its organization minted an org's kind (or

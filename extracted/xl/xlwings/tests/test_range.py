@@ -1,7 +1,7 @@
 import os
 import sys
 import unittest
-from datetime import datetime
+from datetime import date, datetime
 from pathlib import Path
 
 import xlwings as xw
@@ -106,6 +106,69 @@ class TestRangeInstantiation(TestBase):
         self.wb1.sheets[0].range("A1").value = [1, 2, 3]
         self.wb1.sheets[0].range("A1").value = [[1, 2, 3]]
         self.wb1.sheets[0].range("A1").value = []
+
+
+class TestRangeAutoFilter(unittest.TestCase):
+    def test_criteria_snapshot(self):
+        criterion = xw.AutoFilterCriteria(
+            {
+                "field": 2,
+                "type": "comparison",
+                "values": None,
+                "operator": "between",
+                "value1": "1/1/2026",
+                "value2": "3/31/2026",
+                "count": None,
+                "percent": None,
+            }
+        )
+        self.assertEqual(criterion.field, 2)
+        self.assertEqual(criterion.type, "comparison")
+        self.assertEqual(criterion.operator, "between")
+        self.assertEqual(criterion.value1, "1/1/2026")
+        self.assertEqual(criterion.value2, "3/31/2026")
+        self.assertIsNone(criterion.values)
+
+    def test_autofilter_apply_and_clear(self):
+        book = xw.Book()
+        sheet = book.sheets[0]
+        values = [
+            ["Region", "Amount", "Status", "When"],
+            ["East", 5, "Open", datetime(2026, 1, 1)],
+            ["West", 10, None, datetime(2026, 2, 1)],
+            ["North", 15, "Closed", datetime(2026, 3, 1)],
+            ["East", 20, None, datetime(2026, 4, 1)],
+        ]
+        target = sheet["A1:D5"]
+        try:
+            target.value = values
+            formulas = target.formula
+            target.autofilter.apply_values(1, ["East", "West"])
+            target.autofilter.apply_comparison(2, "between", 5, 15)
+            target.autofilter.apply_comparison(3, "equal_to", None)
+            target.autofilter.apply_comparison(4, "greater_than", date(2026, 1, 15))
+            criteria = target.autofilter.criteria
+            self.assertEqual(
+                [item.type for item in criteria],
+                [
+                    "values",
+                    "comparison",
+                    "comparison",
+                    "comparison",
+                ],
+            )
+            self.assertEqual(criteria[1].operator, "between")
+            self.assertEqual(criteria[2].operator, "equal_to")
+            target.autofilter.apply_top_items(2, 2)
+            self.assertEqual(target.autofilter.criteria[1].type, "top_items")
+            self.assertIn(target.autofilter.criteria[1].count, (None, 2))
+            self.assertEqual(target.value, values)
+            self.assertEqual(target.formula, formulas)
+            target.autofilter.clear(2)
+            target.autofilter.clear()
+            self.assertEqual(target.value, values)
+        finally:
+            book.close()
 
 
 class TestRangeAttributes(TestBase):
@@ -223,6 +286,55 @@ class TestRangeAttributes(TestBase):
         self.wb1.sheets[0].range("B2").row_height = 20.0
         result = self.wb1.sheets[0].range("A1:B2").row_height
         self.assertEqual(None, result)
+
+    def test_row_and_column_hidden(self):
+        sheet = self.wb1.sheets[0]
+        sheet["A1:B3"].value = [["keep", 2], [3, 4], [5, 6]]
+        sheet["B1"].formula = "=1+1"
+        try:
+            selection = sheet["A1:B3"]
+            selection.rows.hidden = False
+            selection.columns.hidden = False
+            assert selection.rows.hidden is False
+            assert selection.columns.hidden is False
+
+            sheet["B2"].rows.hidden = True
+            sheet["B2"].columns.hidden = True
+            assert sheet["A2"].rows.hidden is True
+            assert sheet["B1"].columns.hidden is True
+            assert selection.rows.hidden is None
+            assert selection.columns.hidden is None
+            assert sheet["A1"].rows.hidden is False
+            assert sheet["A1"].columns.hidden is False
+
+            sheet["B2"].rows.hidden = False
+            sheet["B2"].columns.hidden = False
+            sheet["A1"].rows.hidden = True
+            sheet["A1"].columns.hidden = True
+            assert selection.rows.hidden is None
+            assert selection.columns.hidden is None
+
+            selection.rows.hidden = True
+            selection.columns.hidden = True
+            assert selection.rows.hidden is True
+            assert selection.columns.hidden is True
+
+            selection.rows.hidden = False
+            selection.columns.hidden = False
+            assert selection.rows.hidden is False
+            assert selection.columns.hidden is False
+            assert sheet["A1"].value == "keep"
+            assert sheet["B1"].formula == "=1+1"
+            assert sheet["B2"].value == 4
+        finally:
+            sheet["A1:B3"].rows.hidden = False
+            sheet["A1:B3"].columns.hidden = False
+
+    def test_hidden_rejects_non_boolean(self):
+        selection = self.wb1.sheets[0]["A1:B2"]
+        for collection in (selection.rows, selection.columns):
+            with self.assertRaises(TypeError):
+                collection.hidden = 1
 
     def test_width(self):
         """test_width: Width depends on default style text size,
@@ -878,6 +990,72 @@ class TestNotes(unittest.TestCase):
         sheet["A1"].note.delete()
         self.assertIsNone(sheet["A1"].note)
         sheet.book.close()
+
+    def test_add_note_and_collections(self):
+        book = xw.Book()
+        try:
+            first_sheet = book.sheets[0]
+            second_sheet = book.sheets.add(after=first_sheet)
+            first_cell = first_sheet["A1"]
+            second_cell = second_sheet["C3"]
+
+            self.assertIsNone(first_cell.note)
+            self.assertEqual(first_sheet.notes.count, 0)
+            first_note = first_cell.add_note("Review this cell")
+            second_note = second_cell.add_note("Check this cell")
+
+            self.assertEqual(first_note.text, "Review this cell")
+            self.assertIsInstance(first_note.author, str)
+            self.assertEqual(first_note.location.address, first_cell.address)
+            self.assertEqual(first_sheet.notes.count, 1)
+            self.assertEqual(second_sheet.notes.count, 1)
+            self.assertEqual(book.notes.count, 2)
+            self.assertEqual(first_sheet.notes["A1"].text, first_note.text)
+            self.assertEqual(book.notes[first_cell].text, first_note.text)
+            self.assertEqual(book.notes[second_cell].text, second_note.text)
+            self.assertEqual(
+                {note.location.address for note in first_sheet.notes},
+                {first_cell.address},
+            )
+
+            with self.assertRaises(ValueError):
+                first_cell.add_note("Duplicate")
+            first_note.text = "Updated note"
+            self.assertEqual(first_cell.note.text, "Updated note")
+            first_note.delete()
+            self.assertIsNone(first_cell.note)
+            self.assertEqual(first_sheet.notes.count, 0)
+            self.assertEqual(book.notes.count, 1)
+            with self.assertRaises(KeyError):
+                first_sheet.notes["A1"]
+        finally:
+            book.close()
+
+
+@unittest.skipUnless(sys.platform.startswith("win"), "Windows COM threaded comments")
+class TestThreadedComments(unittest.TestCase):
+    def test_comment_crud_and_replies(self):
+        book = xw.Book()
+        try:
+            cell = book.sheets[0]["A1"]
+            cell.value = "Preserved"
+            self.assertIsNone(cell.comment)
+            comment = cell.add_comment("Review")
+            self.assertEqual(comment.text, "Review")
+            self.assertIsInstance(comment.author, str)
+            self.assertEqual(comment.location.address, cell.address)
+            self.assertEqual(book.comments.count, 1)
+            self.assertEqual(book.sheets[0].comments["A1"].text, "Review")
+            comment.text = "Updated"
+            comment.add_reply("Done")
+            self.assertEqual(comment.replies[0].text, "Done")
+            with self.assertRaises(NotImplementedError):
+                comment.resolve()
+            comment.delete()
+            self.assertIsNone(cell.comment)
+            self.assertEqual(cell.value, "Preserved")
+        finally:
+            book.close()
 
 
 if __name__ == "__main__":

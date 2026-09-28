@@ -27,16 +27,18 @@ from office365.sharepoint.sharing.object_sharing_information import ObjectSharin
 from office365.sharepoint.sharing.user_role_assignment import UserRoleAssignment
 from office365.sharepoint.sharing.user_sharing_result import UserSharingResult
 from office365.sharepoint.storagemetrics.storage_metrics import StorageMetrics
+from office365.sharepoint.thresholds import SAFE_PAGE_SIZE, Limits, limit
 from office365.sharepoint.types.resource_path import ResourcePath as SPResPath
 from office365.sharepoint.utilities.move_copy_options import MoveCopyOptions
 from office365.sharepoint.utilities.move_copy_util import MoveCopyUtil
 
 if TYPE_CHECKING:
+    from office365.runtime.converters.dataframe import DataFrameResult
     from office365.sharepoint.files.collection import FileCollection
     from office365.sharepoint.files.file import File
     from office365.sharepoint.folders.collection import FolderCollection
 
-_DEFAULT_CHUNK_SIZE = 4 * 1024 * 1024  # simple-upload threshold / upload-session chunk
+_DEFAULT_CHUNK_SIZE = Limits.UPLOAD_SESSION_CHUNK.value  # simple-upload threshold / upload-session chunk
 
 
 class Folder(Entity):
@@ -192,18 +194,22 @@ class Folder(Entity):
         self.context.add_query(placeholder).after_execute(lambda _: _get_folders(self))
         return return_type
 
+    @limit(Limits.LIST_VIEW, arg="page_size")
     def get_files(
         self,
         recursive: bool = False,
         progress: Optional[Callable[[Progress[File]], None]] = None,
+        page_size: int = SAFE_PAGE_SIZE,
     ) -> FileCollection:
-        """Retrieves files
+        """Retrieves files (paged, so it works on folders with >5,000 items).
 
         Args:
             recursive (bool): Determines whether to enumerate folders recursively
-            progress: Optional hook invoked per scanned folder with a
+            progress: Optional hook invoked per scanned page with a
               ``Progress[File]`` snapshot (``done`` = files discovered so far;
-              ``items`` = the files found in the folder just scanned).
+              ``items`` = the files found in the page just scanned).
+            page_size (int): Items per page (kept below the 5,000-item list view
+              threshold so large folders are read without being throttled).
 
         The fluent ``.select([...])`` / ``.expand([...])`` applied to the returned
         collection is honored on every per-folder file load.
@@ -216,21 +222,35 @@ class Folder(Entity):
         return_type = FileCollection(self.context, resource_path, self)
 
         def _get_files(parent: Folder) -> None:
-            def _on_files_loaded(col) -> None:
-                for file in col:
-                    return_type.add_child(file)
-                if callable(progress):
-                    progress(Progress(done=len(return_type), stage="scanning", items=list(col)))
-                if recursive:
-                    subfolders = parent.folders
-                    subfolders.get().after_execute(lambda _: [_get_files(folder) for folder in subfolders])
-
             files = parent.files
             return_type.query_options.apply_to(files)
             if return_type.query_options.select:
                 fields = sorted({"Id", "Name", "ServerRelativeUrl"} | set(return_type.query_options.select))
                 files.select(fields)
-            files.get().after_execute(_on_files_loaded)
+            seen = {"count": 0}
+
+            def _on_files_page(col: FileCollection) -> None:
+                new_files = list(col)[seen["count"] :]
+                seen["count"] = len(col)
+                for file in new_files:
+                    return_type.add_child(file)
+                if callable(progress):
+                    progress(Progress(done=len(return_type), stage="scanning", items=new_files))
+                if recursive and not col.has_next:
+                    _scan_subfolders(parent)
+
+            files.get_all(page_size, page_loaded=_on_files_page)
+
+        def _scan_subfolders(parent: Folder) -> None:
+            subfolders = parent.folders
+            seen = {"count": 0}
+
+            def _on_folders_page(col: "FolderCollection") -> None:
+                for folder in list(col)[seen["count"] :]:
+                    _get_files(folder)
+                seen["count"] = len(col)
+
+            subfolders.get_all(page_size, page_loaded=_on_folders_page)
 
         placeholder = DeferredOperationQuery(self.context)
         self.context.add_query(placeholder).after_execute(lambda _: _get_files(self))
@@ -443,6 +463,46 @@ class Folder(Entity):
             folder = self.ensure_folder("/".join(parts[:-1]))
         return folder.files.upload_content(content, parts[-1], chunk_size, progress)
 
+    def write_dataframe(
+        self,
+        relative_path: str,
+        df,
+        *,
+        format: str = "csv",  # noqa: A002
+        index: bool = False,
+        **opts,
+    ) -> File:
+        """Serialize a pandas DataFrame and write it as a file (CSV/XLSX/...).
+
+        The DataFrame counterpart of :meth:`upload_file` — it writes the frame's
+        **content**, not metadata. CSV is written UTF-8 with a BOM
+        (``utf-8-sig``) so Excel opens it with the columns intact;
+        ``format="xlsx"`` writes a worksheet (requires the ``[excel]`` extra).
+        The returned :class:`File` is deferred — the caller executes it.
+
+        Args:
+            relative_path: File name or path relative to this folder.
+            df: A pandas DataFrame.
+            format: ``"csv"`` (default), ``"xlsx"``/``"excel"``, ``"json"``, ...
+            index: Whether to write the DataFrame index (default False).
+            opts: Extra kwargs forwarded to the pandas writer.
+        """
+        from office365.runtime.converters.dataframe import dataframe_to_bytes
+
+        return self.upload_file(relative_path, dataframe_to_bytes(df, format, index, **opts))
+
+    def read_dataframe(self, relative_path: str, *, format: str = "csv", **opts) -> "DataFrameResult":  # noqa: A002
+        """Read a file in this folder's **content** into a DataFrame (deferred result).
+
+        Parses the file content (CSV/XLSX/JSON/Parquet) — not metadata. Run with
+        ``execute_query()`` and read ``.value``:
+
+            >>> df = folder.read_dataframe("stocks.csv").execute_query().value
+        """
+        url = f"{self.server_relative_url}/{relative_path}".replace("//", "/")
+        file = self.context.web.get_file_by_server_relative_url(url)
+        return file.read_dataframe(format=format, **opts)
+
     def update_document_sharing_info(
         self,
         user_role_assignments: List[UserRoleAssignment],
@@ -588,7 +648,12 @@ class Folder(Entity):
 
     @property
     def files(self) -> FileCollection:
-        """Specifies the collection of files contained in the list folder."""
+        """Specifies the collection of files contained in the list folder.
+
+        A single-shot load (``ctx.load(folder, ["Files"])`` / ``.get()``) is trimmed
+        at the 5,000-item list view threshold; use :meth:`get_files` (paged) for
+        folders that may exceed it.
+        """
         from office365.sharepoint.files.collection import FileCollection
 
         return self.properties.get(
@@ -597,7 +662,12 @@ class Folder(Entity):
 
     @property
     def folders(self) -> FolderCollection:
-        """Specifies the collection of list folders contained within the list folder."""
+        """Specifies the collection of list folders contained within the list folder.
+
+        A single-shot load (``ctx.load(folder, ["Folders"])`` / ``.get()``) is
+        trimmed at the 5,000-item list view threshold; use ``folders.get_all(
+        page_size=2000)`` for folders that may exceed it.
+        """
         from office365.sharepoint.folders.collection import FolderCollection
 
         return self.properties.get(
@@ -616,23 +686,23 @@ class Folder(Entity):
         """
         return self.folders.ensure_by_path(relative_path)
 
-    def ensure_folders(self, relative_paths: Iterable[str]) -> Folder:
+    def ensure_folders(self, relative_paths: Iterable[str]) -> list[Folder]:
         """Ensure a set of nested folder paths under this folder — deduplicated.
 
         Since :meth:`ensure_folder` already creates intermediate folders for a
         nested path, only the *deepest* paths are ensured: a path that is an
         ancestor of another is covered by it. All ensures are queued as one
         deferred batch; the caller executes them in a single round-trip.
-        Returns ``self`` for chaining.
 
         Args:
             relative_paths (Iterable[str]): Paths relative to this folder.
+
+        Returns:
+            list[Folder]: The ensured folders.
         """
         paths = sorted(set(relative_paths))
         deepest = [path for path in paths if not any(other.startswith(f"{path}/") for other in paths if other != path)]
-        for path in deepest:
-            self.ensure_folder(path)
-        return self
+        return [self.ensure_folder(path) for path in deepest]
 
     @odata(name="ParentFolder")
     @property

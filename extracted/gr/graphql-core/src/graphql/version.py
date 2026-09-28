@@ -1,12 +1,16 @@
+"""GraphQL-core version number"""
+
+from __future__ import annotations
+
 import re
 from typing import NamedTuple
 
-__all__ = ["version", "version_info", "version_js", "version_info_js"]
+__all__ = ["version", "version_info", "version_info_js", "version_js"]
 
 
-version = "3.2.12"
+version = "3.3.0"
 
-version_js = "16.14.2"
+version_js = "17.0.2"
 
 
 _re_version = re.compile(r"(\d+)\.(\d+)\.(\d+)(\D*)(\d*)")
@@ -20,7 +24,7 @@ class VersionInfo(NamedTuple):
     serial: int
 
     @classmethod
-    def from_str(cls, v: str) -> "VersionInfo":
+    def from_str(cls, v: str) -> VersionInfo:
         groups = _re_version.match(v).groups()  # type: ignore
         major, minor, micro = map(int, groups[:3])
         level = (groups[3] or "")[:1]

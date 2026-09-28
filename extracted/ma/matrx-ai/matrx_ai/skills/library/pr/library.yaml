@@ -1,0 +1,72 @@
+# AI Matrx's own PR & media skills — one per imported outside PR skill and doctrine document
+# (Arman, 2026-09-27: "for any actual skill that they have, in addition to using it to build
+# agents, we also need to take the text of the skill and create our own skill as well for our
+# skills library"). Each keeps the experts' method whole and is rewritten for how AI Matrx works:
+# our tools by their real names, the news monitor, the brand context that arrives with the
+# conversation, the CRM and Press Room, and our doctrine (offers, never blocks; nothing hidden;
+# agents never send or schedule). Each is linked to the imported original as its parent.
+# Loader + rules: matrx_ai/skills/library.py.
+# Run: uv run python scripts/ingest_skills.py --library packages/matrx-ai/matrx_ai/skills/library/pr [--dry-run]
+#
+# Tool names follow what is live on 2026-09-27 plus the news engine spec and the approved mandate
+# briefs (common-docs projects/outside-skill-packs/NEWS-ENGINE-SPEC.md and BRIEFS-*.md). Every tool,
+# step, mandate or screen that is not built yet is marked "(not live yet)" in the body and listed in
+# each skill's opening "Not live yet" note. When one ships, edit those lines and re-run.
+
+set_id: ai-matrx-pr
+title: "PR & media skills (AI Matrx)"
+visibility: public
+skill_type: workflow
+parent_pack: elvisun-pr-skills
+
+category:
+  slug: public-relations
+  name: "PR & Media"
+  icon: Newspaper
+  position: 64
+  description: >-
+    AI Matrx's own public relations and media skills — news opportunity detection and triage,
+    story angles and newsworthiness, journalist fit and media lists, pitching, headlines, fact
+    checks and brand voice, reactive comment and crisis holding statements, coverage tracking,
+    PR strategy and calendars, and AI-visibility measurement — each following PR practitioners'
+    proven method with AI Matrx's own tools, your brand context, and your monitor.
+
+skills:
+  # News opportunities
+  matrx-news-opportunity-detector: {parent: news-opportunity-detector}
+  matrx-relevance-coarse-filter: {parent: relevance-coarse-filter}
+  matrx-story-origin-check: {parent: story-origin-check}
+  matrx-news-opportunity-triage: {parent: news-opportunity-triage}
+  matrx-angle-generator: {parent: angle-generator}
+  matrx-newsworthiness-check: {parent: newsworthiness-check}
+  # Strategy, calendar, monitors, search
+  matrx-pr-strategist: {parent: pr-strategist}
+  matrx-pr-calendar: {parent: pr-calendar}
+  matrx-coverage-tracker: {parent: coverage-tracker}
+  matrx-coverage-tracker-setup: {parent: coverage-tracker-setup}
+  matrx-news-monitor-setup: {parent: news-monitor-setup}
+  matrx-news-search: {parent: news-search}
+  # Media relations
+  matrx-journalist-fit-check: {parent: journalist-fit-check}
+  matrx-same-outlet-ranker: {parent: same-outlet-ranker}
+  matrx-find-journalists: {parent: find-journalists}
+  matrx-reactive-comment: {parent: reactive-comment}
+  # Writing
+  matrx-headline-generator: {parent: headline-generator}
+  matrx-meanest-editor: {parent: meanest-editor}
+  matrx-fact-check: {parent: fact-check}
+  matrx-voice-extractor: {parent: voice-extractor}
+  # Proof, crisis, and the PR floor
+  matrx-press-clip: {parent: press-clip}
+  matrx-crisis-holding: {parent: crisis-holding}
+  matrx-pr-ethics-doctrine: {parent: pr-ethics-doctrine}
+  matrx-pr-why-not-spam: {parent: pr-why-not-spam}
+  # AI visibility
+  matrx-icp-evidence-analysis: {parent: icp-evidence-analysis}
+  matrx-buyer-job-intent-analysis: {parent: buyer-job-intent-analysis}
+  matrx-prompt-proximity-architecture: {parent: prompt-proximity-architecture}
+  matrx-realistic-prompt-generation: {parent: realistic-prompt-generation}
+  matrx-prompt-set-qa: {parent: prompt-set-qa}
+  matrx-ai-visibility-panel-design: {parent: ai-visibility-panel-design}
+  matrx-build-ai-visibility-panel: {parent: build-ai-visibility-panel}
+  matrx-ai-visibility-writing: {parent: ai-visibility-writing}

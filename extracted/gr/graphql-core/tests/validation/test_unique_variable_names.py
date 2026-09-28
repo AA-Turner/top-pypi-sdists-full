@@ -11,10 +11,12 @@ assert_valid = partial(assert_errors, errors=[])
 
 def describe_validate_unique_variable_names():
     def unique_variable_names():
-        assert_valid("""
+        assert_valid(
+            """
             query A($x: Int, $y: String) { __typename }
             query B($x: String, $y: Int) { __typename }
-            """)
+            """
+        )
 
     def duplicate_variable_names():
         assert_errors(

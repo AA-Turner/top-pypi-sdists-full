@@ -1,6 +1,8 @@
-from typing import Union
+from __future__ import annotations
 
-from pytest import raises
+from typing import TypeAlias
+
+import pytest
 
 from graphql import graphql_sync
 from graphql.error import GraphQLSyntaxError
@@ -25,6 +27,7 @@ from graphql.type import (
     assert_object_type,
     assert_scalar_type,
     assert_union_type,
+    specified_directives,
     validate_schema,
 )
 from graphql.utilities import (
@@ -37,29 +40,30 @@ from graphql.utilities import (
 
 from ..utils import dedent
 
-TypeWithAstNode = Union[
-    GraphQLArgument,
-    GraphQLEnumValue,
-    GraphQLField,
-    GraphQLInputField,
-    GraphQLNamedType,
-    GraphQLSchema,
-]
+TypeWithAstNode: TypeAlias = (
+    GraphQLArgument
+    | GraphQLDirective
+    | GraphQLEnumValue
+    | GraphQLField
+    | GraphQLInputField
+    | GraphQLNamedType
+    | GraphQLSchema
+)
 
-TypeWithExtensionAstNodes = Union[
-    GraphQLDirective,
-    GraphQLNamedType,
-    GraphQLSchema,
-]
+TypeWithExtensionAstNodes: TypeAlias = (
+    GraphQLDirective | GraphQLNamedType | GraphQLSchema
+)
 
 
 def expect_extension_ast_nodes(obj: TypeWithExtensionAstNodes, expected: str) -> None:
-    assert obj is not None and obj.extension_ast_nodes is not None
+    assert obj is not None
+    assert obj.extension_ast_nodes is not None
     assert "\n\n".join(print_ast(node) for node in obj.extension_ast_nodes) == expected
 
 
 def expect_ast_node(obj: TypeWithAstNode, expected: str) -> None:
-    assert obj is not None and obj.ast_node is not None
+    assert obj is not None
+    assert obj.ast_node is not None
     assert print_ast(obj.ast_node) == expected
 
 
@@ -90,11 +94,13 @@ def describe_extend_schema():
 
     def can_be_used_for_limited_execution():
         schema = build_schema("type Query")
-        extend_ast = parse("""
+        extend_ast = parse(
+            """
             extend type Query {
               newField: String
             }
-            """)
+            """
+        )
         extended_schema = extend_schema(schema, extend_ast)
 
         result = graphql_sync(
@@ -102,8 +108,51 @@ def describe_extend_schema():
         )
         assert result == ({"newField": "123"}, None)
 
+    def does_not_modify_built_in_types_and_directives():
+        schema = build_schema(
+            """
+              type Query {
+                str: String
+                int: Int
+                float: Float
+                id: ID
+                bool: Boolean
+              }
+            """
+        )
+
+        extension_sdl = dedent(
+            """
+            extend type Query {
+              foo: String
+            }
+            """
+        )
+
+        extended_schema = extend_schema(schema, parse(extension_sdl))
+
+        # built-ins are used
+        assert extended_schema.get_type("Int") is GraphQLInt
+        assert extended_schema.get_type("Float") is GraphQLFloat
+        assert extended_schema.get_type("String") is GraphQLString
+        assert extended_schema.get_type("Boolean") is GraphQLBoolean
+        assert extended_schema.get_type("ID") is GraphQLID
+
+        assert extended_schema.directives == specified_directives
+
+    def preserves_original_schema_config():
+        description = "A schema description"
+        extensions = {"foo": "bar"}
+        schema = GraphQLSchema(description=description, extensions=extensions)
+
+        extended_schema = extend_schema(schema, parse("scalar Bar"))
+
+        assert extended_schema.description == description
+        assert extended_schema.extensions is extensions
+
     def extends_objects_by_adding_new_fields():
-        schema = build_schema('''
+        schema = build_schema(
+            '''
             type Query {
               someObject: SomeObject
             }
@@ -122,20 +171,24 @@ def describe_extend_schema():
             interface AnotherInterface {
               self: SomeObject
             }
-            ''')
-        extension_sdl = dedent('''
+            '''
+        )
+        extension_sdl = dedent(
+            '''
             extend type SomeObject {
               """New field description."""
               newField(arg: Boolean): String
             }
-          ''')
+          '''
+        )
         extended_schema = extend_schema(schema, parse(extension_sdl))
 
         assert validate_schema(extended_schema) == []
         expect_schema_changes(
             schema,
             extended_schema,
-            dedent('''
+            dedent(
+                '''
                 type SomeObject implements AnotherInterface & SomeInterface {
                   self: SomeObject
                   tree: [SomeObject]!
@@ -144,7 +197,8 @@ def describe_extend_schema():
                   """New field description."""
                   newField(arg: Boolean): String
                 }
-                '''),
+                '''
+            ),
         )
 
     def extends_objects_with_standard_type_fields():
@@ -157,11 +211,13 @@ def describe_extend_schema():
         assert schema.get_type("Boolean") is GraphQLBoolean
         assert schema.get_type("ID") is None
 
-        extend_ast = parse("""
+        extend_ast = parse(
+            """
             extend type Query {
               bool: Boolean
             }
-            """)
+            """
+        )
         extended_schema = extend_schema(schema, extend_ast)
 
         assert validate_schema(extended_schema) == []
@@ -171,13 +227,15 @@ def describe_extend_schema():
         assert extended_schema.get_type("Boolean") is GraphQLBoolean
         assert extended_schema.get_type("ID") is None
 
-        extend_twice_ast = parse("""
+        extend_twice_ast = parse(
+            """
             extend type Query {
               int: Int
               float: Float
               id: ID
             }
-            """)
+            """
+        )
         extended_twice_schema = extend_schema(schema, extend_twice_ast)
 
         assert validate_schema(extended_twice_schema) == []
@@ -188,7 +246,8 @@ def describe_extend_schema():
         assert extended_twice_schema.get_type("ID") is GraphQLID
 
     def extends_enums_by_adding_new_values():
-        schema = build_schema('''
+        schema = build_schema(
+            '''
             type Query {
               someEnum(arg: SomeEnum): SomeEnum
             }
@@ -199,31 +258,37 @@ def describe_extend_schema():
               """Old value description."""
               OLD_VALUE
             }
-            ''')
-        extend_ast = parse('''
+            '''
+        )
+        extend_ast = parse(
+            '''
             extend enum SomeEnum {
               """New value description."""
               NEW_VALUE
             }
-            ''')
+            '''
+        )
         extended_schema = extend_schema(schema, extend_ast)
 
         assert validate_schema(extended_schema) == []
         expect_schema_changes(
             schema,
             extended_schema,
-            dedent('''
+            dedent(
+                '''
                 enum SomeEnum {
                   """Old value description."""
                   OLD_VALUE
                   """New value description."""
                   NEW_VALUE
                 }
-                '''),
+                '''
+            ),
         )
 
     def extends_unions_by_adding_new_types():
-        schema = build_schema("""
+        schema = build_schema(
+            """
             type Query {
               someUnion: SomeUnion
             }
@@ -233,38 +298,53 @@ def describe_extend_schema():
             type Foo { foo: String }
             type Biz { biz: String }
             type Bar { bar: String }
-            """)
-        extend_ast = parse("""
+            """
+        )
+        extend_ast = parse(
+            """
             extend union SomeUnion = Bar
-            """)
+            """
+        )
         extended_schema = extend_schema(schema, extend_ast)
 
         assert validate_schema(extended_schema) == []
         expect_schema_changes(
             schema,
             extended_schema,
-            dedent("""
+            dedent(
+                """
                 union SomeUnion = Foo | Biz | Bar
-                """),
+                """
+            ),
         )
 
     def allows_extension_of_union_by_adding_itself():
-        schema = build_schema("""
+        schema = build_schema(
+            """
             union SomeUnion
-            """)
-        extend_ast = parse("""
+            """
+        )
+        extend_ast = parse(
+            """
             extend union SomeUnion = SomeUnion
-            """)
-        # invalid schema cannot be built with Python
-        with raises(TypeError) as exc_info:
-            extend_schema(schema, extend_ast)
-        assert str(exc_info.value) == (
-            "SomeUnion types must be specified"
-            " as a collection of GraphQLObjectType instances."
+            """
+        )
+        extended_schema = extend_schema(schema, extend_ast)
+
+        assert validate_schema(extended_schema)
+        expect_schema_changes(
+            schema,
+            extended_schema,
+            dedent(
+                """
+                union SomeUnion = SomeUnion
+                """
+            ),
         )
 
     def extends_inputs_by_adding_new_fields():
-        schema = build_schema('''
+        schema = build_schema(
+            '''
             type Query {
               someInput(arg: SomeInput): String
             }
@@ -275,31 +355,37 @@ def describe_extend_schema():
               """Old field description."""
               oldField: String
             }
-            ''')
-        extend_ast = parse('''
+            '''
+        )
+        extend_ast = parse(
+            '''
             extend input SomeInput {
               """New field description."""
               newField: String
             }
-            ''')
+            '''
+        )
         extended_schema = extend_schema(schema, extend_ast)
 
         assert validate_schema(extended_schema) == []
         expect_schema_changes(
             schema,
             extended_schema,
-            dedent('''
+            dedent(
+                '''
                 input SomeInput {
                   """Old field description."""
                   oldField: String
                   """New field description."""
                   newField: String
                 }
-                '''),
+                '''
+            ),
         )
 
     def extends_scalars_by_adding_new_directives():
-        schema = build_schema("""
+        schema = build_schema(
+            """
             type Query {
               someScalar(arg: SomeScalar): SomeScalar
             }
@@ -311,10 +397,13 @@ def describe_extend_schema():
             }
 
             scalar SomeScalar
-            """)
-        extension_sdl = dedent("""
+            """
+        )
+        extension_sdl = dedent(
+            """
             extend scalar SomeScalar @foo
-            """)
+            """
+        )
         extended_schema = extend_schema(schema, parse(extension_sdl))
         some_scalar = assert_scalar_type(extended_schema.get_type("SomeScalar"))
 
@@ -322,7 +411,8 @@ def describe_extend_schema():
         expect_extension_ast_nodes(some_scalar, extension_sdl)
 
     def extends_scalars_by_adding_specified_by_directive():
-        schema = build_schema("""
+        schema = build_schema(
+            """
             type Query {
               foo: Foo
             }
@@ -330,12 +420,15 @@ def describe_extend_schema():
             scalar Foo
 
             directive @foo on SCALAR
-            """)
-        extension_sdl = dedent("""
+            """
+        )
+        extension_sdl = dedent(
+            """
             extend scalar Foo @foo
 
             extend scalar Foo @specifiedBy(url: "https://example.com/foo_spec")
-            """)
+            """
+        )
 
         extended_schema = extend_schema(schema, parse(extension_sdl))
         foo = assert_scalar_type(extended_schema.get_type("Foo"))
@@ -345,8 +438,38 @@ def describe_extend_schema():
         assert validate_schema(extended_schema) == []
         expect_extension_ast_nodes(foo, extension_sdl)
 
+    def builds_scalars_with_specified_by_directive_from_extensions():
+        schema = GraphQLSchema()
+        extension_sdl = dedent(
+            """
+            schema {
+              query: Query
+            }
+
+            type Query {
+              foo: Foo
+            }
+
+            scalar Foo
+
+            extend scalar Foo @specifiedBy(url: "https://example.com/foo_spec")
+            """
+        )
+
+        extended_schema = extend_schema(schema, parse(extension_sdl))
+        foo = assert_scalar_type(extended_schema.get_type("Foo"))
+
+        assert foo.specified_by_url == "https://example.com/foo_spec"
+
+        assert validate_schema(extended_schema) == []
+        expect_ast_node(foo, "scalar Foo")
+        expect_extension_ast_nodes(
+            foo, 'extend scalar Foo @specifiedBy(url: "https://example.com/foo_spec")'
+        )
+
     def correctly_assigns_ast_nodes_to_new_and_extended_types():
-        schema = build_schema("""
+        schema = build_schema(
+            """
             type Query
 
             scalar SomeScalar
@@ -357,8 +480,10 @@ def describe_extend_schema():
             interface SomeInterface
 
             directive @foo on SCALAR
-            """)
-        first_extension_ast = parse("""
+            """
+        )
+        first_extension_ast = parse(
+            """
             extend type Query {
               newField(testArg: TestInput): TestEnum
             }
@@ -386,10 +511,12 @@ def describe_extend_schema():
             input TestInput {
               testInputField: TestEnum
             }
-            """)
+            """
+        )
         extended_schema = extend_schema(schema, first_extension_ast)
 
-        second_extension_ast = parse("""
+        second_extension_ast = parse(
+            """
             extend type Query {
               oneMoreNewField: TestUnion
             }
@@ -421,7 +548,8 @@ def describe_extend_schema():
             }
 
             directive @test(arg: Int) repeatable on FIELD | SCALAR
-            """)
+            """
+        )
         extended_twice_schema = extend_schema(extended_schema, second_extension_ast)
 
         extend_in_one_go_schema = extend_schema(
@@ -515,7 +643,8 @@ def describe_extend_schema():
 
     def builds_types_with_deprecated_fields_and_values():
         schema = GraphQLSchema()
-        extend_ast = parse("""
+        extend_ast = parse(
+            """
             type SomeObject {
               deprecatedField: String @deprecated(reason: "not used anymore")
             }
@@ -523,7 +652,8 @@ def describe_extend_schema():
             enum SomeEnum {
               DEPRECATED_VALUE @deprecated(reason: "do not use")
             }
-            """)
+            """
+        )
         extended_schema = extend_schema(schema, extend_ast)
 
         some_type = assert_object_type(extended_schema.get_type("SomeObject"))
@@ -536,11 +666,13 @@ def describe_extend_schema():
 
     def extends_objects_with_deprecated_fields():
         schema = build_schema("type SomeObject")
-        extend_ast = parse("""
+        extend_ast = parse(
+            """
             extend type SomeObject {
               deprecatedField: String @deprecated(reason: "not used anymore")
             }
-            """)
+            """
+        )
         extended_schema = extend_schema(schema, extend_ast)
 
         some_type = assert_object_type(extended_schema.get_type("SomeObject"))
@@ -549,11 +681,13 @@ def describe_extend_schema():
 
     def extend_enums_with_deprecated_values():
         schema = build_schema("enum SomeEnum")
-        extend_ast = parse("""
+        extend_ast = parse(
+            """
             extend enum SomeEnum {
               DEPRECATED_VALUE @deprecated(reason: "do not use")
             }
-            """)
+            """
+        )
         extended_schema = extend_schema(schema, extend_ast)
 
         some_enum = assert_enum_type(extended_schema.get_type("SomeEnum"))
@@ -561,12 +695,15 @@ def describe_extend_schema():
         assert deprecated_value.deprecation_reason == "do not use"
 
     def adds_new_unused_types():
-        schema = build_schema("""
+        schema = build_schema(
+            """
             type Query {
               dummy: String
             }
-            """)
-        extension_sdl = dedent("""
+            """
+        )
+        extension_sdl = dedent(
+            """
             type DummyUnionMember {
               someField: String
             }
@@ -588,21 +725,25 @@ def describe_extend_schema():
             }
 
             union UnusedUnion = DummyUnionMember
-            """)
+            """
+        )
         extended_schema = extend_schema(schema, parse(extension_sdl))
 
         assert validate_schema(extended_schema) == []
         expect_schema_changes(schema, extended_schema, extension_sdl)
 
     def extends_objects_by_adding_new_fields_with_arguments():
-        schema = build_schema("""
+        schema = build_schema(
+            """
             type SomeObject
 
             type Query {
               someObject: SomeObject
             }
-            """)
-        extend_ast = parse("""
+            """
+        )
+        extend_ast = parse(
+            """
             input NewInputObj {
               field1: Int
               field2: [Float]
@@ -612,14 +753,16 @@ def describe_extend_schema():
             extend type SomeObject {
               newField(arg1: String, arg2: NewInputObj!): String
             }
-            """)
+            """
+        )
         extended_schema = extend_schema(schema, extend_ast)
 
         assert validate_schema(extended_schema) == []
         expect_schema_changes(
             schema,
             extended_schema,
-            dedent("""
+            dedent(
+                """
             type SomeObject {
               newField(arg1: String, arg2: NewInputObj!): String
             }
@@ -629,38 +772,46 @@ def describe_extend_schema():
               field2: [Float]
               field3: String!
             }
-            """),
+            """
+            ),
         )
 
     def extends_objects_by_adding_new_fields_with_existing_types():
-        schema = build_schema("""
+        schema = build_schema(
+            """
             type Query {
               someObject: SomeObject
             }
 
             type SomeObject
             enum SomeEnum { VALUE }
-            """)
-        extend_ast = parse("""
+            """
+        )
+        extend_ast = parse(
+            """
             extend type SomeObject {
               newField(arg1: SomeEnum!): SomeEnum
             }
-            """)
+            """
+        )
         extended_schema = extend_schema(schema, extend_ast)
 
         assert validate_schema(extended_schema) == []
         expect_schema_changes(
             schema,
             extended_schema,
-            dedent("""
+            dedent(
+                """
             type SomeObject {
               newField(arg1: SomeEnum!): SomeEnum
             }
-            """),
+            """
+            ),
         )
 
     def extends_objects_by_adding_implemented_interfaces():
-        schema = build_schema("""
+        schema = build_schema(
+            """
             type Query {
               someObject: SomeObject
             }
@@ -672,25 +823,31 @@ def describe_extend_schema():
             interface SomeInterface {
               foo: String
             }
-            """)
-        extend_ast = parse("""
+            """
+        )
+        extend_ast = parse(
+            """
             extend type SomeObject implements SomeInterface
-            """)
+            """
+        )
         extended_schema = extend_schema(schema, extend_ast)
 
         assert validate_schema(extended_schema) == []
         expect_schema_changes(
             schema,
             extended_schema,
-            dedent("""
+            dedent(
+                """
             type SomeObject implements SomeInterface {
               foo: String
             }
-            """),
+            """
+            ),
         )
 
     def extends_objects_by_including_new_types():
-        schema = build_schema("""
+        schema = build_schema(
+            """
             type Query {
               someObject: SomeObject
             }
@@ -698,7 +855,8 @@ def describe_extend_schema():
             type SomeObject {
               oldField: String
             }
-            """)
+            """
+        )
         new_types_sdl = """
             enum NewEnum {
               VALUE
@@ -716,7 +874,9 @@ def describe_extend_schema():
 
             union NewUnion = NewObject
             """
-        extend_ast = parse(new_types_sdl + """
+        extend_ast = parse(
+            new_types_sdl
+            + """
             extend type SomeObject {
               newObject: NewObject
               newInterface: NewInterface
@@ -725,14 +885,16 @@ def describe_extend_schema():
               newEnum: NewEnum
               newTree: [SomeObject]!
             }
-            """)
+            """
+        )
         extended_schema = extend_schema(schema, extend_ast)
 
         assert validate_schema(extended_schema) == []
         expect_schema_changes(
             schema,
             extended_schema,
-            dedent("""
+            dedent(
+                """
             type SomeObject {
               oldField: String
               newObject: NewObject
@@ -741,11 +903,14 @@ def describe_extend_schema():
               newScalar: NewScalar
               newEnum: NewEnum
               newTree: [SomeObject]!
-            }\n""" + new_types_sdl),
+            }\n"""
+                + new_types_sdl
+            ),
         )
 
     def extends_objects_by_adding_implemented_new_interfaces():
-        schema = build_schema("""
+        schema = build_schema(
+            """
             type Query {
               someObject: SomeObject
             }
@@ -757,8 +922,10 @@ def describe_extend_schema():
             interface OldInterface {
               oldField: String
             }
-            """)
-        extend_ast = parse("""
+            """
+        )
+        extend_ast = parse(
+            """
             extend type SomeObject implements NewInterface {
               newField: String
             }
@@ -766,14 +933,16 @@ def describe_extend_schema():
             interface NewInterface {
               newField: String
             }
-            """)
+            """
+        )
         extended_schema = extend_schema(schema, extend_ast)
 
         assert validate_schema(extended_schema) == []
         expect_schema_changes(
             schema,
             extended_schema,
-            dedent("""
+            dedent(
+                """
             type SomeObject implements OldInterface & NewInterface {
               oldField: String
               newField: String
@@ -782,11 +951,13 @@ def describe_extend_schema():
             interface NewInterface {
               newField: String
             }
-            """),
+            """
+            ),
         )
 
     def extends_different_types_multiple_times():
-        schema = build_schema("""
+        schema = build_schema(
+            """
             type Query {
               someScalar: SomeScalar
               someObject(someInput: SomeInput): SomeObject
@@ -814,8 +985,10 @@ def describe_extend_schema():
             input SomeInput {
               oldField: String
             }
-            """)
-        new_types_sdl = dedent("""
+            """
+        )
+        new_types_sdl = dedent(
+            """
             scalar NewScalar
 
             scalar AnotherNewScalar
@@ -835,11 +1008,13 @@ def describe_extend_schema():
             interface AnotherNewInterface {
               anotherNewField: String
             }
-            """)
+            """
+        )
         schema_with_new_types = extend_schema(schema, parse(new_types_sdl))
         expect_schema_changes(schema, schema_with_new_types, new_types_sdl)
 
-        extend_ast = parse("""
+        extend_ast = parse(
+            """
             extend scalar SomeScalar @specifiedBy(url: "http://example.com/foo_spec")
 
             extend type SomeObject implements NewInterface {
@@ -869,14 +1044,16 @@ def describe_extend_schema():
             extend input SomeInput {
                 anotherNewField: String
             }
-            """)
+            """
+        )
         extended_schema = extend_schema(schema_with_new_types, extend_ast)
 
         assert validate_schema(extended_schema) == []
         expect_schema_changes(
             schema,
             extended_schema,
-            dedent("""
+            dedent(
+                """
                 scalar SomeScalar @specifiedBy(url: "http://example.com/foo_spec")
 
                 type SomeObject implements SomeInterface & NewInterface & AnotherNewInterface {
@@ -899,11 +1076,15 @@ def describe_extend_schema():
                   anotherNewField: String
                 }
 
-                """) + "\n\n" + new_types_sdl,  # noqa: E501
+                """  # noqa: E501
+            )
+            + "\n\n"
+            + new_types_sdl,
         )
 
     def extends_interfaces_by_adding_new_fields():
-        schema = build_schema("""
+        schema = build_schema(
+            """
             interface SomeInterface {
               oldField: String
             }
@@ -919,8 +1100,10 @@ def describe_extend_schema():
             type Query {
               someInterface: SomeInterface
             }
-            """)
-        extend_ast = parse("""
+            """
+        )
+        extend_ast = parse(
+            """
             extend interface SomeInterface {
               newField: String
             }
@@ -932,14 +1115,16 @@ def describe_extend_schema():
             extend type SomeObject {
               newField: String
             }
-            """)
+            """
+        )
         extended_schema = extend_schema(schema, extend_ast)
 
         assert validate_schema(extended_schema) == []
         expect_schema_changes(
             schema,
             extended_schema,
-            dedent("""
+            dedent(
+                """
                 interface SomeInterface {
                   oldField: String
                   newField: String
@@ -954,11 +1139,13 @@ def describe_extend_schema():
                   oldField: String
                   newField: String
                 }
-                """),
+                """
+            ),
         )
 
     def extends_interfaces_by_adding_new_implemented_interfaces():
-        schema = build_schema("""
+        schema = build_schema(
+            """
             interface SomeInterface {
               oldField: String
             }
@@ -974,8 +1161,10 @@ def describe_extend_schema():
             type Query {
               someInterface: SomeInterface
             }
-            """)
-        extend_ast = parse("""
+            """
+        )
+        extend_ast = parse(
+            """
             interface NewInterface {
               newField: String
             }
@@ -987,14 +1176,16 @@ def describe_extend_schema():
             extend type SomeObject implements NewInterface {
               newField: String
             }
-            """)
+            """
+        )
         extended_schema = extend_schema(schema, extend_ast)
 
         assert validate_schema(extended_schema) == []
         expect_schema_changes(
             schema,
             extended_schema,
-            dedent("""
+            dedent(
+                """
                 interface AnotherInterface implements SomeInterface & NewInterface {
                   oldField: String
                   newField: String
@@ -1008,11 +1199,13 @@ def describe_extend_schema():
                 interface NewInterface {
                   newField: String
                 }
-                """),  # noqa: E501
+                """  # noqa: E501
+            ),
         )
 
     def allows_extension_of_interface_with_missing_object_fields():
-        schema = build_schema("""
+        schema = build_schema(
+            """
             type Query {
               someInterface: SomeInterface
             }
@@ -1024,28 +1217,34 @@ def describe_extend_schema():
             interface SomeInterface {
               oldField: SomeInterface
             }
-            """)
-        extend_ast = parse("""
+            """
+        )
+        extend_ast = parse(
+            """
             extend interface SomeInterface {
               newField: String
             }
-            """)
+            """
+        )
         extended_schema = extend_schema(schema, extend_ast)
 
         assert validate_schema(extended_schema)
         expect_schema_changes(
             schema,
             extended_schema,
-            dedent("""
+            dedent(
+                """
                 interface SomeInterface {
                   oldField: SomeInterface
                   newField: String
                 }
-                """),
+                """
+            ),
         )
 
     def extends_interfaces_multiple_times():
-        schema = build_schema("""
+        schema = build_schema(
+            """
             type Query {
               someInterface: SomeInterface
             }
@@ -1053,8 +1252,10 @@ def describe_extend_schema():
             interface SomeInterface {
               some: SomeInterface
             }
-            """)
-        extend_ast = parse("""
+            """
+        )
+        extend_ast = parse(
+            """
             extend interface SomeInterface {
               newFieldA: Int
             }
@@ -1062,24 +1263,28 @@ def describe_extend_schema():
             extend interface SomeInterface {
               newFieldB(test: Boolean): String
             }
-            """)
+            """
+        )
         extended_schema = extend_schema(schema, extend_ast)
 
         assert validate_schema(extended_schema) == []
         expect_schema_changes(
             schema,
             extended_schema,
-            dedent("""
+            dedent(
+                """
                 interface SomeInterface {
                   some: SomeInterface
                   newFieldA: Int
                   newFieldB(test: Boolean): String
                 }
-                """),
+                """
+            ),
         )
 
     def may_extend_mutations_and_subscriptions():
-        mutation_schema = build_schema("""
+        mutation_schema = build_schema(
+            """
             type Query {
               queryField: String
             }
@@ -1091,8 +1296,10 @@ def describe_extend_schema():
             type Subscription {
               subscriptionField: String
             }
-            """)
-        ast = parse("""
+            """
+        )
+        ast = parse(
+            """
             extend type Query {
               newQueryField: Int
             }
@@ -1104,12 +1311,14 @@ def describe_extend_schema():
             extend type Subscription {
               newSubscriptionField: Int
             }
-            """)
+            """
+        )
         original_print = print_schema(mutation_schema)
         extended_schema = extend_schema(mutation_schema, ast)
         assert extended_schema != mutation_schema
         assert print_schema(mutation_schema) == original_print
-        assert print_schema(extended_schema) == dedent("""
+        assert print_schema(extended_schema) == dedent(
+            """
             type Query {
               queryField: String
               newQueryField: Int
@@ -1124,18 +1333,23 @@ def describe_extend_schema():
               subscriptionField: String
               newSubscriptionField: Int
             }
-            """)
+            """
+        )
 
     def may_extend_directives_with_new_directive():
-        schema = build_schema("""
+        schema = build_schema(
+            """
             type Query {
               foo: String
             }
-            """)
-        extension_sdl = dedent('''
+            """
+        )
+        extension_sdl = dedent(
+            '''
             """New directive."""
             directive @new(enable: Boolean!, tag: String) repeatable on QUERY | FIELD
-            ''')
+            '''
+        )
         extended_schema = extend_schema(schema, parse(extension_sdl))
 
         assert validate_schema(extended_schema) == []
@@ -1145,7 +1359,7 @@ def describe_extend_schema():
         schema = GraphQLSchema()
         extend_ast = parse("extend schema @unknown")
 
-        with raises(TypeError) as exc_info:
+        with pytest.raises(TypeError) as exc_info:
             extend_schema(schema, extend_ast)
         assert str(exc_info.value) == "Unknown directive '@unknown'."
 
@@ -1158,54 +1372,48 @@ def describe_extend_schema():
 
     def throws_on_unknown_types():
         schema = GraphQLSchema()
-        ast = parse("""
+        ast = parse(
+            """
             type Query {
               unknown: UnknownType
             }
-            """)
-        with raises(TypeError) as exc_info:
+            """
+        )
+        with pytest.raises(TypeError) as exc_info:
             extend_schema(schema, ast, assume_valid_sdl=True)
         assert str(exc_info.value).endswith("Unknown type: 'UnknownType'.")
 
-    def rejects_invalid_ast():
-        schema = GraphQLSchema()
-
-        with raises(TypeError) as exc_info:
-            # noinspection PyTypeChecker
-            extend_schema(schema, None)  # type: ignore
-        assert str(exc_info.value) == "Must provide valid Document AST."
-
-        with raises(TypeError) as exc_info:
-            # noinspection PyTypeChecker
-            extend_schema(schema, {})  # type: ignore
-        assert str(exc_info.value) == "Must provide valid Document AST."
-
     def does_not_allow_replacing_a_default_directive():
         schema = GraphQLSchema()
-        extend_ast = parse("""
+        extend_ast = parse(
+            """
             directive @include(if: Boolean!) on FIELD | FRAGMENT_SPREAD
-            """)
+            """
+        )
 
-        with raises(TypeError) as exc_info:
+        with pytest.raises(TypeError) as exc_info:
             extend_schema(schema, extend_ast)
         assert str(exc_info.value).startswith(
-            "Directive '@include' already exists in the schema."
-            " It cannot be redefined."
+            "Directive '@include' already exists in the schema. It cannot be redefined."
         )
 
     def does_not_allow_replacing_an_existing_enum_value():
-        schema = build_schema("""
+        schema = build_schema(
+            """
             enum SomeEnum {
               ONE
             }
-            """)
-        extend_ast = parse("""
+            """
+        )
+        extend_ast = parse(
+            """
             extend enum SomeEnum {
               ONE
             }
-            """)
+            """
+        )
 
-        with raises(TypeError) as exc_info:
+        with pytest.raises(TypeError) as exc_info:
             extend_schema(schema, extend_ast)
         assert str(exc_info.value).startswith(
             "Enum value 'SomeEnum.ONE' already exists in the schema."
@@ -1221,17 +1429,21 @@ def describe_extend_schema():
             assert extended_schema.mutation_type is None
 
         def adds_schema_definition_missing_in_the_original_schema():
-            schema = build_schema("""
+            schema = build_schema(
+                """
                 directive @foo on SCHEMA
                 type Foo
-                """)
+                """
+            )
             assert schema.query_type is None
 
-            extension_sdl = dedent("""
+            extension_sdl = dedent(
+                """
                 schema @foo {
                   query: Foo
                 }
-                """)
+                """
+            )
             extended_schema = extend_schema(schema, parse(extension_sdl))
 
             query_type = assert_object_type(extended_schema.query_type)
@@ -1239,15 +1451,19 @@ def describe_extend_schema():
             expect_ast_node(extended_schema, extension_sdl)
 
         def adds_new_root_types_via_schema_extension():
-            schema = build_schema("""
+            schema = build_schema(
+                """
                 type Query
                 type MutationRoot
-                """)
-            extension_sdl = dedent("""
+                """
+            )
+            extension_sdl = dedent(
+                """
                 extend schema {
                   mutation: MutationRoot
                 }
-                """)
+                """
+            )
             extended_schema = extend_schema(schema, parse(extension_sdl))
 
             mutation_type = assert_object_type(extended_schema.mutation_type)
@@ -1255,21 +1471,26 @@ def describe_extend_schema():
             expect_extension_ast_nodes(extended_schema, extension_sdl)
 
         def adds_directive_via_schema_extension():
-            schema = build_schema("""
+            schema = build_schema(
+                """
                 type Query
 
                 directive @foo on SCHEMA
-                """)
-            extension_sdl = dedent("""
+                """
+            )
+            extension_sdl = dedent(
+                """
                 extend schema @foo
-                """)
+                """
+            )
             extended_schema = extend_schema(schema, parse(extension_sdl))
 
             expect_extension_ast_nodes(extended_schema, extension_sdl)
 
         def adds_multiple_new_root_types_via_schema_extension():
             schema = build_schema("type Query")
-            extend_ast = parse("""
+            extend_ast = parse(
+                """
                 extend schema {
                   mutation: Mutation
                   subscription: Subscription
@@ -1277,7 +1498,8 @@ def describe_extend_schema():
 
                 type Mutation
                 type Subscription
-                """)
+                """
+            )
             extended_schema = extend_schema(schema, extend_ast)
 
             mutation_type = assert_object_type(extended_schema.mutation_type)
@@ -1288,7 +1510,8 @@ def describe_extend_schema():
 
         def applies_multiple_schema_extensions():
             schema = build_schema("type Query")
-            extend_ast = parse("""
+            extend_ast = parse(
+                """
                 extend schema {
                   mutation: Mutation
                 }
@@ -1298,7 +1521,8 @@ def describe_extend_schema():
                   subscription: Subscription
                 }
                 type Subscription
-                """)
+                """
+            )
             extended_schema = extend_schema(schema, extend_ast)
 
             mutation_type = assert_object_type(extended_schema.mutation_type)
@@ -1308,12 +1532,15 @@ def describe_extend_schema():
             assert subscription_type.name == "Subscription"
 
         def schema_extension_ast_are_available_from_schema_object():
-            schema = build_schema("""
+            schema = build_schema(
+                """
                 type Query
 
                 directive @foo on SCHEMA
-                """)
-            extend_ast = parse("""
+                """
+            )
+            extend_ast = parse(
+                """
                 extend schema {
                   mutation: Mutation
                 }
@@ -1323,7 +1550,8 @@ def describe_extend_schema():
                   subscription: Subscription
                 }
                 type Subscription
-                """)
+                """
+            )
             extended_schema = extend_schema(schema, extend_ast)
 
             second_extend_ast = parse("extend schema @foo")
@@ -1331,7 +1559,8 @@ def describe_extend_schema():
 
             expect_extension_ast_nodes(
                 extended_twice_schema,
-                dedent("""
+                dedent(
+                    """
                     extend schema {
                       mutation: Mutation
                     }
@@ -1341,7 +1570,8 @@ def describe_extend_schema():
                     }
 
                     extend schema @foo
-                    """),
+                    """
+                ),
             )
 
         def extend_directive_to_make_it_deprecated():
@@ -1350,7 +1580,6 @@ def describe_extend_schema():
                 """
 extend directive @isDeprecated @deprecated(reason: "use another directive")
 """,
-                experimental_directives_on_directive_definitions=True,
             )
             extended_schema = extend_schema(schema, extend_ast)
 
@@ -1369,14 +1598,15 @@ type Query {
 
 directive @isDeprecated @deprecated(reason: "use another directive") on FIELD_DEFINITION
 """,
-                    experimental_directives_on_directive_definitions=True,
                 )
             )
-            extend_ast = parse(dedent("""
+            extend_ast = parse(
+                dedent("""
                 extend type Query {
                   bar: Int
                 }
-                """))
+                """)
+            )
             extended_schema = extend_schema(schema, extend_ast)
 
             is_deprecated_directive = assert_directive(
@@ -1393,13 +1623,39 @@ directive @isDeprecated @deprecated(reason: "use another directive") on FIELD_DE
 
                     extend directive @someDirective @onDirective
                     """),
-                    experimental_directives_on_directive_definitions=True,
                 )
             )
 
             some_directive = assert_directive(schema.get_directive("someDirective"))
             expect_extension_ast_nodes(
                 some_directive, "extend directive @someDirective @onDirective"
+            )
+
+        def builds_directives_with_deprecation_from_extensions():
+            schema = GraphQLSchema()
+            extension_sdl = dedent("""
+directive @isDeprecated on FIELD_DEFINITION
+
+extend directive @isDeprecated @deprecated(reason: "use another directive")
+""")
+            extended_schema = extend_schema(
+                schema,
+                parse(
+                    extension_sdl,
+                ),
+            )
+
+            is_deprecated_directive = assert_directive(
+                extended_schema.get_directive("isDeprecated")
+            )
+            assert is_deprecated_directive.deprecation_reason == "use another directive"
+            expect_ast_node(
+                is_deprecated_directive, "directive @isDeprecated on FIELD_DEFINITION"
+            )
+            expect_extension_ast_nodes(
+                is_deprecated_directive,
+                "extend directive @isDeprecated"
+                ' @deprecated(reason: "use another directive")',
             )
 
         def applies_multiple_directive_extensions_defined_in_the_same_document():
@@ -1413,7 +1669,6 @@ directive @isDeprecated @deprecated(reason: "use another directive") on FIELD_DE
                     extend directive @someDirective @onDirective
                     extend directive @someDirective @otherDirective
                     """),
-                    experimental_directives_on_directive_definitions=True,
                 )
             )
 
@@ -1428,9 +1683,8 @@ directive @isDeprecated @deprecated(reason: "use another directive") on FIELD_DE
             )
 
         def extend_directive_without_adding_new_directives_is_an_error():
-            with raises(GraphQLSyntaxError) as exc_info:
+            with pytest.raises(GraphQLSyntaxError) as exc_info:
                 parse(
                     "extend directive @isDeprecated",
-                    experimental_directives_on_directive_definitions=True,
                 )
             assert str(exc_info.value).startswith("Syntax Error: Unexpected <EOF>.")

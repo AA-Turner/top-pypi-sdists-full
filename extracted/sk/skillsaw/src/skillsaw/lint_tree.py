@@ -7,6 +7,7 @@ from __future__ import annotations
 import fnmatch
 import logging
 import os
+from functools import cached_property
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, List, Optional, Set, TYPE_CHECKING, Tuple
@@ -14,6 +15,8 @@ from typing import Dict, List, Optional, Set, TYPE_CHECKING, Tuple
 from .diagnostics import safe_display
 
 from .blocks import (
+    ContentBlock,
+    FrontmatteredBlock,
     AgentBlock,
     AgentMemoryBlock,
     AgentMemoryIndexBlock,
@@ -80,6 +83,7 @@ from .blocks import (
     VsCodeMcpBlock,
 )
 from .formats.codex import (
+    inline_documents,
     CODEX_CONFIG_FILENAME,
     CODEX_DIR_NAME,
     CODEX_HOOKS_FILENAME,
@@ -89,10 +93,28 @@ from .formats.codex import (
     codex_inline_hooks,
     codex_inline_mcp_servers,
 )
+from .formats.codex_manifest import codex_manifest_view
 from .discovery import AGENT_MEMORY_DIR, AGENT_MEMORY_INDEX
 from .discovery.excludes import is_root_or_ancestor_excluded
 from .discovery.opencode import contained_instruction_globs
-from .formats import antigravity, devin, grok, muse
+from .lint_target import OpenClawPluginNode, OpenClawPluginConfigNode, OpenClawPackageConfigNode
+from .blocks.json_config import OpenClawInlineMcpBlock
+from .formats.openclaw import MANIFEST, contained_file, inline_mcp_servers
+from .blocks.pi import PiPackageNode, PiPackageBlock
+from .discovery.pi import package_resources
+from .pi_tree import attach_pi_resources, attach_pi_projects, attach_pi_prompts
+from .formats import antigravity, devin, grok, muse, cursor
+from .blocks.cursor import (
+    CursorAgentBlock,
+    CursorPluginNode,
+    CursorMarketplaceBlock,
+    CursorPluginBlock,
+    CursorPluginHooksBlock,
+    CursorInlineHooksBlock,
+    CursorRuleValidationBlock,
+    CursorInlineMcpBlock,
+    CursorPluginMcpBlock,
+)
 from .utils import has_apm_generated_header, read_text
 from .paths import (
     contained_resolve,
@@ -148,6 +170,7 @@ _CLINE_EXCLUDED_DIRS = frozenset({"workflows", "hooks", "skills"})
 _EDITOR_GLOBS = (
     (".cursor", "rules", "**/*.mdc", "CursorRuleBlock"),
     (".cursor", "commands", "**/*.md", "CursorCommandBlock"),
+    (".cursor", "agents", "**/*.md", "CursorAgentBlock"),
     (".github", "agents", "**/*.md", "CopilotAgentBlock"),
     (".github", "prompts", "**/*.prompt.md", "CopilotPromptBlock"),
     (".github", "chatmodes", "**/*.chatmode.md", "CopilotAgentBlock"),
@@ -228,10 +251,20 @@ class _TreeBuildState:
     mcp_paths: Set[Path] = field(default_factory=set)
     openai_seen: Set[Tuple[Path, Path]] = field(default_factory=set)
     opencode_configs: List[OpenCodeConfigBlock] = field(default_factory=list)
+    pi_prompts: List[Tuple[LintTarget, Path, Optional[Path]]] = field(default_factory=list)
+
+    @cached_property
+    def portable_skill_dirs(self) -> Set[Path]:
+        """Physical skill identities retained for non-Pi consumers."""
+        return {
+            resolved
+            for path in self.context.skills
+            if (resolved := self.context.resolve_path(path)) is not None
+        }
 
     def resolve_repo_path(self, path: Path) -> Path | None:
         """Resolve *path* only when repository containment is safe."""
-        return contained_resolve(path, self.repo_root)
+        return contained_resolve(path, self.repo_root, self.context.resolve_path)
 
     def add_block(
         self,
@@ -326,6 +359,34 @@ class _TreeBuildState:
         elif issubclass(block_cls, McpBlock):
             self.mcp_paths.add(resolved)
 
+    def add_skill_references(
+        self,
+        skill_node: LintTarget,
+        skill_path: Path,
+        *,
+        containment_root: Path | None = None,
+        owner: Path | None = None,
+    ) -> None:
+        """Attach a skill directory's ``references/*.md`` as skill-ref prose.
+
+        The one seam every skill container uses — portable, APM and Pi —
+        so a host that loads a skill directory the Agent Skills way lints
+        the same support files. When *containment_root* is given, a
+        reference resolving outside it is skipped: rules both read and
+        rewrite these files, so a symlink out of the owning package is a
+        read *and* a write outside the checkout.
+        """
+        refs_dir = skill_path / "references"
+        if not refs_dir.is_dir():
+            return
+        root = self.context.resolve_path(containment_root) if containment_root is not None else None
+        for ref_file in sorted(refs_dir.glob("*.md")):
+            if root is not None:
+                resolved = self.context.resolve_path(ref_file)
+                if resolved is None or not resolved.is_relative_to(root):
+                    continue
+            self.add_block(skill_node, ref_file, SkillRefBlock, owner=owner)
+
     def add_openai_metadata(
         self,
         parent: LintTarget,
@@ -341,9 +402,9 @@ class _TreeBuildState:
         # there is no file to attach.
         if not safe_is_file(path) or self.context.is_path_excluded(path):
             return
-        resolved = safe_resolve(path)
-        root = safe_resolve(containment_root)
-        owner = safe_resolve(metadata_root)
+        resolved = self.context.resolve_path(path)
+        root = self.context.resolve_path(containment_root)
+        owner = self.context.resolve_path(metadata_root)
         if (
             resolved is None
             or root is None
@@ -464,8 +525,7 @@ def _claim_attached_hooks(
     Answers "is this file already in the tree?" for the declared-files loop
     and, when it is, records the plugin that declared it. Nothing but the
     manifest names such a file, so the declaration is the only evidence of
-    ownership there is — and without it ``skillsaw docs`` lists the plugin
-    without its hooks. An attach that already recorded an owner (the Claude
+    ownership there is. An attach that already recorded an owner (the Claude
     branch, the Codex cluster's conventional file) keeps it.
 
     Only the tree root is scanned, which is where every ownerless attach
@@ -488,7 +548,7 @@ def _claim_attached_hooks(
             isinstance(child, HooksBlock)
             and (block_cls is None or type(child) is block_cls)
             and child.plugin_owner is None
-            and safe_resolve(child.path) == resolved
+            and state.context.resolve_path(child.path) == resolved
         ):
             child.plugin_owner = owner
     return True
@@ -504,16 +564,13 @@ def _attach_apm_skills(
         return
 
     for skill_path in state.context.skills:
-        if not (safe_resolve(skill_path) or skill_path).is_relative_to(
-            safe_resolve(apm_skills) or apm_skills
+        if not (state.context.resolve_path(skill_path) or skill_path).is_relative_to(
+            state.context.resolve_path(apm_skills) or apm_skills
         ):
             continue
         skill_node = SkillNode(path=skill_path)
         state.add_block(skill_node, skill_path / "SKILL.md", SkillBlock)
-        refs_dir = skill_path / "references"
-        if refs_dir.is_dir():
-            for ref_file in sorted(refs_dir.glob("*.md")):
-                state.add_block(skill_node, ref_file, SkillRefBlock)
+        state.add_skill_references(skill_node, skill_path)
         apm_node.children.append(skill_node)
 
 
@@ -574,8 +631,12 @@ def build_lint_tree(context: "RepositoryContext") -> LintTarget:
             return AgentsMdBlock
         return _INSTRUCTION_FILE_BLOCK_TYPES.get(path.name, InstructionBlock)
 
+    # Every realpath of the build goes through the context's memo: the
+    # plugin loop, prose attach and containment checks ask about the same
+    # directories the provenance probes already resolved.
+    resolve = context.resolve_path
     root = LintTarget(path=context.root_path)
-    repo_root = safe_resolve(context.root_path)
+    repo_root = resolve(context.root_path)
     if repo_root is None:
         message = f"Repository root could not be resolved: {context.root_path}"
         if message not in context.lint_tree_errors:
@@ -584,6 +645,7 @@ def build_lint_tree(context: "RepositoryContext") -> LintTarget:
         root.set_parents()
         return root
     state = _TreeBuildState(context=context, root=root, repo_root=repo_root)
+    cursor_prose = []
 
     _is_excluded = context.is_path_excluded
     _is_in_compiled_dir = context.in_apm_compiled_dir
@@ -601,7 +663,7 @@ def build_lint_tree(context: "RepositoryContext") -> LintTarget:
         _record_walk_error(error)
 
     apm_source_root = (
-        (safe_resolve((context.root_path / ".apm")) or (context.root_path / ".apm"))
+        (resolve((context.root_path / ".apm")) or (context.root_path / ".apm"))
         if context.has_apm
         else None
     )
@@ -610,7 +672,7 @@ def build_lint_tree(context: "RepositoryContext") -> LintTarget:
         """Return whether *p* belongs to the active APM source tree."""
         if apm_source_root is None:
             return False
-        resolved = safe_resolve(p) or p
+        resolved = resolve(p) or p
         return resolved == apm_source_root or resolved.is_relative_to(apm_source_root)
 
     # Editor directories the loops below will actually walk. Discovery drops
@@ -626,7 +688,7 @@ def build_lint_tree(context: "RepositoryContext") -> LintTarget:
     antigravity_roots = {
         resolved
         for directory in context.antigravity_workspace_roots()
-        if (resolved := safe_resolve(directory)) is not None
+        if (resolved := resolve(directory)) is not None
     }
     eligible_tool_dirs = {
         editor: (
@@ -635,7 +697,7 @@ def build_lint_tree(context: "RepositoryContext") -> LintTarget:
             else {
                 resolved
                 for directory in context.agent_tool_dirs(editor)
-                if (resolved := safe_resolve(directory)) is not None
+                if (resolved := resolve(directory)) is not None
             }
         )
         for editor in {editor for editor, _sub, _pattern, _cls in _EDITOR_GLOBS}
@@ -681,7 +743,7 @@ def build_lint_tree(context: "RepositoryContext") -> LintTarget:
                         continue
                     if not fnmatch.fnmatch(candidate.name, pattern.rsplit("/", 1)[-1]):
                         continue
-                    editor_dir = safe_resolve(Path(*parts[: index + 1]))
+                    editor_dir = resolve(Path(*parts[: index + 1]))
                     if editor_dir is not None and editor_dir in eligible_tool_dirs[editor]:
                         return True
             return False
@@ -690,7 +752,7 @@ def build_lint_tree(context: "RepositoryContext") -> LintTarget:
         # file. Let the canonical target's owner win too, or the early
         # instruction sweep claims the resolved path and suppresses structural
         # validation when the editor loop arrives later.
-        resolved = safe_resolve(p)
+        resolved = resolve(p)
         return _lexically_claimed(p) or (resolved is not None and _lexically_claimed(resolved))
 
     # APM's Copilot target compiles `.apm/<kind>/` into the root
@@ -700,7 +762,7 @@ def build_lint_tree(context: "RepositoryContext") -> LintTarget:
     # repository with no `.apm/prompts/` is authored content and stays.
     apm_compiled_github: Set[Path] = set()
     if context.has_apm and context.apm_targets("copilot"):
-        root_github = safe_resolve(context.root_path / ".github")
+        root_github = resolve(context.root_path / ".github")
         for kind in ("agents", "prompts", "chatmodes", "instructions"):
             if root_github is not None and (context.root_path / ".apm" / kind).is_dir():
                 apm_compiled_github.add(root_github / kind)
@@ -726,12 +788,14 @@ def build_lint_tree(context: "RepositoryContext") -> LintTarget:
 
     def _is_apm_compiled_github(path: Path) -> bool:
         """Whether *path* is APM output rather than authored content."""
-        resolved = safe_resolve(path)
+        resolved = resolve(path)
         return resolved is not None and resolved in apm_compiled_github
 
     # Nearest package ownership, with the roots resolved once per context.
     _contained_plugin_owner = context.contained_plugin_owning
     agent_plugin_roots = set(context.agent_plugin_roots())
+    openclaw_plugin_roots = set(context.openclaw_plugin_roots())
+    cursor_plugin_roots = set(context.cursor_plugin_roots())
 
     def _shadowed_by_agent_plugin_mcp(path: Path, agent_plugin_mcp: Path | None) -> bool:
         """Whether *path* is the portable ``mcp.json`` under another name.
@@ -741,7 +805,7 @@ def build_lint_tree(context: "RepositoryContext") -> LintTarget:
         attached once as the Agent Plugins parser role, so a second parser
         role here would duplicate every policy and security finding.
         """
-        return agent_plugin_mcp is not None and safe_resolve(path) == agent_plugin_mcp
+        return agent_plugin_mcp is not None and resolve(path) == agent_plugin_mcp
 
     def _add_contained_plugin_block(
         parent: (
@@ -760,8 +824,8 @@ def build_lint_tree(context: "RepositoryContext") -> LintTarget:
         declaration, so nothing else has checked where they resolve to. A
         symlink would otherwise read an external file under an in-repo path.
         """
-        root = safe_resolve(parent.plugin_dir)
-        resolved = safe_resolve(p)
+        root = resolve(parent.plugin_dir)
+        resolved = resolve(p)
         if root is None or resolved is None or not resolved.is_relative_to(root):
             return
         state.add_parser_block(parent, p, block_cls, owner=owner)
@@ -777,7 +841,7 @@ def build_lint_tree(context: "RepositoryContext") -> LintTarget:
         ``seen_plugin_dirs`` is fully populated before the plugin loop makes
         the first call here.
         """
-        resolved = safe_resolve(candidate)
+        resolved = resolve(candidate)
         if resolved is None:
             return False
         for ancestor in resolved.parents:
@@ -787,16 +851,22 @@ def build_lint_tree(context: "RepositoryContext") -> LintTarget:
                 return False
         return False
 
-    def _add_plugin_prose(parent: LintTarget, plugin_dir: Path, owner: Path) -> None:
+    def _add_plugin_prose(
+        parent: LintTarget,
+        plugin_dir: Path,
+        owner: Path,
+        skip: frozenset[Path] = frozenset(),
+    ) -> None:
         """The one prose attach for every plugin container.
 
         ``commands/``, ``agents/``, ``rules/`` and README follow the same
         conventions across plugin ecosystems, so every claimed directory gets
         them here — the content and security rules must read this prose
         whoever owns it. Containment as in ``_add_contained_plugin_block``: a symlink
-        would pull an external file under an in-repo name.
+        would pull an external file under an in-repo name. ``skip`` holds
+        resolved paths another role declared; they attach under that role.
         """
-        plugin_resolved = safe_resolve(plugin_dir)
+        plugin_resolved = resolve(plugin_dir)
         if plugin_resolved is None:
             return
 
@@ -816,7 +886,7 @@ def build_lint_tree(context: "RepositoryContext") -> LintTarget:
             except OSError:
                 continue
             for md in files:
-                if _contained(md):
+                if _contained(md) and not (skip and resolve(md) in skip):
                     state.add_block(parent, md, block_cls, owner=owner)
         readme = plugin_dir / "README.md"
         if _contained(readme):
@@ -849,7 +919,7 @@ def build_lint_tree(context: "RepositoryContext") -> LintTarget:
     # Prefer the portable parser role so ecosystem-neutral policy rules see
     # the executable surface once rather than reporting duplicate findings.
     root_agent_plugin_mcp = (
-        safe_resolve(context.root_path / "mcp.json") if repo_root in agent_plugin_roots else None
+        resolve(context.root_path / "mcp.json") if repo_root in agent_plugin_roots else None
     )
     root_native_mcp = context.root_path / ".mcp.json"
     if not _shadowed_by_agent_plugin_mcp(root_native_mcp, root_agent_plugin_mcp):
@@ -950,6 +1020,7 @@ def build_lint_tree(context: "RepositoryContext") -> LintTarget:
         state.add_block(root, legacy_cursor, InstructionBlock)
 
     for cursor_dir in context.agent_tool_dirs(".cursor"):
+        _add_glob(root, cursor_dir / "agents", "**/*.md", CursorAgentBlock)
         # APM's cursor target compiles ``.apm/instructions/`` into
         # ``.cursor/rules/`` only (docs/repo-types.md) — not commands, mcp.json
         # or hooks.json, which are authored even in an APM repo. So the compiled
@@ -1314,7 +1385,7 @@ def build_lint_tree(context: "RepositoryContext") -> LintTarget:
         if _is_excluded(grok_marketplace_json):
             continue
         catalog_node = GrokMarketplaceConfigNode(path=grok_marketplace_json)
-        marketplace_root = safe_resolve(grok_marketplace_json.parent.parent)
+        marketplace_root = resolve(grok_marketplace_json.parent.parent)
         if marketplace_root is not None:
             index_locations = [
                 (marketplace_root.joinpath(*parts), False) for parts in grok.PLUGIN_INDEX_PATHS
@@ -1342,7 +1413,7 @@ def build_lint_tree(context: "RepositoryContext") -> LintTarget:
                 # of the marketplace is not this marketplace's display
                 # catalog, and the parity rule would report a file it does
                 # not own.
-                resolved_index = contained_resolve(index_json, marketplace_root)
+                resolved_index = contained_resolve(index_json, marketplace_root, resolve)
                 if resolved_index is None or resolved_index in index_seen:
                     continue
                 if present and not _is_excluded(index_json):
@@ -1352,11 +1423,17 @@ def build_lint_tree(context: "RepositoryContext") -> LintTarget:
                     )
         root.children.append(catalog_node)
 
+    for catalog in context.cursor_marketplace_paths():
+        root.children.append(CursorMarketplaceBlock(path=catalog))
+
     # --- Plugins (build first so skills can nest inside them) ---
+    cursor_plugin_nodes = {}
     plugin_nodes: dict[Path, PluginNode] = {}
     codex_plugin_nodes: dict[Path, CodexPluginNode] = {}
+    openclaw_plugin_nodes: dict[Path, OpenClawPluginNode] = {}
     grok_plugin_nodes: dict[Path, GrokPluginNode] = {}
     antigravity_plugin_nodes: dict[Path, AntigravityPluginNode] = {}
+    pi_package_nodes: dict[Path, PiPackageNode] = {}
     agent_plugin_nodes: dict[Path, AgentPluginNode] = {}
     marketplace_dir = context.root_path / "plugins"
     marketplace_node: MarketplaceNode | None = None
@@ -1379,14 +1456,17 @@ def build_lint_tree(context: "RepositoryContext") -> LintTarget:
         *context.plugins,
         *context.codex_plugins,
         *context.grok_plugins,
+        *context.openclaw_plugin_roots(),
+        *context.cursor_plugin_roots(),
         *context.antigravity_plugins,
         *context.agent_plugins,
+        *context.pi_discovery_roots(),
         *sorted(p for p in context._codex_claim_set() if not context.is_path_excluded(p)),
         *sorted(p for p in context._grok_claim_set() if not context.is_path_excluded(p)),
         *sorted(p for p in context._antigravity_claim_set() if not context.is_path_excluded(p)),
         *sorted(p for p in context._agent_plugin_claim_set() if not context.is_path_excluded(p)),
     ):
-        resolved_candidate = safe_resolve(candidate)
+        resolved_candidate = resolve(candidate)
         if resolved_candidate is None:
             # A claim that cannot resolve (symlink loop, unreadable
             # parent) must not abort tree construction for the whole
@@ -1404,20 +1484,25 @@ def build_lint_tree(context: "RepositoryContext") -> LintTarget:
     root_plugin_owner: Path | None = None
     for plugin_path in plugin_dirs:
         prov = context.provenance(plugin_path)
+        is_pi = prov.pi or (context._pi_package_forced and plugin_path == context.root_path)
+        is_cursor = prov.cursor or plugin_path in cursor_plugin_roots
         # Compiled-output filtering is a Claude/APM concept; an explicit
         # Codex, Grok or Antigravity claim keeps the directory.
         # ``.agents/`` is both an APM compile target and Antigravity's
         # customization root, so without the second half an authored
         # ``.agents/plugins/<name>/`` would be discarded as generated output
         # in every APM repository with a Codex target.
-        if _is_in_compiled_dir(plugin_path) and not (prov.codex or prov.grok or prov.antigravity):
+        if _is_in_compiled_dir(plugin_path) and not (
+            prov.codex or prov.grok or prov.antigravity or prov.openclaw or is_cursor
+        ):
             continue
-        resolved_plugin = safe_resolve(plugin_path)
+        resolved_plugin = resolve(plugin_path)
         if resolved_plugin is None:
             continue
 
+        is_openclaw = prov.openclaw or plugin_path in openclaw_plugin_roots
         is_agent_plugin = resolved_plugin in agent_plugin_roots
-        agent_plugin_mcp = safe_resolve(plugin_path / "mcp.json") if is_agent_plugin else None
+        agent_plugin_mcp = resolve(plugin_path / "mcp.json") if is_agent_plugin else None
 
         # Container type: Claude identity keeps PluginNode and its Claude
         # rules. Otherwise Codex wins the neutral hierarchy choice when a
@@ -1429,21 +1514,36 @@ def build_lint_tree(context: "RepositoryContext") -> LintTarget:
             container = PluginNode(path=plugin_path)
             plugin_nodes[resolved_plugin] = container
         elif resolved_plugin == root.resolved_path and (
-            prov.codex or prov.grok or prov.antigravity or is_agent_plugin
+            prov.codex
+            or prov.grok
+            or prov.antigravity
+            or is_openclaw
+            or is_agent_plugin
+            or is_cursor
+            or is_pi
         ):
             container = root
         elif prov.codex:
             container = CodexPluginNode(path=plugin_path)
             codex_plugin_nodes[resolved_plugin] = container
+        elif is_cursor:
+            container = CursorPluginNode(path=plugin_path)
+            cursor_plugin_nodes[resolved_plugin] = container
         elif prov.grok:
             container = GrokPluginNode(path=plugin_path)
             grok_plugin_nodes[resolved_plugin] = container
         elif prov.antigravity:
             container = AntigravityPluginNode(path=plugin_path)
             antigravity_plugin_nodes[resolved_plugin] = container
+        elif is_pi:
+            container = PiPackageNode(path=plugin_path)
+            pi_package_nodes[resolved_plugin] = container
         elif is_agent_plugin:
             container = AgentPluginNode(path=plugin_path)
             agent_plugin_nodes[resolved_plugin] = container
+        elif is_openclaw:
+            container = OpenClawPluginNode(path=plugin_path)
+            openclaw_plugin_nodes[resolved_plugin] = container
         else:
             # Legacy unclaimed directories discovered by the Claude layout
             # retain their established container and validation behavior.
@@ -1466,24 +1566,136 @@ def build_lint_tree(context: "RepositoryContext") -> LintTarget:
             # in the declared-files loop below, wherever the plugin sits in
             # the tree. (``hooks/hooks.json`` needs nothing either: it
             # attaches under the Codex cluster with containment.)
-            claimed_mcp = {safe_resolve(plugin_path / ".mcp.json")} - {None}
+            claimed_mcp = {resolve(plugin_path / ".mcp.json")} - {None}
             claimed_hooks: Set[Optional[Path]] = set()
             if prov.codex:
-                claimed_hooks = {
-                    safe_resolve(plugin_path / CODEX_DIR_NAME / CODEX_HOOKS_FILENAME)
-                } - {None}
+                claimed_hooks = {resolve(plugin_path / CODEX_DIR_NAME / CODEX_HOOKS_FILENAME)} - {
+                    None
+                }
             for child in root.children:
-                if isinstance(child, McpBlock) and safe_resolve(child.path) in claimed_mcp:
+                if isinstance(child, McpBlock) and resolve(child.path) in claimed_mcp:
                     child.plugin_owner = resolved_plugin
-                elif isinstance(child, HooksBlock) and safe_resolve(child.path) in claimed_hooks:
+                elif isinstance(child, HooksBlock) and resolve(child.path) in claimed_hooks:
                     child.plugin_owner = resolved_plugin
 
-        _add_plugin_prose(container, plugin_path, resolved_plugin)
+        if is_openclaw:
+            # Keep missing manifests in the tree so forced/package claims diagnose them.
+            node = OpenClawPluginConfigNode(path=plugin_path / MANIFEST)
+            node.plugin_owner = resolved_plugin
+            if not _is_excluded(node.path):
+                container.children.append(node)
+                payload = inline_mcp_servers(plugin_path, resolve=resolve)
+                if payload is not None:
+                    block = OpenClawInlineMcpBlock(
+                        path=node.path, inline_data={"mcpServers": payload}
+                    )
+                    block.plugin_owner = resolved_plugin
+                    state.attach_prebuilt(node, block)
+            package_path = plugin_path / "package.json"
+            if contained_file(plugin_path, "package.json", resolve=resolve):
+                state.add_parser_block(
+                    container, package_path, OpenClawPackageConfigNode, owner=resolved_plugin
+                )
+
+        cursor_components = [
+            (
+                origin,
+                data,
+                {
+                    field: cursor.component_files(
+                        plugin_path, data, field, _is_excluded, resolve=resolve
+                    )
+                    for field in ("rules", "commands", "agents")
+                },
+            )
+            for origin, data in (context.cursor_views(resolved_plugin) if is_cursor else [])
+        ]
+        # Cursor overrides replace conventional directories. Attaching generic
+        # prose here would lint unloaded defaults and assign Claude block types.
+        # Mixed packages still retain the other ecosystems' conventional prose.
+        if prov.ecosystems - {"cursor"} or not is_cursor:
+            # A Pi-only package's declared prompts are Pi prompts, not Claude
+            # commands or agents; ``attach_pi_prompts`` claims them last.
+            pi_prompts: frozenset[Path] = frozenset()
+            if (
+                is_pi
+                and not prov.ecosystems - {"pi"}
+                and not (is_cursor or is_openclaw or is_agent_plugin)
+            ):
+                pi_prompts = frozenset(
+                    resolved
+                    for p in package_resources(
+                        plugin_path, "prompts", context.root_path, context.is_path_excluded
+                    )
+                    if (resolved := resolve(p)) is not None
+                )
+            _add_plugin_prose(container, plugin_path, resolved_plugin, skip=pi_prompts)
+        elif _inside_plugin(plugin_path / "README.md", resolved_plugin):
+            state.add_block(
+                container, plugin_path / "README.md", ReadmeBlock, owner=resolved_plugin
+            )
+        if is_cursor:
+            for origin, data, components in cursor_components:
+                manifest_path = plugin_path / cursor.MARKER / "plugin.json"
+                config = CursorPluginBlock(
+                    path=manifest_path if safe_exists(manifest_path) else origin,
+                    plugin_dir=plugin_path,
+                    effective_data=data,
+                )
+                native, _ = cursor.read_manifest(manifest_path)
+                config.component_sources = {
+                    field: manifest_path if isinstance(native, dict) and field in native else origin
+                    for field in data
+                }
+                container.children.append(config)
+                for field, cls in (
+                    ("rules", CursorRuleBlock),
+                    ("commands", CursorCommandBlock),
+                    ("agents", CursorAgentBlock),
+                ):
+                    for path in components[field]:
+                        if _inside_plugin(path, resolved_plugin):
+                            cursor_prose.append((container, path, cls, resolved_plugin))
+                for field, cls in (
+                    ("hooks", CursorPluginHooksBlock),
+                    ("mcpServers", CursorPluginMcpBlock),
+                ):
+                    for path in cursor.component_paths(plugin_path, data, field, resolve=resolve):
+                        if not is_root_or_ancestor_excluded(
+                            path, plugin_path, _is_excluded
+                        ) and _inside_plugin(path, resolved_plugin):
+                            block = state.add_parser_block(config, path, cls, owner=resolved_plugin)
+                            if isinstance(block, CursorPluginHooksBlock):
+                                block.declared_in = config.component_sources.get(field)
+                    value = data.get(field)
+                    values = (
+                        inline_documents(value, field)
+                        if field == "mcpServers"
+                        else value if isinstance(value, list) else [value]
+                    )
+                    for inline in values:
+                        if isinstance(inline, dict):
+                            inline_cls = (
+                                CursorInlineHooksBlock if field == "hooks" else CursorInlineMcpBlock
+                            )
+                            block = inline_cls(
+                                path=config.component_sources.get(field, config.path),
+                                inline_data=inline,
+                            )
+                            block.plugin_owner = resolved_plugin
+                            config.children.append(block)
+        if is_pi:
+            state.add_parser_block(
+                container, plugin_path / "package.json", PiPackageBlock, owner=resolved_plugin
+            )
+            attach_pi_resources(state, container, plugin_path)
 
         # Conventional Claude configs belong only to Claude or legacy
         # unclaimed packages. Portable-only packages must not accidentally
         # inherit Claude's hooks, .mcp.json, or settings semantics.
-        if prov.claude or (not prov.ecosystems and not is_agent_plugin):
+        if prov.claude or (
+            not prov.ecosystems and not is_agent_plugin and not is_pi and not is_cursor
+        ):
             state.add_block(
                 container,
                 plugin_path / "hooks" / "hooks.json",
@@ -1497,25 +1709,35 @@ def build_lint_tree(context: "RepositoryContext") -> LintTarget:
         # counterpart: attached only for Claude-style directories, keeping
         # the generic attachment path away from content a hostile
         # Codex-only checkout controls.
-        if prov.claude or (not prov.ecosystems and not is_agent_plugin):
+        if prov.claude or (
+            not prov.ecosystems and not is_agent_plugin and not is_pi and not is_cursor
+        ):
             state.add_block(
                 container, plugin_path / "settings.json", SettingsBlock, owner=resolved_plugin
             )
             state.add_block(
-                container, plugin_path / "settings.local.json", SettingsBlock, owner=resolved_plugin
+                container,
+                plugin_path / "settings.local.json",
+                SettingsBlock,
+                owner=resolved_plugin,
             )
 
         # Codex manifest cluster, for any directory Codex claims (dual
         # directories hang it off their PluginNode).
         if prov.codex:
-            manifest = plugin_path.joinpath(*context.CODEX_PLUGIN_MANIFEST)
+            manifest_view = codex_manifest_view(plugin_path, resolve=resolve)
+            manifest = manifest_view.path
             # Not gated on the manifest existing: a plugin whose manifest is
             # missing must still reach codex-plugin-json-valid to be
             # reported. An excluded manifest is no plugin-wide skip either —
             # hooks and MCP files carry executable commands and have their
             # own exclusion checks; the linter filters violations filed
             # against the excluded manifest itself.
-            node = CodexPluginConfigNode(path=manifest)
+            node = CodexPluginConfigNode(
+                path=manifest,
+                portable_overlay=manifest_view.portable,
+                inline_overlay=manifest == plugin_path / "plugin.json",
+            )
             node.plugin_owner = resolved_plugin
             state.add_openai_metadata(
                 node,
@@ -1554,7 +1776,7 @@ def build_lint_tree(context: "RepositoryContext") -> LintTarget:
             # a manifest points at. That block is claimed rather than
             # re-attached: one block per file, or the security rules report
             # every command in it twice, but the declaration is still what
-            # tells ``skillsaw docs`` whose hooks those are.
+            # records which plugin owns those hooks.
             for declared_hooks in codex_declared_hook_files(plugin_path):
                 if _claim_attached_hooks(state, root, declared_hooks, resolved_plugin):
                     continue
@@ -1566,7 +1788,9 @@ def build_lint_tree(context: "RepositoryContext") -> LintTarget:
             # Same treatment for MCP: the conventional .mcp.json, declared
             # files, and inline maps are all commands the host will spawn.
             native_mcp = plugin_path / ".mcp.json"
-            if not _shadowed_by_agent_plugin_mcp(native_mcp, agent_plugin_mcp):
+            if not manifest_view.portable and not _shadowed_by_agent_plugin_mcp(
+                native_mcp, agent_plugin_mcp
+            ):
                 _add_contained_plugin_block(node, native_mcp, McpBlock, owner=resolved_plugin)
             for declared_mcp in codex_declared_mcp_files(plugin_path):
                 if _shadowed_by_agent_plugin_mcp(declared_mcp, agent_plugin_mcp):
@@ -1732,7 +1956,7 @@ def build_lint_tree(context: "RepositoryContext") -> LintTarget:
 
         if container is not root:
             if marketplace_node is not None and resolved_plugin.is_relative_to(
-                (safe_resolve(marketplace_dir) or marketplace_dir)
+                (resolve(marketplace_dir) or marketplace_dir)
             ):
                 marketplace_node.children.append(container)
             else:
@@ -1758,29 +1982,22 @@ def build_lint_tree(context: "RepositoryContext") -> LintTarget:
             containment_root=ref_root or skill_path,
         )
 
-        def _contained_in_plugin(candidate: Path, ref_root: Path | None = ref_root) -> bool:
-            if ref_root is None:
-                return True
-            resolved = safe_resolve(candidate)
-            return resolved is not None and resolved.is_relative_to(ref_root)
-
-        refs_dir = skill_path / "references"
-        if refs_dir.is_dir():
-            for ref_file in sorted(refs_dir.glob("*.md")):
-                if _contained_in_plugin(ref_file):
-                    state.add_block(skill_node, ref_file, SkillRefBlock)
+        state.add_skill_references(skill_node, skill_path, containment_root=ref_root)
 
         # Nearest plugin ancestor via dict lookups — iterating all plugins
         # with is_relative_to() is O(skills x plugins) and dominated tree
         # construction on large marketplaces (3.6k skills x 445 plugins).
         parent_plugin: LintTarget | None = None
-        resolved_skill = safe_resolve(skill_path) or skill_path
+        resolved_skill = resolve(skill_path) or skill_path
         for candidate in (resolved_skill, *resolved_skill.parents):
             node = (
-                plugin_nodes.get(candidate)
+                cursor_plugin_nodes.get(candidate)
+                or plugin_nodes.get(candidate)
                 or codex_plugin_nodes.get(candidate)
                 or grok_plugin_nodes.get(candidate)
+                or openclaw_plugin_nodes.get(candidate)
                 or antigravity_plugin_nodes.get(candidate)
+                or pi_package_nodes.get(candidate)
                 or agent_plugin_nodes.get(candidate)
             )
             if node is not None:
@@ -1816,41 +2033,14 @@ def build_lint_tree(context: "RepositoryContext") -> LintTarget:
 
     # --- Promptfoo prompt content blocks ---
     for block in PromptfooPromptBlock.gather_from_tree(root):
-        block_resolved = safe_resolve(block.path) or block.path
+        block_resolved = resolve(block.path) or block.path
         for node in root.find(PromptfooConfigNode):
-            if (safe_resolve(node.path) or node.path) == block_resolved:
+            if (resolve(node.path) or node.path) == block_resolved:
                 node.children.append(block)
                 break
 
     # --- APM ---
     _attach_apm_tree(state)
-
-    # --- Extra content paths from config ---
-    # User-configured content paths plus globs contributed by detected
-    # plugin repo types; the ``seen`` set dedupes any overlap.
-    for glob_pattern in [*context.content_paths, *context.plugin_content_paths]:
-        try:
-            matches = sorted(context.root_path.glob(glob_pattern))
-        except (NotImplementedError, ValueError) as e:
-            # Path.glob() rejects absolute patterns (NotImplementedError)
-            # and some malformed ones (ValueError). The tree builds lazily
-            # inside each rule's check(), so an invalid pattern — from user
-            # config ``content-paths`` or a plugin repo type — would
-            # otherwise surface as one rule-execution-error per rule.
-            logger.warning("Ignoring invalid content path glob %r: %s", glob_pattern, e)
-            continue
-        for extra in matches:
-            if not extra.is_file():
-                continue
-            extra_resolved = safe_resolve(extra)
-            if extra_resolved is not None and any(
-                claimed == extra_resolved for claimed, _ in state.seen_roles
-            ):
-                # Already attached under a structured parser role (hooks,
-                # MCP): re-attaching it as prose would make every
-                # content-quality rule lint structured config as text.
-                continue
-            state.add_block(root, extra, ExtraBlock)
 
     # --- Plugin tree contributors ---
     # Contributors return pre-constructed nodes (typically ContentBlock or
@@ -1895,6 +2085,63 @@ def build_lint_tree(context: "RepositoryContext") -> LintTarget:
             )
             continue
 
+    attach_pi_projects(state, root)
+    # Explicit Cursor paths may name skills or another host's prose. Wait
+    # until those semantic owners attach, then add Cursor's independent rule
+    # parser without replacing their interpretation or counting the body twice.
+    if cursor_prose:
+        prose_paths = set()
+        cursor_rule_paths = set()
+        for block in root.walk():
+            if isinstance(block, (ContentBlock, FrontmatteredBlock)):
+                prose_paths.add(block.resolved_path)
+            if isinstance(block, CursorRuleBlock):
+                cursor_rule_paths.add(block.resolved_path)
+        for parent, path, cls, owner in cursor_prose:
+            if cls is not CursorRuleBlock:
+                state.add_block(parent, path, cls, owner=owner)
+                prose_paths.add(resolve(path))
+                continue
+            resolved = resolve(path)
+            if resolved is None or resolved in cursor_rule_paths:
+                continue
+            role = CursorRuleValidationBlock if resolved in prose_paths else CursorRuleBlock
+            if state.add_parser_block(parent, path, role, owner=owner):
+                state.seen.add(resolved)
+                prose_paths.add(resolved)
+                cursor_rule_paths.add(resolved)
+
+    # Pi prompts can select another host's configured command or skill.
+    # Those semantic owners keep the single body and its parser role.
+    attach_pi_prompts(state)
+
+    # --- Extra content paths from config ---
+    # User-configured content paths plus globs contributed by detected
+    # plugin repo types; the ``seen`` set dedupes any overlap.
+    for glob_pattern in [*context.content_paths, *context.plugin_content_paths]:
+        try:
+            matches = sorted(context.root_path.glob(glob_pattern))
+        except (NotImplementedError, ValueError) as e:
+            # Path.glob() rejects absolute patterns (NotImplementedError)
+            # and some malformed ones (ValueError). The tree builds lazily
+            # inside each rule's check(), so an invalid pattern — from user
+            # config ``content-paths`` or a plugin repo type — would
+            # otherwise surface as one rule-execution-error per rule.
+            logger.warning("Ignoring invalid content path glob %r: %s", glob_pattern, e)
+            continue
+        for extra in matches:
+            if not extra.is_file():
+                continue
+            extra_resolved = resolve(extra)
+            if extra_resolved is not None and any(
+                claimed == extra_resolved for claimed, _ in state.seen_roles
+            ):
+                # Already attached under a structured parser role (hooks,
+                # MCP): re-attaching it as prose would make every
+                # content-quality rule lint structured config as text.
+                continue
+            state.add_block(root, extra, ExtraBlock)
+
     # Configured OpenCode instructions are ambient prose, but their
     # original semantic owner wins when a path is also a skill, command,
     # agent, editor rule, README, or plugin-contributed content block.
@@ -1905,7 +2152,7 @@ def build_lint_tree(context: "RepositoryContext") -> LintTarget:
     def _path_is_external(path: Path) -> bool:
         if not external_roots:
             return False
-        resolved = safe_resolve(path)
+        resolved = resolve(path)
         return resolved is not None and path_within_roots(resolved, external_roots)
 
     def _tag_and_prune_external(parent: LintTarget, inherited_external: bool = False) -> None:

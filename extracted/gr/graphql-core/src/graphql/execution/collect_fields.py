@@ -1,14 +1,21 @@
-from typing import Any, Dict, List, Set, Union, cast
+"""Collect fields"""
+
+from __future__ import annotations
+
+from collections import defaultdict
+from typing import TYPE_CHECKING, NamedTuple, TypeAlias
 
 from ..language import (
+    DirectiveNode,
     FieldNode,
     FragmentDefinitionNode,
     FragmentSpreadNode,
     InlineFragmentNode,
+    OperationDefinitionNode,
     SelectionSetNode,
 )
 from ..type import (
-    GraphQLAbstractType,
+    GraphQLDeferDirective,
     GraphQLIncludeDirective,
     GraphQLObjectType,
     GraphQLSchema,
@@ -16,18 +23,87 @@ from ..type import (
     is_abstract_type,
 )
 from ..utilities.type_from_ast import type_from_ast
-from .values import get_directive_values
+from .values import (
+    FragmentVariableValues,
+    VariableValues,
+    get_argument_values,
+    get_directive_values,
+    get_fragment_variable_values,
+)
 
-__all__ = ["collect_fields", "collect_sub_fields"]
+if TYPE_CHECKING:
+    from .get_variable_signature import GraphQLVariableSignature
+
+__all__ = [
+    "CollectFieldsContext",
+    "CollectedFields",
+    "DeferUsage",
+    "FieldDetails",
+    "FieldDetailsList",
+    "FragmentDetails",
+    "GroupedFieldSet",
+    "collect_fields",
+    "collect_subfields",
+]
+
+
+class DeferUsage(NamedTuple):
+    """An optionally labelled linked list of defer usages."""
+
+    label: str | None
+    parent_defer_usage: DeferUsage | None
+
+
+class FieldDetails(NamedTuple):
+    """A field node with its defer usage and fragment variable values."""
+
+    node: FieldNode
+    defer_usage: DeferUsage | None
+    fragment_variable_values: FragmentVariableValues | None = None
+
+
+class FragmentDetails(NamedTuple):
+    """A fragment definition with the signatures of its variables."""
+
+    definition: FragmentDefinitionNode
+    variable_signatures: dict[str, GraphQLVariableSignature] | None = None
+
+
+FieldDetailsList: TypeAlias = list[FieldDetails]
+GroupedFieldSet: TypeAlias = dict[str, FieldDetailsList]
+
+
+class CollectFieldsContext(NamedTuple):
+    """Context for collecting fields."""
+
+    schema: GraphQLSchema
+    fragments: dict[str, FragmentDetails]
+    variable_values: VariableValues
+    operation: OperationDefinitionNode
+    runtime_type: GraphQLObjectType
+    visited_fragment_names: dict[str, bool]
+    hide_suggestions: bool
+    forbidden_directive_instances: list[DirectiveNode]
+    forbid_skip_and_include: bool
+
+
+class CollectedFields(NamedTuple):
+    """Collected fields with new defer usages."""
+
+    grouped_field_set: GroupedFieldSet
+    new_defer_usages: list[DeferUsage]
+    forbidden_directive_instances: list[DirectiveNode]
 
 
 def collect_fields(
     schema: GraphQLSchema,
-    fragments: Dict[str, FragmentDefinitionNode],
-    variable_values: Dict[str, Any],
+    fragments: dict[str, FragmentDetails],
+    variable_values: VariableValues,
     runtime_type: GraphQLObjectType,
-    selection_set: SelectionSetNode,
-) -> Dict[str, List[FieldNode]]:
+    operation: OperationDefinitionNode,
+    hide_suggestions: bool = False,
+    forbid_skip_and_include: bool = False,
+) -> CollectedFields:
     """Collect fields.
 
     Given a selection_set, collects all the fields and returns them.
@@ -38,126 +114,303 @@ def collect_fields(
 
     For internal use only.
     """
-    fields: Dict[str, List[FieldNode]] = {}
-    collect_fields_impl(
-        schema, fragments, variable_values, runtime_type, selection_set, fields, set()
+    grouped_field_set: dict[str, list[FieldDetails]] = defaultdict(list)
+    new_defer_usages: list[DeferUsage] = []
+    context = CollectFieldsContext(
+        schema,
+        fragments,
+        variable_values,
+        operation,
+        runtime_type,
+        {},
+        hide_suggestions,
+        [],
+        forbid_skip_and_include,
     )
-    return fields
+
+    collect_fields_impl(
+        context, operation.selection_set, grouped_field_set, new_defer_usages
+    )
+    return CollectedFields(
+        grouped_field_set, new_defer_usages, context.forbidden_directive_instances
+    )
 
 
-def collect_sub_fields(
+def collect_subfields(
     schema: GraphQLSchema,
-    fragments: Dict[str, FragmentDefinitionNode],
-    variable_values: Dict[str, Any],
+    fragments: dict[str, FragmentDetails],
+    variable_values: VariableValues,
+    operation: OperationDefinitionNode,
     return_type: GraphQLObjectType,
-    field_nodes: List[FieldNode],
-) -> Dict[str, List[FieldNode]]:
-    """Collect sub fields.
+    field_details_list: FieldDetailsList,
+    hide_suggestions: bool = False,
+) -> CollectedFields:
+    """Collect subfields.
 
     Given a list of field nodes, collects all the subfields of the passed in fields,
     and returns them at the end.
 
-    collect_sub_fields requires the "return type" of an object. For a field that
+    collect_subfields requires the "return type" of an object. For a field that
     returns an Interface or Union type, the "return type" will be the actual
     object type returned by that field.
 
     For internal use only.
     """
-    sub_field_nodes: Dict[str, List[FieldNode]] = {}
-    visited_fragment_names: Set[str] = set()
-    for node in field_nodes:
+    context = CollectFieldsContext(
+        schema,
+        fragments,
+        variable_values,
+        operation,
+        return_type,
+        {},
+        hide_suggestions,
+        [],
+        False,
+    )
+    sub_grouped_field_set: dict[str, list[FieldDetails]] = defaultdict(list)
+    new_defer_usages: list[DeferUsage] = []
+
+    for field_detail in field_details_list:
+        node = field_detail.node
         if node.selection_set:
             collect_fields_impl(
-                schema,
-                fragments,
-                variable_values,
-                return_type,
+                context,
                 node.selection_set,
-                sub_field_nodes,
-                visited_fragment_names,
+                sub_grouped_field_set,
+                new_defer_usages,
+                field_detail.defer_usage,
+                field_detail.fragment_variable_values,
             )
-    return sub_field_nodes
+
+    return CollectedFields(
+        sub_grouped_field_set, new_defer_usages, context.forbidden_directive_instances
+    )
 
 
 def collect_fields_impl(
-    schema: GraphQLSchema,
-    fragments: Dict[str, FragmentDefinitionNode],
-    variable_values: Dict[str, Any],
-    runtime_type: GraphQLObjectType,
+    context: CollectFieldsContext,
     selection_set: SelectionSetNode,
-    fields: Dict[str, List[FieldNode]],
-    visited_fragment_names: Set[str],
+    grouped_field_set: dict[str, list[FieldDetails]],
+    new_defer_usages: list[DeferUsage],
+    defer_usage: DeferUsage | None = None,
+    fragment_variable_values: FragmentVariableValues | None = None,
 ) -> None:
     """Collect fields (internal implementation)."""
+    (
+        schema,
+        fragments,
+        variable_values,
+        _operation,
+        runtime_type,
+        visited_fragment_names,
+        hide_suggestions,
+        _forbidden_directive_instances,
+        _forbid_skip_and_include,
+    ) = context
+
     for selection in selection_set.selections:
         if isinstance(selection, FieldNode):
-            if not should_include_node(variable_values, selection):
+            if not should_include_node(
+                context, selection, variable_values, fragment_variable_values
+            ):
                 continue
-            name = get_field_entry_key(selection)
-            fields.setdefault(name, []).append(selection)
+            key = get_field_entry_key(selection)
+            grouped_field_set[key].append(
+                FieldDetails(selection, defer_usage, fragment_variable_values)
+            )
         elif isinstance(selection, InlineFragmentNode):
             if not should_include_node(
-                variable_values, selection
+                context, selection, variable_values, fragment_variable_values
             ) or not does_fragment_condition_match(schema, selection, runtime_type):
                 continue
-            collect_fields_impl(
-                schema,
-                fragments,
+
+            new_defer_usage = get_defer_usage(
                 variable_values,
-                runtime_type,
-                selection.selection_set,
-                fields,
-                visited_fragment_names,
+                fragment_variable_values,
+                selection,
+                defer_usage,
             )
-        elif isinstance(selection, FragmentSpreadNode):  # pragma: no cover else
+
+            if new_defer_usage is None:
+                collect_fields_impl(
+                    context,
+                    selection.selection_set,
+                    grouped_field_set,
+                    new_defer_usages,
+                    defer_usage,
+                    fragment_variable_values,
+                )
+            else:
+                new_defer_usages.append(new_defer_usage)
+                collect_fields_impl(
+                    context,
+                    selection.selection_set,
+                    grouped_field_set,
+                    new_defer_usages,
+                    new_defer_usage,
+                    fragment_variable_values,
+                )
+        elif isinstance(selection, FragmentSpreadNode):  # pragma: no branch
             frag_name = selection.name.value
-            if frag_name in visited_fragment_names or not should_include_node(
-                variable_values, selection
+
+            if not should_include_node(
+                context, selection, variable_values, fragment_variable_values
             ):
                 continue
-            visited_fragment_names.add(frag_name)
+
             fragment = fragments.get(frag_name)
-            if not fragment or not does_fragment_condition_match(
-                schema, fragment, runtime_type
+            if fragment is None or not does_fragment_condition_match(
+                schema, fragment.definition, runtime_type
             ):
                 continue
-            collect_fields_impl(
-                schema,
-                fragments,
+
+            new_defer_usage = get_defer_usage(
                 variable_values,
-                runtime_type,
-                fragment.selection_set,
-                fields,
-                visited_fragment_names,
+                fragment_variable_values,
+                selection,
+                defer_usage,
             )
+
+            visited_as_deferred = visited_fragment_names.get(frag_name)
+
+            if new_defer_usage is None:
+                # If this spread is not deferred, it may be skipped when already
+                # visited as a non-deferred spread. If it was previously visited as
+                # a deferred spread, it must be revisited.
+                if visited_as_deferred is False:
+                    continue
+                visited_fragment_names[frag_name] = False
+                maybe_new_defer_usage = defer_usage
+            else:
+                # If this spread is deferred, it can be skipped if it has already
+                # been visited.
+                if visited_as_deferred is not None:
+                    continue
+                visited_fragment_names[frag_name] = True
+                new_defer_usages.append(new_defer_usage)
+                maybe_new_defer_usage = new_defer_usage
+
+            fragment_variable_signatures = fragment.variable_signatures
+            new_fragment_variable_values: FragmentVariableValues | None = None
+            if fragment_variable_signatures:
+                new_fragment_variable_values = get_fragment_variable_values(
+                    selection,
+                    fragment_variable_signatures,
+                    variable_values,
+                    fragment_variable_values,
+                    hide_suggestions,
+                )
+
+            collect_fields_impl(
+                context,
+                fragment.definition.selection_set,
+                grouped_field_set,
+                new_defer_usages,
+                maybe_new_defer_usage,
+                new_fragment_variable_values,
+            )
+
+
+def get_defer_usage(
+    variable_values: VariableValues,
+    fragment_variable_values: FragmentVariableValues | None,
+    node: FragmentSpreadNode | InlineFragmentNode,
+    parent_defer_usage: DeferUsage | None,
+) -> DeferUsage | None:
+    """Get values of defer directive if active.
+
+    Returns an object containing the `@defer` arguments if a field should be
+    deferred based on the experimental flag, defer directive present and
+    not disabled by the "if" argument.
+    """
+    defer = get_directive_values(
+        GraphQLDeferDirective, node, variable_values, fragment_variable_values
+    )
+
+    if not defer or defer.get("if") is False:
+        return None
+
+    return DeferUsage(defer.get("label"), parent_defer_usage)
 
 
 def should_include_node(
-    variable_values: Dict[str, Any],
-    node: Union[FragmentSpreadNode, FieldNode, InlineFragmentNode],
+    context: CollectFieldsContext,
+    node: FragmentSpreadNode | FieldNode | InlineFragmentNode,
+    variable_values: VariableValues,
+    fragment_variable_values: FragmentVariableValues | None = None,
 ) -> bool:
     """Check if node should be included
 
     Determines if a field should be included based on the @include and @skip
     directives, where @skip has higher precedence than @include.
     """
-    skip = get_directive_values(GraphQLSkipDirective, node, variable_values)
+    skip_directive_node = (
+        next(
+            (
+                directive
+                for directive in node.directives
+                if directive.name.value == GraphQLSkipDirective.name
+            ),
+            None,
+        )
+        if node.directives
+        else None
+    )
+    if skip_directive_node and context.forbid_skip_and_include:
+        context.forbidden_directive_instances.append(skip_directive_node)
+        return False
+    skip = (
+        get_argument_values(
+            GraphQLSkipDirective,
+            skip_directive_node,
+            variable_values,
+            fragment_variable_values,
+            context.hide_suggestions,
+        )
+        if skip_directive_node
+        else None
+    )
     if skip and skip["if"]:
         return False
 
-    include = get_directive_values(GraphQLIncludeDirective, node, variable_values)
-    if include and not include["if"]:
+    include_directive_node = (
+        next(
+            (
+                directive
+                for directive in node.directives
+                if directive.name.value == GraphQLIncludeDirective.name
+            ),
+            None,
+        )
+        if node.directives
+        else None
+    )
+    if include_directive_node and context.forbid_skip_and_include:
+        context.forbidden_directive_instances.append(include_directive_node)
         return False
-
-    return True
+    include = (
+        get_argument_values(
+            GraphQLIncludeDirective,
+            include_directive_node,
+            variable_values,
+            fragment_variable_values,
+            context.hide_suggestions,
+        )
+        if include_directive_node
+        else None
+    )
+    return not (include and not include["if"])
 
 
 def does_fragment_condition_match(
     schema: GraphQLSchema,
-    fragment: Union[FragmentDefinitionNode, InlineFragmentNode],
+    fragment: FragmentDefinitionNode | InlineFragmentNode,
     type_: GraphQLObjectType,
 ) -> bool:
-    """Determine if a fragment is applicable to the given type."""
+    """Determine if a fragment is applicable to the given type.
+
+    :meta private:
+    """
     type_condition_node = fragment.type_condition
     if not type_condition_node:
         return True
@@ -165,10 +418,13 @@ def does_fragment_condition_match(
     if conditional_type is type_:
         return True
     if is_abstract_type(conditional_type):
-        return schema.is_sub_type(cast(GraphQLAbstractType, conditional_type), type_)
+        return schema.is_sub_type(conditional_type, type_)
     return False
 
 
 def get_field_entry_key(node: FieldNode) -> str:
-    """Implements the logic to compute the key of a given field's entry"""
+    """Implement the logic to compute the key of a given field's entry.
+
+    :meta private:
+    """
     return node.alias.value if node.alias else node.name.value

@@ -1,4 +1,8 @@
-from typing import Optional, cast, overload
+"""Generating GraphQL types from AST nodes"""
+
+from __future__ import annotations
+
+from typing import cast, overload
 
 from ..language import ListTypeNode, NamedTypeNode, NonNullTypeNode, TypeNode
 from ..pyutils import inspect
@@ -17,31 +21,29 @@ __all__ = ["type_from_ast"]
 @overload
 def type_from_ast(
     schema: GraphQLSchema, type_node: NamedTypeNode
-) -> Optional[GraphQLNamedType]: ...
+) -> GraphQLNamedType | None: ...
 
 
 @overload
 def type_from_ast(
     schema: GraphQLSchema, type_node: ListTypeNode
-) -> Optional[GraphQLList]: ...
+) -> GraphQLList | None: ...
 
 
 @overload
 def type_from_ast(
     schema: GraphQLSchema, type_node: NonNullTypeNode
-) -> Optional[GraphQLNonNull]: ...
+) -> GraphQLNonNull | None: ...
 
 
 @overload
-def type_from_ast(
-    schema: GraphQLSchema, type_node: TypeNode
-) -> Optional[GraphQLType]: ...
+def type_from_ast(schema: GraphQLSchema, type_node: TypeNode) -> GraphQLType | None: ...
 
 
 def type_from_ast(
     schema: GraphQLSchema,
     type_node: TypeNode,
-) -> Optional[GraphQLType]:
+) -> GraphQLType | None:
     """Get the GraphQL type definition from an AST node.
 
     Given a Schema and an AST node describing a type, return a GraphQLType definition
@@ -49,17 +51,44 @@ def type_from_ast(
     ``[User]``, a GraphQLList instance will be returned, containing the type called
     "User" found in the schema. If a type called "User" is not found in the schema,
     then None will be returned.
+
+    :param schema: The GraphQL schema to use.
+    :param type_node: The GraphQL type AST node to resolve.
+    :returns: The GraphQL type referenced by the AST node, or ``None`` if it cannot be
+        resolved.
+
+    >>> from graphql import build_schema, parse_type, type_from_ast
+    >>> schema = build_schema('''
+    ...     type User {
+    ...       name: String
+    ...     }
+    ...
+    ...     type Query {
+    ...       users: [User!]!
+    ...     }
+    ... ''')
+    >>> type_from_ast(schema, parse_type('User'))
+    <GraphQLObjectType 'User'>
+    >>> print(type_from_ast(schema, parse_type('[User!]!')))
+    [User!]!
+    >>> print(type_from_ast(schema, parse_type('[String]')))
+    [String]
+    >>> print(type_from_ast(schema, parse_type('Missing')))
+    None
+    >>> print(type_from_ast(schema, parse_type('[Missing]')))
+    None
     """
-    inner_type: Optional[GraphQLType]
+    inner_type: GraphQLType | None
     if isinstance(type_node, ListTypeNode):
         inner_type = type_from_ast(schema, type_node.type)
         return GraphQLList(inner_type) if inner_type else None
     if isinstance(type_node, NonNullTypeNode):
         inner_type = type_from_ast(schema, type_node.type)
-        inner_type = cast(GraphQLNullableType, inner_type)
+        inner_type = cast("GraphQLNullableType", inner_type)
         return GraphQLNonNull(inner_type) if inner_type else None
     if isinstance(type_node, NamedTypeNode):
         return schema.get_type(type_node.name.value)
 
     # Not reachable. All possible type nodes have been considered.
-    raise TypeError(f"Unexpected type node: {inspect(type_node)}.")
+    msg = f"Unexpected type node: {inspect(type_node)}."  # pragma: no cover
+    raise TypeError(msg)  # pragma: no cover

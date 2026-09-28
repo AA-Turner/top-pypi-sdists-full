@@ -67,7 +67,7 @@ impl FindCompletionContents for BooleanSchema {
         log::trace!("completion_hint = {:?}", completion_hint);
 
         async move {
-            let schema_uri = current_schema.map(|schema| schema.schema_uri.as_ref());
+            let schema_base_uri = current_schema.map(|schema| schema.schema_base_uri.as_ref());
             let mut completion_items = Vec::new();
 
             if let Some(const_value) = &self.const_value {
@@ -78,7 +78,7 @@ impl FindCompletionContents for BooleanSchema {
                     self.title.clone(),
                     self.description.clone(),
                     edit,
-                    schema_uri,
+                    schema_base_uri,
                     self.deprecated(),
                 ));
 
@@ -106,7 +106,7 @@ impl FindCompletionContents for BooleanSchema {
                         self.title.clone(),
                         self.description.clone(),
                         edit,
-                        schema_uri,
+                        schema_base_uri,
                         self.deprecated(),
                     )
                 }));
@@ -138,14 +138,14 @@ impl FindCompletionContents for BooleanSchema {
                         self.title.clone(),
                         self.description.clone(),
                         edit,
-                        schema_uri,
+                        schema_base_uri,
                         self.deprecated(),
                     ));
                 }
             }
 
             if completion_items.is_empty() {
-                completion_items = type_hint_boolean(position, schema_uri, completion_hint);
+                completion_items = type_hint_boolean(position, schema_base_uri, completion_hint);
             }
 
             merge_adjacent_schema_completion_items(
@@ -168,7 +168,7 @@ impl FindCompletionContents for BooleanSchema {
 
 pub fn type_hint_boolean(
     position: tombi_text::Position,
-    schema_uri: Option<&SchemaUri>,
+    schema_base_uri: Option<&SchemaUri>,
     completion_hint: Option<CompletionHint>,
 ) -> Vec<CompletionContent> {
     [true, false]
@@ -177,7 +177,7 @@ pub fn type_hint_boolean(
             CompletionContent::new_type_hint_boolean(
                 value,
                 CompletionEdit::new_literal(&value.to_string(), position, completion_hint),
-                schema_uri,
+                schema_base_uri,
             )
         })
         .collect()

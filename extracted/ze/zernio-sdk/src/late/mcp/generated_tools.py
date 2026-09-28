@@ -1831,29 +1831,239 @@ def register_generated_tools(mcp, _get_client):
 
     @mcp.tool(
         annotations=ToolAnnotations(
-            title="Ad labels",
+            title="List ad labels",
             readOnlyHint=True,
             destructiveHint=False,
             openWorldHint=False,
         )
     )
     def ad_accounts_list_ad_labels(
-        account_id: str, ad_account_id: str, limit: int = 25, after: str | None = None
+        account_id: str,
+        ad_account_id: str | None = None,
+        customer_id: str | None = None,
+        limit: int = 25,
+        after: str | None = None,
     ) -> str:
-        """Ad labels
+        """List ad labels
 
         Args:
-            account_id: Zernio SocialAccount id (posting or ads variant) used to resolve the Meta token. (required)
-            ad_account_id: Meta ad account id (act_<n>). (required)
-            limit: Rows per page
-            after: Cursor from paging.after of the previous page."""
+            account_id: Zernio SocialAccount id. For Meta, the posting or ads variant used to resolve the token. (required)
+            ad_account_id: Meta ad account id (act_<n>), or the Google Ads customer id (digits only).
+            customer_id: Google only. Alias of adAccountId, kept for existing callers.
+            limit: Meta only. Rows per page.
+            after: Meta only. Cursor from paging.after of the previous page."""
         client = _get_client()
         try:
             response = client.ad_accounts.list_ad_labels(
                 account_id=account_id,
                 ad_account_id=ad_account_id,
+                customer_id=customer_id,
                 limit=limit,
                 after=after,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Create a Google Ads label",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def ad_accounts_create_ad_label(
+        account_id: str,
+        name: str,
+        ad_account_id: str | None = None,
+        customer_id: str | None = None,
+        background_color: str | None = None,
+        description: str | None = None,
+    ) -> str:
+        """Create a Google Ads label
+
+        Args:
+            account_id: Zernio SocialAccount id (Google Ads) (required)
+            ad_account_id: Google customer id. Required when the connection has multiple customers.
+            customer_id: Alias of adAccountId
+            name: Trimmed before sending. (required)
+            background_color: #RRGGBB. Google picks a color when omitted.
+            description"""
+        client = _get_client()
+        try:
+            response = client.ad_accounts.create_ad_label(
+                account_id=account_id,
+                ad_account_id=ad_account_id,
+                customer_id=customer_id,
+                name=name,
+                background_color=background_color,
+                description=description,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Update a Google Ads label",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def ad_accounts_update_ad_label(
+        label_id: str,
+        account_id: str,
+        ad_account_id: str | None = None,
+        customer_id: str | None = None,
+        name: str | None = None,
+        background_color: str | None = None,
+        description: str | None = None,
+    ) -> str:
+        """Update a Google Ads label
+
+        Args:
+            label_id: Google label id (required)
+            account_id: Zernio SocialAccount id (Google Ads) (required)
+            ad_account_id: Google customer id. Required when the connection has multiple customers.
+            customer_id: Alias of adAccountId
+            name
+            background_color
+            description: Send "" to clear it."""
+        client = _get_client()
+        try:
+            response = client.ad_accounts.update_ad_label(
+                label_id=label_id,
+                account_id=account_id,
+                ad_account_id=ad_account_id,
+                customer_id=customer_id,
+                name=name,
+                background_color=background_color,
+                description=description,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Remove a Google Ads label",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def ad_accounts_remove_ad_label(
+        label_id: str,
+        account_id: str,
+        ad_account_id: str | None = None,
+        customer_id: str | None = None,
+    ) -> str:
+        """Remove a Google Ads label
+
+        Args:
+            label_id: Google label id (required)
+            account_id: Zernio SocialAccount id (Google Ads) (required)
+            ad_account_id: Google customer id. Required when the connection has multiple customers.
+            customer_id: Alias of adAccountId"""
+        client = _get_client()
+        try:
+            response = client.ad_accounts.remove_ad_label(
+                label_id=label_id,
+                account_id=account_id,
+                ad_account_id=ad_account_id,
+                customer_id=customer_id,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Attach a Google Ads label",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def ad_accounts_attach_ad_label(
+        label_id: str,
+        account_id: str,
+        ad_account_id: str | None = None,
+        customer_id: str | None = None,
+        campaign_ids: list[str] | None = None,
+        ad_set_ids: list[str] | None = None,
+        ad_ids: list[str] | None = None,
+        keyword_ids: list[str] | None = None,
+    ) -> str:
+        """Attach a Google Ads label
+
+        Args:
+            label_id: Google label id (required)
+            account_id: Zernio SocialAccount id (Google Ads) (required)
+            ad_account_id: Google customer id. Required when the connection has multiple customers.
+            customer_id: Alias of adAccountId
+            campaign_ids: Google campaign ids
+            ad_set_ids: Google ad group ids
+            ad_ids: Google ad group ad ids, {adGroupId}~{adId}
+            keyword_ids: Google keyword criterion ids, {adGroupId}~{criterionId}"""
+        client = _get_client()
+        try:
+            response = client.ad_accounts.attach_ad_label(
+                label_id=label_id,
+                account_id=account_id,
+                ad_account_id=ad_account_id,
+                customer_id=customer_id,
+                campaign_ids=campaign_ids,
+                ad_set_ids=ad_set_ids,
+                ad_ids=ad_ids,
+                keyword_ids=keyword_ids,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Detach a Google Ads label",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def ad_accounts_detach_ad_label(
+        label_id: str,
+        account_id: str,
+        ad_account_id: str | None = None,
+        customer_id: str | None = None,
+        campaign_ids: list[str] | None = None,
+        ad_set_ids: list[str] | None = None,
+        ad_ids: list[str] | None = None,
+        keyword_ids: list[str] | None = None,
+    ) -> str:
+        """Detach a Google Ads label
+
+        Args:
+            label_id: Google label id (required)
+            account_id: Zernio SocialAccount id (Google Ads) (required)
+            ad_account_id: Google customer id. Required when the connection has multiple customers.
+            customer_id: Alias of adAccountId
+            campaign_ids: Google campaign ids
+            ad_set_ids: Google ad group ids
+            ad_ids: Google ad group ad ids, {adGroupId}~{adId}
+            keyword_ids: Google keyword criterion ids, {adGroupId}~{criterionId}"""
+        client = _get_client()
+        try:
+            response = client.ad_accounts.detach_ad_label(
+                label_id=label_id,
+                account_id=account_id,
+                ad_account_id=ad_account_id,
+                customer_id=customer_id,
+                campaign_ids=campaign_ids,
+                ad_set_ids=ad_set_ids,
+                ad_ids=ad_ids,
+                keyword_ids=keyword_ids,
             )
             return _format_response(response)
         except Exception as e:
@@ -2698,6 +2908,108 @@ def register_generated_tools(mcp, _get_client):
 
     @mcp.tool(
         annotations=ToolAnnotations(
+            title="Get manager account hierarchy",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def ad_accounts_get_ad_account_hierarchy(
+        account_id: str,
+        ad_account_id: str | None = None,
+        customer_id: str | None = None,
+    ) -> str:
+        """Get manager account hierarchy
+
+        Args:
+            account_id: Google ads SocialAccount id. (required)
+            ad_account_id: Only return the tree rooted at this customer id (digits only). It must be an account the Google user accesses directly. Omit to list every tree.
+            customer_id: Alias of adAccountId, kept for consistency with the other Google Ads account endpoints."""
+        client = _get_client()
+        try:
+            response = client.ad_accounts.get_ad_account_hierarchy(
+                account_id=account_id,
+                ad_account_id=ad_account_id,
+                customer_id=customer_id,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Invite a client account to a manager",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def ad_accounts_invite_ad_account_to_manager(
+        account_id: str,
+        manager_customer_id: str,
+        client_customer_id: str,
+        validate_only: bool = False,
+    ) -> str:
+        """Invite a client account to a manager
+
+        Args:
+            account_id: Google ads SocialAccount id. (required)
+            manager_customer_id: Manager customer id, digits only. (required)
+            client_customer_id: Client customer id to invite, digits only. (required)
+            validate_only"""
+        client = _get_client()
+        try:
+            response = client.ad_accounts.invite_ad_account_to_manager(
+                account_id=account_id,
+                manager_customer_id=manager_customer_id,
+                client_customer_id=client_customer_id,
+                validate_only=validate_only,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Accept, decline, cancel or end a manager link",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def ad_accounts_update_ad_account_manager_link(
+        account_id: str,
+        manager_customer_id: str,
+        client_customer_id: str,
+        manager_link_id: str,
+        action: str,
+        validate_only: bool = False,
+    ) -> str:
+        """Accept, decline, cancel or end a manager link
+
+        Args:
+            account_id: Google ads SocialAccount id. (required)
+            manager_customer_id: Manager customer id, digits only. (required)
+            client_customer_id: Client customer id, digits only. (required)
+            manager_link_id: Numeric link id from GET /v1/ads/accounts/hierarchy. (required)
+            action: (required)
+            validate_only"""
+        client = _get_client()
+        try:
+            response = client.ad_accounts.update_ad_account_manager_link(
+                account_id=account_id,
+                manager_customer_id=manager_customer_id,
+                client_customer_id=client_customer_id,
+                manager_link_id=manager_link_id,
+                action=action,
+                validate_only=validate_only,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
             title="Ad account finances",
             readOnlyHint=True,
             destructiveHint=False,
@@ -3453,7 +3765,7 @@ def register_generated_tools(mcp, _get_client):
         """Pause or enable a Search keyword
 
         Args:
-            keyword_id: Zernio keyword ID (not the Google criterion ID) (required)
+            keyword_id: Zernio keyword ID (`id`), or Google's native `{adSetId}~{platformCriterionId}` (the tail of `resourceName`, e.g. 1234567890~987654321). A bare criterion id is rejected because it is only unique within its ad group. (required)
             status: (required)"""
         client = _get_client()
         try:
@@ -3476,7 +3788,7 @@ def register_generated_tools(mcp, _get_client):
         """Remove a Search keyword
 
         Args:
-            keyword_id: Zernio keyword ID (not the Google criterion ID) (required)"""
+            keyword_id: Zernio keyword ID (`id`), or Google's native `{adSetId}~{platformCriterionId}` (the tail of `resourceName`, e.g. 1234567890~987654321). A bare criterion id is rejected because it is only unique within its ad group. (required)"""
         client = _get_client()
         try:
             response = client.ad_campaigns.remove_ad_keyword(keyword_id=keyword_id)
@@ -4488,6 +4800,7 @@ def register_generated_tools(mcp, _get_client):
         descriptions: list[dict[str, Any]] | None = None,
         final_urls: list[str] | None = None,
         asset_group: dict[str, Any] | None = None,
+        demand_gen: dict[str, Any] | None = None,
         status: str | None = None,
         budget: dict[str, Any] | None = None,
         targeting: dict[str, Any] | None = None,
@@ -4502,6 +4815,7 @@ def register_generated_tools(mcp, _get_client):
                 descriptions: Google Search and Display only. Replaces the complete description list. Search takes 2-4, Display 1-5 and rejects pinnedField. No padding or truncation on update.
                 final_urls: Google Search and Display only. Replaces final URLs. Omitted lists stay unchanged. For Performance Max use assetGroup.finalUrl.
                 asset_group: Google Performance Max only. Replaces whole asset roles on the ad's asset group. Returns 422 on any other platform or channel.
+                demand_gen: Google Demand Gen only. Returns 422 on any other platform or channel.
                 status
                 budget
                 targeting: Meta + TikTok (demographics/interests), Google (keyword and device
@@ -4551,6 +4865,7 @@ def register_generated_tools(mcp, _get_client):
                 descriptions=descriptions,
                 final_urls=final_urls,
                 asset_group=asset_group,
+                demand_gen=demand_gen,
                 status=status,
                 budget=budget,
                 targeting=targeting,
@@ -5251,6 +5566,227 @@ def register_generated_tools(mcp, _get_client):
 
     @mcp.tool(
         annotations=ToolAnnotations(
+            title="Create a Performance Max asset group",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def ad_campaigns_create_google_asset_group(
+        campaign_id: str,
+        name: str,
+        final_urls: list[str] | None,
+        final_mobile_urls: list[str] | None = None,
+        path1: str | None = None,
+        path2: str | None = None,
+        status: str = "PAUSED",
+        assets: list[dict[str, Any]] | None = None,
+        listing_group_filter: dict[str, Any] | None = None,
+        validate_only: bool = False,
+    ) -> str:
+        """Create a Performance Max asset group
+
+        Args:
+            campaign_id: Google Ads campaign id. (required)
+            name: Unique within the campaign. (required)
+            final_urls: (required)
+            final_mobile_urls
+            path1
+            path2: Requires path1.
+            status
+            assets
+            listing_group_filter
+            validate_only"""
+        client = _get_client()
+        try:
+            response = client.ad_campaigns.create_google_asset_group(
+                campaign_id=campaign_id,
+                name=name,
+                final_urls=final_urls,
+                final_mobile_urls=final_mobile_urls,
+                path1=path1,
+                path2=path2,
+                status=status,
+                assets=assets,
+                listing_group_filter=listing_group_filter,
+                validate_only=validate_only,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Get a Performance Max asset group",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def ad_campaigns_get_google_asset_group(
+        campaign_id: str, asset_group_id: str
+    ) -> str:
+        """Get a Performance Max asset group
+
+        Args:
+            campaign_id: Google Ads campaign id. (required)
+            asset_group_id: Google asset group id. (required)"""
+        client = _get_client()
+        try:
+            response = client.ad_campaigns.get_google_asset_group(
+                campaign_id=campaign_id, asset_group_id=asset_group_id
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Update a Performance Max asset group",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def ad_campaigns_update_google_asset_group(
+        campaign_id: str,
+        asset_group_id: str,
+        name: str | None = None,
+        status: str | None = None,
+        final_urls: list[str] | None = None,
+        final_mobile_urls: list[str] | None = None,
+        path1: str | None = None,
+        path2: str | None = None,
+        validate_only: bool = False,
+    ) -> str:
+        """Update a Performance Max asset group
+
+        Args:
+            campaign_id: Google Ads campaign id. (required)
+            asset_group_id: Google asset group id. (required)
+            name
+            status
+            final_urls
+            final_mobile_urls
+            path1
+            path2
+            validate_only"""
+        client = _get_client()
+        try:
+            response = client.ad_campaigns.update_google_asset_group(
+                campaign_id=campaign_id,
+                asset_group_id=asset_group_id,
+                name=name,
+                status=status,
+                final_urls=final_urls,
+                final_mobile_urls=final_mobile_urls,
+                path1=path1,
+                path2=path2,
+                validate_only=validate_only,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Remove a Performance Max asset group",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def ad_campaigns_remove_google_asset_group(
+        campaign_id: str, asset_group_id: str, validate_only: bool = False
+    ) -> str:
+        """Remove a Performance Max asset group
+
+        Args:
+            campaign_id: (required)
+            asset_group_id: (required)
+            validate_only"""
+        client = _get_client()
+        try:
+            response = client.ad_campaigns.remove_google_asset_group(
+                campaign_id=campaign_id,
+                asset_group_id=asset_group_id,
+                validate_only=validate_only,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Link or unlink asset group assets",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def ad_campaigns_edit_google_asset_group_assets(
+        campaign_id: str,
+        asset_group_id: str,
+        link: list[dict[str, Any]] | None = None,
+        unlink: list[dict[str, Any]] | None = None,
+        validate_only: bool = False,
+    ) -> str:
+        """Link or unlink asset group assets
+
+        Args:
+            campaign_id: Google Ads campaign id. (required)
+            asset_group_id: Google asset group id. (required)
+            link
+            unlink
+            validate_only"""
+        client = _get_client()
+        try:
+            response = client.ad_campaigns.edit_google_asset_group_assets(
+                campaign_id=campaign_id,
+                asset_group_id=asset_group_id,
+                link=link,
+                unlink=unlink,
+                validate_only=validate_only,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Replace an asset group's listing-group tree",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def ad_campaigns_replace_google_listing_group_filters(
+        campaign_id: str,
+        asset_group_id: str,
+        tree: dict[str, Any] | None,
+        validate_only: bool = False,
+    ) -> str:
+        """Replace an asset group's listing-group tree
+
+        Args:
+            campaign_id: Google Ads campaign id. (required)
+            asset_group_id: Google asset group id. (required)
+            tree: (required)
+            validate_only"""
+        client = _get_client()
+        try:
+            response = client.ad_campaigns.replace_google_listing_group_filters(
+                campaign_id=campaign_id,
+                asset_group_id=asset_group_id,
+                tree=tree,
+                validate_only=validate_only,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
             title="Create standalone ad",
             readOnlyHint=False,
             destructiveHint=True,
@@ -5338,6 +5874,7 @@ def register_generated_tools(mcp, _get_client):
         campaign_type: str = "display",
         location_targeting_type: str | None = None,
         asset_group: dict[str, Any] | None = None,
+        demand_gen: dict[str, Any] | None = None,
         keywords: list[Any] | None = None,
         negative_keywords: list[Any] | None = None,
         campaign_negative_keywords: list[Any] | None = None,
@@ -5407,7 +5944,7 @@ def register_generated_tools(mcp, _get_client):
                 creative_features: Meta only. Applied to each new creative, including standalone and attach shapes. With creatives[], these are defaults; an item replaces the whole feature map, including an empty map. auto_promotion_tag is an Advantage+ enhancement, not the Ads Manager Promotion setting.
                 multi_advertiser: Meta only. Multi-advertiser ads: whether Meta may show this ad alongside other advertisers' in one unit. Meta auto-enrols since Aug 2024, so send OPT_OUT to leave. It is a top-level creative field, NOT a `creativeFeatures` key, and Meta rejects it there.
                 ai_disclosure: Meta only. Meta's "Ad includes media created or edited with AI" disclosure, the checkbox in Ads Manager, stored on the creative as `generative_asset_spec.transparency_metadata.self_disclosure`. OPT_IN checks it, OPT_OUT explicitly declares no AI media, omitted leaves Meta's default. Applied to each new creative, including standalone, creatives[] and attach shapes, and preserved when a creative is rebuilt. This sets the disclosure on the ad; whether and when the viewer-facing label renders is Meta's decision.
-                validate_only: Google Performance Max validates the complete atomic campaign and asset group with no resource creation or local persistence. Google validation still downloads image URLs and consumes quota. On Meta, validates the complete inline campaign, ad set, creative and ad with execution_options validate_only. Nothing is uploaded or created, and validation bypasses Idempotency-Key storage. Supports a single image, all-image placementAssets with per-rule copy, existing video.id or existingCreativeId; other media pools, new video uploads, creatives[], adSetId and RESERVED buying return 400. Placement validation uses existing Instagram identities only. Existing campaign or creative nodes are marked skipped. Success returns 200 with per-node results; Meta rejection returns an error. ChatGPT (OpenAI) has no platform dry-run: Zernio runs every check it knows (creative lengths, budget, bid strategy, targeting) plus live lookups of the conversion event and target countries, and uploads or creates nothing. OpenAI's own write-time checks (image fetch, currency-specific minimums, ad review) still run only on a real create. Any other platform, or a Google campaignType other than pmax, returns 501 `feature_not_available`.
+                validate_only: Google Performance Max validates the complete atomic campaign and asset group with no resource creation or local persistence. Google validation still downloads image URLs and consumes quota. On Meta, validates the complete inline campaign, ad set, creative and ad with execution_options validate_only. Nothing is uploaded or created, and validation bypasses Idempotency-Key storage. Supports a single image, all-image placementAssets with per-rule copy, existing video.id or existingCreativeId; other media pools, new video uploads, creatives[], adSetId and RESERVED buying return 400. Placement validation uses existing Instagram identities only. Existing campaign or creative nodes are marked skipped. Success returns 200 with per-node results; Meta rejection returns an error. ChatGPT (OpenAI) has no platform dry-run: Zernio runs every check it knows (creative lengths, budget, bid strategy, targeting) plus live lookups of the conversion event and target countries, and uploads or creates nothing. OpenAI's own write-time checks (image fetch, currency-specific minimums, ad review) still run only on a real create. Any other platform, or a Google campaignType other than pmax or demand_gen, returns 501 `feature_not_available`.
                 budget_amount: Budget in WHOLE currency units (USD: 50 = $50.00), NOT cents. Meta's own Marketing API takes this same number in minor units, so it is an easy and expensive mix-up. Required on legacy, multi-creative and Performance Max shapes. Inherited on attach. OpenAI Ads: in the ad account currency, minimum 1; OpenAI can require a higher daily minimum for some currencies and names it in the error.
                 budget_type: Required on legacy, multi-creative and Performance Max shapes. Inherited on attach. OpenAI Ads accepts both as the campaign's single spend cap. A lifetime cap can later switch to daily with PUT /v1/ads/campaigns/{campaignId}, but OpenAI never switches a daily cap back to lifetime (422). Automatic bidding (Maximize Results) needs a daily budget.
                 status: Google Performance Max accepts PAUSED only and always creates a paused campaign. Google Search and Display, Meta, TikTok, LinkedIn, and ChatGPT (OpenAI): publish state of the created entities. Omitted or ACTIVE publishes live (default, back-compat); PAUSED creates them paused so you can review before they spend. On Meta the pause is held on the campaign this call creates, leaving the ad set and ad switched on, so a single PUT /v1/ads/campaigns/{campaignId}/status with `active` brings the whole thing live. It is held at every level instead when the pause cannot rely on the campaign: `existingCampaignId` (that campaign may be running and is never touched) or `campaignStatus: ACTIVE`. Google Search and Display follow the same rule, and because Google keeps an independent switch at campaign, ad group and ad level, a PAUSED create leaves the campaign it creates PAUSED at Google. On TikTok the whole campaign > ad group > ad hierarchy stays paused. On LinkedIn the whole campaign group, campaign, and creative hierarchy stays PAUSED (intendedStatus PAUSED on each). ChatGPT (OpenAI) follows the Meta rule: the pause is held on the campaign this call creates.
@@ -5498,6 +6035,11 @@ def register_generated_tools(mcp, _get_client):
         `budgetAmount`/`budgetType` and bidding fields
         (`bidStrategy`, `bidAmount`, `portfolioBidStrategyId`)
         return 400 on this shape; the ad group already owns them.
+        With `campaignType: "demand_gen"` the ad group must belong to a
+        Demand Gen campaign (otherwise 400); `demandGen` carries only the
+        ad's creative, the new ad is created PAUSED, and ad group settings
+        (geo, languages, `demandGen.channels`/`audience`/`audienceId`/
+        `adGroupName`) return 400. `validateOnly` is supported.
                 existing_campaign_id: Meta, Google Ads, LinkedIn and TikTok. On TikTok: creates
         the ad group and the ad under this existing campaign; the
         campaign is neither created nor activated and its
@@ -5514,7 +6056,15 @@ def register_generated_tools(mcp, _get_client):
         Ads: create a new ad group under this EXISTING campaign;
         the new ad group inherits the campaign's budget, so omit
         `budgetAmount`/`budgetType` (and any bidding field), or
-        the request returns 400. On failure only the entities we
+        the request returns 400. With `campaignType: "demand_gen"` the
+        campaign must be a Demand Gen campaign (otherwise 400): the new ad
+        group (with its geo, languages, channels and audience from the
+        request) and its ad are created in one atomic request, the ad
+        group PAUSED; schedule and `locationTargetingType` belong to the
+        campaign and return 400. A campaign migrated from Discovery that
+        still targets locations and languages on the campaign refuses them on
+        a new ad group, so geo and language fields return 400 there; the new
+        ad group follows the campaign's targeting. On failure only the entities we
         authored are cleaned up; the pre-existing parent is left
         untouched and is never (re)activated. Mutually exclusive
         with `adSetId` and `creatives[]`.
@@ -5697,9 +6247,10 @@ def register_generated_tools(mcp, _get_client):
         `defaultVideoUrl` + `rules[].videoUrl` (optional `thumbnailUrl`/`defaultThumbnailUrl`
         posters; Meta auto-generates when omitted). Exactly one catch-all default is required.
                 audience_id: Custom audience ID for targeting
-                campaign_type: Google only. Performance Max requires assetGroup and is always created PAUSED.
+                campaign_type: Google only. Performance Max requires assetGroup and Demand Gen requires demandGen; both are always created PAUSED.
                 location_targeting_type: Google only (400 elsewhere). Set on the new campaign; a request that joins an existing campaign (`existingCampaignId` or `adSetId`) returns 400, change that campaign with PUT /v1/ads/campaigns/{campaignId}/targeting instead. `presence` reaches only people in or regularly in the targeted locations.
                 asset_group
+                demand_gen
                 keywords: Google Search only. Keywords on the new ad group; entries are strings (BROAD) or { text, matchType }. Editable later via PUT /v1/ads/{adId} targeting.keywords.
                 negative_keywords: Google Search only; other platforms return 400. Ad-group-level negative keywords on the new ad group. Editable later via PUT /v1/ads/{adId} targeting.negativeKeywords.
                 campaign_negative_keywords: Google Search only; other platforms return 400. Campaign-level negative keywords (campaign_criterion.negative), created alongside the ad group. Editable later via PUT /v1/ads/campaigns/{campaignId}/negative-keywords.
@@ -5924,6 +6475,7 @@ def register_generated_tools(mcp, _get_client):
                 campaign_type=campaign_type,
                 location_targeting_type=location_targeting_type,
                 asset_group=asset_group,
+                demand_gen=demand_gen,
                 keywords=keywords,
                 negative_keywords=negative_keywords,
                 campaign_negative_keywords=campaign_negative_keywords,
@@ -5953,6 +6505,61 @@ def register_generated_tools(mcp, _get_client):
                 is_skadnetwork_attribution=is_skadnetwork_attribution,
                 campaign_attribution=campaign_attribution,
                 promoted_object=promoted_object,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Get campaign conversion goals",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def ad_campaigns_get_campaign_conversion_goals(campaign_id: str) -> str:
+        """Get campaign conversion goals
+
+        Args:
+            campaign_id: Google campaign id (required)"""
+        client = _get_client()
+        try:
+            response = client.ad_campaigns.get_campaign_conversion_goals(
+                campaign_id=campaign_id
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Update campaign conversion goals",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def ad_campaigns_update_campaign_conversion_goals(
+        campaign_id: str,
+        goals: list[dict[str, Any]] | None = None,
+        goal_config_level: str | None = None,
+        custom_conversion_goal_id: str | None = None,
+    ) -> str:
+        """Update campaign conversion goals
+
+        Args:
+            campaign_id: Google campaign id (required)
+            goals
+            goal_config_level
+            custom_conversion_goal_id: Custom goal to bid on, or null to clear"""
+        client = _get_client()
+        try:
+            response = client.ad_campaigns.update_campaign_conversion_goals(
+                campaign_id=campaign_id,
+                goals=goals,
+                goal_config_level=goal_config_level,
+                custom_conversion_goal_id=custom_conversion_goal_id,
             )
             return _format_response(response)
         except Exception as e:
@@ -13601,6 +14208,243 @@ def register_generated_tools(mcp, _get_client):
                 type=type,
                 default_value=default_value,
                 always_use_default_value=always_use_default_value,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="List account conversion goals",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def conversions_list_ad_conversion_goals(
+        account_id: str,
+        ad_account_id: str | None = None,
+        customer_id: str | None = None,
+    ) -> str:
+        """List account conversion goals
+
+        Args:
+            account_id: Zernio SocialAccount id (Google Ads) (required)
+            ad_account_id: Google customer id. Required when the connection has multiple customers.
+            customer_id: Alias of adAccountId"""
+        client = _get_client()
+        try:
+            response = client.conversions.list_ad_conversion_goals(
+                account_id=account_id,
+                ad_account_id=ad_account_id,
+                customer_id=customer_id,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Update account conversion goals",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def conversions_update_ad_conversion_goals(
+        account_id: str,
+        goals: list[dict[str, Any]] | None,
+        ad_account_id: str | None = None,
+        customer_id: str | None = None,
+    ) -> str:
+        """Update account conversion goals
+
+        Args:
+            account_id: Zernio SocialAccount id (Google Ads) (required)
+            ad_account_id: Google customer id. Required when the connection has multiple customers.
+            customer_id: Alias of adAccountId
+            goals: (required)"""
+        client = _get_client()
+        try:
+            response = client.conversions.update_ad_conversion_goals(
+                account_id=account_id,
+                ad_account_id=ad_account_id,
+                customer_id=customer_id,
+                goals=goals,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Set a conversion action primary or secondary",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def conversions_update_conversion_action(
+        action_id: str,
+        account_id: str,
+        primary_for_goal: bool,
+        ad_account_id: str | None = None,
+        customer_id: str | None = None,
+    ) -> str:
+        """Set a conversion action primary or secondary
+
+        Args:
+            action_id: Google conversion action id (required)
+            account_id: Zernio SocialAccount id (Google Ads) (required)
+            ad_account_id: Google customer id. Required when the connection has multiple customers.
+            customer_id: Alias of adAccountId
+            primary_for_goal: true = primary, false = secondary (required)"""
+        client = _get_client()
+        try:
+            response = client.conversions.update_conversion_action(
+                action_id=action_id,
+                account_id=account_id,
+                ad_account_id=ad_account_id,
+                customer_id=customer_id,
+                primary_for_goal=primary_for_goal,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="List custom conversion goals",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def conversions_list_custom_conversion_goals(
+        account_id: str,
+        ad_account_id: str | None = None,
+        customer_id: str | None = None,
+    ) -> str:
+        """List custom conversion goals
+
+        Args:
+            account_id: Zernio SocialAccount id (Google Ads) (required)
+            ad_account_id: Google customer id. Required when the connection has multiple customers.
+            customer_id: Alias of adAccountId"""
+        client = _get_client()
+        try:
+            response = client.conversions.list_custom_conversion_goals(
+                account_id=account_id,
+                ad_account_id=ad_account_id,
+                customer_id=customer_id,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Create a custom conversion goal",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def conversions_create_custom_conversion_goal(
+        account_id: str,
+        name: str,
+        conversion_action_ids: list[str] | None,
+        ad_account_id: str | None = None,
+        customer_id: str | None = None,
+    ) -> str:
+        """Create a custom conversion goal
+
+        Args:
+            account_id: Zernio SocialAccount id (Google Ads) (required)
+            ad_account_id: Google customer id. Required when the connection has multiple customers.
+            customer_id: Alias of adAccountId
+            name: (required)
+            conversion_action_ids: (required)"""
+        client = _get_client()
+        try:
+            response = client.conversions.create_custom_conversion_goal(
+                account_id=account_id,
+                ad_account_id=ad_account_id,
+                customer_id=customer_id,
+                name=name,
+                conversion_action_ids=conversion_action_ids,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Update a custom conversion goal",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def conversions_update_custom_conversion_goal(
+        goal_id: str,
+        account_id: str,
+        ad_account_id: str | None = None,
+        customer_id: str | None = None,
+        name: str | None = None,
+        conversion_action_ids: list[str] | None = None,
+    ) -> str:
+        """Update a custom conversion goal
+
+        Args:
+            goal_id: Google custom conversion goal id (required)
+            account_id: Zernio SocialAccount id (Google Ads) (required)
+            ad_account_id: Google customer id. Required when the connection has multiple customers.
+            customer_id: Alias of adAccountId
+            name
+            conversion_action_ids: Replaces the whole set."""
+        client = _get_client()
+        try:
+            response = client.conversions.update_custom_conversion_goal(
+                goal_id=goal_id,
+                account_id=account_id,
+                ad_account_id=ad_account_id,
+                customer_id=customer_id,
+                name=name,
+                conversion_action_ids=conversion_action_ids,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Remove a custom conversion goal",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def conversions_remove_custom_conversion_goal(
+        goal_id: str,
+        account_id: str,
+        ad_account_id: str | None = None,
+        customer_id: str | None = None,
+    ) -> str:
+        """Remove a custom conversion goal
+
+        Args:
+            goal_id: Google custom conversion goal id (required)
+            account_id: Zernio SocialAccount id (Google Ads) (required)
+            ad_account_id: Google customer id. Required when the connection has multiple customers.
+            customer_id: Alias of adAccountId"""
+        client = _get_client()
+        try:
+            response = client.conversions.remove_custom_conversion_goal(
+                goal_id=goal_id,
+                account_id=account_id,
+                ad_account_id=ad_account_id,
+                customer_id=customer_id,
             )
             return _format_response(response)
         except Exception as e:

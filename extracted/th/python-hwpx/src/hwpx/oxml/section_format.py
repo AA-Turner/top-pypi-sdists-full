@@ -17,25 +17,89 @@ from ._document_primitives import (
     _bool_str,
     _get_bool_attr,
     _get_int_attr,
+    _normalize_color,
     _object_id,
     _optional_int_attr,
     _paragraph_id,
 )
 from .numbering import SectionStartNumbering
-from .section_story import HwpxOxmlSectionHeaderFooter, _section_story_elements
+from .numbering_kinds import number_format
+from .utils import normalize_line_width
+from .section_story import HwpxOxmlSectionHeaderFooter, _section_story_elements, remember_story_pair
 
 if TYPE_CHECKING:
     from .section import HwpxOxmlSection
 
 
+#: ``hp:pagePr@landscape`` as Hancom writes it. Both values keep the paper's
+#: portrait size (width <= height): ``WIDELY`` draws the page as stored, so it
+#: is portrait, and ``NARROWLY`` turns it, so it is landscape. ``NARROWLY`` is
+#: also the schema default, which a missing or unknown value falls back to.
+_PAGE_PORTRAIT = "WIDELY"
+_PAGE_LANDSCAPE = "NARROWLY"
+_PAGE_ORIENTATIONS = {
+    "PORTRAIT": _PAGE_PORTRAIT,
+    "NARROW": _PAGE_PORTRAIT,
+    "WIDELY": _PAGE_PORTRAIT,
+    "LANDSCAPE": _PAGE_LANDSCAPE,
+    "WIDE": _PAGE_LANDSCAPE,
+    "NARROWLY": _PAGE_LANDSCAPE,
+}
+
+
+def _page_orientation_value(value: str) -> str | None:
+    """Return the ``landscape`` value for an orientation name, or ``None``."""
+
+    return _PAGE_ORIENTATIONS.get(value.strip().upper())
+
+
+def _drawn_page_size(width: int, height: int, landscape: str | None) -> tuple[int, int]:
+    """Width and height of the page as Hancom draws it."""
+
+    return (width, height) if landscape == _PAGE_PORTRAIT else (height, width)
+
+
+def _hancom_page_orientation(
+    page_pr: ET.Element, orientation: str, width: int | None, height: int | None
+) -> tuple[str, int | None, int | None]:
+    """Map *orientation* to Hancom's value and keep the paper's portrait size.
+
+    Hancom stores both orientations with the shorter side as the width and
+    lets ``NARROWLY`` turn the page. Unknown values pass through unchanged.
+    """
+
+    value = _page_orientation_value(orientation)
+    if value is None:
+        return orientation, width, height
+    new_width = _get_int_attr(page_pr, "width", 0) if width is None else width
+    new_height = _get_int_attr(page_pr, "height", 0) if height is None else height
+    if new_width > new_height:
+        return value, new_height, new_width
+    return value, width, height
+
+
 @dataclass(slots=True)
 class PageSize:
-    """Represents the size and orientation of a page."""
+    """Represents the size and orientation of a page.
+
+    ``width``/``height``/``orientation`` are stored values: ``orientation`` is
+    ``WIDELY`` for a portrait page and ``NARROWLY`` for a landscape page, and a
+    landscape page keeps the paper's portrait width and height.
+    ``drawn_width``/``drawn_height`` give the page as Hancom draws it.
+    """
 
     width: int
     height: int
     orientation: str
     gutter_type: str
+
+    @property
+    def drawn_width(self) -> int:
+        return _drawn_page_size(self.width, self.height, self.orientation)[0]
+
+    @property
+    def drawn_height(self) -> int:
+        return _drawn_page_size(self.width, self.height, self.orientation)[1]
 
 
 @dataclass(slots=True)
@@ -193,7 +257,7 @@ class HwpxOxmlSectionProperties:
             page_pr = ET.SubElement(
                 self.element,
                 f"{_HP}pagePr",
-                {"landscape": "PORTRAIT", "width": "0", "height": "0", "gutterType": "LEFT_ONLY"},
+                {"landscape": _PAGE_PORTRAIT, "width": "0", "height": "0", "gutterType": "LEFT_ONLY"},
             )
             self.section.mark_dirty()
         return page_pr
@@ -224,11 +288,11 @@ class HwpxOxmlSectionProperties:
     def page_size(self) -> PageSize:
         page_pr = self._page_pr_element()
         if page_pr is None:
-            return PageSize(width=0, height=0, orientation="PORTRAIT", gutter_type="LEFT_ONLY")
+            return PageSize(width=0, height=0, orientation=_PAGE_LANDSCAPE, gutter_type="LEFT_ONLY")
         return PageSize(
             width=_get_int_attr(page_pr, "width", 0),
             height=_get_int_attr(page_pr, "height", 0),
-            orientation=page_pr.get("landscape", "PORTRAIT"),
+            orientation=page_pr.get("landscape", _PAGE_LANDSCAPE),
             gutter_type=page_pr.get("gutterType", "LEFT_ONLY"),
         )
 
@@ -240,9 +304,18 @@ class HwpxOxmlSectionProperties:
         orientation: str | None = None,
         gutter_type: str | None = None,
     ) -> None:
+        """Set the page size; ``orientation`` decides how Hancom draws the page.
+
+        ``orientation`` takes ``PORTRAIT``/``LANDSCAPE`` (or ``WIDELY``/
+        ``NARROWLY``) and is written as Hancom writes it, with the paper's
+        portrait size whichever order ``width`` and ``height`` come in. Other
+        values are written as given.
+        """
         page_pr = self._page_pr_element(create=True)
         if page_pr is None:
             return
+        if orientation is not None:
+            orientation, width, height = _hancom_page_orientation(page_pr, orientation, width, height)
 
         changed = False
         if width is not None:
@@ -312,6 +385,78 @@ class HwpxOxmlSectionProperties:
                 changed = True
         if changed:
             self.section.mark_dirty()
+
+    # -- columns --------------------------------------------------------------
+    def _column_control(self) -> ET.Element | None:
+        """The ``hp:ctrl`` holding the section's own ``hp:colPr``.
+
+        Hancom keeps it in the run that carries ``hp:secPr``; one is added
+        right after ``hp:secPr`` when that run has none.
+        """
+
+        carrier = next(
+            (run for run in self.section.element.iter(f"{_HP}run") if any(child is self.element for child in run)),
+            None,
+        )
+        if carrier is None:
+            return None
+        for ctrl in carrier.findall(f"{_HP}ctrl"):
+            if ctrl.find(f"{_HP}colPr") is not None:
+                return ctrl
+        ctrl = carrier.makeelement(f"{_HP}ctrl", {})
+        carrier.insert(list(carrier).index(self.element) + 1, ctrl)
+        _append_child(ctrl, f"{_HP}colPr", {
+            "id": "", "type": "NEWSPAPER", "layout": "LEFT", "colCount": "1", "sameSz": "1", "sameGap": "0",
+        })
+        return ctrl
+
+    def set_columns(
+        self,
+        col_count: int,
+        *,
+        col_type: str = "NEWSPAPER",
+        layout: str = "LEFT",
+        same_size: bool = True,
+        same_gap: int = 0,
+        column_widths: Sequence[tuple[int, int]] | None = None,
+        separator_type: str | None = None,
+        separator_width: str | None = None,
+        separator_color: str | None = None,
+    ) -> ET.Element | None:
+        """Rewrite the section's own column layout in place.
+
+        That is the ``hp:colPr`` next to ``hp:secPr``, which lays out the
+        whole section. Any separator argument adds a column line; the others
+        take Hancom's defaults (``SOLID``, ``0.12 mm``, ``#000000``). Returns
+        the ``hp:ctrl`` holding it, or ``None`` when no run carries
+        ``hp:secPr``.
+        """
+
+        line = None
+        if separator_type or separator_width or separator_color:
+            # checked before anything changes: a refused value leaves the columns as they were
+            line = {
+                "type": separator_type or "SOLID",
+                "width": normalize_line_width(separator_width or "0.12 mm"),
+                "color": _normalize_color(separator_color) or "#000000",
+            }
+        ctrl = self._column_control()
+        col_pr = None if ctrl is None else ctrl.find(f"{_HP}colPr")
+        if ctrl is None or col_pr is None:
+            return None
+        col_pr.set("type", col_type)
+        col_pr.set("layout", layout)
+        col_pr.set("colCount", str(col_count))
+        col_pr.set("sameSz", "1" if same_size else "0")
+        col_pr.set("sameGap", str(same_gap) if same_size else "0")
+        for child in list(col_pr):
+            col_pr.remove(child)
+        if line is not None:
+            _append_child(col_pr, f"{_HP}colLine", line)
+        for width, gap in () if same_size else (column_widths or ()):
+            _append_child(col_pr, f"{_HP}colSz", {"width": str(width), "gap": str(gap)})
+        self.section.mark_dirty()
+        return ctrl
 
     # -- numbering ----------------------------------------------------------
     @property
@@ -478,9 +623,18 @@ class HwpxOxmlSectionProperties:
         중복 idRef는 다시 추가하지 않는다(멱등). ``masterPageCnt``를
         실제 자식 개수로 동기화한다 -- 실 예시 1건에서 `masterPageCnt="1"`
         이 `hp:masterPage` 자식 1개와 정확히 일치함을 확인했다.
+
+        이 절이 같은 쪽(양쪽·홀수·짝수·마지막 쪽, 또는 같은 번호의 한 쪽)에
+        이미 바탕쪽을 두고 있으면 ``HwpxValueError``
+        (``master-page-pages-taken``)를 낸다.
         """
         if id_ref in self.master_page_refs:
             return
+        document = self.section.document
+        if document is not None:
+            from .master_page_authoring import refuse_pages_taken
+
+            refuse_pages_taken(document, self.master_page_refs, id_ref)
         _append_child(self.element, f"{_HP}masterPage", {"idRef": id_ref})
         self.element.set("masterPageCnt", str(len(self.master_page_refs)))
         self.section.mark_dirty()
@@ -827,6 +981,8 @@ class HwpxOxmlSectionProperties:
         suffix_char: str | None = None,
         supscript: bool | None = None,
     ) -> None:
+        if type is not None:
+            type = number_format(type, note=True)
         parent = self._note_pr_element(tag, create=True)
         element = parent.find(f"{_HP}autoNumFormat") if parent is not None else None
         if element is None:  # pragma: no cover - defensive branch, schema-mandatory
@@ -1143,21 +1299,51 @@ class HwpxOxmlSectionProperties:
         return run
 
     def _sync_header_footer_control(self, tag: str, source: ET.Element) -> None:
+        """Mirror *source* into the ``hp:ctrl`` Hancom reads, replacing only the
+        control of the same page type, with ``BOTH`` ahead of ``ODD``/``EVEN``.
+
+        Hancom takes header/footer stories from ``hp:ctrl`` alone and drops the
+        ``hp:secPr`` copies when it saves, and on each page it draws the *last*
+        applicable control in document order. So clearing
+        every control of the tag erased the other page types (an ODD footer
+        followed by a BOTH page-number footer lost the ODD text in Hancom), and
+        a BOTH control placed after an ODD one hid it on every odd page. The
+        ``BOTH`` control therefore goes before the page-specific ones: ODD and
+        EVEN override it on their pages whatever order they were set in.
+        """
         run = self._header_footer_control_run()
+        page_type = source.get("applyPageType", "BOTH")
         for ctrl in list(run.findall(f"{_HP}ctrl")):
-            if ctrl.find(f"{_HP}{tag}") is not None:
+            story = ctrl.find(f"{_HP}{tag}")
+            if story is not None and story.get("applyPageType", "BOTH") == page_type:
                 run.remove(ctrl)
-        ctrl = _append_child(run, f"{_HP}ctrl", {})
+        ctrl = run.makeelement(f"{_HP}ctrl", {})
         ctrl.append(deepcopy(source))
+        specific = [
+            existing
+            for existing in run.findall(f"{_HP}ctrl")
+            if (story := existing.find(f"{_HP}{tag}")) is not None
+            and story.get("applyPageType", "BOTH") != "BOTH"
+        ]
+        if page_type == "BOTH" and specific:
+            run.insert(list(run).index(specific[0]), ctrl)  # stdlib and lxml elements alike
+        else:
+            run.append(ctrl)
+        remember_story_pair(self.section, source)
         self.section.mark_dirty()
 
-    def _remove_header_footer_controls(self, tag: str) -> bool:
+    def _remove_header_footer_controls(self, tag: str, page_type: str | None = None) -> bool:
+        """Remove the ``hp:ctrl`` stories of *tag*; only *page_type*'s when given."""
         removed = False
         for run in self.section.element.findall(f".//{_HP}run"):
             for ctrl in list(run.findall(f"{_HP}ctrl")):
-                if ctrl.find(f"{_HP}{tag}") is not None:
-                    run.remove(ctrl)
-                    removed = True
+                story = ctrl.find(f"{_HP}{tag}")
+                if story is None:
+                    continue
+                if page_type is not None and story.get("applyPageType", "BOTH") != page_type:
+                    continue
+                run.remove(ctrl)
+                removed = True
         return removed
 
     @property
@@ -1245,7 +1431,7 @@ class HwpxOxmlSectionProperties:
             removed = True
         if self._remove_header_footer_apply("header", page_type, element):
             removed = True
-        if self._remove_header_footer_controls("header"):
+        if self._remove_header_footer_controls("header", page_type):
             removed = True
         if removed:
             self.section.mark_dirty()
@@ -1258,7 +1444,7 @@ class HwpxOxmlSectionProperties:
             removed = True
         if self._remove_header_footer_apply("footer", page_type, element):
             removed = True
-        if self._remove_header_footer_controls("footer"):
+        if self._remove_header_footer_controls("footer", page_type):
             removed = True
         if removed:
             self.section.mark_dirty()

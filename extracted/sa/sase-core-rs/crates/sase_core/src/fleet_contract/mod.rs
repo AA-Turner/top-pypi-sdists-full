@@ -4,8 +4,8 @@
 //! Version 1 deliberately separates stable identity from every operational
 //! label that may change. An installation ID is an opaque per-user origin ID;
 //! it is not a hostname, configured `id.machine_name`, provider reference, or
-//! display alias. Logical agent and family locators identify durable work
-//! threads, while exact instance locators identify one shell/run/attempt and
+//! display alias. Logical agent and agent session locators identify durable work
+//! threads, while exact instance locators identify one turn/run/attempt and
 //! are required for mutations. Lifecycle, owner-resolved process liveness,
 //! connection health, and viewer freshness are distinct states because only
 //! the owner can resolve local PIDs and content availability. Feed cursors
@@ -96,10 +96,10 @@ pub use follows::{
     count_focus_and_fleet, follow_record_key, reconcile_follow_records,
     FleetHostCountInputWire, FleetHostCountWire, FleetScopeCountsWire,
     FocusFleetCountsRequestWire, FocusFleetCountsWire, FollowActivationWire,
-    FollowCreatedByWire, FollowDiagnosticSeverityWire, FollowDiagnosticWire,
-    FollowFamilyPromotionWire, FollowReconciliationRequestWire,
-    FollowReconciliationWire, FollowRecordWire, FollowStateWire,
-    FollowTombstoneWire,
+    FollowAgentSessionPromotionWire, FollowCreatedByWire,
+    FollowDiagnosticSeverityWire, FollowDiagnosticWire,
+    FollowReconciliationRequestWire, FollowReconciliationWire,
+    FollowRecordWire, FollowStateWire, FollowTombstoneWire,
 };
 
 pub use identity::{
@@ -166,9 +166,11 @@ pub use snapshot::{
 pub(crate) use error::{
     MAX_INTENT_BYTES, MAX_LABEL_BYTES, MAX_LAUNCH_PROMPT_BYTES,
 };
+pub(crate) use locators::canonical_logical_key;
+pub use locators::fallback_turn_shell_ids_equal;
 pub(crate) use locators::logical_key_unchecked;
 pub use status::{
-    ConnectionHealthWire, FleetFamilyRoleWire, FleetLifecycleWire,
+    ConnectionHealthWire, FleetAgentSessionRoleWire, FleetLifecycleWire,
     FleetRowKindWire, FleetStatusBucketWire, ObservationFreshnessWire,
     OwnerLivenessWire,
 };

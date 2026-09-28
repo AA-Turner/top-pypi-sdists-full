@@ -49,6 +49,35 @@ class Progress(Generic[T_co]):
 ProgressCallback = Callable[[Progress[Any]], None]
 
 
+def emit_progress(
+    progress: Optional[ProgressCallback],
+    *,
+    done: int,
+    total: Optional[int] = None,
+    stage: str = "",
+    items: Optional[Sequence[Any]] = None,
+) -> None:
+    """Invoke a progress hook (if any) with a :class:`Progress` snapshot."""
+    if callable(progress):
+        progress(Progress(done=done, total=total, stage=stage, items=items))
+
+
+@dataclass
+class OperationStats:
+    """Common counters shared by bulk operations (imports, migrations).
+
+    The base carries only the fields every operation can report, so a consumer
+    that needs just totals accepts any specialization (``ImportStats``,
+    ``MigrationStats``) without a lossy conversion. Specializations add their own
+    extras (``chunks``/``duration``, ``bytes_transferred``).
+    """
+
+    total: int = 0
+    success: int = 0
+    skipped: int = 0
+    errors: int = 0
+
+
 class ProgressTracker:
     """Shared emitter that turns operation sub-steps into ``Progress`` snapshots.
 

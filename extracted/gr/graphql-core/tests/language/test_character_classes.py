@@ -1,13 +1,14 @@
-from string import ascii_letters as letters, digits, punctuation
+from string import ascii_letters as letters
+from string import digits, punctuation
 
 from graphql.language.character_classes import (
     is_digit,
     is_letter,
-    is_name_start,
     is_name_continue,
+    is_name_start,
 )
 
-non_ascii = "¯＿±¹²³½£ºµÄäÖöØø×〇᧐〸αΑωΩ"
+non_ascii = "¯＿±¹²³½£ºµÄäÖöØø×〇᧐〸αΑωΩ"  #  noqa: RUF001
 
 
 def describe_digit():

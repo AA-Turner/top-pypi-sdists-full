@@ -357,6 +357,16 @@ class GoogleTranslator(BaseTranslator):
                         color="yellow",
                         verbose=True,
                     )
+                    from matrx_ai.providers.structured_output_findings import note_translation
+
+                    note_translation(
+                        "google",
+                        dropped=(
+                            "native structured output replaced by a JSON text contract: "
+                            f"{tool_conflict['reason']}"
+                        ),
+                        response_format=config.response_format,
+                    )
                     contract = self._tool_json_text_contract(google_schema)
                     existing_system = generation_config_kwargs.get("system_instruction")
                     generation_config_kwargs["system_instruction"] = (
@@ -366,6 +376,21 @@ class GoogleTranslator(BaseTranslator):
                     )
                 elif google_schema is not None:
                     if config.internal_web_search:
+                        from matrx_ai.providers.structured_output_findings import (
+                            note_translation,
+                        )
+
+                        # Deliberate containment of a measured Google defect (see
+                        # above) — still a request whose schema is NOT provider-
+                        # enforced, so it is recorded like every other one.
+                        note_translation(
+                            "google",
+                            dropped=(
+                                "Google Search grounding + native schema corrupts streamed "
+                                "JSON (9/96 measured) — schema sent as a text contract"
+                            ),
+                            response_format=config.response_format,
+                        )
                         grounded_json_contract = self._grounded_json_text_contract(
                             google_schema
                         )
@@ -548,15 +573,19 @@ class GoogleTranslator(BaseTranslator):
 
     @staticmethod
     def _tool_json_text_contract(schema: dict[str, Any]) -> str:
-        """The final-answer contract when the native schema switch cannot be sent."""
-        import json as _json
+        """The final-answer contract when the native schema switch cannot be sent.
 
-        compact_schema = _json.dumps(schema, ensure_ascii=False, separators=(",", ":"))
-        return f"""FINAL ANSWER FORMAT:
-Use your tools as needed. When you give your final answer, reply with exactly one fenced `json` object that conforms to the JSON Schema below, and nothing else: no prose before or after it, and no field omitted or truncated.
+        These were the only words in the platform that did this job, and they did
+        it here alone: Anthropic's last grammar-budget rung and the capability
+        downgrade in ``UnifiedAIClient`` both dropped enforcement and sent NOTHING
+        in its place. The text moved to
+        ``matrx_ai.schema.answer_contract.json_text_contract`` so every enforcement
+        drop says the same thing; this stays as the name Google's two call sites
+        use, and is byte-identical to what it emitted before 2026-09-27.
+        """
+        from matrx_ai.schema.answer_contract import json_text_contract
 
-JSON Schema:
-{compact_schema}"""
+        return json_text_contract(schema)
 
     # Markers the grounded-JSON containment wraps its payload in. The digest
     # before MATRX_JSON_BEGIN is what absorbs Google's dropped span; extract_json
@@ -657,6 +686,31 @@ JSON Schema:
                 ),
                 color="yellow",
                 verbose=True,
+            )
+            # This file records its OTHER two enforcement drops and not this one —
+            # the same gap the two sibling translators had.
+            from matrx_ai.providers.structured_output_findings import (
+                ENFORCEMENT_DROPPED,
+                record_structured_output_finding_sync,
+                response_format_identity,
+            )
+            from matrx_ai.schema.answer_contract import mark_enforcement_dropped
+
+            mark_enforcement_dropped(downgrade_reason)
+            record_structured_output_finding_sync(
+                ENFORCEMENT_DROPPED,
+                provider="google",
+                model=None,
+                detail={
+                    **response_format_identity(response_format),
+                    "action": f"structured output omitted entirely — {downgrade_reason}",
+                    "remedy": (
+                        "give the contract an OBJECT root (wrap a list as "
+                        '{"items": [...]}) — Gemini has no json_object fallback, so nothing '
+                        "enforces this request's shape at the provider"
+                    ),
+                },
+                was_recovered=False,
             )
             return None
 

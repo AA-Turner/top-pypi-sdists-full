@@ -72,6 +72,7 @@ from .utils import (
     ccs2_reservation_time_or_none,
     float_or_none,
     get_child_value,
+    int_or_none,
     normalize_battery_soc,
     parse_datetime,
     pressure_or_none,
@@ -262,6 +263,10 @@ class GspaApiEU(ApiImpl):
             "reservation-charge-hvac",
             "reservation-engine",
             "lock-and-start-toggle",
+            # OTA commands: the app sends these with the standard
+            # authenticated headers — no PIN-derived control token.
+            "ota-updates",
+            "ota-updates-reservation",
         }
     )
 
@@ -782,8 +787,19 @@ class GspaApiEU(ApiImpl):
         if token.cci_access_token or getattr(token, "non_ccs_token", None):
             try:
                 return self._refresh_cci_token(token)
-            except Exception:
-                _LOGGER.warning("CCI token refresh failed, falling back to full login")
+            except Exception as ex:
+                if "4111" in str(ex):
+                    # 4111 = credentials expired; the refresh_token itself is
+                    # expired. Full login is the expected recovery — INFO, not
+                    # WARNING.
+                    _LOGGER.info(
+                        f"{DOMAIN} - CCI credentials expired (4111), "
+                        "falling back to full login"
+                    )
+                else:
+                    _LOGGER.warning(
+                        "CCI token refresh failed, falling back to full login"
+                    )
                 return self.login(token.username, token.password, token.pin)
 
         # No CCI tokens — fall back to full login
@@ -1178,8 +1194,57 @@ class GspaApiEU(ApiImpl):
         alternate; the legacy {"rt", "rc", "rs"} keys stay as a fallback.
         Returns "gspa:{SID}" for action status polling — or the bare
         "gspa:" when the command is accepted with an empty "data" object
-        (no polling handle). On a 401 for a PIN-gated endpoint the control
+        (no polling handle). Shared request path lives in
+        _gspa_post_for_data.
+        """
+        data = self._gspa_post_for_data(
+            token, vehicle, endpoint, body, path_prefix=path_prefix
+        )
+        data_payload = data.get("data") if isinstance(data.get("data"), dict) else {}
+        rs = data.get("rs")
+        rs_payload = rs if isinstance(rs, dict) else {}
+        # SID is the primary polling handle; svcSID the alternate (some
+        # commands return only svcSID).
+        sid = (
+            data_payload.get("SID")
+            or data_payload.get("svcSID")
+            or data.get("SID")
+            or rs_payload.get("SID")
+            or data.get("svcSID")
+            or rs_payload.get("svcSID")
+            or ""
+        )
+        if not sid:
+            # Live-probed 2026-09-05 (rearseat-alarm): some commands are
+            # accepted (HTTP 202, retCode "S", resCode "202-000") with an
+            # EMPTY "data" object — no SID and no svcSID. The server has
+            # accepted the command, so raising here would report a failure
+            # for a command that was in fact executed. Return the bare
+            # "gspa:" prefix: the action-status dispatcher still routes it,
+            # and callers that poll get PENDING until they give up.
+            _LOGGER.debug(
+                f"{DOMAIN} - GSPA control accepted without a polling SID "
+                f"(rc={data.get('rc') or 'S'}); status polling has no handle"
+            )
+            return "gspa:"
+        return f"gspa:{sid}"
+
+    def _gspa_post_for_data(
+        self,
+        token: Token,
+        vehicle: Vehicle,
+        endpoint: str,
+        body: dict[str, Any],
+        path_prefix: str | None = None,
+    ) -> dict[str, Any]:
+        """POST a GSPA command and return the parsed response body.
+
+        Shared request path of _gspa_control_command and the OTA commands:
+        POST {CCSP_API_URL}/gspa/v1/{prefix}/{carId}/{endpoint}, body
+        normalization ("command", not "action"; no "deviceId"), bearer/PIN
+        header dispatch, and on a 401 for a PIN-gated endpoint the control
         token cache is invalidated and the command is retried exactly once.
+        Transport/parse/business-envelope errors raise typed exceptions.
 
         Pre-CCS2 EU vehicles are rejected with UnsupportedControlError
         (region 1 handles them), and commands not live-verified on this
@@ -1248,35 +1313,7 @@ class GspaApiEU(ApiImpl):
         rc = data.get("rc") or meta_payload.get("retCode")
         if rc and rc not in ("0000", "S"):
             self._raise_gspa_error(response.status_code, data)
-        rs = data.get("rs")
-        rs_payload = rs if isinstance(rs, dict) else {}
-        data_payload = data.get("data") if isinstance(data.get("data"), dict) else {}
-        # SID is the primary polling handle; svcSID the alternate (some
-        # commands return only svcSID). The response DTO
-        # (CarRemoteControlApiResponse) sits under "data".
-        sid = (
-            data_payload.get("SID")
-            or data_payload.get("svcSID")
-            or data.get("SID")
-            or rs_payload.get("SID")
-            or data.get("svcSID")
-            or rs_payload.get("svcSID")
-            or ""
-        )
-        if not sid:
-            # Live-probed 2026-09-05 (rearseat-alarm): some commands are
-            # accepted (HTTP 202, retCode "S", resCode "202-000") with an
-            # EMPTY "data" object — no SID and no svcSID. The server has
-            # accepted the command, so raising here would report a failure
-            # for a command that was in fact executed. Return the bare
-            # "gspa:" prefix: the action-status dispatcher still routes it,
-            # and callers that poll get PENDING until they give up.
-            _LOGGER.debug(
-                f"{DOMAIN} - GSPA control accepted without a polling SID "
-                f"(rc={rc!r}); status polling has no handle"
-            )
-            return "gspa:"
-        return f"gspa:{sid}"
+        return data
 
     def _gspa_check_action_status(
         self, token: Token, vehicle: Vehicle, sid: str
@@ -1499,6 +1536,13 @@ class GspaApiEU(ApiImpl):
             vehicle.steering_wheel_heater_is_on = False
         elif steer_wheel_heat == 1:
             vehicle.steering_wheel_heater_is_on = True
+        vehicle.steering_wheel_heat_step = int_or_none(
+            get_child_value(state, "Cabin.SteeringWheel.Heat.RemoteControl.Step")
+        )
+
+        vehicle.windshield_front_heater_is_on = bool_or_none(
+            get_child_value(state, "Body.Windshield.Front.Heat.State")
+        )
 
         defrost_rear_is_on = get_child_value(state, "Body.Windshield.Rear.Defog.State")
         if defrost_rear_is_on in [0, 2]:
@@ -1681,10 +1725,19 @@ class GspaApiEU(ApiImpl):
         vehicle.turn_signal_right_rear = get_child_value(
             state, "Body.Lights.Rear.Right.TurnSignal.Warning"
         )
+        vehicle.hazard_lights_on = bool_or_none(
+            get_child_value(state, "Body.Lights.Hazard.Alert")
+        )
 
         # Drivetrain / ignition state
         vehicle.transmission_condition = get_child_value(
             state, "Drivetrain.Transmission.ParkingPosition"
+        )
+        vehicle.gear_position = int_or_none(
+            get_child_value(state, "Drivetrain.Transmission.GearPosition")
+        )
+        vehicle.auto_cut_battery_prewarning_on = bool_or_none(
+            get_child_value(state, "Electronics.AutoCut.BatteryPreWarning")
         )
         vehicle.ign3 = get_child_value(state, "Electronics.PowerSupply.Ignition3")
         accessory_ign = get_child_value(state, "Electronics.PowerSupply.Ignition1")
@@ -1765,6 +1818,37 @@ class GspaApiEU(ApiImpl):
         vehicle.ev_charging_current = get_child_value(
             state, "Green.ChargingInformation.ElectricCurrentLevel.State"
         )
+
+        # Expected charge window — live payloads carry the unconfigured
+        # sentinel (Day 7, Hour 31, Min 63); the time guard maps it to
+        # None. Day semantics are unconfirmed, so only the time is exposed.
+        expected = get_child_value(state, "Green.ChargingInformation.ExpectedTime")
+        if isinstance(expected, dict):
+            vehicle.ev_charge_expected_start_time = ccs2_reservation_time_or_none(
+                expected.get("StartHour"), expected.get("StartMin")
+            )
+            vehicle.ev_charge_expected_end_time = ccs2_reservation_time_or_none(
+                expected.get("EndHour"), expected.get("EndMin")
+            )
+
+        # Charge-complete alarm presets — independent flags; absent block
+        # (EV6 fixture) leaves all four None.
+        complete_alarm = get_child_value(
+            state, "Green.ChargingInformation.Setting.CompleteAlarm"
+        )
+        if isinstance(complete_alarm, dict):
+            vehicle.ev_charge_complete_alarm_before_10min = bool_or_none(
+                complete_alarm.get("Before10min")
+            )
+            vehicle.ev_charge_complete_alarm_before_20min = bool_or_none(
+                complete_alarm.get("Before20min")
+            )
+            vehicle.ev_charge_complete_alarm_before_30min = bool_or_none(
+                complete_alarm.get("Before30min")
+            )
+            vehicle.ev_charge_complete_alarm_off = bool_or_none(
+                complete_alarm.get("Off")
+            )
         ev_charging_power = get_child_value(
             state, "Green.Electric.SmartGrid.RealTimePower"
         )
@@ -1772,6 +1856,21 @@ class GspaApiEU(ApiImpl):
             vehicle.ev_charging_power = float(ev_charging_power)
         vehicle.ev_v2l_discharge_limit = get_child_value(
             state, "Green.Electric.SmartGrid.VehicleToLoad.DischargeLimitation.SoC"
+        )
+        vehicle.ev_v2l_discharge_remain_time = int_or_none(
+            get_child_value(
+                state,
+                "Green.Electric.SmartGrid.VehicleToLoad.DischargeLimitation.RemainTime",
+            )
+        )
+        vehicle.ev_v2l_discharge_dte = int_or_none(
+            get_child_value(
+                state,
+                "Green.Electric.SmartGrid.VehicleToLoad.DischargeLimitation.DTE",
+            )
+        )
+        vehicle.ev_v2l_mode = int_or_none(
+            get_child_value(state, "Green.Electric.SmartGrid.VehicleToLoad.Mode")
         )
         vehicle.ev_target_range_charge_AC = (
             get_child_value(state, "Green.ChargingInformation.DTE.TargetSoC.Standard"),
@@ -1909,8 +2008,31 @@ class GspaApiEU(ApiImpl):
         vehicle.fuel_level_is_low = get_child_value(
             state, "Drivetrain.FuelSystem.LowFuelWarning"
         )
+
+        # Average fuel economy (HEV/PHEV l-per-100km style, EV km/kWh style —
+        # Unit enum differs per powertrain, so values and unit stay raw).
+        average_fuel_economy = get_child_value(
+            state, "Drivetrain.FuelSystem.AverageFuelEconomy"
+        )
+        if isinstance(average_fuel_economy, dict):
+            vehicle.average_fuel_economy_accumulated = float_or_none(
+                average_fuel_economy.get("Accumulated")
+            )
+            vehicle.average_fuel_economy_drive = float_or_none(
+                average_fuel_economy.get("Drive")
+            )
+            vehicle.average_fuel_economy_after_refuel = float_or_none(
+                average_fuel_economy.get("AfterRefuel")
+            )
+            vehicle.average_fuel_economy_unit = int_or_none(
+                average_fuel_economy.get("Unit")
+            )
+
         vehicle.air_control_is_on = get_child_value(
             state, "Cabin.HVAC.Row1.Driver.Blower.SpeedLevel"
+        )
+        vehicle.air_cleaning_is_on = bool_or_none(
+            get_child_value(state, "Cabin.HVAC.Vent.AirCleaning.Indicator")
         )
         vehicle.smart_key_battery_warning_is_on = bool_or_none(
             get_child_value(state, "Electronics.FOB.LowBattery")
@@ -2821,3 +2943,79 @@ class GspaApiEU(ApiImpl):
     ) -> str:
         body = {"lockAndStartEnable": enable}
         return self._gspa_control_command(token, vehicle, "lock-and-start-toggle", body)
+
+    def set_ota_reservation(
+        self, token: Token, vehicle: Vehicle, settings: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Schedule or cancel an OTA update reservation via GSPA.
+
+        POST /gspa/v1/mru/vehicles/{carId}/ota-updates-reservation with
+        CCUSoftwareUpdateReservationApiRequest (operation,
+        targetReservationTime, originReservationTime). ``settings`` is
+        passed through — callers build the body per the app's model.
+        The OTA response (CCUSoftwareUpdateReservationApiResponse) carries
+        no polling SID — the parsed response body is returned; poll
+        progress via get_ota_updates().
+        """
+        return self._gspa_post_for_data(
+            token,
+            vehicle,
+            "ota-updates-reservation",
+            settings,
+            path_prefix="mru/vehicles",
+        )
+
+    def set_ota_update(
+        self, token: Token, vehicle: Vehicle, start: bool
+    ) -> dict[str, Any]:
+        """Start or cancel a CCU OTA update via GSPA.
+
+        POST /gspa/v1/mru/vehicles/{carId}/ota-updates with
+        CCUSoftwareUpdateStartApiRequest body {"updateStart": 1|2}
+        (1 = start, 2 = cancel). The OTA response
+        (CCUSoftwareUpdateStartApiResponse) carries no polling SID — the
+        parsed response body is returned; progress is reported via
+        get_ota_updates() and the CCU's MQTT push, not action polling.
+        """
+        return self._gspa_post_for_data(
+            token,
+            vehicle,
+            "ota-updates",
+            {"updateStart": 1 if start else 2},
+            path_prefix="mru/vehicles",
+        )
+
+    def get_ota_updates(self, token: Token, vehicle: Vehicle) -> dict[str, Any] | None:
+        """Get CCU OTA update status from GSPA.
+
+        GET /gspa/v1/mru/vehicles/{carId}/ota-updates returns the update
+        list (needUpdate detection + install/reservation progress).
+        Returns the data dict, or None on failure.
+        """
+        self._validate_ccs_token(token)
+        try:
+            return self._gspa_get(token, vehicle, "mru/vehicles/{carId}/ota-updates")
+        except AuthenticationError:
+            raise
+        except Exception:
+            _LOGGER.debug(f"{DOMAIN} - GSPA ota-updates GET failed")
+            return None
+
+    def get_software_version(
+        self, token: Token, vehicle: Vehicle
+    ) -> dict[str, Any] | None:
+        """Get vehicle software version from GSPA (needUpdate detection).
+
+        GET /gspa/v1/device-info/vehicles/{carId}/software-version.
+        Returns the data dict, or None on failure.
+        """
+        self._validate_ccs_token(token)
+        try:
+            return self._gspa_get(
+                token, vehicle, "device-info/vehicles/{carId}/software-version"
+            )
+        except AuthenticationError:
+            raise
+        except Exception:
+            _LOGGER.debug(f"{DOMAIN} - GSPA software-version GET failed")
+            return None

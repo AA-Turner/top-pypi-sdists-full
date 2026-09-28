@@ -44,7 +44,7 @@ pub async fn handle_get_status(
                 Ok(Some(source_schema)) => source_schema
                     .root_schema
                     .as_ref()
-                    .map(|s| s.schema_uri.clone()),
+                    .map(|s| s.schema_document_uri().clone()),
                 _ => None,
             };
 

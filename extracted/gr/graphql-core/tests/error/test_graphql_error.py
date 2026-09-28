@@ -1,28 +1,33 @@
-from typing import cast, List, Union
+from __future__ import annotations
 
-from pytest import raises
+from typing import cast
 
 from graphql.error import GraphQLError
 from graphql.language import (
-    parse,
-    Node,
-    OperationDefinitionNode,
+    NameNode,
     ObjectTypeDefinitionNode,
+    OperationDefinitionNode,
     Source,
+    parse,
 )
 
 from ..utils import dedent
 
-source = Source(dedent("""
+source = Source(
+    dedent(
+        """
         {
           field
         }
-        """))
+        """
+    )
+)
 
 ast = parse(source)
 operation_node = ast.definitions[0]
-operation_node = cast(OperationDefinitionNode, operation_node)
-assert operation_node and operation_node.kind == "operation_definition"
+operation_node = cast("OperationDefinitionNode", operation_node)
+assert operation_node
+assert operation_node.kind == "operation_definition"
 field_node = operation_node.selection_set.selections[0]
 assert field_node
 
@@ -72,6 +77,7 @@ def describe_graphql_error():
             ["a", "b", "c"],
             Exception("test"),
             {"foo": "bar"},
+            cause=Exception("test"),
         )
         assert set(e.formatted) == {"message", "path", "locations", "extensions"}
 
@@ -122,6 +128,67 @@ def describe_graphql_error():
         assert e.message == "msg"
         assert e.original_error is original
         assert str(e.original_error) == "original"
+
+    def does_not_add_a_cause_without_a_cause():
+        e = GraphQLError("msg")
+        assert e.cause is None
+
+    def does_not_copy_over_the_traceback_of_cause():
+        try:
+            raise RuntimeError("cause")
+        except RuntimeError as runtime_error:
+            cause = runtime_error
+        e = GraphQLError("msg", cause=cause)
+        assert e.cause is cause
+        assert e.__cause__ is cause
+        assert cause.__traceback__ is not None
+        assert e.__traceback__ is not cause.__traceback__
+
+    def uses_an_error_cause_as_the_original_error_for_compatibility():
+        class CustomError(Exception):
+            def __init__(self, message: str) -> None:
+                super().__init__(message)
+                self.extensions = {"original": "extensions"}
+
+        cause = CustomError("cause")
+        e = GraphQLError("msg", cause=cause)
+        assert e.message == "msg"
+        assert e.cause is cause
+        assert e.original_error is cause
+        assert e.__cause__ is cause
+        assert e.extensions == {"original": "extensions"}
+
+    def preserves_a_non_error_cause_without_setting_original_error():
+        e = GraphQLError("msg", cause="cause")
+        assert e.cause == "cause"
+        assert e.original_error is None
+        assert e.__cause__ is None
+
+    def prefers_cause_and_original_error_separately():
+        try:
+            raise RuntimeError("original")
+        except RuntimeError as runtime_error:
+            original_error = runtime_error
+        cause = ValueError("cause")
+        e = GraphQLError("msg", original_error=original_error, cause=cause)
+        assert e.cause is cause
+        assert e.original_error is original_error
+        assert e.__cause__ is cause
+        assert e.__traceback__ is original_error.__traceback__
+
+    def creates_new_stack_if_cause_has_no_stack():
+        try:
+            raise RuntimeError
+        except RuntimeError as runtime_error:
+            current_traceback = runtime_error.__traceback__
+            cause = RuntimeError("cause")
+            e = GraphQLError("msg", cause=cause)
+        assert cause.__traceback__ is None
+        assert current_traceback is not None
+        assert e.__traceback__ is current_traceback
+        assert e.message == "msg"
+        assert e.cause is cause
+        assert e.original_error is cause
 
     def converts_nodes_to_positions_and_locations():
         e = GraphQLError("msg", [field_node])
@@ -183,6 +250,25 @@ def describe_graphql_error():
         assert own_empty_error.original_error is original_error
         assert own_empty_error.extensions == {}
 
+    def defaults_to_cause_extension_only_if_arg_is_not_passed():
+        original_extensions = {"original": "extensions"}
+        cause = GraphQLError("original", extensions=original_extensions)
+        inherited_error = GraphQLError("InheritedError", cause=cause)
+        assert inherited_error.message == "InheritedError"
+        assert inherited_error.cause is cause
+        assert inherited_error.extensions is original_extensions
+
+        own_extensions = {"own": "extensions"}
+        own_error = GraphQLError("OwnError", cause=cause, extensions=own_extensions)
+        assert own_error.message == "OwnError"
+        assert own_error.cause is cause
+        assert own_error.extensions is own_extensions
+
+        own_empty_error = GraphQLError("OwnEmptyError", cause=cause, extensions={})
+        assert own_empty_error.message == "OwnEmptyError"
+        assert own_empty_error.cause is cause
+        assert own_empty_error.extensions == {}
+
     def serializes_to_include_message():
         e = GraphQLError("msg")
         assert str(e) == "msg"
@@ -201,7 +287,7 @@ def describe_graphql_error():
         }
 
     def serializes_to_include_path():
-        path: List[Union[int, str]] = ["path", 3, "to", "field"]
+        path: list[int | str] = ["path", 3, "to", "field"]
         e = GraphQLError("msg", path=path)
         assert e.path is path
         assert repr(e) == "GraphQLError('msg', path=['path', 3, 'to', 'field'])"
@@ -215,11 +301,11 @@ def describe_graphql_error():
         assert str(e_short) == "msg"
         assert repr(e_short) == "GraphQLError('msg')"
 
-        path: List[Union[str, int]] = ["path", 2, "field"]
+        path: list[str | int] = ["path", 2, "field"]
         extensions = {"foo": "bar "}
         e_full = GraphQLError("msg", field_node, None, None, path, None, extensions)
         assert str(e_full) == (
-            "msg\n\nGraphQL request:2:3\n" "1 | {\n2 |   field\n  |   ^\n3 | }"
+            "msg\n\nGraphQL request:2:3\n1 | {\n2 |   field\n  |   ^\n3 | }"
         )
         assert repr(e_full) == (
             "GraphQLError('msg', locations=[SourceLocation(line=2, column=3)],"
@@ -237,25 +323,26 @@ def describe_graphql_error():
         assert repr(e) == "GraphQLError('msg', extensions={'foo': 'bar'})"
 
     def always_stores_path_as_list():
-        path: List[Union[int, str]] = ["path", 3, "to", "field"]
+        path: list[int | str] = ["path", 3, "to", "field"]
         e = GraphQLError("msg,", path=tuple(path))
         assert isinstance(e.path, list)
         assert e.path == path
 
     def is_comparable():
         e1 = GraphQLError("msg,", path=["field", 1])
-        assert e1 == e1
+        assert e1 == e1  # noqa: PLR0124
         assert e1 == e1.formatted
-        assert not e1 != e1
-        assert not e1 != e1.formatted
+        assert e1 == e1  # noqa: PLR0124
+        assert e1 == e1.formatted
         e2 = GraphQLError("msg,", path=["field", 1])
         assert e1 == e2
-        assert not e1 != e2
-        assert e2.path and e2.path[1] == 1
+        assert e1 == e2
+        assert e2.path
+        assert e2.path[1] == 1
         e2.path[1] = 2
-        assert not e1 == e2
         assert e1 != e2
-        assert not e1 == e2.formatted
+        assert e1 != e2
+        assert e1 != e2.formatted
         assert e1 != e2.formatted
 
     def is_hashable():
@@ -268,17 +355,6 @@ def describe_graphql_error():
 
 
 def describe_to_string():
-    def deprecated_prints_an_error_using_print_error():
-        # noinspection PyProtectedMember
-        from graphql.error.graphql_error import print_error
-
-        error = GraphQLError("Error")
-        assert print_error(error) == "Error"
-        with raises(TypeError) as exc_info:
-            # noinspection PyTypeChecker
-            print_error(Exception)  # type: ignore
-        assert str(exc_info.value) == "Expected a GraphQLError."
-
     def prints_an_error_without_location():
         error = GraphQLError("Error without location")
         assert str(error) == "Error without location"
@@ -293,38 +369,47 @@ def describe_to_string():
     def prints_an_error_with_nodes_from_different_sources():
         doc_a = parse(
             Source(
-                dedent("""
+                dedent(
+                    """
                     type Foo {
                       field: String
                     }
-                    """),
+                    """
+                ),
                 "SourceA",
             )
         )
         op_a = doc_a.definitions[0]
-        op_a = cast(ObjectTypeDefinitionNode, op_a)
-        assert op_a and op_a.kind == "object_type_definition" and op_a.fields
+        op_a = cast("ObjectTypeDefinitionNode", op_a)
+        assert op_a
+        assert op_a.kind == "object_type_definition"
+        assert op_a.fields
         field_a = op_a.fields[0]
         doc_b = parse(
             Source(
-                dedent("""
+                dedent(
+                    """
                     type Foo {
                       field: Int
                     }
-                    """),
+                    """
+                ),
                 "SourceB",
             )
         )
         op_b = doc_b.definitions[0]
-        op_b = cast(ObjectTypeDefinitionNode, op_b)
-        assert op_b and op_b.kind == "object_type_definition" and op_b.fields
+        op_b = cast("ObjectTypeDefinitionNode", op_b)
+        assert op_b
+        assert op_b.kind == "object_type_definition"
+        assert op_b.fields
         field_b = op_b.fields[0]
 
         error = GraphQLError(
             "Example error with two nodes", [field_a.type, field_b.type]
         )
 
-        assert str(error) == dedent("""
+        assert str(error) == dedent(
+            """
             Example error with two nodes
 
             SourceA:2:10
@@ -338,34 +423,24 @@ def describe_to_string():
             2 |   field: Int
               |          ^
             3 | }
-            """)
+            """
+        )
 
 
 def describe_formatted():
-    def deprecated_formats_an_error_using_format_error():
-        # noinspection PyProtectedMember
-        from graphql.error.graphql_error import format_error
-
-        error = GraphQLError("Example Error")
-        assert format_error(error) == {
-            "message": "Example Error",
-        }
-        with raises(TypeError) as exc_info:
-            # noinspection PyTypeChecker
-            format_error(Exception)  # type: ignore
-        assert str(exc_info.value) == "Expected a GraphQLError."
-
     def formats_graphql_error():
-        path: List[Union[int, str]] = ["one", 2]
+        path: list[int | str] = ["one", 2]
         extensions = {"ext": None}
         error = GraphQLError(
             "test message",
-            Node(),
-            Source("""
+            NameNode(value="stub"),
+            Source(
+                """
                 query {
                   something
                 }
-                """),
+                """
+            ),
             [16, 41],
             ["one", 2],
             ValueError("original"),
@@ -379,7 +454,6 @@ def describe_formatted():
         }
 
     def uses_default_message():
-        # noinspection PyTypeChecker
         formatted = GraphQLError(None).formatted  # type: ignore
 
         assert formatted == {
@@ -387,7 +461,7 @@ def describe_formatted():
         }
 
     def includes_path():
-        path: List[Union[int, str]] = ["path", 3, "to", "field"]
+        path: list[int | str] = ["path", 3, "to", "field"]
         error = GraphQLError("msg", path=path)
         assert error.formatted == {"message": "msg", "path": path}
 
@@ -399,14 +473,14 @@ def describe_formatted():
         }
 
     def can_be_created_from_dict():
-        args = dict(
-            nodes=[operation_node],
-            source=source,
-            positions=[6],
-            path=["path", 2, "a"],
-            original_error=Exception("I like turtles"),
-            extensions=dict(hee="I like turtles"),
-        )
+        args = {
+            "nodes": [operation_node],
+            "source": source,
+            "positions": [6],
+            "path": ["path", 2, "a"],
+            "original_error": Exception("I like turtles"),
+            "extensions": {"hee": "I like turtles"},
+        }
         error = GraphQLError("msg", **args)  # type: ignore
         assert error.formatted == {
             "message": "msg",

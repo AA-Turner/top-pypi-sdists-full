@@ -35,6 +35,24 @@ def _call_row_key(conversation_id: Any, call_id: Any) -> str | None:
     return f"{conversation_id}:{call_id}"
 
 
+def _register_call_row(conversation_id: Any, call_id: Any, row_id: str) -> None:
+    """Record ``(conversation_id, call_id) -> row_id`` the instant a
+    chat.tool_call row is born, so ``backfill_message_id`` links it by pk even
+    while its INSERT is still deferred on the coordinator.
+
+    EVERY method that INSERTs a chat.tool_call row must call this (guard:
+    tests/test_tool_call_row_registration.py). ``log_rejected`` once skipped it,
+    so a pre-dispatch rejection (invalid_arguments, admin_only, not_allowed…)
+    fell to the DB read, lost the race with its own deferred INSERT, and was
+    persisted with ``message_id`` NULL — the loader then rebuilt the card from
+    the message stub and showed a completed call where the live turn showed an
+    error (conversation 8cccb224…, 2026-09-27).
+    """
+    key = _call_row_key(conversation_id, call_id)
+    if key:
+        _TOOL_CALL_ROW_BY_CALL_ID.set(key, row_id)
+
+
 class DelegationNotDurable(RuntimeError):
     """A tool call was told to park for a human and the park is not on disk.
 
@@ -261,9 +279,7 @@ class ToolExecutionLogger:
         # Register call_id -> row_id the instant the row is born so a later
         # backfill_message_id resolves the pk from memory (no DB read) even while
         # this INSERT is still deferred — the EARLY-arrival fix.
-        _row_key = _call_row_key(ctx.conversation_id, ctx.call_id)
-        if _row_key:
-            _TOOL_CALL_ROW_BY_CALL_ID.set(_row_key, row_id)
+        _register_call_row(ctx.conversation_id, ctx.call_id, row_id)
 
         # ``tool_name_as_called`` was added by migration 0022 but the ORM
         # model regen lands with 0023. Set it conditionally — when the
@@ -307,6 +323,11 @@ class ToolExecutionLogger:
                     color="red",
                 )
                 return ""
+
+        # The run link: every server-side row names the spine run that made
+        # it, so a call that never gets a chat message (a job, a workflow
+        # node, a turn cut off before its messages) is still attributed.
+        self._stamp_run_link(data)
 
         try:
             await _ensure_tool_call_parents(
@@ -536,6 +557,10 @@ class ToolExecutionLogger:
         if not _should_persist_tool_call():
             return ""
 
+        # Same early-arrival registration as log_started: the tool-result
+        # message persists while this INSERT may still be deferred.
+        _register_call_row(ctx.conversation_id, ctx.call_id, row_id)
+
         # Preserve the exposed-name trace the same way log_started does.
         if canonical != tool_name:
             if _cx_tool_call_supports_as_called():
@@ -561,6 +586,11 @@ class ToolExecutionLogger:
                     color="red",
                 )
                 return ""
+
+        # The run link: every server-side row names the spine run that made
+        # it, so a call that never gets a chat message (a job, a workflow
+        # node, a turn cut off before its messages) is still attributed.
+        self._stamp_run_link(data)
 
         try:
             await _ensure_tool_call_parents(
@@ -854,6 +884,34 @@ class ToolExecutionLogger:
             "A turn in this state can never be resumed and can never expire, so the "
             "park is refused rather than reported."
         )
+
+    @classmethod
+    def _stamp_run_link(cls, data: dict[str, Any]) -> None:
+        """Stamp ``runtime_execution_id`` — the run that made this call — at INSERT.
+
+        A tool call always belongs to the run that made it: in chat that is its
+        message, otherwise the run record. Until 2026-09-27 only
+        ``log_delegated`` stamped it, so a row that never got a message
+        (``ask_person`` parked outside a chat, a turn cut off mid-dispatch, a
+        workflow-node or job call) named no run at all. The value is the SAME
+        root id ``log_delegated`` pins (never the re-stampable nesting key), so
+        the delegated-resume lookup reads an identical id either way. Absent
+        root → the row stays unlinked and that is announced, never guessed.
+        """
+        if data.get("runtime_execution_id"):
+            return
+        execution_id = cls._runtime_execution_id()
+        if execution_id:
+            data["runtime_execution_id"] = str(execution_id)
+            return
+        if not data.get("message_id") and not data.get("user_request_id"):
+            vcprint(
+                f"[ToolLogger] chat.tool_call {data.get('id')} ({data.get('tool_name')}) "
+                f"has no message, no user_request and no runtime run in scope — it "
+                f"will be persisted with NO run link. Open a runtime execution (or a "
+                f"chat turn) around this call so it is attributable.",
+                color="yellow",
+            )
 
     @staticmethod
     def _runtime_execution_id() -> str | None:

@@ -1,0 +1,88 @@
+# Outside skill pack manifest — reviewed, owner-ordered import (Arman, 2026-09-27).
+# Driven by: uv run python scripts/ingest_skills.py --pack <this file> <clone root>
+# Loader + rules: matrx_ai/skills/packs.py. The upstream product NAME is trademarked
+# (see the source's TRADEMARK.md): no skill id or label in our library may use it,
+# which is why the three pipeline skills are renamed below. Provenance (the repo URL)
+# still names the source — that is attribution, not branding.
+
+pack_id: elvisun-pr-skills
+title: "PR & media skills"
+imported_on: "2026-09-27"
+visibility: public          # platform-provided library entries every organization can use
+skill_type: reference
+
+source:
+  repo_url: https://github.com/elvisun/newsjack
+  commit: 092d882
+  license: MIT
+  authors: ["Elvis Sun", "Carly Martinetti"]
+  skills_dir: skills
+
+category:
+  slug: pr-and-media
+  name: "PR & Media (imported)"
+  icon: Newspaper
+  position: 70
+  description: >-
+    Imported outside skills for public relations and media work — news opportunity
+    detection, journalist fit, pitching, crisis holding statements, coverage tracking,
+    and AI-visibility measurement — written by PR practitioners Elvis Sun and Carly
+    Martinetti (MIT). Bodies are verbatim; each carries a provenance banner.
+
+renames:
+  newsjack-detector:
+    skill_id: news-opportunity-detector
+    label: News Opportunity Detector
+  newsjack-triage:
+    skill_id: news-opportunity-triage
+    label: News Opportunity Triage
+  newsjack-monitor-setup:
+    skill_id: news-monitor-setup
+    label: News Monitor Setup
+
+documents:
+  - path: ETHICS.md
+    skill_id: pr-ethics-doctrine
+    label: PR Ethics Doctrine
+    description: >-
+      The ethical floor every PR skill in this set inherits: truthfulness, consent,
+      no exploiting tragedy, no manufactured relevance, and when to refuse. Load it
+      alongside any PR drafting, pitching, or outreach skill; where a skill's local
+      instructions conflict with it, this doctrine wins.
+  - path: WHY-NOT-SPAM.md
+    skill_id: pr-why-not-spam
+    label: Why Not Spam (PR Outreach Doctrine)
+    description: >-
+      Why fast, automated journalist outreach must not become spam: every pitch must be
+      relevant, true, timely, and specifically anchored to its recipient, and the agent
+      pushes back or refuses when a shortcut would trade trust for volume. Companion to
+      the PR Ethics Doctrine; every PR outreach skill in this set defers to it.
+
+path_rewrites:
+  "skills/ETHICS.md": "pr-ethics-doctrine"
+  "skills/WHY-NOT-SPAM.md": "pr-why-not-spam"
+
+ignore_files: [".gitkeep"]
+
+tooling_notices:
+  - label: "the pack's own command-line tool (`newsjack …` commands)"
+    pattern: '\bnewsjack (?:help|detector|news|monitor|coverage|pr-calendar|origin-apply|media-lists|login|filter-apply|doctor|coarse-filter|voice|auth|run-summary|run|credits|cluster|journalists|setup|install|update|runtimes)\b'
+  - label: "local files under `~/.newsjack/` or the pack's local SQLite store"
+    pattern: '~/\.newsjack|\.local/share/newsjack|monitor\.db'
+  - label: "Medialyst (the authors' commercial PR data service)"
+    pattern: 'Medialyst'
+  - label: "harness schedules or cron jobs"
+    pattern: '\bcron\b|crontab|launchd|schedule\.json|\bmonitor schedule\b'
+  - label: "a local Playwright + Chrome browser script"
+    pattern: '[Pp]laywright|clip\.mjs'
+  - label: "helper agents the harness spawns (fresh or separate sub-agent contexts)"
+    pattern: '(?i)\bsub-?agents?\b|\bfresh (?:context|target-blind context|sessions? or)\b|\bseparate (?:reviewer )?agents?\b|\breviewer agent\b'
+  - label: "a locally saved voice fingerprint that persists between runs (`voice.yaml` / `active.yaml`)"
+    pattern: 'voice\.yaml|active\.yaml|voice_fingerprint'
+
+tooling_note: >-
+  That tooling belongs to the source pack and is being rebuilt natively in AI Matrx; it
+  does not exist on this platform yet. Treat those steps as the specification for that
+  rebuild, not as actions you can take here — when a step depends on it, say plainly that
+  it is not available yet instead of pretending to run it, and do the judgment work the
+  skill describes with the tools you actually have.

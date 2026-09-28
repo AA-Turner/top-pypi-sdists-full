@@ -1,23 +1,24 @@
-from typing import Any, Dict, Optional, cast
+"""Variables in allowed position rule"""
+
+from __future__ import annotations
+
+from typing import Any
 
 from ...error import GraphQLError
 from ...language import (
     NullValueNode,
     OperationDefinitionNode,
     ValueNode,
-    VariableDefinitionNode,
 )
 from ...pyutils import Undefined
 from ...type import (
-    GraphQLInputObjectType,
-    GraphQLNonNull,
     GraphQLSchema,
     GraphQLType,
     is_input_object_type,
     is_non_null_type,
     is_nullable_type,
 )
-from ...utilities import type_from_ast, is_type_sub_type_of
+from ...utilities import is_type_sub_type_of, type_from_ast
 from . import ValidationContext, ValidationRule
 
 __all__ = ["VariablesInAllowedPositionRule"]
@@ -29,27 +30,55 @@ class VariablesInAllowedPositionRule(ValidationRule):
     Variable usages must be compatible with the arguments they are passed to.
 
     See https://spec.graphql.org/draft/#sec-All-Variable-Usages-are-Allowed
+
+    :param context: The validation context used while checking the document.
+
+    >>> from graphql import build_schema, parse, validate
+    >>> from graphql.validation import VariablesInAllowedPositionRule
+    >>> schema = build_schema('type Query { field(arg: ID!): String }')
+    >>> document = parse('query ($id: String) { field(arg: $id) }')
+    >>> errors = validate(schema, document, [VariablesInAllowedPositionRule])
+    >>> print(errors[0].message)
+    Variable '$id' of type 'String' used in position expecting type 'ID!'.
+    >>> document = parse('query ($id: ID!) { field(arg: $id) }')
+    >>> validate(schema, document, [VariablesInAllowedPositionRule])
+    []
     """
 
-    def __init__(self, context: ValidationContext):
+    def __init__(self, context: ValidationContext) -> None:
         super().__init__(context)
-        self.var_def_map: Dict[str, Any] = {}
+        self.var_def_map: dict[str, Any] = {}
 
-    def enter_operation_definition(self, *_args: Any) -> None:
-        self.var_def_map.clear()
+    def enter_operation_definition(
+        self, operation: OperationDefinitionNode, *_args: Any
+    ) -> None:
+        """Called when entering an operation definition node.
+
+        :meta private:
+        """
+        var_def_map = self.var_def_map
+        var_def_map.clear()
+        for var_def in operation.variable_definitions or ():
+            var_def_map[var_def.variable.name.value] = var_def
 
     def leave_operation_definition(
         self, operation: OperationDefinitionNode, *_args: Any
     ) -> None:
+        """Called when leaving an operation definition node.
+
+        :meta private:
+        """
         var_def_map = self.var_def_map
         usages = self.context.get_recursive_variable_usages(operation)
 
         for usage in usages:
             node, type_ = usage.node, usage.type
-            default_value = usage.default_value
             parent_type = usage.parent_type
+            default_value = usage.default_value
             var_name = node.name.value
-            var_def = var_def_map.get(var_name)
+            var_def = usage.fragment_variable_definition
+            if not var_def:
+                var_def = var_def_map.get(var_name)
             if var_def and type_:
                 # A var type is allowed if it is the same or more strict (e.g. is a
                 # subtype of) than the expected type. It can be more strict if the
@@ -71,7 +100,7 @@ class VariablesInAllowedPositionRule(ValidationRule):
 
                 if (
                     is_input_object_type(parent_type)
-                    and cast(GraphQLInputObjectType, parent_type).is_one_of
+                    and parent_type.is_one_of
                     and is_nullable_type(var_type)
                 ):
                     self.report_error(
@@ -83,24 +112,22 @@ class VariablesInAllowedPositionRule(ValidationRule):
                         )
                     )
 
-    def enter_variable_definition(
-        self, node: VariableDefinitionNode, *_args: Any
-    ) -> None:
-        self.var_def_map[node.variable.name.value] = node
-
 
 def allowed_variable_usage(
     schema: GraphQLSchema,
     var_type: GraphQLType,
-    var_default_value: Optional[ValueNode],
+    var_default_value: ValueNode | None,
     location_type: GraphQLType,
     location_default_value: Any,
 ) -> bool:
     """Check for allowed variable usage.
 
-    Returns True if the variable is allowed in the location it was found, which includes
+    Returns True if the variable is allowed in the location it was found, including
     considering if default values exist for either the variable or the location at which
     it is located.
+
+    OneOf Input Object Type fields are considered separately above to provide a more
+    descriptive error message.
     """
     if is_non_null_type(location_type) and not is_non_null_type(var_type):
         has_non_null_variable_default_value = (
@@ -110,7 +137,6 @@ def allowed_variable_usage(
         has_location_default_value = location_default_value is not Undefined
         if not has_non_null_variable_default_value and not has_location_default_value:
             return False
-        location_type = cast(GraphQLNonNull, location_type)
         nullable_location_type = location_type.of_type
         return is_type_sub_type_of(schema, var_type, nullable_location_type)
     return is_type_sub_type_of(schema, var_type, location_type)

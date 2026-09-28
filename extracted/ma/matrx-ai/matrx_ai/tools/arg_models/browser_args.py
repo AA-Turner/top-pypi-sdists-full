@@ -197,6 +197,31 @@ class BrowserStartLocalArgs(BaseModel):
     _activation_key = field_validator("activation_key")(_canonical_uuid)
 
 
+class BrowserRenderClipArgs(BaseModel):
+    """Render a live article as a press clip: A4 PDF + preview + page rasters.
+
+    Runs in its own short-lived headless browser (never a person's persistent
+    profile, so no cookies), with ad/recirculation networks blocked at the
+    request level. Returns a ``press_clip_render`` record whose files are in
+    the organization's file store. ``profile_id`` is kept for S6 uniformity and
+    ignored — a clip never uses a person's browser.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    action: Literal["render_clip"]
+    url: str = Field(min_length=8, max_length=4_000)
+    client_name: str = Field(default="", max_length=200)
+    scope: Literal["whole", "section"] = "whole"
+    section_heading: str = Field(default="", max_length=300)
+    drop: list[str] = Field(default_factory=list, max_length=50)
+    keep: list[str] = Field(default_factory=list, max_length=50)
+    root: str = Field(default="", max_length=500)
+    logo_url: str = Field(default="", max_length=4_000)
+    coverage_mention_id: str = Field(default="", max_length=64)
+    profile_id: str = _PROFILE_FIELD_DEFAULT
+
+
 CloudBrowserVariant = Annotated[
     BrowserNavigateArgs
     | BrowserClickArgs
@@ -210,7 +235,8 @@ CloudBrowserVariant = Annotated[
     | BrowserDismissHandoffArgs
     | BrowserListProfilesArgs
     | BrowserListLocalDevicesArgs
-    | BrowserStartLocalArgs,
+    | BrowserStartLocalArgs
+    | BrowserRenderClipArgs,
     Field(discriminator="action"),
 ]
 

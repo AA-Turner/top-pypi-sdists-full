@@ -66,7 +66,7 @@ pub struct CompletionContent {
     pub detail: Option<String>,
     pub documentation: Option<String>,
     pub filter_text: Option<String>,
-    pub schema_uri: Option<SchemaUri>,
+    pub schema_base_uri: Option<SchemaUri>,
     pub deprecated: Option<bool>,
     pub edit: Option<CompletionEdit>,
     pub preselect: Option<bool>,
@@ -79,7 +79,7 @@ impl CompletionContent {
         detail: Option<String>,
         documentation: Option<String>,
         edit: Option<CompletionEdit>,
-        schema_uri: Option<&SchemaUri>,
+        schema_base_uri: Option<&SchemaUri>,
         deprecated: Option<bool>,
     ) -> Self {
         Self {
@@ -90,7 +90,7 @@ impl CompletionContent {
             detail,
             documentation,
             filter_text: None,
-            schema_uri: schema_uri.cloned(),
+            schema_base_uri: schema_base_uri.cloned(),
             edit,
             deprecated,
             preselect: None,
@@ -103,7 +103,7 @@ impl CompletionContent {
         detail: Option<String>,
         documentation: Option<String>,
         edit: Option<CompletionEdit>,
-        schema_uri: Option<&SchemaUri>,
+        schema_base_uri: Option<&SchemaUri>,
         deprecated: Option<bool>,
     ) -> Self {
         Self {
@@ -114,7 +114,7 @@ impl CompletionContent {
             detail,
             documentation,
             filter_text: None,
-            schema_uri: schema_uri.cloned(),
+            schema_base_uri: schema_base_uri.cloned(),
             edit,
             deprecated,
             preselect: None,
@@ -127,7 +127,7 @@ impl CompletionContent {
         detail: Option<String>,
         documentation: Option<String>,
         edit: Option<CompletionEdit>,
-        schema_uri: Option<&SchemaUri>,
+        schema_base_uri: Option<&SchemaUri>,
         deprecated: Option<bool>,
     ) -> Self {
         Self {
@@ -138,7 +138,7 @@ impl CompletionContent {
             detail,
             documentation,
             filter_text: None,
-            schema_uri: schema_uri.cloned(),
+            schema_base_uri: schema_base_uri.cloned(),
             edit,
             deprecated,
             preselect: Some(true),
@@ -151,7 +151,7 @@ impl CompletionContent {
         detail: Option<String>,
         documentation: Option<String>,
         edit: Option<CompletionEdit>,
-        schema_uri: Option<&SchemaUri>,
+        schema_base_uri: Option<&SchemaUri>,
         deprecated: Option<bool>,
     ) -> Self {
         Self {
@@ -162,7 +162,7 @@ impl CompletionContent {
             detail,
             documentation,
             filter_text: None,
-            schema_uri: schema_uri.cloned(),
+            schema_base_uri: schema_base_uri.cloned(),
             edit,
             deprecated,
             preselect: None,
@@ -175,7 +175,7 @@ impl CompletionContent {
         label: impl Into<String>,
         detail: impl Into<String>,
         edit: Option<CompletionEdit>,
-        schema_uri: Option<&SchemaUri>,
+        schema_base_uri: Option<&SchemaUri>,
     ) -> Self {
         Self {
             label: label.into(),
@@ -185,7 +185,7 @@ impl CompletionContent {
             detail: Some(detail.into()),
             documentation: None,
             filter_text: None,
-            schema_uri: schema_uri.cloned(),
+            schema_base_uri: schema_base_uri.cloned(),
             edit,
             deprecated: None,
             preselect: None,
@@ -196,7 +196,7 @@ impl CompletionContent {
     pub fn new_type_hint_boolean(
         value: bool,
         edit: Option<CompletionEdit>,
-        schema_uri: Option<&SchemaUri>,
+        schema_base_uri: Option<&SchemaUri>,
     ) -> Self {
         Self {
             label: value.to_string(),
@@ -210,7 +210,7 @@ impl CompletionContent {
             detail: Some("Boolean".to_string()),
             documentation: None,
             filter_text: None,
-            schema_uri: schema_uri.cloned(),
+            schema_base_uri: schema_base_uri.cloned(),
             edit,
             deprecated: None,
             preselect: None,
@@ -223,7 +223,7 @@ impl CompletionContent {
         quote: &str,
         detail: impl Into<String>,
         edit: Option<CompletionEdit>,
-        schema_uri: Option<&SchemaUri>,
+        schema_base_uri: Option<&SchemaUri>,
     ) -> Self {
         Self {
             label: format!("{quote}{quote}"),
@@ -233,7 +233,7 @@ impl CompletionContent {
             detail: Some(detail.into()),
             documentation: None,
             filter_text: None,
-            schema_uri: schema_uri.cloned(),
+            schema_base_uri: schema_base_uri.cloned(),
             edit,
             deprecated: None,
             preselect: None,
@@ -243,7 +243,7 @@ impl CompletionContent {
 
     pub fn new_type_hint_inline_table(
         position: tombi_text::Position,
-        schema_uri: Option<&SchemaUri>,
+        schema_base_uri: Option<&SchemaUri>,
         completion_hint: Option<CompletionHint>,
     ) -> Self {
         Self {
@@ -254,7 +254,7 @@ impl CompletionContent {
             detail: Some("InlineTable".to_string()),
             documentation: None,
             filter_text: None,
-            schema_uri: schema_uri.cloned(),
+            schema_base_uri: schema_base_uri.cloned(),
             edit: CompletionEdit::new_inline_table(position, completion_hint),
             deprecated: None,
             preselect: None,
@@ -265,7 +265,7 @@ impl CompletionContent {
     pub fn new_type_hint_key(
         key_name: &str,
         key_range: tombi_text::Range,
-        schema_uri: Option<&SchemaUri>,
+        schema_base_uri: Option<&SchemaUri>,
         completion_hint: Option<CompletionHint>,
     ) -> Self {
         let edit = CompletionEdit::new_key(key_name, key_range, completion_hint);
@@ -278,7 +278,7 @@ impl CompletionContent {
             detail: Some("Key".to_string()),
             documentation: None,
             filter_text: Some(key_name.to_string()),
-            schema_uri: schema_uri.cloned(),
+            schema_base_uri: schema_base_uri.cloned(),
             edit,
             deprecated: None,
             preselect: None,
@@ -288,7 +288,7 @@ impl CompletionContent {
 
     pub fn new_type_hint_empty_key(
         position: tombi_text::Position,
-        schema_uri: Option<&SchemaUri>,
+        schema_base_uri: Option<&SchemaUri>,
         completion_hint: Option<CompletionHint>,
     ) -> Self {
         Self {
@@ -304,7 +304,7 @@ impl CompletionContent {
                 tombi_text::Range::at(position),
                 completion_hint,
             ),
-            schema_uri: schema_uri.cloned(),
+            schema_base_uri: schema_base_uri.cloned(),
             deprecated: None,
             preselect: None,
             in_comment: false,
@@ -318,7 +318,7 @@ impl CompletionContent {
         detail: Option<String>,
         documentation: Option<String>,
         required_keys: Option<&Vec<String>>,
-        schema_uri: Option<&SchemaUri>,
+        schema_base_uri: Option<&SchemaUri>,
         deprecated: Option<bool>,
         completion_hint: Option<CompletionHint>,
         singleton_value_label: Option<String>,
@@ -371,7 +371,7 @@ impl CompletionContent {
             documentation,
             filter_text: None,
             edit,
-            schema_uri: schema_uri.cloned(),
+            schema_base_uri: schema_base_uri.cloned(),
             deprecated,
             preselect: None,
             in_comment: false,
@@ -382,7 +382,7 @@ impl CompletionContent {
         key_label: Option<&str>,
         patterns: &[String],
         position: tombi_text::Position,
-        schema_uri: Option<&SchemaUri>,
+        schema_base_uri: Option<&SchemaUri>,
         completion_hint: Option<CompletionHint>,
     ) -> Self {
         let key_label = key_label.unwrap_or("key");
@@ -407,7 +407,7 @@ impl CompletionContent {
                 tombi_text::Range::at(position),
                 completion_hint,
             ),
-            schema_uri: schema_uri.cloned(),
+            schema_base_uri: schema_base_uri.cloned(),
             deprecated: None,
             preselect: None,
             in_comment: false,
@@ -417,7 +417,7 @@ impl CompletionContent {
     pub fn new_additional_key(
         key_label: Option<&str>,
         position: tombi_text::Position,
-        schema_uri: Option<&SchemaUri>,
+        schema_base_uri: Option<&SchemaUri>,
         deprecated: Option<bool>,
         completion_hint: Option<CompletionHint>,
     ) -> Self {
@@ -435,7 +435,7 @@ impl CompletionContent {
                 tombi_text::Range::at(position),
                 completion_hint,
             ),
-            schema_uri: schema_uri.cloned(),
+            schema_base_uri: schema_base_uri.cloned(),
             deprecated,
             preselect: None,
             in_comment: false,
@@ -445,7 +445,7 @@ impl CompletionContent {
     pub fn new_magic_triggers(
         key: &str,
         position: tombi_text::Position,
-        schema_uri: Option<&SchemaUri>,
+        schema_base_uri: Option<&SchemaUri>,
     ) -> Vec<Self> {
         [(".", "Dot Trigger"), ("=", "Equal Trigger")]
             .into_iter()
@@ -458,7 +458,7 @@ impl CompletionContent {
                 documentation: None,
                 filter_text: Some(format!("{key}{trigger}")),
                 edit: CompletionEdit::new_magic_trigger(trigger, position),
-                schema_uri: schema_uri.cloned(),
+                schema_base_uri: schema_base_uri.cloned(),
                 deprecated: None,
                 preselect: None,
                 in_comment: false,
@@ -491,7 +491,7 @@ impl CompletionContent {
             documentation: Some(documentation.into()),
             filter_text: None,
             edit,
-            schema_uri: None,
+            schema_base_uri: None,
             deprecated: None,
             preselect: None,
             in_comment: false,
@@ -688,7 +688,7 @@ pub fn get_file_path_completions(
                 detail: Some(detail),
                 documentation: None,
                 filter_text: None,
-                schema_uri: None,
+                schema_base_uri: None,
                 deprecated: None,
                 edit: Some(edit),
                 preselect: None,

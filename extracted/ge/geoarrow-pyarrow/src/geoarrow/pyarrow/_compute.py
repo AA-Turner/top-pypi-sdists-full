@@ -1,24 +1,24 @@
-import pyarrow as pa
-import pyarrow.compute as pc
-
+from geoarrow.pyarrow import _type
+from geoarrow.pyarrow._array import array
+from geoarrow.pyarrow._kernel import Kernel
 from geoarrow.types import (
-    type_spec,
-    Encoding,
     CoordType,
     Dimensions,
     EdgeType,
+    Encoding,
     GeometryType,
     TypeSpec,
+    type_spec,
 )
-from geoarrow.pyarrow import _type
-from geoarrow.pyarrow._array import array
-from geoarrow.pyarrow._kernel import Kernel, _geoarrow_c
+
+import pyarrow as pa
+import pyarrow.compute as pc
 
 
 def obj_as_array_or_chunked(obj_in):
-    if (
-        isinstance(obj_in, pa.Array) or isinstance(obj_in, pa.ChunkedArray)
-    ) and isinstance(obj_in.type, _type.GeometryExtensionType):
+    if (isinstance(obj_in, (pa.Array, pa.ChunkedArray))) and isinstance(
+        obj_in.type, _type.GeometryExtensionType
+    ):
         return obj_in
     else:
         return array(obj_in)
@@ -66,10 +66,8 @@ def parse_all(obj):
     obj = obj_as_array_or_chunked(obj)
 
     # Non-wkb or wkt types are a no-op here since they don't need parsing
-    if isinstance(obj.type, _type.WkbType) or isinstance(obj.type, _type.WktType):
+    if isinstance(obj.type, (_type.WkbType, _type.WktType)):
         push_all(Kernel.visit_void_agg, obj, result=False)
-
-    return None
 
 
 def unique_geometry_types(obj):
@@ -217,7 +215,7 @@ def as_wkb(obj, strict_iso_wkb=False):
     obj = as_geoarrow(obj, _type.wkb())
 
     if check_wkb and strict_iso_wkb and _any_ewkb(obj):
-        return push_all(Kernel.as_geoarrow, obj, args={"type_id": 100001})
+        return push_all(Kernel.as_geoarrow, obj, args={"type_out": _type.wkb()})
     else:
         return obj
 
@@ -264,13 +262,7 @@ def as_geoarrow(obj, type=None, coord_type=None, promote_multi=False):
     if obj.type.spec == type.spec:
         return obj
 
-    lib = _geoarrow_c()
-
-    cschema = lib.SchemaHolder()
-    type._export_to_c(cschema._addr())
-    ctype = lib.CVectorType.FromExtension(cschema)
-
-    return push_all(Kernel.as_geoarrow, obj, args={"type_id": ctype.id})
+    return push_all(Kernel.as_geoarrow, obj, args={"type_out": type})
 
 
 def format_wkt(obj, precision=None, max_element_size_bytes=None):
@@ -405,7 +397,7 @@ def _box_agg_point_struct(arrays):
     }
 
     # Apparently pyarrow reorders dict keys when inferring scalar types?
-    storage_type = pa.struct([(nm, pa.float64()) for nm in out_dict.keys()])
+    storage_type = pa.struct([(nm, pa.float64()) for nm in out_dict])
     storage_array = pa.array([out_dict], storage_type)
     return _type.types.box().to_pyarrow().wrap_array(storage_array)[0]
 

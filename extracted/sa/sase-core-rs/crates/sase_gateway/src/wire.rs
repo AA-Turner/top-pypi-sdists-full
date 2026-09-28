@@ -51,8 +51,8 @@ pub use sase_core::host_bridge::{
 };
 
 pub const GATEWAY_WIRE_SCHEMA_VERSION: u32 = 1;
-pub const FLEET_API_WIRE_SCHEMA_VERSION: u32 = 1;
-pub const FLEET_PROTOCOL_VERSION: u32 = 1;
+pub const FLEET_API_WIRE_SCHEMA_VERSION: u32 = 2;
+pub const FLEET_PROTOCOL_VERSION: u32 = 2;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct GatewayBuildWire {
@@ -743,6 +743,8 @@ pub struct MobileAgentKillRequestWire {
     pub schema_version: u32,
     pub reason: Option<String>,
     pub device_id: Option<String>,
+    #[serde(default)]
+    pub retain_for_retry: Option<bool>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

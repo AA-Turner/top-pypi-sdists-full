@@ -42,10 +42,8 @@ typedef struct {
      */
     PyObject *object_paths;
 
-#if !DBUSPY_PY_VERSION_AT_LEAST(3, 12, 0, 0)
     /* Weak-references list to make Connections weakly referenceable */
     PyObject *weaklist;
-#endif
 
     dbus_bool_t has_mainloop;
 } Connection;

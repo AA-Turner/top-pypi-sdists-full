@@ -27,14 +27,14 @@ pub fn launch_unit_hold_armer(
 ) -> Result<AgentHoldArmerWire, AgentHoldError> {
     let key = launch_unit_hold_key(request_id, &unit.logical_id)?;
     let request_prefix: String = request_id.chars().take(8).collect();
-    let (label, agent_name, family, clan) = match &unit.payload {
+    let (label, agent_name, agent_session, clan) = match &unit.payload {
         LaunchUnitPayloadWire::Agent(agent) => {
             let identity = agent.effective_identity();
             let armer_identity = agent_armer_identity(agent, identity.clone());
             (
                 identity.unwrap_or_else(|| unit.logical_id.clone()),
                 armer_identity,
-                agent.family_attach_parent.clone(),
+                agent.agent_session_attach_parent.clone(),
                 agent.clan.clone(),
             )
         }
@@ -48,7 +48,7 @@ pub fn launch_unit_hold_armer(
         display: format!("{label} (launch {request_prefix})"),
         project: project.to_string(),
         agent_name,
-        family,
+        agent_session,
         clan,
         proc_id: None,
         pid: Some(pid),
@@ -85,7 +85,7 @@ fn agent_armer_identity(
     if agent.identity_explicit {
         return identity;
     }
-    match agent.family_attach_suffix.as_deref() {
+    match agent.agent_session_attach_suffix.as_deref() {
         Some("@") | None => None,
         Some(_) => identity,
     }
@@ -93,7 +93,7 @@ fn agent_armer_identity(
 
 fn proc_label(proc_unit: &ProcUnitWire, logical_id: &str) -> String {
     proc_unit
-        .shell_name
+        .proc_name
         .clone()
         .unwrap_or_else(|| logical_id.to_string())
 }
@@ -105,6 +105,7 @@ mod tests {
         AgentUnitWire, LaunchUnitPayloadWire, ProcUnitWire,
     };
     use crate::fenced_code::CodeValueWire;
+    use serde_json::json;
 
     fn agent_unit(agent: AgentUnitWire) -> LaunchUnitWire {
         LaunchUnitWire {
@@ -127,7 +128,7 @@ mod tests {
     }
 
     fn proc_payload(
-        shell_name: Option<&str>,
+        proc_name: Option<&str>,
         label: Option<&str>,
     ) -> ProcUnitWire {
         ProcUnitWire {
@@ -140,7 +141,7 @@ mod tests {
                 digest: "digest".to_string(),
                 preview: "just check".to_string(),
             },
-            shell_name: shell_name.map(str::to_string),
+            proc_name: proc_name.map(str::to_string),
             label: label.map(str::to_string),
             timeout: None,
             idle_timeout: None,
@@ -149,11 +150,32 @@ mod tests {
             workspace_explicit: false,
             selected_project: None,
             queue_capacity: None,
+            queue_capacity_multiplier: None,
             wait_priority: None,
             queue_weight: None,
             queue_weight_explicit: false,
             hold: None,
         }
+    }
+
+    #[test]
+    fn proc_unit_emits_legacy_shell_name_and_accepts_proc_name() {
+        let unit = proc_payload(Some("build"), None);
+        let emitted = serde_json::to_value(&unit).unwrap();
+        assert_eq!(emitted["shell_name"], json!("build"));
+        assert!(emitted.get("proc_name").is_none());
+
+        let legacy: ProcUnitWire =
+            serde_json::from_value(emitted.clone()).unwrap();
+        assert_eq!(legacy, unit);
+
+        let mut renamed_value = emitted;
+        let object = renamed_value.as_object_mut().unwrap();
+        let name = object.remove("shell_name").unwrap();
+        object.insert("proc_name".to_string(), name);
+        let renamed: ProcUnitWire =
+            serde_json::from_value(renamed_value).unwrap();
+        assert_eq!(renamed, unit);
     }
 
     #[test]
@@ -190,14 +212,14 @@ mod tests {
         assert_eq!(explicit.key, "launch:request123/unit-1");
         assert_eq!(explicit.display, "guild.reviewer (launch request1)");
         assert_eq!(explicit.agent_name.as_deref(), Some("guild.reviewer"));
-        assert_eq!(explicit.family, None);
+        assert_eq!(explicit.agent_session, None);
         assert_eq!(explicit.clan.as_deref(), Some("guild"));
 
-        let family = launch_unit_hold_armer(
+        let agent_session = launch_unit_hold_armer(
             &agent_unit(AgentUnitWire {
                 prompt: "Review".to_string(),
-                family_attach_parent: Some("parent".to_string()),
-                family_attach_suffix: Some("child".to_string()),
+                agent_session_attach_parent: Some("parent".to_string()),
+                agent_session_attach_suffix: Some("child".to_string()),
                 ..Default::default()
             }),
             "request123",
@@ -206,9 +228,9 @@ mod tests {
             Path::new("/tmp/receipt.json"),
         )
         .unwrap();
-        assert_eq!(family.display, "parent--child (launch request1)");
-        assert_eq!(family.agent_name.as_deref(), Some("parent--child"));
-        assert_eq!(family.family.as_deref(), Some("parent"));
+        assert_eq!(agent_session.display, "parent--child (launch request1)");
+        assert_eq!(agent_session.agent_name.as_deref(), Some("parent--child"));
+        assert_eq!(agent_session.agent_session.as_deref(), Some("parent"));
 
         let auto = launch_unit_hold_armer(
             &agent_unit(AgentUnitWire {
@@ -224,7 +246,7 @@ mod tests {
         .unwrap();
         assert_eq!(auto.display, "unit-1 (launch request1)");
         assert_eq!(auto.agent_name, None);
-        assert_eq!(auto.family, None);
+        assert_eq!(auto.agent_session, None);
     }
 
     #[test]
@@ -239,7 +261,7 @@ mod tests {
         .unwrap();
         assert_eq!(armer.display, "build.check (launch request1)");
         assert_eq!(armer.agent_name, None);
-        assert_eq!(armer.family, None);
+        assert_eq!(armer.agent_session, None);
         assert_eq!(armer.clan, None);
         assert_eq!(armer.proc_id, None);
         assert_eq!(armer.pid, Some(42));

@@ -522,6 +522,23 @@ def main(logger, parser):
     else:
         execute_models(inputs, logger, parser, loop_fn=loop_fn)
 
+    # Join-ready prediction CSV for the DB this run wrote. [ML]
+    # export_predictions_csv (default False). Wrapped so an export failure can
+    # never discard a completed ML run -- every prediction is already in the
+    # DB, and the CLI (python -m geocif.predictions_export) can redo this.
+    # Note: each process owns its own DB, so a per-fold run writes one CSV per
+    # fold; use the CLI to merge them into a single deliverable.
+    if parser.getboolean("ML", "export_predictions_csv", fallback=False):
+        try:
+            from geocif import predictions_export
+
+            out = predictions_export.export_from_parser(parser, logger=logger)
+            if out is not None:
+                logger.info(f"Prediction CSV written: {out}")
+        except Exception as e:
+            logger.warning(f"Prediction CSV export failed ({e}); "
+                           f"predictions remain in the database")
+
     # Upload outputs to HuggingFace Hub if configured
     push_to_hf = parser.getboolean("ML", "push_to_hf", fallback=False)
     if push_to_hf:

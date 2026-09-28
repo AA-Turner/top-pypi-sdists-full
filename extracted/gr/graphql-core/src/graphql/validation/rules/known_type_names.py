@@ -1,17 +1,25 @@
-from typing import Any, Collection, List, Union, cast
+"""Known type names rule"""
+
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any, TypeGuard, cast
 
 from ...error import GraphQLError
 from ...language import (
+    NamedTypeNode,
+    Node,
+    TypeSystemDefinitionNode,
+    TypeSystemExtensionNode,
     is_type_definition_node,
     is_type_system_definition_node,
     is_type_system_extension_node,
-    Node,
-    NamedTypeNode,
-    TypeDefinitionNode,
 )
-from ...type import introspection_types, specified_scalar_types
 from ...pyutils import did_you_mean, suggestion_list
-from . import ASTValidationRule, ValidationContext, SDLValidationContext
+from ...type import introspection_types, specified_scalar_types
+from . import ASTValidationRule, SDLValidationContext, ValidationContext
+
+if TYPE_CHECKING:
+    from collections.abc import Collection
 
 __all__ = ["KnownTypeNamesRule"]
 
@@ -23,18 +31,34 @@ class KnownTypeNamesRule(ASTValidationRule):
     definitions and fragment conditions) are defined by the type schema.
 
     See https://spec.graphql.org/draft/#sec-Fragment-Spread-Type-Existence
+
+    :param context: The validation context used while checking the document.
+
+    >>> from graphql import build_schema, parse, validate
+    >>> from graphql.validation import KnownTypeNamesRule
+    >>> schema = build_schema('type Query { name: String }')
+    >>> document = parse('fragment Bad on Missing { name }')
+    >>> errors = validate(schema, document, [KnownTypeNamesRule])
+    >>> print(errors[0].message)
+    Unknown type 'Missing'.
+    >>> document = parse('fragment Good on Query { name }')
+    >>> validate(schema, document, [KnownTypeNamesRule])
+    []
     """
 
-    def __init__(self, context: Union[ValidationContext, SDLValidationContext]):
+    context: ValidationContext | SDLValidationContext
+    """The validation context used while checking the document."""
+
+    def __init__(self, context: ValidationContext | SDLValidationContext) -> None:
         super().__init__(context)
         schema = context.schema
         self.existing_types_map = schema.type_map if schema else {}
 
-        defined_types = []
-        for def_ in context.document.definitions:
-            if is_type_definition_node(def_):
-                def_ = cast(TypeDefinitionNode, def_)
-                defined_types.append(def_.name.value)
+        defined_types = [
+            def_.name.value
+            for def_ in context.document.definitions
+            if is_type_definition_node(def_)
+        ]
         self.defined_types = set(defined_types)
 
         self.type_names = list(self.existing_types_map) + defined_types
@@ -45,8 +69,12 @@ class KnownTypeNamesRule(ASTValidationRule):
         _key: Any,
         parent: Node,
         _path: Any,
-        ancestors: List[Node],
+        ancestors: list[Node],
     ) -> None:
+        """Called when entering a named type node.
+
+        :meta private:
+        """
         type_name = node.name.value
         if (
             type_name not in self.existing_types_map
@@ -60,13 +88,15 @@ class KnownTypeNamesRule(ASTValidationRule):
             if is_sdl and type_name in standard_type_names:
                 return
 
-            suggested_types = suggestion_list(
-                type_name,
-                (
+            suggested_types = (
+                []
+                if self.context.hide_suggestions
+                else suggestion_list(
+                    type_name,
                     list(standard_type_names) + self.type_names
                     if is_sdl
-                    else self.type_names
-                ),
+                    else self.type_names,
+                )
             )
             self.report_error(
                 GraphQLError(
@@ -79,12 +109,14 @@ class KnownTypeNamesRule(ASTValidationRule):
 standard_type_names = set(specified_scalar_types).union(introspection_types)
 
 
-def is_sdl_node(value: Union[Node, Collection[Node], None]) -> bool:
+def is_sdl_node(
+    value: Node | Collection[Node] | None,
+) -> TypeGuard[TypeSystemDefinitionNode | TypeSystemExtensionNode]:
     return (
         value is not None
         and not isinstance(value, list)
         and (
-            is_type_system_definition_node(cast(Node, value))
-            or is_type_system_extension_node(cast(Node, value))
+            is_type_system_definition_node(cast("Node", value))
+            or is_type_system_extension_node(cast("Node", value))
         )
     )

@@ -207,6 +207,10 @@ class ParsedSkill:
         "version",
         "source_hash",
         "source_path",
+        "visibility",
+        "ingested_from",
+        "extra_config",
+        "parent_ref",
     )
 
     def __init__(
@@ -225,6 +229,10 @@ class ParsedSkill:
         version: str | None,
         source_hash: str,
         source_path: str,
+        visibility: str | None = None,
+        ingested_from: str | None = None,
+        extra_config: dict[str, Any] | None = None,
+        parent_ref: dict[str, str] | None = None,
     ) -> None:
         self.skill_id = skill_id
         self.label = label
@@ -239,6 +247,17 @@ class ParsedSkill:
         self.version = version
         self.source_hash = source_hash
         self.source_path = source_path
+        # Optional per-skill overrides used by non-repo sources (outside skill
+        # packs, see ``packs.py``). ``None`` keeps the repo-mirror defaults:
+        # visibility ``internal`` and ``ingested_from`` derived from the path.
+        self.visibility = visibility
+        self.ingested_from = ingested_from
+        self.extra_config = dict(extra_config or {})
+        # The skill this one derives from (``skill.definition.parent_skill_id``),
+        # named by business key, never by UUID: ``{"skill_id": ..., "pack_id"?: ...}``.
+        # Resolved against the live catalog at write time; it must match exactly
+        # one active row or this skill is refused. ``None`` leaves the column alone.
+        self.parent_ref = dict(parent_ref) if parent_ref else None
 
 
 def _first_present(fm: dict[str, Any], *keys: str) -> Any:
@@ -922,6 +941,40 @@ def _source_repo(source_path: str) -> str | None:
     return None
 
 
+def _enum_value(value: Any) -> str | None:
+    """ORM enums stringify as ``Class.MEMBER``; compare on ``.value``."""
+    if value is None:
+        return None
+    return str(getattr(value, "value", value))
+
+
+def resolve_parent_ref(ref: dict[str, str], rows: list[Any]) -> str:
+    """Resolve a parsed skill's ``parent_ref`` to exactly one active row's id.
+
+    ``ref`` names the parent by business key: ``skill_id``, optionally narrowed
+    by the ``pack_id`` that owns it (the imported original of a native skill
+    shares its id space with every other source, so a bare ``skill_id`` can be
+    ambiguous). Zero or several matches raise ``ValueError`` — a derived skill
+    is never linked to a guess.
+    """
+    sid = str(ref.get("skill_id") or "")
+    pack_id = ref.get("pack_id")
+    matches = [
+        r
+        for r in rows
+        if str(getattr(r, "skill_id", "")) == sid
+        and getattr(r, "is_active", False)
+        and (not pack_id or _row_config(r).get("pack_id") == pack_id)
+    ]
+    if len(matches) != 1:
+        where = f" in pack {pack_id!r}" if pack_id else ""
+        raise ValueError(
+            f"parent skill {sid!r}{where} matched {len(matches)} active rows; expected exactly "
+            "one. Import the parent first (or narrow the reference by pack_id)."
+        )
+    return str(matches[0].id)
+
+
 def _looks_like_sandbox_binding(obj: Any) -> bool:
     """Duck-type check — anything with sandbox_id+base_url+access_token is
     treated as a sandbox binding (vs. a host path)."""
@@ -1000,6 +1053,116 @@ async def ingest_filesystem(
         parsed, visited_path_roots, collisions = await asyncio.to_thread(walk_paths, path_list)
         visited_roots_for_report = [str(r) for r in visited_path_roots]
 
+    norm_scopes = (
+        [str(Path(s).expanduser().resolve()) for s in prune_scopes] if prune_scopes else []
+    )
+
+    def _in_prune_scope(row: Any) -> bool:
+        sp = _row_config(row).get("source_path") or ""
+        return any(sp == s or sp.startswith(s + os.sep) for s in norm_scopes)
+
+    return await upsert_parsed_skills(
+        parsed,
+        admin_user_id=admin_user_id,
+        dry_run=dry_run,
+        is_system=is_system,
+        adopt=adopt,
+        owns=_is_ingest_owned,
+        prune_candidate=_in_prune_scope if norm_scopes else None,
+        roots=visited_roots_for_report,
+        collisions=collisions,
+    )
+
+
+async def ensure_skill_category(
+    category: dict[str, Any],
+    *,
+    visibility: str,
+    extra_metadata: dict[str, Any],
+    admin_user_id: str,
+    dry_run: bool,
+) -> dict[str, Any]:
+    """Make sure a skill category (``slug``, ``name``, optional ``icon`` /
+    ``position`` / ``description``) exists in ``platform.categories``.
+
+    Shared by every declared source (outside packs, platform library sets).
+    Mirrors the existing platform skill categories: system organization,
+    ``dimension='skill'``, and ``metadata.is_active`` / ``metadata.category_key``
+    (what the library UI reads). The category's own ``visibility`` column is the
+    declared visibility — the column defaults to ``internal``, and a public skill
+    under an internal category was hidden-by-default while its metadata claimed
+    ``public`` (2026-09-27). An existing category is never rewritten, except that
+    a visibility differing from the declared one is reconciled.
+    """
+    from matrx_orm.session.fallback import SYSTEM_ORGANIZATION_ID
+
+    from matrx_ai.db._registry import get_instance
+
+    cat_mgr = get_instance("skl_categories_manager")
+    slug = str(category["slug"])
+    existing = [
+        c for c in await cat_mgr.filter_items(dimension="skill") if getattr(c, "slug", None) == slug
+    ]
+    if existing:
+        row = existing[0]
+        current = str(getattr(getattr(row, "visibility", None), "value", getattr(row, "visibility", None)))
+        if current != visibility:
+            if not dry_run:
+                await cat_mgr.update_item(str(row.id), visibility=visibility)
+            return {
+                "slug": slug,
+                "status": "would_fix_visibility" if dry_run else "visibility_fixed",
+                "id": str(row.id),
+                "visibility": f"{current} -> {visibility}",
+            }
+        return {"slug": slug, "status": "exists", "id": str(row.id)}
+    if dry_run:
+        return {"slug": slug, "status": "would_create", "id": None}
+    created = await cat_mgr.create_item(
+        organization_id=SYSTEM_ORGANIZATION_ID,
+        dimension="skill",
+        visibility=visibility,
+        name=str(category["name"]),
+        slug=slug,
+        icon=category.get("icon"),
+        position=category.get("position"),
+        is_system=False,
+        created_by=admin_user_id,
+        metadata={
+            "is_active": True,
+            "visibility": visibility,
+            "description": str(category.get("description") or "").strip(),
+            "category_key": slug,
+            **extra_metadata,
+        },
+    )
+    return {"slug": slug, "status": "created", "id": str(getattr(created, "id", ""))}
+
+
+async def upsert_parsed_skills(
+    parsed: list[ParsedSkill],
+    *,
+    admin_user_id: UUID | str,
+    dry_run: bool,
+    is_system: bool,
+    adopt: bool,
+    owns: Any,
+    prune_candidate: Any = None,
+    roots: list[str] | None = None,
+    collisions: list[str] | None = None,
+) -> dict[str, Any]:
+    """The ONE write path into ``skill.definition`` for every file-shaped source.
+
+    Shared by the repo-mirror ingest (:func:`ingest_filesystem`) and the
+    outside-pack import (``matrx_ai.skills.packs``). The source decides
+    ownership, never the table: ``owns(row)`` says whether THIS source created
+    ``row`` (anything else is ``skipped_foreign`` unless ``adopt``), and
+    ``prune_candidate(row)`` — when given — says whether an owned row whose
+    skill vanished from the source should be deactivated. ``None`` prunes
+    nothing.
+    """
+    collisions = list(collisions or [])
+    visited_roots_for_report = list(roots or [])
     report: dict[str, Any] = {
         "parsed": len(parsed),
         "created": 0,
@@ -1072,12 +1235,12 @@ async def ingest_filesystem(
             # kind_keyword_relationship_research each have two rows), so prefer
             # the row this ingest already owns over whichever came back first.
             candidates = rows_by_id.get(p.skill_id, [])
-            owned = [r for r in candidates if _is_ingest_owned(r)]
+            owned = [r for r in candidates if owns(r)]
             row = owned[0] if owned else (candidates[0] if candidates else None)
 
             entry = skills_by_id[p.skill_id]
 
-            if row is not None and not _is_ingest_owned(row) and not adopt:
+            if row is not None and not owns(row) and not adopt:
                 # A DB-native row wearing the same name. Report it loudly and
                 # write nothing — see THE OWNERSHIP GUARD.
                 report["skipped_foreign"] += 1
@@ -1095,6 +1258,10 @@ async def ingest_filesystem(
                 continue
 
             category_id = cat_by_key.get(p.category) if p.category else None
+            # A declared parent must resolve before anything is written.
+            parent_id = resolve_parent_ref(p.parent_ref, all_rows) if p.parent_ref else None
+            if parent_id:
+                entry["parent_skill_id"] = parent_id
 
             # A SKILL.md that declares no `skill_type` must not DOWNGRADE an
             # existing row to the 'reference' default: `create-agent` and
@@ -1118,12 +1285,14 @@ async def ingest_filesystem(
                     "source_hash": p.source_hash,
                     "source_path": p.source_path,
                     "source_repo": _source_repo(p.source_path),
-                    "ingested_from": (
-                        "sandbox" if p.source_path.startswith("sandbox://") else "filesystem"
-                    ),
+                    "ingested_from": p.ingested_from
+                    or ("sandbox" if p.source_path.startswith("sandbox://") else "filesystem"),
                     "ingested_at": _now_iso(),
                 }
             )
+            # A non-repo source (an outside pack) stamps its own provenance —
+            # source repo URL, commit, license, authors — over the defaults.
+            merged_config.update(p.extra_config)
             merged_config.pop("pruned_at", None)
             merged_config.pop("pruned_reason", None)
 
@@ -1149,9 +1318,14 @@ async def ingest_filesystem(
                 # visibility='public' before this ingest run touched it.
                 # Promoting a skill to user-facing is a deliberate, separate
                 # admin action via the skill editor, not an ingest side effect.
-                "visibility": "internal",
+                # An outside pack declares its own visibility deliberately in
+                # its reviewed manifest (``packs.py``); a repo mirror never can.
+                "visibility": p.visibility or "internal",
                 "is_active": True,
                 "created_by": admin_id,
+                # Only a source that declares a parent writes the column (None is
+                # dropped below), so a link set by hand is never cleared.
+                "parent_skill_id": parent_id,
             }
             # Drop None values that would violate FK constraints.
             row_data = {k: v for k, v in row_data.items() if v is not None}
@@ -1173,6 +1347,12 @@ async def ingest_filesystem(
                     and existing_cfg.get("source_path") == p.source_path
                     and existing_cfg.get("ingested_at")
                     and existing_cfg.get("source_repo")
+                    and all(existing_cfg.get(k) == v for k, v in p.extra_config.items())
+                    and _enum_value(getattr(row, "visibility", None)) == (p.visibility or "internal")
+                    and (
+                        parent_id is None
+                        or str(getattr(row, "parent_skill_id", None) or "") == parent_id
+                    )
                 ):
                     report["unchanged"] += 1
                     entry["status"] = "unchanged"
@@ -1204,17 +1384,16 @@ async def ingest_filesystem(
     # another skill) must stop being offered to agents. Deactivate, never
     # delete — the row keeps its body and its audit trail, and comes back on
     # the next run if the skill returns.
-    if prune_scopes:
-        norm_scopes = [str(Path(s).expanduser().resolve()) for s in prune_scopes]
+    if prune_candidate is not None:
         for row in all_rows:
             sid = str(getattr(row, "skill_id", ""))
-            if sid in parsed_ids or not _is_ingest_owned(row):
+            if sid in parsed_ids or not owns(row):
                 continue
             if not getattr(row, "is_active", False):
                 continue
-            sp = _row_config(row).get("source_path") or ""
-            if not any(sp == s or sp.startswith(s + os.sep) for s in norm_scopes):
+            if not prune_candidate(row):
                 continue
+            sp = _row_config(row).get("source_path") or ""
             plan_line = f"{sid} ← {sp}"
             report["prune_plan"].append(plan_line)
             report["deactivated"] += 1

@@ -1,7 +1,9 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use crate::queue_directive::{
-    queue_capacity_as_u32, queue_weight_is_valid, DEFAULT_QUEUE_WEIGHT,
+    authored_queue_weight_is_valid, queue_capacity_as_u32,
+    queue_capacity_multiplier_is_valid, queue_weight_is_valid,
+    DEFAULT_QUEUE_WEIGHT,
 };
 
 use super::claims::claim_lineage;
@@ -67,7 +69,7 @@ pub(super) fn is_waiting_record(
 }
 
 fn serial_continuation_reuses_claim(record: &RunnerCapacityRecordWire) -> bool {
-    !record.agent_family_parallel
+    !record.agent_session_parallel
         && (record
             .parent_timestamp
             .as_deref()
@@ -79,20 +81,20 @@ fn serial_continuation_reuses_claim(record: &RunnerCapacityRecordWire) -> bool {
 }
 
 fn is_pending_gate(record: &RunnerCapacityRecordWire) -> bool {
-    record.agent_family_role.as_deref() == Some("gate")
-        && record.family_shell_kind.as_deref() == Some("gate")
+    record.agent_session_role.as_deref() == Some("gate")
+        && record.agent_session_turn_kind.as_deref() == Some("gate")
         && record
-            .family_shell_id
+            .agent_session_turn_id
             .as_deref()
             .is_some_and(|value| !value.trim().is_empty())
-        && record.family_shell_state.as_deref() == Some("pending")
+        && record.agent_session_turn_state.as_deref() == Some("pending")
 }
 
 fn is_real_monitor_member(record: &RunnerCapacityRecordWire) -> bool {
-    record.agent_family_role.as_deref() == Some("monitor")
-        && record.family_shell_kind.as_deref() == Some("monitor")
+    record.agent_session_role.as_deref() == Some("monitor")
+        && record.agent_session_turn_kind.as_deref() == Some("monitor")
         && record
-            .family_shell_id
+            .agent_session_turn_id
             .as_deref()
             .is_some_and(|value| !value.trim().is_empty())
 }
@@ -127,7 +129,7 @@ pub(super) fn effective_weight(
 /// strictly-positive `%queue`/`%q` weight contract in `queue_weight_is_valid`.
 fn record_weight_is_valid(weight: f64, explicit: bool) -> bool {
     if explicit {
-        weight.is_finite() && weight >= 0.0
+        authored_queue_weight_is_valid(weight)
     } else {
         queue_weight_is_valid(weight)
     }
@@ -140,4 +142,15 @@ pub(super) fn explicit_queue_capacity(
         return None;
     }
     queue_capacity_as_u32(record.queue_capacity)
+}
+
+pub(super) fn explicit_queue_capacity_multiplier(
+    record: &RunnerCapacityRecordWire,
+) -> Option<f64> {
+    if explicit_queue_capacity(record).is_some() {
+        return None;
+    }
+    record
+        .queue_capacity_multiplier
+        .filter(|value| queue_capacity_multiplier_is_valid(*value))
 }

@@ -609,7 +609,6 @@ async def _update_ongoing_events(ctx: BackupContext) -> int:
 
 
 async def _update_events(ctx: BackupContext) -> int:
-    # update any events that are still set as ongoing in the database
     updated_ongoing = await _update_ongoing_events(ctx)
     start = ctx.start
     end = ctx.end or utc_now()
@@ -1066,7 +1065,6 @@ async def _events(
     prune: bool,
     force: bool,
     verify: bool,
-    no_input: bool,
 ) -> None:
     try:
         await ctx.create_db()
@@ -1129,11 +1127,10 @@ def events_cmd(
     no_input: bool = typer.Option(False, "--no-input"),
 ) -> None:
     """Backup thumbnails and video clips for camera events."""
-    # suppress av logging messages
     av.logging.set_level(av.logging.PANIC)
     ufp_events = [d.EventType(e.value) for e in event_types]
     if prune and force:
         _wipe_files(ctx.obj, no_input)
     asyncio.run(
-        _events(ctx.obj, ufp_events, smart_types, prune, force, verify, no_input),
+        _events(ctx.obj, ufp_events, smart_types, prune, force, verify),
     )

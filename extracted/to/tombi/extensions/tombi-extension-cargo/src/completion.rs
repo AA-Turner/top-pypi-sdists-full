@@ -476,7 +476,7 @@ fn complete_workspace_dependency_inheritance(
                 "Inherit this dependency from `[workspace.dependencies]`.".to_string(),
             ),
             filter_text: None,
-            schema_uri: None,
+            schema_base_uri: None,
             deprecated: None,
             edit: Some(tombi_extension::CompletionEdit {
                 text_edit: CompletionTextEdit::Edit(TextEdit {
@@ -563,7 +563,7 @@ async fn complete_crate_version(
                 detail: Some("Crate version".to_string()),
                 documentation: None,
                 filter_text: None,
-                schema_uri: None,
+                schema_base_uri: None,
                 deprecated: None,
                 edit: match version_value {
                     tombi_document_tree_syntax::Value::String(value_string) => {
@@ -742,7 +742,7 @@ fn complete_crate_feature<'a: 'b, 'b>(
                                 .join("\n")
                     }),
                     filter_text: None,
-                    schema_uri: None,
+                    schema_base_uri: None,
                     deprecated: None,
                     edit: editing_feature_string.and_then(|value| {
                         CompletionEdit::new_string_literal_while_editing(&label, value.range())

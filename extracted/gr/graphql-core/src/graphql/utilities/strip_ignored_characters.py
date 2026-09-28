@@ -1,15 +1,19 @@
-from typing import Union, cast
+"""Removal of insignificant characters"""
+
+from __future__ import annotations
+
+from typing import cast
 
 from ..language import Lexer, TokenKind
-from ..language.source import Source, is_source
 from ..language.block_string import print_block_string
 from ..language.lexer import is_punctuator_token_kind
+from ..language.source import Source, is_source
 
 __all__ = ["strip_ignored_characters"]
 
 
-def strip_ignored_characters(source: Union[str, Source]) -> str:
-    """Strip characters that are ignored anyway.
+def strip_ignored_characters(source: str | Source) -> str:
+    '''Strip characters that are ignored anyway.
 
     Strips characters that are not significant to the validity or execution
     of a GraphQL document:
@@ -22,7 +26,7 @@ def strip_ignored_characters(source: Union[str, Source]) -> str:
         - BlockString indentation
 
     Note: It is required to have a delimiter character between neighboring
-    non-punctuator tokes and this function always uses single space as delimiter.
+    non-punctuator tokens and this function always uses single space as delimiter.
 
     It is guaranteed that both input and output documents if parsed would result
     in the exact same AST except for nodes location.
@@ -30,7 +34,6 @@ def strip_ignored_characters(source: Union[str, Source]) -> str:
     Warning: It is guaranteed that this function will always produce stable results.
     However, it's not guaranteed that it will stay the same between different
     releases due to bugfixes or changes in the GraphQL specification.
-    """ '''
 
     Query example::
 
@@ -63,8 +66,17 @@ def strip_ignored_characters(source: Union[str, Source]) -> str:
     Becomes::
 
         """Type description""" type Foo{"""Field description""" bar:String}
+
+    :param source: The GraphQL source text or source object.
+    :returns: A semantically equivalent GraphQL source string without ignored
+        characters.
+
+    >>> from graphql import strip_ignored_characters
+    >>> strip_ignored_characters('query Example { name }')
+    'query Example{name}'
     '''
-    source = cast(Source, source) if is_source(source) else Source(cast(str, source))
+    if not is_source(source):
+        source = Source(cast("str", source))
 
     body = source.body
     lexer = Lexer(source)

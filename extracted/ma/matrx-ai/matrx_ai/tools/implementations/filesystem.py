@@ -37,6 +37,7 @@ from matrx_ai.tools.arg_models.fs_args import (
     FsListArgs,
     FsMkdirArgs,
     FsPatchArgs,
+    FsPatchEdit,
     FsReadArgs,
     FsSearchArgs,
     FsWriteArgs,
@@ -46,7 +47,6 @@ from matrx_ai.tools.kinds.filesystem import (
     DirectoryEntry,
     DirectoryListing,
     FileEditApplied,
-    FileEditFailure,
     FileEditResult,
     FilePatchResult,
     FileReadResult,
@@ -56,6 +56,11 @@ from matrx_ai.tools.kinds.filesystem import (
 )
 from matrx_ai.tools.models import ToolContext, ToolError, ToolResult
 from matrx_ai.tools.output_caps import cap_json_list
+from matrx_ai.tools.surface_write import (
+    SurfaceWriteFormat,
+    SurfaceWriteMode,
+    attach_surface_write,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -268,6 +273,60 @@ def _refuse_if_their_machine_is_down(tool_name: str, ctx: ToolContext) -> ToolRe
     return refuse_if_workspace_is_down(tool_name, ctx)
 
 
+def _read_prior_local(filepath: Path) -> str | None:
+    """Prior content of a local file for the receipt: missing → ``""``; not showable → ``None``."""
+    if not filepath.exists():
+        return ""
+    if not filepath.is_file() or filepath.stat().st_size > MAX_PATCH_SIZE:
+        return None
+    return decode_prior(filepath.read_bytes())
+
+
+def _showable(text: str | None) -> str | None:
+    """A sandbox read decodes lossily; a replacement char means binary — skip the receipt."""
+    if text is None or "\ufffd" in text:
+        return None
+    return text
+
+
+async def _proxy_read_prior(
+    binding: SandboxBinding, sandbox_path: str, *, bounded: bool
+) -> tuple[bool, str | None]:
+    """Read a sandbox file whole through the proxy: ``(exists, text)``.
+
+    Missing (404) → ``(False, "")``. With ``bounded``, a file over
+    MAX_PATCH_SIZE stops after the first page → ``(True, None)``. Any other
+    proxy failure raises ``SandboxProxyError``.
+    """
+    chunks: list[str] = []
+    offset = 0
+    try:
+        while True:
+            page = await _proxy_fs_read(
+                binding,
+                sandbox_path,
+                encoding="utf8",
+                offset=offset,
+                limit=MAX_READ_SIZE,
+            )
+            if bounded and page.size > MAX_PATCH_SIZE:
+                return True, None
+            chunks.append(page.content)
+            if not page.truncated:
+                break
+            if page.next_offset <= offset:
+                raise SandboxProxyError(
+                    "Sandbox read pagination did not advance",
+                    error_type="protocol_error",
+                )
+            offset = page.next_offset
+    except SandboxProxyError as exc:
+        if exc.status != 404:
+            raise
+        return False, ""
+    return True, "".join(chunks)
+
+
 async def fs_read(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     started_at = time.time()
     parsed = FsReadArgs(**args)
@@ -403,35 +462,24 @@ async def fs_write(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
             sandbox_path = _resolve_sandbox_path(binding, parsed.path)
             # The matrx_agent /fs/write replaces the file. ``append`` mode
             # has no direct daemon equivalent — fall back to read+append+write
-            # so the public tool contract still works.
-            content = parsed.content
+            # so the public tool contract still works. The same read is the
+            # receipt's "before"; an overwrite whose prior cannot be read just
+            # skips the receipt — it never fails the write.
+            before: str | None
+            proxy_existed: bool | None = None
             if parsed.append:
-                try:
-                    chunks: list[str] = []
-                    offset = 0
-                    while True:
-                        page = await _proxy_fs_read(
-                            binding,
-                            sandbox_path,
-                            encoding="utf8",
-                            offset=offset,
-                            limit=MAX_READ_SIZE,
-                        )
-                        chunks.append(page.content)
-                        if not page.truncated:
-                            break
-                        if page.next_offset <= offset:
-                            raise SandboxProxyError(
-                                "Sandbox read pagination did not advance",
-                                error_type="protocol_error",
-                            )
-                        offset = page.next_offset
-                    existing = "".join(chunks)
-                except SandboxProxyError as exc:
-                    if exc.status != 404:
-                        raise
-                    existing = ""
+                _, existing = await _proxy_read_prior(binding, sandbox_path, bounded=False)
+                existing = existing or ""
                 content = existing + parsed.content
+                before = _showable(existing)
+            else:
+                content = parsed.content
+                try:
+                    proxy_existed, prior = await _proxy_read_prior(binding, sandbox_path, bounded=True)
+                    before = _showable(prior)
+                except SandboxProxyError as exc:
+                    logger.info("fs_write: prior read of %s failed (%s); receipt skipped", sandbox_path, exc)
+                    before = None
             stat = await _proxy_fs_write(
                 binding,
                 sandbox_path,
@@ -444,15 +492,22 @@ async def fs_write(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
                 path=sandbox_path,
                 metadata={"size": stat.get("size"), "tool": "fs_write"},
             )
-            return ToolResult(
-                success=True,
-                output=FileWriteResult(
-                    path=sandbox_path, size=stat.get("size"), stat=stat
-                ).model_dump(mode="json"),
-                started_at=started_at,
-                completed_at=time.time(),
-                tool_name="fs_write",
-                call_id=ctx.call_id,
+            return with_file_surface_write(
+                ToolResult(
+                    success=True,
+                    output=FileWriteResult(
+                        path=sandbox_path, size=stat.get("size"), stat=stat
+                    ).model_dump(mode="json"),
+                    started_at=started_at,
+                    completed_at=time.time(),
+                    tool_name="fs_write",
+                    call_id=ctx.call_id,
+                ),
+                path=sandbox_path,
+                before=before,
+                after=content,
+                mode="append" if parsed.append else "overwrite",
+                existed=None if parsed.append else proxy_existed,
             )
         except SandboxProxyError as exc:
             return _proxy_error(
@@ -462,11 +517,12 @@ async def fs_write(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     try:
         filepath = _resolve_path(parsed.path, ctx)
         existed_before = filepath.exists()
+        before = _read_prior_local(filepath)
         if parsed.create_dirs:
             filepath.parent.mkdir(parents=True, exist_ok=True)
 
         mode = "a" if parsed.append else "w"
-        with open(filepath, mode) as f:
+        with open(filepath, mode, encoding="utf-8") as f:
             f.write(parsed.content)
 
         new_size = filepath.stat().st_size
@@ -480,17 +536,24 @@ async def fs_write(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
             },
         )
 
-        return ToolResult(
-            success=True,
-            output=FileWriteResult(
-                path=parsed.path,
-                bytes_written=len(parsed.content.encode()),
-                mode="append" if parsed.append else "write",
-            ).model_dump(mode="json"),
-            started_at=started_at,
-            completed_at=time.time(),
-            tool_name="fs_write",
-            call_id=ctx.call_id,
+        return with_file_surface_write(
+            ToolResult(
+                success=True,
+                output=FileWriteResult(
+                    path=parsed.path,
+                    bytes_written=len(parsed.content.encode()),
+                    mode="append" if parsed.append else "write",
+                ).model_dump(mode="json"),
+                started_at=started_at,
+                completed_at=time.time(),
+                tool_name="fs_write",
+                call_id=ctx.call_id,
+            ),
+            path=parsed.path,
+            before=before,
+            after=(before + parsed.content) if (parsed.append and before is not None) else parsed.content,
+            mode="append" if parsed.append else "overwrite",
+            existed=existed_before,
         )
     except PermissionError as exc:
         return ToolResult(
@@ -772,6 +835,163 @@ async def fs_search(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         )
 
 
+def _fs_error(
+    tool_name: str,
+    call_id: str,
+    started_at: float,
+    error_type: str,
+    message: str,
+    suggested_action: str | None = None,
+) -> ToolResult:
+    return ToolResult(
+        success=False,
+        error=ToolError(error_type=error_type, message=message, suggested_action=suggested_action),
+        started_at=started_at,
+        completed_at=time.time(),
+        tool_name=tool_name,
+        call_id=call_id,
+    )
+
+
+def _missing_file_refusal(
+    parsed: FsPatchArgs, tool_name: str, call_id: str, started_at: float
+) -> ToolResult | None:
+    """fs_patch on a missing file: refuse unless create_if_missing with an insert-mode first edit."""
+    if not parsed.create_if_missing:
+        return _fs_error(
+            tool_name,
+            call_id,
+            started_at,
+            "not_found",
+            f"File not found: {parsed.path}",
+            "Set create_if_missing=True to create the file with the patch's first edit.",
+        )
+    if parsed.edits[0].old_text != "":
+        return _fs_error(
+            tool_name,
+            call_id,
+            started_at,
+            "invalid_input",
+            "create_if_missing=True requires the first edit to have empty old_text (insert mode).",
+        )
+    return None
+
+
+def _daemon_failure_result(
+    data: dict[str, Any],
+    *,
+    tool_name: str,
+    path: str,
+    total_edits: int,
+    call_id: str,
+    started_at: float,
+) -> ToolResult:
+    """The sandbox daemon refused edits we could not pre-verify (or the file moved under us).
+
+    Loud, typed like every other patch failure — and honest that the daemon may
+    have applied the edits it did not report as failed.
+    """
+    failures: list[dict[str, Any]] = []
+    for f in data.get("edits_failed") or []:
+        reason = str(f.get("reason") or "")
+        failures.append(
+            {
+                "edit_index": int(f.get("edit_index", 0) or 0),
+                "error_type": PATCH_NO_MATCH if "not found" in reason.lower() else PATCH_AMBIGUOUS,
+                "reason": reason,
+                "match_count": 0,
+                "match_lines": [],
+                "old_text_preview": str(f.get("old_text_preview") or ""),
+            }
+        )
+    return patch_failure_result(
+        failures,
+        tool_name=tool_name,
+        path=path,
+        total_edits=total_edits,
+        call_id=call_id,
+        started_at=started_at,
+        applied_elsewhere=len(failures) < total_edits,
+    )
+
+
+async def _sandbox_patch(
+    binding: SandboxBinding,
+    parsed: FsPatchArgs,
+    *,
+    tool_name: str,
+    call_id: str,
+    started_at: float,
+) -> tuple[ToolResult | None, dict[str, Any], str | None, str | None, list[dict[str, Any]]]:
+    """fs_patch / fs_edit through the sandbox proxy — all-or-nothing, with the receipt's sides.
+
+    Reads the prior content through the proxy, runs :func:`apply_patch_edits`
+    locally (the same contract as every backend) and only when EVERY edit names
+    exactly one place asks the daemon to apply them. Returns
+    ``(refusal, daemon_data, before, after, applied)``; a prior that is not
+    showable (binary / over MAX_PATCH_SIZE) goes straight to the daemon with no
+    receipt (``before`` None).
+    """
+    sandbox_path = _resolve_sandbox_path(binding, parsed.path)
+    exists, prior = await _proxy_read_prior(binding, sandbox_path, bounded=True)
+    if not exists:
+        if tool_name == "fs_edit":
+            return (
+                _fs_error(tool_name, call_id, started_at, "not_found", f"File not found: {parsed.path}"),
+                {},
+                None,
+                None,
+                [],
+            )
+        if (refusal := _missing_file_refusal(parsed, tool_name, call_id, started_at)) is not None:
+            return refusal, {}, None, None, []
+    before = _showable(prior) if exists else ""
+    after: str | None = None
+    applied: list[dict[str, Any]] = []
+    if before is not None:
+        after, applied, failures = apply_patch_edits(before, parsed.edits, existed=exists)
+        if failures:
+            return (
+                patch_failure_result(
+                    failures,
+                    tool_name=tool_name,
+                    path=parsed.path,
+                    total_edits=len(parsed.edits),
+                    call_id=call_id,
+                    started_at=started_at,
+                ),
+                {},
+                None,
+                None,
+                [],
+            )
+    data = await _proxy_fs_patch(
+        binding,
+        sandbox_path,
+        [
+            {"old_text": e.old_text, "new_text": e.new_text, "replace_all": e.replace_all}
+            for e in parsed.edits
+        ],
+        create_if_missing=parsed.create_if_missing,
+    )
+    if data.get("edits_failed"):
+        return (
+            _daemon_failure_result(
+                data,
+                tool_name=tool_name,
+                path=parsed.path,
+                total_edits=len(parsed.edits),
+                call_id=call_id,
+                started_at=started_at,
+            ),
+            data,
+            None,
+            None,
+            [],
+        )
+    return None, data, before, after, applied
+
+
 async def fs_patch(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     """Anchor-based file edit — apply 1-N old_text→new_text edits in order.
 
@@ -780,11 +1000,11 @@ async def fs_patch(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     edits; they're notoriously bad at re-emitting an entire file or at
     composing multi-line shell heredocs. fs_patch leans into that strength.
 
-    Failure modes are surfaced explicitly so the caller can recover:
-      - old_text not found  → "edit_index N: old_text not found"
-      - old_text not unique → "edit_index N: matches K times — add context or replace_all=True"
-    Edits that succeed are committed as a single atomic write only when at
-    least one edit succeeded; if every edit failed the file is untouched.
+    ALL-OR-NOTHING on every backend: each edit must name exactly one place
+    (or opt into several with replace_all). If ANY edit fails the file is not
+    written and one error names every failing edit — ``patch_no_match`` or
+    ``patch_ambiguous`` (with the match count and line numbers). On success the
+    surface-write receipt carries before → after.
     """
     started_at = time.time()
     parsed = FsPatchArgs(**args)
@@ -797,40 +1017,40 @@ async def fs_patch(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
 
     if (binding := get_active_sandbox()) is not None:
         try:
-            sandbox_path = _resolve_sandbox_path(binding, parsed.path)
-            edits = [
-                {"old_text": e.old_text, "new_text": e.new_text, "replace_all": e.replace_all}
-                for e in parsed.edits
-            ]
-            data = await _proxy_fs_patch(
-                binding,
-                sandbox_path,
-                edits,
-                create_if_missing=parsed.create_if_missing,
+            refusal, data, before, after, applied = await _sandbox_patch(
+                binding, parsed, tool_name="fs_patch", call_id=ctx.call_id, started_at=started_at
             )
+            if refusal is not None:
+                return refusal
+            sandbox_path = _resolve_sandbox_path(binding, parsed.path)
             await emit_fs_changed(
                 action="modified",
                 path=sandbox_path,
-                metadata={"tool": "fs_patch", "edits": len(edits)},
+                metadata={"tool": "fs_patch", "edits": len(parsed.edits)},
             )
-            return ToolResult(
-                success=True,
-                output=FilePatchResult(
-                    path=sandbox_path,
-                    created=bool(data.get("created", False)),
-                    edits_applied=[
-                        FileEditApplied(**s) for s in data.get("edits_applied", [])
-                    ],
-                    edits_failed=[
-                        FileEditFailure(**f) for f in data.get("edits_failed", [])
-                    ],
-                    size_before=int(data.get("size_before", 0) or 0),
-                    size_after=int(data.get("size_after", 0) or 0),
-                ).model_dump(mode="json"),
-                started_at=started_at,
-                completed_at=time.time(),
-                tool_name="fs_patch",
-                call_id=ctx.call_id,
+            return with_file_surface_write(
+                ToolResult(
+                    success=True,
+                    output=FilePatchResult(
+                        path=sandbox_path,
+                        created=bool(data.get("created", False)),
+                        edits_applied=[
+                            FileEditApplied(**s) for s in (applied or data.get("edits_applied", []))
+                        ],
+                        edits_failed=[],
+                        size_before=int(data.get("size_before", 0) or 0),
+                        size_after=int(data.get("size_after", 0) or 0),
+                    ).model_dump(mode="json"),
+                    started_at=started_at,
+                    completed_at=time.time(),
+                    tool_name="fs_patch",
+                    call_id=ctx.call_id,
+                ),
+                path=sandbox_path,
+                before=before,
+                after=after,
+                mode="patch",
+                edits=len(parsed.edits),
             )
         except SandboxProxyError as exc:
             return _proxy_error(
@@ -842,72 +1062,40 @@ async def fs_patch(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         existed = filepath.exists()
 
         if not existed:
-            if not parsed.create_if_missing:
-                return ToolResult(
-                    success=False,
-                    error=ToolError(
-                        error_type="not_found",
-                        message=f"File not found: {parsed.path}",
-                        suggested_action="Set create_if_missing=True to create the file with the patch's first edit.",
-                    ),
-                    started_at=started_at,
-                    completed_at=time.time(),
-                    tool_name="fs_patch",
-                    call_id=ctx.call_id,
-                )
-            first = parsed.edits[0]
-            if first.old_text != "":
-                return ToolResult(
-                    success=False,
-                    error=ToolError(
-                        error_type="invalid_input",
-                        message="create_if_missing=True requires the first edit to have empty old_text (insert mode).",
-                    ),
-                    started_at=started_at,
-                    completed_at=time.time(),
-                    tool_name="fs_patch",
-                    call_id=ctx.call_id,
-                )
+            if (refusal := _missing_file_refusal(parsed, "fs_patch", ctx.call_id, started_at)) is not None:
+                return refusal
             content = ""
         else:
             size = filepath.stat().st_size
             if size > MAX_PATCH_SIZE:
-                return ToolResult(
-                    success=False,
-                    error=ToolError(
-                        error_type="too_large",
-                        message=f"File is {size} bytes; fs_patch refuses files over {MAX_PATCH_SIZE}.",
-                        suggested_action="Use shell_execute with sed/awk/perl for very large files.",
-                    ),
-                    started_at=started_at,
-                    completed_at=time.time(),
-                    tool_name="fs_patch",
-                    call_id=ctx.call_id,
+                return _fs_error(
+                    "fs_patch",
+                    ctx.call_id,
+                    started_at,
+                    "too_large",
+                    f"File is {size} bytes; fs_patch refuses files over {MAX_PATCH_SIZE}.",
+                    "Use shell_execute with sed/awk/perl for very large files.",
                 )
-            content = filepath.read_text()
+            content = filepath.read_bytes().decode("utf-8")
 
         original_content = content
         content, applied_summaries, failures = apply_patch_edits(
             content, parsed.edits, existed=existed
         )
 
-        if not applied_summaries:
-            return ToolResult(
-                success=False,
-                error=ToolError(
-                    error_type="patch_failed",
-                    message=f"All {len(parsed.edits)} edit(s) failed; file unchanged.",
-                ),
-                output={"failures": failures, "path": parsed.path},
-                started_at=started_at,
-                completed_at=time.time(),
+        if failures:
+            return patch_failure_result(
+                failures,
                 tool_name="fs_patch",
+                path=parsed.path,
+                total_edits=len(parsed.edits),
                 call_id=ctx.call_id,
+                started_at=started_at,
             )
 
         if not existed:
             filepath.parent.mkdir(parents=True, exist_ok=True)
-        filepath.write_text(content)
+        filepath.write_text(content, encoding="utf-8")
 
         await emit_fs_changed(
             action="created" if not existed else "modified",
@@ -915,25 +1103,32 @@ async def fs_patch(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
             metadata={
                 "size": len(content),
                 "edits_applied": len(applied_summaries),
-                "edits_failed": len(failures),
+                "edits_failed": 0,
                 "mtime": filepath.stat().st_mtime,
             },
         )
 
-        return ToolResult(
-            success=True,
-            output=FilePatchResult(
-                path=parsed.path,
-                created=not existed,
-                edits_applied=[FileEditApplied(**s) for s in applied_summaries],
-                edits_failed=[FileEditFailure(**f) for f in failures],
-                size_before=len(original_content),
-                size_after=len(content),
-            ).model_dump(mode="json"),
-            started_at=started_at,
-            completed_at=time.time(),
-            tool_name="fs_patch",
-            call_id=ctx.call_id,
+        return with_file_surface_write(
+            ToolResult(
+                success=True,
+                output=FilePatchResult(
+                    path=parsed.path,
+                    created=not existed,
+                    edits_applied=[FileEditApplied(**s) for s in applied_summaries],
+                    edits_failed=[],
+                    size_before=len(original_content),
+                    size_after=len(content),
+                ).model_dump(mode="json"),
+                started_at=started_at,
+                completed_at=time.time(),
+                tool_name="fs_patch",
+                call_id=ctx.call_id,
+            ),
+            path=parsed.path,
+            before=original_content,
+            after=content,
+            mode="patch",
+            edits=len(applied_summaries),
         )
 
     except PermissionError as exc:
@@ -958,15 +1153,32 @@ async def fs_patch(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         )
 
 
+def edit_as_patch(parsed: FsEditArgs) -> FsPatchArgs:
+    """fs_edit IS a one-edit fs_patch — one contract, one failure vocabulary."""
+    return FsPatchArgs(
+        path=parsed.path,
+        edits=[
+            FsPatchEdit(old_text=parsed.old_str, new_text=parsed.new_str, replace_all=parsed.replace_all)
+        ],
+    )
+
+
+def edit_counts(applied: list[dict[str, Any]]) -> tuple[int, int]:
+    """``(old_str_count, replaced)`` for fs_edit's result from the one applied summary."""
+    if not applied:
+        return 0, 0
+    n = int(applied[0].get("matches_replaced", 1) or 1)
+    return n, n
+
+
 async def fs_edit(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     """Edit a file by a single exact string replacement (old_str → new_str).
 
-    A focused, single-edit companion to fs_patch: read the file, replace one
-    exact substring, write it back. The match must be unique unless
-    replace_all=True. Mirrors fs_patch's sandbox-delegation + local-disk
-    behavior so it is ALWAYS available, independent of the MATRX_VFS_ENABLED
-    flag (previously fs_edit only existed in the VFS layer, so on non-VFS
-    servers the sandbox surface requested it and the registry dropped it).
+    A focused, single-edit companion to fs_patch — the same contract on every
+    backend: old_str must name exactly one place unless replace_all=True, else
+    ``patch_no_match`` / ``patch_ambiguous`` and nothing is written. Mirrors
+    fs_patch's sandbox-delegation + local-disk behavior so it is ALWAYS
+    available, independent of the MATRX_VFS_ENABLED flag.
     """
     started_at = time.time()
     parsed = FsEditArgs(**args)
@@ -977,40 +1189,44 @@ async def fs_edit(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
 
         return await vfs_filesystem.fs_edit(args, ctx)
 
+    patch = edit_as_patch(parsed)
+
     if (binding := get_active_sandbox()) is not None:
         try:
-            sandbox_path = _resolve_sandbox_path(binding, parsed.path)
             # The sandbox daemon has no /fs/edit endpoint; fs_edit is a
-            # single-edit fs_patch, so reuse the daemon's patch path verbatim.
-            data = await _proxy_fs_patch(
-                binding,
-                sandbox_path,
-                [
-                    {
-                        "old_text": parsed.old_str,
-                        "new_text": parsed.new_str,
-                        "replace_all": parsed.replace_all,
-                    }
-                ],
+            # single-edit fs_patch, so it rides the same verified patch path.
+            refusal, data, before, after, applied = await _sandbox_patch(
+                binding, patch, tool_name="fs_edit", call_id=ctx.call_id, started_at=started_at
             )
+            if refusal is not None:
+                return refusal
+            sandbox_path = _resolve_sandbox_path(binding, parsed.path)
             await emit_fs_changed(
                 action="modified",
                 path=sandbox_path,
                 metadata={"tool": "fs_edit"},
             )
-            return ToolResult(
-                success=True,
-                output=FileEditResult(
-                    path=sandbox_path,
-                    old_str_count=int(data.get("old_str_count", 0) or 0),
-                    replaced=int(data.get("replaced", 0) or 0),
-                    size_before=int(data.get("size_before", 0) or 0),
-                    size_after=int(data.get("size_after", 0) or 0),
-                ).model_dump(mode="json"),
-                started_at=started_at,
-                completed_at=time.time(),
-                tool_name="fs_edit",
-                call_id=ctx.call_id,
+            count, replaced = edit_counts(applied)
+            return with_file_surface_write(
+                ToolResult(
+                    success=True,
+                    output=FileEditResult(
+                        path=sandbox_path,
+                        old_str_count=count or int(data.get("old_str_count", 0) or 0),
+                        replaced=replaced or int(data.get("replaced", 0) or 0),
+                        size_before=int(data.get("size_before", 0) or 0),
+                        size_after=int(data.get("size_after", 0) or 0),
+                    ).model_dump(mode="json"),
+                    started_at=started_at,
+                    completed_at=time.time(),
+                    tool_name="fs_edit",
+                    call_id=ctx.call_id,
+                ),
+                path=sandbox_path,
+                before=before,
+                after=after,
+                mode="patch",
+                edits=1,
             )
         except SandboxProxyError as exc:
             return _proxy_error(
@@ -1020,79 +1236,34 @@ async def fs_edit(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     try:
         filepath = _resolve_path(parsed.path, ctx)
         if not filepath.exists():
-            return ToolResult(
-                success=False,
-                error=ToolError(error_type="not_found", message=f"File not found: {parsed.path}"),
-                started_at=started_at,
-                completed_at=time.time(),
-                tool_name="fs_edit",
-                call_id=ctx.call_id,
-            )
+            return _fs_error("fs_edit", ctx.call_id, started_at, "not_found", f"File not found: {parsed.path}")
         if filepath.is_dir():
-            return ToolResult(
-                success=False,
-                error=ToolError(error_type="filesystem", message=f"Is a directory: {parsed.path}"),
-                started_at=started_at,
-                completed_at=time.time(),
-                tool_name="fs_edit",
-                call_id=ctx.call_id,
-            )
+            return _fs_error("fs_edit", ctx.call_id, started_at, "filesystem", f"Is a directory: {parsed.path}")
         size = filepath.stat().st_size
         if size > MAX_PATCH_SIZE:
-            return ToolResult(
-                success=False,
-                error=ToolError(
-                    error_type="too_large",
-                    message=f"File is {size} bytes; fs_edit refuses files over {MAX_PATCH_SIZE}.",
-                    suggested_action="Use shell_execute with sed/awk/perl for very large files.",
-                ),
-                started_at=started_at,
-                completed_at=time.time(),
-                tool_name="fs_edit",
-                call_id=ctx.call_id,
+            return _fs_error(
+                "fs_edit",
+                ctx.call_id,
+                started_at,
+                "too_large",
+                f"File is {size} bytes; fs_edit refuses files over {MAX_PATCH_SIZE}.",
+                "Use shell_execute with sed/awk/perl for very large files.",
             )
 
-        content = filepath.read_text()
-        count = content.count(parsed.old_str)
-        if count == 0:
-            return ToolResult(
-                success=False,
-                error=ToolError(
-                    error_type="validation",
-                    message="old_str not found in file.",
-                    suggested_action="Copy the exact text to replace, including whitespace and indentation.",
-                ),
-                output={"path": parsed.path, "old_str_preview": _preview(parsed.old_str)},
-                started_at=started_at,
-                completed_at=time.time(),
+        content = filepath.read_bytes().decode("utf-8")
+        new_content, applied, failures = apply_patch_edits(content, patch.edits, existed=True)
+        if failures:
+            return patch_failure_result(
+                failures,
                 tool_name="fs_edit",
+                path=parsed.path,
+                total_edits=1,
                 call_id=ctx.call_id,
-            )
-        if count > 1 and not parsed.replace_all:
-            return ToolResult(
-                success=False,
-                error=ToolError(
-                    error_type="validation",
-                    message=(
-                        f"old_str matches {count} locations — add surrounding context to "
-                        f"make it unique, or set replace_all=True to update every match."
-                    ),
-                ),
-                output={"path": parsed.path, "old_str_count": count},
                 started_at=started_at,
-                completed_at=time.time(),
-                tool_name="fs_edit",
-                call_id=ctx.call_id,
             )
+        count, replaced = edit_counts(applied)
 
-        if parsed.replace_all:
-            new_content = content.replace(parsed.old_str, parsed.new_str)
-            replaced = count
-        else:
-            new_content = content.replace(parsed.old_str, parsed.new_str, 1)
-            replaced = 1
-
-        filepath.write_text(new_content)
+        filepath.write_text(new_content, encoding="utf-8")
         await emit_fs_changed(
             action="modified",
             path=str(filepath),
@@ -1103,19 +1274,26 @@ async def fs_edit(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
                 "mtime": filepath.stat().st_mtime,
             },
         )
-        return ToolResult(
-            success=True,
-            output=FileEditResult(
-                path=parsed.path,
-                old_str_count=count,
-                replaced=replaced,
-                size_before=len(content),
-                size_after=len(new_content),
-            ).model_dump(mode="json"),
-            started_at=started_at,
-            completed_at=time.time(),
-            tool_name="fs_edit",
-            call_id=ctx.call_id,
+        return with_file_surface_write(
+            ToolResult(
+                success=True,
+                output=FileEditResult(
+                    path=parsed.path,
+                    old_str_count=count,
+                    replaced=replaced,
+                    size_before=len(content),
+                    size_after=len(new_content),
+                ).model_dump(mode="json"),
+                started_at=started_at,
+                completed_at=time.time(),
+                tool_name="fs_edit",
+                call_id=ctx.call_id,
+            ),
+            path=parsed.path,
+            before=content,
+            after=new_content,
+            mode="patch",
+            edits=1,
         )
     except PermissionError as exc:
         return ToolResult(
@@ -1145,6 +1323,113 @@ def _preview(text: str, limit: int = 160) -> str:
     return (snippet[:limit] + "…") if len(snippet) > limit else snippet
 
 
+# ── The surface-write receipt for files ─────────────────────────────────────
+#
+# Every fs_write / fs_edit / fs_patch backend (local disk, active-sandbox proxy,
+# durable VFS) reads the prior content, writes, then attaches ONE receipt
+# (``matrx_ai.tools.surface_write``) so the chat's tool card shows the shared
+# before → after diff. A prior the receipt cannot honestly show (binary,
+# undecodable, over MAX_PATCH_SIZE) SKIPS the receipt — it never fails the write.
+
+#: Extension → diff-engine (Monaco) language id. ``.md`` is markdown, not code.
+_CODE_LANGUAGES: dict[str, str] = {
+    ".py": "python",
+    ".ts": "typescript",
+    ".tsx": "typescript",
+    ".js": "javascript",
+    ".jsx": "javascript",
+    ".json": "json",
+    ".html": "html",
+    ".htm": "html",
+    ".css": "css",
+    ".sql": "sql",
+    ".yaml": "yaml",
+    ".yml": "yaml",
+    ".sh": "shell",
+}
+_MARKDOWN_SUFFIXES = frozenset({".md", ".markdown", ".mdx"})
+
+
+def file_content_format(path: str) -> tuple[SurfaceWriteFormat, str | None]:
+    """``(content_format, language)`` for a file path, inferred from its extension."""
+    suffix = PurePosixPath(path.replace("\\", "/")).suffix.lower()
+    if suffix in _MARKDOWN_SUFFIXES:
+        return "markdown", None
+    language = _CODE_LANGUAGES.get(suffix)
+    if language is not None:
+        return "code", language
+    return "text", None
+
+
+def decode_prior(data: bytes) -> str | None:
+    """Strict UTF-8 decode of a file's prior bytes; ``None`` = not showable (skip the receipt)."""
+    if len(data) > MAX_PATCH_SIZE:
+        return None
+    try:
+        return data.decode("utf-8")
+    except UnicodeDecodeError:
+        return None
+
+
+def with_file_surface_write(
+    result: ToolResult,
+    *,
+    path: str,
+    before: str | None,
+    after: str | None,
+    mode: SurfaceWriteMode,
+    edits: int | None = None,
+    existed: bool | None = None,
+) -> ToolResult:
+    """Attach the file receipt to a successful write; ``before``/``after`` None = skip it.
+
+    ``existed=False`` on an overwrite means the write CREATED the file — the
+    card says "Created", never "Replaced" (nothing was replaced).
+    """
+    if before is None or after is None:
+        return result
+    if existed is False and mode == "overwrite":
+        mode = "create"
+    content_format, language = file_content_format(path)
+    return attach_surface_write(
+        result,
+        before=before,
+        after=after,
+        target_type="file",
+        target_id=path,
+        target_label=path,
+        mode=mode,
+        content_format=content_format,
+        language=language,
+        edits=edits,
+    )
+
+
+# ── The patch contract ──────────────────────────────────────────────────────
+#
+# A patch names exactly ONE place or fails loudly — never a silent overwrite,
+# never a partial apply. ``fs_edit`` and ``fs_patch`` on every backend fail with
+# exactly one of these error types, each carrying a remedy the model can act on.
+PATCH_NO_MATCH = "patch_no_match"
+PATCH_AMBIGUOUS = "patch_ambiguous"
+_MAX_MATCH_LINES = 20
+
+
+def _match_lines(content: str, needle: str) -> list[int]:
+    """1-based line numbers where ``needle`` starts (first ``_MAX_MATCH_LINES``)."""
+    lines: list[int] = []
+    if not needle:
+        return lines
+    start = 0
+    while len(lines) < _MAX_MATCH_LINES:
+        idx = content.find(needle, start)
+        if idx < 0:
+            break
+        lines.append(content.count("\n", 0, idx) + 1)
+        start = idx + len(needle)
+    return lines
+
+
 def apply_patch_edits(
     content: str,
     edits: Sequence[Any],
@@ -1153,12 +1438,14 @@ def apply_patch_edits(
 ) -> tuple[str, list[dict[str, Any]], list[dict[str, Any]]]:
     """Apply an ordered list of ``FsPatchEdit``s to ``content`` — backend-agnostic.
 
-    Pure string work: no filesystem, no VFS, no I/O. Both ``fs_patch`` branches
-    (local disk and the durable VFS in ``vfs_filesystem``) run THIS function, so
-    the two backends cannot drift in what an edit means or how a failure reads.
+    Pure string work: no filesystem, no VFS, no I/O. Every fs_edit / fs_patch
+    backend (local disk, sandbox proxy, durable VFS) runs THIS function, so the
+    backends cannot drift in what an edit means or how a failure reads.
 
-    Returns ``(new_content, applied_summaries, failures)``. An empty
-    ``applied_summaries`` means nothing applied and the caller must NOT write.
+    Returns ``(new_content, applied_summaries, failures)``. Each failure carries
+    ``error_type`` (``patch_no_match`` | ``patch_ambiguous``), ``match_count``
+    and ``match_lines``. ANY failure means the caller must NOT write — a patch is
+    all-or-nothing (:func:`patch_failure_result`).
     """
     applied_summaries: list[dict[str, Any]] = []
     failures: list[dict[str, Any]] = []
@@ -1180,19 +1467,27 @@ def apply_patch_edits(
             failures.append(
                 {
                     "edit_index": i,
+                    "error_type": PATCH_NO_MATCH,
                     "reason": "old_text not found in current file content",
+                    "match_count": 0,
+                    "match_lines": [],
                     "old_text_preview": _preview(edit.old_text),
                 }
             )
             continue
         if count > 1 and not edit.replace_all:
+            lines = _match_lines(content, edit.old_text)
+            where = f" (lines {', '.join(str(n) for n in lines)})" if lines else ""
             failures.append(
                 {
                     "edit_index": i,
+                    "error_type": PATCH_AMBIGUOUS,
                     "reason": (
-                        f"old_text matches {count} locations — add surrounding context "
-                        f"to make it unique, or set replace_all=True to update every match."
+                        f"old_text matches {count} places{where} — add surrounding context "
+                        f"to make it unique, or set replace_all=true to update every match."
                     ),
+                    "match_count": count,
+                    "match_lines": lines,
                     "old_text_preview": _preview(edit.old_text),
                 }
             )
@@ -1219,6 +1514,73 @@ def apply_patch_edits(
             )
 
     return content, applied_summaries, failures
+
+
+def patch_failure_result(
+    failures: list[dict[str, Any]],
+    *,
+    tool_name: str,
+    path: str,
+    total_edits: int,
+    call_id: str,
+    started_at: float,
+    applied_elsewhere: bool = False,
+) -> ToolResult:
+    """The ONE loud refusal for a patch that could not name exactly one place.
+
+    ``error_type`` is the first failing edit's (``patch_no_match`` or
+    ``patch_ambiguous``); the message names every failing edit's index and
+    reason; nothing was written. ``applied_elsewhere`` is the one honest
+    exception: the sandbox daemon patched a prior we could not pre-verify and
+    applied the edits it did not report as failed.
+    """
+    first = failures[0]
+    error_type = str(first["error_type"])
+    if tool_name == "fs_edit":
+        # fs_edit is one edit, spelled old_str; keep the model's own vocabulary.
+        if error_type == PATCH_NO_MATCH:
+            message = f"old_str not found in {path}; nothing was written."
+            remedy = (
+                "Re-read the file with fs_read and copy old_str exactly as it appears, "
+                "including whitespace and indentation."
+            )
+        else:
+            count = first["match_count"]
+            where = ", ".join(str(n) for n in first["match_lines"])
+            message = (
+                f"old_str matches {count} places in {path} (lines {where}); nothing was written."
+            )
+            remedy = (
+                "Add surrounding lines to old_str so it names exactly one place, "
+                f"or set replace_all=true to change all {count}."
+            )
+    else:
+        parts = [f"edit {f['edit_index']}: {f['reason']}" for f in failures]
+        outcome = (
+            "the sandbox applied the OTHER edits (the file's prior content could not be "
+            "verified before patching) — re-read it with fs_read before retrying"
+            if applied_elsewhere
+            else f"the patch applied NOTHING and {path} is unchanged"
+        )
+        message = (
+            f"{len(failures)} of {total_edits} edit(s) failed, so {outcome} — "
+            + "; ".join(parts)
+            + "."
+        )
+        remedy = (
+            "Fix each failing edit (re-read the file with fs_read and copy old_text exactly; "
+            "add surrounding context to an ambiguous old_text, or set replace_all=true) and "
+            "resend the WHOLE patch — none of its edits were applied."
+        )
+    return ToolResult(
+        success=False,
+        error=ToolError(error_type=error_type, message=message, suggested_action=remedy),
+        output={"failures": failures, "path": path},
+        started_at=started_at,
+        completed_at=time.time(),
+        tool_name=tool_name,
+        call_id=call_id,
+    )
 
 
 async def fs_mkdir(args: dict[str, Any], ctx: ToolContext) -> ToolResult:

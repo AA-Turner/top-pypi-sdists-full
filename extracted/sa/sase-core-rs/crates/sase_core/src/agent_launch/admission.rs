@@ -485,6 +485,7 @@ pub fn agent_unit_dispatch_prompt_with_flags(
     }
     if let Some(directive) = format_queue_directive(&QueueFieldsWire {
         queue_capacity: agent.authored_queue_capacity(),
+        queue_capacity_multiplier: agent.queue_capacity_multiplier,
         priority: agent.wait_priority,
         weight: if agent.queue_weight_explicit {
             agent.queue_weight
@@ -651,7 +652,7 @@ mod tests {
                     digest: "b".repeat(64),
                     preview: "just check".to_string(),
                 },
-                shell_name: Some("check".to_string()),
+                proc_name: Some("check".to_string()),
                 label: None,
                 timeout: None,
                 idle_timeout: None,
@@ -660,6 +661,7 @@ mod tests {
                 workspace_explicit: false,
                 selected_project: Some("sase".to_string()),
                 queue_capacity: None,
+                queue_capacity_multiplier: None,
                 wait_priority: None,
                 queue_weight: None,
                 queue_weight_explicit: false,
@@ -1129,6 +1131,16 @@ mod tests {
         assert!(prompt.contains("%final:commit"));
         assert!(prompt.contains("%hide"));
         assert!(prompt.contains("%queue(capacity=2, priority=1, weight=2)"));
+        let multiplier_prompt = agent_unit_dispatch_prompt(&AgentUnitWire {
+            prompt: "Review the diff".to_string(),
+            queue_capacity_multiplier: Some(1.5),
+            queue_weight: Some(0.25),
+            queue_weight_explicit: true,
+            ..Default::default()
+        });
+        assert!(
+            multiplier_prompt.contains("%queue(capacity=1.5x, weight=0.25)")
+        );
         assert!(!prompt.contains("%wait(runners="));
         assert!(!prompt.contains("%queue(runners="));
         assert!(!prompt.contains("%wait(priority="));
@@ -1146,6 +1158,17 @@ mod tests {
             ..Default::default()
         });
         assert_eq!(prompt, "Review");
+    }
+
+    #[test]
+    fn agent_dispatch_prompt_round_trips_explicit_zero_weight() {
+        let prompt = agent_unit_dispatch_prompt(&AgentUnitWire {
+            prompt: "Review".to_string(),
+            queue_weight: Some(0.0),
+            queue_weight_explicit: true,
+            ..Default::default()
+        });
+        assert_eq!(prompt, "%queue(weight=0)\nReview");
     }
 
     #[test]
@@ -1178,15 +1201,16 @@ mod tests {
     }
 
     #[test]
-    fn agent_dispatch_prompt_restores_family_and_direct_tribe() {
-        let family = agent_unit_dispatch_prompt(&AgentUnitWire {
+    fn agent_dispatch_prompt_restores_agent_session_and_direct_tribe() {
+        let agent_session = agent_unit_dispatch_prompt(&AgentUnitWire {
             prompt: "Review".to_string(),
-            family_attach_parent: Some("parent".to_string()),
-            family_attach_suffix: Some("reviewer".to_string()),
+            agent_session_attach_parent: Some("parent".to_string()),
+            agent_session_attach_suffix: Some("reviewer".to_string()),
             bead_id: Some("sase-1".to_string()),
             ..Default::default()
         });
-        assert!(family.contains("%id(reviewer, family=parent, bead=sase-1)"));
+        assert!(agent_session
+            .contains("%id(reviewer, session=parent, bead=sase-1)"));
 
         let named_tribe = agent_unit_dispatch_prompt(&AgentUnitWire {
             prompt: "Review".to_string(),
@@ -1217,7 +1241,7 @@ mod tests {
                 digest: "b".repeat(64),
                 preview: "just check".to_string(),
             },
-            shell_name: Some("check".to_string()),
+            proc_name: Some("check".to_string()),
             label: None,
             timeout: None,
             idle_timeout: None,
@@ -1226,6 +1250,7 @@ mod tests {
             workspace_explicit: false,
             selected_project: Some("sase".to_string()),
             queue_capacity: None,
+            queue_capacity_multiplier: None,
             wait_priority: None,
             queue_weight: None,
             queue_weight_explicit: false,

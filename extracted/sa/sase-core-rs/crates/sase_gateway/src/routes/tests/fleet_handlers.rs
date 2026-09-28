@@ -11,7 +11,8 @@ use crate::fleet_auth::{
 };
 
 use crate::wire::{
-    EventPayloadWire, FleetHelloResponseWire, GATEWAY_WIRE_SCHEMA_VERSION,
+    EventPayloadWire, FleetHelloResponseWire, FLEET_API_WIRE_SCHEMA_VERSION,
+    FLEET_PROTOCOL_VERSION, GATEWAY_WIRE_SCHEMA_VERSION,
 };
 
 use axum::http::Request;
@@ -36,14 +37,14 @@ async fn fleet_enrollment_and_hello_return_identity_and_capabilities() {
         fleet_enroll_request(fleet_enroll_body(
             &bootstrap,
             &[FLEET_SCOPE_HELLO, FLEET_SCOPE_ROTATE, FLEET_SCOPE_REVOKE],
-            vec![99, 1],
+            vec![99, FLEET_PROTOCOL_VERSION],
         )),
     )
     .await;
 
     assert_eq!(status, StatusCode::OK);
     assert_eq!(enrolled["outcome"], "enrolled");
-    assert_eq!(enrolled["protocol_version"], 1);
+    assert_eq!(enrolled["protocol_version"], FLEET_PROTOCOL_VERSION);
     assert_eq!(enrolled["machine_selector"], "test-host");
     assert_eq!(
         enrolled["installation"]["installation_id"],
@@ -62,15 +63,24 @@ async fn fleet_enrollment_and_hello_return_identity_and_capabilities() {
         Request::builder()
             .uri("/api/fleet/v1/hello")
             .header("authorization", format!("Bearer {token}"))
-            .header(FLEET_PROTOCOL_VERSIONS_HEADER, "2, 1")
+            .header(
+                FLEET_PROTOCOL_VERSIONS_HEADER,
+                format!(
+                    "{}, {FLEET_PROTOCOL_VERSION}",
+                    FLEET_PROTOCOL_VERSION + 1
+                ),
+            )
             .body(Body::empty())
             .unwrap(),
     )
     .await;
     assert_eq!(hello_status, StatusCode::OK);
-    assert_eq!(hello["protocol_version"], 1);
+    assert_eq!(hello["protocol_version"], FLEET_PROTOCOL_VERSION);
     assert_eq!(hello["schema_version"], GATEWAY_WIRE_SCHEMA_VERSION);
-    assert_eq!(hello["capabilities"]["schema_version"], 1);
+    assert_eq!(
+        hello["capabilities"]["schema_version"],
+        FLEET_API_WIRE_SCHEMA_VERSION
+    );
     assert_eq!(
         hello["fleet_contract_schema_version"],
         sase_core::FLEET_CONTRACT_SCHEMA_VERSION
@@ -113,7 +123,10 @@ async fn fleet_enrollment_and_hello_return_identity_and_capabilities() {
     let parsed: FleetHelloResponseWire =
         serde_json::from_value(old_hello).unwrap();
     assert_eq!(parsed.fleet_contract_schema_version, None);
-    assert_eq!(parsed.capabilities.schema_version, 1);
+    assert_eq!(
+        parsed.capabilities.schema_version,
+        FLEET_API_WIRE_SCHEMA_VERSION
+    );
     assert_eq!(parsed.schema_version, GATEWAY_WIRE_SCHEMA_VERSION);
 }
 
@@ -122,7 +135,7 @@ async fn fleet_enrollment_rejects_replayed_and_expired_bootstrap_secrets() {
     let tmp = tempfile::tempdir().unwrap();
     let state = state_for_tmp(&tmp, Duration::minutes(5));
     let bootstrap = fleet_bootstrap(&state, &[], None);
-    let body = fleet_enroll_body(&bootstrap, &[], vec![1]);
+    let body = fleet_enroll_body(&bootstrap, &[], vec![FLEET_PROTOCOL_VERSION]);
     let (first_status, _first) = json_response_with_state(
         state.clone(),
         fleet_enroll_request(body.clone()),
@@ -139,7 +152,11 @@ async fn fleet_enrollment_rejects_replayed_and_expired_bootstrap_secrets() {
     let expired = fleet_bootstrap_at(&state, 2.0, 1.0);
     let (expired_status, expired_response) = json_response_with_state(
         state,
-        fleet_enroll_request(fleet_enroll_body(&expired, &[], vec![1])),
+        fleet_enroll_request(fleet_enroll_body(
+            &expired,
+            &[],
+            vec![FLEET_PROTOCOL_VERSION],
+        )),
     )
     .await;
     assert_eq!(expired_status, StatusCode::BAD_REQUEST);
@@ -156,7 +173,7 @@ async fn fleet_routes_enforce_declared_scopes() {
         fleet_enroll_request(fleet_enroll_body(
             &bootstrap,
             &[FLEET_SCOPE_HELLO],
-            vec![1],
+            vec![FLEET_PROTOCOL_VERSION],
         )),
     )
     .await;
@@ -180,8 +197,8 @@ async fn fleet_routes_enforce_declared_scopes() {
             "/api/fleet/v1/credential/rotate",
             Some(token),
             Some(json!({
-                "schema_version": 1,
-                "supported_protocol_versions": [1]
+                "schema_version": GATEWAY_WIRE_SCHEMA_VERSION,
+                "supported_protocol_versions": [FLEET_PROTOCOL_VERSION]
             })),
         ),
     )
@@ -201,7 +218,7 @@ async fn fleet_launch_accepts_scoped_request_and_returns_receipt() {
         fleet_enroll_request(fleet_enroll_body(
             &bootstrap,
             &[FLEET_SCOPE_LAUNCH],
-            vec![1],
+            vec![FLEET_PROTOCOL_VERSION],
         )),
     )
     .await;
@@ -266,7 +283,7 @@ async fn fleet_launch_omits_bridge_name_when_prompt_has_id() {
         fleet_enroll_request(fleet_enroll_body(
             &bootstrap,
             &[FLEET_SCOPE_LAUNCH],
-            vec![1],
+            vec![FLEET_PROTOCOL_VERSION],
         )),
     )
     .await;
@@ -324,7 +341,7 @@ async fn fleet_launch_replays_delayed_launch_and_reconciles_visible_row() {
         fleet_enroll_request(fleet_enroll_body(
             &bootstrap,
             &[FLEET_SCOPE_LAUNCH, FLEET_SCOPE_MUTATE],
-            vec![1],
+            vec![FLEET_PROTOCOL_VERSION],
         )),
     )
     .await;
@@ -431,7 +448,7 @@ async fn fleet_launch_failure_settles_failed_without_raw_bridge_output() {
         fleet_enroll_request(fleet_enroll_body(
             &bootstrap,
             &[FLEET_SCOPE_LAUNCH],
-            vec![1],
+            vec![FLEET_PROTOCOL_VERSION],
         )),
     )
     .await;
@@ -467,7 +484,7 @@ async fn fleet_launch_recovers_pending_reservation_after_gateway_restart() {
         fleet_enroll_request(fleet_enroll_body(
             &bootstrap,
             &[FLEET_SCOPE_LAUNCH],
-            vec![1],
+            vec![FLEET_PROTOCOL_VERSION],
         )),
     )
     .await;
@@ -573,7 +590,7 @@ async fn post_mutate(
     );
     request.headers_mut().insert(
         FLEET_PROTOCOL_VERSIONS_HEADER,
-        HeaderValue::from_static("1"),
+        HeaderValue::from(FLEET_PROTOCOL_VERSION),
     );
     json_response_with_state(state, request).await
 }
@@ -591,7 +608,7 @@ async fn post_fleet_launch(
     );
     request.headers_mut().insert(
         FLEET_PROTOCOL_VERSIONS_HEADER,
-        HeaderValue::from_static("1"),
+        HeaderValue::from(FLEET_PROTOCOL_VERSION),
     );
     json_response_with_state(state, request).await
 }
@@ -734,13 +751,43 @@ async fn fleet_mutate_changed_payload_conflicts() {
 #[tokio::test]
 async fn fleet_mutate_refuses_stale_revision_and_superseded_instance() {
     let tmp = tempfile::tempdir().unwrap();
+    let old_artifact = seed_fleet_agent(tmp.path(), "mobile-demo", true, false);
+    let old_state = state_for_agent_bridge(&tmp);
+    let (_, installation_id) =
+        enroll_mutate(&old_state, &[FLEET_SCOPE_MUTATE]).await;
+    // Capture the real old exact locator from the running fixture before
+    // the instance is replaced.
+    let old_summary = first_summary(&old_state).await;
+    let old_locator = old_summary.exact_locator.clone().expect("exact locator");
+
+    // Replace the fixture instance under the same logical key: remove the
+    // old artifact and seed a successor in a new timestamp bucket so its
+    // run_id genuinely differs from the captured locator.
+    std::fs::remove_dir_all(&old_artifact).unwrap();
+    let prior_bucket = chrono::Utc::now().format("%Y%m%d%H%M%S").to_string();
+    while chrono::Utc::now().format("%Y%m%d%H%M%S").to_string() == prior_bucket
+    {
+        std::thread::sleep(std::time::Duration::from_millis(50));
+    }
     let artifact = seed_fleet_agent(tmp.path(), "mobile-demo", true, false);
     let running_path = artifact.join("running.json");
     let running_before = std::fs::read(&running_path).unwrap();
     let state = state_for_agent_bridge(&tmp);
-    let (token, installation_id) =
+    let (token, replacement_installation_id) =
         enroll_mutate(&state, &[FLEET_SCOPE_MUTATE]).await;
+    assert_eq!(replacement_installation_id, installation_id);
     let summary = first_summary(&state).await;
+    let new_locator = summary.exact_locator.clone().expect("exact locator");
+    assert_eq!(
+        summary.logical_key, old_summary.logical_key,
+        "the replacement must keep the same logical row so the captured \
+         locator is a genuinely superseded instance of it",
+    );
+    assert_ne!(
+        new_locator.run_id, old_locator.run_id,
+        "the replacement instance must carry a genuinely different run_id \
+         than the captured old locator",
+    );
     let stale = mutation_body(
         &summary,
         &installation_id,
@@ -751,15 +798,15 @@ async fn fleet_mutate_refuses_stale_revision_and_superseded_instance() {
     let (status, body) = post_mutate(state.clone(), &token, stale).await;
     assert_eq!(status, StatusCode::GONE);
     assert_eq!(body["code"], "gone_stale");
-    // "other-run" reuses the seeded agent's logical name/PID but claims a
-    // different run_id, i.e. an exact locator for an instance that has
-    // since been replaced under the same logical key.
+    // The captured old locator reuses the replacement's logical key but
+    // names the superseded run_id, so it must be rejected as an instance
+    // mismatch with zero side effects.
     let superseded = mutation_body(
-        &summary,
+        &old_summary,
         &installation_id,
         "stop",
         "op-instance",
-        json!({"run_id": "other-run", "reason": "old"}),
+        json!({"reason": "old"}),
     );
     let (status, body) = post_mutate(state.clone(), &token, superseded).await;
     assert_eq!(status, StatusCode::CONFLICT);
@@ -858,4 +905,275 @@ async fn fleet_mutate_refuses_terminal_missing_capability_and_bridge_failure() {
     .await;
     assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE);
     assert_eq!(body["code"], "bridge_unavailable");
+}
+
+#[tokio::test]
+async fn fleet_mutate_same_key_returns_settled_after_terminal() {
+    let tmp = tempfile::tempdir().unwrap();
+    let artifact = seed_fleet_agent(tmp.path(), "mobile-demo", true, false);
+    let state = state_for_agent_bridge(&tmp);
+    let (token, installation_id) =
+        enroll_mutate(&state, &[FLEET_SCOPE_MUTATE]).await;
+    let summary = first_summary(&state).await;
+    let body = mutation_body(
+        &summary,
+        &installation_id,
+        "stop",
+        "op-terminal-replay",
+        json!({"reason": "user-stop"}),
+    );
+    let (status, first) =
+        post_mutate(state.clone(), &token, body.clone()).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(first["receipt"]["state"], "settled");
+    std::fs::remove_file(artifact.join("running.json")).ok();
+    std::fs::write(
+        artifact.join("done.json"),
+        serde_json::to_vec(&serde_json::json!({
+            "name": "mobile-demo",
+            "status": "completed"
+        }))
+        .unwrap(),
+    )
+    .unwrap();
+    sase_core::rebuild_agent_artifact_index(
+        &tmp.path().join("agent_artifact_index.sqlite"),
+        &tmp.path().join("projects"),
+        sase_core::agent_scan::AgentArtifactScanOptionsWire::default(),
+    )
+    .unwrap();
+    let (status, second) =
+        post_mutate(state.clone(), &token, body.clone()).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(second["decision"], "return_original_receipt");
+    assert_eq!(second["receipt"], first["receipt"]);
+    assert_eq!(second["receipt"]["state"], "settled");
+}
+
+#[tokio::test]
+async fn fleet_stop_retains_row_with_retry_and_fork() {
+    use crate::host_bridge::{AgentHostBridge, HostBridgeError};
+    use crate::wire::{
+        MobileAgentKillRequestWire, MobileAgentKillResultWire,
+        GATEWAY_WIRE_SCHEMA_VERSION,
+    };
+    use std::sync::{Arc, Mutex};
+
+    #[derive(Debug)]
+    struct CapturingKillBridge {
+        kills: Arc<Mutex<Vec<MobileAgentKillRequestWire>>>,
+    }
+
+    impl AgentHostBridge for CapturingKillBridge {
+        fn launch_text(
+            &self,
+            _request: &crate::wire::MobileAgentTextLaunchRequestWire,
+        ) -> Result<crate::wire::MobileAgentLaunchResultWire, HostBridgeError>
+        {
+            Ok(super::support::sample_launch_result("mobile-demo"))
+        }
+
+        fn kill_agent(
+            &self,
+            name: &str,
+            request: &MobileAgentKillRequestWire,
+        ) -> Result<MobileAgentKillResultWire, HostBridgeError> {
+            self.kills.lock().unwrap().push(request.clone());
+            Ok(MobileAgentKillResultWire {
+                schema_version: GATEWAY_WIRE_SCHEMA_VERSION,
+                name: name.to_string(),
+                status: "killed".to_string(),
+                pid: Some(4242),
+                changed: true,
+                message: None,
+            })
+        }
+    }
+
+    let tmp = tempfile::tempdir().unwrap();
+    seed_fleet_agent(tmp.path(), "mobile-demo", true, false);
+    let kills = Arc::new(Mutex::new(Vec::new()));
+    let state = super::support::state_for_custom_agent_bridge(
+        &tmp,
+        Arc::new(CapturingKillBridge {
+            kills: kills.clone(),
+        }),
+    );
+    let (token, installation_id) =
+        enroll_mutate(&state, &[FLEET_SCOPE_MUTATE]).await;
+    let summary = first_summary(&state).await;
+    let (status, mutate) = post_mutate(
+        state.clone(),
+        &token,
+        mutation_body(
+            &summary,
+            &installation_id,
+            "stop",
+            "op-retain",
+            json!({"reason": "user-stop"}),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(mutate["receipt"]["state"], "settled");
+    {
+        let captured = kills.lock().unwrap();
+        assert_eq!(captured.len(), 1);
+        assert_eq!(captured[0].retain_for_retry, Some(true));
+    }
+    let page = state
+        .fleet_reads
+        .catalog(sase_core::FleetCatalogQueryWire {
+            schema_version: 1,
+            scope: sase_core::FleetCatalogScopeWire::Presentation,
+            snapshot_id: None,
+            cursor: None,
+            limit: Some(10),
+            project_ids: Vec::new(),
+            query: None,
+            status_buckets: Vec::new(),
+            include_terminal: true,
+        })
+        .await
+        .unwrap();
+    let row = page
+        .page
+        .rows
+        .iter()
+        .find(|row| row.logical_locator.agent_id == "mobile-demo")
+        .expect("fleet stop must keep the row served");
+    assert!(row
+        .capabilities
+        .resource
+        .contains(&"lifecycle.retry".to_string()));
+    assert!(row
+        .capabilities
+        .resource
+        .contains(&"lifecycle.fork".to_string()));
+}
+
+#[tokio::test]
+async fn fleet_catalog_overlay_serves_fresh_launch_before_rebuild() {
+    let tmp = tempfile::tempdir().unwrap();
+    seed_fleet_agent(tmp.path(), "alpha", true, false);
+    let state = state_for_agent_bridge(&tmp);
+    let initial = state
+        .fleet_reads
+        .catalog(sase_core::FleetCatalogQueryWire {
+            schema_version: 1,
+            scope: sase_core::FleetCatalogScopeWire::Presentation,
+            snapshot_id: None,
+            cursor: None,
+            limit: Some(10),
+            project_ids: Vec::new(),
+            query: None,
+            status_buckets: Vec::new(),
+            include_terminal: true,
+        })
+        .await
+        .unwrap();
+    assert!(initial
+        .page
+        .rows
+        .iter()
+        .any(|row| row.logical_locator.agent_id == "alpha"));
+    let _beta_artifact =
+        seed_fleet_agent(tmp.path(), "overlay-new", true, false);
+    let fresh =
+        crate::fleet_reads::FleetReadService::new(tmp.path().to_path_buf());
+    let fresh_page = fresh
+        .catalog(sase_core::FleetCatalogQueryWire {
+            schema_version: 1,
+            scope: sase_core::FleetCatalogScopeWire::Presentation,
+            snapshot_id: None,
+            cursor: None,
+            limit: Some(10),
+            project_ids: Vec::new(),
+            query: None,
+            status_buckets: Vec::new(),
+            include_terminal: true,
+        })
+        .await
+        .unwrap();
+    let beta = fresh_page
+        .page
+        .rows
+        .iter()
+        .find(|row| row.logical_locator.agent_id == "overlay-new")
+        .expect("fresh index must contain the new row")
+        .clone();
+    let installation =
+        state.fleet_store.ensure_installation_identity().unwrap();
+    let launch_body = super::support::sample_fleet_launch_body(
+        &installation.installation_id,
+        "overlay-launch-1",
+    );
+    let launch_request: sase_core::FleetLaunchRequestWire =
+        serde_json::from_value(launch_body).unwrap();
+    let admission = state
+        .fleet_launches
+        .reserve(
+            &launch_request,
+            &installation.installation_id,
+            crate::fleet_auth::current_unix_time(),
+        )
+        .unwrap();
+    let settled = state
+        .fleet_launches
+        .settle_recovered(
+            &admission.receipt,
+            Some(beta.logical_locator.clone()),
+            beta.exact_locator.clone(),
+            Some("overlay-new".to_string()),
+        )
+        .unwrap();
+    assert_eq!(settled.state, sase_core::OperationReceiptStateWire::Settled);
+    let overlaid = state
+        .fleet_reads
+        .catalog(sase_core::FleetCatalogQueryWire {
+            schema_version: 1,
+            scope: sase_core::FleetCatalogScopeWire::Presentation,
+            snapshot_id: None,
+            cursor: None,
+            limit: Some(10),
+            project_ids: Vec::new(),
+            query: None,
+            status_buckets: Vec::new(),
+            include_terminal: true,
+        })
+        .await
+        .unwrap();
+    let row = overlaid
+        .page
+        .rows
+        .iter()
+        .find(|row| row.logical_key == beta.logical_key)
+        .expect("overlay must serve the fresh row from the cached snapshot");
+    assert!(row
+        .capabilities
+        .resource
+        .contains(&"lifecycle.stop".to_string()));
+    let detail = state
+        .fleet_reads
+        .detail(sase_core::FleetDetailRequestWire {
+            schema_version: sase_core::FLEET_CONTRACT_SCHEMA_VERSION,
+            logical_key: beta.logical_key.clone(),
+        })
+        .await
+        .unwrap();
+    assert_eq!(detail.detail.summary.logical_key, beta.logical_key);
+    assert!(detail
+        .detail
+        .summary
+        .capabilities
+        .resource
+        .contains(&"lifecycle.stop".to_string()));
+    let missing = state
+        .fleet_reads
+        .detail(sase_core::FleetDetailRequestWire {
+            schema_version: sase_core::FLEET_CONTRACT_SCHEMA_VERSION,
+            logical_key: "missing-logical-key".to_string(),
+        })
+        .await;
+    assert!(missing.is_err());
 }

@@ -479,12 +479,42 @@ logger = logging.getLogger(__name__)
 _ANSI_ESCAPE_RE = re.compile(r"\x1b\[[0-9;]*m")
 
 
+class ToolRecovery(BaseModel):
+    """How to resume a failed call without paying twice.
+
+    A billed failure (a provider run started, a spend approval parked, a crawl
+    or provider task still in flight) ALWAYS carries one: the model calls the
+    same tool again with ``<handle_type>=<handle>``. ``resume_cost`` says
+    whether that second call can charge anything. Rendered into the model's
+    text by :meth:`ToolError.to_agent_message` — a field the model never sees
+    is not a recovery path.
+    """
+
+    handle_type: Literal[
+        "collection_run",
+        "spend_approval",
+        "crawl_session",
+        "provider_task",
+        "action_request",
+    ]
+    handle: str
+    resume_cost: Literal["free", "paid"]
+    retry_after_seconds: int | None = None
+
+    def to_agent_line(self) -> str:
+        line = f"Recovery: call again with {self.handle_type}={self.handle} ({self.resume_cost})"
+        if self.retry_after_seconds is not None:
+            line += f", retry after {self.retry_after_seconds}s"
+        return line
+
+
 class ToolError(BaseModel):
     error_type: str
     message: str
     traceback: str | None = None
     is_retryable: bool = False
     suggested_action: str | None = None
+    recovery: ToolRecovery | None = None
 
     @field_validator("message", "traceback", "suggested_action")
     @classmethod
@@ -513,6 +543,7 @@ class ToolError(BaseModel):
         message: str | None = None,
         is_retryable: bool = False,
         suggested_action: str | None = None,
+        recovery: ToolRecovery | None = None,
     ) -> ToolError:
         """Build a ToolError from a caught exception WITHOUT losing the stack.
 
@@ -535,12 +566,15 @@ class ToolError(BaseModel):
             traceback=tb_text,
             is_retryable=is_retryable,
             suggested_action=suggested_action,
+            recovery=recovery,
         )
 
     def to_agent_message(self) -> str:
         parts = [f"TOOL ERROR [{self.error_type}]: {self.message}"]
         if self.suggested_action:
             parts.append(f"Suggested action: {self.suggested_action}")
+        if self.recovery is not None:
+            parts.append(self.recovery.to_agent_line())
         if self.traceback:
             parts.append(f"Technical details:\n{self.traceback}")
         return "\n".join(parts)
@@ -599,6 +633,13 @@ class ToolResult(BaseModel):
     # continues, so the caller can correct and retry).
     handoff_final: bool = False
     handoff: HandoffOutcome | None = None
+
+    # THE SURFACE-WRITE RECEIPT (``matrx_ai.tools.surface_write``): before →
+    # after for a tool that changed a surface. Out of band like
+    # ``provider_content`` — excluded from every dump, so the model never pays
+    # for the prior content; the executor emits it as one persisted
+    # ``tool_step`` event the client's tool card renders as the shared diff.
+    surface_write: Any = Field(default=None, exclude=True, repr=False)
 
     # Content IR travels out-of-band beside the unchanged tool payload. These
     # fields are runtime/persistence metadata and are never sent in the model's

@@ -75,7 +75,7 @@ def normalize_url(url: str) -> str:
     dedups on. Per the Identity Contract (common-docs/policies/durable-work-queue-
     standard.md) there must be exactly one such function — do not add a second.
     `url_match_key` (below) is a deliberately looser ALIAS matcher, not a rival
-    identity; `url_utils.normalize_url` is INPUT ACCEPTANCE, not identity.
+    identity; `url_utils.accept_url_input` is INPUT ACCEPTANCE, not identity.
 
     Rules currently applied (each locked by a test in test_url_identity.py):
       - scheme + host lowercased; path case preserved (paths are case-sensitive)

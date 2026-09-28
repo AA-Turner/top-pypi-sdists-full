@@ -431,12 +431,14 @@ def test_rule_id_collision_with_legacy_alias_is_skipped(fake_plugin, repo):
     assert "claude-plugin-readme" in warnings[0].message
 
 
-def test_rule_id_collision_with_advisory_id_is_skipped(fake_plugin, repo):
+@pytest.mark.parametrize("advisory_id", ["deprecated-rule", "unknown-rule"])
+def test_rule_id_collision_with_advisory_id_is_skipped(fake_plugin, repo, advisory_id, monkeypatch):
     """A plugin rule claiming an advisory ID is skipped — its violations
     would otherwise never affect the exit code."""
+    monkeypatch.setattr(ShadowsAdvisoryRule, "rule_id", property(lambda self: advisory_id))
     fake_plugin("fake_advisory_shadow", module_attrs={"SKILLSAW_RULES": [ShadowsAdvisoryRule]})
     linter, violations = _lint(repo)
-    assert "deprecated-rule" not in {r.rule_id for r in linter.rules}
+    assert advisory_id not in {r.rule_id for r in linter.rules}
     warnings = [v for v in violations if v.rule_id == "plugin-load-error"]
     assert len(warnings) == 1
     assert warnings[0].severity == Severity.WARNING
@@ -547,6 +549,18 @@ def test_config_entry_for_unloaded_plugin_rule_not_flagged(fake_plugin, repo):
     config.rules["plugin-always-fires"] = {"severity": "error"}
     linter, violations = _lint(repo, config=config, no_plugins=True)
     assert "invalid-config" not in {v.rule_id for v in violations}
+
+
+def test_removed_builtin_rule_noticed_with_plugins_skipped(fake_plugin, repo):
+    """Known builtin removals remain advisory when plugin loading is disabled."""
+    fake_plugin("fake_lenient", module_attrs={"SKILLSAW_RULES": [AlwaysFiresRule]})
+    config = LinterConfig.default()
+    config.rules["plugin-always-fires"] = {"severity": "error"}
+    config.rules["skill-frontmatter"] = {"enabled": True}
+    linter, violations = _lint(repo, config=config, no_plugins=True)
+    notices = [v.message for v in violations if v.rule_id == "unknown-rule"]
+    assert len(notices) == 1
+    assert "skill-frontmatter" in notices[0] and "removed in 0.21.0" in notices[0]
 
 
 # ---------------------------------------------------------------------------

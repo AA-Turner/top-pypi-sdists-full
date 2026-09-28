@@ -7,6 +7,7 @@ from typing import (
     Dict,
     List,
     Optional,
+    Tuple,
     TypeVar,
 )
 
@@ -16,6 +17,7 @@ from office365.runtime.client_request_exception import ClientRequestException
 from office365.runtime.client_runtime_context import ClientRuntimeContext
 from office365.runtime.converters.value import _add_type_metadata, declared_type, deserialize_value, serialize_value
 from office365.runtime.http.request_options import RequestOptions
+from office365.runtime.limits import Limit, LimitDecl, collect_class_limits, collect_limit_meta
 from office365.runtime.odata.json_format import ODataJsonFormat
 from office365.runtime.odata.query_options import QueryOptions
 from office365.runtime.paths.resource_path import ResourcePath
@@ -32,6 +34,8 @@ class ClientObject:
     """Base client object which defines named properties and relationships of an entity."""
 
     _odata_meta: dict[str, ODataPropertyMeta] = {}
+    _limit_meta: dict[str, Tuple[LimitDecl, ...]] = {}
+    _class_limit_decls: Tuple[LimitDecl, ...] = ()
 
     def __init_subclass__(cls, **kwargs: object) -> None:
         super().__init_subclass__(**kwargs)
@@ -43,6 +47,8 @@ class ClientObject:
                 m.attr = attr_name
                 meta[m.name] = m
         cls._odata_meta = meta
+        cls._limit_meta = collect_limit_meta(cls)
+        cls._class_limit_decls = collect_class_limits(cls)
 
     def __init__(
         self,
@@ -114,6 +120,13 @@ class ClientObject:
         """Names of properties marked ``@odata(persist=True)``."""
         return {name for name, m in type(self)._odata_meta.items() if m.persist}
 
+    @classmethod
+    def declared_limits(cls) -> Tuple[Limit, ...]:
+        """The limits declared on this class and its methods/properties (``@limit``)."""
+        class_limits = tuple(decl.limit for decl in cls._class_limit_decls)
+        member_limits = tuple(decl.limit for decls in cls._limit_meta.values() for decl in decls)
+        return (*class_limits, *member_limits)
+
     def execute_query(self) -> Self:
         """
         Submits all pending requests to the server.
@@ -133,6 +146,7 @@ class ClientObject:
         success_callback=None,
         failure_callback=None,
         exceptions=(ClientRequestException,),
+        is_retriable=None,
     ) -> Self:
         """Executes the current set of data retrieval queries and method invocations and retries it if needed.
 
@@ -144,6 +158,9 @@ class ClientObject:
             success_callback (callable): A callback to call if the request executes successfully.
             failure_callback (callable): A callback to call if the request fails to execute.
             exceptions (tuple): Tuple of exceptions that we retry.
+            is_retriable (callable): Optional predicate deciding whether a caught
+                exception is retried. Defaults to transient errors; pass
+                ``retry_on(...)`` to also retry otherwise-permanent errors.
         """
         self.context.execute_query_retry(
             max_retry=max_retry,
@@ -153,6 +170,7 @@ class ClientObject:
             success_callback=success_callback,
             failure_callback=failure_callback,
             exceptions=exceptions,
+            is_retriable=is_retriable,
         )
         return self
 

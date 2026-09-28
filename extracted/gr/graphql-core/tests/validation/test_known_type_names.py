@@ -3,7 +3,7 @@ from functools import partial
 from graphql.utilities import build_schema
 from graphql.validation import KnownTypeNamesRule
 
-from .harness import assert_validation_errors, assert_sdl_validation_errors
+from .harness import assert_sdl_validation_errors, assert_validation_errors
 
 assert_errors = partial(assert_validation_errors, KnownTypeNamesRule)
 
@@ -16,7 +16,8 @@ assert_sdl_valid = partial(assert_sdl_errors, errors=[])
 
 def describe_validate_known_type_names():
     def known_type_names_are_valid():
-        assert_valid("""
+        assert_valid(
+            """
             query Foo(
               $var: String
               $required: [Int!]!
@@ -30,7 +31,8 @@ def describe_validate_known_type_names():
             fragment PetFields on Pet {
               name
             }
-            """)
+            """
+        )
 
     def unknown_type_names_are_invalid():
         assert_errors(
@@ -58,6 +60,33 @@ def describe_validate_known_type_names():
             ],
         )
 
+    def unknown_type_names_are_invalid_no_suggestions():
+        assert_errors(
+            """
+            query Foo($var: [JumbledUpLetters!]!) {
+              user(id: 4) {
+                name
+                pets { ... on Badger { name }, ...PetFields, ... { name } }
+              }
+            }
+            fragment PetFields on Peat {
+              name
+            }
+            """,
+            [
+                {
+                    "message": "Unknown type 'JumbledUpLetters'.",
+                    "locations": [(2, 30)],
+                },
+                {"message": "Unknown type 'Badger'.", "locations": [(5, 31)]},
+                {
+                    "message": "Unknown type 'Peat'.",
+                    "locations": [(8, 35)],
+                },
+            ],
+            hide_suggestions=True,
+        )
+
     def references_to_standard_scalars_that_are_missing_in_schema():
         schema = build_schema("type Query { foo: String }")
         query = """
@@ -77,7 +106,8 @@ def describe_validate_known_type_names():
 
     def describe_within_sdl():
         def use_standard_types():
-            assert_sdl_valid("""
+            assert_sdl_valid(
+                """
                 type Query {
                   string: String
                   int: Int
@@ -86,10 +116,12 @@ def describe_validate_known_type_names():
                   id: ID
                   introspectionType: __EnumValue
                 }
-                """)
+                """
+            )
 
         def reference_types_defined_inside_the_same_document():
-            assert_sdl_valid("""
+            assert_sdl_valid(
+                """
                 union SomeUnion = SomeObject | AnotherObject
 
                 type SomeObject implements SomeInterface {
@@ -120,7 +152,8 @@ def describe_validate_known_type_names():
                 schema {
                 query: RootQuery
                 }
-                """)
+                """
+            )
 
         def unknown_type_references():
             assert_sdl_errors(

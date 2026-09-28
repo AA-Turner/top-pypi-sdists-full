@@ -80,9 +80,7 @@ impl GetTypeDefinition for tombi_document_tree_syntax::LocalTime {
                             keys,
                             accessors,
                             one_of_schema,
-                            current_schema.schema_uri.as_ref(),
-                            current_schema.definitions.as_ref(),
-                            current_schema.strict,
+                            current_schema,
                             schema_context,
                         )
                         .await
@@ -94,9 +92,7 @@ impl GetTypeDefinition for tombi_document_tree_syntax::LocalTime {
                             keys,
                             accessors,
                             any_of_schema,
-                            current_schema.schema_uri.as_ref(),
-                            current_schema.definitions.as_ref(),
-                            current_schema.strict,
+                            current_schema,
                             schema_context,
                         )
                         .await
@@ -108,9 +104,7 @@ impl GetTypeDefinition for tombi_document_tree_syntax::LocalTime {
                             keys,
                             accessors,
                             all_of_schema,
-                            current_schema.schema_uri.as_ref(),
-                            current_schema.definitions.as_ref(),
-                            current_schema.strict,
+                            current_schema,
                             schema_context,
                         )
                         .await
@@ -136,11 +130,11 @@ impl GetTypeDefinition for tombi_schema_store::LocalTimeSchema {
     ) -> tombi_future::BoxFuture<'b, Vec<TypeDefinition>> {
         async move {
             current_schema.map_or_else(Vec::new, |schema| {
-                let mut schema_uri = schema.schema_uri.as_ref().clone();
-                schema_uri.set_fragment(Some(&format!("L{}", self.range.start.line + 1)));
+                let mut schema_base_uri = schema.schema_base_uri.as_ref().clone();
+                schema_base_uri.set_fragment(Some(&format!("L{}", self.range.start.line + 1)));
 
                 vec![TypeDefinition {
-                    schema_uri,
+                    schema_base_uri,
                     schema_accessors: accessors.iter().map(Into::into).collect_vec(),
                     range: schema.schema_view.range(),
                 }]

@@ -17,6 +17,8 @@ from skillsaw.rules.builtin.content_analysis import (
     SkillBlock,
 )
 from skillsaw.blocks import DevinSkillBlock
+from skillsaw.blocks.pi import PiPromptBlock, PiSkillBlock
+from skillsaw.blocks.cursor import CursorAgentBlock
 from skillsaw.rules.builtin.utils import read_frontmatter_commented
 
 _WORD_RE = re.compile(r"[a-z0-9]+")
@@ -93,9 +95,14 @@ class DescriptionRoutingRule(Rule):
     """Check whether descriptions provide useful routing or purpose signals."""
 
     since = "0.18.0"
-    surface_dependencies = ("copilot-agent-valid",)
+    surface_dependencies = ("copilot-agent-valid", "pi-skill-valid")
     repo_types = {
+        RepositoryType.PI,
+        RepositoryType.PI_PACKAGE,
         RepositoryType.AGENTSKILLS,
+        RepositoryType.CURSOR,
+        RepositoryType.CURSOR_PLUGIN,
+        RepositoryType.CURSOR_MARKETPLACE,
         RepositoryType.SINGLE_PLUGIN,
         RepositoryType.MARKETPLACE,
         RepositoryType.DOT_CLAUDE,
@@ -129,6 +136,10 @@ class DescriptionRoutingRule(Rule):
         # unmeasured.
         RepositoryType.ANTIGRAVITY,
         RepositoryType.ANTIGRAVITY_PLUGIN,
+        # OpenClaw plugins carry skills (it is in ``SKILL_REPO_TYPES``), so
+        # ``--type openclaw-plugin`` must not silence the checks that auto
+        # detection runs on those skills.
+        RepositoryType.OPENCLAW_PLUGIN,
     }
 
     config_schema = {
@@ -194,12 +205,15 @@ class DescriptionRoutingRule(Rule):
         """Find weak descriptions across discovered skills, agents, and commands."""
         violations: List[RuleViolation] = []
         for block_type in (
+            PiSkillBlock,
+            PiPromptBlock,
             SkillBlock,
             DevinSkillBlock,
             AgentBlock,
             CopilotAgentBlock,
             OpenCodeAgentBlock,
             GrokAgentBlock,
+            CursorAgentBlock,
             CommandBlock,
             OpenCodeCommandBlock,
             GrokCommandBlock,
@@ -213,12 +227,23 @@ class DescriptionRoutingRule(Rule):
                 if block_type is DevinSkillBlock and not block.has_frontmatter:
                     continue
                 if (
-                    block_type is SkillBlock
+                    block_type in (SkillBlock, PiSkillBlock)
                     and self.setting("check-user-only-skills") is not True
                     and block.field_value("disable-model-invocation") is True
                 ):
                     continue
+                if block_type is PiPromptBlock and block.field("description") is None:
+                    continue
+                # pi-skill-valid owns a missing or empty description on a
+                # native Pi skill: Pi skips the skill outright, so one
+                # finding per defect is enough. Routing keeps the check when
+                # that rule is off.
+                pi_owns_description = block_type is PiSkillBlock and self.surface_rule_enabled(
+                    "pi-skill-valid"
+                )
                 if not block.has_frontmatter:
+                    if pi_owns_description:
+                        continue
                     violations.append(
                         self.violation(
                             f"Description is missing; add frontmatter describing this "
@@ -230,6 +255,8 @@ class DescriptionRoutingRule(Rule):
                     continue
                 description_field = block.field("description")
                 if description_field is None:
+                    if pi_owns_description:
+                        continue
                     violations.append(
                         self.violation(
                             f"Description is missing; explain what this {block.category} does",
@@ -262,6 +289,8 @@ class DescriptionRoutingRule(Rule):
                         and self.surface_rule_enabled("copilot-agent-valid")
                     ):
                         continue
+                    if pi_owns_description:
+                        continue
                     violations.append(
                         self.violation(
                             "Description is empty; explain what the building block does",
@@ -272,6 +301,8 @@ class DescriptionRoutingRule(Rule):
                     )
                     continue
                 if not description.strip():
+                    if pi_owns_description:
+                        continue
                     violations.append(
                         self.violation(
                             "Description is empty; explain what the building block does",
@@ -292,6 +323,7 @@ class DescriptionRoutingRule(Rule):
                 if (
                     block_type
                     not in (
+                        PiPromptBlock,
                         CommandBlock,
                         CopilotAgentBlock,
                         OpenCodeCommandBlock,

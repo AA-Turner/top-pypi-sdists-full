@@ -18,6 +18,7 @@ from zipfile import BadZipFile, ZipFile
 
 from ..equation import render_equation
 from ..opc.security import guard_zip_file, parse_xml_stdlib, read_member
+from ..oxml.section_format import _PAGE_PORTRAIT
 
 _HP_NS = "http://www.hancom.co.kr/hwpml/2011/paragraph"
 _HH_NS = "http://www.hancom.co.kr/hwpml/2011/head"
@@ -312,6 +313,8 @@ def _page_spec(section: ET.Element) -> tuple[float, float, dict[str, float]]:
         return _DEFAULT_PAGE_WIDTH_MM, _DEFAULT_PAGE_HEIGHT_MM, dict(_DEFAULT_MARGINS_MM)
     width = _hwp_to_mm(page_pr.get("width"), _DEFAULT_PAGE_WIDTH_MM)
     height = _hwp_to_mm(page_pr.get("height"), _DEFAULT_PAGE_HEIGHT_MM)
+    if page_pr.get("landscape") != _PAGE_PORTRAIT:  # NARROWLY turns the page
+        width, height = height, width
     margin_node = page_pr.find(f"{_HP}margin")
     margins = dict(_DEFAULT_MARGINS_MM)
     if margin_node is not None:
@@ -337,6 +340,44 @@ def _render_equation_element(equation: ET.Element) -> str:
 
 def _render_object_marker(label: str) -> str:
     return f'<span class="hwpx-object-marker">⟦{html.escape(label)}⟧</span>'
+
+
+def _shape_text_lines(element: ET.Element) -> list[str]:
+    """The text of a drawing object's text boxes (a group's too), one line per paragraph.
+
+    Tables inside are rendered as tables after the paragraph and are not read here.
+    """
+    lines: list[str] = []
+    for child in element:
+        if child.tag == f"{_HP}tbl":
+            continue
+        if child.tag == f"{_HP}p":
+            text = _paragraph_text(child)
+            if text.strip():
+                lines.append(text)
+        lines.extend(_shape_text_lines(child))
+    return lines
+
+
+def _cell_paragraphs(cell: ET.Element) -> list[ET.Element]:
+    """The paragraphs a table cell shows, in order: a nested table's are flattened
+    in; a text box's are left to the shape that holds them (:func:`_render_shape`)."""
+
+    parents = {child: parent for parent in cell.iter() for child in parent}
+    shown: list[ET.Element] = []
+    for paragraph in cell.iter(f"{_HP}p"):
+        node = parents.get(paragraph)
+        while node is not None and node is not cell and node.tag != f"{_HP}tbl" and node.tag not in _SHAPE_TAGS:
+            node = parents.get(node)
+        if node is None or node.tag not in _SHAPE_TAGS:
+            shown.append(paragraph)
+    return shown
+
+
+def _render_shape(shape: ET.Element) -> str:
+    lines = _shape_text_lines(shape)
+    text = "<br>".join(html.escape(line) for line in lines)
+    return _render_object_marker("도형") + (f'<span class="hwpx-shape-text">{text}</span>' if lines else "")
 
 
 def _render_inline_runs(
@@ -367,7 +408,7 @@ def _render_inline_runs(
             elif child.tag == _OLE_TAG:
                 spans.append(_render_object_marker("개체"))
             elif child.tag in _SHAPE_TAGS:
-                spans.append(_render_object_marker("도형"))
+                spans.append(_render_shape(child))
     return "".join(spans)
 
 
@@ -440,7 +481,7 @@ def _render_table(
                 }
             )
             body_parts = []
-            for para in tc.findall(f".//{_HP}p"):
+            for para in _cell_paragraphs(tc):
                 body_parts.append(
                     _render_paragraph(para, styles, counter, include_tables=False)
                 )
@@ -558,6 +599,7 @@ def _base_css(mode: str) -> str:
         ".hwpx-object-marker { display: inline-block; padding: 0 0.3em; "
         "border: 1px dashed #9aa2ad; border-radius: 4px; color: #4b5563; "
         "font-size: 0.9em; background: #eef1f5; }\n"
+        ".hwpx-shape-text { margin-left: 0.3em; }\n"
         "@media print { body { padding: 0; background: #fff; } "
         ".hwpx-preview-page { margin: 0; box-shadow: none; page-break-after: always; } }\n"
         f"{long_page_css}"

@@ -1,16 +1,25 @@
-from typing import Any, Collection, Optional
+"""Print AST"""
 
-from ..language.ast import Node, OperationType
+from __future__ import annotations
+
+from collections.abc import Collection
+from typing import TYPE_CHECKING, Any
+
 from .block_string import print_block_string
 from .print_string import print_string
-from .visitor import visit, Visitor
+from .visitor import Visitor, visit
+
+if TYPE_CHECKING:
+    from ..language.ast import Node, OperationType
+
+from typing import TypeAlias
 
 __all__ = ["print_ast"]
 
 
 MAX_LINE_LENGTH = 80
 
-Strings = Collection[str]
+Strings: TypeAlias = Collection[str]
 
 
 class PrintedNode:
@@ -45,9 +54,17 @@ class PrintedNode:
 
 
 def print_ast(ast: Node) -> str:
-    """Convert an AST into a string.
+    r"""Convert an AST into a string.
 
     The conversion is done using a set of reasonable formatting rules.
+
+    :param ast: The GraphQL AST node to print.
+    :returns: A stable string representation of the AST.
+
+    >>> from graphql import parse, print_ast
+    >>> ast = parse('{ hero { name } }')
+    >>> print_ast(ast)
+    '{\n  hero {\n    name\n  }\n}'
     """
     return visit(ast, PrintAstVisitor())
 
@@ -100,23 +117,32 @@ class PrintAstVisitor(Visitor):
 
     @staticmethod
     def leave_field(node: PrintedNode, *_args: Any) -> str:
-        prefix = wrap("", node.alias, ": ") + node.name
-        args_line = prefix + wrap("(", join(node.arguments, ", "), ")")
+        prefix = join((wrap("", node.alias, ": "), node.name))
 
-        if len(args_line) > MAX_LINE_LENGTH:
-            args_line = prefix + wrap("(\n", indent(join(node.arguments, "\n")), "\n)")
-
-        return join((args_line, join(node.directives, " "), node.selection_set), " ")
+        return join(
+            (
+                wrapped_line_and_args(prefix, node.arguments),
+                wrap(" ", join(node.directives, " ")),
+                wrap(" ", node.selection_set),
+            ),
+        )
 
     @staticmethod
     def leave_argument(node: PrintedNode, *_args: Any) -> str:
+        return f"{node.name}: {node.value}"
+
+    @staticmethod
+    def leave_fragment_argument(node: PrintedNode, *_args: Any) -> str:
         return f"{node.name}: {node.value}"
 
     # Fragments
 
     @staticmethod
     def leave_fragment_spread(node: PrintedNode, *_args: Any) -> str:
-        return f"...{node.name}{wrap(' ', join(node.directives, ' '))}"
+        prefix = f"...{node.name}"
+        return wrapped_line_and_args(prefix, node.arguments) + wrap(
+            " ", join(node.directives, " ")
+        )
 
     @staticmethod
     def leave_inline_fragment(node: PrintedNode, *_args: Any) -> str:
@@ -132,7 +158,6 @@ class PrintAstVisitor(Visitor):
 
     @staticmethod
     def leave_fragment_definition(node: PrintedNode, *_args: Any) -> str:
-        # Note: fragment variable definitions are deprecated and will be removed in v3.3
         return (
             wrap("", node.description, "\n") + f"fragment {node.name}"
             f"{wrap('(', join(node.variable_definitions, ', '), ')')}"
@@ -171,11 +196,19 @@ class PrintAstVisitor(Visitor):
 
     @staticmethod
     def leave_list_value(node: PrintedNode, *_args: Any) -> str:
-        return f"[{join(node.values, ', ')}]"
+        values = node.values
+        values_line = f"[{join(values, ', ')}]"
+        return (
+            "\n".join(("[", indent(join(values, "\n")), "]"))
+            if len(values_line) > 80
+            else values_line
+        )
 
     @staticmethod
     def leave_object_value(node: PrintedNode, *_args: Any) -> str:
-        return f"{{{join(node.fields, ', ')}}}"
+        fields = node.fields
+        fields_line = f"{{ {join(fields, ', ')} }}"
+        return block(fields) if len(fields_line) > MAX_LINE_LENGTH else fields_line
 
     @staticmethod
     def leave_object_field(node: PrintedNode, *_args: Any) -> str:
@@ -418,7 +451,7 @@ class PrintAstVisitor(Visitor):
         return f"@{node.name}{wrap('(', node.argument_name, ':)')}"
 
 
-def join(strings: Optional[Strings], separator: str = "") -> str:
+def join(strings: Strings | None, separator: str = "") -> str:
     """Join strings in a given collection.
 
     Return an empty string if it is None or empty, otherwise join all items together
@@ -427,7 +460,7 @@ def join(strings: Optional[Strings], separator: str = "") -> str:
     return separator.join(s for s in strings if s) if strings else ""
 
 
-def block(strings: Optional[Strings]) -> str:
+def block(strings: Strings | None) -> str:
     """Return strings inside a block.
 
     Given a collection of strings, return a string with each item on its own line,
@@ -436,7 +469,7 @@ def block(strings: Optional[Strings]) -> str:
     return wrap("{\n", indent(join(strings, "\n")), "\n}")
 
 
-def wrap(start: str, string: Optional[str], end: str = "") -> str:
+def wrap(start: str, string: str | None, end: str = "") -> str:
     """Wrap string inside other strings at start and end.
 
     If the string is not None or empty, then wrap with start and end, otherwise return
@@ -459,6 +492,15 @@ def is_multiline(string: str) -> bool:
     return "\n" in string
 
 
-def has_multiline_items(strings: Optional[Strings]) -> bool:
+def has_multiline_items(strings: Strings | None) -> bool:
     """Check whether one of the items in the list has multiple lines."""
     return any(is_multiline(item) for item in strings) if strings else False
+
+
+def wrapped_line_and_args(prefix: str, args: Strings | None) -> str:
+    """Print the given prefix with its arguments, wrapping long argument lists."""
+    args_line = prefix + wrap("(", join(args, ", "), ")")
+
+    if len(args_line) > MAX_LINE_LENGTH:
+        args_line = prefix + wrap("(\n", indent(join(args, "\n")), "\n)")
+    return args_line

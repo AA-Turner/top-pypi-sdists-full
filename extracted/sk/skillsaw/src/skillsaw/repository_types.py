@@ -38,6 +38,8 @@ class RepositoryType(Enum):
     CODEX_PROJECT = "codex-project"
     AGENT_PLUGIN = "agent-plugin"  # Portable Agent Plugins plugin.json
     MCP_REGISTRY = "mcp-registry"  # MCP Registry server.json publisher metadata
+    CURSOR_PLUGIN = "cursor-plugin"
+    CURSOR_MARKETPLACE = "cursor-marketplace"
     CURSOR = "cursor"  # Repository with `.cursor/` content or a `.cursorrules`
     COPILOT = "copilot"  # Repository with Copilot / VS Code content under `.github/`
     CLINE = "cline"  # Repository with `.clinerules`
@@ -59,6 +61,9 @@ class RepositoryType(Enum):
     # Antigravity primitives (plugin with plugin.json, or project configuration)
     ANTIGRAVITY_PLUGIN = "antigravity-plugin"
     ANTIGRAVITY = "antigravity"
+    OPENCLAW_PLUGIN = "openclaw-plugin"  # Native openclaw.plugin.json packages
+    PI_PACKAGE = "pi-package"  # package.json#pi or a locally referenced Pi package
+    PI = "pi"  # .pi project resources
     UNKNOWN = "unknown"  # Not a recognized repo type
 
 
@@ -72,6 +77,9 @@ class RepositoryType(Enum):
 # the same reason as the Codex ones; GROK_PROJECT is not, because ``.grok/``
 # earns its skills through ``CONVENTIONAL_SKILL_DIRS`` instead.
 SKILL_REPO_TYPES = {
+    RepositoryType.OPENCLAW_PLUGIN,
+    RepositoryType.PI_PACKAGE,
+    RepositoryType.PI,
     RepositoryType.AGENTSKILLS,
     RepositoryType.SINGLE_PLUGIN,
     RepositoryType.MARKETPLACE,
@@ -79,6 +87,8 @@ SKILL_REPO_TYPES = {
     RepositoryType.CODEX_PLUGIN,
     RepositoryType.CODEX_MARKETPLACE,
     RepositoryType.AGENT_PLUGIN,
+    RepositoryType.CURSOR_PLUGIN,
+    RepositoryType.CURSOR_MARKETPLACE,
     RepositoryType.GROK_PLUGIN,
     RepositoryType.GROK_MARKETPLACE,
     RepositoryType.ANTIGRAVITY_PLUGIN,
@@ -91,6 +101,7 @@ SKILL_REPO_TYPES = {
 #: after construction.
 TOOL_REPO_TYPES = frozenset(
     {
+        RepositoryType.PI,
         RepositoryType.CURSOR,
         RepositoryType.COPILOT,
         RepositoryType.CLINE,
@@ -110,6 +121,16 @@ TOOL_REPO_TYPES = frozenset(
     }
 )
 
+
+# Hosts whose portable components use the Agent Plugins validators. Shared
+# with the MCP block's deferral so a forced host type never validates twice.
+PORTABLE_COMPONENT_REPO_TYPES = frozenset(
+    {
+        RepositoryType.AGENT_PLUGIN,
+        RepositoryType.CODEX_PLUGIN,
+        RepositoryType.CODEX_MARKETPLACE,
+    }
+)
 
 # Repository types that may hold one of ``INSTRUCTION_FILES``. CLINE,
 # OPENCODE, MUSE, GROK_PROJECT and CODEX_PROJECT are deliberately absent:

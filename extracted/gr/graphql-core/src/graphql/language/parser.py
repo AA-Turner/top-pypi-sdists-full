@@ -1,5 +1,9 @@
+"""GraphQL parser"""
+
+from __future__ import annotations
+
 from functools import partial
-from typing import Callable, Dict, List, Optional, TypeVar, Union, cast
+from typing import TYPE_CHECKING, TypeAlias, TypeVar, cast
 
 from ..error import GraphQLError, GraphQLSyntaxError
 from .ast import (
@@ -23,6 +27,7 @@ from .ast import (
     FieldDefinitionNode,
     FieldNode,
     FloatValueNode,
+    FragmentArgumentNode,
     FragmentDefinitionNode,
     FragmentSpreadNode,
     InlineFragmentNode,
@@ -71,75 +76,106 @@ from .schema_coordinate_lexer import SchemaCoordinateLexer
 from .source import Source, is_source
 from .token_kind import TokenKind
 
+if TYPE_CHECKING:
+    from collections.abc import Callable, Mapping
+
 __all__ = [
     "parse",
-    "parse_type",
-    "parse_value",
     "parse_const_value",
     "parse_schema_coordinate",
+    "parse_type",
+    "parse_value",
 ]
 
 T = TypeVar("T")
 
-SourceType = Union[Source, str]
+SourceType: TypeAlias = Source | str
 
 
 def parse(
     source: SourceType,
     no_location: bool = False,
-    max_tokens: Optional[int] = None,
-    allow_legacy_fragment_variables: bool = False,
-    experimental_directives_on_directive_definitions: bool = False,
+    max_tokens: int | None = None,
+    experimental_fragment_arguments: bool = False,
 ) -> DocumentNode:
     """Given a GraphQL source, parse it into a Document.
 
     Throws GraphQLError if a syntax error is encountered.
 
     By default, the parser creates AST nodes that know the location in the source that
-    they correspond to. Setting the ``no_location`` parameter to False disables that
-    behavior for performance or testing.
+    they correspond to. The ``no_location`` option disables that behavior for
+    performance or testing.
 
     Parser CPU and memory usage is linear to the number of tokens in a document,
     however in extreme cases it becomes quadratic due to memory exhaustion.
-    Parsing happens before validation, so even invalid queries can burn lots of
-    CPU time and memory. To prevent this, you can set a maximum number of tokens
-    allowed within a document using the ``max_tokens`` parameter.
+    Parsing happens before validation so even invalid queries can burn lots of
+    CPU time and memory.
+    To prevent this you can set a maximum number of tokens allowed within a document.
 
-    Legacy feature (will be removed in v3.3):
+    EXPERIMENTAL:
 
-    If ``allow_legacy_fragment_variables`` is set to ``True``, the parser will
-    understand and parse variable definitions contained in a fragment definition.
-    They'll be represented in the
+    If ``experimental_fragment_arguments`` is set to ``True``, the parser will
+    understand and parse fragment variable definitions and arguments on fragment
+    spreads. Fragment variable definitions will be represented in the
     :attr:`~graphql.language.FragmentDefinitionNode.variable_definitions` field
-    of the :class:`~graphql.language.FragmentDefinitionNode`.
+    of the :class:`~graphql.language.FragmentDefinitionNode`. Fragment spread
+    arguments will be represented in the
+    :attr:`~graphql.language.FragmentSpreadNode.arguments` field
+    of the :class:`~graphql.language.FragmentSpreadNode`.
 
-    This legacy fragment variable syntax is deprecated. Move variable definitions to
-    operations for spec-compliant documents; if you need variables or arguments scoped
-    to fragments, the more complete experimental fragment-arguments feature in
-    graphql-core 3.3 should be used instead.
+    For example::
 
-    The syntax is identical to normal, query-defined variables. For example::
-
-        fragment A($var: Boolean = false) on T  {
-          ...
+        {
+          t { ...A(var: true) }
+        }
+        fragment A($var: Boolean = false) on T {
+          ...B(x: $var)
         }
 
-    Experimental feature:
+    :param source: A GraphQL source string or source object.
+    :param no_location: By default, the parser creates AST nodes that know the
+        location in the source that they correspond to. Setting this parameter to
+        ``True`` disables that behavior for performance or testing.
+    :param max_tokens: Parser CPU and memory usage is linear to the number of tokens
+        in a document, however in extreme cases it becomes quadratic due to memory
+        exhaustion. Parsing happens before validation, so even invalid queries can
+        burn lots of CPU time and memory. To prevent this, you can set a maximum
+        number of tokens allowed within a document.
+    :param experimental_fragment_arguments: Allows fragment variable definitions
+        and arguments on fragment spreads to be parsed (experimental).
+    :returns: The parsed GraphQL document AST.
 
-    If ``experimental_directives_on_directive_definitions`` is set to ``True``, the
-    parser will understand and parse directives on directive definitions. This syntax
-    is not part of the GraphQL specification and may change. For example::
+    Parse a GraphQL document with the default parser options:
 
-        directive @foo @bar on FIELD
+    >>> from graphql import parse
+    >>> document = parse('{ hero { name } }')
+    >>> document.kind
+    'document'
+
+    This variant enables parser options:
+
+    >>> document = parse(
+    ...     '{ t { ...A(var: true) } }'
+    ...     ' fragment A($var: Boolean = false) on T { name }',
+    ...     experimental_fragment_arguments=True,
+    ...     max_tokens=80,
+    ...     no_location=True,
+    ... )
+    >>> directive_document = parse('directive @foo @bar on FIELD')
+    >>> document.definitions[0].kind
+    'operation_definition'
+    >>> document.definitions[1].kind
+    'fragment_definition'
+    >>> document.loc is None
+    True
+    >>> directive_document.definitions[0].kind
+    'directive_definition'
     """
     parser = Parser(
         source,
         no_location=no_location,
         max_tokens=max_tokens,
-        allow_legacy_fragment_variables=allow_legacy_fragment_variables,
-        experimental_directives_on_directive_definitions=(
-            experimental_directives_on_directive_definitions
-        ),
+        experimental_fragment_arguments=experimental_fragment_arguments,
     )
     return parser.parse_document()
 
@@ -147,9 +183,8 @@ def parse(
 def parse_value(
     source: SourceType,
     no_location: bool = False,
-    max_tokens: Optional[int] = None,
-    allow_legacy_fragment_variables: bool = False,
-    experimental_directives_on_directive_definitions: bool = False,
+    max_tokens: int | None = None,
+    experimental_fragment_arguments: bool = False,
 ) -> ValueNode:
     """Parse the AST for a given string containing a GraphQL value.
 
@@ -158,17 +193,29 @@ def parse_value(
     This is useful within tools that operate upon GraphQL Values directly and in
     isolation of complete GraphQL documents.
 
-    Consider providing the results to the utility function:
-    :func:`~graphql.utilities.value_from_ast`.
+    :param source: A GraphQL source string or source object containing a value.
+    :param no_location: By default, the parser creates AST nodes that know the
+        location in the source that they correspond to. Setting this parameter to
+        ``True`` disables that behavior for performance or testing.
+    :param max_tokens: Parser CPU and memory usage is linear to the number of tokens
+        in a document, however in extreme cases it becomes quadratic due to memory
+        exhaustion. Parsing happens before validation, so even invalid queries can
+        burn lots of CPU time and memory. To prevent this, you can set a maximum
+        number of tokens allowed within a document.
+    :param experimental_fragment_arguments: Allows fragment variable definitions
+        and arguments on fragment spreads to be parsed (experimental).
+    :returns: The parsed GraphQL value AST.
+
+    >>> from graphql import parse_value
+    >>> value = parse_value('[42]')
+    >>> value.kind
+    'list_value'
     """
     parser = Parser(
         source,
         no_location=no_location,
         max_tokens=max_tokens,
-        allow_legacy_fragment_variables=allow_legacy_fragment_variables,
-        experimental_directives_on_directive_definitions=(
-            experimental_directives_on_directive_definitions
-        ),
+        experimental_fragment_arguments=experimental_fragment_arguments,
     )
     parser.expect_token(TokenKind.SOF)
     value = parser.parse_value_literal(False)
@@ -179,23 +226,42 @@ def parse_value(
 def parse_const_value(
     source: SourceType,
     no_location: bool = False,
-    max_tokens: Optional[int] = None,
-    allow_legacy_fragment_variables: bool = False,
-    experimental_directives_on_directive_definitions: bool = False,
+    max_tokens: int | None = None,
+    experimental_fragment_arguments: bool = False,
 ) -> ConstValueNode:
     """Parse the AST for a given string containing a GraphQL constant value.
 
-    Similar to parse_value, but raises a arse error if it encounters a variable.
+    Similar to parse_value, but raises a parse error if it encounters a variable.
     The return type will be a constant value.
+
+    :param source: A GraphQL source string or source object containing a
+        constant value.
+    :param no_location: By default, the parser creates AST nodes that know the
+        location in the source that they correspond to. Setting this parameter to
+        ``True`` disables that behavior for performance or testing.
+    :param max_tokens: Parser CPU and memory usage is linear to the number of tokens
+        in a document, however in extreme cases it becomes quadratic due to memory
+        exhaustion. Parsing happens before validation, so even invalid queries can
+        burn lots of CPU time and memory. To prevent this, you can set a maximum
+        number of tokens allowed within a document.
+    :param experimental_fragment_arguments: Allows fragment variable definitions
+        and arguments on fragment spreads to be parsed (experimental).
+    :returns: The parsed GraphQL constant value AST.
+
+    >>> from graphql import parse_const_value
+    >>> value = parse_const_value('{ enabled: true }')
+    >>> value.kind
+    'object_value'
+    >>> parse_const_value('$variable')
+    Traceback (most recent call last):
+    ...
+    graphql.error.syntax_error.GraphQLSyntaxError: Syntax Error: Unexpected ...
     """
     parser = Parser(
         source,
         no_location=no_location,
         max_tokens=max_tokens,
-        allow_legacy_fragment_variables=allow_legacy_fragment_variables,
-        experimental_directives_on_directive_definitions=(
-            experimental_directives_on_directive_definitions
-        ),
+        experimental_fragment_arguments=experimental_fragment_arguments,
     )
     parser.expect_token(TokenKind.SOF)
     value = parser.parse_const_value_literal()
@@ -206,9 +272,8 @@ def parse_const_value(
 def parse_type(
     source: SourceType,
     no_location: bool = False,
-    max_tokens: Optional[int] = None,
-    allow_legacy_fragment_variables: bool = False,
-    experimental_directives_on_directive_definitions: bool = False,
+    max_tokens: int | None = None,
+    experimental_fragment_arguments: bool = False,
 ) -> TypeNode:
     """Parse the AST for a given string containing a GraphQL Type.
 
@@ -219,15 +284,31 @@ def parse_type(
 
     Consider providing the results to the utility function:
     :func:`~graphql.utilities.value_from_ast`.
+
+    :param source: A GraphQL source string or source object containing a type
+        reference.
+    :param no_location: By default, the parser creates AST nodes that know the
+        location in the source that they correspond to. Setting this parameter to
+        ``True`` disables that behavior for performance or testing.
+    :param max_tokens: Parser CPU and memory usage is linear to the number of tokens
+        in a document, however in extreme cases it becomes quadratic due to memory
+        exhaustion. Parsing happens before validation, so even invalid queries can
+        burn lots of CPU time and memory. To prevent this, you can set a maximum
+        number of tokens allowed within a document.
+    :param experimental_fragment_arguments: Allows fragment variable definitions
+        and arguments on fragment spreads to be parsed (experimental).
+    :returns: The parsed GraphQL type AST.
+
+    >>> from graphql import parse_type
+    >>> type_ = parse_type('[String!]')
+    >>> type_.kind
+    'list_type'
     """
     parser = Parser(
         source,
         no_location=no_location,
         max_tokens=max_tokens,
-        allow_legacy_fragment_variables=allow_legacy_fragment_variables,
-        experimental_directives_on_directive_definitions=(
-            experimental_directives_on_directive_definitions
-        ),
+        experimental_fragment_arguments=experimental_fragment_arguments,
     )
     parser.expect_token(TokenKind.SOF)
     type_ = parser.parse_type_reference()
@@ -238,7 +319,7 @@ def parse_type(
 def parse_schema_coordinate(
     source: SourceType,
     no_location: bool = False,
-    max_tokens: Optional[int] = None,
+    max_tokens: int | None = None,
 ) -> SchemaCoordinateNode:
     """Parse the AST for a given string containing a GraphQL schema coordinate.
 
@@ -251,8 +332,26 @@ def parse_schema_coordinate(
     :func:`~graphql.utilities.resolve_ast_schema_coordinate`. Or calling
     :func:`~graphql.utilities.resolve_schema_coordinate` directly with an
     unparsed source.
+
+    :param source: A GraphQL source string or source object containing a schema
+        coordinate.
+    :param no_location: By default, the parser creates AST nodes that know the
+        location in the source that they correspond to. Setting this parameter to
+        ``True`` disables that behavior for performance or testing.
+    :param max_tokens: Parser CPU and memory usage is linear to the number of tokens
+        in a document, however in extreme cases it becomes quadratic due to memory
+        exhaustion. Parsing happens before validation, so even invalid queries can
+        burn lots of CPU time and memory. To prevent this, you can set a maximum
+        number of tokens allowed within a document.
+    :returns: The parsed GraphQL schema coordinate AST.
+
+    >>> from graphql import parse_schema_coordinate
+    >>> coordinate = parse_schema_coordinate('Query.hero')
+    >>> coordinate.kind
+    'member_coordinate'
     """
-    source = cast(Source, source) if is_source(source) else Source(cast(str, source))
+    if not is_source(source):
+        source = Source(cast("str", source))
     lexer = SchemaCoordinateLexer(source)
     parser = Parser(source, no_location=no_location, max_tokens=max_tokens, lexer=lexer)
     parser.expect_token(TokenKind.SOF)
@@ -273,41 +372,36 @@ class Parser:
     library, please use the `__version_info__` variable for version detection.
     """
 
-    _lexer: Lexer
     _no_location: bool
-    _max_tokens: Optional[int]
-    _allow_legacy_fragment_variables: bool
-    _experimental_directives_on_directive_definitions: bool
+    _max_tokens: int | None
+    _experimental_fragment_arguments: bool
+    _lexer: Lexer
     _token_counter: int
 
     def __init__(
         self,
         source: SourceType,
         no_location: bool = False,
-        max_tokens: Optional[int] = None,
-        allow_legacy_fragment_variables: bool = False,
-        experimental_directives_on_directive_definitions: bool = False,
-        lexer: Optional[Lexer] = None,
-    ):
-        source = (
-            cast(Source, source) if is_source(source) else Source(cast(str, source))
-        )
+        max_tokens: int | None = None,
+        experimental_fragment_arguments: bool = False,
+        lexer: Lexer | None = None,
+    ) -> None:
+        if not is_source(source):
+            source = Source(cast("str", source))
 
+        self._no_location = no_location
+        self._max_tokens = max_tokens
+        self._experimental_fragment_arguments = experimental_fragment_arguments
         # You may override the lexer used to lex the source; this is used by schema
         # coordinates to introduce a lexer with a restricted syntax.
         self._lexer = lexer if lexer is not None else Lexer(source)
-        self._no_location = no_location
-        self._max_tokens = max_tokens
-        self._allow_legacy_fragment_variables = allow_legacy_fragment_variables
-        self._experimental_directives_on_directive_definitions = (
-            experimental_directives_on_directive_definitions
-        )
         self._token_counter = 0
 
     def parse_name(self) -> NameNode:
         """Convert a name lex token into a name parse node."""
         token = self.expect_token(TokenKind.NAME)
-        return NameNode(value=token.value, loc=self.loc(token))
+        # NAME tokens always have a value
+        return NameNode(value=cast("str", token.value), loc=self.loc(token))
 
     # Implement the parsing rules in the Document section.
 
@@ -324,10 +418,10 @@ class Parser:
             loc=self.loc(start),
         )
         # Expose the token count as a (non-traversable) attribute on the document.
-        document.token_count = self.token_count
+        object.__setattr__(document, "token_count", self.token_count)
         return document
 
-    _parse_type_system_definition_method_names: Dict[str, str] = {
+    _parse_type_system_definition_method_names: Mapping[str, str] = {
         "schema": "schema_definition",
         "scalar": "scalar_type_definition",
         "type": "object_type_definition",
@@ -338,12 +432,12 @@ class Parser:
         "directive": "directive_definition",
     }
 
-    _parse_executable_definition_method_names: Dict[str, str] = {
+    _parse_executable_definition_method_names: Mapping[str, str] = {
         **dict.fromkeys(("query", "mutation", "subscription"), "operation_definition"),
         "fragment": "fragment_definition",
     }
 
-    _parse_other_definition_method_names: Dict[str, str] = {
+    _parse_other_definition_method_names: Mapping[str, str] = {
         "extend": "type_system_extension",
     }
 
@@ -376,7 +470,7 @@ class Parser:
             )
 
         if keyword_token.kind is TokenKind.NAME:
-            token_name = cast(str, keyword_token.value)
+            token_name = cast("str", keyword_token.value)
             method_name = self._parse_type_system_definition_method_names.get(
                 token_name
             )
@@ -411,8 +505,8 @@ class Parser:
                 operation=OperationType.QUERY,
                 description=None,
                 name=None,
-                variable_definitions=[],
-                directives=[],
+                variable_definitions=None,
+                directives=None,
                 selection_set=self.parse_selection_set(),
                 loc=self.loc(start),
             )
@@ -434,10 +528,10 @@ class Parser:
         operation_token = self.expect_token(TokenKind.NAME)
         try:
             return OperationType(operation_token.value)
-        except ValueError:
-            raise self.unexpected(operation_token)
+        except ValueError as error:
+            raise self.unexpected(operation_token) from error
 
-    def parse_variable_definitions(self) -> List[VariableDefinitionNode]:
+    def parse_variable_definitions(self) -> tuple[VariableDefinitionNode, ...] | None:
         """VariableDefinitions: (VariableDefinition+)"""
         return self.optional_many(
             TokenKind.PAREN_L, self.parse_variable_definition, TokenKind.PAREN_R
@@ -446,15 +540,17 @@ class Parser:
     def parse_variable_definition(self) -> VariableDefinitionNode:
         """VariableDefinition: Variable: Type DefaultValue? Directives[Const]?"""
         start = self._lexer.token
+        description = self.parse_description()
+        variable = self.parse_variable()
+        self.expect_token(TokenKind.COLON)
+        type_ = self.parse_type_reference()
         return VariableDefinitionNode(
-            description=self.parse_description(),
-            variable=self.parse_variable(),
-            type=self.expect_token(TokenKind.COLON) and self.parse_type_reference(),
-            default_value=(
-                self.parse_const_value_literal()
-                if self.expect_optional_token(TokenKind.EQUALS)
-                else None
-            ),
+            description=description,
+            variable=variable,
+            type=type_,
+            default_value=self.parse_const_value_literal()
+            if self.expect_optional_token(TokenKind.EQUALS)
+            else None,
             directives=self.parse_const_directives(),
             loc=self.loc(start),
         )
@@ -486,7 +582,7 @@ class Parser:
         start = self._lexer.token
         name_or_alias = self.parse_name()
         if self.expect_optional_token(TokenKind.COLON):
-            alias: Optional[NameNode] = name_or_alias
+            alias: NameNode | None = name_or_alias
             name = self.parse_name()
         else:
             alias = None
@@ -496,17 +592,19 @@ class Parser:
             name=name,
             arguments=self.parse_arguments(False),
             directives=self.parse_directives(False),
-            selection_set=(
-                self.parse_selection_set() if self.peek(TokenKind.BRACE_L) else None
-            ),
+            selection_set=self.parse_selection_set()
+            if self.peek(TokenKind.BRACE_L)
+            else None,
             loc=self.loc(start),
         )
 
-    def parse_arguments(self, is_const: bool) -> List[ArgumentNode]:
+    def parse_arguments(self, is_const: bool) -> tuple[ArgumentNode, ...] | None:
         """Arguments[Const]: (Argument[?Const]+)"""
         item = self.parse_const_argument if is_const else self.parse_argument
         return self.optional_many(
-            TokenKind.PAREN_L, cast(Callable[[], ArgumentNode], item), TokenKind.PAREN_R
+            TokenKind.PAREN_L,
+            cast("Callable[[], ArgumentNode]", item),
+            TokenKind.PAREN_R,
         )
 
     def parse_argument(self, is_const: bool = False) -> ArgumentNode:
@@ -521,14 +619,29 @@ class Parser:
 
     def parse_const_argument(self) -> ConstArgumentNode:
         """Argument[Const]: Name : Value[Const]"""
-        return cast(ConstArgumentNode, self.parse_argument(True))
+        return cast("ConstArgumentNode", self.parse_argument(True))
+
+    def parse_fragment_arguments(self) -> tuple[FragmentArgumentNode, ...] | None:
+        """Experimental: Parse arguments on a fragment spread."""
+        item = self.parse_fragment_argument
+        return self.optional_many(TokenKind.PAREN_L, item, TokenKind.PAREN_R)
+
+    def parse_fragment_argument(self) -> FragmentArgumentNode:
+        """Experimental: Parse a single argument on a fragment spread."""
+        start = self._lexer.token
+        name = self.parse_name()
+
+        self.expect_token(TokenKind.COLON)
+        return FragmentArgumentNode(
+            name=name, value=self.parse_value_literal(False), loc=self.loc(start)
+        )
 
     # Implement the parsing rules in the Fragments section.
 
-    def parse_fragment(self) -> Union[FragmentSpreadNode, InlineFragmentNode]:
+    def parse_fragment(self) -> FragmentSpreadNode | InlineFragmentNode:
         """Corresponds to both FragmentSpread and InlineFragment in the spec.
 
-        FragmentSpread: ... FragmentName Directives?
+        FragmentSpread: ... FragmentName Arguments? Directives?
         InlineFragment: ... TypeCondition? Directives? SelectionSet
         """
         start = self._lexer.token
@@ -536,8 +649,16 @@ class Parser:
 
         has_type_condition = self.expect_optional_keyword("on")
         if not has_type_condition and self.peek(TokenKind.NAME):
+            name = self.parse_fragment_name()
+            if self.peek(TokenKind.PAREN_L) and self._experimental_fragment_arguments:
+                return FragmentSpreadNode(
+                    name=name,
+                    arguments=self.parse_fragment_arguments(),
+                    directives=self.parse_directives(False),
+                    loc=self.loc(start),
+                )
             return FragmentSpreadNode(
-                name=self.parse_fragment_name(),
+                name=name,
                 directives=self.parse_directives(False),
                 loc=self.loc(start),
             )
@@ -553,9 +674,10 @@ class Parser:
         start = self._lexer.token
         description = self.parse_description()
         self.expect_keyword("fragment")
-        # Legacy support for defining variables within fragments changes
-        # the grammar of FragmentDefinition
-        if self._allow_legacy_fragment_variables:
+        # Experimental support for defining variables within fragments changes
+        # the grammar of FragmentDefinition:
+        #   - fragment FragmentName VariableDefinitions? on TypeCondition ...
+        if self._experimental_fragment_arguments:
             return FragmentDefinitionNode(
                 description=description,
                 name=self.parse_fragment_name(),
@@ -568,6 +690,7 @@ class Parser:
         return FragmentDefinitionNode(
             description=description,
             name=self.parse_fragment_name(),
+            variable_definitions=(),
             type_condition=self.parse_type_condition(),
             directives=self.parse_directives(False),
             selection_set=self.parse_selection_set(),
@@ -587,7 +710,7 @@ class Parser:
 
     # Implement the parsing rules in the Values section.
 
-    _parse_value_literal_method_names: Dict[TokenKind, str] = {
+    _parse_value_literal_method_names: Mapping[TokenKind, str] = {
         TokenKind.BRACKET_L: "list",
         TokenKind.BRACE_L: "object",
         TokenKind.INT: "int",
@@ -607,8 +730,9 @@ class Parser:
     def parse_string_literal(self, _is_const: bool = False) -> StringValueNode:
         token = self._lexer.token
         self.advance_lexer()
+        # STRING and BLOCK_STRING tokens always have a value
         return StringValueNode(
-            value=token.value,
+            value=token.value or "",
             block=token.kind == TokenKind.BLOCK_STRING,
             loc=self.loc(token),
         )
@@ -617,7 +741,6 @@ class Parser:
         """ListValue[Const]"""
         start = self._lexer.token
         item = partial(self.parse_value_literal, is_const)
-        # noinspection PyTypeChecker
         return ListValueNode(
             values=self.any(TokenKind.BRACKET_L, item, TokenKind.BRACKET_R),
             loc=self.loc(start),
@@ -644,16 +767,19 @@ class Parser:
     def parse_int(self, _is_const: bool = False) -> IntValueNode:
         token = self._lexer.token
         self.advance_lexer()
-        return IntValueNode(value=token.value, loc=self.loc(token))
+        # INT tokens always have a value
+        return IntValueNode(value=token.value or "", loc=self.loc(token))
 
     def parse_float(self, _is_const: bool = False) -> FloatValueNode:
         token = self._lexer.token
         self.advance_lexer()
-        return FloatValueNode(value=token.value, loc=self.loc(token))
+        # FLOAT tokens always have a value
+        return FloatValueNode(value=token.value or "", loc=self.loc(token))
 
     def parse_named_values(self, _is_const: bool = False) -> ValueNode:
         token = self._lexer.token
-        value = token.value
+        # NAME tokens always have a value
+        value = token.value or ""
         self.advance_lexer()
         if value == "true":
             return BooleanValueNode(value=True, loc=self.loc(token))
@@ -678,20 +804,20 @@ class Parser:
         return self.parse_variable()
 
     def parse_const_value_literal(self) -> ConstValueNode:
-        return cast(ConstValueNode, self.parse_value_literal(True))
+        return cast("ConstValueNode", self.parse_value_literal(True))
 
     # Implement the parsing rules in the Directives section.
 
-    def parse_directives(self, is_const: bool) -> List[DirectiveNode]:
+    def parse_directives(self, is_const: bool) -> tuple[DirectiveNode, ...] | None:
         """Directives[Const]: Directive[?Const]+"""
-        directives: List[DirectiveNode] = []
+        directives: list[DirectiveNode] = []
         append = directives.append
         while self.peek(TokenKind.AT):
             append(self.parse_directive(is_const))
-        return directives
+        return tuple(directives) if directives else None
 
-    def parse_const_directives(self) -> List[ConstDirectiveNode]:
-        return cast(List[ConstDirectiveNode], self.parse_directives(True))
+    def parse_const_directives(self) -> tuple[ConstDirectiveNode, ...] | None:
+        return cast("tuple[ConstDirectiveNode, ...]", self.parse_directives(True))
 
     def parse_directive(self, is_const: bool) -> DirectiveNode:
         """Directive[Const]: @ Name Arguments[?Const]?"""
@@ -726,7 +852,7 @@ class Parser:
 
     # Implement the parsing rules in the Type Definition section.
 
-    _parse_type_extension_method_names: Dict[str, str] = {
+    _parse_type_extension_method_names: Mapping[str, str] = {
         "schema": "schema_extension",
         "scalar": "scalar_type_extension",
         "type": "object_type_extension",
@@ -734,6 +860,7 @@ class Parser:
         "union": "union_type_extension",
         "enum": "enum_type_extension",
         "input": "input_object_type_extension",
+        "directive": "directive_extension",
     }
 
     def parse_type_system_extension(self) -> TypeSystemExtensionNode:
@@ -741,21 +868,16 @@ class Parser:
         keyword_token = self._lexer.lookahead()
         if keyword_token.kind == TokenKind.NAME:
             method_name = self._parse_type_extension_method_names.get(
-                cast(str, keyword_token.value)
+                cast("str", keyword_token.value)
             )
             if method_name:  # pragma: no cover
                 return getattr(self, f"parse_{method_name}")()
-            if (
-                keyword_token.value == "directive"
-                and self._experimental_directives_on_directive_definitions
-            ):
-                return self.parse_directive_definition_extension()
         raise self.unexpected(keyword_token)
 
     def peek_description(self) -> bool:
         return self.peek(TokenKind.STRING) or self.peek(TokenKind.BLOCK_STRING)
 
-    def parse_description(self) -> Optional[StringValueNode]:
+    def parse_description(self) -> StringValueNode | None:
         """Description: StringValue"""
         if self.peek_description():
             return self.parse_string_literal()
@@ -819,15 +941,15 @@ class Parser:
             loc=self.loc(start),
         )
 
-    def parse_implements_interfaces(self) -> List[NamedTypeNode]:
+    def parse_implements_interfaces(self) -> tuple[NamedTypeNode, ...] | None:
         """ImplementsInterfaces"""
         return (
             self.delimited_many(TokenKind.AMP, self.parse_named_type)
             if self.expect_optional_keyword("implements")
-            else []
+            else None
         )
 
-    def parse_fields_definition(self) -> List[FieldDefinitionNode]:
+    def parse_fields_definition(self) -> tuple[FieldDefinitionNode, ...] | None:
         """FieldsDefinition: {FieldDefinition+}"""
         return self.optional_many(
             TokenKind.BRACE_L, self.parse_field_definition, TokenKind.BRACE_R
@@ -851,7 +973,7 @@ class Parser:
             loc=self.loc(start),
         )
 
-    def parse_argument_defs(self) -> List[InputValueDefinitionNode]:
+    def parse_argument_defs(self) -> tuple[InputValueDefinitionNode, ...] | None:
         """ArgumentsDefinition: (InputValueDefinition+)"""
         return self.optional_many(
             TokenKind.PAREN_L, self.parse_input_value_def, TokenKind.PAREN_R
@@ -913,12 +1035,12 @@ class Parser:
             loc=self.loc(start),
         )
 
-    def parse_union_member_types(self) -> List[NamedTypeNode]:
+    def parse_union_member_types(self) -> tuple[NamedTypeNode, ...] | None:
         """UnionMemberTypes"""
         return (
             self.delimited_many(TokenKind.PIPE, self.parse_named_type)
             if self.expect_optional_token(TokenKind.EQUALS)
-            else []
+            else None
         )
 
     def parse_enum_type_definition(self) -> EnumTypeDefinitionNode:
@@ -937,7 +1059,9 @@ class Parser:
             loc=self.loc(start),
         )
 
-    def parse_enum_values_definition(self) -> List[EnumValueDefinitionNode]:
+    def parse_enum_values_definition(
+        self,
+    ) -> tuple[EnumValueDefinitionNode, ...] | None:
         """EnumValuesDefinition: {EnumValueDefinition+}"""
         return self.optional_many(
             TokenKind.BRACE_L, self.parse_enum_value_definition, TokenKind.BRACE_R
@@ -983,7 +1107,9 @@ class Parser:
             loc=self.loc(start),
         )
 
-    def parse_input_fields_definition(self) -> List[InputValueDefinitionNode]:
+    def parse_input_fields_definition(
+        self,
+    ) -> tuple[InputValueDefinitionNode, ...] | None:
         """InputFieldsDefinition: {InputValueDefinition+}"""
         return self.optional_many(
             TokenKind.BRACE_L, self.parse_input_value_def, TokenKind.BRACE_R
@@ -1097,8 +1223,8 @@ class Parser:
             name=name, directives=directives, fields=fields, loc=self.loc(start)
         )
 
-    def parse_directive_definition_extension(self) -> DirectiveExtensionNode:
-        """DirectiveDefinitionExtension"""
+    def parse_directive_extension(self) -> DirectiveExtensionNode:
+        """DirectiveExtension"""
         start = self._lexer.token
         self.expect_keyword("extend")
         self.expect_keyword("directive")
@@ -1121,11 +1247,7 @@ class Parser:
         self.expect_token(TokenKind.AT)
         name = self.parse_name()
         args = self.parse_argument_defs()
-        directives = (
-            self.parse_const_directives()
-            if self._experimental_directives_on_directive_definitions
-            else []
-        )
+        directives = self.parse_const_directives()
         repeatable = self.expect_optional_keyword("repeatable")
         self.expect_keyword("on")
         locations = self.parse_directive_locations()
@@ -1139,7 +1261,7 @@ class Parser:
             loc=self.loc(start),
         )
 
-    def parse_directive_locations(self) -> List[NameNode]:
+    def parse_directive_locations(self) -> tuple[NameNode, ...]:
         """DirectiveLocations"""
         return self.delimited_many(TokenKind.PIPE, self.parse_directive_location)
 
@@ -1151,7 +1273,7 @@ class Parser:
             return name
         raise self.unexpected(start)
 
-    # Schema Coordinates
+    # Implements the parsing rules in the Schema Coordinates section.
 
     def parse_schema_coordinate(self) -> SchemaCoordinateNode:
         """SchemaCoordinate
@@ -1165,10 +1287,10 @@ class Parser:
         start = self._lexer.token
         of_directive = self.expect_optional_token(TokenKind.AT)
         name = self.parse_name()
-        member_name: Optional[NameNode] = None
+        member_name: NameNode | None = None
         if not of_directive and self.expect_optional_token(TokenKind.DOT):
             member_name = self.parse_name()
-        argument_name: Optional[NameNode] = None
+        argument_name: NameNode | None = None
         if (of_directive or member_name) and self.expect_optional_token(
             TokenKind.PAREN_L
         ):
@@ -1197,7 +1319,7 @@ class Parser:
 
     # Core parsing utility functions
 
-    def loc(self, start_token: Token) -> Optional[Location]:
+    def loc(self, start_token: Token) -> Location | None:
         """Return a location object.
 
         Used to identify the place in the source that created a given parsed object.
@@ -1271,7 +1393,7 @@ class Parser:
 
         return False
 
-    def unexpected(self, at_token: Optional[Token] = None) -> GraphQLError:
+    def unexpected(self, at_token: Token | None = None) -> GraphQLError:
         """Create an error when an unexpected lexed token is encountered."""
         token = at_token or self._lexer.token
         return GraphQLSyntaxError(
@@ -1280,30 +1402,30 @@ class Parser:
 
     def any(
         self, open_kind: TokenKind, parse_fn: Callable[[], T], close_kind: TokenKind
-    ) -> List[T]:
+    ) -> tuple[T, ...]:
         """Fetch any matching nodes, possibly none.
 
-        Returns a possibly empty list of parse nodes, determined by the ``parse_fn``.
-        This list begins with a lex token of ``open_kind`` and ends with a lex token of
+        Returns a possibly empty tuple of parse nodes, determined by the ``parse_fn``.
+        This tuple begins with a lex token of ``open_kind`` and ends with a lex token of
         ``close_kind``. Advances the parser to the next lex token after the closing
         token.
         """
         self.expect_token(open_kind)
-        nodes: List[T] = []
+        nodes: list[T] = []
         append = nodes.append
         expect_optional_token = partial(self.expect_optional_token, close_kind)
         while not expect_optional_token():
             append(parse_fn())
-        return nodes
+        return tuple(nodes)
 
     def optional_many(
         self, open_kind: TokenKind, parse_fn: Callable[[], T], close_kind: TokenKind
-    ) -> List[T]:
+    ) -> tuple[T, ...] | None:
         """Fetch matching nodes, maybe none.
 
-        Returns a list of parse nodes, determined by the ``parse_fn``. It can be empty
+        Returns a tuple of parse nodes, determined by the ``parse_fn``. It can be empty
         only if the open token is missing, otherwise it will always return a non-empty
-        list that begins with a lex token of ``open_kind`` and ends with a lex token of
+        tuple that begins with a lex token of ``open_kind`` and ends with a lex token of
         ``close_kind``. Advances the parser to the next lex token after the closing
         token.
         """
@@ -1313,16 +1435,16 @@ class Parser:
             expect_optional_token = partial(self.expect_optional_token, close_kind)
             while not expect_optional_token():
                 append(parse_fn())
-            return nodes
-        return []
+            return tuple(nodes)
+        return None
 
     def many(
         self, open_kind: TokenKind, parse_fn: Callable[[], T], close_kind: TokenKind
-    ) -> List[T]:
+    ) -> tuple[T, ...]:
         """Fetch matching nodes, at least one.
 
-        Returns a non-empty list of parse nodes, determined by the ``parse_fn``. This
-        list begins with a lex token of ``open_kind`` and ends with a lex token of
+        Returns a non-empty tuple of parse nodes, determined by the ``parse_fn``. This
+        tuple begins with a lex token of ``open_kind`` and ends with a lex token of
         ``close_kind``. Advances the parser to the next lex token after the closing
         token.
         """
@@ -1332,27 +1454,27 @@ class Parser:
         expect_optional_token = partial(self.expect_optional_token, close_kind)
         while not expect_optional_token():
             append(parse_fn())
-        return nodes
+        return tuple(nodes)
 
     def delimited_many(
         self, delimiter_kind: TokenKind, parse_fn: Callable[[], T]
-    ) -> List[T]:
+    ) -> tuple[T, ...]:
         """Fetch many delimited nodes.
 
-        Returns a non-empty list of parse nodes, determined by the ``parse_fn``. This
-        list may begin with a lex token of ``delimiter_kind`` followed by items
+        Returns a non-empty tuple of parse nodes, determined by the ``parse_fn``. This
+        tuple may begin with a lex token of ``delimiter_kind`` followed by items
         separated by lex tokens of ``delimiter_kind``. Advances the parser to the next
-        lex token after the last item in the list.
+        lex token after the last item in the tuple.
         """
         expect_optional_token = partial(self.expect_optional_token, delimiter_kind)
         expect_optional_token()
-        nodes: List[T] = []
+        nodes: list[T] = []
         append = nodes.append
         while True:
             append(parse_fn())
             if not expect_optional_token():
                 break
-        return nodes
+        return tuple(nodes)
 
     def advance_lexer(self) -> None:
         """Advance the lexer.

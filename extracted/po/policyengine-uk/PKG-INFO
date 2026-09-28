@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: policyengine-uk
-Version: 2.102.0
+Version: 2.102.2
 Summary: PolicyEngine tax and benefit system for the UK.
 Project-URL: Homepage, https://github.com/PolicyEngine/policyengine-uk
 Project-URL: Repository, https://github.com/PolicyEngine/policyengine-uk
@@ -28,6 +28,7 @@ Requires-Dist: tables>=3.10.2
 Provides-Extra: dev
 Requires-Dist: coverage; extra == 'dev'
 Requires-Dist: furo<2023; extra == 'dev'
+Requires-Dist: hypothesis; extra == 'dev'
 Requires-Dist: jupyter-book>=2.0.0a0; extra == 'dev'
 Requires-Dist: pytest-cov; extra == 'dev'
 Requires-Dist: rich; extra == 'dev'

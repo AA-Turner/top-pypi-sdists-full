@@ -113,6 +113,14 @@ impl SchemaTooltip {
             Self::Composite(composite) => {
                 for (index, content) in composite.contents.iter().enumerate() {
                     if index > 0 {
+                        // Keep the thematic break separate from the preceding
+                        // paragraph. Without the blank line, Markdown parses
+                        // `---` as a setext heading underline, making every
+                        // composite entry before the last one look like a
+                        // heading.
+                        if !output.ends_with("\n\n") {
+                            output.push('\n');
+                        }
                         writeln!(output, "---\n")?;
                     }
                     content.write_markdown(output, keys)?;

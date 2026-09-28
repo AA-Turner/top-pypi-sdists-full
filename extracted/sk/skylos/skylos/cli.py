@@ -9,6 +9,7 @@ import os
 import secrets as secrets_lib
 import tempfile
 from types import SimpleNamespace
+from skylos.core.ci_env import auto_diff_base_ref
 from skylos.cli_core.dispatch import (
     EARLY_COMMAND_HANDLERS as EARLY_COMMAND_HANDLERS,
     dispatch_early_command,
@@ -504,6 +505,7 @@ def _remap_precommit_result_files(
         "secrets",
         "custom_rules",
         "dependency_vulnerabilities",
+        "publisher_change_findings",
         "reviewed_findings",
     ]:
         items = result.get(category, [])
@@ -1379,7 +1381,10 @@ def _render_upload_failure(console: Console, upload_resp: dict[str, object]) -> 
     if err and err != (
         "No token found. Run 'skylos login' or 'skylos project use', or set SKYLOS_TOKEN."
     ):
-        console.print(f"[warn]Upload failed:[/warn] {err}")
+        # Server wording is plain text; never let it act as Rich markup.
+        from rich.markup import escape as _escape_markup
+
+        console.print(f"[warn]Upload failed:[/warn] {_escape_markup(err)}")
 
 
 def _is_ci():
@@ -1553,7 +1558,14 @@ def print_badge(
     console.print("```")
 
 
-_DISPLAY_FILTER_SEVERITY_RANK = {"critical": 4, "high": 3, "medium": 2, "low": 1}
+_DISPLAY_FILTER_SEVERITY_RANK = {
+    "critical": 4,
+    "high": 3,
+    "medium": 2,
+    "warn": 2,
+    "warning": 2,
+    "low": 1,
+}
 _DISPLAY_FILTER_CATEGORY_MAP = {
     "unused_functions": "dead_code",
     "unused_imports": "dead_code",
@@ -1572,6 +1584,7 @@ _DISPLAY_FILTER_CATEGORY_MAP = {
     "circular_dependencies": "quality",
     "custom_rules": "quality",
     "dependency_vulnerabilities": "dependency",
+    "publisher_change_findings": "publisher_change",
 }
 
 _RULE_SELECTION_DEFAULT_IDS = {
@@ -1592,6 +1605,7 @@ _RULE_SELECTION_DEFAULT_IDS = {
     "custom_rules": "CUSTOM",
     "circular_dependencies": "SKY-CIRC",
     "dependency_vulnerabilities": "SKY-SCA-000",
+    "publisher_change_findings": "SKY-SCA-NPM-PUB001",
 }
 
 _RULE_SELECTION_FINDING_CATEGORIES = (
@@ -1612,6 +1626,7 @@ _RULE_SELECTION_FINDING_CATEGORIES = (
     "custom_rules",
     "circular_dependencies",
     "dependency_vulnerabilities",
+    "publisher_change_findings",
 )
 
 _RULE_SELECTION_SUMMARY_COUNTS = {
@@ -1631,6 +1646,7 @@ _RULE_SELECTION_SUMMARY_COUNTS = {
     "custom_rules": "custom_rules_count",
     "circular_dependencies": "circular_dependencies_count",
     "dependency_vulnerabilities": "sca_count",
+    "publisher_change_findings": "publisher_change_count",
 }
 
 _RULE_SELECTION_ANALYSIS_CATEGORY_OVERRIDES = {
@@ -1884,6 +1900,10 @@ def _apply_selected_rule_analysis_flags(args) -> None:
             "Run 'skylos rules list' to discover valid IDs."
         )
     for rule_id in selected_rules:
+        if rule_id == "SKY-SCA-NPM-PUB001":
+            args.sca = True
+            args.scan_publisher_changes = True
+            continue
         category = _RULE_SELECTION_ANALYSIS_CATEGORY_OVERRIDES.get(
             rule_id,
             categories_by_rule.get(rule_id),
@@ -2178,6 +2198,12 @@ def _run_credits_command(_argv):
     return run_credits_command()
 
 
+def _run_upload_command(argv):
+    from skylos.commands.upload_cmd import run_upload_command
+
+    return run_upload_command(argv)
+
+
 def _run_init_command(_argv):
     return run_init()
 
@@ -2252,6 +2278,12 @@ def _run_verify_command(argv):
     from skylos.commands.verify_cmd import run_verify_command
 
     return run_verify_command(argv)
+
+
+def _run_hook_command(argv):
+    from skylos.commands.hook_cmd import run_hook_command
+
+    return run_hook_command(argv)
 
 
 def _run_preflight_command(argv):
@@ -2507,11 +2539,14 @@ CONCISE_FINDING_CATEGORIES = (
     ("secrets", "secret"),
     ("custom_rules", "custom rule"),
     ("dependency_vulnerabilities", "dependency vulnerability"),
+    ("publisher_change_findings", "npm publisher review"),
 )
 
 
 def _has_concise_findings(result: dict) -> bool:
     for category, _label in CONCISE_FINDING_CATEGORIES:
+        if category == "publisher_change_findings":
+            continue
         if result.get(category):
             return True
     return False
@@ -2595,6 +2630,10 @@ def _apply_config_driven_analysis_flags(args, project_cfg, console):
         getattr(args, name, False)
         for name in ("danger", "secrets", "quality", "ai_defects")
     )
+    gate = project_cfg.get("gate")
+    secrets_required_by_policy = bool(project_cfg.get("secrets_enabled", False)) or (
+        isinstance(gate, dict) and gate.get("block_secrets") is True
+    )
 
     enabled_from_policy = []
     if not explicit_category_flags:
@@ -2604,7 +2643,7 @@ def _apply_config_driven_analysis_flags(args, project_cfg, console):
         ):
             args.danger = True
             enabled_from_policy.append("danger")
-        if bool(project_cfg.get("secrets_enabled", False)):
+        if secrets_required_by_policy:
             args.secrets = True
             enabled_from_policy.append("secrets")
         if bool(project_cfg.get("quality_enabled", False)):
@@ -2621,6 +2660,16 @@ def _apply_config_driven_analysis_flags(args, project_cfg, console):
                 + " analysis."
             )
         return
+
+    # Explicit category selection cannot bypass an enabled secret scan or a
+    # gate that always blocks exposed secrets. The gate only sees categories
+    # that the analysis actually ran.
+    if secrets_required_by_policy and not getattr(args, "secrets", False):
+        args.secrets = True
+        if not _is_main_machine_output(args):
+            console.print(
+                "[brand]Secret policy configured:[/brand] enabling secrets analysis automatically."
+            )
 
     # Security contracts are explicit security policy. If they are configured,
     # always run danger analysis so the contracts cannot be silently skipped.
@@ -2987,15 +3036,35 @@ def _run_pre_analysis_steps(args, project_root, console):
 
             diff_root = find_git_root(project_root) or project_root
             os.environ["SKYLOS_DIFF_BASE"] = args.diff_base
-            diff_result = subprocess.run(
-                ["git", "diff", "--name-only", f"{args.diff_base}...HEAD"],
+            # Compare the merge base with the working tree so committed,
+            # staged and unstaged edits all count, plus untracked files.
+            merge_base_result = subprocess.run(
+                ["git", "merge-base", args.diff_base, "HEAD"],
                 cwd=diff_root,
                 capture_output=True,
                 text=True,
             )
-            if diff_result.returncode == 0:
+            merge_base = (
+                merge_base_result.stdout.strip()
+                if merge_base_result.returncode == 0
+                else ""
+            )
+            if merge_base:
+                diff_result = subprocess.run(
+                    ["git", "diff", "--name-only", merge_base],
+                    cwd=diff_root,
+                    capture_output=True,
+                    text=True,
+                )
+            else:
+                diff_result = merge_base_result
+            if merge_base and diff_result.returncode == 0:
+                from skylos.cicd.review import get_untracked_files
+
                 changed_files = set()
                 for line in diff_result.stdout.strip().splitlines():
+                    changed_files.add(str((diff_root / line).resolve()))
+                for line in get_untracked_files(diff_root):
                     changed_files.add(str((diff_root / line).resolve()))
                 if not quiet_output:
                     console.print(
@@ -3026,9 +3095,7 @@ def _dependency_bump_cli_diff_base(args):
     # Do not change other detectors' existing --diff/--diff-base semantics.
     base = getattr(args, "diff_base", None) or getattr(args, "diff", None)
     if base == "auto":
-        base = os.environ.get("GITHUB_BASE_REF", "origin/main")
-        if base and not base.startswith("origin/"):
-            base = f"origin/{base}"
+        base = auto_diff_base_ref()
     return base
 
 
@@ -3590,6 +3657,14 @@ def _build_agent_parser():
 
     add_agent_replay_parser(agent_sub)
 
+    from skylos.commands.install_hooks_cmd import add_install_hooks_parser
+
+    add_install_hooks_parser(agent_sub)
+
+    from skylos.commands.warm_cache_cmd import add_warm_cache_parser
+
+    add_warm_cache_parser(agent_sub)
+
     from skylos.commands.agent_test_cmd import add_agent_test_parsers
 
     add_agent_test_parsers(agent_sub)
@@ -3812,6 +3887,16 @@ def main() -> None:
         review_error = _configure_agent_dead_code_review(agent_args, cmd, console)
         if review_error is not None:
             sys.exit(review_error)
+
+        if cmd == "install-hooks":
+            from skylos.commands.install_hooks_cmd import run_install_hooks_command
+
+            sys.exit(run_install_hooks_command(agent_args))
+
+        if cmd == "warm-cache":
+            from skylos.commands.warm_cache_cmd import run_warm_cache_command
+
+            sys.exit(run_warm_cache_command(agent_args))
 
         if cmd == "replay":
             from skylos.commands.agent_replay_cmd import run_agent_replay_command

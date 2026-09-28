@@ -217,9 +217,9 @@ class FileEditFailure(KindModel):
         "size_before": 512,
         "size_after": 500,
     },
-    # PLACEHOLDER, but a partial-success shape: a patch can apply some edits and
-    # fail others in the SAME successful result, so ``edits_failed`` being
-    # non-empty on a success is normal and must be read, not assumed away.
+    # PLACEHOLDER. fs_patch is ALL-OR-NOTHING on every backend: any failing
+    # edit is a failed call (``patch_no_match`` / ``patch_ambiguous``) that
+    # wrote nothing, so a successful result always carries ``edits_failed=[]``.
     maturity="placeholder",
 )
 class FilePatchResult(KindModel):

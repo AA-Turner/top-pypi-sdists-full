@@ -172,7 +172,7 @@ def test_inject_stats_rewrites_only_the_hero_count(tmp_path):
     unrelated count on the page is rewritten with the rule total."""
     index = tmp_path / "index.md"
     index.write_text(
-        "It catches dead zones with <!-- RULE_COUNT --> rules, then autofixes.\n"
+        "It catches unclear instructions with <!-- RULE_COUNT --> rules, then autofixes.\n"
         "The runbooks plugin ships with 5 rules of its own.\n"
         "A baseline starts you with 5 rules disabled.\n"
     )
@@ -180,7 +180,7 @@ def test_inject_stats_rewrites_only_the_hero_count(tmp_path):
     site_content.inject_stats(index, [object()] * 42)
 
     assert index.read_text() == (
-        "It catches dead zones with 42 rules, then autofixes.\n"
+        "It catches unclear instructions with 42 rules, then autofixes.\n"
         "The runbooks plugin ships with 5 rules of its own.\n"
         "A baseline starts you with 5 rules disabled.\n"
     )
@@ -189,14 +189,14 @@ def test_inject_stats_rewrites_only_the_hero_count(tmp_path):
 def test_inject_stats_is_idempotent_after_the_marker_is_gone(tmp_path):
     index = tmp_path / "index.md"
     index.write_text(
-        "It catches dead zones with 42 rules, then autofixes.\n"
+        "It catches unclear instructions with 42 rules, then autofixes.\n"
         "The runbooks plugin ships with 5 rules of its own.\n"
     )
 
     site_content.inject_stats(index, [object()] * 43)
 
     expected = (
-        "It catches dead zones with 43 rules, then autofixes.\n"
+        "It catches unclear instructions with 43 rules, then autofixes.\n"
         "The runbooks plugin ships with 5 rules of its own.\n"
     )
     assert index.read_text() == expected
@@ -210,12 +210,13 @@ def test_inject_stats_rewrites_the_hero_across_a_line_wrap(tmp_path):
     """The real hero sentence wraps mid-phrase, and rewriting the count must
     not reflow the paragraph."""
     index = tmp_path / "index.md"
-    index.write_text("It catches structural flaws and content dead\nzones with 42 rules.\n")
+    index.write_text("It catches structural flaws and unclear\ninstructions with 42 rules.\n")
 
     site_content.inject_stats(index, [object()] * 43)
 
     assert (
-        index.read_text() == "It catches structural flaws and content dead\nzones with 43 rules.\n"
+        index.read_text()
+        == "It catches structural flaws and unclear\ninstructions with 43 rules.\n"
     )
 
 
@@ -377,11 +378,33 @@ def test_inpage_hrule_rewritten_to_asterisks():
     assert site_content._plain_markdown(setext) == setext
 
 
-def test_llms_txt_marks_deprecated_and_mentions_full_file(llms_txt):
+def test_llms_txt_omits_removed_rules_and_mentions_full_file(llms_txt):
     assert "https://skillsaw.org/llms-full.txt" in llms_txt
-    assert "(deprecated since v" in llms_txt
+    for rule_id in (
+        "content-critical-position",
+        "content-actionability-score",
+        "skill-frontmatter",
+    ):
+        assert f"rules/{rule_id}.md" not in llms_txt
     # Group blurbs carry a flattened first sentence, not bare counts alone.
     assert re.search(r"- \[Security\]\([^)]+\): \d+ rules — ", llms_txt)
+
+
+def test_apm_sources_do_not_name_removed_rules():
+    # .apm/ compiles into the shipped skills; a retired ID there teaches a
+    # rule that no longer exists.
+    apm_root = Path(__file__).resolve().parent.parent / ".apm"
+    offenders = []
+    for path in apm_root.rglob("*.md"):
+        text = path.read_text(encoding="utf-8")
+        for rule_id in (
+            "content-critical-position",
+            "content-actionability-score",
+            "skill-frontmatter",
+        ):
+            if rule_id in text:
+                offenders.append(f"{path.relative_to(apm_root.parent)}: {rule_id}")
+    assert offenders == []
 
 
 def test_write_llms_outputs_writes_both_files(tmp_path):

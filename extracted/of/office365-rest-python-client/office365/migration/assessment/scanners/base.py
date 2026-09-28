@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Generic, TypeVar
+from typing import Any, Generic, Optional, TypeVar
 
 from office365.migration.assessment.containers import ScanContainer
 from office365.migration.assessment.issue import AssessmentIssue
 from office365.migration.assessment.report import AssessmentReport
+from office365.runtime.limits import Limit
 
 PayloadT = TypeVar("PayloadT")
 RecordT = TypeVar("RecordT")
@@ -28,60 +29,45 @@ class ScanTarget(Generic[PayloadT]):
 
 @dataclass
 class AssessmentOptions:
-    """Configurable limits/heuristics used by the scanners (no hardcoded magic).
+    """Product-agnostic scanner options.
 
+    Product packages subclass this to seed the thresholds and the ``limits``
+    mapping from their catalog (e.g. ``SharePointAssessmentOptions``).
     ``disabled_scans`` mirrors SMAT's ScanDef.json ``Enabled`` flag: a scan
     listed here does not run and its data is not collected.
     """
 
-    max_path_length: int = 400
-    max_name_length: int = 128
-    invalid_chars: set[str] = field(default_factory=lambda: set(r'~"#%&*:<>?/\{|}'))
-    large_file_bytes: int = 15 * 1024 * 1024 * 1024  # 15GB file-size limit
-    large_site_threshold_gb: float = 500.0  # sites over 500GB migrate slower
-    strip_field_attrs: set[str] = field(default_factory=lambda: {"ColName", "RowOrdinal", "SourceID", "Version"})
-    approval_workflow_fields: set[str] = field(
-        default_factory=lambda: {"_ApprovalStatus", "_ApprovalRespondedBy", "_ApprovalAssignedTo"}
-    )
+    max_path_length: Optional[int] = None
+    max_name_length: Optional[int] = None
+    invalid_chars: set[str] = field(default_factory=set)
+    large_file_bytes: Optional[int] = None
+    large_excel_bytes: Optional[int] = None
+    long_onedrive_url: Optional[int] = None
+    list_view_threshold: Optional[int] = None
+    index_threshold: Optional[int] = None
+    max_list_items: Optional[int] = None
+    lookup_joins: Optional[int] = None
+    unique_scopes: Optional[int] = None
+    recommended_unique_scopes: Optional[int] = None
+    large_site_threshold_gb: Optional[float] = None
+    strip_field_attrs: set[str] = field(default_factory=set)
+    approval_workflow_fields: set[str] = field(default_factory=set)
     disabled_scans: set[str] = field(default_factory=lambda: {"permissions"})
     include_site_admins: bool = False
-    system_field_names: set[str] = field(
-        default_factory=lambda: {
-            "ContentTypeId",
-            "ContentType",
-            "ID",
-            "Created",
-            "Modified",
-            "Author",
-            "Editor",
-            "ComplianceAssetId",
-            "FileLeafRef",
-            "FileDirRef",
-            "FileRef",
-            "File_x0020_Type",
-            "File_x0020_Size",
-            "UniqueId",
-            "Version",
-            "owshiddenversion",
-            "Attachments",
-            "FSObjType",
-            "MetaInfo",
-            "Order",
-            "ScopeId",
-            "PermMask",
-            "EffectivePermMask",
-            "InstanceID",
-            "WorkflowVersion",
-            "_ModerationStatus",
-            "_ModerationComments",
-            "_CopySource",
-            "_HasCopyDestinations",
-            "_CheckinComment",
-            "_ColorHex",
-            "_ColorTag",
-            "_Emoji",
-        }
-    )
+    system_field_names: set[str] = field(default_factory=set)
+    #: Maps each threshold field to its source :class:`Limit` (seeded by the
+    #: product) so findings can reference the authoritative limit.
+    limits: dict[str, Limit] = field(default_factory=dict)
+
+    def limit(self, name: str) -> Limit:
+        """The source :class:`Limit` for a threshold field (from ``limits``)."""
+        limit = self.limits.get(name)
+        if limit is None:
+            value = getattr(self, name, None)
+            if value is None:
+                raise ValueError(f"no limit or value configured for {name!r}")
+            limit = Limit(name, int(value))
+        return limit
 
 
 class BaseScanner(Generic[RecordT]):
@@ -124,8 +110,10 @@ class BaseScanner(Generic[RecordT]):
         location: str,
         message: str,
         suggestion: str = "",
+        risk_code: str = "",
+        limit: Optional[Limit] = None,
     ) -> None:
-        report.issues.append(AssessmentIssue(severity, self.category, location, message, suggestion))
+        report.issues.append(AssessmentIssue(severity, self.category, location, message, suggestion, risk_code, limit))
 
     def run(self, target: ScanTarget[Any], report: AssessmentReport) -> None:
         """Inspect a loaded container payload (target.entity) and flag / record."""

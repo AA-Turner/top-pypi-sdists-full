@@ -103,6 +103,21 @@ fn waiter_admits_when_only_other_records_are_zero_weight() {
 }
 
 #[test]
+fn explicit_zero_weight_waiter_respects_queue_order() {
+    let mut first = waiting("first", "2026-09-10T00:00:00Z", Some(0.0));
+    first.queue_weight_explicit = true;
+    let second = waiting("second", "2026-09-10T00:00:01Z", Some(1.0));
+
+    let result = snapshot(2.0, vec![first, second]);
+    assert_eq!(
+        result.first_eligible_artifact_dir.as_deref(),
+        Some("/tmp/first")
+    );
+    assert!(waiter(&result, "first").eligible);
+    assert_eq!(waiter(&result, "second").blockers[0].code, "queue-order");
+}
+
+#[test]
 fn implicit_zero_negative_and_nan_record_weights_still_fail_closed() {
     let implicit_zero =
         waiting("implicit-zero", "2026-09-10T00:00:00Z", Some(0.0));
@@ -128,19 +143,19 @@ fn implicit_zero_negative_and_nan_record_weights_still_fail_closed() {
 #[test]
 fn zero_weight_claim_is_not_reusable_by_a_serial_successor() {
     let mut starter = running("starter", Some(2.0));
-    starter.agent_family = Some("fam".to_string());
+    starter.agent_session = Some("fam".to_string());
     starter.live = false;
     let mut monitor = running("monitor", Some(0.0));
-    monitor.agent_family = Some("fam".to_string());
-    monitor.agent_family_role = Some("monitor".to_string());
-    monitor.family_shell_kind = Some("monitor".to_string());
-    monitor.family_shell_id = Some("mon-1".to_string());
+    monitor.agent_session = Some("fam".to_string());
+    monitor.agent_session_role = Some("monitor".to_string());
+    monitor.agent_session_turn_kind = Some("monitor".to_string());
+    monitor.agent_session_turn_id = Some("mon-1".to_string());
     monitor.parent_timestamp = Some("starter".to_string());
     monitor.pid = Some(99);
     monitor.run_started_at = None;
     monitor.queue_weight_explicit = true;
     let mut successor = waiting("successor", "2026-09-10T00:00:00Z", Some(1.0));
-    successor.agent_family = Some("fam".to_string());
+    successor.agent_session = Some("fam".to_string());
     successor.parent_timestamp = Some("monitor".to_string());
     successor.queue_weight_explicit = true;
 
@@ -161,4 +176,54 @@ fn zero_weight_claim_is_not_reusable_by_a_serial_successor() {
             .unwrap();
     assert_eq!(decision.decision, "acquire_capacity");
     assert_eq!(decision.effective_weight, 1.0);
+}
+
+#[test]
+fn multiplier_capacity_resolves_for_waiters_and_preserves_legacy_behavior() {
+    for (multiplier, effective_limit, expected) in
+        [(1.5, 5.0, 7.5), (0.5, 5.0, 2.5), (1.15, 3.0, 3.45)]
+    {
+        let mut record =
+            waiting("multiplier", "2026-09-10T00:00:00Z", Some(0.25));
+        record.queue_capacity_multiplier = Some(multiplier);
+        let result = snapshot_with_flags(
+            effective_limit,
+            vec![record],
+            &capacity_budget_flags(),
+        );
+        let projected = waiter(&result, "multiplier");
+        assert_eq!(projected.queue_capacity_multiplier, Some(multiplier));
+        assert_eq!(projected.admission_limit, expected);
+        assert!(projected.eligible);
+    }
+
+    let mut over_limit =
+        waiting("over-limit", "2026-09-10T00:00:00Z", Some(8.0));
+    over_limit.queue_capacity_multiplier = Some(1.5);
+    let blocked =
+        snapshot_with_flags(5.0, vec![over_limit], &capacity_budget_flags());
+    assert_eq!(waiter(&blocked, "over-limit").admission_limit, 7.5);
+    assert_eq!(
+        waiter(&blocked, "over-limit").blockers[0].code,
+        "weight-exceeds-limit"
+    );
+
+    let mut integer_wins =
+        waiting("integer-wins", "2026-09-10T00:00:00Z", Some(0.25));
+    integer_wins.queue_capacity = Some(4);
+    integer_wins.queue_capacity_explicit = true;
+    integer_wins.queue_capacity_multiplier = Some(1.5);
+    let integer_result =
+        snapshot_with_flags(5.0, vec![integer_wins], &capacity_budget_flags());
+    let integer_waiter = waiter(&integer_result, "integer-wins");
+    assert_eq!(integer_waiter.queue_capacity, Some(4));
+    assert_eq!(integer_waiter.queue_capacity_multiplier, None);
+    assert_eq!(integer_waiter.admission_limit, 4.0);
+
+    let mut legacy = waiting("legacy", "2026-09-10T00:00:00Z", Some(0.25));
+    legacy.queue_capacity_multiplier = Some(1.5);
+    let legacy_result = snapshot(5.0, vec![legacy]);
+    let legacy_waiter = waiter(&legacy_result, "legacy");
+    assert_eq!(legacy_waiter.queue_capacity_multiplier, Some(1.5));
+    assert_eq!(legacy_waiter.admission_limit, 5.0);
 }

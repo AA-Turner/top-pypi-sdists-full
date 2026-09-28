@@ -70,10 +70,16 @@ from matrx_ai.tools.implementations.kind_shared import (
     tsx_compile_check,
 )
 from matrx_ai.tools.implementations.tool_component import (
+    AmbiguousPatchError,
     _apply_patch,
     _bump_semver_patch,
 )
 from matrx_ai.tools.models import ToolContext, ToolError, ToolResult
+from matrx_ai.tools.surface_write import (
+    attach_sections_surface_write,
+    attach_structured_write,
+    attach_surface_write,
+)
 
 KIND_COMPONENT_CREATE_FAILED_KIND = "kind_component_create_failed"
 
@@ -626,6 +632,8 @@ async def kindcomp_update_code(args: dict[str, Any], ctx: ToolContext) -> ToolRe
         if denied_author:
             return denied_author
         sections = list(updates.keys())
+        prior_sections = {k: getattr(comp, k, None) for k in sections}
+        after_sections = {k: updates.get(k) for k in sections}
         if bump_version:
             updates["semver"] = _bump_semver_patch(comp.semver)
         if notes is not None:
@@ -638,21 +646,31 @@ async def kindcomp_update_code(args: dict[str, Any], ctx: ToolContext) -> ToolRe
         fresh = await KindComponent.get_or_none(use_cache=False, id=component_id)
         from matrx_ai.tools.kinds.kind_components import KindComponentUpdateResult
 
-        return ToolResult(
-            success=True,
-            output=KindComponentUpdateResult(
-                component_id=component_id,
-                updated_sections=sections,
-                semver=fresh.semver if fresh else None,
-                version=fresh.version if fresh else None,
-                compile_checked=compile_checked,
-                message=f"Updated {len(sections)} section(s)."
-                + (
-                    ""
-                    if compile_checked
-                    else " WARNING: esbuild missing on this host — TSX syntax NOT verified."
+        return attach_sections_surface_write(
+            ToolResult(
+                success=True,
+                output=KindComponentUpdateResult(
+                    component_id=component_id,
+                    updated_sections=sections,
+                    semver=fresh.semver if fresh else None,
+                    version=fresh.version if fresh else None,
+                    compile_checked=compile_checked,
+                    message=f"Updated {len(sections)} section(s)."
+                    + (
+                        ""
+                        if compile_checked
+                        else " WARNING: esbuild missing on this host — TSX syntax NOT verified."
+                    ),
                 ),
             ),
+            before=prior_sections,
+            after=after_sections,
+            target_type="kind_component",
+            target_id=component_id,
+            target_label=str(getattr(comp, "component_key", None) or component_id),
+            mode="overwrite",
+            content_format="code",
+            language="tsx",
         )
     except Exception as e:
         return ToolResult(
@@ -730,14 +748,17 @@ async def kindcomp_patch_code(args: dict[str, Any], ctx: ToolContext) -> ToolRes
                     }
                 )
             except ValueError as ve:
+                ambiguous = isinstance(ve, AmbiguousPatchError)
                 return ToolResult(
                     success=False,
                     error=ToolError.from_exception(
                         ve,
-                        error_type="patch_no_match",
-                        message=f"Patch {i} ('{desc}') failed: {ve}",
+                        error_type="patch_ambiguous" if ambiguous else "patch_no_match",
+                        message=f"Patch {i} ('{desc}') failed: {ve} Nothing was written.",
                         suggested_action=(
-                            "Fetch current code with kindcomp_get_code and make old_string an "
+                            "Add surrounding lines to old_string until it matches exactly one place."
+                            if ambiguous
+                            else "Fetch current code with kindcomp_get_code and make old_string an "
                             "exact contiguous substring."
                         ),
                     ),
@@ -771,17 +792,28 @@ async def kindcomp_patch_code(args: dict[str, Any], ctx: ToolContext) -> ToolRes
             KindComponentPatchResult,
         )
 
-        return ToolResult(
-            success=True,
-            output=KindComponentPatchResult(
-                component_id=component_id,
-                section=section,
-                patches_applied=len(patches),
-                patch_results=[KindComponentPatchOutcome(**r) for r in results],
-                semver=fresh.semver if fresh else None,
-                version=fresh.version if fresh else None,
-                compile_checked=compile_checked,
+        return attach_surface_write(
+            ToolResult(
+                success=True,
+                output=KindComponentPatchResult(
+                    component_id=component_id,
+                    section=section,
+                    patches_applied=len(patches),
+                    patch_results=[KindComponentPatchOutcome(**r) for r in results],
+                    semver=fresh.semver if fresh else None,
+                    version=fresh.version if fresh else None,
+                    compile_checked=compile_checked,
+                ),
             ),
+            before=code,
+            after=working,
+            target_type="kind_component",
+            target_id=component_id,
+            target_label=f"{getattr(comp, 'component_key', None) or component_id} · {section}",
+            mode="patch",
+            content_format="code",
+            language="tsx",
+            edits=len(patches),
         )
     except Exception as e:
         return ToolResult(
@@ -833,13 +865,21 @@ async def kindcomp_update_settings(args: dict[str, Any], ctx: ToolContext) -> To
         if not rows:
             return err("execution", "Update affected no rows.")
         settings.pop("updated_by", None)
+        fresh = await KindComponent.get_or_none(use_cache=False, id=component_id)
         from matrx_ai.tools.kinds.kind_components import KindComponentUpdateResult
 
-        return ToolResult(
-            success=True,
-            output=KindComponentUpdateResult(
-                component_id=component_id, updated_settings=list(settings.keys())
+        return attach_structured_write(
+            ToolResult(
+                success=True,
+                output=KindComponentUpdateResult(
+                    component_id=component_id, updated_settings=list(settings.keys())
+                ),
             ),
+            before={k: getattr(_comp, k, None) for k in settings},
+            after={k: getattr(fresh, k, None) for k in settings},
+            target_type="kind_component",
+            target_id=component_id,
+            target_label=f"{getattr(_comp, 'component_key', None) or component_id} · settings",
         )
     except Exception as e:
         return ToolResult(

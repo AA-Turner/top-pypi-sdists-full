@@ -85,9 +85,7 @@ impl GetHoverContent for tombi_document_tree_syntax::Float {
                             keys,
                             accessors,
                             one_of_schema,
-                            current_schema.schema_uri.as_ref(),
-                            current_schema.definitions.as_ref(),
-                            current_schema.strict,
+                            current_schema,
                             schema_context,
                         )
                         .await
@@ -99,9 +97,7 @@ impl GetHoverContent for tombi_document_tree_syntax::Float {
                             keys,
                             accessors,
                             any_of_schema,
-                            current_schema.schema_uri.as_ref(),
-                            current_schema.definitions.as_ref(),
-                            current_schema.strict,
+                            current_schema,
                             schema_context,
                         )
                         .await
@@ -113,9 +109,7 @@ impl GetHoverContent for tombi_document_tree_syntax::Float {
                             keys,
                             accessors,
                             all_of_schema,
-                            current_schema.schema_uri.as_ref(),
-                            current_schema.definitions.as_ref(),
-                            current_schema.strict,
+                            current_schema,
                             schema_context,
                         )
                         .await
@@ -129,7 +123,7 @@ impl GetHoverContent for tombi_document_tree_syntax::Float {
                     accessors: tombi_schema_store::Accessors::from(accessors.to_vec()),
                     value_type: tombi_schema_store::ValueType::Float,
                     constraints: None,
-                    schema_uri: None,
+                    schema_document_uri: None,
                     range: Some(self.range()),
                     schema_tooltip: None,
                 }))
@@ -172,7 +166,7 @@ impl GetHoverContent for FloatSchema {
                     multiple_of: self.multiple_of.map(DisplayValue::Float),
                     ..Default::default()
                 }),
-                schema_uri: super::super::current_schema_link_uri(current_schema),
+                schema_document_uri: super::super::current_schema_link_uri(current_schema),
                 range: None,
                 schema_tooltip: None,
             }))

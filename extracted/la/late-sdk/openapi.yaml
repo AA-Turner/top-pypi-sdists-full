@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Zernio API
-  version: "1.105.0"
+  version: "1.115.1"
   description: |
     API reference for Zernio. Authenticate with a Bearer API key.
     Base URL: https://zernio.com/api
@@ -216,6 +216,22 @@ x-documentation:
     - `webhook.test` - Test event sent when verifying a webhook endpoint
 
     Every delivery carries `X-Zernio-Event` (the event name) and `X-Zernio-Event-Id` (the payload's `id`, a UUID generated once when the event is emitted). That id is identical on every subscription that receives the event, on every automatic retry and on a redelivery via `POST /v1/webhooks/logs/redeliver`, so it is the key to dedupe on. Payloads are signed with HMAC-SHA256 via the `X-Zernio-Signature` header when the subscription has a secret. Legacy `X-Late-*` copies of these three headers are still sent and will be removed in a future major version.
+
+    ### Finding the connected account id
+
+    The top-level `id` is the event id (the dedupe key, also sent as `X-Zernio-Event-Id`). It is never an account, post or other resource id. The connected account lives here:
+
+    | Event family | Account id |
+    | --- | --- |
+    | `account.*`, `analytics.synced` | `account.accountId` |
+    | `message.*`, `reaction.received`, `referral.received`, `conversation.*`, `comment.received`, `review.*`, `lead.received`, `call.*` | `account.accountId` (`account.id` carries the same value, kept for compatibility; `call.received`, `call.ended` and `call.failed` also carry `call.accountId`) |
+    | `post.platform.*`, `post.tiktok.url_resolved` | `account.accountId` (the target this event is about; `post.platforms[].accountId` lists every target) |
+    | `post.scheduled`, `post.published`, `post.failed`, `post.partial`, `post.cancelled`, `post.recycled` | `post.platforms[].accountId`, one per target; there is no top-level account |
+    | `post.external.*` | `account.accountId` (also `post.accountId`) |
+    | `ad.status_changed`, `whatsapp.template.*`, `whatsapp.account.name_status_updated` | `account.accountId` |
+    | `whatsapp.automatic_event` | top-level `accountId` |
+    | `whatsapp.number.*`, `sms.registration.*` | none; `number.id` / `registration.id` are the number and registration ids, `number.profileId` / `registration.profileId` the profile |
+    | `verification.*`, `phone_number.stock_available`, `webhook.test` | none |
 
     ## Full Documentation
 
@@ -3249,7 +3265,7 @@ components:
       properties:
         id:
           type: string
-          description: Stable webhook event ID
+          description: 'Stable webhook event ID: the dedupe key, also sent as the X-Zernio-Event-Id header and identical on every retry and redelivery. It identifies the event only, never an account or other resource.'
         event:
           type: string
           enum: [post.scheduled, post.published, post.failed, post.partial, post.cancelled, post.recycled]
@@ -3330,7 +3346,7 @@ components:
       properties:
         id:
           type: string
-          description: Stable webhook event ID.
+          description: 'Stable webhook event ID: the dedupe key, also sent as the X-Zernio-Event-Id header and identical on every retry and redelivery. It identifies the event only, never an account or other resource.'
         event:
           type: string
           enum: [post.platform.published, post.platform.failed, post.platform.deleted, post.tiktok.url_resolved]
@@ -3420,7 +3436,7 @@ components:
       properties:
         id:
           type: string
-          description: Stable webhook event ID
+          description: 'Stable webhook event ID: the dedupe key, also sent as the X-Zernio-Event-Id header and identical on every retry and redelivery. It identifies the event only, never an account or other resource.'
         event:
           type: string
           enum: [account.connected]
@@ -3562,7 +3578,7 @@ components:
       properties:
         id:
           type: string
-          description: Stable webhook event ID
+          description: 'Stable webhook event ID: the dedupe key, also sent as the X-Zernio-Event-Id header and identical on every retry and redelivery. It identifies the event only, never an account or other resource.'
         event:
           type: string
           enum: [phone_number.stock_available]
@@ -3595,7 +3611,7 @@ components:
       properties:
         id:
           type: string
-          description: Stable webhook event ID
+          description: 'Stable webhook event ID: the dedupe key, also sent as the X-Zernio-Event-Id header and identical on every retry and redelivery. It identifies the event only, never an account or other resource.'
         event:
           type: string
           enum: [account.disconnected]
@@ -3636,7 +3652,7 @@ components:
       properties:
         id:
           type: string
-          description: Stable webhook event ID
+          description: 'Stable webhook event ID: the dedupe key, also sent as the X-Zernio-Event-Id header and identical on every retry and redelivery. It identifies the event only, never an account or other resource.'
         event:
           type: string
           enum: [account.ads.initial_sync_completed]
@@ -3760,7 +3776,7 @@ components:
       properties:
         id:
           type: string
-          description: Stable webhook event ID
+          description: 'Stable webhook event ID: the dedupe key, also sent as the X-Zernio-Event-Id header and identical on every retry and redelivery. It identifies the event only, never an account or other resource.'
         event:
           type: string
           enum: [analytics.synced]
@@ -3810,7 +3826,7 @@ components:
       properties:
         id:
           type: string
-          description: Stable webhook event ID
+          description: 'Stable webhook event ID: the dedupe key, also sent as the X-Zernio-Event-Id header and identical on every retry and redelivery. It identifies the event only, never an account or other resource.'
         event:
           type: string
           enum: [comment.received]
@@ -3958,7 +3974,7 @@ components:
       properties:
         id:
           type: string
-          description: Stable webhook event ID
+          description: 'Stable webhook event ID: the dedupe key, also sent as the X-Zernio-Event-Id header and identical on every retry and redelivery. It identifies the event only, never an account or other resource.'
         event:
           type: string
           enum: [lead.received]
@@ -4073,7 +4089,7 @@ components:
       properties:
         id:
           type: string
-          description: Stable webhook event ID
+          description: 'Stable webhook event ID: the dedupe key, also sent as the X-Zernio-Event-Id header and identical on every retry and redelivery. It identifies the event only, never an account or other resource.'
         event:
           type: string
           enum: [review.new]
@@ -4109,7 +4125,7 @@ components:
       properties:
         id:
           type: string
-          description: Stable webhook event ID
+          description: 'Stable webhook event ID: the dedupe key, also sent as the X-Zernio-Event-Id header and identical on every retry and redelivery. It identifies the event only, never an account or other resource.'
         event:
           type: string
           enum: [review.updated]
@@ -4196,7 +4212,7 @@ components:
       properties:
         id:
           type: string
-          description: Stable webhook event ID
+          description: 'Stable webhook event ID: the dedupe key, also sent as the X-Zernio-Event-Id header and identical on every retry and redelivery. It identifies the event only, never an account or other resource.'
         event:
           type: string
           enum: [post.external.created, post.external.updated, post.external.deleted]
@@ -4410,7 +4426,7 @@ components:
       properties:
         id:
           type: string
-          description: Stable webhook event ID
+          description: 'Stable webhook event ID: the dedupe key, also sent as the X-Zernio-Event-Id header and identical on every retry and redelivery. It identifies the event only, never an account or other resource.'
         event:
           type: string
           enum: [reaction.received]
@@ -4471,7 +4487,7 @@ components:
       properties:
         id:
           type: string
-          description: Stable webhook event ID
+          description: 'Stable webhook event ID: the dedupe key, also sent as the X-Zernio-Event-Id header and identical on every retry and redelivery. It identifies the event only, never an account or other resource.'
         event:
           type: string
           enum: [referral.received]
@@ -4541,7 +4557,7 @@ components:
       properties:
         id:
           type: string
-          description: Stable webhook event ID
+          description: 'Stable webhook event ID: the dedupe key, also sent as the X-Zernio-Event-Id header and identical on every retry and redelivery. It identifies the event only, never an account or other resource.'
         event:
           type: string
           enum: [message.received]
@@ -5039,7 +5055,7 @@ components:
       properties:
         id:
           type: string
-          description: Stable webhook event ID
+          description: 'Stable webhook event ID: the dedupe key, also sent as the X-Zernio-Event-Id header and identical on every retry and redelivery. It identifies the event only, never an account or other resource.'
         event:
           type: string
           enum: [message.sent]
@@ -5255,7 +5271,7 @@ components:
         the current content.
       required: [id, event, message, editHistory, editCount, editedAt, conversation, account, timestamp]
       properties:
-        id: { type: string }
+        id: { type: string, description: 'Stable webhook event ID: the dedupe key, also sent as the X-Zernio-Event-Id header and identical on every retry and redelivery. It identifies the event only, never an account or other resource.' }
         event: { type: string, enum: [message.edited] }
         message:
           $ref: '#/components/schemas/InboxWebhookMessage'
@@ -5295,7 +5311,7 @@ components:
         moderation, compliance, or archival use cases.
       required: [id, event, message, deletedAt, conversation, account, timestamp]
       properties:
-        id: { type: string }
+        id: { type: string, description: 'Stable webhook event ID: the dedupe key, also sent as the X-Zernio-Event-Id header and identical on every retry and redelivery. It identifies the event only, never an account or other resource.' }
         event: { type: string, enum: [message.deleted] }
         message:
           $ref: '#/components/schemas/InboxWebhookMessage'
@@ -5326,7 +5342,7 @@ components:
             carrier's numeric code and `error.message` its reason.
       required: [id, event, message, statusAt, conversation, account, timestamp]
       properties:
-        id: { type: string }
+        id: { type: string, description: 'Stable webhook event ID: the dedupe key, also sent as the X-Zernio-Event-Id header and identical on every retry and redelivery. It identifies the event only, never an account or other resource.' }
         event:
           type: string
           enum: [message.delivered, message.read, message.failed]
@@ -5375,7 +5391,7 @@ components:
         Bluesky, SMS, TikTok). Platform-agnostic: one subscription covers every DM platform.
       required: [id, event, conversation, account, startedAt, timestamp]
       properties:
-        id: { type: string, description: Stable webhook event ID }
+        id: { type: string, description: 'Stable webhook event ID: the dedupe key, also sent as the X-Zernio-Event-Id header and identical on every retry and redelivery. It identifies the event only, never an account or other resource.' }
         event:
           type: string
           enum: [conversation.started]
@@ -5398,7 +5414,7 @@ components:
         handed it to you, or another partner app took it.
       required: [id, event, conversation, account, control, changedAt, timestamp]
       properties:
-        id: { type: string, description: Stable webhook event ID }
+        id: { type: string, description: 'Stable webhook event ID: the dedupe key, also sent as the X-Zernio-Event-Id header and identical on every retry and redelivery. It identifies the event only, never an account or other resource.' }
         event:
           type: string
           enum: [conversation.control_changed]
@@ -5504,7 +5520,7 @@ components:
         `call.direction` to tell them apart.
       required: [id, event, call, account, timestamp]
       properties:
-        id: { type: string, description: Stable webhook event ID }
+        id: { type: string, description: 'Stable webhook event ID: the dedupe key, also sent as the X-Zernio-Event-Id header and identical on every retry and redelivery. It identifies the event only, never an account or other resource.' }
         event:
           type: string
           enum: [call.received]
@@ -5534,7 +5550,7 @@ components:
         with the duration and a zero-markup billing breakdown.
       required: [id, event, call, account, timestamp]
       properties:
-        id: { type: string }
+        id: { type: string, description: 'Stable webhook event ID: the dedupe key, also sent as the X-Zernio-Event-Id header and identical on every retry and redelivery. It identifies the event only, never an account or other resource.' }
         event:
           type: string
           enum: [call.ended]
@@ -5585,7 +5601,7 @@ components:
         setup or in-progress call fails.
       required: [id, event, call, account, timestamp]
       properties:
-        id: { type: string }
+        id: { type: string, description: 'Stable webhook event ID: the dedupe key, also sent as the X-Zernio-Event-Id header and identical on every retry and redelivery. It identifies the event only, never an account or other resource.' }
         event:
           type: string
           enum: [call.failed]
@@ -5618,7 +5634,7 @@ components:
         `call_permission_request` message.
       required: [id, event, permission, account, timestamp]
       properties:
-        id: { type: string }
+        id: { type: string, description: 'Stable webhook event ID: the dedupe key, also sent as the X-Zernio-Event-Id header and identical on every retry and redelivery. It identifies the event only, never an account or other resource.' }
         event:
           type: string
           enum: [call.permission_request]
@@ -5651,7 +5667,7 @@ components:
       properties:
         id:
           type: string
-          description: Stable webhook event ID
+          description: 'Stable webhook event ID: the dedupe key, also sent as the X-Zernio-Event-Id header and identical on every retry and redelivery. It identifies the event only, never an account or other resource.'
         event:
           type: string
           enum: [ad.status_changed]
@@ -5755,7 +5771,7 @@ components:
       properties:
         id:
           type: string
-          description: Stable webhook event ID
+          description: 'Stable webhook event ID: the dedupe key, also sent as the X-Zernio-Event-Id header and identical on every retry and redelivery. It identifies the event only, never an account or other resource.'
         event:
           type: string
           enum: [whatsapp.template.status_updated]
@@ -5808,7 +5824,7 @@ components:
       properties:
         id:
           type: string
-          description: Stable webhook event ID
+          description: 'Stable webhook event ID: the dedupe key, also sent as the X-Zernio-Event-Id header and identical on every retry and redelivery. It identifies the event only, never an account or other resource.'
         event:
           type: string
           enum: [whatsapp.template.category_updated]
@@ -5874,7 +5890,7 @@ components:
       properties:
         id:
           type: string
-          description: Stable webhook event ID
+          description: 'Stable webhook event ID: the dedupe key, also sent as the X-Zernio-Event-Id header and identical on every retry and redelivery. It identifies the event only, never an account or other resource.'
         event:
           type: string
           enum: [whatsapp.account.name_status_updated]
@@ -5915,7 +5931,7 @@ components:
       properties:
         id:
           type: string
-          description: Stable webhook event ID
+          description: 'Stable webhook event ID: the dedupe key, also sent as the X-Zernio-Event-Id header and identical on every retry and redelivery. It identifies the event only, never an account or other resource.'
         event:
           type: string
           enum: [webhook.test]
@@ -9745,6 +9761,30 @@ components:
           - `LOWEST_COST_WITH_MIN_ROAS`: requires `roasAverageFloor` (decimal multiplier, 2.0 = 2.0x).
         Source: facebook-business-sdk-codegen api_specs/specs/enum_types.json (`AdSet_bid_strategy`,
         `Campaign_bid_strategy`).
+    GoogleAdsHierarchyClient:
+      type: object
+      description: "A Google Ads account inside a manager tree."
+      properties:
+        customerId: { type: string, description: "Native Google Ads customer id, digits only." }
+        name: { type: [string, "null"], description: "Null for a pending invitation." }
+        currency: { type: [string, "null"] }
+        timeZone: { type: [string, "null"] }
+        manager: { type: boolean, description: "True for a sub-manager account." }
+        testAccount: { type: boolean }
+        hidden: { type: boolean, description: "Hidden in the manager's Google Ads UI." }
+        level: { type: integer, description: "Distance from the root (1 = direct client of the root)." }
+        status: { type: [string, "null"], description: "Google customer status: ENABLED, CANCELED, SUSPENDED or CLOSED. Null for a pending invitation." }
+        parentCustomerId: { type: [string, "null"], description: "Direct manager of this account. Null only when more than 50 managers under the root were skipped." }
+        managerLinkId: { type: [string, "null"], description: "Id of the link to the parent, used by PATCH /v1/ads/accounts/manager-links." }
+        linkStatus: { type: [string, "null"], enum: [ACTIVE, PENDING, null] }
+    GoogleAdsManagerLink:
+      type: object
+      properties:
+        managerCustomerId: { type: string }
+        clientCustomerId: { type: string }
+        managerLinkId: { type: [string, "null"], description: "Null on a validateOnly invitation, where Google creates nothing." }
+        status: { type: string, enum: [PENDING, ACTIVE, REFUSED, CANCELED, INACTIVE], description: "Status the link has after this call." }
+        validateOnly: { type: boolean }
     PortfolioBidStrategy:
       type: object
       description: "A Google Ads portfolio bid strategy: a named bidding strategy shared across campaigns, with its R.130 report metrics over the queried date range."
@@ -10267,6 +10307,124 @@ components:
         Display and Performance Max campaigns. Excluded locations always use presence
         (Google refuses presence_or_interest for exclusions on these campaign types).
       example: presence
+    GoogleDemandGenInput:
+      type: object
+      additionalProperties: false
+      description: "Creative, channel and audience settings for a Google Demand Gen campaign (campaignType demand_gen). Creates one ad group with one ad: a multi-asset image ad, a video responsive ad when youtubeVideoIds is sent, or a carousel ad when carouselCards is sent."
+      required: [finalUrl, businessName, headlines, descriptions, images]
+      properties:
+        adGroupName: { type: string, maxLength: 255, description: "Defaults to the ad name." }
+        finalUrl: { type: string, format: uri }
+        businessName: { type: string, maxLength: 25 }
+        headlines: { type: array, minItems: 1, maxItems: 5, items: { type: string, maxLength: 40 }, description: "Distinct texts. A carousel ad takes exactly one." }
+        longHeadlines: { type: array, minItems: 1, maxItems: 5, items: { type: string, maxLength: 90 }, description: "Video ads only, and required there." }
+        descriptions: { type: array, minItems: 1, maxItems: 5, items: { type: string, maxLength: 90 }, description: "A carousel ad takes exactly one." }
+        callToAction: { type: string, maxLength: 25, description: "Image and carousel ads only. Call to action text such as 'Learn more'; Google picks one when omitted." }
+        images:
+          type: object
+          additionalProperties: false
+          required: [logo]
+          description: "Public image URLs. An image ad needs landscape or square; video and carousel ads take only one logo (carousel images go on each card)."
+          properties:
+            landscape: { type: array, minItems: 1, maxItems: 20, items: { type: string, format: uri }, description: "1.91:1, at least 600x314." }
+            square: { type: array, minItems: 1, maxItems: 20, items: { type: string, format: uri }, description: "1:1, at least 300x300." }
+            portrait: { type: array, minItems: 1, maxItems: 20, items: { type: string, format: uri }, description: "4:5, at least 480x600." }
+            logo: { type: array, minItems: 1, maxItems: 5, items: { type: string, format: uri }, description: "1:1, at least 128x128." }
+        youtubeVideoIds: { type: array, minItems: 1, maxItems: 5, items: { type: string, pattern: '^[A-Za-z0-9_-]{11}$' }, description: "Makes the ad a video responsive ad." }
+        carouselCards:
+          type: array
+          minItems: 2
+          maxItems: 10
+          description: "Makes the ad a carousel ad. Each card needs its own image (no two cards may share one); use the same image shape on every card. Card images are uploaded to the account's asset library before the campaign is created, validateOnly included (Google checks cards against existing images; identical images are reused, not duplicated)."
+          items:
+            type: object
+            additionalProperties: false
+            required: [headline, images]
+            properties:
+              headline: { type: string, maxLength: 40 }
+              finalUrl: { type: string, format: uri, description: "Defaults to demandGen.finalUrl." }
+              callToAction: { type: string, maxLength: 25 }
+              images:
+                type: object
+                additionalProperties: false
+                minProperties: 1
+                properties:
+                  landscape: { type: string, format: uri, description: "1.91:1." }
+                  square: { type: string, format: uri, description: "1:1." }
+                  portrait: { type: string, format: uri, description: "4:5." }
+        channels:
+          type: array
+          minItems: 1
+          items: { type: string, enum: [youtube_in_stream, youtube_in_feed, youtube_shorts, discover, gmail, display] }
+          description: "Channel controls on the ad group. Only the listed channels serve; omit to serve on all of them."
+        audience:
+          $ref: '#/components/schemas/GoogleDemandGenAudience'
+        audienceId: { type: string, description: "Attach an existing Google Audience by numeric id instead of audience." }
+    GoogleDemandGenAudience:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      description: "Created as a Google Audience and attached to the ad group. Send at least one dimension. Ids are numeric Google ids (user lists, interest categories, custom audiences) from the same customer."
+      properties:
+        userLists: { type: array, minItems: 1, maxItems: 20, items: { type: string } }
+        userInterests: { type: array, minItems: 1, maxItems: 20, items: { type: string } }
+        customAudiences: { type: array, minItems: 1, maxItems: 20, items: { type: string } }
+        ageRanges:
+          type: array
+          minItems: 1
+          maxItems: 6
+          items:
+            type: object
+            required: [min]
+            properties:
+              min: { type: integer, enum: [18, 25, 35, 45, 55, 65] }
+              max: { type: integer, enum: [24, 34, 44, 54, 64], description: "Omit for no upper bound." }
+        genders: { type: array, minItems: 1, maxItems: 3, items: { type: string, enum: [male, female, undetermined] } }
+    GoogleDemandGenUpdate:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      description: |
+        Partial edit of a Google Demand Gen ad, sent in one atomic Google request. Every field
+        you send replaces that whole field; fields you omit are kept. Which creative fields
+        apply depends on the ad (read from Google): image ads take headlines, descriptions,
+        businessName, callToAction and images (landscape, square, portrait, logo); video ads
+        take headlines, longHeadlines, descriptions, businessName, youtubeVideoIds and exactly
+        one images.logo; carousel ads take exactly one headline, one description, one logo,
+        businessName and callToAction (their cards cannot be edited: create a new carousel ad).
+        A field the ad does not take returns 422. New images are uploaded as new Google assets;
+        the previous ones stay in the account's asset library.
+
+        `channels`, `audience` and `audienceId` change the ad's ad group, so they apply to every
+        ad in it. `audience` builds a new Google Audience and attaches it in place of the current
+        one (the previous audience is detached, not deleted); `audienceId` attaches an existing
+        one. Ad groups of campaigns migrated from Discovery use ungrouped audience segments,
+        and Google refuses an Audience on them.
+      properties:
+        finalUrl: { type: string, format: uri }
+        businessName: { type: string, maxLength: 25 }
+        headlines: { type: array, minItems: 1, maxItems: 5, items: { type: string, maxLength: 40 } }
+        longHeadlines: { type: array, minItems: 1, maxItems: 5, items: { type: string, maxLength: 90 }, description: "Video ads only." }
+        descriptions: { type: array, minItems: 1, maxItems: 5, items: { type: string, maxLength: 90 } }
+        callToAction: { type: string, maxLength: 25, description: "Image and carousel ads only." }
+        images:
+          type: object
+          additionalProperties: false
+          minProperties: 1
+          properties:
+            landscape: { type: array, minItems: 1, maxItems: 20, items: { type: string, format: uri } }
+            square: { type: array, minItems: 1, maxItems: 20, items: { type: string, format: uri } }
+            portrait: { type: array, minItems: 1, maxItems: 20, items: { type: string, format: uri } }
+            logo: { type: array, minItems: 1, maxItems: 5, items: { type: string, format: uri } }
+        youtubeVideoIds: { type: array, minItems: 1, maxItems: 5, items: { type: string, pattern: '^[A-Za-z0-9_-]{11}$' }, description: "Video ads only." }
+        channels:
+          type: array
+          minItems: 1
+          items: { type: string, enum: [youtube_in_stream, youtube_in_feed, youtube_shorts, discover, gmail, display] }
+          description: "Replaces the ad group's channel controls; only the listed channels serve."
+        audience:
+          $ref: '#/components/schemas/GoogleDemandGenAudience'
+        audienceId: { type: string, description: "Attach an existing Google Audience by numeric id instead of audience." }
     GooglePmaxAssetGroupInput:
       type: object
       additionalProperties: false
@@ -10394,13 +10552,20 @@ components:
           landscape: ['https://example.com/new-landscape.png']
     GooglePmaxAssetGroup:
       type: object
-      required: [id, resourceName, name, status, finalUrls, assets]
+      required: [id, resourceName, campaignId, name, status, finalUrls, finalMobileUrls, path1, path2, adStrength, primaryStatus, primaryStatusReasons, assets]
       properties:
-        id: { type: string }
-        resourceName: { type: string }
+        id: { type: string, description: "Stable Google asset group id. Use it in the asset-group endpoints below." }
+        resourceName: { type: string, description: "customers/{customerId}/assetGroups/{assetGroupId}" }
+        campaignId: { type: string }
         name: { type: string }
         status: { type: string, description: "Asset-group status on Google. Campaign status independently controls delivery." }
         finalUrls: { type: array, items: { type: string, format: uri } }
+        finalMobileUrls: { type: array, items: { type: string, format: uri } }
+        path1: { type: [string, "null"] }
+        path2: { type: [string, "null"] }
+        adStrength: { type: [string, "null"], description: "Google ad strength, such as POOR, AVERAGE, GOOD or EXCELLENT." }
+        primaryStatus: { type: [string, "null"], description: "Why the group is or is not serving, such as ELIGIBLE, PAUSED or NOT_ELIGIBLE." }
+        primaryStatusReasons: { type: array, items: { type: string } }
         assets:
           type: array
           items:
@@ -10413,6 +10578,92 @@ components:
               text: { type: string }
               imageUrl: { type: string, format: uri }
               youtubeVideoId: { type: string }
+    GooglePmaxAssetGroupDetail:
+      allOf:
+        - $ref: '#/components/schemas/GooglePmaxAssetGroup'
+        - type: object
+          required: [listingGroupFilters]
+          properties:
+            listingGroupFilters:
+              type: array
+              description: "The asset group's listing-group tree as flat nodes (retail campaigns). Empty when the group has none."
+              items: { $ref: '#/components/schemas/GoogleListingGroupFilterNode' }
+    GoogleListingGroupFilterNode:
+      type: object
+      required: [id, resourceName, parentResourceName, type, listingSource, dimension]
+      properties:
+        id: { type: string }
+        resourceName: { type: string, description: "customers/{customerId}/assetGroupListingGroupFilters/{assetGroupId}~{filterId}" }
+        parentResourceName: { type: [string, "null"], description: "Null for the root node." }
+        type: { type: string, enum: [SUBDIVISION, UNIT_INCLUDED, UNIT_EXCLUDED] }
+        listingSource: { type: string }
+        dimension: { type: [object, "null"], description: "Google's case value for the node, such as { productBrand: { value: 'Acme' } }. A dimension with no value is the everything-else node. Null for the root." }
+    GoogleAssetGroupAssetLink:
+      type: object
+      required: [fieldType]
+      description: "Link one asset to the asset group. Send exactly one of asset (an existing asset), text, imageUrl or youtubeVideoId (new content, created in the same request)."
+      properties:
+        fieldType: { type: string, description: "Google AssetFieldType, such as HEADLINE, LONG_HEADLINE, DESCRIPTION, BUSINESS_NAME, MARKETING_IMAGE, SQUARE_MARKETING_IMAGE, PORTRAIT_MARKETING_IMAGE, LOGO, LANDSCAPE_LOGO or YOUTUBE_VIDEO." }
+        asset: { type: string, description: "Existing asset id or resource name customers/{customerId}/assets/{assetId}. Must belong to the campaign's ad account." }
+        text: { type: string, maxLength: 90, description: "Text assets link as HEADLINE, LONG_HEADLINE, DESCRIPTION or BUSINESS_NAME." }
+        imageUrl: { type: string, format: uri, description: "Public http(s) image. Links as an image role or LOGO / LANDSCAPE_LOGO." }
+        youtubeVideoId: { type: string, pattern: '^[A-Za-z0-9_-]{11}$', description: "Links as YOUTUBE_VIDEO." }
+    GoogleAssetGroupAssetUnlink:
+      type: object
+      required: [fieldType, asset]
+      properties:
+        fieldType: { type: string }
+        asset: { type: string, description: "Asset id or resource name, as returned in the asset group's assets." }
+    GoogleListingGroupDimension:
+      type: object
+      description: "Exactly one key. Omit the value (for example { productBrand: {} }) for the everything-else node of that level."
+      properties:
+        productBrand: { type: object, properties: { value: { type: string } } }
+        productCategory:
+          type: object
+          required: [level]
+          properties:
+            categoryId: { type: string, description: "Google product category id." }
+            level: { type: string, enum: [LEVEL1, LEVEL2, LEVEL3, LEVEL4, LEVEL5] }
+        productType:
+          type: object
+          required: [level]
+          properties:
+            value: { type: string }
+            level: { type: string, enum: [LEVEL1, LEVEL2, LEVEL3, LEVEL4, LEVEL5] }
+        productItemId: { type: object, properties: { value: { type: string } } }
+        productCondition: { type: object, properties: { condition: { type: string, enum: [NEW, REFURBISHED, USED] } } }
+        productChannel: { type: object, properties: { channel: { type: string, enum: [ONLINE, LOCAL] } } }
+        productCustomAttribute:
+          type: object
+          required: [index]
+          properties:
+            value: { type: string }
+            index: { type: string, enum: [INDEX0, INDEX1, INDEX2, INDEX3, INDEX4] }
+    GoogleListingGroupNode:
+      type: object
+      required: [dimension]
+      properties:
+        dimension: { $ref: '#/components/schemas/GoogleListingGroupDimension' }
+        excluded: { type: boolean, description: "Leaf only. true excludes these products." }
+        children:
+          type: array
+          minItems: 2
+          description: "Makes the node a subdivision. Children share one dimension (and level or index) and include exactly one everything-else node."
+          items: { $ref: '#/components/schemas/GoogleListingGroupNode' }
+    GoogleListingGroupTree:
+      type: object
+      description: "The root of a Performance Max retail listing-group tree (listing source SHOPPING). No children targets all products. Requires a campaign linked to Merchant Center."
+      properties:
+        children:
+          type: array
+          minItems: 2
+          items: { $ref: '#/components/schemas/GoogleListingGroupNode' }
+      example:
+        children:
+          - dimension: { productBrand: { value: 'Acme' } }
+          - dimension: { productBrand: {} }
+            excluded: true
     GoogleRsaHeadline:
       type: object
       required:
@@ -10926,10 +11177,82 @@ components:
             page_id: { type: string }
         earliestAd: { type: string, format: date-time }
         latestAd: { type: string, format: date-time }
-    AdKeyword:
+    GoogleAdLabel:
+      type: object
+      properties:
+        id: { type: string, description: Google label id }
+        resourceName: { type: string }
+        name: { type: string }
+        status: { type: string, enum: [ENABLED, REMOVED, UNKNOWN] }
+        backgroundColor: { type: [string, "null"], description: '#RRGGBB' }
+        description: { type: [string, "null"], description: 'Null when empty.' }
+    GoogleAdLabelAssignments:
+      type: object
+      additionalProperties: false
+      required: [accountId]
+      description: At least one id across the four target lists. Up to 1000 ids per list.
+      properties:
+        accountId: { type: string, description: Zernio SocialAccount id (Google Ads) }
+        adAccountId: { type: string, pattern: '^\d+$', description: 'Google customer id. Required when the connection has multiple customers.' }
+        customerId: { type: string, pattern: '^\d+$', deprecated: true, description: Alias of adAccountId }
+        campaignIds: { type: array, maxItems: 1000, items: { type: string, pattern: '^\d+$' }, description: Google campaign ids }
+        adSetIds: { type: array, maxItems: 1000, items: { type: string, pattern: '^\d+$' }, description: Google ad group ids }
+        adIds: { type: array, maxItems: 1000, items: { type: string, pattern: '^\d+~\d+$' }, description: 'Google ad group ad ids, {adGroupId}~{adId}' }
+        keywordIds: { type: array, maxItems: 1000, items: { type: string, pattern: '^\d+~\d+$' }, description: 'Google keyword criterion ids, {adGroupId}~{criterionId}' }
+    GoogleBiddableGoalInput:
+      type: object
+      additionalProperties: false
+      required: [category, origin, biddable]
+      properties:
+        category: { type: string, pattern: '^[A-Z][A-Z0-9_]*$', description: "Google ConversionActionCategory, e.g. PURCHASE, SIGNUP, SUBMIT_LEAD_FORM" }
+        origin: { type: string, pattern: '^[A-Z][A-Z0-9_]*$', description: "Google ConversionOrigin, e.g. WEBSITE, APP, CALL_FROM_ADS, STORE, GOOGLE_HOSTED" }
+        biddable: { type: boolean }
+    GoogleCustomerConversionGoal:
+      type: object
+      properties:
+        category: { type: string }
+        origin: { type: string }
+        biddable: { type: boolean, description: 'Used for bidding and counted in the Conversions column.' }
+        resourceName: { type: string }
+        conversionActions:
+          type: array
+          description: Non-removed conversion actions in this category and origin.
+          items:
+            type: object
+            properties:
+              id: { type: string }
+              name: { type: string }
+              status: { type: string }
+              primaryForGoal: { type: boolean, description: 'true = primary, false = secondary' }
+    GoogleCampaignConversionGoals:
+      type: object
+      properties:
+        campaignId: { type: string }
+        goalConfigLevel: { type: string, enum: [CUSTOMER, CAMPAIGN, UNSPECIFIED, UNKNOWN] }
+        customConversionGoalId: { type: [string, "null"] }
+        goals:
+          type: array
+          items:
+            type: object
+            properties:
+              category: { type: string }
+              origin: { type: string }
+              biddable: { type: boolean }
+              resourceName: { type: string }
+    GoogleCustomConversionGoal:
       type: object
       properties:
         id: { type: string }
+        resourceName: { type: string }
+        name: { type: string }
+        status: { type: string }
+        conversionActionIds: { type: array, items: { type: string } }
+    AdKeyword:
+      type: object
+      properties:
+        id: { type: string, description: 'Zernio keyword ID. Accepted as `keywordId` by PATCH/DELETE /v1/ads/keywords/{keywordId}.' }
+        platformCriterionId: { type: string, description: 'Google ad_group_criterion.criterion_id. Unique only within its ad group (`adSetId`), not across the account.' }
+        resourceName: { type: string, description: 'Google resource name, customers/{adAccountId}/adGroupCriteria/{adSetId}~{platformCriterionId}.' }
         accountId: { type: string, description: Account ID owning the sync }
         profileId: { type: string }
         platform: { type: string, enum: [google] }
@@ -11173,6 +11496,8 @@ components:
         type: { type: string, description: "Google's ConversionActionType, e.g. WEBPAGE, UPLOAD_CLICKS." }
         status: { type: string, description: "Google's ConversionActionStatus, e.g. ENABLED, REMOVED, HIDDEN." }
         category: { type: string, description: "Google's ConversionActionCategory, e.g. DEFAULT, PURCHASE, LEAD." }
+        origin: { type: string, description: "Google's ConversionOrigin, e.g. WEBSITE, APP. Together with category it names the goal the action belongs to (see GET /v1/ads/conversions/goals)." }
+        primaryForGoal: { type: boolean, description: 'true = primary (counts toward bidding when its goal is biddable), false = secondary. Change it with PATCH /v1/ads/conversions/actions/{actionId}.' }
         tagSnippets:
           type: array
           description: |
@@ -12570,7 +12895,7 @@ webhooks:
             schema:
               type: object
               properties:
-                id: { type: string }
+                id: { type: string, description: 'Stable webhook event ID: the dedupe key, also sent as the X-Zernio-Event-Id header and identical on every retry and redelivery. It identifies the event only, never an account or other resource.' }
                 event: { type: string, enum: [whatsapp.automatic_event] }
                 timestamp:
                   type: string
@@ -12618,7 +12943,7 @@ webhooks:
             schema:
               type: object
               properties:
-                id: { type: string }
+                id: { type: string, description: 'Stable webhook event ID: the dedupe key, also sent as the X-Zernio-Event-Id header and identical on every retry and redelivery. It identifies the event only, never an account or other resource.' }
                 event: { type: string, enum: [whatsapp.number.activated] }
                 timestamp:
                   type: string
@@ -12650,7 +12975,7 @@ webhooks:
             schema:
               type: object
               properties:
-                id: { type: string }
+                id: { type: string, description: 'Stable webhook event ID: the dedupe key, also sent as the X-Zernio-Event-Id header and identical on every retry and redelivery. It identifies the event only, never an account or other resource.' }
                 event: { type: string, enum: [whatsapp.number.declined] }
                 timestamp:
                   type: string
@@ -12689,7 +13014,7 @@ webhooks:
             schema:
               type: object
               properties:
-                id: { type: string }
+                id: { type: string, description: 'Stable webhook event ID: the dedupe key, also sent as the X-Zernio-Event-Id header and identical on every retry and redelivery. It identifies the event only, never an account or other resource.' }
                 event: { type: string, enum: [whatsapp.number.action_required] }
                 timestamp:
                   type: string
@@ -12737,7 +13062,7 @@ webhooks:
             schema:
               type: object
               properties:
-                id: { type: string }
+                id: { type: string, description: 'Stable webhook event ID: the dedupe key, also sent as the X-Zernio-Event-Id header and identical on every retry and redelivery. It identifies the event only, never an account or other resource.' }
                 event: { type: string, enum: [whatsapp.number.verification_required] }
                 timestamp:
                   type: string
@@ -12771,7 +13096,7 @@ webhooks:
             schema:
               type: object
               properties:
-                id: { type: string }
+                id: { type: string, description: 'Stable webhook event ID: the dedupe key, also sent as the X-Zernio-Event-Id header and identical on every retry and redelivery. It identifies the event only, never an account or other resource.' }
                 event: { type: string, enum: [whatsapp.number.suspended] }
                 timestamp:
                   type: string
@@ -12803,7 +13128,7 @@ webhooks:
             schema:
               type: object
               properties:
-                id: { type: string }
+                id: { type: string, description: 'Stable webhook event ID: the dedupe key, also sent as the X-Zernio-Event-Id header and identical on every retry and redelivery. It identifies the event only, never an account or other resource.' }
                 event: { type: string, enum: [whatsapp.number.reactivated] }
                 timestamp:
                   type: string
@@ -12835,7 +13160,7 @@ webhooks:
             schema:
               type: object
               properties:
-                id: { type: string }
+                id: { type: string, description: 'Stable webhook event ID: the dedupe key, also sent as the X-Zernio-Event-Id header and identical on every retry and redelivery. It identifies the event only, never an account or other resource.' }
                 event: { type: string, enum: [whatsapp.number.released] }
                 timestamp:
                   type: string
@@ -12869,7 +13194,7 @@ webhooks:
             schema:
               type: object
               properties:
-                id: { type: string }
+                id: { type: string, description: 'Stable webhook event ID: the dedupe key, also sent as the X-Zernio-Event-Id header and identical on every retry and redelivery. It identifies the event only, never an account or other resource.' }
                 event: { type: string, enum: [whatsapp.number.kyc_submitted, verification.approved, verification.failed] }
                 timestamp:
                   type: string
@@ -12920,7 +13245,7 @@ webhooks:
             schema:
               type: object
               properties:
-                id: { type: string }
+                id: { type: string, description: 'Stable webhook event ID: the dedupe key, also sent as the X-Zernio-Event-Id header and identical on every retry and redelivery. It identifies the event only, never an account or other resource.' }
                 event: { type: string, enum: [verification.approved] }
                 timestamp:
                   type: string
@@ -12950,7 +13275,7 @@ webhooks:
             schema:
               type: object
               properties:
-                id: { type: string }
+                id: { type: string, description: 'Stable webhook event ID: the dedupe key, also sent as the X-Zernio-Event-Id header and identical on every retry and redelivery. It identifies the event only, never an account or other resource.' }
                 event: { type: string, enum: [verification.failed] }
                 timestamp:
                   type: string
@@ -12988,7 +13313,7 @@ webhooks:
             schema:
               type: object
               properties:
-                id: { type: string }
+                id: { type: string, description: 'Stable webhook event ID: the dedupe key, also sent as the X-Zernio-Event-Id header and identical on every retry and redelivery. It identifies the event only, never an account or other resource.' }
                 event: { type: string, enum: [sms.registration.action_required] }
                 timestamp:
                   type: string
@@ -13025,7 +13350,7 @@ webhooks:
             schema:
               type: object
               properties:
-                id: { type: string }
+                id: { type: string, description: 'Stable webhook event ID: the dedupe key, also sent as the X-Zernio-Event-Id header and identical on every retry and redelivery. It identifies the event only, never an account or other resource.' }
                 event: { type: string, enum: [sms.registration.status_updated] }
                 timestamp:
                   type: string
@@ -46745,7 +47070,7 @@ paths:
       security:
         - bearerAuth: []
       parameters:
-        - { name: keywordId, in: path, required: true, schema: { type: string }, description: Zernio keyword ID (not the Google criterion ID) }
+        - { name: keywordId, in: path, required: true, schema: { type: string }, description: 'Zernio keyword ID (`id`), or Google''s native `{adSetId}~{platformCriterionId}` (the tail of `resourceName`, e.g. 1234567890~987654321). A bare criterion id is rejected because it is only unique within its ad group.' }
       requestBody:
         required: true
         content:
@@ -46780,7 +47105,7 @@ paths:
       security:
         - bearerAuth: []
       parameters:
-        - { name: keywordId, in: path, required: true, schema: { type: string }, description: Zernio keyword ID (not the Google criterion ID) }
+        - { name: keywordId, in: path, required: true, schema: { type: string }, description: 'Zernio keyword ID (`id`), or Google''s native `{adSetId}~{platformCriterionId}` (the tail of `resourceName`, e.g. 1234567890~987654321). A bare criterion id is rejected because it is only unique within its ad group.' }
       responses:
         '409': { $ref: '#/components/responses/AccountConnectionRequired' }
         '200':
@@ -46791,7 +47116,11 @@ paths:
                 type: object
                 properties:
                   removed: { type: boolean, description: Always true on success }
-                  keywordId: { type: string }
+                  keywordId: { type: string, description: Zernio keyword ID }
+                  platformCriterionId: { type: string, description: Google ad_group_criterion.criterion_id }
+                  resourceName: { type: string, description: 'Google resource name of the removed criterion' }
+                  campaignId: { type: string, description: Google campaign ID }
+                  adSetId: { type: string, description: Google ad group ID }
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/AccountUnavailable' }
@@ -47826,6 +48155,14 @@ paths:
         The response includes the refreshed `devices`/`locations`/`languages` state
         read back from Google after the edit, and invalidates the cached copy
         `GET` on this campaign would otherwise keep serving.
+
+        **Demand Gen:** Google keeps a Demand Gen campaign's locations and languages on its
+        ad groups and refuses them on the campaign. When the campaign has one ad group they are
+        written there and the response carries its `adGroupId` (the campaign-level
+        `locations`/`languages` read back then stay empty). With several ad groups the call
+        returns 400 naming them: edit each one with PUT /v1/ads/{adId} `targeting` on an ad of
+        that ad group. Campaigns migrated from Discovery that still target on the campaign keep
+        being written there. `devices` and `locationTargetingType` stay campaign-level.
       security:
         - bearerAuth: []
       parameters:
@@ -47886,6 +48223,7 @@ paths:
                 type: object
                 properties:
                   campaignId: { type: string }
+                  adGroupId: { type: string, description: "Demand Gen only: the ad group that received the locations and languages." }
                   updated: { type: array, items: { type: string, enum: [devices, locations, languages, locationTargetingType] }, description: "Which targeting fields were applied." }
                   locationTargetingType:
                     type: [string, "null"]
@@ -48735,6 +49073,12 @@ paths:
           - **Performance Max**: top-level `assetGroup`, which swaps asset roles on the ad's asset
             group. The other creative fields return 422 for this channel, and `assetGroup` returns
             422 on any other channel.
+          - **Demand Gen**: top-level `demandGen` (see GoogleDemandGenUpdate): creative, channel
+            and audience changes in one atomic Google request. The other creative fields return
+            422 for this channel. `targeting` takes locations, languages, `locationTargetingType`
+            and `devices`; locations and languages are written to the ad's ad group, which
+            Demand Gen requires (campaigns migrated from Discovery that still target on the
+            campaign keep being written there), so they apply to every ad in that ad group.
         - **LinkedIn**: status, budget, targeting (countries or regions, excludedLocations (countries),
           the B2B facets, and audience segments; applied to the LinkedIn Campaign via
           PARTIAL_UPDATE, and REPLACES the campaign's entire targetingCriteria, not a merge),
@@ -48830,6 +49174,16 @@ paths:
                     longHeadline: Schedule social content from your app with Zernio
                     imageUrl: 'https://example.com/new-landscape.png'
                     squareImageUrl: 'https://example.com/new-square.png'
+              googleDemandGen:
+                summary: "Change a Google Demand Gen ad's headlines and square image, and swap its ad group audience."
+                value:
+                  demandGen:
+                    headlines: ['Schedule posts', 'One social API']
+                    images:
+                      square: ['https://example.com/new-square.png']
+                    audience:
+                      userInterests: ['92948']
+                      genders: [female]
               metaCreativeFeatures:
                 summary: "Opt a Meta creative out of an Advantage+ enhancement."
                 value:
@@ -48862,6 +49216,9 @@ paths:
                 assetGroup:
                   allOf: [{ $ref: '#/components/schemas/GooglePmaxAssetGroupUpdate' }]
                   description: "Google Performance Max only. Replaces whole asset roles on the ad's asset group. Returns 422 on any other platform or channel."
+                demandGen:
+                  allOf: [{ $ref: '#/components/schemas/GoogleDemandGenUpdate' }]
+                  description: "Google Demand Gen only. Returns 422 on any other platform or channel."
                 status: { type: string, enum: [active, paused] }
                 budget:
                   type: object
@@ -51562,39 +51919,242 @@ paths:
       x-resource-group: "ads"
       operationId: listAdLabels
       tags: ["Ad Accounts"]
-      x-platforms: ["meta"]
-      summary: Ad labels
+      x-platforms: ["meta", "google"]
+      summary: List ad labels
       description: |-
-        Lists the ad account's organizational labels (Meta's `/act_X/adlabels`), rows returned
-        verbatim (id, name, created/updated time).
+        Lists the organizational labels on an ad account.
+
+        - **Meta**: pass `adAccountId=act_<n>`. Rows are Meta's `/act_X/adlabels` returned verbatim
+          (id, name, created/updated time), paginated with `limit` / `after`.
+        - **Google Ads**: pass the numeric customer id as `adAccountId` (optional when the
+          connection has a single customer). Returns every non-removed label as a `GoogleAdLabel`
+          in one page (`paging.after` is always null). Reads are cached for 10 minutes; when the
+          shared Google quota is exhausted the last successful result is served with `stale: true`.
       security:
         - bearerAuth: []
       parameters:
-        - { name: accountId, in: query, required: true, schema: { type: string }, description: "Zernio SocialAccount id (posting or ads variant) used to resolve the Meta token." }
-        - { name: adAccountId, in: query, required: true, schema: { type: string }, description: "Meta ad account id (act_<n>)." }
-        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 25 }, description: Rows per page }
-        - { name: after, in: query, schema: { type: string }, description: "Cursor from paging.after of the previous page." }
+        - { name: accountId, in: query, required: true, schema: { type: string }, description: "Zernio SocialAccount id. For Meta, the posting or ads variant used to resolve the token." }
+        - { name: adAccountId, in: query, schema: { type: string, pattern: '^(act_)?\d+$' }, description: "Meta ad account id (act_<n>), or the Google Ads customer id (digits only)." }
+        - { name: customerId, in: query, deprecated: true, schema: { type: string, pattern: '^\d+$' }, description: "Google only. Alias of adAccountId, kept for existing callers." }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 25 }, description: "Meta only. Rows per page." }
+        - { name: after, in: query, schema: { type: string }, description: "Meta only. Cursor from paging.after of the previous page." }
       responses:
         '409': { $ref: '#/components/responses/AccountConnectionRequired' }
         '404': { $ref: '#/components/responses/AccountUnavailable' }
         '200':
-          description: Ad labels (raw Meta shape)
+          description: Ad labels
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  adAccountId: { type: string }
+                  adAccountId: { type: string, description: 'Meta act_<n>, or the resolved Google customer id' }
                   data:
                     type: array
-                    items: { type: object, description: "Raw Meta ad label row (id, name, created_time, updated_time)." }
+                    items:
+                      oneOf:
+                        - { $ref: '#/components/schemas/GoogleAdLabel' }
+                        - { type: object, description: "Raw Meta ad label row (id, name, created_time, updated_time)." }
                   paging:
                     type: object
                     properties:
-                      after: { type: [string, "null"], description: "Cursor for the next page; null when exhausted." }
-        '400': { description: "Invalid input, or Meta rejected the query" }
+                      after: { type: [string, "null"], description: "Cursor for the next page; null when exhausted (always null on Google)." }
+                  cachedAt: { type: [string, "null"], format: date-time, description: 'Google only. When the served list was fetched from Google.' }
+                  stale: { type: boolean, description: 'Google only. True when Google quota was exhausted and the last cached list was served.' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
-        '501': { description: Only supported on Meta (facebook/instagram) }
+        '501': { description: Only supported on Meta and Google Ads accounts }
+    post:
+      x-resource-group: "ads"
+      operationId: createAdLabel
+      tags: ["Ad Accounts"]
+      x-platforms: ["google"]
+      summary: Create a Google Ads label
+      description: |-
+        Creates a label on a Google Ads customer. Attach it to campaigns, ad groups, ads and
+        keywords with `POST /v1/ads/labels/{labelId}/assignments`. Label names are unique per
+        customer; a duplicate is a 400.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [accountId, name]
+              properties:
+                accountId: { type: string, description: Zernio SocialAccount id (Google Ads) }
+                adAccountId: { type: string, pattern: '^\d+$', description: 'Google customer id. Required when the connection has multiple customers.' }
+                customerId: { type: string, pattern: '^\d+$', deprecated: true, description: Alias of adAccountId }
+                name: { type: string, minLength: 1, maxLength: 80, description: 'Trimmed before sending.' }
+                backgroundColor: { type: string, pattern: '^#[0-9a-fA-F]{6}$', description: '#RRGGBB. Google picks a color when omitted.' }
+                description: { type: string, maxLength: 200 }
+      responses:
+        '201':
+          description: Label created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  customerId: { type: string }
+                  id: { type: string, description: Google label id }
+                  resourceName: { type: string, description: 'customers/{customerId}/labels/{id}' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/AccountUnavailable' }
+        '409': { $ref: '#/components/responses/AccountConnectionRequired' }
+        '501': { description: Only available on Google Ads accounts }
+
+  /v1/ads/labels/{labelId}:
+    patch:
+      x-resource-group: "ads"
+      operationId: updateAdLabel
+      tags: ["Ad Accounts"]
+      x-platforms: ["google"]
+      summary: Update a Google Ads label
+      description: Changes the name, color or description of a label. Only the fields sent are written.
+      security:
+        - bearerAuth: []
+      parameters:
+        - { name: labelId, in: path, required: true, schema: { type: string, pattern: '^\d+$' }, description: Google label id }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [accountId]
+              minProperties: 2
+              properties:
+                accountId: { type: string, description: Zernio SocialAccount id (Google Ads) }
+                adAccountId: { type: string, pattern: '^\d+$', description: 'Google customer id. Required when the connection has multiple customers.' }
+                customerId: { type: string, pattern: '^\d+$', deprecated: true, description: Alias of adAccountId }
+                name: { type: string, minLength: 1, maxLength: 80 }
+                backgroundColor: { type: string, pattern: '^#[0-9a-fA-F]{6}$' }
+                description: { type: string, maxLength: 200, description: 'Send "" to clear it.' }
+      responses:
+        '200':
+          description: Label updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  customerId: { type: string }
+                  label: { $ref: '#/components/schemas/GoogleAdLabel' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { description: 'Label not found on this customer, or account unavailable' }
+        '409': { $ref: '#/components/responses/AccountConnectionRequired' }
+        '501': { description: Only available on Google Ads accounts }
+    delete:
+      x-resource-group: "ads"
+      operationId: removeAdLabel
+      tags: ["Ad Accounts"]
+      x-platforms: ["google"]
+      summary: Remove a Google Ads label
+      description: Removes the label. Google drops it from every campaign, ad group, ad and keyword it was attached to.
+      security:
+        - bearerAuth: []
+      parameters:
+        - { name: labelId, in: path, required: true, schema: { type: string, pattern: '^\d+$' }, description: Google label id }
+        - { name: accountId, in: query, required: true, schema: { type: string }, description: Zernio SocialAccount id (Google Ads) }
+        - { name: adAccountId, in: query, schema: { type: string, pattern: '^\d+$' }, description: 'Google customer id. Required when the connection has multiple customers.' }
+        - { name: customerId, in: query, deprecated: true, schema: { type: string, pattern: '^\d+$' }, description: Alias of adAccountId }
+      responses:
+        '200':
+          description: Label removed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  customerId: { type: string }
+                  labelId: { type: string }
+                  removed: { type: boolean, description: Always true on success }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { description: 'Label not found on this customer, or account unavailable' }
+        '409': { $ref: '#/components/responses/AccountConnectionRequired' }
+        '501': { description: Only available on Google Ads accounts }
+
+  /v1/ads/labels/{labelId}/assignments:
+    post:
+      x-resource-group: "ads"
+      operationId: attachAdLabel
+      tags: ["Ad Accounts"]
+      x-platforms: ["google"]
+      summary: Attach a Google Ads label
+      description: |-
+        Attaches the label to campaigns, ad groups, ads and keywords (Google CampaignLabel,
+        AdGroupLabel, AdGroupAdLabel and AdGroupCriterionLabel) in one mutate. Idempotent: a
+        target that already carries the label is counted in `unchanged` instead of failing the
+        call. All ids are Google's own: ads and keywords use the composite id Google puts in
+        their resource names, `{adGroupId}~{adId}` and `{adGroupId}~{criterionId}` (the keyword
+        form is the tail of `resourceName` on `GET /v1/ads/keywords`).
+      security:
+        - bearerAuth: []
+      parameters:
+        - { name: labelId, in: path, required: true, schema: { type: string, pattern: '^\d+$' }, description: Google label id }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/GoogleAdLabelAssignments' }
+      responses:
+        '200':
+          description: Label attached
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  customerId: { type: string }
+                  labelId: { type: string }
+                  attached: { type: integer, description: Links created by this call }
+                  unchanged: { type: integer, description: Targets that already carried the label }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { description: 'Label not found on this customer, or account unavailable' }
+        '409': { $ref: '#/components/responses/AccountConnectionRequired' }
+        '501': { description: Only available on Google Ads accounts }
+    delete:
+      x-resource-group: "ads"
+      operationId: detachAdLabel
+      tags: ["Ad Accounts"]
+      x-platforms: ["google"]
+      summary: Detach a Google Ads label
+      description: Removes the label from the given targets. Idempotent; a target without the label is counted in `unchanged`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - { name: labelId, in: path, required: true, schema: { type: string, pattern: '^\d+$' }, description: Google label id }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/GoogleAdLabelAssignments' }
+      responses:
+        '200':
+          description: Label detached
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  customerId: { type: string }
+                  labelId: { type: string }
+                  detached: { type: integer, description: Links removed by this call }
+                  unchanged: { type: integer, description: Targets that did not carry the label }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { description: 'Label not found on this customer, or account unavailable' }
+        '409': { $ref: '#/components/responses/AccountConnectionRequired' }
+        '501': { description: Only available on Google Ads accounts }
 
   /v1/ads/high-demand-periods:
     get:
@@ -53992,6 +54552,198 @@ paths:
         '501':
           description: "Only supported on Google Ads."
 
+  /v1/ads/accounts/hierarchy:
+    get:
+      x-resource-group: "ads"
+      operationId: getAdAccountHierarchy
+      tags: ["Ad Accounts"]
+      x-platforms: ["google"]
+      summary: 'Get manager account hierarchy'
+      description: >-
+        Live manager (MCC) and client tree for a Google Ads connection. Starts from every
+        customer the Google user behind the connection can access directly and walks each
+        tree to any depth with `customer_client`, then reads each manager's own client
+        links so every client carries its direct parent, the `managerLinkId` and the link
+        status. Invitations a manager sent that the client has not accepted yet appear as
+        clients with `linkStatus: PENDING` (Google returns no name or currency for them).
+        Refused, canceled and ended links are history and are omitted. `managerLinks` on
+        a root lists the managers linked to that account, including invitations it can
+        still accept with PATCH /v1/ads/accounts/manager-links. A directly accessible
+        account that is also nested in another tree appears only once, inside that tree.
+        `directCustomers` lists every account the Google user accesses directly (the ones
+        this connection can accept or decline invitations for) with their pending
+        invitations, including accounts that are also nested in a tree.
+        Customers Google refuses to read (for example a cancelled account) are listed in
+        `unavailable` with Google's reason instead of failing the call. Up to 50 roots
+        and 50 managers per root are read; `truncated` is true when more exist. Cached
+        for 10 minutes per connection; the response carries `cachedAt` and `stale`.
+        When the connection is scoped to specific ad accounts, client accounts outside
+        that scope are hidden (managers stay visible).
+      security:
+        - bearerAuth: []
+      parameters:
+        - { name: accountId, in: query, required: true, schema: { type: string }, description: "Google ads SocialAccount id." }
+        - { name: adAccountId, in: query, schema: { type: string }, description: "Only return the tree rooted at this customer id (digits only). It must be an account the Google user accesses directly. Omit to list every tree." }
+        - { name: customerId, in: query, deprecated: true, schema: { type: string }, description: "Alias of adAccountId, kept for consistency with the other Google Ads account endpoints." }
+      responses:
+        '200':
+          description: Manager and client hierarchy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  accountId: { type: string }
+                  roots:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        customerId: { type: string, description: "Native Google Ads customer id, digits only." }
+                        name: { type: [string, "null"] }
+                        currency: { type: [string, "null"], description: "ISO 4217 code." }
+                        timeZone: { type: [string, "null"], description: "IANA time zone, e.g. Europe/Madrid." }
+                        manager: { type: boolean, description: "True for a manager (MCC) account." }
+                        testAccount: { type: boolean }
+                        status: { type: [string, "null"], description: "Google customer status: ENABLED, CANCELED, SUSPENDED or CLOSED." }
+                        managerLinks:
+                          type: array
+                          description: "Managers linked to this account, ACTIVE or PENDING."
+                          items:
+                            type: object
+                            properties:
+                              managerCustomerId: { type: string }
+                              managerLinkId: { type: string }
+                              status: { type: string, enum: [ACTIVE, PENDING] }
+                        clients:
+                          type: array
+                          description: "Every account under this root at any depth, in Google's order, followed by pending invitations."
+                          items: { $ref: '#/components/schemas/GoogleAdsHierarchyClient' }
+                  directCustomers:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        customerId: { type: string }
+                        manager: { type: boolean }
+                        pendingInvitations:
+                          type: array
+                          description: "Manager invitations this account has not answered yet."
+                          items:
+                            type: object
+                            properties:
+                              managerCustomerId: { type: string }
+                              managerLinkId: { type: string }
+                  unavailable:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        customerId: { type: string }
+                        reason: { type: string, description: "Google's error message and code." }
+                  truncated: { type: boolean }
+                  cachedAt: { type: [string, "null"], format: date-time, description: "When this data was fetched from Google. Null on a live read." }
+                  stale: { type: boolean, description: "True when Google's quota was exhausted and this is the last successful fetch." }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/AccountUnavailable' }
+        '409': { $ref: '#/components/responses/AccountConnectionRequired' }
+        '429': { description: "Google Ads operations budget or quota exhausted; retry later." }
+        '501': { description: Only available on Google Ads accounts }
+
+  /v1/ads/accounts/manager-links:
+    post:
+      x-resource-group: "ads"
+      operationId: inviteAdAccountToManager
+      tags: ["Ad Accounts"]
+      x-platforms: ["google"]
+      summary: 'Invite a client account to a manager'
+      description: >-
+        Sends a manager-to-client link invitation from `managerCustomerId` to
+        `clientCustomerId` (Google's CustomerClientLinkService). The manager must be one
+        the connection's Google user reaches, directly or under another manager (see GET
+        /v1/ads/accounts/hierarchy); the client can be any Google Ads account. The link
+        stays `PENDING` until someone with access to the client accepts it in Google Ads
+        or through PATCH on this path. Not idempotent: Google refuses a second invitation
+        while one is pending. Send `validateOnly: true` to have Google check the request
+        without sending anything.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [accountId, managerCustomerId, clientCustomerId]
+              properties:
+                accountId: { type: string, description: "Google ads SocialAccount id." }
+                managerCustomerId: { type: string, description: "Manager customer id, digits only." }
+                clientCustomerId: { type: string, description: "Client customer id to invite, digits only." }
+                validateOnly: { type: boolean, default: false }
+      responses:
+        '201':
+          description: Invitation sent
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/GoogleAdsManagerLink' }
+        '200':
+          description: Validated only (validateOnly true), nothing sent
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/GoogleAdsManagerLink' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/AccountUnavailable' }
+        '409': { $ref: '#/components/responses/AccountConnectionRequired' }
+        '429': { description: "Google Ads operations budget or quota exhausted; retry later." }
+        '501': { description: Only available on Google Ads accounts }
+    patch:
+      x-resource-group: "ads"
+      operationId: updateAdAccountManagerLink
+      tags: ["Ad Accounts"]
+      x-platforms: ["google"]
+      summary: 'Accept, decline, cancel or end a manager link'
+      description: >-
+        Changes one manager-client link, identified by `managerCustomerId`,
+        `clientCustomerId` and `managerLinkId` (all from GET /v1/ads/accounts/hierarchy).
+        `accept` and `decline` answer a pending invitation as the client
+        (CustomerManagerLinkService), so the connection's Google user needs direct access
+        to the client account; access through a manager is not enough, because the link
+        does not exist yet. `cancel` withdraws a pending invitation and `unlink` ends an
+        active link, both as the manager (CustomerClientLinkService). Send
+        `validateOnly: true` to have Google check the change without applying it.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [accountId, managerCustomerId, clientCustomerId, managerLinkId, action]
+              properties:
+                accountId: { type: string, description: "Google ads SocialAccount id." }
+                managerCustomerId: { type: string, description: "Manager customer id, digits only." }
+                clientCustomerId: { type: string, description: "Client customer id, digits only." }
+                managerLinkId: { type: string, description: "Numeric link id from GET /v1/ads/accounts/hierarchy." }
+                action: { type: string, enum: [accept, decline, cancel, unlink] }
+                validateOnly: { type: boolean, default: false }
+      responses:
+        '200':
+          description: Link updated, or validated only when validateOnly is true
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/GoogleAdsManagerLink' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/AccountUnavailable' }
+        '409': { $ref: '#/components/responses/AccountConnectionRequired' }
+        '429': { description: "Google Ads operations budget or quota exhausted; retry later." }
+        '501': { description: Only available on Google Ads accounts }
+
   /v1/ads/accounts/finance:
     get:
       x-resource-group: "ads"
@@ -54921,6 +55673,261 @@ paths:
           description: "Google quota or operation budget exhausted with no cached response."
         '501':
           description: "Campaign is not on Google Ads."
+    post:
+      operationId: createGoogleAssetGroup
+      summary: Create a Performance Max asset group
+      tags: ["Ad Campaigns"]
+      x-platforms: ["google"]
+      x-resource-group: "ads"
+      security:
+        - bearerAuth: []
+      description: "Add an asset group to an existing Performance Max campaign. The group, any new assets, their links and an optional listing-group tree are created in one atomic request, so Google checks the asset minimums (for non-retail campaigns) against the whole set. Created PAUSED unless status is ENABLED. validateOnly: true runs Google's validation without creating anything."
+      parameters:
+        - { name: campaignId, in: path, required: true, schema: { type: string, pattern: '^\d+$' }, description: "Google Ads campaign id." }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, finalUrls]
+              properties:
+                name: { type: string, minLength: 1, maxLength: 128, description: "Unique within the campaign." }
+                finalUrls: { type: array, minItems: 1, maxItems: 10, items: { type: string, format: uri } }
+                finalMobileUrls: { type: array, minItems: 1, maxItems: 10, items: { type: string, format: uri } }
+                path1: { type: string, maxLength: 15 }
+                path2: { type: string, maxLength: 15, description: "Requires path1." }
+                status: { type: string, enum: [ENABLED, PAUSED], default: PAUSED }
+                assets: { type: array, maxItems: 100, items: { $ref: '#/components/schemas/GoogleAssetGroupAssetLink' } }
+                listingGroupFilter: { $ref: '#/components/schemas/GoogleListingGroupTree' }
+                validateOnly: { type: boolean, default: false }
+            example:
+              name: 'Running shoes'
+              finalUrls: ['https://example.com/shoes']
+              assets:
+                - { fieldType: HEADLINE, text: 'Shoes for every run' }
+                - { fieldType: LOGO, asset: 'customers/9122445560/assets/352426364803' }
+      responses:
+        '201':
+          description: "Asset group created."
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [assetGroup]
+                properties:
+                  assetGroup:
+                    type: object
+                    required: [id, resourceName, campaignId]
+                    properties:
+                      id: { type: string }
+                      resourceName: { type: string }
+                      campaignId: { type: string }
+        '200':
+          description: "validateOnly request accepted by Google. Nothing was created."
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  validateOnly: { type: boolean }
+                  message: { type: string }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { description: "Google Ads connection needs reconnecting." }
+        '429': { description: "Google quota or the Zernio Google operations burst limit is exhausted." }
+        '501': { description: "Campaign is not on Google Ads." }
+  /v1/ads/campaigns/{campaignId}/asset-groups/{assetGroupId}:
+    get:
+      operationId: getGoogleAssetGroup
+      summary: Get a Performance Max asset group
+      tags: ["Ad Campaigns"]
+      x-platforms: ["google"]
+      x-resource-group: "ads"
+      security:
+        - bearerAuth: []
+      description: "One asset group with its linked assets, ad strength, primary status and listing-group tree. Uses a 10-minute cache, served stale when Google quota is exhausted; any write below clears it."
+      parameters:
+        - { name: campaignId, in: path, required: true, schema: { type: string, pattern: '^\d+$' }, description: "Google Ads campaign id." }
+        - { name: assetGroupId, in: path, required: true, schema: { type: string, pattern: '^\d+$' }, description: "Google asset group id." }
+      responses:
+        '200':
+          description: "The asset group."
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [assetGroup, cachedAt, stale]
+                properties:
+                  assetGroup: { $ref: '#/components/schemas/GooglePmaxAssetGroupDetail' }
+                  cachedAt: { type: [string, "null"], format: date-time }
+                  stale: { type: boolean }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { description: "Google Ads connection needs reconnecting." }
+        '429': { description: "Google quota or the Zernio Google operations burst limit is exhausted." }
+        '501': { description: "Campaign is not on Google Ads." }
+    patch:
+      operationId: updateGoogleAssetGroup
+      summary: Update a Performance Max asset group
+      tags: ["Ad Campaigns"]
+      x-platforms: ["google"]
+      x-resource-group: "ads"
+      security:
+        - bearerAuth: []
+      description: "Change the name, status (ENABLED or PAUSED), final URLs or display paths. Only the fields sent are written; null on path1 or path2 clears it. Change assets with the /assets endpoint and product targeting with /listing-group-filters. validateOnly: true validates without writing."
+      parameters:
+        - { name: campaignId, in: path, required: true, schema: { type: string, pattern: '^\d+$' }, description: "Google Ads campaign id." }
+        - { name: assetGroupId, in: path, required: true, schema: { type: string, pattern: '^\d+$' }, description: "Google asset group id." }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string, minLength: 1, maxLength: 128 }
+                status: { type: string, enum: [ENABLED, PAUSED] }
+                finalUrls: { type: array, minItems: 1, maxItems: 10, items: { type: string, format: uri } }
+                finalMobileUrls: { type: array, minItems: 1, maxItems: 10, items: { type: string, format: uri } }
+                path1: { type: [string, "null"], maxLength: 15 }
+                path2: { type: [string, "null"], maxLength: 15 }
+                validateOnly: { type: boolean, default: false }
+            example: { status: PAUSED, finalUrls: ['https://example.com/sale'] }
+      responses:
+        '200':
+          description: "Updated (or validated)."
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  assetGroupId: { type: string }
+                  updated: { type: array, items: { type: string } }
+                  validateOnly: { type: boolean }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { description: "Google Ads connection needs reconnecting." }
+        '429': { description: "Google quota or the Zernio Google operations burst limit is exhausted." }
+        '501': { description: "Campaign is not on Google Ads." }
+    delete:
+      operationId: removeGoogleAssetGroup
+      summary: Remove a Performance Max asset group
+      tags: ["Ad Campaigns"]
+      x-platforms: ["google"]
+      x-resource-group: "ads"
+      security:
+        - bearerAuth: []
+      description: "Removes the asset group on Google (status REMOVED, not reversible). Pass validateOnly=true to validate without removing."
+      parameters:
+        - { name: campaignId, in: path, required: true, schema: { type: string, pattern: '^\d+$' } }
+        - { name: assetGroupId, in: path, required: true, schema: { type: string, pattern: '^\d+$' } }
+        - { name: validateOnly, in: query, required: false, schema: { type: boolean, default: false } }
+      responses:
+        '200':
+          description: "Removed (or validated)."
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  assetGroupId: { type: string }
+                  removed: { type: boolean }
+                  validateOnly: { type: boolean }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { description: "Google Ads connection needs reconnecting." }
+        '429': { description: "Google quota or the Zernio Google operations burst limit is exhausted." }
+        '501': { description: "Campaign is not on Google Ads." }
+  /v1/ads/campaigns/{campaignId}/asset-groups/{assetGroupId}/assets:
+    post:
+      operationId: editGoogleAssetGroupAssets
+      summary: Link or unlink asset group assets
+      tags: ["Ad Campaigns"]
+      x-platforms: ["google"]
+      x-resource-group: "ads"
+      security:
+        - bearerAuth: []
+      description: "Link existing assets or new content to the asset group, and unlink assets, in one atomic request. Links are applied before unlinks, so swapping the last asset of a role does not trip Google's per-role minimum. Unlinking removes the link only; the asset stays in the account library. validateOnly: true validates without writing."
+      parameters:
+        - { name: campaignId, in: path, required: true, schema: { type: string, pattern: '^\d+$' }, description: "Google Ads campaign id." }
+        - { name: assetGroupId, in: path, required: true, schema: { type: string, pattern: '^\d+$' }, description: "Google asset group id." }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                link: { type: array, maxItems: 100, items: { $ref: '#/components/schemas/GoogleAssetGroupAssetLink' } }
+                unlink: { type: array, maxItems: 100, items: { $ref: '#/components/schemas/GoogleAssetGroupAssetUnlink' } }
+                validateOnly: { type: boolean, default: false }
+            example:
+              link: [{ fieldType: HEADLINE, text: 'Free shipping today' }]
+              unlink: [{ fieldType: HEADLINE, asset: 'customers/9122445560/assets/419573236135' }]
+      responses:
+        '200':
+          description: "Links applied (or validated)."
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  assetGroupId: { type: string }
+                  linked: { type: integer }
+                  unlinked: { type: integer }
+                  validateOnly: { type: boolean }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { description: "Google Ads connection needs reconnecting." }
+        '429': { description: "Google quota or the Zernio Google operations burst limit is exhausted." }
+        '501': { description: "Campaign is not on Google Ads." }
+  /v1/ads/campaigns/{campaignId}/asset-groups/{assetGroupId}/listing-group-filters:
+    put:
+      operationId: replaceGoogleListingGroupFilters
+      summary: Replace an asset group's listing-group tree
+      tags: ["Ad Campaigns"]
+      x-platforms: ["google"]
+      x-resource-group: "ads"
+      security:
+        - bearerAuth: []
+      description: "Replace the product (listing-group) tree of a Performance Max retail asset group. The current tree is removed and the new one created in one atomic request. Read the current tree with GET on the asset group. Requires a campaign linked to Merchant Center; other campaigns return 400 LISTING_SOURCE_NOT_ALLOWED from Google. validateOnly: true validates without writing."
+      parameters:
+        - { name: campaignId, in: path, required: true, schema: { type: string, pattern: '^\d+$' }, description: "Google Ads campaign id." }
+        - { name: assetGroupId, in: path, required: true, schema: { type: string, pattern: '^\d+$' }, description: "Google asset group id." }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [tree]
+              properties:
+                tree: { $ref: '#/components/schemas/GoogleListingGroupTree' }
+                validateOnly: { type: boolean, default: false }
+      responses:
+        '200':
+          description: "Tree replaced (or validated)."
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  assetGroupId: { type: string }
+                  removed: { type: integer, description: "Nodes removed from the previous tree." }
+                  created: { type: integer, description: "Nodes in the new tree." }
+                  validateOnly: { type: boolean }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { description: "Google Ads connection needs reconnecting." }
+        '429': { description: "Google quota or the Zernio Google operations burst limit is exhausted." }
+        '501': { description: "Campaign is not on Google Ads." }
   /v1/ads/create:
     post:
       x-resource-group: "ads"
@@ -54944,6 +55951,27 @@ paths:
         Supported bidding: omitted or LOWEST_COST_WITHOUT_CAP for Maximize Conversions,
         COST_CAP plus bidAmount for target CPA, LOWEST_COST_WITH_MIN_ROAS plus
         roasAverageFloor for Maximize Conversion Value with target ROAS.
+
+        Google Demand Gen: set `campaignType: "demand_gen"` and supply `demandGen`. Creates a
+        daily budget, PAUSED campaign, one ad group and one ad in a single atomic request: a
+        multi-asset image ad, a video responsive ad when `demandGen.youtubeVideoIds` is sent, or
+        a carousel ad (2 to 10 cards) when `demandGen.carouselCards` is sent.
+        Geo (countries, regions, cities, zips, metros) and languages go on the ad group, as
+        Demand Gen requires. `demandGen.channels` sets the ad group's channel controls and
+        `demandGen.audience` builds a Google Audience (user lists, interests, custom audiences,
+        age ranges, genders) attached to the ad group, or `demandGen.audienceId` attaches an
+        existing one. `validateOnly: true` validates everything with Google without creating
+        resources. Supported bidding: omitted or LOWEST_COST_WITHOUT_CAP for Maximize
+        Conversions, COST_CAP plus bidAmount for target CPA, LOWEST_COST_WITH_MIN_ROAS plus
+        roasAverageFloor for target ROAS, LOWEST_COST_WITH_BID_CAP plus bidAmount for target
+        CPC. The created ad carries the native `platformCampaignId`, `platformAdSetId` (ad
+        group) and `platformAdId`. Activate with PUT /v1/ads/campaigns/{campaignId}/status;
+        budget, bidding and name are edited with the regular campaign endpoints; creative,
+        channels, audience and ad group targeting with PUT /v1/ads/{adId} (`demandGen`, `targeting`).
+        To grow an existing Demand Gen campaign, send `existingCampaignId` (adds a PAUSED ad group,
+        with its own geo, languages, channels and audience, plus its ad) or `adSetId` (adds a
+        PAUSED ad to that ad group); neither takes budget, bidding or schedule fields, and both
+        support `validateOnly`.
 
         Other mutually-exclusive request shapes are selected by the body:
 
@@ -55026,7 +56054,7 @@ paths:
                   description: "Meta only. Meta's \"Ad includes media created or edited with AI\" disclosure, the checkbox in Ads Manager, stored on the creative as `generative_asset_spec.transparency_metadata.self_disclosure`. OPT_IN checks it, OPT_OUT explicitly declares no AI media, omitted leaves Meta's default. Applied to each new creative, including standalone, creatives[] and attach shapes, and preserved when a creative is rebuilt. This sets the disclosure on the ad; whether and when the viewer-facing label renders is Meta's decision."
                 validateOnly:
                   type: boolean
-                  description: 'Google Performance Max validates the complete atomic campaign and asset group with no resource creation or local persistence. Google validation still downloads image URLs and consumes quota. On Meta, validates the complete inline campaign, ad set, creative and ad with execution_options validate_only. Nothing is uploaded or created, and validation bypasses Idempotency-Key storage. Supports a single image, all-image placementAssets with per-rule copy, existing video.id or existingCreativeId; other media pools, new video uploads, creatives[], adSetId and RESERVED buying return 400. Placement validation uses existing Instagram identities only. Existing campaign or creative nodes are marked skipped. Success returns 200 with per-node results; Meta rejection returns an error. ChatGPT (OpenAI) has no platform dry-run: Zernio runs every check it knows (creative lengths, budget, bid strategy, targeting) plus live lookups of the conversion event and target countries, and uploads or creates nothing. OpenAI''s own write-time checks (image fetch, currency-specific minimums, ad review) still run only on a real create. Any other platform, or a Google campaignType other than pmax, returns 501 `feature_not_available`.'
+                  description: 'Google Performance Max validates the complete atomic campaign and asset group with no resource creation or local persistence. Google validation still downloads image URLs and consumes quota. On Meta, validates the complete inline campaign, ad set, creative and ad with execution_options validate_only. Nothing is uploaded or created, and validation bypasses Idempotency-Key storage. Supports a single image, all-image placementAssets with per-rule copy, existing video.id or existingCreativeId; other media pools, new video uploads, creatives[], adSetId and RESERVED buying return 400. Placement validation uses existing Instagram identities only. Existing campaign or creative nodes are marked skipped. Success returns 200 with per-node results; Meta rejection returns an error. ChatGPT (OpenAI) has no platform dry-run: Zernio runs every check it knows (creative lengths, budget, bid strategy, targeting) plus live lookups of the conversion event and target countries, and uploads or creates nothing. OpenAI''s own write-time checks (image fetch, currency-specific minimums, ad review) still run only on a real create. Any other platform, or a Google campaignType other than pmax or demand_gen, returns 501 `feature_not_available`.'
                 budgetAmount: { type: number, description: "Budget in WHOLE currency units (USD: 50 = $50.00), NOT cents. Meta's own Marketing API takes this same number in minor units, so it is an easy and expensive mix-up. Required on legacy, multi-creative and Performance Max shapes. Inherited on attach. OpenAI Ads: in the ad account currency, minimum 1; OpenAI can require a higher daily minimum for some currencies and names it in the error." }
                 budgetType: { type: string, enum: [daily, lifetime], description: "Required on legacy, multi-creative and Performance Max shapes. Inherited on attach. OpenAI Ads accepts both as the campaign's single spend cap. A lifetime cap can later switch to daily with PUT /v1/ads/campaigns/{campaignId}, but OpenAI never switches a daily cap back to lifetime (422). Automatic bidding (Maximize Results) needs a daily budget." }
                 status:
@@ -55185,6 +56213,11 @@ paths:
                     `budgetAmount`/`budgetType` and bidding fields
                     (`bidStrategy`, `bidAmount`, `portfolioBidStrategyId`)
                     return 400 on this shape; the ad group already owns them.
+                    With `campaignType: "demand_gen"` the ad group must belong to a
+                    Demand Gen campaign (otherwise 400); `demandGen` carries only the
+                    ad's creative, the new ad is created PAUSED, and ad group settings
+                    (geo, languages, `demandGen.channels`/`audience`/`audienceId`/
+                    `adGroupName`) return 400. `validateOnly` is supported.
                 existingCampaignId:
                   type: string
                   description: |
@@ -55204,7 +56237,15 @@ paths:
                     Ads: create a new ad group under this EXISTING campaign;
                     the new ad group inherits the campaign's budget, so omit
                     `budgetAmount`/`budgetType` (and any bidding field), or
-                    the request returns 400. On failure only the entities we
+                    the request returns 400. With `campaignType: "demand_gen"` the
+                    campaign must be a Demand Gen campaign (otherwise 400): the new ad
+                    group (with its geo, languages, channels and audience from the
+                    request) and its ad are created in one atomic request, the ad
+                    group PAUSED; schedule and `locationTargetingType` belong to the
+                    campaign and return 400. A campaign migrated from Discovery that
+                    still targets locations and languages on the campaign refuses them on
+                    a new ad group, so geo and language fields return 400 there; the new
+                    ad group follows the campaign's targeting. On failure only the entities we
                     authored are cleaned up; the pre-existing parent is left
                     untouched and is never (re)activated. Mutually exclusive
                     with `adSetId` and `creatives[]`.
@@ -55730,12 +56771,14 @@ paths:
                                 type: array
                                 items: { type: string, enum: [mobile, desktop] }
                 audienceId: { type: string, description: Custom audience ID for targeting }
-                campaignType: { type: string, enum: [display, search, pmax], default: display, description: "Google only. Performance Max requires assetGroup and is always created PAUSED." }
+                campaignType: { type: string, enum: [display, search, pmax, demand_gen], default: display, description: "Google only. Performance Max requires assetGroup and Demand Gen requires demandGen; both are always created PAUSED." }
                 locationTargetingType:
                   allOf: [{ $ref: '#/components/schemas/GoogleLocationTargetingType' }]
                   description: "Google only (400 elsewhere). Set on the new campaign; a request that joins an existing campaign (`existingCampaignId` or `adSetId`) returns 400, change that campaign with PUT /v1/ads/campaigns/{campaignId}/targeting instead. `presence` reaches only people in or regularly in the targeted locations."
                 assetGroup:
                   $ref: '#/components/schemas/GooglePmaxAssetGroupInput'
+                demandGen:
+                  $ref: '#/components/schemas/GoogleDemandGenInput'
                 keywords: { type: array, maxItems: 1000, items: { $ref: '#/components/schemas/KeywordEntry' }, description: "Google Search only. Keywords on the new ad group; entries are strings (BROAD) or { text, matchType }. Editable later via PUT /v1/ads/{adId} targeting.keywords." }
                 negativeKeywords: { type: array, maxItems: 1000, items: { $ref: '#/components/schemas/KeywordEntry' }, description: "Google Search only; other platforms return 400. Ad-group-level negative keywords on the new ad group. Editable later via PUT /v1/ads/{adId} targeting.negativeKeywords." }
                 campaignNegativeKeywords: { type: array, maxItems: 1000, items: { $ref: '#/components/schemas/KeywordEntry' }, description: "Google Search only; other platforms return 400. Campaign-level negative keywords (campaign_criterion.negative), created alongside the ad group. Editable later via PUT /v1/ads/campaigns/{campaignId}/negative-keywords." }
@@ -56058,6 +57101,92 @@ paths:
                       landscape: ['https://example.com/landscape.png']
                       square: ['https://example.com/square.png']
                       logo: ['https://example.com/logo.png']
+              demandGen:
+                summary: "Paused Demand Gen campaign with a multi-asset image ad."
+                value:
+                  accountId: '69ce75d483e990e1c01ccfe4'
+                  adAccountId: '9122445560'
+                  name: 'Demand Gen launch'
+                  campaignType: demand_gen
+                  budgetAmount: 10
+                  budgetType: daily
+                  validateOnly: true
+                  countries: [ES]
+                  languages: [es]
+                  demandGen:
+                    finalUrl: 'https://zernio.com'
+                    businessName: Zernio
+                    headlines: ['Schedule posts', 'One social API']
+                    descriptions: ['Publish and manage social content through one API.']
+                    callToAction: 'Learn more'
+                    images:
+                      landscape: ['https://example.com/landscape.png']
+                      square: ['https://example.com/square.png']
+                      logo: ['https://example.com/logo.png']
+                    channels: [youtube_in_feed, youtube_shorts, discover, gmail]
+                    audience:
+                      userInterests: ['92948']
+                      ageRanges: [{ min: 25, max: 54 }]
+              demandGenNewAdGroup:
+                summary: "Add a paused ad group with its own audience and ad to an existing Demand Gen campaign."
+                value:
+                  accountId: '69ce75d483e990e1c01ccfe4'
+                  adAccountId: '9122445560'
+                  name: 'Demand Gen, second audience'
+                  campaignType: demand_gen
+                  existingCampaignId: '23508518100'
+                  countries: [US]
+                  demandGen:
+                    adGroupName: 'Returning visitors'
+                    finalUrl: 'https://zernio.com'
+                    businessName: Zernio
+                    headlines: ['Schedule posts']
+                    descriptions: ['Publish everywhere from one API.']
+                    images:
+                      square: ['https://example.com/square.png']
+                      logo: ['https://example.com/logo.png']
+                    audience:
+                      userLists: ['123456']
+              demandGenNewAd:
+                summary: "Add a paused video ad to an existing Demand Gen ad group."
+                value:
+                  accountId: '69ce75d483e990e1c01ccfe4'
+                  adAccountId: '9122445560'
+                  name: 'Demand Gen video variant'
+                  campaignType: demand_gen
+                  adSetId: '191940825986'
+                  demandGen:
+                    finalUrl: 'https://zernio.com'
+                    businessName: Zernio
+                    headlines: ['Schedule posts']
+                    longHeadlines: ['Schedule social posts from your app']
+                    descriptions: ['Publish everywhere from one API.']
+                    images:
+                      logo: ['https://example.com/logo.png']
+                    youtubeVideoIds: ['dQw4w9WgXcQ']
+              demandGenCarousel:
+                summary: "Paused Demand Gen campaign with a carousel ad."
+                value:
+                  accountId: '69ce75d483e990e1c01ccfe4'
+                  adAccountId: '9122445560'
+                  name: 'Demand Gen carousel'
+                  campaignType: demand_gen
+                  budgetAmount: 10
+                  budgetType: daily
+                  countries: [ES]
+                  demandGen:
+                    finalUrl: 'https://zernio.com'
+                    businessName: Zernio
+                    headlines: ['One social API']
+                    descriptions: ['Publish everywhere from one API.']
+                    images:
+                      logo: ['https://example.com/logo.png']
+                    carouselCards:
+                      - headline: 'Schedule posts'
+                        images: { square: 'https://example.com/card-1.png' }
+                      - headline: 'Read analytics'
+                        finalUrl: 'https://zernio.com/pricing'
+                        images: { square: 'https://example.com/card-2.png' }
               appPromotion:
                 value:
                   accountId: '69fc524892b3d8e85f893e73'
@@ -58862,6 +59991,355 @@ paths:
 
         '501':
           description: Conversion actions are only available for Google Ads (the account's platform is not `googleads`).
+
+  /v1/ads/conversions/goals:
+    get:
+      x-resource-group: "ads"
+      operationId: listAdConversionGoals
+      tags: [Conversions]
+      x-platforms: ["google"]
+      summary: List account conversion goals
+      description: |-
+        Google Ads account-default conversion goals (CustomerConversionGoal), one per
+        category and origin, with `biddable` (whether the goal is used for bidding and
+        reported in the Conversions column) and the conversion actions that belong to it,
+        each flagged `primaryForGoal` (primary) or not (secondary). Reads are cached for
+        10 minutes; when the shared Google quota is exhausted the last successful result is
+        served with `stale: true`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - { name: accountId, in: query, required: true, schema: { type: string }, description: Zernio SocialAccount id (Google Ads) }
+        - { name: adAccountId, in: query, schema: { type: string, pattern: '^\d+$' }, description: 'Google customer id. Required when the connection has multiple customers.' }
+        - { name: customerId, in: query, deprecated: true, schema: { type: string, pattern: '^\d+$' }, description: Alias of adAccountId }
+      responses:
+        '200':
+          description: Account conversion goals
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  customerId: { type: string }
+                  goals: { type: array, items: { $ref: '#/components/schemas/GoogleCustomerConversionGoal' } }
+                  cachedAt: { type: [string, "null"], format: date-time }
+                  stale: { type: boolean }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/AccountUnavailable' }
+        '409': { $ref: '#/components/responses/AccountConnectionRequired' }
+        '501': { description: Only available on Google Ads accounts }
+    patch:
+      x-resource-group: "ads"
+      operationId: updateAdConversionGoals
+      tags: [Conversions]
+      x-platforms: ["google"]
+      summary: Update account conversion goals
+      description: |-
+        Sets `biddable` on one or more account-default goals, addressed by category and
+        origin, in one mutate. Campaigns that use account-level goals
+        (`goalConfigLevel: CUSTOMER`) follow the change. Returns the re-read goal list.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [accountId, goals]
+              properties:
+                accountId: { type: string, description: Zernio SocialAccount id (Google Ads) }
+                adAccountId: { type: string, pattern: '^\d+$', description: 'Google customer id. Required when the connection has multiple customers.' }
+                customerId: { type: string, pattern: '^\d+$', deprecated: true, description: Alias of adAccountId }
+                goals: { type: array, minItems: 1, maxItems: 100, items: { $ref: '#/components/schemas/GoogleBiddableGoalInput' } }
+      responses:
+        '200':
+          description: Goals updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  customerId: { type: string }
+                  goals: { type: array, items: { $ref: '#/components/schemas/GoogleCustomerConversionGoal' } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/AccountUnavailable' }
+        '409': { $ref: '#/components/responses/AccountConnectionRequired' }
+        '501': { description: Only available on Google Ads accounts }
+
+  /v1/ads/conversions/actions/{actionId}:
+    patch:
+      x-resource-group: "ads"
+      operationId: updateConversionAction
+      tags: [Conversions]
+      x-platforms: ["google"]
+      summary: Set a conversion action primary or secondary
+      description: |-
+        Sets `primary_for_goal` on a Google Ads conversion action. A primary action counts
+        toward its goal's bidding and the Conversions column; a secondary one is
+        observation-only (All conversions).
+      security:
+        - bearerAuth: []
+      parameters:
+        - { name: actionId, in: path, required: true, schema: { type: string, pattern: '^\d+$' }, description: Google conversion action id }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [accountId, primaryForGoal]
+              properties:
+                accountId: { type: string, description: Zernio SocialAccount id (Google Ads) }
+                adAccountId: { type: string, pattern: '^\d+$', description: 'Google customer id. Required when the connection has multiple customers.' }
+                customerId: { type: string, pattern: '^\d+$', deprecated: true, description: Alias of adAccountId }
+                primaryForGoal: { type: boolean, description: 'true = primary, false = secondary' }
+      responses:
+        '200':
+          description: Action updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  customerId: { type: string }
+                  action:
+                    type: object
+                    properties:
+                      id: { type: string }
+                      primaryForGoal: { type: boolean }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/AccountUnavailable' }
+        '409': { $ref: '#/components/responses/AccountConnectionRequired' }
+        '501': { description: Only available on Google Ads accounts }
+
+  /v1/ads/conversions/custom-goals:
+    get:
+      x-resource-group: "ads"
+      operationId: listCustomConversionGoals
+      tags: [Conversions]
+      x-platforms: ["google"]
+      summary: List custom conversion goals
+      description: Google Ads custom conversion goals (a named set of conversion actions a campaign can bid on). Removed goals are excluded. Cached like the other Google reads.
+      security:
+        - bearerAuth: []
+      parameters:
+        - { name: accountId, in: query, required: true, schema: { type: string }, description: Zernio SocialAccount id (Google Ads) }
+        - { name: adAccountId, in: query, schema: { type: string, pattern: '^\d+$' }, description: 'Google customer id. Required when the connection has multiple customers.' }
+        - { name: customerId, in: query, deprecated: true, schema: { type: string, pattern: '^\d+$' }, description: Alias of adAccountId }
+      responses:
+        '200':
+          description: Custom conversion goals
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  customerId: { type: string }
+                  goals: { type: array, items: { $ref: '#/components/schemas/GoogleCustomConversionGoal' } }
+                  cachedAt: { type: [string, "null"], format: date-time }
+                  stale: { type: boolean }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/AccountUnavailable' }
+        '409': { $ref: '#/components/responses/AccountConnectionRequired' }
+        '501': { description: Only available on Google Ads accounts }
+    post:
+      x-resource-group: "ads"
+      operationId: createCustomConversionGoal
+      tags: [Conversions]
+      x-platforms: ["google"]
+      summary: Create a custom conversion goal
+      description: Creates a custom conversion goal from conversion action ids. Point a campaign at it with `PATCH /v1/ads/campaigns/{campaignId}/conversion-goals`.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [accountId, name, conversionActionIds]
+              properties:
+                accountId: { type: string, description: Zernio SocialAccount id (Google Ads) }
+                adAccountId: { type: string, pattern: '^\d+$', description: 'Google customer id. Required when the connection has multiple customers.' }
+                customerId: { type: string, pattern: '^\d+$', deprecated: true, description: Alias of adAccountId }
+                name: { type: string, minLength: 1, maxLength: 255 }
+                conversionActionIds: { type: array, minItems: 1, maxItems: 100, items: { type: string, pattern: '^\d+$' } }
+      responses:
+        '201':
+          description: Custom goal created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  customerId: { type: string }
+                  id: { type: string }
+                  resourceName: { type: string }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/AccountUnavailable' }
+        '409': { $ref: '#/components/responses/AccountConnectionRequired' }
+        '501': { description: Only available on Google Ads accounts }
+
+  /v1/ads/conversions/custom-goals/{goalId}:
+    patch:
+      x-resource-group: "ads"
+      operationId: updateCustomConversionGoal
+      tags: [Conversions]
+      x-platforms: ["google"]
+      summary: Update a custom conversion goal
+      description: Renames the goal and/or replaces its conversion actions. Returns the re-read goal.
+      security:
+        - bearerAuth: []
+      parameters:
+        - { name: goalId, in: path, required: true, schema: { type: string, pattern: '^\d+$' }, description: Google custom conversion goal id }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [accountId]
+              minProperties: 2
+              properties:
+                accountId: { type: string, description: Zernio SocialAccount id (Google Ads) }
+                adAccountId: { type: string, pattern: '^\d+$', description: 'Google customer id. Required when the connection has multiple customers.' }
+                customerId: { type: string, pattern: '^\d+$', deprecated: true, description: Alias of adAccountId }
+                name: { type: string, minLength: 1, maxLength: 255 }
+                conversionActionIds: { type: array, minItems: 1, maxItems: 100, items: { type: string, pattern: '^\d+$' }, description: 'Replaces the whole set.' }
+      responses:
+        '200':
+          description: Custom goal updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  customerId: { type: string }
+                  goal: { $ref: '#/components/schemas/GoogleCustomConversionGoal' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { description: 'Goal not found on this customer, or account unavailable' }
+        '409': { $ref: '#/components/responses/AccountConnectionRequired' }
+        '501': { description: Only available on Google Ads accounts }
+    delete:
+      x-resource-group: "ads"
+      operationId: removeCustomConversionGoal
+      tags: [Conversions]
+      x-platforms: ["google"]
+      summary: Remove a custom conversion goal
+      description: 'Removes the goal. Google refuses (400) while any campaign still uses it: switch those campaigns to another goal first.'
+      security:
+        - bearerAuth: []
+      parameters:
+        - { name: goalId, in: path, required: true, schema: { type: string, pattern: '^\d+$' }, description: Google custom conversion goal id }
+        - { name: accountId, in: query, required: true, schema: { type: string }, description: Zernio SocialAccount id (Google Ads) }
+        - { name: adAccountId, in: query, schema: { type: string, pattern: '^\d+$' }, description: 'Google customer id. Required when the connection has multiple customers.' }
+        - { name: customerId, in: query, deprecated: true, schema: { type: string, pattern: '^\d+$' }, description: Alias of adAccountId }
+      responses:
+        '200':
+          description: Custom goal removed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  customerId: { type: string }
+                  goalId: { type: string }
+                  removed: { type: boolean, description: Always true on success }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { description: 'Goal not found on this customer, or account unavailable' }
+        '409': { $ref: '#/components/responses/AccountConnectionRequired' }
+        '501': { description: Only available on Google Ads accounts }
+
+  /v1/ads/campaigns/{campaignId}/conversion-goals:
+    get:
+      x-resource-group: "ads"
+      operationId: getCampaignConversionGoals
+      tags: ["Ad Campaigns"]
+      x-platforms: ["google"]
+      summary: Get campaign conversion goals
+      description: |-
+        A Google campaign's conversion goals (CampaignConversionGoal, `biddable` per category
+        and origin) and its goal config (ConversionGoalCampaignConfig): `goalConfigLevel`
+        CUSTOMER means the campaign follows the account-default goals, CAMPAIGN means it uses
+        its own goals or `customConversionGoalId`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - { name: campaignId, in: path, required: true, schema: { type: string, pattern: '^\d+$' }, description: Google campaign id }
+      responses:
+        '200':
+          description: Campaign conversion goals
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - { $ref: '#/components/schemas/GoogleCampaignConversionGoals' }
+                  - type: object
+                    properties:
+                      customerId: { type: string }
+                      cachedAt: { type: [string, "null"], format: date-time }
+                      stale: { type: boolean }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { description: Campaign not found }
+        '409': { description: 'Campaign matches multiple accessible accounts, or the connection needs reconnecting' }
+        '501': { description: Only available on Google Ads campaigns }
+    patch:
+      x-resource-group: "ads"
+      operationId: updateCampaignConversionGoals
+      tags: ["Ad Campaigns"]
+      x-platforms: ["google"]
+      summary: Update campaign conversion goals
+      description: |-
+        Sets `biddable` on campaign goals, switches `goalConfigLevel`, and/or points the
+        campaign at a custom conversion goal, in one mutate. `customConversionGoalId: null`
+        clears it; Google refuses that (400) while the campaign stays at CAMPAIGN level with
+        no biddable goals, so send `goalConfigLevel: CUSTOMER` with it to fall back to the
+        account goals. Returns the re-read campaign goals.
+      security:
+        - bearerAuth: []
+      parameters:
+        - { name: campaignId, in: path, required: true, schema: { type: string, pattern: '^\d+$' }, description: Google campaign id }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              minProperties: 1
+              properties:
+                goals: { type: array, maxItems: 100, items: { $ref: '#/components/schemas/GoogleBiddableGoalInput' } }
+                goalConfigLevel: { type: string, enum: [CUSTOMER, CAMPAIGN] }
+                customConversionGoalId: { type: [string, "null"], pattern: '^\d+$', description: 'Custom goal to bid on, or null to clear' }
+      responses:
+        '200':
+          description: Campaign goals updated
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - { $ref: '#/components/schemas/GoogleCampaignConversionGoals' }
+                  - type: object
+                    properties:
+                      customerId: { type: string }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { description: Campaign not found }
+        '409': { description: 'Campaign matches multiple accessible accounts, or the connection needs reconnecting' }
+        '501': { description: Only available on Google Ads campaigns }
 
   /v1/accounts/{accountId}/conversion-destinations:
     get:

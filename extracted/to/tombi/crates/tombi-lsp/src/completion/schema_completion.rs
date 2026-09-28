@@ -17,12 +17,12 @@ fn set_schema_link_uri(
     current_schema: &CurrentSchema<'_>,
 ) {
     let schema_uri = tombi_extension::get_schema_link_uri(
-        current_schema.schema_uri.as_ref(),
+        current_schema.schema_document_uri.as_ref(),
         current_schema.schema_view.range().start,
     );
     for item in completion_items {
-        if item.schema_uri.as_ref() == Some(current_schema.schema_uri.as_ref()) {
-            item.schema_uri = Some(schema_uri.clone().into());
+        if item.schema_base_uri.as_ref() == Some(current_schema.schema_base_uri.as_ref()) {
+            item.schema_base_uri = Some(schema_uri.clone().into());
         }
     }
 }
@@ -111,7 +111,7 @@ impl FindCompletionContents for SchemaCompletion {
                             position,
                             detail.clone(),
                             documentation.clone(),
-                            Some(current_schema.schema_uri.as_ref()),
+                            Some(current_schema.schema_base_uri.as_ref()),
                             completion_hint,
                         )
                     })

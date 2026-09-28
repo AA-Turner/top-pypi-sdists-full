@@ -1905,6 +1905,17 @@ class ToolExecutor:
 
         # --- Stream completed / error (with full result — non-negotiable) ---
         if result.success:
+            # The surface-write receipt rides ONE tool_step just before
+            # completion: streamed live, persisted in execution_events, never in
+            # the model's tool result (matrx_ai.tools.surface_write).
+            if result.surface_write is not None:
+                from matrx_ai.tools.surface_write import SURFACE_WRITE_STEP
+
+                await stream.step(
+                    SURFACE_WRITE_STEP,
+                    "Recorded the change",
+                    data=result.surface_write.model_dump(),
+                )
             await stream.completed("Done", result=result)
         else:
             await stream.error(result.error.message, result.error.error_type)

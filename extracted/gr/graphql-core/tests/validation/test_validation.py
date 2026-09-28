@@ -1,52 +1,17 @@
-from pytest import raises
+import pytest
 
 from graphql.error import GraphQLError
 from graphql.language import parse
-from graphql.utilities import TypeInfo, build_schema
+from graphql.utilities import build_schema
 from graphql.validation import ValidationRule, validate
 
 from .harness import test_schema
 
 
 def describe_validate_supports_full_validation():
-    def rejects_invalid_documents():
-        with raises(TypeError) as exc_info:
-            # noinspection PyTypeChecker
-            assert validate(test_schema, None)  # type: ignore
-        assert str(exc_info.value) == "Must provide document."
-
-    def rejects_invalid_type_info():
-        with raises(TypeError) as exc_info:
-            # noinspection PyTypeChecker
-            assert validate(
-                test_schema, parse("query { name }"), type_info={}  # type: ignore
-            )
-        assert str(exc_info.value) == "Not a TypeInfo object: {}."
-
-    def rejects_invalid_rules():
-        with raises(TypeError) as exc_info:
-            # noinspection PyTypeChecker
-            assert validate(
-                test_schema, parse("query { name }"), rules=[None]  # type: ignore
-            )
-        assert (
-            str(exc_info.value) == "Rules must be specified as a collection"
-            " of ASTValidationRule subclasses."
-        )
-
-    def rejects_invalid_max_errors():
-        with raises(TypeError) as exc_info:
-            # noinspection PyTypeChecker
-            assert validate(
-                test_schema, parse("query { name }"), max_errors=2.5  # type: ignore
-            )
-        assert (
-            str(exc_info.value)
-            == "The maximum number of errors must be passed as an int."
-        )
-
     def validates_queries():
-        doc = parse("""
+        doc = parse(
+            """
             query {
               human {
                 pets {
@@ -59,66 +24,44 @@ def describe_validate_supports_full_validation():
                 }
               }
             }
-            """)
+            """
+        )
 
         errors = validate(test_schema, doc)
         assert errors == []
 
     def detects_unknown_fields():
-        doc = parse("""
+        doc = parse(
+            """
             {
               unknown
             }
-            """)
+            """
+        )
 
         errors = validate(test_schema, doc)
         assert errors == [
             {"message": "Cannot query field 'unknown' on type 'QueryRoot'."}
         ]
 
-    def deprecated_validates_using_a_custom_type_info():
-        # This TypeInfo will never return a valid field.
-        type_info = TypeInfo(test_schema, None, lambda *args: None)
-
-        doc = parse("""
-            query {
-              human {
-                pets {
-                  ... on Cat {
-                    meowsVolume
-                  }
-                  ... on Dog {
-                    barkVolume
-                  }
-                }
-              }
-            }
-            """)
-
-        errors = validate(test_schema, doc, None, None, type_info)
-
-        assert [error.message for error in errors] == [
-            "Cannot query field 'human' on type 'QueryRoot'. Did you mean 'human'?",
-            "Cannot query field 'meowsVolume' on type 'Cat'."
-            " Did you mean 'meowsVolume'?",
-            "Cannot query field 'barkVolume' on type 'Dog'."
-            " Did you mean 'barkVolume'?",
-        ]
-
     def validates_using_a_custom_rule():
-        schema = build_schema("""
+        schema = build_schema(
+            """
             directive @custom(arg: String) on FIELD
 
             type Query {
               foo: String
             }
-            """)
+            """
+        )
 
-        doc = parse("""
+        doc = parse(
+            """
             query {
               name @custom
             }
-            """)
+            """
+        )
 
         class CustomRule(ValidationRule):
             def enter_directive(self, node, *_args):
@@ -190,7 +133,7 @@ def describe_validate_limit_maximum_number_of_validation_errors():
             def enter_field(self, *_args):
                 raise RuntimeError("Error from custom rule!")
 
-        with raises(RuntimeError, match="^Error from custom rule!$"):
+        with pytest.raises(RuntimeError, match=r"^Error from custom rule!$"):
             validate(test_schema, doc, [CustomRule], max_errors=1)
 
 

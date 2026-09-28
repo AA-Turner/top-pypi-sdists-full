@@ -40,7 +40,7 @@ from .fake_device import FakeRainbirdDevice
 @pytest.fixture(autouse=True)
 def auto_snapshot_request_log(
     request_log: list[dict[str, Any]], snapshot: Any
-) -> Generator[None, None, None]:
+) -> Generator[None]:
     """Automatically snapshot the network requests of every test."""
     yield
     if request_log:
@@ -170,9 +170,9 @@ async def test_create_controller_does_not_fallback_on_auth_error() -> None:
             "pyrainbird.async_client.AsyncRainbirdController.get_model_and_version",
             new=mock.AsyncMock(side_effect=RainbirdAuthException("bad password")),
         ),
+        pytest.raises(RainbirdAuthException),
     ):
-        with pytest.raises(RainbirdAuthException):
-            await create_controller(session, "example.com", "password")
+        await create_controller(session, "example.com", "password")
 
     assert client_cls.call_args_list == [
         mock.call(session, mock.ANY, None),
@@ -300,6 +300,20 @@ async def test_get_available_stations_multipage(
     stations = await controller.get_available_stations()
     assert stations.stations.count == 64
     assert len(stations.active_set) == 48  # 32 from page 0 + 16 from page 1
+    assert stations.active_set == set(range(1, 49))
+
+
+async def test_get_available_stations_lxme2(
+    rainbird_controller: Callable[[], Awaitable[AsyncRainbirdController]],
+    fake_device: FakeRainbirdDevice,
+) -> None:
+    """Test getting available stations for LXME2 controller up to 48 stations."""
+    fake_device.set_model("LXME2")
+    fake_device.stations = set(range(1, 49))
+    controller = await rainbird_controller()
+    stations = await controller.get_available_stations()
+    assert stations.stations.count == 64
+    assert len(stations.active_set) == 48
     assert stations.active_set == set(range(1, 49))
 
 
@@ -492,7 +506,7 @@ async def test_get_zone_state_lxivm(
     fake_device.zone_states = {"00": sip_data}
     controller = await rainbird_controller()
     zone_states = await controller.get_zone_states()
-    active_states = sorted(list(zone_states.active_set))
+    active_states = sorted(zone_states.active_set)
     assert active_states == active_zones
 
 
@@ -534,7 +548,7 @@ async def test_get_rain_delay(
 ) -> None:
     controller = await rainbird_controller()
     fake_device.rain_delay = 16
-    await controller.get_rain_delay() == 16
+    assert await controller.get_rain_delay() == 16
 
 
 async def test_set_rain_delay(
@@ -543,6 +557,43 @@ async def test_set_rain_delay(
     controller = await rainbird_controller()
 
     await controller.set_rain_delay(3)
+
+
+async def test_set_zone_schedule(
+    rainbird_controller: Callable[[], Awaitable[AsyncRainbirdController]],
+    fake_device: FakeRainbirdDevice,
+) -> None:
+    """Test setting the schedule of a zone of an LCR series device."""
+    fake_device.set_model("ESP_RZXe")
+    controller = await rainbird_controller()
+
+    await controller.set_zone_schedule(
+        1,
+        datetime.timedelta(minutes=10),
+        [datetime.time(4, 0)],
+        frequency=ProgramFrequency.EVEN,
+        days_of_week={DayOfWeek.MONDAY, DayOfWeek.THURSDAY},
+    )
+
+    requests = [
+        r for r in fake_device.request_log if type(r).__name__ == "RequestLogEntry"
+    ]
+    assert requests[-1].raw_data == "2100010A18909090909002120000"
+
+
+async def test_set_water_budget(
+    rainbird_controller: Callable[[], Awaitable[AsyncRainbirdController]],
+    fake_device: FakeRainbirdDevice,
+) -> None:
+    """Test setting the water budget of the whole controller."""
+    controller = await rainbird_controller()
+
+    await controller.set_water_budget(0xFF, 150)
+
+    requests = [
+        r for r in fake_device.request_log if type(r).__name__ == "RequestLogEntry"
+    ]
+    assert requests[-1].raw_data == "31FF0096"
 
 
 async def test_advance_zone(
@@ -1145,6 +1196,13 @@ async def test_cyclic_schedule(
         == []
     )
 
+    programs = schedule.to_dict()["programs"]
+    assert programs[0]["starts"] == ["04:00:00"]
+    assert programs[0]["days_of_week"] == []
+    assert programs[0]["durations"][0] == {"zone": 1, "duration": 1500.0}
+    assert programs[1]["starts"] == []
+    assert programs[1]["days_of_week"] == [0, 1, 2, 3, 4, 5, 6]
+
     events = list(
         schedule.timeline.overlapping(
             datetime.datetime(2023, 1, 21, 9, 32, 00),
@@ -1547,7 +1605,7 @@ async def test_get_schedule_esp_me_8_zones(
     }
     # Add empty responses for pages 0x84 to 0x8A (total 11 pages)
     for page in range(0x84, 0x8B):
-        schedule_data["00%02X" % page] = "A000" + ("%02X" % page) + ("00" * 16)
+        schedule_data[f"00{page:02X}"] = "A000" + (f"{page:02X}") + ("00" * 16)
 
     fake_device.schedule = schedule_data
     controller = await rainbird_controller()
@@ -1615,8 +1673,19 @@ async def test_get_schedule_non_program_based(
     assert schedule.zone_schedules[5].duration == datetime.timedelta(minutes=30)
     assert schedule.zone_schedules[5].starts == [datetime.time(12, 40)]
 
+    assert schedule.to_dict()["zone_schedules"][1] == {
+        "zone": 1,
+        "duration": 600.0,
+        "starts": ["08:30:00"],
+        "frequency": 0,
+        "days_of_week": [0, 1, 2, 3, 4, 5, 6],
+        "period": None,
+        "synchro": 0,
+        "controller_info": None,
+    }
+
     # Test timeline iterates over the active zones natively!
-    tz = datetime.timezone.utc
+    tz = datetime.UTC
     events = list(
         schedule.timeline_tz(tz).overlapping(
             datetime.datetime(2023, 1, 1, 0, 0, 0, tzinfo=tz),
@@ -1639,6 +1708,62 @@ async def test_get_schedule_non_program_based(
     assert events[2].program_id.zone == 5
 
 
+@freeze_time("2026-09-12 00:00:00")
+async def test_get_schedule_lcr_unused_start_slots(
+    rainbird_controller: Callable[[], Awaitable[AsyncRainbirdController]],
+    fake_device: FakeRainbirdDevice,
+) -> None:
+    """Test an LCR schedule that leaves start time slots unused.
+
+    An ESP-RZXe reports an unused start time slot as 0x90 (1440 minutes) and
+    encodes the frequency as custom (0), odd (1), even (2), cyclic (3).
+    """
+    fake_device.set_model("ESP_RZXe")
+    fake_device.stations = {1, 2, 3}
+
+    fake_device.schedule = {
+        "0000": "A000000000",
+        # Z1: 10m, start 04:00, 5 unused slots, even days
+        "0001": "A000010A189090909090027F0300",
+        # Z2: 15m, starts 06:00 and 21:00, cyclic every 3 days, 1 day remaining
+        "0002": "A000020F247E90909090037F0301",
+        # Z3: 5m, start 08:00, odd days
+        "0003": "A000030530909090909001000000",
+    }
+
+    controller = await rainbird_controller()
+
+    schedule = await controller.get_schedule()
+
+    assert len(schedule.zone_schedules) == 3
+
+    zone1 = schedule.zone_schedules[1]
+    assert zone1.starts == [datetime.time(4, 0)]
+    assert zone1.frequency == ProgramFrequency.EVEN
+
+    zone2 = schedule.zone_schedules[2]
+    assert zone2.starts == [datetime.time(6, 0), datetime.time(21, 0)]
+    assert zone2.frequency == ProgramFrequency.CYCLIC
+    assert zone2.period == 3
+    assert zone2.synchro == 1
+
+    zone3 = schedule.zone_schedules[3]
+    assert zone3.starts == [datetime.time(8, 0)]
+    assert zone3.frequency == ProgramFrequency.ODD
+
+    # Even zone 1 only runs every other day: no event on the odd day
+    tz = datetime.UTC
+    events = list(
+        schedule.zone_schedules[1]
+        .timeline_tz(tz)
+        .overlapping(
+            datetime.datetime(2026, 9, 13, 0, 0, 0, tzinfo=tz),
+            datetime.datetime(2026, 9, 14, 0, 0, 0, tzinfo=tz),
+        )
+    )
+    assert not events
+
+
 async def test_get_schedule_tm2_12_zones(
     rainbird_controller: Callable[[], Awaitable[AsyncRainbirdController]],
     fake_device: FakeRainbirdDevice,
@@ -1657,7 +1782,7 @@ async def test_get_schedule_tm2_12_zones(
         "0062": "A00062FFFFFFFF",
     }
     for page in range(0x80, 0x86):
-        schedule_data["00%02X" % page] = "A000" + ("%02X" % page) + ("00" * 12)
+        schedule_data[f"00{page:02X}"] = "A000" + (f"{page:02X}") + ("00" * 12)
 
     fake_device.schedule = schedule_data
     controller = await rainbird_controller()
@@ -1690,8 +1815,8 @@ async def test_get_schedule_unknown_model_fallback(
     # Unknown models fall back to max_programs=0, triggering the LCR zone loop.
     # It will request the 8 active zones.
     for zone in range(1, 9):
-        schedule_data["00%02X" % zone] = (
-            "A0000" + ("%X" % zone) + "0A33FFFFFFFFFF007F0000"
+        schedule_data[f"00{zone:02X}"] = (
+            "A0000" + (f"{zone:X}") + "0A33FFFFFFFFFF007F0000"
         )
 
     fake_device.schedule = schedule_data
@@ -1711,7 +1836,7 @@ async def test_get_schedule_lxme2_bit_collision(
     rainbird_controller: Callable[[], Awaitable[AsyncRainbirdController]],
     fake_device: FakeRainbirdDevice,
 ) -> None:
-    # LXME2 (Model 0x0C): max_programs=40, max_stations=22
+    # LXME2 (Model 0x0C): max_programs=40, max_stations=48
     fake_device.model_code = 0x0C
     fake_device.version_major = 1
     fake_device.version_minor = 3
@@ -1720,8 +1845,8 @@ async def test_get_schedule_lxme2_bit_collision(
     schedule_data = {"0000": "A0000000000000"}
 
     # 40 programs * 2 commands (0x10-0x37 for info, 0x60-0x87 for start times) = 80 commands
-    # Plus 11 zones pages = 91 commands
-    for i in range(91):
+    # Plus 24 zone pages = 104 commands
+    for i in range(104):
         # We don't want to actually populate all 91 keys manually in this test.
         # Since it only tests bit collision logic via mocked requests, we can just intercept the mock process.
         # However, fake_device expects all keys to be present. We will use a default dict for fake_device in this specific test.

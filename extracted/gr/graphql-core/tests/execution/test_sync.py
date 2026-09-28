@@ -1,13 +1,18 @@
-from gc import collect
-from inspect import isawaitable
-
-from pytest import mark, raises
+import pytest
 
 from graphql import graphql_sync
 from graphql.execution import execute, execute_sync
 from graphql.language import parse
+from graphql.pyutils import is_awaitable
 from graphql.type import GraphQLField, GraphQLObjectType, GraphQLSchema, GraphQLString
 from graphql.validation import validate
+
+from ..fixtures import cleanup
+
+pytestmark = [
+    pytest.mark.anyio,
+    pytest.mark.filterwarnings("ignore:coroutine .* was never awaited:RuntimeWarning"),
+]
 
 
 def describe_execute_synchronously_when_possible():
@@ -52,11 +57,10 @@ def describe_execute_synchronously_when_possible():
             None,
         )
 
-    @mark.asyncio
     async def returns_an_awaitable_if_any_field_is_asynchronous():
         doc = "query Example { syncField, asyncField }"
         result = execute(schema, parse(doc), "rootValue")
-        assert isawaitable(result)
+        assert is_awaitable(result)
         assert await result == (
             {"syncField": "rootValue", "asyncField": "rootValue"},
             None,
@@ -81,19 +85,26 @@ def describe_execute_synchronously_when_possible():
                 None,
             )
 
-        @mark.asyncio
-        @mark.filterwarnings("ignore:.* was never awaited:RuntimeWarning")
         async def throws_if_encountering_async_execution_with_check_sync():
             doc = "query Example { syncField, asyncField }"
-            with raises(RuntimeError) as exc_info:
+            with pytest.raises(RuntimeError) as exc_info:
+                execute_sync(
+                    schema, document=parse(doc), root_value="rootValue", check_sync=True
+                )
+            msg = str(exc_info.value)
+            assert msg == "GraphQL execution failed to complete synchronously."
+            del exc_info
+            cleanup()
+
+        def throws_if_encountering_async_execution_with_check_sync_without_loop():
+            doc = "query Example { syncField, asyncField }"
+            with pytest.raises(RuntimeError) as exc_info:
                 execute_sync(
                     schema, document=parse(doc), root_value="rootValue", check_sync=True
                 )
             msg = str(exc_info.value)
             assert msg == "GraphQL execution failed to complete synchronously."
 
-        @mark.asyncio
-        @mark.filterwarnings("ignore:.* was never awaited:RuntimeWarning")
         async def throws_if_encountering_async_operation_without_check_sync():
             doc = "query Example { syncField, asyncField }"
             result = execute_sync(schema, document=parse(doc), root_value="rootValue")
@@ -108,9 +119,42 @@ def describe_execute_synchronously_when_possible():
                     }
                 ],
             )
-            # garbage collect coroutine in order to not postpone the warning
             del result
-            collect()
+            cleanup()
+
+        async def throws_if_encountering_async_iterable_execution_with_check_sync():
+            doc = """
+                query Example {
+                  ...deferFrag @defer(label: "deferLabel")
+                }
+                fragment deferFrag on Query {
+                  syncField
+                }
+            """
+            with pytest.raises(RuntimeError) as exc_info:
+                execute_sync(
+                    schema, document=parse(doc), root_value="rootValue", check_sync=True
+                )
+            msg = str(exc_info.value)
+            assert msg == "GraphQL execution failed to complete synchronously."
+            del exc_info
+            cleanup()
+
+        async def throws_if_encountering_async_iterable_execution_without_check_sync():
+            doc = """
+                query Example {
+                  ...deferFrag @defer(label: "deferLabel")
+                }
+                fragment deferFrag on Query {
+                  syncField
+                }
+            """
+            with pytest.raises(RuntimeError) as exc_info:
+                execute_sync(schema, document=parse(doc), root_value="rootValue")
+            msg = str(exc_info.value)
+            assert msg == "GraphQL execution failed to complete synchronously."
+            del exc_info
+            cleanup()
 
     def describe_graphql_sync():
         def reports_errors_raised_during_schema_validation():
@@ -150,17 +194,22 @@ def describe_execute_synchronously_when_possible():
                 None,
             )
 
-        @mark.asyncio
-        @mark.filterwarnings("ignore:.* was never awaited:RuntimeWarning")
         async def throws_if_encountering_async_operation_with_check_sync():
             doc = "query Example { syncField, asyncField }"
-            with raises(RuntimeError) as exc_info:
+            with pytest.raises(RuntimeError) as exc_info:
+                graphql_sync(schema, doc, "rootValue", check_sync=True)
+            msg = str(exc_info.value)
+            assert msg == "GraphQL execution failed to complete synchronously."
+            del exc_info
+            cleanup()
+
+        def throws_if_encountering_async_operation_with_check_sync_without_loop():
+            doc = "query Example { syncField, asyncField }"
+            with pytest.raises(RuntimeError) as exc_info:
                 graphql_sync(schema, doc, "rootValue", check_sync=True)
             msg = str(exc_info.value)
             assert msg == "GraphQL execution failed to complete synchronously."
 
-        @mark.asyncio
-        @mark.filterwarnings("ignore:.* was never awaited:RuntimeWarning")
         async def throws_if_encountering_async_operation_without_check_sync():
             doc = "query Example { syncField, asyncField }"
             result = graphql_sync(schema, doc, "rootValue")
@@ -175,6 +224,5 @@ def describe_execute_synchronously_when_possible():
                     }
                 ],
             )
-            # garbage collect coroutine in order to not postpone the warning
             del result
-            collect()
+            cleanup()

@@ -1,0 +1,1 @@
+import{r as t}from"./index-CxeuZISp.js";function g(a){const{onConfirm:l}=a,[n,e]=t.useState(null),[u,i]=t.useState(!1),o=t.useCallback(s=>{e(s)},[]),c=t.useCallback(()=>{e(null)},[]),r=t.useCallback(async s=>{if(n!==null){i(!0);try{await l(s?s(n):n),e(null)}finally{i(!1)}}},[l,n]);return{pending:n,isWaiting:n!==null,isConfirming:u,submit:o,confirm:r,cancel:c}}export{g as u};

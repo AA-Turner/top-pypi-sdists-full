@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any, Dict, FrozenSet, List, Mapping, Optional, Tuple
 
 from skillsaw.paths import (
+    Resolver,
     contained_resolve,
     safe_exists,
     safe_is_dir,
@@ -84,7 +85,14 @@ def inline_documents(declared: Any, key: str) -> List[Dict[str, Any]]:
         # legitimately hold a server or event named the same as the wrapper,
         # and unwrapping on its presence alone would silently discard every
         # sibling — including ones the security rules need to see.
-        wrapped = isinstance(nested, dict) and len(item) == 1
+        # A sole MCP server can itself be named mcpServers. A connection
+        # inside that object identifies a server config, not a wrapped map.
+        server_config = (
+            key == "mcpServers"
+            and isinstance(nested, dict)
+            and any(isinstance(nested.get(connection), str) for connection in ("command", "url"))
+        )
+        wrapped = isinstance(nested, dict) and len(item) == 1 and not server_config
         documents.append({key: nested if wrapped else item})
     return documents
 
@@ -316,13 +324,15 @@ def codex_mcp_input_problem(value: Dict[str, Any]) -> Optional[str]:
 
 
 def codex_manifest(plugin_dir: Path) -> Dict[str, Any]:
-    """A Codex plugin's parsed manifest, or ``{}`` when absent or unparseable.
+    """Effective Codex metadata, or ``{}`` when absent or unparseable.
 
     Uses the shared cached reader: strips a UTF-8 BOM, and repeated reads
-    cost nothing.
+    cost nothing. Portable identity and OpenAI overlay precedence live in
+    ``codex_manifest_view`` so discovery, rules and docs read one selection.
     """
-    data, error = read_json(plugin_dir.joinpath(*CODEX_PLUGIN_MANIFEST))
-    return data if not error and isinstance(data, dict) else {}
+    from .codex_manifest import codex_manifest_view
+
+    return codex_manifest_view(plugin_dir).data
 
 
 def codex_plugin_name(plugin_dir: Path) -> str:
@@ -427,7 +437,7 @@ def codex_inline_mcp_servers(plugin_dir: Path) -> List[Dict[str, Any]]:
     return inline_documents(codex_manifest(plugin_dir).get("mcpServers"), "mcpServers")
 
 
-def codex_manifest_is_contained(plugin_dir: Path) -> bool:
+def codex_manifest_is_contained(plugin_dir: Path, *, resolve: Resolver = safe_resolve) -> bool:
     """Whether *plugin_dir* carries a Codex manifest of its own.
 
     The authorship evidence the Claude rules stand down on, asked directly
@@ -439,19 +449,19 @@ def codex_manifest_is_contained(plugin_dir: Path) -> bool:
     manifest, and exempting on it would leave the directory covered by no
     rule at all.
     """
-    root = safe_resolve(plugin_dir)
+    root = resolve(plugin_dir)
     if root is None:
         return False
     manifest_dir = plugin_dir / CODEX_PLUGIN_MANIFEST[0]
-    if contained_resolve(manifest_dir, root) is None:
+    if contained_resolve(manifest_dir, root, resolve) is None:
         return False
     manifest = plugin_dir.joinpath(*CODEX_PLUGIN_MANIFEST)
-    if contained_resolve(manifest, root) is None:
+    if contained_resolve(manifest, root, resolve) is None:
         return False
     return safe_is_file(manifest)
 
 
-def codex_marker_escapes(plugin_dir: Path) -> bool:
+def codex_marker_escapes(plugin_dir: Path, *, resolve: Resolver = safe_resolve) -> bool:
     """Whether *plugin_dir*'s ``.codex-plugin`` marker points out of the plugin.
 
     The containment half of :func:`codex_manifest_is_contained`, asked
@@ -461,14 +471,14 @@ def codex_marker_escapes(plugin_dir: Path) -> bool:
     (or a ``plugin.json`` inside it) that resolves elsewhere is another
     plugin's — or another tree's — and no claim may adopt it.
     """
-    root = safe_resolve(plugin_dir)
+    root = resolve(plugin_dir)
     if root is None:
         # Containment cannot be proven, so fail closed.
         return True
     manifest_dir = plugin_dir / CODEX_PLUGIN_MANIFEST[0]
     if not (safe_exists(manifest_dir) or safe_is_symlink(manifest_dir)):
         return False
-    if contained_resolve(manifest_dir, root) is None:
+    if contained_resolve(manifest_dir, root, resolve) is None:
         return True
     manifest = plugin_dir.joinpath(*CODEX_PLUGIN_MANIFEST)
-    return safe_exists(manifest) and contained_resolve(manifest, root) is None
+    return safe_exists(manifest) and contained_resolve(manifest, root, resolve) is None

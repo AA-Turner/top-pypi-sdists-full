@@ -1,10 +1,10 @@
-import json
-import sys
 from contextlib import contextmanager
+from typing import Any
 from typing import TypeVar
 
 from httpx2 import AsyncClient
 from httpx2 import Client
+from httpx2 import InvalidURL
 from httpx2 import RequestError
 from httpx2 import Response
 from scim2_models import AnyResource
@@ -28,6 +28,24 @@ from scim2_client.errors import UnexpectedContentFormatException
 ResourceT = TypeVar("ResourceT", bound=Resource)
 
 
+def stays_under_base_url(client: Client | AsyncClient, endpoint: str) -> bool:
+    """Tell whether the URL httpx2 builds for an endpoint has the origin and the path prefix of the base URL.
+
+    The URL is built as it will be sent, so an absolute endpoint pointing back
+    to the base URL is accepted, and the dot segments are already resolved.
+    """
+    base_url = client.base_url
+    if not base_url.is_absolute_url:
+        return False
+
+    try:
+        url = client.build_request("GET", endpoint).url
+    except InvalidURL:
+        return False
+
+    return url.origin == base_url.origin and url.raw_path.startswith(base_url.raw_path)
+
+
 @contextmanager
 def handle_request_error(payload=None):
     try:
@@ -35,18 +53,26 @@ def handle_request_error(payload=None):
 
     except RequestError as exc:
         scim_network_exc = RequestNetworkException(source=payload)
-        if sys.version_info >= (3, 11):  # pragma: no cover
-            scim_network_exc.add_note(str(exc))
+        scim_network_exc.add_note(str(exc))
         raise scim_network_exc from exc
+
+
+def decode_payload(response: Response) -> Any:
+    """Decode the JSON body of a response, or return None when it has no body.
+
+    A body too deeply nested for the decoder, or holding an integer too long for
+    Python to convert, is reported as any other body that is not valid JSON.
+    """
+    try:
+        return response.json() if response.text else None
+    except (ValueError, RecursionError) as exc:
+        raise UnexpectedContentFormatException(source=response) from exc
 
 
 @contextmanager
 def handle_response_error(response: Response):
     try:
         yield
-
-    except json.decoder.JSONDecodeError as exc:
-        raise UnexpectedContentFormatException(source=response) from exc
 
     except (SCIMClientException, SCIMException) as exc:
         exc.source = response
@@ -76,6 +102,9 @@ class SyncSCIMClient(BaseSyncSCIMClient):
         super().__init__(*args, **kwargs)
         self.client = client
 
+    def _stays_under_base_url(self, endpoint: str) -> bool:
+        return stays_under_base_url(self.client, endpoint)
+
     def create(
         self,
         resource: AnyResource | dict,
@@ -98,7 +127,7 @@ class SyncSCIMClient(BaseSyncSCIMClient):
 
         with handle_response_error(response):
             return self.check_response(
-                payload=response.json() if response.text else None,
+                payload=decode_payload(response),
                 status_code=response.status_code,
                 headers=response.headers,
                 expected_status_codes=req.expected_status_codes,
@@ -136,7 +165,7 @@ class SyncSCIMClient(BaseSyncSCIMClient):
 
         with handle_response_error(response):
             return self.check_response(
-                payload=response.json() if response.text else None,
+                payload=decode_payload(response),
                 status_code=response.status_code,
                 headers=response.headers,
                 expected_status_codes=req.expected_status_codes,
@@ -169,7 +198,7 @@ class SyncSCIMClient(BaseSyncSCIMClient):
 
         with handle_response_error(response):
             return self.check_response(
-                payload=response.json() if response.text else None,
+                payload=decode_payload(response),
                 status_code=response.status_code,
                 headers=response.headers,
                 expected_status_codes=req.expected_status_codes,
@@ -201,7 +230,7 @@ class SyncSCIMClient(BaseSyncSCIMClient):
 
         with handle_response_error(response):
             return self.check_response(
-                payload=response.json() if response.text else None,
+                payload=decode_payload(response),
                 status_code=response.status_code,
                 headers=response.headers,
                 expected_status_codes=req.expected_status_codes,
@@ -233,7 +262,7 @@ class SyncSCIMClient(BaseSyncSCIMClient):
 
         with handle_response_error(response):
             return self.check_response(
-                payload=response.json() if response.text else None,
+                payload=decode_payload(response),
                 status_code=response.status_code,
                 headers=response.headers,
                 expected_status_codes=expected_status_codes,
@@ -263,7 +292,7 @@ class SyncSCIMClient(BaseSyncSCIMClient):
 
         with handle_response_error(response):
             return self.check_response(
-                payload=response.json() if response.text else None,
+                payload=decode_payload(response),
                 status_code=response.status_code,
                 headers=response.headers,
                 expected_status_codes=req.expected_status_codes,
@@ -301,7 +330,7 @@ class SyncSCIMClient(BaseSyncSCIMClient):
 
         with handle_response_error(response):
             return self.check_response(
-                payload=response.json() if response.text else None,
+                payload=decode_payload(response),
                 status_code=response.status_code,
                 headers=response.headers,
                 expected_status_codes=req.expected_status_codes,
@@ -336,6 +365,9 @@ class AsyncSCIMClient(BaseAsyncSCIMClient):
         super().__init__(*args, **kwargs)
         self.client = client
 
+    def _stays_under_base_url(self, endpoint: str) -> bool:
+        return stays_under_base_url(self.client, endpoint)
+
     async def create(
         self,
         resource: AnyResource | dict,
@@ -360,7 +392,7 @@ class AsyncSCIMClient(BaseAsyncSCIMClient):
 
         with handle_response_error(response):
             return self.check_response(
-                payload=response.json() if response.text else None,
+                payload=decode_payload(response),
                 status_code=response.status_code,
                 headers=response.headers,
                 expected_status_codes=req.expected_status_codes,
@@ -398,7 +430,7 @@ class AsyncSCIMClient(BaseAsyncSCIMClient):
 
         with handle_response_error(response):
             return self.check_response(
-                payload=response.json() if response.text else None,
+                payload=decode_payload(response),
                 status_code=response.status_code,
                 headers=response.headers,
                 expected_status_codes=req.expected_status_codes,
@@ -433,7 +465,7 @@ class AsyncSCIMClient(BaseAsyncSCIMClient):
 
         with handle_response_error(response):
             return self.check_response(
-                payload=response.json() if response.text else None,
+                payload=decode_payload(response),
                 status_code=response.status_code,
                 headers=response.headers,
                 expected_status_codes=req.expected_status_codes,
@@ -467,7 +499,7 @@ class AsyncSCIMClient(BaseAsyncSCIMClient):
 
         with handle_response_error(response):
             return self.check_response(
-                payload=response.json() if response.text else None,
+                payload=decode_payload(response),
                 status_code=response.status_code,
                 headers=response.headers,
                 expected_status_codes=req.expected_status_codes,
@@ -499,7 +531,7 @@ class AsyncSCIMClient(BaseAsyncSCIMClient):
 
         with handle_response_error(response):
             return self.check_response(
-                payload=response.json() if response.text else None,
+                payload=decode_payload(response),
                 status_code=response.status_code,
                 headers=response.headers,
                 expected_status_codes=expected_status_codes,
@@ -531,7 +563,7 @@ class AsyncSCIMClient(BaseAsyncSCIMClient):
 
         with handle_response_error(response):
             return self.check_response(
-                payload=response.json() if response.text else None,
+                payload=decode_payload(response),
                 status_code=response.status_code,
                 headers=response.headers,
                 expected_status_codes=req.expected_status_codes,
@@ -569,7 +601,7 @@ class AsyncSCIMClient(BaseAsyncSCIMClient):
 
         with handle_response_error(response):
             return self.check_response(
-                payload=response.json() if response.text else None,
+                payload=decode_payload(response),
                 status_code=response.status_code,
                 headers=response.headers,
                 expected_status_codes=req.expected_status_codes,

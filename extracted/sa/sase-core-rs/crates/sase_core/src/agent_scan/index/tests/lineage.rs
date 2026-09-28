@@ -1,7 +1,7 @@
 use super::super::*;
 use super::support::{
     artifact, artifact_for_project, timestamps_from_artifact_dirs,
-    write_gate_shell_artifact, write_json,
+    write_gate_turn_artifact, write_json,
 };
 use crate::agent_cleanup::AgentCleanupIdentityWire;
 use crate::agent_scan::wire::AgentArtifactScanOptionsWire;
@@ -90,7 +90,7 @@ fn related_artifact_dirs_follow_retry_and_parent_lineage() {
 }
 
 #[test]
-fn resolve_family_dismissal_lineage_follows_parent_to_dismissed_root() {
+fn resolve_agent_session_dismissal_lineage_follows_parent_to_dismissed_root() {
     let tmp = tempdir().unwrap();
     let projects = tmp.path().join("projects");
     let root = artifact(&projects, "20260505120000");
@@ -118,21 +118,21 @@ fn resolve_family_dismissal_lineage_follows_parent_to_dismissed_root() {
     .unwrap();
 
     let candidates = vec![
-        FamilyDismissalLineageCandidateWire {
+        AgentSessionDismissalLineageCandidateWire {
             identity: "root".to_string(),
             project_name: "proj".to_string(),
             workflow_dir_name: "ace-run".to_string(),
             timestamp: "20260505120000".to_string(),
             seed_definitively_dead: false,
         },
-        FamilyDismissalLineageCandidateWire {
+        AgentSessionDismissalLineageCandidateWire {
             identity: "member".to_string(),
             project_name: "proj".to_string(),
             workflow_dir_name: "ace-run".to_string(),
             timestamp: "20260505120500".to_string(),
             seed_definitively_dead: false,
         },
-        FamilyDismissalLineageCandidateWire {
+        AgentSessionDismissalLineageCandidateWire {
             identity: "unrelated".to_string(),
             project_name: "proj".to_string(),
             workflow_dir_name: "ace-run".to_string(),
@@ -141,9 +141,12 @@ fn resolve_family_dismissal_lineage_follows_parent_to_dismissed_root() {
         },
     ];
 
-    let before = resolve_family_dismissal_lineage(&index, &candidates).unwrap();
+    let before =
+        resolve_agent_session_dismissal_lineage(&index, &candidates).unwrap();
     assert!(
-        before.iter().all(|result| !result.family_root_dismissed),
+        before
+            .iter()
+            .all(|result| !result.agent_session_root_dismissed),
         "nothing is dismissed yet: {before:?}"
     );
 
@@ -157,10 +160,16 @@ fn resolve_family_dismissal_lineage_follows_parent_to_dismissed_root() {
     )
     .unwrap();
 
-    let after = resolve_family_dismissal_lineage(&index, &candidates).unwrap();
+    let after =
+        resolve_agent_session_dismissal_lineage(&index, &candidates).unwrap();
     let dismissed_by_identity: BTreeMap<&str, bool> = after
         .iter()
-        .map(|result| (result.identity.as_str(), result.family_root_dismissed))
+        .map(|result| {
+            (
+                result.identity.as_str(),
+                result.agent_session_root_dismissed,
+            )
+        })
         .collect();
     assert!(dismissed_by_identity["root"]);
     assert!(dismissed_by_identity["member"]);
@@ -172,7 +181,7 @@ fn resolve_family_dismissal_lineage_follows_parent_to_dismissed_root() {
 }
 
 #[test]
-fn resolve_family_dismissal_lineage_honors_dead_seed_own_dismissal() {
+fn resolve_agent_session_dismissal_lineage_honors_dead_seed_own_dismissal() {
     let tmp = tempdir().unwrap();
     let projects = tmp.path().join("projects");
     let killed = artifact(&projects, "20260505130000");
@@ -206,7 +215,7 @@ fn resolve_family_dismissal_lineage_honors_dead_seed_own_dismissal() {
     )
     .unwrap();
     let candidate =
-        |seed_definitively_dead| FamilyDismissalLineageCandidateWire {
+        |seed_definitively_dead| AgentSessionDismissalLineageCandidateWire {
             identity: "killed".to_string(),
             project_name: "proj".to_string(),
             workflow_dir_name: "ace-run".to_string(),
@@ -215,16 +224,18 @@ fn resolve_family_dismissal_lineage_honors_dead_seed_own_dismissal() {
         };
 
     let unproven =
-        resolve_family_dismissal_lineage(&index, &[candidate(false)]).unwrap();
+        resolve_agent_session_dismissal_lineage(&index, &[candidate(false)])
+            .unwrap();
     assert!(
-        !unproven[0].family_root_dismissed,
+        !unproven[0].agent_session_root_dismissed,
         "without liveness evidence an active record keeps the strict \
          identity match: {unproven:?}"
     );
     let dead =
-        resolve_family_dismissal_lineage(&index, &[candidate(true)]).unwrap();
+        resolve_agent_session_dismissal_lineage(&index, &[candidate(true)])
+            .unwrap();
     assert!(
-        dead[0].family_root_dismissed,
+        dead[0].agent_session_root_dismissed,
         "a definitively dead record honors its own dismissal: {dead:?}"
     );
 }
@@ -263,18 +274,18 @@ fn wait_completed_records_are_indexed_as_running() {
 }
 
 #[test]
-fn find_gate_shell_by_gate_id_uses_indexed_lookup_not_full_decode() {
+fn find_gate_turn_by_gate_id_uses_indexed_lookup_not_full_decode() {
     let tmp = tempdir().unwrap();
     let projects = tmp.path().join("projects");
     for n in 0..40 {
-        write_gate_shell_artifact(
+        write_gate_turn_artifact(
             &projects,
             "proj",
             &format!("2026081210{n:04}"),
             &format!("unrelated-{n}"),
         );
     }
-    let target = write_gate_shell_artifact(
+    let target = write_gate_turn_artifact(
         &projects,
         "proj",
         "20260812999999",
@@ -289,23 +300,23 @@ fn find_gate_shell_by_gate_id_uses_indexed_lookup_not_full_decode() {
     )
     .unwrap();
 
-    let found = find_gate_shell_by_gate_id(&index, Some("proj"), "gate-target")
+    let found = find_gate_turn_by_gate_id(&index, Some("proj"), "gate-target")
         .unwrap()
         .expect("gate-target must resolve");
     assert_eq!(found.artifact_dir, target.to_string_lossy());
     assert_eq!(
-        last_gate_shell_lookup_records_decoded(),
+        last_gate_turn_lookup_records_decoded(),
         1,
         "an indexed exact lookup must decode only the matched row, \
-         regardless of how many unrelated gate shells are indexed"
+         regardless of how many unrelated gate turns are indexed"
     );
 }
 
 #[test]
-fn find_gate_shell_by_gate_id_returns_none_for_unknown_id() {
+fn find_gate_turn_by_gate_id_returns_none_for_unknown_id() {
     let tmp = tempdir().unwrap();
     let projects = tmp.path().join("projects");
-    write_gate_shell_artifact(&projects, "proj", "20260812100000", "gate-1");
+    write_gate_turn_artifact(&projects, "proj", "20260812100000", "gate-1");
     let index = tmp.path().join("agent_artifact_index.sqlite");
     rebuild_agent_artifact_index(
         &index,
@@ -314,26 +325,21 @@ fn find_gate_shell_by_gate_id_returns_none_for_unknown_id() {
     )
     .unwrap();
 
-    let found =
-        find_gate_shell_by_gate_id(&index, Some("proj"), "no-such-gate")
-            .unwrap();
+    let found = find_gate_turn_by_gate_id(&index, Some("proj"), "no-such-gate")
+        .unwrap();
     assert!(found.is_none());
-    assert_eq!(last_gate_shell_lookup_records_decoded(), 0);
+    assert_eq!(last_gate_turn_lookup_records_decoded(), 0);
 }
 
 #[test]
-fn find_gate_shell_by_gate_id_ignores_inherited_id_on_descendant() {
+fn find_gate_turn_by_gate_id_ignores_inherited_id_on_descendant() {
     let tmp = tempdir().unwrap();
     let projects = tmp.path().join("projects");
-    let owner = write_gate_shell_artifact(
-        &projects,
-        "proj",
-        "20260812100000",
-        "gate-1",
-    );
+    let owner =
+        write_gate_turn_artifact(&projects, "proj", "20260812100000", "gate-1");
     // A follow-up agent launched after the gate settles inherits the
-    // same on-disk `gate_id` but is not itself a gate-shell member: its
-    // `agent_family_role` is not "gate".
+    // same on-disk `gate_id` but is not itself a gate-turn member: its
+    // `agent_session_role` is not "gate".
     write_json(
         &artifact_for_project(&projects, "proj", "20260812100100")
             .join("agent_meta.json"),
@@ -355,23 +361,23 @@ fn find_gate_shell_by_gate_id_ignores_inherited_id_on_descendant() {
     )
     .unwrap();
 
-    let found = find_gate_shell_by_gate_id(&index, Some("proj"), "gate-1")
+    let found = find_gate_turn_by_gate_id(&index, Some("proj"), "gate-1")
         .unwrap()
-        .expect("gate-1 must resolve to its owning shell");
+        .expect("gate-1 must resolve to its owning turn");
     assert_eq!(found.artifact_dir, owner.to_string_lossy());
 }
 
 #[test]
-fn find_gate_shell_by_gate_id_respects_project_scoping() {
+fn find_gate_turn_by_gate_id_respects_project_scoping() {
     let tmp = tempdir().unwrap();
     let projects = tmp.path().join("projects");
-    let alpha = write_gate_shell_artifact(
+    let alpha = write_gate_turn_artifact(
         &projects,
         "alpha",
         "20260812100000",
         "gate-shared",
     );
-    write_gate_shell_artifact(
+    write_gate_turn_artifact(
         &projects,
         "beta",
         "20260812200000",
@@ -387,13 +393,13 @@ fn find_gate_shell_by_gate_id_respects_project_scoping() {
     .unwrap();
 
     let scoped =
-        find_gate_shell_by_gate_id(&index, Some("alpha"), "gate-shared")
+        find_gate_turn_by_gate_id(&index, Some("alpha"), "gate-shared")
             .unwrap()
             .expect("alpha's gate must resolve even though beta's is newer");
     assert_eq!(scoped.artifact_dir, alpha.to_string_lossy());
     assert_eq!(scoped.project_name, "alpha");
 
-    let unscoped = find_gate_shell_by_gate_id(&index, None, "gate-shared")
+    let unscoped = find_gate_turn_by_gate_id(&index, None, "gate-shared")
         .unwrap()
         .expect("an unscoped search must still resolve one match");
     assert_eq!(
@@ -403,11 +409,11 @@ fn find_gate_shell_by_gate_id_respects_project_scoping() {
 }
 
 #[test]
-fn find_gate_shell_by_gate_id_prefers_newest_real_shell() {
+fn find_gate_turn_by_gate_id_prefers_newest_real_turn() {
     let tmp = tempdir().unwrap();
     let projects = tmp.path().join("projects");
-    write_gate_shell_artifact(&projects, "proj", "20260812100000", "gate-dup");
-    let newest = write_gate_shell_artifact(
+    write_gate_turn_artifact(&projects, "proj", "20260812100000", "gate-dup");
+    let newest = write_gate_turn_artifact(
         &projects,
         "proj",
         "20260812200000",
@@ -422,17 +428,17 @@ fn find_gate_shell_by_gate_id_prefers_newest_real_shell() {
     )
     .unwrap();
 
-    let found = find_gate_shell_by_gate_id(&index, Some("proj"), "gate-dup")
+    let found = find_gate_turn_by_gate_id(&index, Some("proj"), "gate-dup")
         .unwrap()
         .expect("gate-dup must resolve");
     assert_eq!(found.artifact_dir, newest.to_string_lossy());
 }
 
 #[test]
-fn schema_v30_upgrade_adds_and_backfills_gate_shell_id_projection() {
+fn schema_v30_upgrade_adds_and_backfills_gate_turn_id_projection() {
     let tmp = tempdir().unwrap();
     let projects = tmp.path().join("projects");
-    let owner = write_gate_shell_artifact(
+    let owner = write_gate_turn_artifact(
         &projects,
         "proj",
         "20260812100000",
@@ -456,7 +462,7 @@ fn schema_v30_upgrade_adds_and_backfills_gate_shell_id_projection() {
         .unwrap();
     }
 
-    let found = find_gate_shell_by_gate_id(&index, Some("proj"), "gate-legacy")
+    let found = find_gate_turn_by_gate_id(&index, Some("proj"), "gate-legacy")
         .unwrap()
         .expect(
             "an index predating the gate_shell_id column must \

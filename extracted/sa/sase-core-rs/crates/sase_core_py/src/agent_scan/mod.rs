@@ -68,7 +68,7 @@ fn py_scan_agent_artifact_dirs<'py>(
     json_value_to_py(py, &value)
 }
 
-/// Return wall-clock union runtime for clan/family members.
+/// Return wall-clock union runtime for clan/agent-session members.
 #[pyfunction]
 #[pyo3(name = "aggregate_clan_runtime")]
 fn py_aggregate_clan_runtime<'py>(
@@ -370,13 +370,9 @@ fn py_prune_hidden_terminal_agent_artifact_index_rows<'py>(
     json_value_to_py(py, &value)
 }
 
-/// Back-fill dismissed identities for visible dead members of dismissed families.
-#[pyfunction]
-#[pyo3(
-    name = "reconcile_agent_artifact_index_dismissed_family_members",
-    signature = (index_path, dry_run = false)
-)]
-fn py_reconcile_agent_artifact_index_dismissed_family_members<'py>(
+/// Back-fill dismissed identities for visible dead members of dismissed
+/// agent sessions.
+fn reconcile_agent_artifact_index_dismissed_agent_session_members_impl<'py>(
     py: Python<'py>,
     index_path: &str,
     dry_run: bool,
@@ -384,7 +380,7 @@ fn py_reconcile_agent_artifact_index_dismissed_family_members<'py>(
     let index = PathBuf::from(index_path);
     let update = py
         .allow_threads(|| {
-            core_reconcile_agent_artifact_index_dismissed_family_members(
+            core_reconcile_agent_artifact_index_dismissed_agent_session_members(
                 &index, dry_run,
             )
         })
@@ -393,6 +389,21 @@ fn py_reconcile_agent_artifact_index_dismissed_family_members<'py>(
         PyValueError::new_err(format!("internal serialize error: {e}"))
     })?;
     json_value_to_py(py, &value)
+}
+
+#[pyfunction]
+#[pyo3(
+    name = "reconcile_agent_artifact_index_dismissed_agent_session_members",
+    signature = (index_path, dry_run = false)
+)]
+fn py_reconcile_agent_artifact_index_dismissed_agent_session_members<'py>(
+    py: Python<'py>,
+    index_path: &str,
+    dry_run: bool,
+) -> PyResult<PyObject> {
+    reconcile_agent_artifact_index_dismissed_agent_session_members_impl(
+        py, index_path, dry_run,
+    )
 }
 
 /// Read one metadata value from the persistent artifact index.
@@ -514,10 +525,25 @@ fn py_load_agent_artifact_records<'py>(
     serialize_to_py(py, &records)
 }
 
-/// Return the newest real gate-shell record for `gate_id`, or `None`.
+/// Return the newest real gate-turn record for `gate_id`, or `None`.
 ///
 /// Uses the persistent index's indexed `gate_shell_id` column, an O(1) SQL
 /// lookup instead of decoding every historical record.
+#[pyfunction]
+#[pyo3(
+    name = "find_gate_turn_by_gate_id",
+    signature = (index_path, project_name, gate_id)
+)]
+fn py_find_gate_turn_by_gate_id<'py>(
+    py: Python<'py>,
+    index_path: &str,
+    project_name: Option<&str>,
+    gate_id: &str,
+) -> PyResult<PyObject> {
+    find_gate_turn_by_gate_id_impl(py, index_path, project_name, gate_id)
+}
+
+// legacy binding name; removed in contract-flip
 #[pyfunction]
 #[pyo3(
     name = "find_gate_shell_by_gate_id",
@@ -529,10 +555,19 @@ fn py_find_gate_shell_by_gate_id<'py>(
     project_name: Option<&str>,
     gate_id: &str,
 ) -> PyResult<PyObject> {
+    find_gate_turn_by_gate_id_impl(py, index_path, project_name, gate_id)
+}
+
+fn find_gate_turn_by_gate_id_impl<'py>(
+    py: Python<'py>,
+    index_path: &str,
+    project_name: Option<&str>,
+    gate_id: &str,
+) -> PyResult<PyObject> {
     let index = PathBuf::from(index_path);
     let record = py
         .allow_threads(|| {
-            core_find_gate_shell_by_gate_id(&index, project_name, gate_id)
+            core_find_gate_turn_by_gate_id(&index, project_name, gate_id)
         })
         .map_err(PyRuntimeError::new_err)?;
     serialize_to_py(py, &record)
@@ -735,6 +770,129 @@ fn py_resolve_clan_tribe<'py>(
     json_value_to_py(py, &value)
 }
 
+/// Load one clan's durable record, or `None` when it is absent.
+#[pyfunction]
+#[pyo3(name = "load_agent_clan_record", signature = (records_dir, clan))]
+fn py_load_agent_clan_record<'py>(
+    py: Python<'py>,
+    records_dir: &str,
+    clan: &str,
+) -> PyResult<Option<PyObject>> {
+    let dir = PathBuf::from(records_dir);
+    let clan = clan.to_string();
+    let record = py
+        .allow_threads(|| {
+            sase_core::agent_clan_record::load_clan_record(&dir, &clan)
+        })
+        .map_err(clan_record_error_to_pyerr)?;
+    match record {
+        Some(record) => {
+            let value = serde_json::to_value(&record).map_err(|e| {
+                PyValueError::new_err(format!("internal serialize error: {e}"))
+            })?;
+            Ok(Some(json_value_to_py(py, &value)?))
+        }
+        None => Ok(None),
+    }
+}
+
+/// Merge one clan record update and return the outcome dict.
+#[pyfunction]
+#[pyo3(name = "record_agent_clan_attributes", signature = (records_dir, update))]
+fn py_record_agent_clan_attributes<'py>(
+    py: Python<'py>,
+    records_dir: &str,
+    update: &Bound<'py, PyDict>,
+) -> PyResult<PyObject> {
+    let value = py_to_json_value(update.as_any())?;
+    let update: sase_core::agent_clan_record::ClanRecordUpdateWire =
+        serde_json::from_value(value).map_err(|e| {
+            PyValueError::new_err(format!(
+                "update is not a valid ClanRecordUpdateWire dict: {e}"
+            ))
+        })?;
+    let dir = PathBuf::from(records_dir);
+    let outcome = py
+        .allow_threads(|| {
+            sase_core::agent_clan_record::record_clan_attributes(&dir, update)
+        })
+        .map_err(clan_record_error_to_pyerr)?;
+    serialize_to_py(py, &outcome)
+}
+
+/// Capture a dying artifact directory's clan attributes as `captured`.
+///
+/// Returns the clan record dict, or `None` when the directory carries
+/// nothing to capture.
+#[pyfunction]
+#[pyo3(
+    name = "capture_agent_clan_record_from_artifacts",
+    signature = (records_dir, artifacts_dir)
+)]
+fn py_capture_agent_clan_record_from_artifacts<'py>(
+    py: Python<'py>,
+    records_dir: &str,
+    artifacts_dir: &str,
+) -> PyResult<Option<PyObject>> {
+    let dir = PathBuf::from(records_dir);
+    let artifacts = PathBuf::from(artifacts_dir);
+    let record = py
+        .allow_threads(|| {
+            sase_core::agent_clan_record::capture_clan_record_from_artifacts(
+                &dir, &artifacts,
+            )
+        })
+        .map_err(clan_record_error_to_pyerr)?;
+    match record {
+        Some(record) => {
+            let value = serde_json::to_value(&record).map_err(|e| {
+                PyValueError::new_err(format!("internal serialize error: {e}"))
+            })?;
+            Ok(Some(json_value_to_py(py, &value)?))
+        }
+        None => Ok(None),
+    }
+}
+
+/// Resolve remembered attributes for a new generation of a clan.
+#[pyfunction]
+#[pyo3(
+    name = "resolve_agent_clan_launch_defaults",
+    signature = (records_dir, clan, exclude_generation = None)
+)]
+fn py_resolve_agent_clan_launch_defaults<'py>(
+    py: Python<'py>,
+    records_dir: &str,
+    clan: &str,
+    exclude_generation: Option<&str>,
+) -> PyResult<PyObject> {
+    let dir = PathBuf::from(records_dir);
+    let clan = clan.to_string();
+    let excluded = exclude_generation.map(str::to_string);
+    let defaults = py
+        .allow_threads(|| {
+            sase_core::agent_clan_record::resolve_clan_launch_defaults(
+                &dir,
+                &clan,
+                excluded.as_deref(),
+            )
+        })
+        .map_err(clan_record_error_to_pyerr)?;
+    serialize_to_py(py, &defaults)
+}
+
+fn clan_record_error_to_pyerr(
+    err: sase_core::agent_clan_record::ClanRecordError,
+) -> PyErr {
+    match err {
+        sase_core::agent_clan_record::ClanRecordError::InvalidClan(_)
+        | sase_core::agent_clan_record::ClanRecordError::InvalidGeneration(_) => {
+            PyValueError::new_err(err.to_string())
+        }
+        _ => PyRuntimeError::new_err(err.to_string()),
+    }
+}
+
 /// Deserialize a `AgentArtifactScanOptionsWire` from a Python dict.
 ///
 /// Translates the dict to `serde_json::Value` first so missing fields use
@@ -835,7 +993,7 @@ pub(crate) fn register_agent_scan(m: &Bound<'_, PyModule>) -> PyResult<()> {
         m
     )?)?;
     m.add_function(wrap_pyfunction!(
-        py_reconcile_agent_artifact_index_dismissed_family_members,
+        py_reconcile_agent_artifact_index_dismissed_agent_session_members,
         m
     )?)?;
     m.add_function(wrap_pyfunction!(py_read_agent_artifact_index_meta, m)?)?;
@@ -844,6 +1002,7 @@ pub(crate) fn register_agent_scan(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_vacuum_agent_artifact_index, m)?)?;
     m.add_function(wrap_pyfunction!(py_query_agent_artifact_index, m)?)?;
     m.add_function(wrap_pyfunction!(py_load_agent_artifact_records, m)?)?;
+    m.add_function(wrap_pyfunction!(py_find_gate_turn_by_gate_id, m)?)?;
     m.add_function(wrap_pyfunction!(py_find_gate_shell_by_gate_id, m)?)?;
     m.add_function(wrap_pyfunction!(
         py_agent_output_variable_history_wire_schema_version,
@@ -870,6 +1029,16 @@ pub(crate) fn register_agent_scan(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_query_related_agent_artifact_dirs, m)?)?;
     m.add_function(wrap_pyfunction!(py_resolve_clan_summary, m)?)?;
     m.add_function(wrap_pyfunction!(py_resolve_clan_tribe, m)?)?;
+    m.add_function(wrap_pyfunction!(py_load_agent_clan_record, m)?)?;
+    m.add_function(wrap_pyfunction!(py_record_agent_clan_attributes, m)?)?;
+    m.add_function(wrap_pyfunction!(
+        py_capture_agent_clan_record_from_artifacts,
+        m
+    )?)?;
+    m.add_function(wrap_pyfunction!(
+        py_resolve_agent_clan_launch_defaults,
+        m
+    )?)?;
     m.add_function(wrap_pyfunction!(py_agent_stats_query_runs, m)?)?;
     m.add_function(wrap_pyfunction!(py_agent_stats_query_activity, m)?)?;
     Ok(())

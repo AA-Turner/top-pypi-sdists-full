@@ -136,38 +136,42 @@ def _fail(
     )
 
 
-async def _can_access(row: Any, app_ctx: Any) -> bool:
-    """Admin, owner (created_by), or canonical viewer-level access.
+async def _load_agent_as_the_person(agent_id: str, app_ctx: Any) -> Any | None:
+    """The agent row AS THE CALLER SEES IT — None when missing or not theirs to run.
 
-    Viewer access IS the run gate (Arman's 2026-08-12 ruling replacing the
-    dropped ``is_public`` flag): builtins, org grants, and shares all resolve
-    through ``iam.has_access_for`` — never re-implement that ladder here.
+    Runs inside the caller's RLS session (``as_the_person``): Postgres decides,
+    through ``agent.definition``'s own policies (owner, org, share, public), whether
+    this person may see the agent. Viewer access IS the run gate (2026-08-12
+    ruling); this module never re-implements it. On an admin surface the admin
+    lane is opened inside the same session, so the database's own admin arm —
+    never app code — grants the wider reach (2026-09-25).
     """
     from matrx_connect import admin_surface_active
 
-    if admin_surface_active(app_ctx):  # admin reach only on an admin surface (2026-09-25)
-        return True
-    user_id = getattr(app_ctx, "user_id", None)
-    if not user_id:
-        return False
-    if str(getattr(row, "created_by", "") or "") == str(user_id):
-        return True
-    from matrx_ai.db.agx_manager import agent_viewer_access
+    from matrx_ai.db.agx_manager import AgxDefinition
+    from matrx_ai.tools.person_session import as_the_person
 
-    return await agent_viewer_access(str(row.id), str(user_id))
+    async with as_the_person():
+        if admin_surface_active(app_ctx):
+            from matrx_orm import admin_lane
+
+            async with admin_lane(database=AgxDefinition._database):
+                return await AgxDefinition.load_by_id_or_none(agent_id)
+        return await AgxDefinition.load_by_id_or_none(agent_id)
 
 
-async def _load_owned_conversation(conversation_id: str, user_id: str) -> Any | None:
-    """Owner-only conversation gate, mirroring the /inbox route's check.
+async def _load_visible_conversation(conversation_id: str) -> Any | None:
+    """The conversation AS THE CALLER SEES IT, or None (missing, archived, or hidden).
 
-    Returns the live row, or None for a miss / not-owned / soft-deleted row —
-    404 semantics belong to the caller: all three are the same answer, so
-    another user's conversation existence never leaks. Org/shared conversation
-    access is the same deliberate v1 gap as agent visibility above.
+    Runs inside the caller's RLS session — ``chat.conversation``'s policies decide
+    who may read it. 404 semantics belong to the caller: missing and hidden are
+    the same answer, so another person's conversation never leaks.
     """
     from matrx_ai.db import cxm
+    from matrx_ai.tools.person_session import as_the_person
 
-    rows = await cxm.conversation.filter_items(id=conversation_id, created_by=str(user_id))
+    async with as_the_person():
+        rows = await cxm.conversation.filter_items(id=conversation_id)
     live = [r for r in rows if getattr(r, "deleted_at", None) is None]
     return live[0] if live else None
 
@@ -225,7 +229,7 @@ async def agent_call(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
 
     # ── Visibility guard ────────────────────────────────────────────────
     try:
-        from matrx_ai.db.agx_manager import AgxDefinition
+        from matrx_ai.db.agx_manager import AgxDefinition  # noqa: F401 — availability probe
     except Exception as exc:
         return _fail(
             ctx,
@@ -235,8 +239,12 @@ async def agent_call(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
             exc=exc,
         )
 
+    from matrx_ai.tools.person_session import PersonSessionUnavailable
+
     try:
-        row = await AgxDefinition.load_by_id_or_none(agent_id)
+        row = await _load_agent_as_the_person(agent_id, app_ctx)
+    except PersonSessionUnavailable as exc:
+        return _fail(ctx, started_at, error_type="unavailable", message=str(exc))
     except Exception as exc:
         return _fail(
             ctx,
@@ -248,21 +256,14 @@ async def agent_call(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         )
 
     if row is None:
+        # Missing and not-yours-to-run are one answer: RLS hid the row.
         return _fail(
             ctx,
             started_at,
             error_type="not_found",
-            message=f"No agent found with id {agent_id}.",
-            suggested_action="Verify the agent_id. Use an agent you own or one that is public.",
-        )
-
-    if not await _can_access(row, app_ctx):
-        return _fail(
-            ctx,
-            started_at,
-            error_type="not_allowed",
-            message=f"You do not have access to agent {agent_id}.",
-            suggested_action="Use an agent you own or a public agent.",
+            message=f"Agent {agent_id} was not found, or you do not have access to it.",
+            suggested_action="Verify the agent_id. Use an agent you own, one shared "
+            "with you or your organization, or a public agent.",
         )
 
     if getattr(row, "is_active", True) is False or getattr(row, "is_archived", False):
@@ -380,9 +381,9 @@ async def agent_call(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
                 suggested_action="Pass history_conversation_id explicitly.",
             )
         try:
-            source_row = await _load_owned_conversation(
-                source_conversation_id, str(app_ctx.user_id)
-            )
+            source_row = await _load_visible_conversation(source_conversation_id)
+        except PersonSessionUnavailable as exc:
+            return _fail(ctx, started_at, error_type="unavailable", message=str(exc))
         except Exception as exc:
             return _fail(
                 ctx,
@@ -397,8 +398,9 @@ async def agent_call(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
                 ctx,
                 started_at,
                 error_type="not_found",
-                message=f"No conversation found with id {source_conversation_id}.",
-                suggested_action="Use a conversation you own. Ephemeral (store=false) "
+                message=f"Conversation {source_conversation_id} was not found, or you "
+                "do not have access to it.",
+                suggested_action="Use a conversation you can open. Ephemeral (store=false) "
                 "runs have no stored conversation and cannot be addressed.",
             )
         if parsed.remember:

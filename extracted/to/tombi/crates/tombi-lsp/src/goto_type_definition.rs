@@ -125,7 +125,7 @@ pub async fn try_get_type_definition_response(
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct TypeDefinition {
-    pub schema_uri: SchemaUri,
+    pub schema_base_uri: SchemaUri,
 
     pub schema_accessors: Vec<tombi_schema_store::SchemaAccessor>,
 
@@ -136,10 +136,10 @@ pub struct TypeDefinition {
 }
 
 pub(crate) fn location_key(
-    schema_uri: &SchemaUri,
+    schema_base_uri: &SchemaUri,
     range: tombi_text::Range,
 ) -> (&str, tombi_text::Range) {
-    let uri = schema_uri.as_str();
+    let uri = schema_base_uri.as_str();
     if range == tombi_text::Range::default() {
         (uri, range)
     } else {
@@ -211,9 +211,7 @@ pub(super) async fn adjacent_type_definition<
             keys,
             accessors,
             one_of_schema,
-            &current_schema.schema_uri,
-            &current_schema.definitions,
-            current_schema.strict,
+            current_schema,
             schema_context,
         )
         .await
@@ -228,9 +226,7 @@ pub(super) async fn adjacent_type_definition<
             keys,
             accessors,
             any_of_schema,
-            &current_schema.schema_uri,
-            &current_schema.definitions,
-            current_schema.strict,
+            current_schema,
             schema_context,
         )
         .await
@@ -245,9 +241,7 @@ pub(super) async fn adjacent_type_definition<
             keys,
             accessors,
             all_of_schema,
-            &current_schema.schema_uri,
-            &current_schema.definitions,
-            current_schema.strict,
+            current_schema,
             schema_context,
         )
         .await
@@ -260,15 +254,15 @@ pub(super) async fn adjacent_type_definition<
 }
 
 pub(super) fn schema_type_definition(
-    schema_uri: &SchemaUri,
+    schema_base_uri: &SchemaUri,
     accessors: &[Accessor],
     range: tombi_text::Range,
 ) -> TypeDefinition {
-    let mut schema_uri = schema_uri.clone();
-    schema_uri.set_fragment(Some(&format!("L{}", range.start.line + 1)));
+    let mut schema_base_uri = schema_base_uri.clone();
+    schema_base_uri.set_fragment(Some(&format!("L{}", range.start.line + 1)));
 
     TypeDefinition {
-        schema_uri,
+        schema_base_uri,
         schema_accessors: accessors.iter().map(Into::into).collect_vec(),
         range: tombi_text::Range::default(),
     }

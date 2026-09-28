@@ -279,3 +279,34 @@ async def test_media_deliverable_arrives_as_a_media_part(monkeypatch, app_contex
     parts = completed.final_response.messages[0].content
     audio = [p for p in parts if isinstance(p, AudioContent)]
     assert audio and audio[0].file_id == "f-1" and audio[0].url.endswith("a.wav")
+
+
+async def test_each_turn_of_a_loop_is_its_own_run(monkeypatch, app_context) -> None:
+    """A loop whose call-level values never change used to reattach every turn
+    to the first answer; a turn's own values make it a new run."""
+    runner = _Runner({"output": "x", "run_id": "r7", "cost": {}})
+    _install(monkeypatch, runner)
+    held = await mandates.hold_code_call("x.y", consumer="t", variables={"case": "c"})
+
+    for turn in (1, 2):
+        await funnel.llm_to_text(
+            model=held.model,
+            system="",
+            user="(budget_note)",
+            metadata=held.turn_metadata(research_log=f"log {turn}"),
+        )
+
+    assert [c["supplied"] for c in runner.calls] == [
+        {"case": "c", "research_log": "log 1"},
+        {"case": "c", "research_log": "log 2"},
+    ]
+    # The call's own metadata is untouched by a turn.
+    assert "turn_values" not in held.metadata["mandate_holder"]
+
+
+def test_an_agent_holders_turn_metadata_is_its_metadata() -> None:
+    held = mandates.HeldCall(
+        mandate_key="x.y", model="m", system="s", temperature=None,
+        max_output_tokens=None, turns=[], config=None, metadata={"mandate_key": "x.y"},
+    )
+    assert held.turn_metadata(research_log="big") == {"mandate_key": "x.y"}

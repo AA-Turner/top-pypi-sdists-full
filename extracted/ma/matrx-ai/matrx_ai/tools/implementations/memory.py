@@ -11,7 +11,6 @@ from pydantic import ValidationError
 from matrx_ai.db.ownership_fields import stamp_org_id, stamp_row_owner
 from matrx_ai.persistence import (
     queue_agent_memory_create,
-    queue_agent_memory_delete,
     queue_agent_memory_update,
     standalone_coordinator,
 )
@@ -63,6 +62,15 @@ def _scope_id(ctx: ToolContext, scope: str) -> str | None:
     return None
 
 
+def _is_live(row: Any) -> bool:
+    return getattr(row, "deleted_at", None) is None
+
+
+async def _live_memories(**filters: Any) -> list[Any]:
+    # forget ARCHIVES (deleted_at) — every read sees live memories only.
+    return [m for m in await cxm.agent_memory.filter_agent_memories(**filters) if _is_live(m)]
+
+
 async def memory_store(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     started_at = time.time()
     parsed = MemoryStoreArgs(**args)
@@ -80,7 +88,12 @@ async def memory_store(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         if scope_id:
             filters["scope_id"] = scope_id
 
-        existing = await cxm.agent_memory.filter_agent_memories(**filters)
+        rows = await cxm.agent_memory.filter_agent_memories(**filters)
+        existing = [m for m in rows if _is_live(m)]
+        # A forgotten memory keeps its row (archived) and the key stays unique
+        # per (created_by, scope, scope_id, key) — storing the key again
+        # REVIVES that row instead of colliding with it.
+        archived = [m for m in rows if not _is_live(m)]
 
         data: dict[str, Any] = {
             "memory_type": parsed.memory_type,
@@ -105,6 +118,8 @@ async def memory_store(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
 
         if existing:
             queue_agent_memory_update(existing[0].id, **data)
+        elif archived:
+            queue_agent_memory_update(archived[0].id, **data, deleted_at=None)
         else:
             # CxAgentMemory.id has no DB-side UUID default, so the insert must
             # carry an explicit primary key — otherwise the ORM Session refuses
@@ -114,13 +129,29 @@ async def memory_store(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
             data["access_count"] = 0
             queue_agent_memory_create(**data)
 
-        return ToolResult(
+        result = ToolResult(
             success=True,
             output={"stored": True, "key": parsed.key, "type": parsed.memory_type},
             started_at=started_at,
             completed_at=time.time(),
             tool_name="memory_store",
             call_id=ctx.call_id,
+        )
+        if not existing:
+            return result  # a new memory: nothing was replaced
+        # store UPSERTS by key: an existing memory's text was replaced, so the
+        # card shows what it said before (verifier round 2, proved live).
+        from matrx_ai.tools.surface_write import attach_surface_write
+
+        return attach_surface_write(
+            result,
+            before=str(getattr(existing[0], "content", "") or ""),
+            after=str(parsed.content or ""),
+            target_type="memory",
+            target_id=str(existing[0].id),
+            target_label=f"Memory · {parsed.key}",
+            mode="overwrite",
+            content_format="markdown",
         )
     except Exception as exc:
         return ToolResult(
@@ -148,7 +179,7 @@ async def memory_recall(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         if scope_id:
             filters["scope_id"] = scope_id
 
-        items = await cxm.agent_memory.filter_agent_memories(**filters)
+        items = await _live_memories(**filters)
 
         # Sort by importance desc, then recency, and apply limit
         items_sorted = sorted(
@@ -238,7 +269,7 @@ async def memory_search(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         if scope_id:
             filters["scope_id"] = scope_id
 
-        all_items = await cxm.agent_memory.filter_agent_memories(**filters)
+        all_items = await _live_memories(**filters)
 
         query_lower = parsed.query.lower()
         matched = [
@@ -285,7 +316,7 @@ async def memory_update(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         if scope_id:
             filters["scope_id"] = scope_id
 
-        existing = await cxm.agent_memory.filter_agent_memories(**filters)
+        existing = await _live_memories(**filters)
 
         if not existing:
             return ToolResult(
@@ -309,13 +340,24 @@ async def memory_update(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
 
         queue_agent_memory_update(existing[0].id, **update_data)
 
-        return ToolResult(
-            success=True,
-            output={"updated": 1, "key": parsed.key},
-            started_at=started_at,
-            completed_at=time.time(),
-            tool_name="memory_update",
-            call_id=ctx.call_id,
+        from matrx_ai.tools.surface_write import attach_surface_write
+
+        return attach_surface_write(
+            ToolResult(
+                success=True,
+                output={"updated": 1, "key": parsed.key},
+                started_at=started_at,
+                completed_at=time.time(),
+                tool_name="memory_update",
+                call_id=ctx.call_id,
+            ),
+            before=str(getattr(existing[0], "content", "") or ""),
+            after=str(parsed.content or ""),
+            target_type="memory",
+            target_id=str(existing[0].id),
+            target_label=f"Memory · {parsed.key}",
+            mode="overwrite",
+            content_format="markdown",
         )
     except Exception as exc:
         return ToolResult(
@@ -343,16 +385,18 @@ async def memory_forget(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         if scope_id:
             filters["scope_id"] = scope_id
 
-        existing = await cxm.agent_memory.filter_agent_memories(**filters)
+        existing = await _live_memories(**filters)
 
         deleted = 0
+        now = datetime.now(UTC).isoformat()
         for item in existing:
-            if queue_agent_memory_delete(item.id):
+            # Archive, never remove: the row keeps deleted_at and every read skips it.
+            if queue_agent_memory_update(item.id, deleted_at=now, updated_at=now):
                 deleted += 1
 
         return ToolResult(
             success=True,
-            output={"deleted": deleted, "key": parsed.key},
+            output={"deleted": deleted, "archived": deleted, "key": parsed.key},
             started_at=started_at,
             completed_at=time.time(),
             tool_name="memory_forget",

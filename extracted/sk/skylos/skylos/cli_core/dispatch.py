@@ -11,6 +11,7 @@ EARLY_COMMAND_HANDLERS = {
     "tour": "_run_tour_command",
     "key": "_run_key_command",
     "credits": "_run_credits_command",
+    "upload": "_run_upload_command",
     "baseline": "_run_baseline_command",
     "sbom": "_run_sbom_command",
     "init": "_run_init_command",
@@ -30,6 +31,7 @@ EARLY_COMMAND_HANDLERS = {
     "city": "_run_removed_city_command",
     "suite": "run_suite_command",
     "verify": "_run_verify_command",
+    "hook": "_run_hook_command",
     "preflight": "_run_preflight_command",
     "review": "_run_review_command",
     "discover": "_run_discover_command",
@@ -46,7 +48,7 @@ EARLY_COMMAND_HANDLERS = {
 # help is the source of truth. Parsing --help exits before target analysis,
 # artifact inspection, scanner execution, uploads, or file edits can start.
 NATIVE_HELP_COMMANDS = frozenset(
-    {"clean", "defend", "image", "preflight", "suite", "verify"}
+    {"clean", "defend", "image", "preflight", "suite", "upload", "verify"}
 )
 
 

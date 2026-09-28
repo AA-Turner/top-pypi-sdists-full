@@ -121,6 +121,15 @@ class ExecutionState:
     # message gets a fresh UUID and is duplicated. Captured once at start.
     pre_existing_message_ids: set[str] = field(default_factory=set)
     persisted: bool = False
+    # The provider response whose tool calls are being dispatched RIGHT NOW —
+    # set just before ``handle_tool_calls`` and cleared the moment the loop's
+    # ``add_response`` carries it (with its real results) into
+    # ``current_request``. While set, the assistant tool_use turn exists ONLY
+    # here: an interrupt (cancel / disconnect / iteration error) must attach it
+    # with an honest result per call, or the tool_use and its tool-result
+    # message are never persisted and every chat.tool_call row of the turn is
+    # left with message_id NULL (see ``_attach_interrupted_tool_turn``).
+    tool_dispatch_response: Any | None = None
 
     # Per-turn commit-barrier cursors (the high-water-mark of what has been
     # DURABLY committed). The orchestrator advances these only after a turn's

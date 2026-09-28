@@ -165,7 +165,14 @@ async def context_patch(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
                 return _persist_failure(
                     tool_name, ctx.call_id, started_at, receipt, delivery.error or ""
                 )
-            return _success(tool_name, ctx.call_id, started_at, output=receipt)
+            return _with_surface_write(
+                _success(tool_name, ctx.call_id, started_at, output=receipt),
+                obj=updated,
+                before=old_content,
+                after=new_content,
+                mode=_TEXT_COMMAND_MODE[str(command)],
+                content_format="markdown",
+            )
 
         # JSON commands require dict/list content; stringify only for the envelope.
         if command in _JSON_COMMANDS:
@@ -210,7 +217,14 @@ async def context_patch(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
                 return _persist_failure(
                     tool_name, ctx.call_id, started_at, receipt, delivery.error or ""
                 )
-            return _success(tool_name, ctx.call_id, started_at, output=receipt)
+            return _with_surface_write(
+                _success(tool_name, ctx.call_id, started_at, output=receipt),
+                obj=updated,
+                before=json.dumps(working, ensure_ascii=False, indent=2, sort_keys=True),
+                after=json.dumps(new_content, ensure_ascii=False, indent=2, sort_keys=True),
+                mode="structured",
+                content_format="json",
+            )
 
         # Defensive — validated above.
         return _validation_err(
@@ -410,6 +424,42 @@ async def _create_from_patch(
         )
 
 
+#: How each text command reads on the diff card.
+_TEXT_COMMAND_MODE: dict[str, str] = {
+    "str_replace": "patch",
+    "insert": "insert",
+    "append": "append",
+    "prepend": "prepend",
+    "overwrite": "overwrite",
+}
+
+
+def _with_surface_write(
+    result: ToolResult,
+    *,
+    obj: Any,
+    before: str,
+    after: str,
+    mode: str,
+    content_format: str,
+) -> ToolResult:
+    """Attach the before → after receipt the tool card renders as the shared diff."""
+    from matrx_ai.tools.surface_write import attach_surface_write
+
+    source = getattr(obj, "source", None)
+    return attach_surface_write(
+        result,
+        before=before,
+        after=after,
+        target_type=(getattr(source, "kind", None) or "context"),
+        target_id=getattr(source, "id", None),
+        target_label=str(getattr(obj, "label", None) or getattr(obj, "key", "") or ""),
+        mode=mode,
+        content_format=content_format,
+        edits=1 if mode == "patch" else None,
+    )
+
+
 # ---------------------------------------------------------------------------
 # Text command implementations
 # ---------------------------------------------------------------------------
@@ -441,7 +491,7 @@ def _apply_text_command(command: str, content: str, args: dict[str, Any]) -> tup
                 "str_replace requires old_str (the verbatim excerpt to find).",
                 "Provide a unique excerpt of the current content as old_str.",
             )
-        return _fuzzy_replace(content, old_str, new_str)
+        return _fuzzy_replace(content, old_str, new_str, label=str(args.get("key") or "context object"))
 
     if command == "insert":
         insert_line = args.get("insert_line")
@@ -490,7 +540,9 @@ def _apply_text_command(command: str, content: str, args: dict[str, Any]) -> tup
     raise _PatchApplyError("validation", f"Unhandled text command: {command}")
 
 
-def _fuzzy_replace(content: str, old_str: str, new_str: str) -> tuple[str, str]:
+def _fuzzy_replace(
+    content: str, old_str: str, new_str: str, *, label: str = "context object"
+) -> tuple[str, str]:
     """Four-pass fuzzy replace using the shared patch_utils helper."""
     from matrx_ai.db.content_types.patch_utils import PatchError, apply_patch
 
@@ -499,17 +551,30 @@ def _fuzzy_replace(content: str, old_str: str, new_str: str) -> tuple[str, str]:
             content=content,
             search_text=old_str,
             replacement_text=new_str,
-            note_id="<ctx_object>",
+            note_id=label,
         )
     except PatchError as pe:
-        raise _PatchApplyError(
-            error_type="patch_no_match",
-            message=pe.message,
-            suggestion=(
+        if pe.kind == "ambiguous":
+            suggestion = (
+                "Widen old_str with the lines around the spot you mean so it matches "
+                "exactly one place, then retry. Nothing was changed."
+            )
+        elif pe.kind == "protected_block":
+            suggestion = (
+                "Call context with action='get' for this key and copy old_str verbatim "
+                "(exact whitespace and punctuation); a tolerant match may not cross a "
+                "code fence. Nothing was changed."
+            )
+        else:
+            suggestion = (
                 "Call context with action='get' and this key to read the current content, then retry "
                 "with a verbatim excerpt from it. The excerpt must be unique enough "
                 "to identify a single location."
-            ),
+            )
+        raise _PatchApplyError(
+            error_type=pe.error_type,
+            message=pe.message,
+            suggestion=suggestion,
             retryable=True,
         ) from pe
     return result.new_content, result.matched_at.value

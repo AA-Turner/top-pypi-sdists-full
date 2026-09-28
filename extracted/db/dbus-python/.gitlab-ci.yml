@@ -1,4 +1,4 @@
-# Copyright © 2015-2022 Collabora Ltd.
+# Copyright © 2015-2026 Collabora Ltd.
 # SPDX-License-Identifier: MIT
 #
 # Permission is hereby granted, free of charge, to any person
@@ -21,7 +21,7 @@
 # CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-image: debian:bookworm-slim
+image: debian:trixie-slim
 
 workflow:
   rules:
@@ -38,7 +38,7 @@ variables:
   dbus_ci_configure_flags: ''
   ci_parallel: "2"
   ci_distro: "debian"
-  ci_suite: "bookworm"
+  ci_suite: "trixie"
   GIT_STRATEGY: clone
 
 .common:
@@ -46,31 +46,12 @@ variables:
     - env PATH="$HOME/.local/bin:/usr/lib/ccache:$PATH" ./tools/ci-build.sh $dbus_ci_configure_flags
   artifacts: &artifacts
     paths:
-      - _autotools/*.log
       - _meson-build/meson-logs
     when: always
 
-build:python3.7:
-  stage: build
-  image: "debian:buster-slim"
-  variables:
-    ci_suite: buster
-    dbus_ci_system_python: python3
-  script: *script
-  artifacts: *artifacts
-
-build:python3.7-dbg:
-  stage: build
-  image: "debian:buster-slim"
-  variables:
-    ci_suite: buster
-    dbus_ci_system_python: python3-dbg
-  script: *script
-  artifacts: *artifacts
-
 build:python3.9:
   stage: build
-  image: "debian:bullseye-slim"
+  image: "debian/eol:bullseye-slim"
   variables:
     ci_suite: bullseye
     dbus_ci_system_python: python3.9
@@ -79,7 +60,7 @@ build:python3.9:
 
 build:python3.9-dbg:
   stage: build
-  image: "debian:bullseye-slim"
+  image: "debian/eol:bullseye-slim"
   variables:
     ci_suite: bullseye
     dbus_ci_system_python: python3.9-dbg
@@ -163,6 +144,25 @@ build:python3.13-dbg:
   variables:
     ci_suite: trixie
     dbus_ci_system_python: python3.13-dbg
+    dbus_ci_system_python_module_suffix: ''
+  script: *script
+  artifacts: *artifacts
+
+build:python3.14:
+  stage: build
+  image: "debian:forky-slim"
+  variables:
+    ci_suite: forky
+    dbus_ci_system_python: python3.14
+  script: *script
+  artifacts: *artifacts
+
+build:python3.14-dbg:
+  stage: build
+  image: "debian:forky-slim"
+  variables:
+    ci_suite: forky
+    dbus_ci_system_python: python3.14-dbg
     dbus_ci_system_python_module_suffix: ''
   script: *script
   artifacts: *artifacts

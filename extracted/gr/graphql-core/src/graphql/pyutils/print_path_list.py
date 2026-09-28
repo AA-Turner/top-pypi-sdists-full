@@ -1,6 +1,17 @@
-from typing import Collection, Union
+"""Path printing"""
+
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from collections.abc import Collection
 
 
-def print_path_list(path: Collection[Union[str, int]]) -> str:
+def print_path_list(path: Collection[str | int]) -> str:
     """Build a string describing the path."""
-    return "".join(f"[{key}]" if isinstance(key, int) else f".{key}" for key in path)
+    if not path:
+        return ""
+    return " at " + "".join(
+        f"[{key}]" if isinstance(key, int) else f".{key}" for key in path
+    )

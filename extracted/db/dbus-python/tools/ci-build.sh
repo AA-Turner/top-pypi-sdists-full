@@ -48,7 +48,6 @@ fi
 
 export PATH="$HOME/.local/bin:$PATH"
 
-NOCONFIGURE=1 ./autogen.sh
 meson setup \
 	--prefix="$prefix" \
 	-Ddoc=enabled \
@@ -59,49 +58,8 @@ meson compile -C build
 meson test -C build
 meson dist -C build
 
-e=0
-(
-	mkdir _autotools && cd _autotools && "${srcdir}/configure" \
-		--enable-installed-tests \
-		--prefix="$prefix" \
-		--with-python-prefix='${prefix}' \
-		--with-python-exec-prefix='${exec_prefix}' \
-		"$@" \
-		${NULL}
-) || e=1
-if [ "x$e" != x0 ]; then
-	cat "_autotools/config.log"
-fi
-test "x$e" = x0
-
-make="make -j${dbus_ci_parallel} V=1 VERBOSE=1"
-
-$make -C _autotools
-$make -C _autotools check
-$make -C _autotools distcheck
-$make -C _autotools install
-( cd "$prefix" && find . -ls )
-
-(
-	dbus_ci_pyversion="$(${PYTHON:-python3} -c 'import sysconfig; print(sysconfig.get_config_var("VERSION"))')"
-	export PYTHONPATH="$prefix/lib/python$dbus_ci_pyversion/site-packages:$PYTHONPATH"
-	export XDG_DATA_DIRS="$prefix/share:/usr/local/share:/usr/share"
-	gnome-desktop-testing-runner dbus-python
-)
-
-# Do a Meson build from the Autotools dist tarball, to check that can work
-mkdir _meson-source
-tar -C _meson-source --strip-components=1 -xf _autotools/dbus-python-*.tar.gz
-meson setup \
-	--prefix="$prefix" \
-	-Ddoc=enabled \
-	-Dinstalled_tests=true \
-	-Dpython="${PYTHON:-python3}" \
-	_meson-source _meson-build
-meson compile -C _meson-build
-meson test -C _meson-build
 rm -fr "$prefix"
-meson install -C _meson-build
+meson install -C build
 ( cd "$prefix" && find . -ls )
 
 case "${PYTHON:-python3}" in
@@ -128,24 +86,6 @@ if [ -n "$test_meson" ]; then (
 	. _venv/bin/activate
 	export PYTHON="$(pwd)/_venv/bin/python3"
 	"$PYTHON" -m pip install -vvv build/meson-dist/dbus-python-*.tar.?z
-	cp -a "$prefix/share" "$prefix/venv-meta"
-	sed -E -i -e "/^Exec=/ s# (PYTHON=)?(/usr)?(/bin/)?python3[0-9.]*(-dbg)? # \\1$PYTHON #g" \
-		"$prefix"/venv-meta/installed-tests/dbus-python/*.test
-	head -n-0 -v "$prefix"/venv-meta/installed-tests/dbus-python/*.test
-	find _venv -ls
-	# not directly applicable for a venv
-	rm -f "$prefix/venv-meta/installed-tests/dbus-python/test-import-repeatedly.test"
-	export XDG_DATA_DIRS="$prefix/venv-meta:/usr/local/share:/usr/share"
-	gnome-desktop-testing-runner dbus-python
-); fi
-
-# re-run the tests with dbus-python only installed via pip from Autotools dist
-rm -fr _venv
-${PYTHON:-python3} -m virtualenv --python="${PYTHON:-python3}" _venv
-if [ -n "$test_meson" ]; then (
-	. _venv/bin/activate
-	export PYTHON="$(pwd)/_venv/bin/python3"
-	"$PYTHON" -m pip install -vvv _autotools/dbus-python-*.tar.gz
 	cp -a "$prefix/share" "$prefix/venv-meta"
 	sed -E -i -e "/^Exec=/ s# (PYTHON=)?(/usr)?(/bin/)?python3[0-9.]*(-dbg)? # \\1$PYTHON #g" \
 		"$prefix"/venv-meta/installed-tests/dbus-python/*.test

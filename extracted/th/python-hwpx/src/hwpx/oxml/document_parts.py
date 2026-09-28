@@ -3,9 +3,10 @@
 
 from __future__ import annotations
 
+from copy import deepcopy
 from dataclasses import dataclass
 import logging
-from typing import TYPE_CHECKING, Iterable, Mapping, Sequence, TypeVar
+from typing import TYPE_CHECKING, Any, Callable, Iterable, Mapping, Sequence, TypeVar
 import xml.etree.ElementTree as ET
 
 from hwpx.opc.relationships import resolve_part_name
@@ -39,6 +40,7 @@ from .namespaces import tag_local_name
 from .paragraph import HwpxOxmlParagraph
 from .run import RunStyle, _char_properties_from_header
 from .section import HwpxOxmlSection
+from .section_story import sync_story_mirrors
 from . import section_layout as _section_layout
 from .simple_parts import (
     HwpxOxmlHistory,
@@ -87,13 +89,6 @@ def _run_style_element_flags(element: ET.Element) -> tuple[bool, bool, bool]:
     return bold_present, italic_present, underline_present
 
 
-def _run_style_element_strike(element: ET.Element) -> bool:
-    strike_element = element.find(f"{_HH}strikeout")
-    if strike_element is None:
-        return False
-    return strike_element.get("shape", "").upper() != "NONE"
-
-
 def _validated_line_shape(
     value: str | None, vocabulary: frozenset[str], label: str
 ) -> str | None:
@@ -105,23 +100,6 @@ def _validated_line_shape(
     return normalized
 
 
-def _run_style_underline_matches(element: ET.Element, spec: _RunStyleSpec) -> bool:
-    if spec.underline_shape is None and spec.underline_color is None:
-        return True
-    underline = element.find(f"{_HH}underline")
-    if underline is None:
-        return False
-    if spec.underline_shape is not None and (
-        underline.get("shape", "").upper() != spec.underline_shape
-    ):
-        return False
-    if spec.underline_color is not None and (
-        (underline.get("color") or "").upper() != spec.underline_color.upper()
-    ):
-        return False
-    return True
-
-
 def _run_style_lang_value_matches(
     element: ET.Element, tag: str, value: int | None
 ) -> bool:
@@ -131,112 +109,68 @@ def _run_style_lang_value_matches(
     return node is not None and node.get("hangul") == str(value)
 
 
-def _run_style_extensions_match(element: ET.Element, spec: _RunStyleSpec) -> bool:
-    if not _run_style_underline_matches(element, spec):
-        return False
-    if spec.strike_shape is not None:
-        strike_el = element.find(f"{_HH}strikeout")
-        if strike_el is None or strike_el.get("shape", "").upper() != spec.strike_shape:
-            return False
-    if not _run_style_lang_value_matches(element, "ratio", spec.ratio):
-        return False
-    if not _run_style_lang_value_matches(element, "spacing", spec.letter_spacing):
-        return False
-    if not _run_style_shadow_matches(element, spec.shadow_color):
-        return False
-    if not _run_style_script_matches(element, spec.script):
-        return False
-    return _run_style_residual_matches(element, spec)
+def _run_style_is_legacy_script_approximation(element: ET.Element) -> bool:
+    """relSz 67 + offset -30/+30: what python-hwpx wrote next to the script
+    element in earlier versions. Hancom shrinks and shifts a script by the element
+    alone, so these values made it shrink twice."""
 
-
-def _run_style_residual_matches(element: ET.Element, spec: _RunStyleSpec) -> bool:
-    """cycle-6.3 문자 서식 잔여(outline/emboss/engrave) 매칭.
-
-    ``_run_style_extensions_match`` 에서 분리한 별도 함수 — 한 함수에 다
-    몰아넣으면 C901 한도(10)를 넘는다."""
-    if not _run_style_outline_matches(element, spec.outline):
-        return False
-    if not _run_style_emboss_matches(element, spec.emboss):
-        return False
-    if not _run_style_engrave_matches(element, spec.engrave):
-        return False
-    return True
-
-
-def _run_style_outline_matches(element: ET.Element, outline: str | None) -> bool:
-    if outline is None:
-        return True
-    outline_el = element.find(f"{_HH}outline")
-    have = (outline_el.get("type", "NONE").upper() if outline_el is not None else "NONE")
-    return have == outline
-
-
-def _run_style_emboss_matches(element: ET.Element, emboss: bool | None) -> bool:
-    if emboss is None:
-        return True
-    return (element.find(f"{_HH}emboss") is not None) == bool(emboss)
-
-
-def _run_style_engrave_matches(element: ET.Element, engrave: bool | None) -> bool:
-    if engrave is None:
-        return True
-    return (element.find(f"{_HH}engrave") is not None) == bool(engrave)
-
-
-def _run_style_shadow_matches(element: ET.Element, shadow_color: str | None) -> bool:
-    if shadow_color is None:
-        return True
-    shadow_el = element.find(f"{_HH}shadow")
-    if shadow_el is None or shadow_el.get("type", "").upper() == "NONE":
-        return False
-    return (shadow_el.get("color") or "").upper() == shadow_color.upper()
-
-
-def _run_style_script_matches(element: ET.Element, script: str | None) -> bool:
-    if script is None:
-        return True
-    if not _run_style_lang_value_matches(element, "relSz", 67):
-        return False
     off_el = element.find(f"{_HH}offset")
-    # 실한컴 렌더 실측: offset 음수=위로(위첨자), 양수=아래로(아래첨자).
-    wanted_offset = "-30" if script == "sup" else "30"
-    if off_el is None or off_el.get("hangul") != wanted_offset:
-        return False
-    # hwpxlib 실코퍼스 실측(error__20250808 문서 charPr id=513): 실한컴이
-    # 위첨자 토글로 쓴 charPr은 offset/relSz 근사와 별개로 <hh:supscript/>
-    # 실요소를 갖고 있었다(그 문서 자체는 relSz=100/offset=0 그대로였다 —
-    # 즉 한컴 렌더러는 이 요소만으로 판단하고 수치는 건드리지 않는다).
-    # 우리는 기존 offset 계약(파괴 금지)을 지키며 요소를 병행 방출한다.
-    if script == "sup":
-        return element.find(f"{_HH}supscript") is not None
-    return element.find(f"{_HH}subscript") is not None
+    return _run_style_lang_value_matches(element, "relSz", 67) and (
+        off_el is not None and off_el.get("hangul") in ("-30", "30")
+    )
 
 
-def _run_style_predicate(element: ET.Element, spec: _RunStyleSpec) -> bool:
-    if _run_style_element_flags(element) != spec.flags:
-        return False
-    if spec.color is not None and element.get("textColor") != spec.color:
-        return False
-    if (
-        spec.highlight is not None
-        and element.get("shadeColor") != spec.highlight
-    ):
-        return False
-    if spec.height is not None and element.get("height") != spec.height:
-        return False
-    if spec.strike is not None and _run_style_element_strike(element) != bool(spec.strike):
-        return False
-    if not _run_style_extensions_match(element, spec):
-        return False
-    if spec.font_ref is not None:
-        font_ref = element.find(f"{_HH}fontRef")
-        if font_ref is None:
+def _run_style_base(header: HwpxOxmlHeader, base_char_pr_id: str | int | None) -> ET.Element | None:
+    """The ``hh:charPr`` a requested style is built on: *base_char_pr_id*, else the first one."""
+
+    ref_list = header.element.find(f"{_HH}refList")
+    container = None if ref_list is None else ref_list.find(f"{_HH}charProperties")
+    if container is None:
+        return None
+    named = None if base_char_pr_id is None else container.find(f"{_HH}charPr[@id='{base_char_pr_id}']")
+    return named if named is not None else container.find(f"{_HH}charPr")
+
+
+def _run_style_flags(
+    requested: tuple[bool | None, bool | None, bool | None], base: ET.Element | None, keep_base: bool
+) -> tuple[bool, bool, bool]:
+    """Bold, italic and underline; one left out (``None``) keeps the named base's, else is off."""
+
+    inherited = _run_style_element_flags(base) if base is not None and keep_base else (False, False, False)
+    bold, italic, underline = (have if want is None else bool(want) for want, have in zip(requested, inherited))
+    return bold, italic, underline
+
+
+def _char_pr_children(element: ET.Element) -> tuple[Any, ...]:
+    """The children of a ``hh:charPr`` with their attributes and text, in any order."""
+
+    def node(child: ET.Element) -> tuple[Any, ...]:
+        return str(child.tag), tuple(sorted(child.attrib.items())), (child.text or "").strip(), _char_pr_children(child)
+
+    return tuple(sorted(map(node, element)))
+
+
+def _run_style_wanted(base: ET.Element | None, spec: _RunStyleSpec) -> Callable[[ET.Element], bool]:
+    """Whether a ``hh:charPr`` is the one *spec* asks for: *base* with the requested changes.
+
+    Its attributes (other than the id) and its children must match; the height is compared
+    first, the children only when the attributes agree.
+    """
+
+    wanted = deepcopy(base) if base is not None else ET.Element(f"{_HH}charPr")
+    _run_style_modifier(wanted, spec)
+    height = wanted.get("height")
+    attributes = {key: value for key, value in wanted.attrib.items() if key != "id"}
+    children = _char_pr_children(wanted)
+
+    def same(element: ET.Element) -> bool:
+        if element.get("height") != height:
             return False
-        if {
-            key: font_ref.get(key, "") for key in _FONT_REF_ATTRIBUTES
-        } != spec.font_ref:
+        if {key: value for key, value in element.attrib.items() if key != "id"} != attributes:
             return False
-    return True
+        return _char_pr_children(element) == children
+
+    return same
 
 
 def _run_style_apply_font_and_colors(element: ET.Element, spec: _RunStyleSpec) -> None:
@@ -249,7 +183,7 @@ def _run_style_apply_font_and_colors(element: ET.Element, spec: _RunStyleSpec) -
     if spec.font_ref is not None:
         font_ref = element.find(f"{_HH}fontRef")
         if font_ref is None:
-            font_ref = element.makeelement(f"{_HH}fontRef", {})
+            font_ref = element.makeelement(f"{_HH}fontRef", {name: "0" for name in _FONT_REF_ATTRIBUTES})
             element.insert(0, font_ref)
         for attr_name in list(font_ref.attrib.keys()):
             if attr_name not in _FONT_REF_ATTRIBUTES:
@@ -287,6 +221,8 @@ def _run_style_apply_underline(
 def _run_style_apply_strikeout(
     element: ET.Element, base_strike_attrs: dict[str, str], strike: bool | None
 ) -> None:
+    if strike is None and base_strike_attrs:
+        _append_child(element, f"{_HH}strikeout", dict(base_strike_attrs))
     if strike is not None:
         strike_attrs = dict(base_strike_attrs)
         strike_attrs["shape"] = "SOLID" if strike else "NONE"
@@ -348,17 +284,18 @@ def _run_style_apply_extensions(element: ET.Element, spec: _RunStyleSpec) -> Non
 
 
 def _run_style_apply_script_extension(element: ET.Element, script: str | None) -> None:
-    """`script` kwarg 적용 — 기존 relSz/offset 근사(파괴 금지 계약)에 더해
-    실코퍼스 실측(hwpxlib error__20250808 문서, charPr id=513)이 보인 실제
-    ``hh:supscript``/``hh:subscript`` 요소를 병행 방출한다. 그 문서는
-    relSz=100·offset=0 기본값 그대로였다 — 한컴 렌더러는 이 요소만으로
-    위·아래첨자를 판정하고, 수치 근사는 별개 목적이라는 뜻이다.
-    ``_run_style_apply_extensions``에서 분리한 이유는 C901(10) 초과 방지."""
+    """`script` kwarg 적용 — ``hh:supscript``/``hh:subscript`` 요소만 쓴다.
+
+    한컴은 이 요소만으로 글자를 줄이고 올리거나 내린다(한컴 자신의 첨자는
+    relSz 100·offset 0). 예전처럼 relSz/offset도 줄이면 두 번 줄어든다. 기준
+    글자 모양이 예전 근사값(relSz 67·offset -30/+30)을 가졌으면 기본값으로
+    되돌린다. ``_run_style_apply_extensions``에서 분리한 이유는 C901(10) 초과 방지."""
 
     if script is None:
         return
-    _run_style_set_lang_values(element, "relSz", 67)
-    _run_style_set_lang_values(element, "offset", -30 if script == "sup" else 30)
+    if _run_style_is_legacy_script_approximation(element):
+        _run_style_set_lang_values(element, "relSz", 100)
+        _run_style_set_lang_values(element, "offset", 0)
     if script == "sup":
         stale = element.find(f"{_HH}subscript")
         if stale is not None:
@@ -406,6 +343,29 @@ def _run_style_apply_engrave(element: ET.Element, engrave: bool | None) -> None:
         element.remove(existing)
 
 
+#: Child order of ``hh:charPr`` in the OWPML schema (``CharShapeType``), which is
+#: also the order Hancom writes. The style helpers above append what they add.
+_CHAR_PR_CHILD_ORDER = {
+    name: index
+    for index, name in enumerate((
+        "fontRef", "ratio", "spacing", "relSz", "offset", "italic", "bold", "underline",
+        "strikeout", "outline", "shadow", "emboss", "engrave", "supscript", "subscript",
+    ))
+}
+
+
+def _order_char_pr_children(element: ET.Element) -> None:
+    """Put the children of a ``hh:charPr`` back in schema order (unknown ones last)."""
+
+    children = list(element)
+    last = len(_CHAR_PR_CHILD_ORDER)
+    ordered = sorted(children, key=lambda child: _CHAR_PR_CHILD_ORDER.get(_element_local_name(child), last))
+    if ordered != children:
+        for child in children:
+            element.remove(child)
+        element.extend(ordered)
+
+
 def _run_style_modifier(element: ET.Element, spec: _RunStyleSpec) -> None:
     underline_nodes = list(element.findall(f"{_HH}underline"))
     base_underline_attrs = (
@@ -434,6 +394,7 @@ def _run_style_modifier(element: ET.Element, spec: _RunStyleSpec) -> None:
     _run_style_apply_strikeout(element, base_strike_attrs, spec.strike)
 
     _run_style_apply_extensions(element, spec)
+    _order_char_pr_children(element)
 
 
 _SimplePartT = TypeVar("_SimplePartT", bound=_HwpxOxmlSimplePart)
@@ -600,7 +561,7 @@ class HwpxOxmlDocument:
         text: str | None = None,
         paragraphs: "Sequence[str] | None" = None,
         page_type: str = "OPTIONAL_PAGE",
-        page_number: int = 1,
+        page_number: int | None = None,
         page_duplicate: bool = False,
         page_front: bool = False,
     ) -> str:
@@ -681,9 +642,9 @@ class HwpxOxmlDocument:
     def ensure_run_style(
         self,
         *,
-        bold: bool = False,
-        italic: bool = False,
-        underline: bool = False,
+        bold: bool | None = None,
+        italic: bool | None = None,
+        underline: bool | None = None,
         color: str | None = None,
         font: str | None = None,
         size: int | float | None = None,
@@ -701,7 +662,12 @@ class HwpxOxmlDocument:
         engrave: bool | None = None,
         base_char_pr_id: str | int | None = None,
     ) -> str:
-        """Return a char property identifier matching the requested flags.
+        """Return the id of a ``hh:charPr`` that is the base with the requested changes.
+
+        The base is *base_char_pr_id*, or the first ``hh:charPr``. An existing entry
+        with the same content is reused; otherwise the base is copied and changed.
+        *bold*, *italic* and *underline* left out keep the base's when
+        *base_char_pr_id* is given and are off otherwise.
 
         The 5.4.0 additions mirror what the fidelity audit render-verified on
         real Hancom: ``underline_shape``/``underline_color`` (implies an
@@ -711,9 +677,10 @@ class HwpxOxmlDocument:
         are rejected — no silent approximation.
 
         6.3 additions: ``outline`` (외곽선, ``hc:LineType1`` 어휘),
-        ``emboss``/``engrave`` (양각/음각), and ``script`` now also pairs the
-        real ``hh:supscript``/``hh:subscript`` element with its existing
-        ``relSz``/``offset`` approximation (see ``_run_style_apply_script_extension``).
+        ``emboss``/``engrave`` (양각/음각), and ``script`` writes the real
+        ``hh:supscript``/``hh:subscript`` element alone, as Hancom does -- the
+        element already shrinks and shifts the glyphs (see
+        ``_run_style_apply_script_extension``).
         """
 
         if not self._headers:
@@ -729,8 +696,9 @@ class HwpxOxmlDocument:
         )
         if normalized_strike_shape is not None:
             strike = True
-        if ratio is not None and not 10 <= int(ratio) <= 400:
-            raise ValueError("ratio must be a percentage between 10 and 400")
+        # Hancom keeps a width ratio in one byte: 256 and up come out as ratio - 256.
+        if ratio is not None and not 10 <= int(ratio) <= 255:
+            raise ValueError("ratio must be a percentage between 10 and 255")
         if letter_spacing is not None and not -50 <= int(letter_spacing) <= 100:
             raise ValueError("letter_spacing must be between -50 and 100")
         if script is not None and script not in ("sup", "sub"):
@@ -749,13 +717,19 @@ class HwpxOxmlDocument:
             normalized_outline = candidate
 
         header = self._headers[0]
+        font_ref = header.font_ref_for_face(font) if font is not None else None
+        if font is not None and font_ref is None and font.strip():
+            # Hancom declares a font it is asked to apply; so does ensure_font by default
+            self.ensure_font(font)
+            font_ref = header.font_ref_for_face(font)
+        base = _run_style_base(header, base_char_pr_id)
         spec = _RunStyleSpec(
-            flags=(bool(bold), bool(italic), bool(underline)),
+            flags=_run_style_flags((bold, italic, underline), base, base_char_pr_id is not None),
             color=_normalize_color(color),
             highlight=_normalize_color(highlight),
             height=_char_height_from_points(size),
             strike=strike,
-            font_ref=header.font_ref_for_face(font) if font is not None else None,
+            font_ref=font_ref,
             underline_shape=normalized_underline_shape,
             underline_color=_normalize_color(underline_color),
             strike_shape=normalized_strike_shape,
@@ -768,9 +742,9 @@ class HwpxOxmlDocument:
             engrave=None if engrave is None else bool(engrave),
         )
         element = header.ensure_char_property(
-            predicate=lambda el: _run_style_predicate(el, spec),
+            predicate=_run_style_wanted(base, spec),
             modifier=lambda el: _run_style_modifier(el, spec),
-            base_char_pr_id=base_char_pr_id,
+            base_char_pr_id=None if base is None else base.get("id"),
         )
 
         char_id = element.get("id")
@@ -1295,19 +1269,8 @@ class HwpxOxmlDocument:
             raise ValueError(
                 "cannot add a renderable section: the document has no hh:head part"
             )
-        self._manifest_section_containers()
-
-        # Determine part name
-        existing_indices: list[int] = []
-        for sec in self._sections:
-            import re as _section_re
-
-            m = _section_re.search(r"section(\d+)", sec.part_name)
-            if m:
-                existing_indices.append(int(m.group(1)))
-        next_index = (max(existing_indices) + 1) if existing_indices else 0
-        section_id = f"section{next_index}"
-        part_name = f"Contents/{section_id}.xml"
+        # a name no section part or manifest item uses yet
+        section_id, part_name = _section_layout.new_section_names(self)
 
         # Build a renderable empty section.  ``secPr`` and ``colPr`` must
         # precede body text in the first paragraph's first run.
@@ -1334,6 +1297,7 @@ class HwpxOxmlDocument:
             part_name,
             spine_index=spine_index,
         )
+        _section_layout.number_section_ids(self)
         self._sync_header_section_count()
 
         new_section.mark_dirty()
@@ -1374,6 +1338,7 @@ class HwpxOxmlDocument:
 
         # Update manifest: remove <opf:item> and <opf:itemref>
         self._remove_section_from_manifest(removed.part_name)
+        _section_layout.number_section_ids(self)
         self._sync_header_section_count()
 
     # ------------------------------------------------------------------
@@ -1498,6 +1463,7 @@ class HwpxOxmlDocument:
         """Return a mapping of part names to updated XML payloads."""
         updates: dict[str, bytes] = {}
         self._normalize_named_style_references()
+        _section_layout.number_section_ids(self)  # files saved with ids out of order are put right
         if self._manifest_dirty:
             updates[self._manifest_path] = _serialize_xml(self._manifest)
         for section in self._sections:
@@ -1511,6 +1477,8 @@ class HwpxOxmlDocument:
             section.remove_stale_layout_caches()
         for section in self._sections:
             if section.dirty:
+                # Header/footer edits land on the secPr story; Hancom reads the control copy.
+                sync_story_mirrors(section)
                 updates[section.part_name] = section.to_bytes()
         headers_dirty = False
         for header in self._headers:

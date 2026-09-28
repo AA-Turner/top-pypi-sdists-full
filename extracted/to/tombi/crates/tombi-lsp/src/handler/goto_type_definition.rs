@@ -20,8 +20,8 @@ fn type_definition_locations(
         Vec::with_capacity(type_definitions.len());
     for type_definition in type_definitions {
         if !unique_type_definitions.iter().any(|existing| {
-            location_key(&existing.schema_uri, existing.range)
-                == location_key(&type_definition.schema_uri, type_definition.range)
+            location_key(&existing.schema_base_uri, existing.range)
+                == location_key(&type_definition.schema_base_uri, type_definition.range)
         }) {
             unique_type_definitions.push(type_definition);
         }
@@ -29,7 +29,7 @@ fn type_definition_locations(
     unique_type_definitions
         .into_iter()
         .map(|type_definition| tombi_extension::Location {
-            uri: type_definition.schema_uri.into(),
+            uri: type_definition.schema_base_uri.into(),
             range: type_definition.range,
         })
         .collect()
@@ -118,13 +118,21 @@ pub async fn handle_goto_type_definition(
         strict,
     );
 
-    let type_definitions = get_type_definition(
+    let mut type_definitions = get_type_definition(
         &document_source.document_tree(),
         position,
         &keys,
         &schema_context,
     )
     .await;
+    for type_definition in &mut type_definitions {
+        if let Some(source_schema_uri) = schema_store
+            .source_schema_uri(&type_definition.schema_base_uri)
+            .await
+        {
+            type_definition.schema_base_uri = source_schema_uri;
+        }
+    }
     if type_definitions.is_empty() {
         Ok(None)
     } else {

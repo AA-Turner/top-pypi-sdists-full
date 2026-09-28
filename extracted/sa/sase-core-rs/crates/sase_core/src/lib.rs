@@ -12,9 +12,9 @@
 
 pub mod agent_archive;
 pub mod agent_artifact_run_retention;
+pub mod agent_clan_record;
 pub mod agent_clan_tribe;
 pub mod agent_cleanup;
-pub mod agent_family;
 pub mod agent_group_archive;
 pub mod agent_hold;
 pub mod agent_hold_deadlock;
@@ -25,6 +25,7 @@ pub mod agent_ownership;
 pub mod agent_publication_batches;
 pub mod agent_runtime;
 pub mod agent_scan;
+pub mod agent_session;
 pub mod agent_stats;
 pub mod agent_tribe;
 pub mod artifact_consumption;
@@ -38,6 +39,7 @@ pub mod axe_overrun;
 pub mod axe_status;
 pub mod bead;
 pub mod bead_action;
+pub mod command_line;
 pub mod commit_footer;
 pub mod commit_sha;
 pub mod commit_subject;
@@ -54,10 +56,10 @@ pub mod external_pr;
 pub mod feature_flag_state;
 pub mod fenced_code;
 pub mod finalizer;
+pub mod fleet_agent_session;
 pub mod fleet_attention;
 pub mod fleet_catalog;
 pub mod fleet_contract;
-pub mod fleet_family;
 pub mod fleet_follow_promotion;
 pub mod fleet_mutation;
 pub mod fleet_owner_facts;
@@ -109,6 +111,7 @@ pub mod service;
 pub mod sidecar_publication;
 pub mod snippet_catalog;
 pub mod snippet_session;
+pub mod snippet_variables;
 pub mod source_language;
 pub mod status;
 mod store_lock;
@@ -160,11 +163,12 @@ pub use agent_cleanup::{
     mark_comment_agents_as_killed, mark_hook_agents_as_killed,
     mark_mentor_agents_as_killed, plan_agent_cleanup,
     release_workspace_from_content, save_dismissed_agents_index,
-    save_dismissed_bundle_json, AgentCleanupArtifactDeleteIntentWire,
-    AgentCleanupArtifactDeleteResultWire, AgentCleanupBundleSaveIntentWire,
-    AgentCleanupBundleWriteResultWire, AgentCleanupCountsWire,
-    AgentCleanupDismissItemWire, AgentCleanupIdentityWire,
-    AgentCleanupKillItemWire, AgentCleanupMonitorStopIntentWire,
+    save_dismissed_bundle_json, update_dismissed_agents_index,
+    AgentCleanupArtifactDeleteIntentWire, AgentCleanupArtifactDeleteResultWire,
+    AgentCleanupBundleSaveIntentWire, AgentCleanupBundleWriteResultWire,
+    AgentCleanupCountsWire, AgentCleanupDismissItemWire,
+    AgentCleanupIdentityWire, AgentCleanupKillItemWire,
+    AgentCleanupMonitorStopIntentWire,
     AgentCleanupNotificationDismissIntentWire, AgentCleanupPlanWire,
     AgentCleanupRequestWire, AgentCleanupSideEffectsWire,
     AgentCleanupSkippedItemWire, AgentCleanupTargetWire,
@@ -181,14 +185,8 @@ pub use agent_cleanup::{
     FORCE_REUSE_STOP_BARRIER_WIRE_SCHEMA_VERSION, KILL_KIND_CRS,
     KILL_KIND_HOOK, KILL_KIND_MENTOR, KILL_KIND_MONITOR, KILL_KIND_RUNNING,
     KILL_KIND_WORKFLOW, SKIPPED_DUPLICATE, SKIPPED_NOT_DISMISSABLE,
-    SKIPPED_NOT_IN_SCOPE, SKIPPED_NOT_KILLABLE, SKIPPED_UNKNOWN_KILL_KIND,
-    SKIPPED_WORKFLOW_CHILD_CASCADE_ONLY,
-};
-pub use agent_family::{
-    resolve_agent_family_parent, AgentFamilyDismissedIdentityWire,
-    AgentFamilyParentCandidateWire, AgentFamilyParentResolutionRequestWire,
-    AgentFamilyParentResolutionWire,
-    AGENT_FAMILY_RESOLUTION_WIRE_SCHEMA_VERSION,
+    SKIPPED_NOT_IN_SCOPE, SKIPPED_NOT_KILLABLE, SKIPPED_RUNNER_LIVE_DETAIL,
+    SKIPPED_UNKNOWN_KILL_KIND, SKIPPED_WORKFLOW_CHILD_CASCADE_ONLY,
 };
 pub use agent_group_archive::{
     list_dismissed_agent_groups, list_recent_dismissed_agent_groups,
@@ -222,13 +220,13 @@ pub use agent_hold_deadlock::{
 pub use agent_identity::{
     agent_link_target, agent_local_hood, agent_name_ancestors,
     agent_name_in_hood, globalize_agent_name, normalize_agent_archive_name,
-    parse_agent_family_name, rewrite_agent_relationship_batch,
+    parse_agent_session_name, rewrite_agent_relationship_batch,
     strip_global_agent_name, validate_agent_name,
     validate_agent_relationship_batch, validate_agent_username,
-    AgentContainerKind, AgentFamilyNameWire, AgentIdentityError,
-    AgentLinkTargetWire, AgentOwnerIdentity, AgentRelationshipBatchWire,
-    AgentRelationshipError, AgentRelationshipKind, AgentRelationshipTargetWire,
-    AgentRelationshipWire, AgentRunContainerWire, AgentRunWire,
+    AgentContainerKind, AgentIdentityError, AgentLinkTargetWire,
+    AgentOwnerIdentity, AgentRelationshipBatchWire, AgentRelationshipError,
+    AgentRelationshipKind, AgentRelationshipTargetWire, AgentRelationshipWire,
+    AgentRunContainerWire, AgentRunWire, AgentSessionNameWire,
     RewrittenAgentRelationshipBatchWire, RewrittenAgentRelationshipTargetWire,
     RewrittenAgentRelationshipWire, RewrittenAgentRunContainerWire,
     RewrittenAgentRunWire, ValidatedAgentRelationshipSummaryWire,
@@ -251,7 +249,7 @@ pub use agent_launch::{
     reconcile_admission_journal, resolve_proc_execution_cwd, safe_launch_name,
     sanitize_safe_inputs, sanitized_condition_env, sanitized_proc_env,
     summarize_admission, validate_proc_workspace_intent,
-    validate_standalone_proc_shell_name, wait_target_key,
+    validate_standalone_named_proc_name, wait_target_key,
     AgentLaunchPreparationError, AgentLaunchPreparedWire,
     AgentLaunchRequestWire, AgentUnitWire, BatchPredecessorContextWire,
     BatchPredecessorWaitBindingWire, ConditionCheckWire, ConditionContextWire,
@@ -328,11 +326,11 @@ pub use agent_scan::{
     query_agent_artifact_index, query_agent_output_variable_history,
     query_agent_output_variable_selectors, query_related_agent_artifact_dirs,
     read_agent_artifact_index_meta, rebuild_agent_artifact_index,
-    reconcile_agent_artifact_index_dismissed_family_members,
+    reconcile_agent_artifact_index_dismissed_agent_session_members,
     replace_agent_artifact_index_dismissed_agents,
     replace_agent_artifact_index_dismissed_agents_with_force,
     resolve_agent_artifact_path, resolve_agent_artifact_timestamp_path,
-    resolve_family_dismissal_lineage, scan_agent_artifact_dir,
+    resolve_agent_session_dismissal_lineage, scan_agent_artifact_dir,
     scan_agent_artifact_dirs, scan_agent_artifacts,
     terminalize_stale_active_agent_artifact_index_rows,
     upsert_agent_artifact_index_row, vacuum_agent_artifact_index,
@@ -351,14 +349,15 @@ pub use agent_scan::{
     AgentOutputVariableLimitWire, AgentOutputVariableOccurrenceWire,
     AgentOutputVariableSelectorMatchWire, AgentOutputVariableSelectorQueryWire,
     AgentOutputVariableSelectorResultWire, AgentOutputVariableValueGroupWire,
-    DoneMarkerWire, FamilyDismissalLineageCandidateWire,
-    FamilyDismissalLineageResultWire, FamilyShellGateWire,
-    FamilyShellMonitorWire, FamilyShellWire, OutputVariableSelectorError,
-    OutputVariableSelectorPathWire, OutputVariableSelectorScopeWire,
-    OutputVariableSelectorWire, OutputVariableValue, PlanPathMarkerWire,
-    PromptStepMarkerWire, RunningMarkerWire, UsedXPromptWire,
-    WaitingMarkerWire, WorkflowArtifactCandidate, WorkflowArtifactCandidates,
-    WorkflowStateWire, WorkflowStepStateWire, ACE_RUN_WORKFLOW_DIR,
+    AgentSessionDismissalLineageCandidateWire,
+    AgentSessionDismissalLineageResultWire, AgentSessionTurnGateWire,
+    AgentSessionTurnMonitorWire, AgentSessionTurnWire, DoneMarkerWire,
+    OutputVariableSelectorError, OutputVariableSelectorPathWire,
+    OutputVariableSelectorScopeWire, OutputVariableSelectorWire,
+    OutputVariableValue, PlanPathMarkerWire, PromptStepMarkerWire,
+    RunningMarkerWire, UsedXPromptWire, WaitingMarkerWire,
+    WorkflowArtifactCandidate, WorkflowArtifactCandidates, WorkflowStateWire,
+    WorkflowStepStateWire, ACE_RUN_WORKFLOW_DIR,
     AGENT_ALIAS_HISTORY_WIRE_SCHEMA_VERSION,
     AGENT_ARTIFACT_INDEX_SCHEMA_VERSION,
     AGENT_OUTPUT_VARIABLE_HISTORY_WIRE_SCHEMA_VERSION,
@@ -367,6 +366,12 @@ pub use agent_scan::{
     DEFAULT_HIDDEN_TERMINAL_HOT_ROWS, DONE_WORKFLOW_DIR_NAMES,
     DONE_WORKFLOW_DIR_PREFIXES, LEGACY_LAYOUT_VERSION,
     WORKFLOW_STATE_DIR_NAMES, WORKFLOW_STATE_DIR_PREFIXES,
+};
+pub use agent_session::{
+    resolve_agent_session_parent, AgentSessionDismissedIdentityWire,
+    AgentSessionParentCandidateWire, AgentSessionParentResolutionRequestWire,
+    AgentSessionParentResolutionWire,
+    AGENT_SESSION_RESOLUTION_WIRE_SCHEMA_VERSION,
 };
 /// Legacy Rust alias retained for compatibility with older stats callers.
 pub use agent_stats::AgentChangeSpecWorkStatsWire;
@@ -746,7 +751,7 @@ pub use editor::{
     build_identity_target_candidates as editor_build_identity_target_candidates,
     build_placeholder_completion_candidates as editor_build_placeholder_completion_candidates,
     build_snippet_completion_candidates as editor_build_snippet_completion_candidates,
-    build_vcs_project_completion_candidates as editor_build_vcs_project_completion_candidates,
+    build_vcs_project_completion_candidates_with_targets as editor_build_vcs_project_completion_candidates_with_targets,
     build_vcs_ref_completion_candidates as editor_build_vcs_ref_completion_candidates,
     build_vcs_repo_completion_candidates as editor_build_vcs_repo_completion_candidates,
     build_wait_completion_candidates as editor_build_wait_completion_candidates,
@@ -879,24 +884,37 @@ pub use finalizer::{
     canonical_json_bytes, canonical_json_sha256, finalizer_context_digest,
     finalizer_digest_json_value, finalizer_digest_serializable,
     finalizer_instance_spec_digest, finalizer_plan_digest,
-    finalizer_provider_spec_digest, resolve_finalizer_plan,
-    validate_finalizer_context, validate_finalizer_deferral,
-    validate_finalizer_instance_results, validate_finalizer_instance_spec,
-    validate_finalizer_plan, validate_finalizer_provider_spec,
-    validate_finalizer_submission, FinalizerAggregateResultWire,
-    FinalizerAggregateStatusWire, FinalizerAssignedBeadWire,
-    FinalizerAttemptWire, FinalizerContextWire, FinalizerDeferralReasonWire,
-    FinalizerDeferralWire, FinalizerDiagnosticSeverityWire,
-    FinalizerDiagnosticWire, FinalizerError, FinalizerInstancePolicyWire,
-    FinalizerInstanceResultWire, FinalizerInstanceSpecWire,
-    FinalizerInstanceStatusWire, FinalizerObligationWire,
-    FinalizerOutcomeEvidenceWire, FinalizerPayloadRequirementWire,
-    FinalizerPlanEntryWire, FinalizerPlanInputWire, FinalizerPlanWire,
-    FinalizerProviderCapabilityWire, FinalizerProviderSpecWire,
-    FinalizerRefusalPolicyWire, FinalizerSelectorOpWire,
-    FinalizerSubmissionEnvelopeWire, FinalizerSubmissionPayloadWire,
-    FinalizerSubmissionValidationWire, FinalizerTriggerKindWire,
-    FINALIZER_WIRE_SCHEMA_VERSION,
+    finalizer_provider_spec_digest, project_finalizer_node_view,
+    resolve_finalizer_plan, validate_finalizer_context,
+    validate_finalizer_deferral, validate_finalizer_instance_results,
+    validate_finalizer_instance_spec, validate_finalizer_plan,
+    validate_finalizer_provider_spec, validate_finalizer_submission,
+    FinalizerAggregateResultWire, FinalizerAggregateStatusWire,
+    FinalizerAssignedBeadWire, FinalizerAttemptWire, FinalizerContextWire,
+    FinalizerDeferralReasonWire, FinalizerDeferralWire,
+    FinalizerDiagnosticSeverityWire, FinalizerDiagnosticWire, FinalizerError,
+    FinalizerInstancePolicyWire, FinalizerInstanceResultWire,
+    FinalizerInstanceSpecWire, FinalizerInstanceStatusWire,
+    FinalizerNodeViewRequestWire, FinalizerNodeViewWire,
+    FinalizerObligationWire, FinalizerOutcomeEvidenceWire,
+    FinalizerPayloadRequirementWire, FinalizerPlanEntryWire,
+    FinalizerPlanInputWire, FinalizerPlanWire, FinalizerProviderCapabilityWire,
+    FinalizerProviderSpecWire, FinalizerRefusalPolicyWire,
+    FinalizerSelectorOpWire, FinalizerSubmissionEnvelopeWire,
+    FinalizerSubmissionPayloadWire, FinalizerSubmissionValidationWire,
+    FinalizerTriggerKindWire, RunViewAppearanceWire, RunViewDeclarationWire,
+    RunViewDispositionWire, RunViewDriftWire, RunViewError,
+    RunViewEvidenceWire, RunViewFileInputWire, RunViewInstanceInputWire,
+    RunViewNodeInstanceWire, RunViewRecoveryTurnWire, RunViewRunInputWire,
+    RunViewRunInstanceWire, RunViewRunKindWire, RunViewRunWire,
+    RunViewTextInputWire, RunViewUnselectedWire, FINALIZER_WIRE_SCHEMA_VERSION,
+    RUN_VIEW_MAX_BYTES, RUN_VIEW_TEXT_CAP_CHARS, RUN_VIEW_WIRE_SCHEMA_VERSION,
+};
+pub use fleet_agent_session::{
+    agent_session_id_for_record, agent_session_key_for_record,
+    agent_session_turn, concrete_agent_session_turn_kind,
+    record_is_concrete_agent_session_turn, tracked_parent_timestamp,
+    ConcreteAgentSessionTurnKind,
 };
 pub use fleet_attention::{
     decide_attention_notices, decide_fleet_attention_replay,
@@ -981,8 +999,8 @@ pub use fleet_contract::{
     FleetScopeCountsWire, FleetSnapshotFreshnessWire, FleetStatusBucketWire,
     FleetSummaryResponseWire, FocusFleetCountsRequestWire,
     FocusFleetCountsWire, FocusFleetFederationCountsRequestWire,
-    FollowActivationWire, FollowCreatedByWire, FollowDiagnosticSeverityWire,
-    FollowDiagnosticWire, FollowFamilyPromotionWire,
+    FollowActivationWire, FollowAgentSessionPromotionWire, FollowCreatedByWire,
+    FollowDiagnosticSeverityWire, FollowDiagnosticWire,
     FollowReconciliationRequestWire, FollowReconciliationWire,
     FollowRecordWire, FollowStateWire, FollowTombstoneWire,
     HumanDisplayLabelsWire, InstallationIdentityEnsureOutcomeWire,
@@ -1011,14 +1029,10 @@ pub use fleet_contract::{
     FLEET_READ_MAX_PROJECT_IDS, FLEET_READ_MAX_QUERY_BYTES,
     FLEET_READ_MAX_REPLAY_EVENTS,
 };
-pub use fleet_family::{
-    concrete_family_shell_kind, family_id_for_record, family_key_for_record,
-    family_shell, record_is_concrete_family_shell, tracked_parent_timestamp,
-    ConcreteFamilyShellKind,
-};
 pub use fleet_follow_promotion::{
-    followed_batch_family_promotions, FollowedBatchFamilyPromotionRequestWire,
-    FollowedBatchFamilyPromotionResultWire,
+    followed_batch_agent_session_promotions,
+    FollowedBatchAgentSessionPromotionRequestWire,
+    FollowedBatchAgentSessionPromotionResultWire,
 };
 pub use fleet_mutation::{
     decide_fleet_mutation_replay, evaluate_mutation_precondition,

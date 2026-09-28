@@ -15,8 +15,9 @@ from graphql.type import (
     GraphQLObjectType,
     GraphQLScalarType,
     GraphQLSchema,
+    GraphQLString,
 )
-from graphql.utilities import value_from_ast_untyped
+from graphql.utilities import build_schema, value_from_ast_untyped
 
 from gql import GraphQLRequest
 
@@ -57,7 +58,11 @@ def parse_money_value(input_value: Any) -> Money:
         amount = input_value.get("amount", None)
         currency = input_value.get("currency", None)
 
-        if not is_finite(amount) or not isinstance(currency, str):
+        if (
+            not isinstance(amount, (int, float))
+            or not is_finite(amount)
+            or not isinstance(currency, str)
+        ):
             raise GraphQLError("Cannot parse money value dict: " + inspect(input_value))
 
         return Money(float(amount), currency)
@@ -202,6 +207,82 @@ def test_serialize_variables_using_money_example():
     assert req.variable_values == {"money": {"amount": 10, "currency": "DM"}}
 
 
+def test_serialize_variables_single_value_for_list_type():
+    # A value which is not a list, provided for a list type, should be
+    # coerced into a list of one instead of being iterated over.
+    list_schema = build_schema("type Query {f(ids: [String!], ns: [Int]): String}")
+
+    req = GraphQLRequest(
+        "query q($ids: [String!], $ns: [Int]) {f(ids: $ids, ns: $ns)}",
+        variable_values={"ids": "abc", "ns": 5},
+    )
+
+    req = req.serialize_variable_values(list_schema)
+
+    assert req.variable_values == {"ids": ["abc"], "ns": [5]}
+
+
+def test_serialize_variables_mapping_as_singleton_input_object():
+    schema = build_schema(
+        "input ItemInput { name: String } type Query { f(items: [ItemInput]): String }"
+    )
+    req = GraphQLRequest(
+        "query q($items: [ItemInput]) { f(items: $items) }",
+        variable_values={"items": {"name": "abc"}},
+    )
+    req = req.serialize_variable_values(schema)
+    assert req.variable_values == {"items": [{"name": "abc"}]}
+
+
+def test_serialize_variables_recursive_list_coercion():
+    schema = build_schema("type Query { f(values: [[Int]]): String }")
+
+    req1 = GraphQLRequest(
+        "query q($values: [[Int]]) { f(values: $values) }",
+        variable_values={"values": 1},
+    )
+    req1 = req1.serialize_variable_values(schema)
+    assert req1.variable_values == {"values": [[1]]}
+
+    req2 = GraphQLRequest(
+        "query q($values: [[Int]]) { f(values: $values) }",
+        variable_values={"values": [1, 2]},
+    )
+    req2 = req2.serialize_variable_values(schema)
+    assert req2.variable_values == {"values": [[1], [2]]}
+
+
+def test_serialize_variables_collection_behavior():
+    schema = build_schema("type Query { f(values: [Int]): String }")
+    req = GraphQLRequest(
+        "query q($values: [Int]) { f(values: $values) }",
+        variable_values={"values": (1, 2)},
+    )
+    req = req.serialize_variable_values(schema)
+    assert req.variable_values == {"values": [1, 2]}
+
+
+def test_serialize_variables_bytes_behavior():
+    bytes_scalar = GraphQLScalarType(name="Bytes", serialize=lambda v: v)
+    schema = GraphQLSchema(
+        query=GraphQLObjectType(
+            "Query",
+            fields={
+                "f": GraphQLField(
+                    GraphQLString,
+                    args={"values": GraphQLArgument(GraphQLList(bytes_scalar))},
+                )
+            },
+        )
+    )
+    req = GraphQLRequest(
+        "query q($values: [Bytes]) { f(values: $values) }",
+        variable_values={"values": b"abc"},
+    )
+    req = req.serialize_variable_values(schema)
+    assert req.variable_values == {"values": [b"abc"]}
+
+
 def test_graphql_request_using_string_instead_of_document():
     request = GraphQLRequest("{balance}")
 
@@ -236,3 +317,31 @@ def test_graphql_request_init_with_graphql_request():
     assert request_1.variable_values["money"] == money_value_1
     assert request_2.variable_values["money"] == money_value_1
     assert request_3.variable_values["money"] == money_value_2
+
+
+def test_graphql_request_extensions():
+    extensions_1 = {"persistedQuery": {"version": 1, "sha256Hash": "abc123"}}
+    extensions_2 = {"custom": "value"}
+    money_value = Money(10, "DM")
+
+    assert "extensions" not in GraphQLRequest("{balance}").payload
+
+    request_1 = GraphQLRequest("{balance}", extensions=extensions_1)
+    assert request_1.payload["extensions"] == extensions_1
+
+    # Copied from another GraphQLRequest
+    request_2 = GraphQLRequest(request_1)
+    assert request_2.extensions == extensions_1
+
+    # Explicit extensions override the copied value
+    request_3 = GraphQLRequest(request_1, extensions=extensions_2)
+    assert request_3.extensions == extensions_2
+
+    # Preserved through serialize_variable_values
+    request_4 = GraphQLRequest(
+        "query myquery($money: Money) {toEuros(money: $money)}",
+        variable_values={"money": money_value},
+        extensions=extensions_1,
+    )
+    serialized = request_4.serialize_variable_values(schema)
+    assert serialized.extensions == extensions_1

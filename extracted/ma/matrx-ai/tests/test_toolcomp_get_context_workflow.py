@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 from typing import Any
 from unittest.mock import patch
 
@@ -10,6 +11,18 @@ from matrx_ai.tools.implementations.tool_component import (
     toolcomp_get_context,
 )
 from matrx_ai.tools.models import ToolContext
+
+
+@pytest.fixture(autouse=True)
+def person_session(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Every toolcomp action runs as the person; these read-path tests hold a session."""
+    from matrx_ai import _ext
+
+    @contextlib.asynccontextmanager
+    async def acting_as_caller():
+        yield
+
+    monkeypatch.setitem(_ext._registry, "acting_as_caller", acting_as_caller)
 
 
 class _FakeInstance:

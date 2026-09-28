@@ -1027,8 +1027,12 @@ async def kind_update_schema(args: dict[str, Any], ctx: ToolContext) -> ToolResu
         except Exception:
             pass
         from matrx_ai.tools.kinds.kind_authoring import KindSchemaUpdateResult, StrandedExample
+        from matrx_ai.tools.surface_write import attach_surface_write
 
-        return ToolResult(
+        def _schema_text(schema: Any) -> str:
+            return json.dumps(schema, ensure_ascii=False, indent=2, sort_keys=True, default=str)
+
+        return attach_surface_write(ToolResult(
             success=True,
             output=KindSchemaUpdateResult(
                 kind_definition_id=str(kd.id),
@@ -1044,6 +1048,14 @@ async def kind_update_schema(args: dict[str, Any], ctx: ToolContext) -> ToolResu
                     else None
                 ),
             ),
+        ),
+            before=_schema_text(kd.emitted_json_schema),
+            after=_schema_text(block_schema),
+            target_type="kind_definition",
+            target_id=str(kd.id),
+            target_label=f"{kd.kind} schema",
+            mode="structured",
+            content_format="json",
         )
     except Exception as e:
         return _exec_error(e)

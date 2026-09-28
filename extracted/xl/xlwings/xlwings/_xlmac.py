@@ -8,6 +8,7 @@ import struct
 import subprocess
 from collections import Counter
 from contextlib import contextmanager
+from functools import cache
 from pathlib import Path
 from uuid import uuid4
 from weakref import WeakValueDictionary
@@ -17,13 +18,13 @@ import appscript
 import osax
 import psutil
 from appscript import its, k as kw, mactypes
-from appscript.reference import CommandError
+from appscript.reference import CommandError, Reference
 
 import xlwings
 
 from . import base_classes, mac_dict, utils
 from ._names import NameIndex
-from .constants import ColorIndex
+from .constants import ColorIndex, SpecialCellsValue
 from .utils import (
     VersionNumber,
     col_name,
@@ -61,6 +62,11 @@ cell_errors = (
     "#REF!",
     "#VALUE!",
 )
+
+
+def _parse_pid(pid_info):
+    match = re.search(r'^\s*"?pid"?\s*=\s*(\d+)(?!\w)', pid_info, re.M)
+    return int(match.group(1)) if match else None
 
 
 def _clean_value_data_element(
@@ -154,8 +160,9 @@ class Apps(base_classes.Apps):
                 pid_info = subprocess.check_output(
                     ["lsappinfo", "info", "-only", "pid", asn]
                 ).decode("utf-8")
-                if pid_info != '"pid"=[ NULL ] \n':
-                    yield int(pid_info.split("=")[1])
+                pid = _parse_pid(pid_info)
+                if pid is not None:
+                    yield pid
 
     def keys(self):
         return list(self._iter_excel_instances())
@@ -243,12 +250,12 @@ class App(base_classes.App):
         pid_info_frontmost = subprocess.check_output(
             ["lsappinfo", "info", "-only", "pid", frontmost_asn]
         ).decode("utf-8")
-        pid_frontmost = int(pid_info_frontmost.split("=")[1])
+        pid_frontmost = _parse_pid(pid_info_frontmost)
         try:
             appscript.app("System Events").processes[
                 its.unix_id == self.pid
             ].frontmost.set(True)
-            if not steal_focus:
+            if not steal_focus and pid_frontmost is not None:
                 appscript.app("System Events").processes[
                     its.unix_id == pid_frontmost
                 ].frontmost.set(True)
@@ -674,6 +681,30 @@ class Sheet(base_classes.Sheet):
         return self.workbook
 
     @property
+    def notes(self):
+        try:
+            addresses = self.xl.used_range.special_cells(
+                type=kw.cell_type_comments
+            ).get_address()
+        except appscript.reference.CommandError:
+            return []
+        notes = []
+        for area_address in addresses.split(","):
+            area = self.range(area_address)
+            for row in range(area.row, area.row + area.shape[0]):
+                for column in range(area.column, area.column + area.shape[1]):
+                    note = self.range((row, column)).note
+                    if note is not None:
+                        notes.append(note)
+        return notes
+
+    @property
+    def comments(self):
+        raise NotImplementedError(
+            "Threaded comments are not available through Excel for Mac AppleScript"
+        )
+
+    @property
     def index(self):
         return self.xl.entry_index.get()
 
@@ -775,6 +806,10 @@ class Sheet(base_classes.Sheet):
             after = after.xl
         self.xl.copy_worksheet(before_=before, after_=after)
 
+    def move(self, before, after):
+        destination = before.xl if before else after.xl.after
+        self.xl.move(to=destination)
+
     @property
     def charts(self):
         return Charts(self)
@@ -865,6 +900,96 @@ class Sheet(base_classes.Sheet):
         return PageSetup(self, self.xl.page_setup_object)
 
 
+_CONDITIONAL_FORMAT_TYPE_FROM_KW = {
+    kw.cell_value: "cell_value",
+    kw.expression: "custom",
+    kw.color_scale: "color_scale",
+    kw.databar: "data_bar",
+    kw.icon_sets: "icon_set",
+}
+_CONDITIONAL_FORMAT_SPECIALIZED_COLLECTION_FROM_KW = {
+    kw.color_scale: "color_scale_format_condition",
+    kw.databar: "databar_format_condition",
+    kw.icon_sets: "icon_set_format_condition",
+}
+_CONDITIONAL_FORMAT_OPERATOR_TO_KW = {
+    "between": kw.operator_between,
+    "not_between": kw.operator_not_between,
+    "equal_to": kw.operator_equal,
+    "not_equal_to": kw.operator_not_equal,
+    "greater_than": kw.operator_greater,
+    "less_than": kw.operator_less,
+    "greater_than_or_equal": kw.operator_greater_equal,
+    "less_than_or_equal": kw.operator_less_equal,
+}
+_CONDITIONAL_FORMAT_OPERATOR_FROM_KW = {
+    value: key for key, value in _CONDITIONAL_FORMAT_OPERATOR_TO_KW.items()
+}
+_CONDITIONAL_FORMAT_THRESHOLD_TO_KW = {
+    "lowest_value": kw.condition_value_lowest_value,
+    "highest_value": kw.condition_value_highest_value,
+    "number": kw.condition_value_number,
+    "percent": kw.condition_value_percent,
+    "percentile": kw.condition_value_percentile,
+    "formula": kw.condition_value_formula,
+}
+_CONDITIONAL_FORMAT_THRESHOLD_FROM_KW = {
+    **{value: key for key, value in _CONDITIONAL_FORMAT_THRESHOLD_TO_KW.items()},
+    kw.condition_value_automatic_minimum: "automatic",
+    kw.condition_value_automatic_maximum: "automatic",
+}
+_CONDITIONAL_FORMAT_ICON_SET_TO_KW = {
+    "3_arrows": kw.icon_set_3_arrows,
+    "3_arrows_gray": kw.icon_set_3_arrows_gray,
+    "3_flags": kw.icon_set_3_flags,
+    "3_traffic_lights_1": kw.icon_set_3_traffic_lights_1,
+    "3_traffic_lights_2": kw.icon_set_3_traffic_lights_2,
+    "3_signs": kw.icon_set_3_signs,
+    "3_symbols": kw.icon_set_3_symbols,
+    "3_symbols_2": kw.icon_set_3_symbols_2,
+    "4_arrows": kw.icon_set_4_arrows,
+    "4_arrows_gray": kw.icon_set_4_arrows_gray,
+    "4_red_to_black": kw.icon_set_4_red_to_black,
+    "4_rating": kw.icon_set_4_CRV,
+    "4_traffic_lights": kw.icon_set_4_traffic_lights,
+    "5_arrows": kw.icon_set_5_arrows,
+    "5_arrows_gray": kw.icon_set_5_arrows_gray,
+    "5_rating": kw.icon_set_5_CRV,
+    "5_quarters": kw.icon_set_5_quarters,
+    "3_stars": kw.icon_set_3_stars,
+    "3_triangles": kw.icon_set_3_triangles,
+    "5_boxes": kw.icon_set_5_boxes,
+}
+_CONDITIONAL_FORMAT_ICON_SET_FROM_KW = {
+    value: key for key, value in _CONDITIONAL_FORMAT_ICON_SET_TO_KW.items()
+}
+
+
+@cache
+def _conditional_format_icon_set_indexes():
+    """Derive workbook IconSets indexes from Excel's generated enum values."""
+    terminology = dict(mac_dict.enums)
+    codes = {
+        name: terminology[keyword.AS_name]
+        for name, keyword in _CONDITIONAL_FORMAT_ICON_SET_TO_KW.items()
+    }
+    prefixes = {code[:2] for code in codes.values() if len(code) == 4}
+    indexes = {name: int.from_bytes(code[2:], "big") for name, code in codes.items()}
+    expected = set(range(1, len(codes) + 1))
+    if len(prefixes) != 1 or set(indexes.values()) != expected:
+        raise RuntimeError(
+            "Excel's generated icon-set enumeration no longer matches its "
+            "workbook IconSets collection."
+        )
+    return indexes
+
+
+_CONDITIONAL_FORMAT_ICON_SET_INDEX = {
+    name: index
+    for index, name in enumerate(_CONDITIONAL_FORMAT_ICON_SET_TO_KW, start=1)
+}
+
+
 class Range(base_classes.Range):
     def __init__(self, sheet, address):
         self.sheet = sheet
@@ -902,6 +1027,32 @@ class Range(base_classes.Range):
     @property
     def api(self):
         return self.xl
+
+    @property
+    def row_hidden(self):
+        value = self.xl.entire_row.rows.hidden.get()
+        if isinstance(value, list):
+            return value[0] if all(item == value[0] for item in value) else None
+        return None if value == kw.missing_value else value
+
+    @row_hidden.setter
+    def row_hidden(self, value):
+        self.xl.entire_row.hidden.set(value)
+
+    @property
+    def column_hidden(self):
+        value = self.xl.entire_column.columns.hidden.get()
+        if isinstance(value, list):
+            return value[0] if all(item == value[0] for item in value) else None
+        return None if value == kw.missing_value else value
+
+    @column_hidden.setter
+    def column_hidden(self, value):
+        self.xl.entire_column.hidden.set(value)
+
+    @property
+    def autofilter(self):
+        return AutoFilter(self)
 
     def __len__(self):
         return self.coords[2] * self.coords[3]
@@ -976,6 +1127,147 @@ class Range(base_classes.Range):
             self.xl.clear_range()
             self.sheet.book.app.screen_updating = alerts_state
 
+    def sort(self, keys, ascending, has_headers):
+        sort = self.sheet.xl.sort_object
+        fields = sort.sortfieldset
+        fields.clear_sortfieldset()
+        first_data_row = self.row + int(has_headers)
+        last_row = self.row + self.shape[0] - 1
+        for key, direction in zip(keys, ascending):
+            column = utils.col_name(self.column + key - 1)
+            key_range = self.sheet.xl.cells[
+                f"{column}{first_data_row}:{column}{last_row}"
+            ]
+            fields.add_sortfield(
+                key=key_range,
+                sorton=kw.sort_on_cell_value,
+                order=kw.sort_ascending if direction else kw.sort_descending,
+            )
+        sort.set_sort_range(rng=self.xl)
+        sort.sort_header.set(kw.header_yes if has_headers else kw.header_no)
+        # AppleScript names the key orientation: column keys sort complete rows.
+        sort.sort_orientation.set(kw.sort_columns)
+        sort.match_case.set(False)
+        sort.apply_sort()
+
+    def remove_duplicates(self, columns, has_headers):
+        raise NotImplementedError(
+            "Range.remove_duplicates() is unavailable on Excel for Mac because its AppleScript command cannot specify columns or headers"
+        )
+
+    def get_special_cells(self, cell_type, value_type):
+        types = {
+            "blanks": kw.cell_type_blanks,
+            "constants": kw.cell_type_constants,
+            "formulas": kw.cell_type_formulas,
+            "visible": kw.cell_type_visible,
+        }
+        values = {
+            "numbers": SpecialCellsValue.xlNumbers,
+            "text": SpecialCellsValue.xlTextValues,
+            "logical": SpecialCellsValue.xlLogical,
+            "errors": SpecialCellsValue.xlErrors,
+        }
+        try:
+            if value_type is None:
+                selected = self.xl.special_cells(type=types[cell_type])
+            else:
+                selected = self.xl.special_cells(
+                    type=types[cell_type], value=values[value_type]
+                )
+            # AppleScript can widen a single-cell SpecialCells query to the
+            # worksheet's used range. Restrict it to the requested cell.
+            if self.shape == (1, 1):
+                clipped = self.sheet.book.app.xl.intersect(
+                    range1=self.xl, range2=selected
+                )
+                if clipped is None or clipped == kw.missing_value:
+                    return []
+                return [self]
+            address = selected.get_address()
+        except CommandError as exc:
+            if exc.errornumber == -50:
+                return []
+            raise
+        return [Range(self.sheet, part.strip()) for part in address.split(",")]
+
+    def find(self, text, whole, direction, order, match_case):
+        if self.xl is None:
+            return None
+        if self.shape == (1, 1):
+            # Excel searches the entire sheet when Find is sent to one cell.
+            # Search two cells, starting after the neighbor, then reject a
+            # match outside the requested cell.
+            neighbor_column = self.column + (1 if self.column < 16384 else -1)
+            search_range = Range(
+                self.sheet,
+                (self.row, min(self.column, neighbor_column), 1, 2),
+            ).xl
+            after = self.sheet.xl.rows[self.row].columns[neighbor_column]
+        else:
+            search_range = self.xl
+            after_row = self.row + (self.shape[0] - 1 if direction == "forward" else 0)
+            after_column = self.column + (
+                self.shape[1] - 1 if direction == "forward" else 0
+            )
+            after = self.sheet.xl.rows[after_row].columns[after_column]
+        try:
+            found = search_range.find(
+                what=text,
+                after_=after,
+                look_in=kw.values,
+                look_at=kw.whole if whole else kw.part,
+                search_order=kw.by_rows if order == "rows" else kw.by_columns,
+                search_direction=(
+                    kw.search_next if direction == "forward" else kw.search_previous
+                ),
+                match_case=match_case,
+                match_byte=False,
+            )
+        except CommandError as exc:
+            # Excel for Mac raises a parameter error when Find has no match.
+            if exc.errornumber == -50:
+                return None
+            raise
+        if found is None or found == kw.missing_value:
+            return None
+        found_address = found.get_address()
+        if self.shape == (1, 1) and found_address != self.address:
+            return None
+        return Range(self.sheet, found_address)
+
+    def replace_all(self, old, new, whole, match_case):
+        if self.xl is not None:
+            if self.shape == (1, 1):
+                # Excel's native Replace searches the whole sheet when the
+                # receiver is one cell, so update only the requested cell.
+                original = self.xl.formula.get()
+                if not isinstance(original, str):
+                    return
+                flags = 0 if match_case else re.IGNORECASE
+                pattern = re.compile(re.escape(old), flags)
+                if whole:
+                    replacement = new if pattern.fullmatch(original) else original
+                else:
+                    replacement = pattern.sub(lambda _: new, original)
+                if replacement != original:
+                    self.xl.formula.set(replacement or None)
+                return
+            app = self.sheet.book.app
+            alerts_state = app.display_alerts
+            app.display_alerts = False
+            try:
+                self.xl.replace(
+                    what=old,
+                    replacement=new,
+                    look_at=kw.whole if whole else kw.part,
+                    search_order=kw.by_rows,
+                    match_case=match_case,
+                    match_byte=False,
+                )
+            finally:
+                app.display_alerts = alerts_state
+
     def end(self, direction):
         direction = directions_s2k.get(direction, direction)
         return Range(self.sheet, self.xl.get_end(direction=direction).get_address())
@@ -1018,6 +1310,10 @@ class Range(base_classes.Range):
     @property
     def borders(self):
         return Borders(self, self.xl)
+
+    @property
+    def data_validation(self):
+        return DataValidation(self)
 
     @property
     def column_width(self):
@@ -1205,6 +1501,12 @@ class Range(base_classes.Range):
             else:
                 self.xl.interior_object.color.set(color_or_rgb)
 
+    def set_colors(self, colors):
+        for row_index, row in enumerate(colors):
+            for column_index, color in enumerate(row):
+                if color is not ...:
+                    self(row_index + 1, column_index + 1).color = color
+
     @property
     def name(self):
         if not self.xl:
@@ -1314,12 +1616,33 @@ class Range(base_classes.Range):
         try:
             # No easy way to check whether there's a comment like on Windows
             return (
-                Note(parent=self, xl=self.xl.Excel_comment)
+                Note(
+                    parent=self.sheet.range((self.row, self.column)),
+                    xl=self.xl.Excel_comment,
+                )
                 if self.xl.Excel_comment.Excel_comment_text()
                 else None
             )
         except appscript.reference.CommandError:
             return None
+
+    def add_note(self, text):
+        return Note(parent=self, xl=self.xl.add_comment(comment_text=text))
+
+    @property
+    def comment(self):
+        raise NotImplementedError(
+            "Threaded comments are not available through Excel for Mac AppleScript"
+        )
+
+    def add_comment(self, text):
+        raise NotImplementedError(
+            "Threaded comments are not available through Excel for Mac AppleScript"
+        )
+
+    @property
+    def conditional_formats(self):
+        return ConditionalFormats(self)
 
     def copy_picture(self, appearance, format):
         _appearance = {"screen": kw.screen, "printer": kw.printer}
@@ -1539,6 +1862,210 @@ class Border(base_classes.Border):
                 self.xl.color.set(color_or_rgb)
 
 
+class DataValidation(base_classes.DataValidation):
+    _TYPE_FROM_KW = {
+        kw.validate_whole_number: "whole_number",
+        kw.validate_decimal: "decimal",
+        kw.validate_list: "list",
+        kw.validated_date: "date",
+        kw.validate_time: "time",
+        kw.validate_text_length: "text_length",
+        kw.validate_custom: "custom",
+    }
+    _TYPE_TO_KW = {value: key for key, value in _TYPE_FROM_KW.items()}
+    _OPERATOR_FROM_KW = {
+        kw.operator_between: "between",
+        kw.operator_not_between: "not_between",
+        kw.operator_equal: "equal_to",
+        kw.operator_not_equal: "not_equal_to",
+        kw.operator_greater: "greater_than",
+        kw.operator_less: "less_than",
+        kw.operator_greater_equal: "greater_than_or_equal",
+        kw.operator_less_equal: "less_than_or_equal",
+    }
+    _OPERATOR_TO_KW = {value: key for key, value in _OPERATOR_FROM_KW.items()}
+    _ALERT_STYLE_FROM_KW = {
+        kw.valid_alert_stop: "stop",
+        kw.valid_alert_warning: "warning",
+        kw.valid_alert_information: "information",
+    }
+
+    def __init__(self, parent):
+        self.parent = parent
+
+    @property
+    def api(self):
+        return self.parent.xl.validation
+
+    def _nonuniform_type(self):
+        try:
+            validation_cells = self.parent.xl.special_cells(
+                type=kw.cell_type_all_validation
+            )
+            intersection = self.parent.sheet.book.app.xl.intersect(
+                range1=self.parent.xl,
+                range2=validation_cells,
+            )
+        except CommandError:
+            return "none"
+        try:
+            validated_count = intersection.count(each=kw.cell)
+        except CommandError:
+            return "inconsistent"
+        target_count = self.parent.shape[0] * self.parent.shape[1]
+        return "mixed_criteria" if validated_count < target_count else "inconsistent"
+
+    @property
+    def type(self):
+        try:
+            native_type = self.parent.xl.validation.validation_type.get()
+        except CommandError:
+            return self._nonuniform_type()
+        if native_type == kw.missing_value:
+            return self._nonuniform_type()
+        return self._TYPE_FROM_KW.get(native_type, "unknown")
+
+    def _property(self, name):
+        if self.type in {"none", "mixed_criteria", "inconsistent"}:
+            return None
+        try:
+            value = getattr(self.parent.xl.validation, name).get()
+        except CommandError:
+            return None
+        return None if value == kw.missing_value else value
+
+    @property
+    def operator(self):
+        if self.type not in {
+            "whole_number",
+            "decimal",
+            "date",
+            "time",
+            "text_length",
+        }:
+            return None
+        return self._OPERATOR_FROM_KW.get(self._property("validation_operator"))
+
+    @property
+    def formula1(self):
+        if self.type not in {
+            "whole_number",
+            "decimal",
+            "date",
+            "time",
+            "text_length",
+        }:
+            return None
+        value = self._property("formula1")
+        return None if value is None else str(value)
+
+    @property
+    def formula2(self):
+        if self.operator not in {"between", "not_between"}:
+            return None
+        value = self._property("formula2")
+        return None if value is None else str(value)
+
+    @property
+    def formula(self):
+        if self.type != "custom":
+            return None
+        value = self._property("formula1")
+        return None if value is None else str(value)
+
+    @property
+    def source(self):
+        if self.type != "list":
+            return None
+        value = self._property("formula1")
+        return None if value is None else str(value)
+
+    @property
+    def in_cell_dropdown(self):
+        value = self._property("in_cell_dropdown") if self.type == "list" else None
+        return None if value is None else bool(value)
+
+    @property
+    def ignore_blank(self):
+        value = self._property("ignore_blank")
+        return None if value is None else bool(value)
+
+    @property
+    def input_title(self):
+        return self._property("input_title")
+
+    @property
+    def input_message(self):
+        return self._property("input_message")
+
+    @property
+    def show_input(self):
+        value = self._property("show_input")
+        return None if value is None else bool(value)
+
+    @property
+    def error_title(self):
+        return self._property("error_title")
+
+    @property
+    def error_message(self):
+        return self._property("error_message")
+
+    @property
+    def show_error(self):
+        value = self._property("show_error")
+        return None if value is None else bool(value)
+
+    @property
+    def alert_style(self):
+        return self._ALERT_STYLE_FROM_KW.get(self._property("alert_style"))
+
+    def _formula(self, source):
+        if isinstance(source, base_classes.Range):
+            formula = f"={source.get_address(True, True, True)}"
+        elif isinstance(source, base_classes.Name):
+            formula = f"={source.name}"
+        else:
+            separator = self.parent.sheet.book.app.xl.get_international(
+                data_type=kw.list_separator
+            )
+            formula = separator.join(source)
+        if len(formula) > 255:
+            raise ValueError(
+                "the Excel data validation source cannot exceed 255 characters"
+            )
+        return formula
+
+    def _set(self, rule_type, operator=None, formula1=None, formula2=None):
+        current_type = self.type
+        if current_type in {"mixed_criteria", "inconsistent"}:
+            raise xlwings.XlwingsError(
+                "Cannot update data validation because the target cells have "
+                "different validation rules."
+            )
+        kwargs = {"type": self._TYPE_TO_KW[rule_type], "formula1": formula1}
+        if operator is not None:
+            kwargs["operator"] = self._OPERATOR_TO_KW[operator]
+        if formula2 is not None:
+            kwargs["formula2"] = formula2
+        validation = self.parent.xl.validation
+        if current_type == "none":
+            validation.add_data_validation(**kwargs)
+        else:
+            validation.modify(**kwargs)
+
+    def set_list(self, source, in_cell_dropdown):
+        formula = self._formula(source)
+        self._set("list", formula1=formula)
+        self.parent.xl.validation.in_cell_dropdown.set(in_cell_dropdown)
+
+    def set_rule(self, rule_type, operator, formula1, formula2):
+        self._set(rule_type, operator, formula1, formula2)
+
+    def delete(self):
+        self.parent.xl.validation.delete()
+
+
 class Borders(base_classes.Borders):
     def __init__(self, parent, xl):
         # xl is the range reference: the sides are looked up via get_border
@@ -1720,9 +2247,7 @@ class Characters(base_classes.Characters):
                 xl=self.xl[
                     item.start + 1
                     if item.start
-                    else None : item.stop
-                    if item.stop
-                    else len(self.text)
+                    else None : (item.stop if item.stop else len(self.text))
                 ],
             )
         else:
@@ -1756,12 +2281,21 @@ class Note(base_classes.Note):
         self.parent = parent
         self.xl = xl
 
+    @property
     def api(self):
         return self.xl
 
     @property
     def text(self):
         return self.xl.Excel_comment_text()
+
+    @property
+    def author(self):
+        return self.xl.author.get()
+
+    @property
+    def location(self):
+        return self.parent
 
     @text.setter
     def text(self, value):
@@ -1800,6 +2334,606 @@ class Collection(base_classes.Collection):
         return self.xl[key].exists()
 
 
+class ConditionalFormat(base_classes.ConditionalFormat):
+    def __init__(self, parent, key):
+        self.parent = parent
+        generic = parent.xl.format_conditions[key]
+        native_type = generic.format_condition_type.get()
+        specialized = _CONDITIONAL_FORMAT_SPECIALIZED_COLLECTION_FROM_KW.get(
+            native_type
+        )
+        if specialized is None:
+            self.xl = generic
+            return
+        # Excel exposes family-specific properties only through a `range` element
+        # reference, not through the `cells` reference Range normally uses. The
+        # specialized collections retain the global format-condition index.
+        sheet = parent.sheet.xl
+        range_ref = Reference(
+            sheet.AS_appdata,
+            sheet.AS_aemreference.elements(b"X117").byname(
+                parent.address.replace("$", "")
+            ),
+        )
+        self.xl = getattr(range_ref, specialized)[key]
+
+    @property
+    def api(self):
+        return self.xl
+
+    @property
+    def type(self):
+        return _CONDITIONAL_FORMAT_TYPE_FROM_KW.get(
+            self.xl.format_condition_type.get(), "unknown"
+        )
+
+    @property
+    def stop_if_true(self):
+        if self.type in {"color_scale", "data_bar", "icon_set"}:
+            return None
+        return self.xl.stop_if_true.get()
+
+    @property
+    def operator(self):
+        if self.type != "cell_value":
+            return None
+        return _CONDITIONAL_FORMAT_OPERATOR_FROM_KW.get(
+            self.xl.condition_operator.get()
+        )
+
+    @property
+    def formula1(self):
+        return self.xl.formula_1.get() if self.type == "cell_value" else None
+
+    @property
+    def formula2(self):
+        if self.type != "cell_value" or self.operator not in {
+            "between",
+            "not_between",
+        }:
+            return None
+        value = self.xl.formula_2.get()
+        return None if value == kw.missing_value else value
+
+    @property
+    def formula(self):
+        return self.xl.formula_1.get() if self.type == "custom" else None
+
+    @staticmethod
+    def _color(obj, color_index=None):
+        color_index = (obj.color_index if color_index is None else color_index).get()
+        if color_index in {
+            kw.color_index_none,
+            kw.color_index_automatic,
+            kw.missing_value,
+        }:
+            return None
+        value = obj.color.get()
+        return None if value is None or value == kw.missing_value else tuple(value)
+
+    @property
+    def fill_color(self):
+        if self.type not in {"cell_value", "custom"}:
+            return None
+        return self._color(self.xl.interior_object)
+
+    @property
+    def font_color(self):
+        if self.type not in {"cell_value", "custom"}:
+            return None
+        return self._color(self.xl.font_object, self.xl.font_object.font_color_index)
+
+    @property
+    def font_bold(self):
+        if self.type not in {"cell_value", "custom"}:
+            return None
+        value = self.xl.font_object.bold.get()
+        return None if value is None or value == kw.missing_value else value
+
+    @property
+    def font_italic(self):
+        if self.type not in {"cell_value", "custom"}:
+            return None
+        value = self.xl.font_object.italic.get()
+        return None if value is None or value == kw.missing_value else value
+
+    @staticmethod
+    def _threshold(criterion, type_property, value_property):
+        criterion_type = _CONDITIONAL_FORMAT_THRESHOLD_FROM_KW.get(
+            type_property.get(), "unknown"
+        )
+        if criterion_type in {
+            "automatic",
+            "lowest_value",
+            "highest_value",
+            "unknown",
+        }:
+            value = None
+        else:
+            value = value_property.get()
+            if value == kw.missing_value:
+                value = None
+        return criterion_type, value
+
+    @property
+    def colors(self):
+        if self.type != "color_scale":
+            return None
+        count = self.xl.count(each=kw.color_scale_criterion)
+        # Criteria are direct children of the rule. Addressing them through the
+        # color_scale_criteria property can terminate Excel's Apple-event process.
+        criteria = self.xl.color_scale_criterion
+        return tuple(
+            self._color(criteria[index].format_color) for index in range(1, count + 1)
+        )
+
+    @property
+    def bar_color(self):
+        if self.type != "data_bar":
+            return None
+        return self._color(self.xl.databar_bar_color)
+
+    @property
+    def gradient(self):
+        if self.type != "data_bar":
+            return None
+        return self.xl.databar_fill_type.get() == kw.databar_fill_gradient
+
+    @property
+    def show_value(self):
+        if self.type == "data_bar":
+            return self.xl.format_condition_show_value.get()
+        if self.type == "icon_set":
+            return not self.xl.show_icon_only.get()
+        return None
+
+    @property
+    def icon_set(self):
+        if self.type != "icon_set":
+            return None
+        return _CONDITIONAL_FORMAT_ICON_SET_FROM_KW.get(
+            self.xl.format_condition_icon_set.icon_set_id.get()
+        )
+
+    @property
+    def reverse_order(self):
+        return self.xl.reverse_icon_set_order.get() if self.type == "icon_set" else None
+
+    def _threshold_pairs(self):
+        if self.type == "color_scale":
+            count = self.xl.count(each=kw.color_scale_criterion)
+            criteria = self.xl.color_scale_criterion
+            return tuple(
+                self._threshold(
+                    criteria[index],
+                    criteria[index].color_scale_criterion_type,
+                    criteria[index].color_scale_criterion_value,
+                )
+                for index in range(1, count + 1)
+            )
+        if self.type == "data_bar":
+            return tuple(
+                self._threshold(
+                    criterion,
+                    criterion.condition_value_type,
+                    criterion.condition_value_value,
+                )
+                for criterion in (
+                    self.xl.min_point_condition_value,
+                    self.xl.max_point_condition_value,
+                )
+            )
+        if self.type == "icon_set":
+            count = self.xl.count(each=kw.icon_criterion)
+            criteria = self.xl.icon_criterion
+            return tuple(
+                self._threshold(
+                    criteria[index],
+                    criteria[index].icon_criterion_type,
+                    criteria[index].icon_criterion_value,
+                )
+                for index in range(2, count + 1)
+            )
+        return None
+
+    @property
+    def threshold_types(self):
+        pairs = self._threshold_pairs()
+        return None if pairs is None else tuple(pair[0] for pair in pairs)
+
+    @property
+    def thresholds(self):
+        pairs = self._threshold_pairs()
+        return None if pairs is None else tuple(pair[1] for pair in pairs)
+
+    def set(self, changes):
+        criteria = {"operator", "formula1", "formula2", "formula"} & changes.keys()
+        if criteria:
+            if self.type == "cell_value":
+                kwargs = {
+                    "type": kw.cell_value,
+                    "operator": _CONDITIONAL_FORMAT_OPERATOR_TO_KW[
+                        changes.get("operator", self.operator)
+                    ],
+                    "formula1": changes.get("formula1", self.formula1),
+                }
+                formula2 = changes.get("formula2", self.formula2)
+                if formula2 is not None:
+                    kwargs["formula2"] = formula2
+                self.xl.modify_condition(**kwargs)
+            else:
+                self.xl.modify_condition(
+                    type=kw.expression,
+                    formula1=changes.get("formula", self.formula),
+                )
+        if "fill_color" in changes:
+            self.xl.interior_object.color.set(changes["fill_color"])
+        if "font_color" in changes:
+            self.xl.font_object.color.set(changes["font_color"])
+        if "font_bold" in changes:
+            self.xl.font_object.bold.set(changes["font_bold"])
+        if "font_italic" in changes:
+            self.xl.font_object.italic.set(changes["font_italic"])
+        if "stop_if_true" in changes:
+            self.xl.stop_if_true.set(changes["stop_if_true"])
+
+    def delete(self):
+        self.xl.delete()
+
+
+class ConditionalFormats(Collection, base_classes.ConditionalFormats):
+    _attr = "format_conditions"
+    _kw = kw.format_condition
+    _wrap = ConditionalFormat
+
+    def _finish_add(self, rule, spec):
+        rule.set_first_priority()
+        wrapped = ConditionalFormat(self.parent, 1)
+        wrapped.set(
+            {
+                key: value
+                for key, value in spec.items()
+                if key
+                in {
+                    "fill_color",
+                    "font_color",
+                    "font_bold",
+                    "font_italic",
+                    "stop_if_true",
+                }
+            }
+        )
+        return wrapped
+
+    def add_cell_value(self, spec):
+        properties = {
+            kw.format_condition_type: kw.cell_value,
+            kw.condition_operator: _CONDITIONAL_FORMAT_OPERATOR_TO_KW[spec["operator"]],
+            kw.formula_1: spec["formula1"],
+        }
+        if spec["formula2"] is not None:
+            properties[kw.formula_2] = spec["formula2"]
+        rule = self.parent.xl.make(
+            at=self.parent.xl,
+            new=kw.format_condition,
+            with_properties=properties,
+        )
+        return self._finish_add(rule, spec)
+
+    def add_custom(self, spec):
+        rule = self.parent.xl.make(
+            at=self.parent.xl,
+            new=kw.format_condition,
+            with_properties={
+                kw.format_condition_type: kw.expression,
+                kw.formula_1: spec["formula"],
+            },
+        )
+        return self._finish_add(rule, spec)
+
+    @staticmethod
+    def _set_threshold(
+        criterion,
+        type_property,
+        value_property,
+        criterion_type,
+        value,
+        *,
+        automatic_type=None,
+        modify=False,
+    ):
+        native_type = (
+            automatic_type
+            if criterion_type == "automatic"
+            else _CONDITIONAL_FORMAT_THRESHOLD_TO_KW[criterion_type]
+        )
+        if modify:
+            kwargs = {"type": native_type}
+            if value is not None:
+                kwargs["condition_value"] = value
+            criterion.modify_condition_value(**kwargs)
+        else:
+            type_property.set(native_type)
+            if value is not None:
+                value_property.set(value)
+
+    def _finish_visual_add(self, rule):
+        rule.set_first_priority()
+        return ConditionalFormat(self.parent, 1)
+
+    def add_color_scale(self, spec):
+        rule = self.parent.xl.make(
+            at=self.parent.xl,
+            new=kw.color_scale_format_condition,
+            with_properties={kw.color_scale_type: len(spec["colors"])},
+        )
+        criteria = rule.color_scale_criterion
+        for index, (color, criterion_type, value) in enumerate(
+            zip(spec["colors"], spec["threshold_types"], spec["thresholds"]),
+            start=1,
+        ):
+            criterion = criteria[index]
+            self._set_threshold(
+                criterion,
+                criterion.color_scale_criterion_type,
+                criterion.color_scale_criterion_value,
+                criterion_type,
+                value,
+            )
+            criterion.format_color.color.set(color)
+        return self._finish_visual_add(rule)
+
+    def add_data_bar(self, spec):
+        rule = self.parent.xl.make(at=self.parent.xl, new=kw.databar_format_condition)
+        rule.databar_bar_color.color.set(spec["bar_color"])
+        rule.databar_fill_type.set(
+            kw.databar_fill_gradient if spec["gradient"] else kw.databar_fill_solid
+        )
+        rule.format_condition_show_value.set(spec["show_value"])
+        for criterion, criterion_type, value, automatic_type in zip(
+            (rule.min_point_condition_value, rule.max_point_condition_value),
+            spec["threshold_types"],
+            spec["thresholds"],
+            (
+                kw.condition_value_automatic_minimum,
+                kw.condition_value_automatic_maximum,
+            ),
+        ):
+            self._set_threshold(
+                criterion,
+                criterion.condition_value_type,
+                criterion.condition_value_value,
+                criterion_type,
+                value,
+                automatic_type=automatic_type,
+                modify=True,
+            )
+        return self._finish_visual_add(rule)
+
+    def add_icon_set(self, spec):
+        rule = self.parent.xl.make(at=self.parent.xl, new=kw.icon_set_format_condition)
+        # `format condition icon sets` is declared as a property in Excel's
+        # AppleScript dictionary, so appscript can't index it as a collection.
+        # The singular elements do exist directly below the workbook, however.
+        workbook = self.parent.sheet.book.xl
+        icon_set = Reference(
+            workbook.AS_appdata,
+            workbook.AS_aemreference.elements(b"X319").byindex(
+                _conditional_format_icon_set_indexes()[spec["icon_set"]]
+            ),
+        )
+        rule.format_condition_icon_set.set(icon_set)
+        rule.show_icon_only.set(not spec["show_value"])
+        rule.reverse_icon_set_order.set(spec["reverse_order"])
+        criteria = rule.icon_criterion
+        for index, (criterion_type, value) in enumerate(
+            zip(spec["threshold_types"], spec["thresholds"]), start=2
+        ):
+            criterion = criteria[index]
+            self._set_threshold(
+                criterion,
+                criterion.icon_criterion_type,
+                criterion.icon_criterion_value,
+                criterion_type,
+                value,
+            )
+            criterion.condition_operator.set(kw.operator_greater_equal)
+        return self._finish_visual_add(rule)
+
+    def clear(self):
+        # Deleting the collection through the `cells` reference can terminate
+        # Excel, and generic format-condition references don't delete visual
+        # rules. Resolve each current first-priority rule to its native family.
+        for _ in range(len(self)):
+            ConditionalFormat(self.parent, 1).delete()
+
+
+class AutoFilter(base_classes.AutoFilter):
+    _COMPARISON_PREFIXES = {
+        "equal_to": "=",
+        "not_equal_to": "<>",
+        "greater_than": ">",
+        "less_than": "<",
+        "greater_than_or_equal": ">=",
+        "less_than_or_equal": "<=",
+    }
+
+    def __init__(self, parent, is_table=False):
+        self.parent = parent
+        self.is_table = is_table
+
+    @staticmethod
+    def _escape(value):
+        return value.replace("~", "~~").replace("*", "~*").replace("?", "~?")
+
+    @staticmethod
+    def _criterion_value(value):
+        if not isinstance(value, dict):
+            return value
+        if value.get("type") == "date":
+            parsed = dt.date.fromisoformat(value["value"])
+            return f"{parsed.month}/{parsed.day}/{parsed.year}"
+        if value.get("type") == "datetime":
+            parsed = dt.datetime.fromisoformat(value["value"])
+            seconds = f"{parsed.second + parsed.microsecond / 1_000_000:g}"
+            return (
+                f"{parsed.month}/{parsed.day}/{parsed.year} "
+                f"{parsed.hour}:{parsed.minute}:{seconds}"
+            )
+        raise ValueError("Unknown AutoFilter comparison value type")
+
+    def _criteria(self, operator, value1, value2):
+        if value1 is None:
+            return ("=" if operator == "equal_to" else "<>"), None, None
+        value1 = self._escape(self._criterion_value(value1))
+        if operator == "between":
+            return (
+                f">={value1}",
+                kw.autofilter_and,
+                f"<={self._escape(self._criterion_value(value2))}",
+            )
+        if operator == "not_between":
+            return (
+                f"<{value1}",
+                kw.autofilter_or,
+                f">{self._escape(self._criterion_value(value2))}",
+            )
+        return f"{self._COMPARISON_PREFIXES[operator]}{value1}", None, None
+
+    @property
+    def _range(self):
+        return self.parent.xl.range_object if self.is_table else self.parent.xl
+
+    @property
+    def _column_count(self):
+        return self.parent.range.shape[1] if self.is_table else self.parent.shape[1]
+
+    def _worksheet_filter_range(self):
+        sheet = self.parent.sheet.xl
+        if not sheet.autofilter_mode.get():
+            return None
+        return sheet.autofilter_object.range_object.get_address()
+
+    def _ensure_target(self):
+        if self.is_table:
+            return
+        existing = self._worksheet_filter_range()
+        if existing is not None and existing != self.parent.xl.get_address():
+            raise ValueError(
+                "This worksheet already has an AutoFilter on a different range"
+            )
+
+    def _native_autofilter(self):
+        if self.is_table:
+            return self.parent.xl.autofilter_object
+        existing = self._worksheet_filter_range()
+        if existing is None or existing != self.parent.xl.get_address():
+            return None
+        return self.parent.sheet.xl.autofilter_object
+
+    @property
+    def criteria(self):
+        autofilter = self._native_autofilter()
+        if autofilter is None:
+            return [
+                base_classes.empty_autofilter_criteria(field)
+                for field in range(1, self._column_count + 1)
+            ]
+        snapshots = []
+        operator_types = {
+            kw.filter_by_value: "values",
+            kw.top_10_items: "top_items",
+            kw.bottom_10_items: "bottom_items",
+            kw.top_10_percent: "top_percent",
+            kw.bottom_10_percent: "bottom_percent",
+        }
+        comparison_operators = {
+            kw.autofilter_and: "and",
+            kw.autofilter_or: "or",
+        }
+        for field in range(1, self._column_count + 1):
+            native_filter = autofilter.filters[field]
+            if not native_filter.filter_on.get():
+                snapshots.append(base_classes.empty_autofilter_criteria(field))
+                continue
+            try:
+                operator = native_filter.operator.get()
+            except (CommandError, AttributeError):
+                operator = None
+            type_ = operator_types.get(operator, "comparison")
+            if operator not in (
+                None,
+                kw.missing_value,
+                *comparison_operators,
+                *operator_types,
+            ):
+                type_ = "unknown"
+            try:
+                criteria2 = native_filter.criteria2.get()
+                if criteria2 == kw.missing_value:
+                    criteria2 = None
+            except (CommandError, AttributeError):
+                criteria2 = None
+            try:
+                criteria1 = native_filter.criteria1.get()
+                if criteria1 == kw.missing_value:
+                    criteria1 = None
+            except (CommandError, AttributeError):
+                criteria1 = None
+            snapshots.append(
+                base_classes.autofilter_criteria_snapshot(
+                    field,
+                    type_,
+                    criteria1,
+                    criteria2,
+                    comparison_operators.get(operator),
+                )
+            )
+        return snapshots
+
+    def apply_values(self, field, values):
+        self._ensure_target()
+        self._range.autofilter_range(
+            field=field, criteria1=values, operator=kw.filter_by_value
+        )
+
+    def apply_comparison(self, field, operator, value1, value2):
+        self._ensure_target()
+        criteria1, native_operator, criteria2 = self._criteria(operator, value1, value2)
+        kwargs = {"field": field, "criteria1": criteria1}
+        if native_operator is not None:
+            kwargs["operator"] = native_operator
+            kwargs["criteria2"] = criteria2
+        self._range.autofilter_range(**kwargs)
+
+    def _apply_top_bottom(self, field, value, operator):
+        self._ensure_target()
+        self._range.autofilter_range(
+            field=field, criteria1=str(value), operator=operator
+        )
+
+    def apply_top_items(self, field, count):
+        self._apply_top_bottom(field, count, kw.top_10_items)
+
+    def apply_bottom_items(self, field, count):
+        self._apply_top_bottom(field, count, kw.bottom_10_items)
+
+    def apply_top_percent(self, field, percent):
+        self._apply_top_bottom(field, percent, kw.top_10_percent)
+
+    def apply_bottom_percent(self, field, percent):
+        self._apply_top_bottom(field, percent, kw.bottom_10_percent)
+
+    def clear(self, field):
+        if not self.is_table:
+            existing = self._worksheet_filter_range()
+            if existing is None or existing != self.parent.xl.get_address():
+                return
+        fields = [field] if field is not None else range(1, self._column_count + 1)
+        for field_index in fields:
+            self._range.autofilter_range(field=field_index)
+
+
 class Table(base_classes.Table):
     def __init__(self, parent, key):
         self._parent = parent
@@ -1812,6 +2946,10 @@ class Table(base_classes.Table):
     @property
     def api(self):
         return self.xl
+
+    @property
+    def columns(self):
+        return TableColumns(self)
 
     @property
     def name(self):
@@ -1856,6 +2994,10 @@ class Table(base_classes.Table):
     @property
     def range(self):
         return Range(self.parent, self.xl.range_object.get_address())
+
+    @property
+    def autofilter(self):
+        return AutoFilter(self, is_table=True)
 
     @property
     def show_autofilter(self):
@@ -1931,6 +3073,145 @@ class Table(base_classes.Table):
     def resize(self, range):
         self.xl.resize(range=range.api)
 
+    @property
+    def rows(self):
+        return TableRows(self)
+
+
+class TableRow(base_classes.TableRow):
+    def __init__(self, parent, key):
+        self.parent = parent
+        self.xl = parent.xl[key]
+
+    @property
+    def index(self):
+        return self.xl.index.get()
+
+    @property
+    def range(self):
+        return Range(self.parent.parent.parent, self.xl.range_object.get_address())
+
+    async def get_range(self):
+        return self.range
+
+    def delete(self):
+        self.xl.delete()
+
+
+class TableRows(Collection, base_classes.TableRows):
+    _attr = "list_rows"
+    _kw = kw.list_row
+    _wrap = TableRow
+
+    def __init__(self, parent):
+        super().__init__(parent)
+
+    def __call__(self, key):
+        if not self.xl[key].exists():
+            raise KeyError(key)
+        return TableRow(self, key)
+
+    @property
+    def column_count(self):
+        return self.parent.range.shape[1]
+
+    def add(self, values, index):
+        at = (
+            self.parent.xl
+            if index is None or index == len(self) + 1
+            else self.xl[index]
+        )
+        created = self.parent.xl.make(new=kw.list_row, at=at)
+        row = TableRow(self, created.index.get())
+        if values is not None:
+            row.range.raw_value = [values]
+        return row
+
+    async def get_count(self):
+        return len(self)
+
+
+class TableColumn(base_classes.TableColumn):
+    def __init__(self, parent, key):
+        self.parent = parent
+        self.xl = parent.xl[key]
+
+    @property
+    def name(self):
+        return self.xl.name.get()
+
+    @property
+    def index(self):
+        return self.xl.index.get()
+
+    @property
+    def range(self):
+        table_range = self.parent.parent.range
+        return Range(
+            self.parent.parent.parent,
+            (
+                table_range.row,
+                table_range.column + self.index - 1,
+                table_range.shape[0],
+                1,
+            ),
+        )
+
+    async def get_range(self):
+        return self.range
+
+    @property
+    def data_body_range(self):
+        body = self.parent.parent.data_body_range
+        return (
+            Range(
+                self.parent.parent.parent,
+                (body.row, body.column + self.index - 1, body.shape[0], 1),
+            )
+            if body
+            else None
+        )
+
+    async def get_data_body_range(self):
+        return self.data_body_range
+
+    def delete(self):
+        if len(self.parent) == 1:
+            raise ValueError("Cannot delete the last table column")
+        self.xl.delete()
+
+
+class TableColumns(Collection, base_classes.TableColumns):
+    _attr = "list_columns"
+    _kw = kw.list_column
+    _wrap = TableColumn
+
+    def __call__(self, key):
+        if isinstance(key, str):
+            for index in range(1, len(self) + 1):
+                if self.xl[index].name.get() == key:
+                    key = index
+                    break
+            else:
+                raise KeyError(key)
+        if not self.xl[key].exists():
+            raise KeyError(key)
+        return TableColumn(self, key)
+
+    def add(self, name, index):
+        at = (
+            self.parent.xl
+            if index is None or index == len(self) + 1
+            else self.xl[index]
+        )
+        created = self.parent.xl.make(
+            new=kw.list_column, at=at, with_properties={kw.name: name}
+        )
+        return TableColumn(self, created.index.get())
+
+    async def get_count(self):
+        return len(self)
+
 
 class Tables(Collection, base_classes.Tables):
     _attr = "list_objects"
@@ -1950,7 +3231,6 @@ class Tables(Collection, base_classes.Tables):
         header_row = {
             True: kw.header_yes,
             False: kw.header_no,
-            "guess": kw.header_guess,
         }
         sheet_index = self.parent.xl.entry_index.get()
         table = Table(
@@ -2045,6 +3325,18 @@ class Chart(base_classes.Chart):
     @property
     def legend(self):
         return ChartLegend(self)
+
+    @property
+    def category_axis(self):
+        return ChartAxis(self, "category")
+
+    @property
+    def value_axis(self):
+        return ChartAxis(self, "value")
+
+    @property
+    def series(self):
+        return ChartSeriesCollection(self)
 
     @property
     def plot_by(self):
@@ -2145,6 +3437,202 @@ class Chart(base_classes.Chart):
 
     def to_pdf(self, path, quality=None):
         raise xlwings.XlwingsError("Chart.to_pdf() isn't supported on macOS.")
+
+
+class ChartSeries(base_classes.ChartSeries):
+    def __init__(self, parent, key):
+        self.parent = parent
+        self.key = key
+
+    @property
+    def xl(self):
+        return self.parent.xl.series_collection[self.key]
+
+    @property
+    def api(self):
+        return self.xl
+
+    @property
+    def name(self):
+        return self.xl.name.get()
+
+    @name.setter
+    def name(self, value):
+        self.xl.name.set(value)
+
+    @property
+    def marker_style(self):
+        return marker_styles_k2s[self.xl.marker_style.get()]
+
+    @marker_style.setter
+    def marker_style(self, value):
+        self.xl.marker_style.set(marker_styles_s2k[value])
+
+    @property
+    def marker_size(self):
+        return self.xl.marker_size.get()
+
+    @marker_size.setter
+    def marker_size(self, value):
+        self.xl.marker_size.set(value)
+
+    @staticmethod
+    def _color(value):
+        if value is None or value == kw.missing_value:
+            return None
+        return tuple(value)
+
+    @property
+    def marker_foreground_color(self):
+        return self._color(self.xl.marker_foreground_color.get())
+
+    @marker_foreground_color.setter
+    def marker_foreground_color(self, value):
+        self.xl.marker_foreground_color.set(value)
+
+    @property
+    def marker_background_color(self):
+        return self._color(self.xl.marker_background_color.get())
+
+    @marker_background_color.setter
+    def marker_background_color(self, value):
+        self.xl.marker_background_color.set(value)
+
+    @property
+    def line_color(self):
+        line = self.xl.chart_format.line_format
+        return self._color(line.fore_color.get()) if line.visible.get() else None
+
+    @line_color.setter
+    def line_color(self, value):
+        line = self.xl.chart_format.line_format
+        line.visible.set(True)
+        line.fore_color.set(value)
+
+    @property
+    def fill_color(self):
+        fill = self.xl.chart_format.fill_format
+        return self._color(fill.fore_color.get()) if fill.visible.get() else None
+
+    @fill_color.setter
+    def fill_color(self, value):
+        fill = self.xl.chart_format.fill_format
+        fill.visible.set(True)
+        fill.solid()
+        fill.fore_color.set(value)
+
+    def set(
+        self,
+        *,
+        name=base_classes._UNSET,
+        marker_style=base_classes._UNSET,
+        marker_size=base_classes._UNSET,
+        marker_foreground_color=base_classes._UNSET,
+        marker_background_color=base_classes._UNSET,
+        line_color=base_classes._UNSET,
+        fill_color=base_classes._UNSET,
+    ):
+        for attribute, value in (
+            ("name", name),
+            # Excel may propagate series line/fill formatting to markers. Apply
+            # explicit marker overrides afterwards so one bulk set preserves
+            # independently requested colors.
+            ("line_color", line_color),
+            ("fill_color", fill_color),
+            ("marker_style", marker_style),
+            ("marker_size", marker_size),
+            ("marker_foreground_color", marker_foreground_color),
+            ("marker_background_color", marker_background_color),
+        ):
+            if value is not base_classes._UNSET:
+                setattr(self, attribute, value)
+
+
+class ChartSeriesCollection(Collection, base_classes.ChartSeriesCollection):
+    _attr = "series_collection"
+    _kw = kw.series
+    _wrap = ChartSeries
+
+    def __call__(self, key):
+        if not isinstance(key, numbers.Integral) or isinstance(key, bool):
+            raise KeyError(key)
+        return super().__call__(key)
+
+
+class ChartAxis(base_classes.ChartAxis):
+    def __init__(self, parent, axis_type):
+        self.parent = parent
+        self.axis_type = axis_type
+
+    def _unsupported(self):
+        raise NotImplementedError(
+            "ChartAxis isn't supported on macOS because Excel's AppleScript "
+            "axis references can't be read or formatted."
+        )
+
+    @property
+    def api(self):
+        self._unsupported()
+
+    @property
+    def title(self):
+        self._unsupported()
+
+    @title.setter
+    def title(self, value):
+        self._unsupported()
+
+    @property
+    def minimum_scale(self):
+        self._unsupported()
+
+    @minimum_scale.setter
+    def minimum_scale(self, value):
+        self._unsupported()
+
+    @property
+    def maximum_scale(self):
+        self._unsupported()
+
+    @maximum_scale.setter
+    def maximum_scale(self, value):
+        self._unsupported()
+
+    @property
+    def major_unit(self):
+        self._unsupported()
+
+    @major_unit.setter
+    def major_unit(self, value):
+        self._unsupported()
+
+    @property
+    def number_format(self):
+        self._unsupported()
+
+    @number_format.setter
+    def number_format(self, value):
+        self._unsupported()
+
+    @property
+    def visible(self):
+        self._unsupported()
+
+    @visible.setter
+    def visible(self, value):
+        self._unsupported()
+
+    def set(
+        self,
+        *,
+        title=base_classes._UNSET,
+        minimum_scale=base_classes._UNSET,
+        maximum_scale=base_classes._UNSET,
+        major_unit=base_classes._UNSET,
+        number_format=base_classes._UNSET,
+        visible=base_classes._UNSET,
+    ):
+        self._unsupported()
 
 
 class ChartLegend(base_classes.ChartLegend):
@@ -2376,6 +3864,9 @@ class PivotTable(base_classes.PivotTable):
     def range(self):
         return Range(self.parent, self.xl.table_range1.get_address())
 
+    async def get_range(self):
+        return self.range
+
     @property
     def data_body_range(self):
         # Excel for Mac answers with the row labels area when there are no
@@ -2383,6 +3874,9 @@ class PivotTable(base_classes.PivotTable):
         if not _mac_list(self.xl.data_fields):
             return None
         return Range(self.parent, self.xl.data_body_range.get_address())
+
+    async def get_data_body_range(self):
+        return self.data_body_range
 
     def refresh(self):
         self.xl.refresh_table()
@@ -3223,6 +4717,21 @@ legend_positions_k2s = {
     kw.legend_position_corner: "corner",
 }
 legend_positions_s2k = {v: k for k, v in legend_positions_k2s.items()}
+
+marker_styles_s2k = {
+    "automatic": kw.marker_style_automatic,
+    "none": kw.marker_style_none,
+    "square": kw.marker_style_square,
+    "diamond": kw.marker_style_diamond,
+    "triangle": kw.marker_style_triangle,
+    "x": kw.marker_style_x,
+    "star": kw.marker_style_star,
+    "dot": kw.marker_style_dot,
+    "dash": kw.marker_style_dash,
+    "circle": kw.marker_style_circle,
+    "plus": kw.marker_style_plus,
+}
+marker_styles_k2s = {v: k for k, v in marker_styles_s2k.items()}
 
 # Note the differing keyword prefixes: horizontal_align_* vs vertical_alignment_*
 horizontal_alignments_s2k = {

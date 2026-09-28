@@ -44,8 +44,8 @@ class DiscoverySource(BaseModel):
     health_details: Optional[StrictStr] = None
     last_successful_run_at: Optional[datetime] = None
     consecutive_failures: StrictInt = Field(description="How many scheduled runs have failed back to back.")
-    is_enabled: StrictBool = Field(description="Whether scheduled runs may be dispatched against this source. A disabled source keeps its configs and its findings - it is paused rather than removed, so re-enabling it resumes collection instead of starting a new source.")
-    is_deleted: StrictBool = Field(description="Whether the source has been deleted. Deleted sources are retained so findings already collected keep resolving, and so their evidence can be marked as originating from a deleted source.")
+    is_enabled: StrictBool = Field(description="Whether scheduled runs may be dispatched against this source. A disabled source keeps its configs and its records - it is paused rather than removed, so re-enabling it resumes collection instead of starting a new source.")
+    is_deleted: StrictBool = Field(description="Whether the source has been deleted. Deleted sources are retained so records already collected keep resolving, and so their evidence can be marked as originating from a deleted source.")
     deleted_at: Optional[datetime] = None
     last_updated_by_user: Optional[User] = None
     __properties: ClassVar[List[str]] = ["created_at", "updated_at", "id", "organization_id", "name", "vendor", "source_class", "fields", "health", "health_details", "last_successful_run_at", "consecutive_failures", "is_enabled", "is_deleted", "deleted_at", "last_updated_by_user"]

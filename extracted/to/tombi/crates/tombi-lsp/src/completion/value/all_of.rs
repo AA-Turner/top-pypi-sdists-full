@@ -31,14 +31,15 @@ where
     async move {
         let mut completion_items = Vec::new();
 
-        let Some(resolved_schemas) = tombi_schema_store::resolve_and_collect_schemas(
+        let Some(resolved_schemas) = tombi_schema_store::resolve_and_collect_schemas_in_scope(
             &all_of_schema.schemas,
-            current_schema.schema_uri.clone(),
+            current_schema.schema_base_uri.clone(),
             current_schema.definitions.clone(),
             current_schema.strict,
             schema_context.store,
             &schema_context.schema_visits,
             accessors,
+            Some(&current_schema.dynamic_scope),
         )
         .await
         else {
@@ -67,19 +68,21 @@ where
 
         let detail = all_of_schema
             .detail(
-                &current_schema.schema_uri,
+                &current_schema.schema_base_uri,
                 &current_schema.definitions,
                 current_schema.strict,
                 schema_context.store,
+                &current_schema.dynamic_scope,
                 completion_hint,
             )
             .await;
         let documentation = all_of_schema
             .documentation(
-                &current_schema.schema_uri,
+                &current_schema.schema_base_uri,
                 &current_schema.definitions,
                 current_schema.strict,
                 schema_context.store,
+                &current_schema.dynamic_scope,
                 completion_hint,
             )
             .await;
@@ -109,7 +112,7 @@ where
                 position,
                 detail.clone(),
                 documentation.clone(),
-                Some(&current_schema.schema_uri),
+                Some(&current_schema.schema_base_uri),
                 completion_hint,
             ) {
                 completion_items.push(completion_item);
@@ -133,7 +136,7 @@ where
                     position,
                     detail.clone(),
                     documentation.clone(),
-                    Some(&current_schema.schema_uri),
+                    Some(&current_schema.schema_base_uri),
                     completion_hint,
                 ) {
                     completion_items.push(completion_item);

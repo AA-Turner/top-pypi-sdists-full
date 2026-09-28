@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "skylos"
-version = "4.39.2"
+version = "4.40.0"
 requires-python = ">=3.10"
 description = "Open-source, local-first static analysis and PR gates for Python, TypeScript/JavaScript, Go, Java, Kotlin, PHP, Rust, Dart, C#, C++, and Shell. Finds dead code, security issues, secrets, quality regressions, and AI-code mistakes."
 authors = [{name = "Aaron Oh", email = "aaronoh2015@gmail.com"}]
@@ -89,7 +89,7 @@ dependencies = [
     "pyyaml",
     "networkx",
     "pyperclip",
-    "ca9>=0.1.1",
+    "ca9>=0.6.0",
     "mcp>=1.0.0,<2"
 ]
 
@@ -115,12 +115,16 @@ all = [
 ]
 
 [project.scripts]
-skylos = "skylos.cli:main"
+skylos = "skylos.entry:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["skylos*"]
 namespaces = false
+
+[tool.setuptools.package-data]
+# The report-upload contract shared with Skylos Cloud is read at runtime.
+"skylos.api" = ["upload_contract/*.json"]
 [tool.skylos]
 complexity = 10
 nesting = 3

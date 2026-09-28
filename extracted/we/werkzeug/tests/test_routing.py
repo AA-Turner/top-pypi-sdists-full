@@ -1,4 +1,5 @@
 import gc
+import sys
 import typing as t
 import uuid
 
@@ -751,6 +752,20 @@ def test_default_converters():
     assert "foo" not in r.Map.default_converters
 
 
+@pytest.mark.parametrize(
+    "value",
+    [
+        pytest.param("1" * (sys.get_int_max_str_digits() + 1), id="int_max_str_digits"),
+    ],
+)
+def test_int_converter_404(value: str) -> None:
+    m = r.Map([r.Rule("/<int:a>", endpoint="a")])
+    a = m.bind("a.test")
+
+    with pytest.raises(NotFound):
+        a.match(f"/{value}")
+
+
 def test_uuid_converter():
     m = r.Map([r.Rule("/a/<uuid:a_uuid>", endpoint="a")])
     a = m.bind("example.org", "/")
@@ -813,6 +828,17 @@ def test_nested_regex_groups():
     route, kwargs = a.match("/2023-02-16T23:36:36.266Z/2023-02-16T23:46:36.266Z/")
     assert kwargs["start"] == "2023-02-16T23:36:36.266Z"
     assert kwargs["end"] == "2023-02-16T23:46:36.266Z"
+
+
+def test_part_converter_order():
+    """Match groups within a single part are sorted numerically.
+
+    ``__werkzeug_2`` should sort before ``__werkzeug_10``.
+    """
+    m = r.Map([r.Rule(f"/{'-'.join(f'<int:a{i}>' for i in range(11))}", endpoint="a")])
+    a = m.bind("a.test")
+    _, args = a.match(f"/{'-'.join(str(i) for i in range(11))}")
+    assert args == {f"a{i}": i for i in range(11)}
 
 
 def test_anyconverter():

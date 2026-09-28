@@ -17,12 +17,13 @@ from office365.sharepoint.files.creation_information import FileCreationInformat
 from office365.sharepoint.files.file import File
 from office365.sharepoint.files.publish.status import FileStatus
 from office365.sharepoint.pages.template_file_type import TemplateFileType
+from office365.sharepoint.thresholds import LIST_VIEW_THRESHOLD, Limits, ensure_within, limit
 from office365.sharepoint.types.resource_path import ResourcePath as SPResPath
 
 if TYPE_CHECKING:
     from office365.sharepoint.folders.folder import Folder
 
-_DEFAULT_CHUNK_SIZE = 4 * 1024 * 1024  # simple-upload threshold / upload-session chunk
+_DEFAULT_CHUNK_SIZE = Limits.UPLOAD_SESSION_CHUNK.value  # simple-upload threshold / upload-session chunk
 
 
 def _stream_size(stream: IO) -> int:
@@ -46,6 +47,9 @@ def _stream_size(stream: IO) -> int:
 
 class FileCollection(EntityCollection[File]):
     """Represents a collection of File resources."""
+
+    _list_view_threshold = LIST_VIEW_THRESHOLD
+    _truncation_hint = "page it with Folder.get_files(page_size=2000) or files.get_all(page_size=2000)"
 
     def __init__(
         self,
@@ -82,6 +86,7 @@ class FileCollection(EntityCollection[File]):
             content = path_or_file.read()
             return self.add(name, content, True)
 
+    @limit(Limits.FILE_UPLOAD)
     def upload_content(
         self,
         content: bytes,
@@ -103,6 +108,7 @@ class FileCollection(EntityCollection[File]):
               (``done``/``total`` in bytes; per chunk for session uploads, once
               after the upload completes for the simple path).
         """
+        ensure_within(Limits.FILE_UPLOAD, len(content), context=f"file '{file_name}'")
         if len(content) <= chunk_size:
             file = self.upload(io.BytesIO(content), file_name)
             if callable(progress):

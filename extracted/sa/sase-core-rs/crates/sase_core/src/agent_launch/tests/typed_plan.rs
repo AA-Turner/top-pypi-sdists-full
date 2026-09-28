@@ -172,7 +172,7 @@ fn typed_launch_plan_resolves_forward_proc_wait() {
     );
     match &plan.units[1].payload {
         LaunchUnitPayloadWire::Proc(proc_unit) => {
-            assert_eq!(proc_unit.shell_name.as_deref(), Some("build"));
+            assert_eq!(proc_unit.proc_name.as_deref(), Some("build"));
         }
         other => panic!("expected proc payload, got {other:?}"),
     }
@@ -301,8 +301,8 @@ fn agent_unit_legacy_json_defaults_to_plain_identity() {
     assert!(agent.clan_tribe.is_none());
     assert!(agent.clan_summary.is_none());
     assert!(agent.clan_summary_script.is_none());
-    assert!(agent.family_attach_parent.is_none());
-    assert!(agent.family_attach_suffix.is_none());
+    assert!(agent.agent_session_attach_parent.is_none());
+    assert!(agent.agent_session_attach_suffix.is_none());
     assert!(agent.tribe.is_none());
     let serialized = serde_json::to_value(&agent).unwrap();
     assert!(serialized.get("clan").is_none());
@@ -338,9 +338,9 @@ fn agent_unit_identity_forms_round_trip_json() {
             ..Default::default()
         },
         AgentUnitWire {
-            prompt: "family".to_string(),
-            family_attach_parent: Some("parent".to_string()),
-            family_attach_suffix: Some("reviewer".to_string()),
+            prompt: "session".to_string(),
+            agent_session_attach_parent: Some("parent".to_string()),
+            agent_session_attach_suffix: Some("reviewer".to_string()),
             ..Default::default()
         },
         AgentUnitWire {
@@ -463,7 +463,7 @@ fn typed_launch_does_not_replace_unit_workspace_with_plan_project() {
 }
 
 #[test]
-fn typed_launch_rejects_dispatch_combined_with_wait_or_family() {
+fn typed_launch_rejects_dispatch_combined_with_wait_or_agent_session() {
     let wait = plan_typed_launch_units(
         "%dispatch:apollo\n%wait:builder\nDo remote",
         Some("auto"),
@@ -471,13 +471,16 @@ fn typed_launch_rejects_dispatch_combined_with_wait_or_family() {
     )
     .unwrap_err();
     assert!(wait.to_string().contains("%wait"), "{wait}");
-    let family = plan_typed_launch_units(
+    let agent_session = plan_typed_launch_units(
         "%dispatch:apollo\n%id(reviewer, family=parent)\nDo remote",
         Some("auto"),
         Some("sase"),
     )
     .unwrap_err();
-    assert!(family.to_string().contains("family"), "{family}");
+    assert!(
+        agent_session.to_string().contains("session"),
+        "{agent_session}"
+    );
     let local = plan_typed_launch_units(
         "%dispatch:local\nDo remote",
         Some("auto"),
@@ -615,24 +618,34 @@ fn parse_directive_args_text_block_corpus_matches_python() {
 }
 
 #[test]
-fn typed_launch_plan_preserves_family_and_direct_tribe() {
-    let family = plan_typed_launch_units(
+fn typed_launch_plan_preserves_agent_session_and_direct_tribe() {
+    for prompt in [
         "%id(reviewer, family=parent)\nReview",
-        Some("auto"),
-        Some("sase"),
-    )
-    .unwrap();
-    match &family.units[0].payload {
-        LaunchUnitPayloadWire::Agent(agent) => {
-            assert_eq!(agent.family_attach_parent.as_deref(), Some("parent"));
-            assert_eq!(agent.family_attach_suffix.as_deref(), Some("reviewer"));
-            assert!(agent.identity.is_none());
-            assert_eq!(
-                agent.effective_identity().as_deref(),
-                Some("parent--reviewer")
-            );
+        "%id(reviewer, session=parent)\nReview",
+    ] {
+        let plan = plan_typed_launch_units(prompt, Some("auto"), Some("sase"))
+            .unwrap();
+        match &plan.units[0].payload {
+            LaunchUnitPayloadWire::Agent(agent) => {
+                assert_eq!(
+                    agent.agent_session_attach_parent.as_deref(),
+                    Some("parent"),
+                    "{prompt}",
+                );
+                assert_eq!(
+                    agent.agent_session_attach_suffix.as_deref(),
+                    Some("reviewer"),
+                    "{prompt}",
+                );
+                assert!(agent.identity.is_none());
+                assert_eq!(
+                    agent.effective_identity().as_deref(),
+                    Some("parent--reviewer"),
+                    "{prompt}",
+                );
+            }
+            other => panic!("expected agent payload, got {other:?}"),
         }
-        other => panic!("expected agent payload, got {other:?}"),
     }
 
     let named_tribe = plan_typed_launch_units(
@@ -663,6 +676,39 @@ fn typed_launch_plan_preserves_family_and_direct_tribe() {
         }
         other => panic!("expected agent payload, got {other:?}"),
     }
+}
+
+#[test]
+fn typed_launch_rejects_conflicting_session_and_family_spellings() {
+    let err = plan_typed_launch_units(
+        "%id(reviewer, family=parent, session=parent)\nReview",
+        Some("auto"),
+        Some("sase"),
+    )
+    .unwrap_err();
+    assert!(err.to_string().contains("conflicting spellings"), "{err}");
+}
+
+#[test]
+fn agent_unit_attach_keys_accept_both_spellings_and_serialize_canonical() {
+    let legacy: AgentUnitWire = serde_json::from_value(json!({
+        "prompt": "Review",
+        "family_attach_parent": "parent",
+        "family_attach_suffix": "reviewer",
+    }))
+    .unwrap();
+    let new: AgentUnitWire = serde_json::from_value(json!({
+        "prompt": "Review",
+        "agent_session_attach_parent": "parent",
+        "agent_session_attach_suffix": "reviewer",
+    }))
+    .unwrap();
+    assert_eq!(legacy, new);
+    let value = serde_json::to_value(&legacy).unwrap();
+    assert_eq!(value["agent_session_attach_parent"], json!("parent"));
+    assert_eq!(value["agent_session_attach_suffix"], json!("reviewer"));
+    assert!(value.get("family_attach_parent").is_none());
+    assert!(value.get("family_attach_suffix").is_none());
 }
 
 #[test]
@@ -782,6 +828,61 @@ fn typed_launch_parses_queue_spellings_and_round_trips() {
     assert!(!rebuilt.contains("%wait(runners="));
     assert!(!rebuilt.contains("%queue(runners="));
     assert!(!rebuilt.contains("%wait(priority="));
+}
+
+#[test]
+fn typed_launch_parses_capacity_multiplier_for_agent_and_proc() {
+    let plan = plan_queue("%q(1.5x, w=0.25)\nDo work");
+    match &plan.units[0].payload {
+        LaunchUnitPayloadWire::Agent(agent) => {
+            assert_eq!(agent.authored_queue_capacity(), None);
+            assert_eq!(agent.queue_capacity_multiplier, Some(1.5));
+            assert_eq!(agent.queue_weight, Some(0.25));
+            assert!(agent.queue_weight_explicit);
+            let rebuilt = crate::agent_unit_dispatch_prompt_with_flags(
+                agent,
+                &["queue_capacity_budget".to_string()],
+            );
+            assert!(rebuilt.contains("%queue(capacity=1.5x, weight=0.25)"));
+        }
+        other => panic!("expected agent payload, got {other:?}"),
+    }
+
+    let proc_plan = plan_queue("%q(capacity=1.5x)\n%proc(\"just check\")");
+    match &proc_plan.units[0].payload {
+        LaunchUnitPayloadWire::Proc(proc_unit) => {
+            assert_eq!(proc_unit.queue_capacity, None);
+            assert_eq!(proc_unit.queue_capacity_multiplier, Some(1.5));
+            assert_eq!(proc_unit.queue_weight, Some(0.0));
+            assert!(!proc_unit.queue_weight_explicit);
+        }
+        other => panic!("expected proc payload, got {other:?}"),
+    }
+    assert!(
+        proc_plan.approval_preview[1]
+            .contains("queue=(capacity=1.5x, weight=0 implicit)"),
+        "{:?}",
+        proc_plan.approval_preview
+    );
+}
+
+#[test]
+fn typed_launch_parses_explicit_zero_queue_weight() {
+    let plan = plan_queue("%q(w=0)\nDo work");
+    let (runners, priority, weight, weight_explicit, cleaned) =
+        agent_fields(&plan);
+    assert_eq!(runners, None);
+    assert_eq!(priority, None);
+    assert_eq!(weight, Some(0.0));
+    assert!(weight_explicit);
+    assert_eq!(cleaned, "Do work");
+    assert_eq!(
+        crate::agent_unit_dispatch_prompt(match &plan.units[0].payload {
+            LaunchUnitPayloadWire::Agent(agent) => agent,
+            other => panic!("expected agent payload, got {other:?}"),
+        }),
+        "%queue(weight=0)\nDo work"
+    );
 }
 
 #[test]

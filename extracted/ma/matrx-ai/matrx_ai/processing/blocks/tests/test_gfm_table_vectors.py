@@ -23,8 +23,19 @@ from pathlib import Path
 
 import pytest
 
-from matrx_ai.processing.blocks.block_detector import split_content_into_blocks
-from matrx_ai.processing.blocks.gfm_table_lines import continues_table, row_cells, unescape_cell_pipes
+from matrx_ai.processing.blocks.block_detector import (
+    ALLOWED_RAW_HTML_TAGS,
+    split_content_into_blocks,
+)
+from matrx_ai.processing.blocks.gfm_table_lines import (
+    continues_table,
+    find_table_end,
+    is_html_block_tag_name,
+    opens_table,
+    row_cells,
+    table_starts_at,
+    unescape_cell_pipes,
+)
 from matrx_ai.processing.blocks.parsers.table_parser import parse_table
 
 _PACKAGE_ROOT = Path(__file__).resolve().parents[4]
@@ -93,7 +104,50 @@ def test_blocks_match_the_chat_splitter(doc: dict) -> None:
         ("> 8C | alarm", False),
         ("- B4 | clear", False),
         ("# Next", False),
+        ("```` code ```` | b", True),  # a backtick in the info string: not a fence (CommonMark 4.5)
+        ("``` `x` | b", True),
+        ("````x | b", False),  # a real backtick fence
+        ("~~~x | b", False),
     ],
 )
 def test_table_continuation_is_gfm(line: str, continues: bool) -> None:
     assert continues_table(line) is continues
+
+
+@pytest.mark.parametrize(
+    "vector", _VECTORS["tableEnds"], ids=[repr(v["lines"][v["start"] + 3]) for v in _VECTORS["tableEnds"]]
+)
+def test_table_ends_where_gfm_ends_it(vector: dict) -> None:
+    """verify-RC-B4 round 9: every CommonMark 4.6 HTML block start and indented code
+    (4+ columns past the table's container) ends a table — each vector judged
+    against remark-gfm in matrx-frontend."""
+    lines = vector["lines"]
+    assert opens_table(lines, vector["start"])
+    assert find_table_end(lines, vector["start"]) == vector["end"]
+
+
+@pytest.mark.parametrize(
+    "vector", _VECTORS["tableStarts"], ids=[repr(v["lines"][: v["index"]]) for v in _VECTORS["tableStarts"]]
+)
+def test_table_opens_where_gfm_opens_it(vector: dict) -> None:
+    """A header lazily continuing a list item's or quote's paragraph is no table (round 9)."""
+    lines = vector["lines"]
+    index = vector["index"]
+    assert table_starts_at(lines, index) is vector["opens"]
+
+
+def test_a_lone_pipe_is_an_empty_row() -> None:
+    assert row_cells("|") == [""]
+    assert row_cells(" | ") == [""]
+    assert row_cells("") == []
+
+
+def test_raw_html_tags_are_the_renderers_list() -> None:
+    """One list, not two: the raw HTML the renderer keeps (rehypeSafeRawHtml) — verify-RC-B4 round 9."""
+    assert sorted(ALLOWED_RAW_HTML_TAGS) == _VECTORS["rawHtmlTags"]
+
+
+@pytest.mark.parametrize("vector", _VECTORS["htmlBlockTagNames"], ids=[v["name"] for v in _VECTORS["htmlBlockTagNames"]])
+def test_html_block_tag_names(vector: dict) -> None:
+    """A tag CommonMark reads as an HTML block is HTML, never a custom XML container."""
+    assert is_html_block_tag_name(vector["name"]) is vector["isBlock"]

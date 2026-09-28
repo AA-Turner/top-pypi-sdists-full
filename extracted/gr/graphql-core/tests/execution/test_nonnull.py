@@ -1,10 +1,10 @@
+import asyncio
 import re
-from asyncio import sleep
-from typing import Any, Awaitable, cast
+from typing import TYPE_CHECKING, Any, cast
 
-from pytest import mark
+import pytest
 
-from graphql.execution import execute, execute_sync, ExecutionResult
+from graphql.execution import ExecutionResult, execute, execute_sync
 from graphql.language import parse
 from graphql.pyutils import AwaitableOrValue
 from graphql.type import (
@@ -17,13 +17,17 @@ from graphql.type import (
 )
 from graphql.utilities import build_schema
 
+if TYPE_CHECKING:
+    from collections.abc import Awaitable
+
+pytestmark = pytest.mark.anyio
+
 sync_error = RuntimeError("sync")
 sync_non_null_error = RuntimeError("syncNonNull")
 promise_error = RuntimeError("promise")
 promise_non_null_error = RuntimeError("promiseNonNull")
 
 
-# noinspection PyPep8Naming,PyMethodMayBeStatic
 class ThrowingData:
     def sync(self, _info):
         raise sync_error
@@ -50,7 +54,6 @@ class ThrowingData:
         return ThrowingData()
 
 
-# noinspection PyPep8Naming,PyMethodMayBeStatic
 class NullingData:
     def sync(self, _info):
         return None
@@ -77,7 +80,8 @@ class NullingData:
         return NullingData()
 
 
-schema = build_schema("""
+schema = build_schema(
+    """
     type DataType {
       sync: String
       syncNonNull: String!
@@ -92,7 +96,8 @@ schema = build_schema("""
     schema {
       query: DataType
     }
-    """)
+    """
+)
 
 
 def execute_query(query: str, root_value: Any) -> AwaitableOrValue[ExecutionResult]:
@@ -109,7 +114,7 @@ def patch(data: str) -> str:
 async def execute_sync_and_async(query: str, root_value: Any) -> ExecutionResult:
     sync_result = execute_sync(schema, parse(query), root_value)
     async_result = await cast(
-        Awaitable[ExecutionResult], execute(schema, parse(patch(query)), root_value)
+        "Awaitable[ExecutionResult]", execute(schema, parse(patch(query)), root_value)
     )
 
     assert repr(async_result) == patch(repr(sync_result))
@@ -124,12 +129,10 @@ def describe_execute_handles_non_nullable_types():
             }
             """
 
-        @mark.asyncio
         async def returns_null():
             result = await execute_sync_and_async(query, NullingData())
             assert result == ({"sync": None}, None)
 
-        @mark.asyncio
         async def throws():
             result = await execute_sync_and_async(query, ThrowingData())
             assert result == (
@@ -144,7 +147,6 @@ def describe_execute_handles_non_nullable_types():
             )
 
     def describe_nulls_a_returned_object_that_contains_a_non_null_field():
-
         query = """
             {
               syncNest {
@@ -153,7 +155,6 @@ def describe_execute_handles_non_nullable_types():
             }
             """
 
-        @mark.asyncio
         async def that_returns_null():
             result = await execute_sync_and_async(query, NullingData())
             assert result == (
@@ -168,7 +169,6 @@ def describe_execute_handles_non_nullable_types():
                 ],
             )
 
-        @mark.asyncio
         async def that_throws():
             result = await execute_sync_and_async(query, ThrowingData())
             assert result == (
@@ -214,17 +214,15 @@ def describe_execute_handles_non_nullable_types():
             },
         }
 
-        @mark.asyncio
         async def returns_null():
             result = await cast(
-                Awaitable[ExecutionResult], execute_query(query, NullingData())
+                "Awaitable[ExecutionResult]", execute_query(query, NullingData())
             )
             assert result == (data, None)
 
-        @mark.asyncio
         async def throws():
             result = await cast(
-                Awaitable[ExecutionResult], execute_query(query, ThrowingData())
+                "Awaitable[ExecutionResult]", execute_query(query, ThrowingData())
             )
             assert result == (
                 data,
@@ -235,14 +233,24 @@ def describe_execute_handles_non_nullable_types():
                         "locations": [(4, 17)],
                     },
                     {
-                        "message": str(promise_error),
-                        "path": ["syncNest", "promise"],
-                        "locations": [(5, 17)],
-                    },
-                    {
                         "message": str(sync_error),
                         "path": ["syncNest", "syncNest", "sync"],
                         "locations": [(6, 28)],
+                    },
+                    {
+                        "message": str(sync_error),
+                        "path": ["promiseNest", "sync"],
+                        "locations": [(10, 17)],
+                    },
+                    {
+                        "message": str(sync_error),
+                        "path": ["promiseNest", "syncNest", "sync"],
+                        "locations": [(12, 28)],
+                    },
+                    {
+                        "message": str(promise_error),
+                        "path": ["syncNest", "promise"],
+                        "locations": [(5, 17)],
                     },
                     {
                         "message": str(promise_error),
@@ -260,19 +268,9 @@ def describe_execute_handles_non_nullable_types():
                         "locations": [(7, 36)],
                     },
                     {
-                        "message": str(sync_error),
-                        "path": ["promiseNest", "sync"],
-                        "locations": [(10, 17)],
-                    },
-                    {
                         "message": str(promise_error),
                         "path": ["promiseNest", "promise"],
                         "locations": [(11, 17)],
-                    },
-                    {
-                        "message": str(sync_error),
-                        "path": ["promiseNest", "syncNest", "sync"],
-                        "locations": [(12, 28)],
                     },
                     {
                         "message": str(promise_error),
@@ -348,10 +346,9 @@ def describe_execute_handles_non_nullable_types():
             "anotherPromiseNest": None,
         }
 
-        @mark.asyncio
         async def returns_null():
             result = await cast(
-                Awaitable[ExecutionResult], execute_query(query, NullingData())
+                "Awaitable[ExecutionResult]", execute_query(query, NullingData())
             )
             assert result == (
                 data,
@@ -411,10 +408,9 @@ def describe_execute_handles_non_nullable_types():
                 ],
             )
 
-        @mark.asyncio
         async def throws():
             result = await cast(
-                Awaitable[ExecutionResult], execute_query(query, ThrowingData())
+                "Awaitable[ExecutionResult]", execute_query(query, ThrowingData())
             )
             assert result == (
                 data,
@@ -477,9 +473,9 @@ def describe_execute_handles_non_nullable_types():
             }
             """
 
-        @mark.asyncio
         async def returns_null():
             result = await execute_sync_and_async(query, NullingData())
+            await asyncio.sleep(0)  # strangely needed to get coverage on Python 3.11
             assert result == (
                 None,
                 [
@@ -492,9 +488,9 @@ def describe_execute_handles_non_nullable_types():
                 ],
             )
 
-        @mark.asyncio
         async def throws():
             result = await execute_sync_and_async(query, ThrowingData())
+            await asyncio.sleep(0)  # strangely needed to get coverage on Python 3.11
             assert result == (
                 None,
                 [
@@ -507,7 +503,12 @@ def describe_execute_handles_non_nullable_types():
             )
 
     def describe_handles_multiple_errors_for_a_single_response_position():
-        @mark.asyncio
+        # Note: contrary to graphql.js, graphql-core executes sibling fields
+        # concurrently with cancellation (see gather_with_cancel). A slower sibling
+        # error is therefore added before the faster non-null error has propagated
+        # and nulled the shared response position, so it is kept instead of being
+        # discarded. The expected results below reflect this behavior.
+
         async def nullable_and_non_nullable_root_fields_throw_nested_errors():
             query = """
                 {
@@ -520,25 +521,24 @@ def describe_execute_handles_non_nullable_types():
                 }
                 """
             result = await cast(
-                Awaitable[ExecutionResult], execute_query(query, ThrowingData())
+                "Awaitable[ExecutionResult]", execute_query(query, ThrowingData())
             )
             assert result == (
                 None,
                 [
                     {
                         "message": str(sync_non_null_error),
-                        "path": ["promiseNonNullNest", "syncNonNull"],
-                        "locations": [(4, 21)],
+                        "path": ["promiseNest", "syncNonNull"],
+                        "locations": [(7, 21)],
                     },
                     {
                         "message": str(sync_non_null_error),
-                        "path": ["promiseNest", "syncNonNull"],
-                        "locations": [(7, 21)],
+                        "path": ["promiseNonNullNest", "syncNonNull"],
+                        "locations": [(4, 21)],
                     },
                 ],
             )
 
-        @mark.asyncio
         async def slower_nullable_after_non_nullable_root_field():
             query = """
                 {
@@ -551,11 +551,16 @@ def describe_execute_handles_non_nullable_types():
                 }
                 """
             result = await cast(
-                Awaitable[ExecutionResult], execute_query(query, ThrowingData())
+                "Awaitable[ExecutionResult]", execute_query(query, ThrowingData())
             )
             assert result == (
                 None,
                 [
+                    {
+                        "message": str(promise_non_null_error),
+                        "path": ["promiseNest", "promiseNonNull"],
+                        "locations": [(7, 21)],
+                    },
                     {
                         "message": str(sync_non_null_error),
                         "path": ["promiseNonNullNest", "syncNonNull"],
@@ -564,14 +569,13 @@ def describe_execute_handles_non_nullable_types():
                 ],
             )
 
-            # allow time for slower error to reject
+            # the error list does not change any more after the response is built
             assert result.errors is not None
             initial_errors = list(result.errors)
             for _ in range(5):
-                await sleep(0)
+                await asyncio.sleep(0)
             assert result.errors == initial_errors
 
-        @mark.asyncio
         async def nullable_and_non_nullable_nested_fields_throw_nested_errors():
             query = """
                 {
@@ -586,25 +590,24 @@ def describe_execute_handles_non_nullable_types():
                 }
                 """
             result = await cast(
-                Awaitable[ExecutionResult], execute_query(query, ThrowingData())
+                "Awaitable[ExecutionResult]", execute_query(query, ThrowingData())
             )
             assert result == (
                 {"syncNest": None},
                 [
                     {
                         "message": str(sync_non_null_error),
-                        "path": ["syncNest", "promiseNonNullNest", "syncNonNull"],
-                        "locations": [(5, 23)],
+                        "path": ["syncNest", "promiseNest", "syncNonNull"],
+                        "locations": [(8, 23)],
                     },
                     {
                         "message": str(sync_non_null_error),
-                        "path": ["syncNest", "promiseNest", "syncNonNull"],
-                        "locations": [(8, 23)],
+                        "path": ["syncNest", "promiseNonNullNest", "syncNonNull"],
+                        "locations": [(5, 23)],
                     },
                 ],
             )
 
-        @mark.asyncio
         async def slower_nullable_after_non_nullable_nested_field():
             query = """
                 {
@@ -623,11 +626,22 @@ def describe_execute_handles_non_nullable_types():
                 }
                 """
             result = await cast(
-                Awaitable[ExecutionResult], execute_query(query, ThrowingData())
+                "Awaitable[ExecutionResult]", execute_query(query, ThrowingData())
             )
             assert result == (
                 {"syncNest": None},
                 [
+                    {
+                        "message": str(promise_non_null_error),
+                        "path": [
+                            "syncNest",
+                            "promiseNest",
+                            "promiseNest",
+                            "promiseNest",
+                            "promiseNonNull",
+                        ],
+                        "locations": [(10, 27)],
+                    },
                     {
                         "message": str(sync_non_null_error),
                         "path": ["syncNest", "promiseNonNullNest", "syncNonNull"],
@@ -636,15 +650,14 @@ def describe_execute_handles_non_nullable_types():
                 ],
             )
 
+            # the error list does not change any more after the response is built
             assert result.errors is not None
             initial_errors = list(result.errors)
             for _ in range(20):
-                await sleep(0)
+                await asyncio.sleep(0)
             assert result.errors == initial_errors
 
     def describe_handles_non_null_argument():
-
-        # noinspection PyPep8Naming
         schema_with_non_null_arg = GraphQLSchema(
             GraphQLObjectType(
                 "Query",
@@ -656,8 +669,9 @@ def describe_execute_handles_non_nullable_types():
                                 GraphQLNonNull(GraphQLString)
                             )
                         },
-                        resolve=lambda _obj, _info, cannotBeNull: "Passed: "
-                        + str(cannotBeNull),
+                        resolve=lambda _obj, _info, cannotBeNull: (
+                            "Passed: " + str(cannotBeNull)
+                        ),
                     )
                 },
             )
@@ -666,11 +680,13 @@ def describe_execute_handles_non_nullable_types():
         def succeeds_when_passed_non_null_literal_value():
             result = execute_sync(
                 schema_with_non_null_arg,
-                parse("""
+                parse(
+                    """
                     query {
                       withNonNullArg (cannotBeNull: "literal value")
                     }
-                    """),
+                    """
+                ),
             )
 
             assert result == ({"withNonNullArg": "Passed: literal value"}, None)
@@ -678,11 +694,13 @@ def describe_execute_handles_non_nullable_types():
         def succeeds_when_passed_non_null_variable_value():
             result = execute_sync(
                 schema_with_non_null_arg,
-                parse("""
+                parse(
+                    """
                     query ($testVar: String!) {
                       withNonNullArg (cannotBeNull: $testVar)
                     }
-                    """),
+                    """
+                ),
                 variable_values={
                     "testVar": "variable value",
                 },
@@ -693,11 +711,13 @@ def describe_execute_handles_non_nullable_types():
         def succeeds_when_missing_variable_has_default_value():
             result = execute_sync(
                 schema_with_non_null_arg,
-                parse("""
+                parse(
+                    """
                     query ($testVar: String = "default value") {
                       withNonNullArg (cannotBeNull: $testVar)
                     }
-                    """),
+                    """
+                ),
                 variable_values={},  # intentionally missing variable
             )
 
@@ -709,11 +729,13 @@ def describe_execute_handles_non_nullable_types():
             # protect against this.
             result = execute_sync(
                 schema_with_non_null_arg,
-                parse("""
+                parse(
+                    """
                     query {
                       withNonNullArg
                     }
-                    """),
+                    """
+                ),
             )
 
             assert result == (
@@ -734,19 +756,22 @@ def describe_execute_handles_non_nullable_types():
             # should still protect against this.
             result = execute_sync(
                 schema_with_non_null_arg,
-                parse("""
+                parse(
+                    """
                     query {
                       withNonNullArg(cannotBeNull: null)
                     }
-                    """),
+                    """
+                ),
             )
 
             assert result == (
                 {"withNonNullArg": None},
                 [
                     {
-                        "message": "Argument 'cannotBeNull' of non-null type"
-                        " 'String!' must not be null.",
+                        "message": "Argument 'cannotBeNull' has invalid value:"
+                        " Expected value of non-null type 'String!'"
+                        " not to be None.",
                         "locations": [(3, 52)],
                         "path": ["withNonNullArg"],
                     }
@@ -759,11 +784,13 @@ def describe_execute_handles_non_nullable_types():
             # should still protect against this.
             result = execute_sync(
                 schema_with_non_null_arg,
-                parse("""
+                parse(
+                    """
                     query ($testVar: String) {
                       withNonNullArg(cannotBeNull: $testVar)
                     }
-                    """),
+                    """
+                ),
                 variable_values={},
             )  # intentionally missing variable
 
@@ -771,10 +798,9 @@ def describe_execute_handles_non_nullable_types():
                 {"withNonNullArg": None},
                 [
                     {
-                        "message": "Argument 'cannotBeNull' of required type"
-                        " 'String!' was provided the variable"
-                        " '$testVar' which was not provided"
-                        " a runtime value.",
+                        "message": "Argument 'cannotBeNull' has invalid value:"
+                        " Expected variable '$testVar' provided to type"
+                        " 'String!' to provide a runtime value.",
                         "locations": [(3, 52)],
                         "path": ["withNonNullArg"],
                     }
@@ -784,11 +810,13 @@ def describe_execute_handles_non_nullable_types():
         def field_error_when_non_null_arg_provided_explicit_null_variable():
             result = execute_sync(
                 schema_with_non_null_arg,
-                parse("""
+                parse(
+                    """
                     query ($testVar: String = "default value") {
                       withNonNullArg (cannotBeNull: $testVar)
                     }
-                    """),
+                    """
+                ),
                 variable_values={"testVar": None},
             )
 
@@ -796,8 +824,9 @@ def describe_execute_handles_non_nullable_types():
                 {"withNonNullArg": None},
                 [
                     {
-                        "message": "Argument 'cannotBeNull' of non-null type"
-                        " 'String!' must not be null.",
+                        "message": "Argument 'cannotBeNull' has invalid value:"
+                        " Expected variable '$testVar' provided to non-null type"
+                        " 'String!' not to be None.",
                         "locations": [(3, 53)],
                         "path": ["withNonNullArg"],
                     }

@@ -20,6 +20,7 @@ from office365.runtime.odata.v3.batch_request import DEFAULT_MAX_BATCH_BYTES, OD
 from office365.runtime.odata.v3.json_light_format import JsonLightFormat
 from office365.runtime.paths.resource_path import ResourcePath
 from office365.runtime.types.collections import StringCollection
+from office365.sharepoint.exceptions import SecurityValidationException
 from office365.sharepoint.portal.groups.creation_params import GroupCreationParams
 from office365.sharepoint.portal.groups.site_info import GroupSiteInfo
 from office365.sharepoint.portal.sites.creation_response import SPSiteCreationResponse
@@ -35,6 +36,7 @@ from office365.sharepoint.sites.site import Site
 from office365.sharepoint.tenant.administration.hubsites.collection import (
     HubSiteCollection,
 )
+from office365.sharepoint.thresholds import Limits, limit
 from office365.sharepoint.ui.applicationpages.peoplepicker.web_service_interface import (
     ClientPeoplePickerWebServiceInterface,
     PeoplePickerWebServiceInterface,
@@ -209,20 +211,18 @@ class ClientContext(ClientRuntimeContext):
         return self
 
     def with_user_credentials(self, username: str, password: str) -> Self:
-        """Initializes a client to acquire a token via user credentials.
+        """Initializes a client to acquire a token via user credentials (NTLM).
+
+        Only for **on-premises** SharePoint — construct the context with
+        ``ClientContext(url, allow_ntlm=True)``. For SharePoint Online this raises:
+        the legacy SAML/ACS flow is retired, use :meth:`with_username_and_password`.
 
         Args:
-            username (str): Typically, a UPN in the form of an email address
-            password (str): The password Note: This method uses the legacy SAML/ACS auth flow which Microsoft has
-                retired for SharePoint Online. Use with_username_and_password instead.
-                For on-premises SharePoint, use allow_ntlm=True.
+            username (str): A UPN, or ``DOMAIN\\user`` for NTLM
+            password (str): The password
         """
-        raise RuntimeError(
-            "with_user_credentials uses the legacy SAML/ACS auth flow which "
-            "Microsoft has retired for SharePoint Online. "
-            "Use with_username_and_password(tenant, client_id, username, password) instead. "
-            "For on-premises SharePoint, use allow_ntlm=True."
-        )
+        self.authentication_context.with_credentials(UserCredential(username, password))
+        return self
 
     def with_username_and_password(self, tenant: str, client_id: str, username: str, password: str) -> Self:
         """Initializes a client to acquire a token via Username and password authentication flow.
@@ -268,9 +268,10 @@ class ClientContext(ClientRuntimeContext):
         self.authentication_context.with_credentials(credentials)
         return self
 
+    @limit(Limits.BATCH_ITEMS, arg="items_per_batch")
     def execute_batch(
         self,
-        items_per_batch: int = 100,
+        items_per_batch: int = Limits.BATCH_ITEMS.value,
         success_callback: Optional[Callable[[List[ClientObject | ClientResult]], None]] = None,
         concurrency: int = 1,
         max_batch_bytes: Optional[int] = None,
@@ -283,7 +284,7 @@ class ClientContext(ClientRuntimeContext):
         Throttled sub-requests (HTTP 429/503) are retried individually, honoring
         ``Retry-After`` — only the failed sub-requests are re-sent, so successful
         writes aren't re-applied. ``success_callback`` runs on the caller thread
-        in completion order (not submission order).
+        as each batch completes (completion order when concurrent).
 
         Args:
             items_per_batch (int): Maximum to be selected for bulk operation
@@ -292,27 +293,41 @@ class ClientContext(ClientRuntimeContext):
             max_batch_bytes (int or None): Maximum estimated batch payload size (default ~1 MB)
         """
         max_bytes = DEFAULT_MAX_BATCH_BYTES if max_batch_bytes is None else max_batch_bytes
+        request = self.pending_request()
+        request.warm_up()  # fetch the form digest once before dispatching any batch
         batches = self._split_batches(items_per_batch, max_bytes)
         if concurrency <= 1:
-            batch_request = ODataBatchV3Request(self._base_url, JsonLightFormat())
-            batch_request.beforeExecute += self.authentication_context.authenticate_request
-            batch_request.beforeExecute += self.pending_request().ensure_form_digest
+            batch_request = ODataBatchV3Request(
+                self._base_url, JsonLightFormat(), transport=self.pending_request().transport
+            )
+            batch_request.beforeExecute += request._authenticate_request
+            batch_request.beforeExecute += request.ensure_form_digest
             for qry in batches:
-                batch_request.execute_query_with_retry(qry)
-                if callable(success_callback) and qry.return_type is not None:
-                    success_callback(qry.return_type)
+                self._run_batch(batch_request, qry)
+                if callable(success_callback):
+                    success_callback(qry.return_types)
             return self
 
-        self.pending_request()
         self._execute_batches_in_parallel(batches, concurrency, success_callback)
         return self
 
+    def _run_batch(self, batch_request: ODataBatchV3Request, batch_qry: "BatchQuery") -> None:
+        """Execute one batch, refreshing an expired form digest once and retrying."""
+        try:
+            batch_request.execute_query_with_retry(batch_qry)
+        except SecurityValidationException:
+            self.pending_request().invalidate_digest()
+            self.pending_request().warm_up()
+            batch_request.execute_query_with_retry(batch_qry)
+
     def _execute_batch(self, batch_qry: "BatchQuery") -> list[Any]:
         """Execute a single batch unit on a worker thread (with per-request retry)."""
-        batch_request = ODataBatchV3Request(self._base_url, JsonLightFormat())
-        batch_request.beforeExecute += self.authentication_context.authenticate_request
+        batch_request = ODataBatchV3Request(
+            self._base_url, JsonLightFormat(), transport=self.pending_request().transport
+        )
+        batch_request.beforeExecute += self.pending_request()._authenticate_request
         batch_request.beforeExecute += self.pending_request().ensure_form_digest
-        batch_request.execute_query_with_retry(batch_qry)
+        self._run_batch(batch_request, batch_qry)
         return batch_qry.return_types
 
     def pending_request(self) -> SharePointRequest:
@@ -321,6 +336,8 @@ class ClientContext(ClientRuntimeContext):
             self._pending_request = SharePointRequest(
                 base_url=self._base_url,
                 environment=self._environment,
+                allow_ntlm=self._allow_ntlm,
+                browser_mode=self._browser_mode,
                 authority=self._authority,
             )
         return self._pending_request  # type: ignore[return-value]

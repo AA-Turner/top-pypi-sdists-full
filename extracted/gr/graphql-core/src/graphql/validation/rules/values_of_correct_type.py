@@ -1,34 +1,28 @@
-from typing import cast, Any, Mapping
+"""Value literals of correct type rule"""
 
-from ...error import GraphQLError
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any
+
 from ...language import (
+    SKIP,
     BooleanValueNode,
     EnumValueNode,
     FloatValueNode,
     IntValueNode,
-    NullValueNode,
     ListValueNode,
-    ObjectFieldNode,
+    NullValueNode,
     ObjectValueNode,
     StringValueNode,
     ValueNode,
     VisitorAction,
-    SKIP,
-    print_ast,
 )
-from ...pyutils import did_you_mean, suggestion_list, Undefined
-from ...type import (
-    GraphQLInputObjectType,
-    GraphQLScalarType,
-    get_named_type,
-    get_nullable_type,
-    is_input_object_type,
-    is_leaf_type,
-    is_list_type,
-    is_non_null_type,
-    is_required_input_field,
-)
-from . import ValidationContext, ValidationRule
+from ...utilities.validate_input_value import validate_input_literal
+from . import ValidationRule
+
+if TYPE_CHECKING:
+    from ...error import GraphQLError
+    from ...type import GraphQLInputType
 
 __all__ = ["ValuesOfCorrectTypeRule"]
 
@@ -40,162 +34,105 @@ class ValuesOfCorrectTypeRule(ValidationRule):
     their position.
 
     See https://spec.graphql.org/draft/#sec-Values-of-Correct-Type
+
+    :param context: The validation context used while checking the document.
+
+    >>> from graphql import build_schema, parse, validate
+    >>> from graphql.validation import ValuesOfCorrectTypeRule
+    >>> schema = build_schema('type Query { count(limit: Int): Int }')
+    >>> document = parse('{ count(limit: "many") }')
+    >>> errors = validate(schema, document, [ValuesOfCorrectTypeRule])
+    >>> print(errors[0].message)
+    Int cannot represent non-integer value: "many"
+    >>> document = parse('{ count(limit: 1) }')
+    >>> validate(schema, document, [ValuesOfCorrectTypeRule])
+    []
     """
+
+    def enter_null_value(self, node: NullValueNode, *_args: Any) -> VisitorAction:
+        """Called when entering a null value node.
+
+        :meta private:
+        """
+        return self.is_valid_value_node(node, self.context.get_input_type())
 
     def enter_list_value(self, node: ListValueNode, *_args: Any) -> VisitorAction:
         # Note: TypeInfo will traverse into a list's item type, so look to the parent
         # input type to check if it is a list.
-        type_ = get_nullable_type(self.context.get_parent_input_type())  # type: ignore
-        if not is_list_type(type_):
-            self.is_valid_value_node(node)
-            return SKIP  # Don't traverse further.
-        return None
+        """Called when entering a list value node.
+
+        :meta private:
+        """
+        return self.is_valid_value_node(node, self.context.get_parent_input_type())
 
     def enter_object_value(self, node: ObjectValueNode, *_args: Any) -> VisitorAction:
-        type_ = get_named_type(self.context.get_input_type())
-        if not is_input_object_type(type_):
-            self.is_valid_value_node(node)
-            return SKIP  # Don't traverse further.
-        type_ = cast(GraphQLInputObjectType, type_)
-        # Ensure every required field exists.
-        field_node_map = {field.name.value: field for field in node.fields}
-        for field_name, field_def in type_.fields.items():
-            field_node = field_node_map.get(field_name)
-            if not field_node and is_required_input_field(field_def):
-                field_type = field_def.type
-                self.report_error(
-                    GraphQLError(
-                        f"Field '{type_.name}.{field_name}' of required type"
-                        f" '{field_type}' was not provided.",
-                        node,
-                    )
-                )
-        if type_.is_one_of:
-            validate_one_of_input_object(self.context, node, type_, field_node_map)
-        return None
+        """Called when entering an object value node.
 
-    def enter_object_field(self, node: ObjectFieldNode, *_args: Any) -> None:
-        parent_type = get_named_type(self.context.get_parent_input_type())
-        field_type = self.context.get_input_type()
-        if not field_type and is_input_object_type(parent_type):
-            parent_type = cast(GraphQLInputObjectType, parent_type)
-            suggestions = suggestion_list(node.name.value, list(parent_type.fields))
-            self.report_error(
-                GraphQLError(
-                    f"Field '{node.name.value}'"
-                    f" is not defined by type '{parent_type.name}'."
-                    + did_you_mean(suggestions),
-                    node,
-                )
-            )
+        :meta private:
+        """
+        return self.is_valid_value_node(node, self.context.get_input_type())
 
-    def enter_null_value(self, node: NullValueNode, *_args: Any) -> None:
-        type_ = self.context.get_input_type()
-        if is_non_null_type(type_):
-            self.report_error(
-                GraphQLError(
-                    f"Expected value of type '{type_}', found {print_ast(node)}.", node
-                )
-            )
+    def enter_enum_value(self, node: EnumValueNode, *_args: Any) -> VisitorAction:
+        """Called when entering an enum value node.
 
-    def enter_enum_value(self, node: EnumValueNode, *_args: Any) -> None:
-        self.is_valid_value_node(node)
+        :meta private:
+        """
+        return self.is_valid_value_node(node, self.context.get_input_type())
 
-    def enter_int_value(self, node: IntValueNode, *_args: Any) -> None:
-        self.is_valid_value_node(node)
+    def enter_int_value(self, node: IntValueNode, *_args: Any) -> VisitorAction:
+        """Called when entering an int value node.
 
-    def enter_float_value(self, node: FloatValueNode, *_args: Any) -> None:
-        self.is_valid_value_node(node)
+        :meta private:
+        """
+        return self.is_valid_value_node(node, self.context.get_input_type())
+
+    def enter_float_value(self, node: FloatValueNode, *_args: Any) -> VisitorAction:
+        """Called when entering a float value node.
+
+        :meta private:
+        """
+        return self.is_valid_value_node(node, self.context.get_input_type())
 
     # Descriptions are string values that would not validate according
     # to the below logic, but since (per the specification) descriptions must
     # not affect validation, they are ignored entirely when visiting the AST
     # and do not require special handling.
     # See https://spec.graphql.org/draft/#sec-Descriptions
-    def enter_string_value(self, node: StringValueNode, *_args: Any) -> None:
-        self.is_valid_value_node(node)
+    def enter_string_value(self, node: StringValueNode, *_args: Any) -> VisitorAction:
+        """Called when entering a string value node.
 
-    def enter_boolean_value(self, node: BooleanValueNode, *_args: Any) -> None:
-        self.is_valid_value_node(node)
+        :meta private:
+        """
+        return self.is_valid_value_node(node, self.context.get_input_type())
 
-    def is_valid_value_node(self, node: ValueNode) -> None:
+    def enter_boolean_value(self, node: BooleanValueNode, *_args: Any) -> VisitorAction:
+        """Called when entering a boolean value node.
+
+        :meta private:
+        """
+        return self.is_valid_value_node(node, self.context.get_input_type())
+
+    def is_valid_value_node(
+        self, node: ValueNode, input_type: GraphQLInputType | None
+    ) -> VisitorAction:
         """Check whether this is a valid value node.
 
         Any value literal may be a valid representation of a Scalar, depending on that
         scalar type.
+
+        :meta private:
         """
-        # Report any error at the full type expected by the location.
-        location_type = self.context.get_input_type()
-        if not location_type:
-            return
+        if input_type:
 
-        type_ = get_named_type(location_type)
+            def on_error(error: GraphQLError, _path: list[str | int]) -> None:
+                self.report_error(error)
 
-        if not is_leaf_type(type_):
-            self.report_error(
-                GraphQLError(
-                    f"Expected value of type '{location_type}',"
-                    f" found {print_ast(node)}.",
-                    node,
-                )
-            )
-            return
-
-        # Scalars determine if a literal value is valid via `parse_literal()` which may
-        # throw or return an invalid value to indicate failure.
-        type_ = cast(GraphQLScalarType, type_)
-        try:
-            parse_result = type_.parse_literal(node)
-            if parse_result is Undefined:
-                self.report_error(
-                    GraphQLError(
-                        f"Expected value of type '{location_type}',"
-                        f" found {print_ast(node)}.",
-                        node,
-                    )
-                )
-        except GraphQLError as error:
-            self.report_error(error)
-        except Exception as error:
-            self.report_error(
-                GraphQLError(
-                    f"Expected value of type '{location_type}',"
-                    f" found {print_ast(node)}; {error}",
-                    node,
-                    # Ensure a reference to the original error is maintained.
-                    original_error=error,
-                )
-            )
-
-        return
-
-
-def validate_one_of_input_object(
-    context: ValidationContext,
-    node: ObjectValueNode,
-    type_: GraphQLInputObjectType,
-    field_node_map: Mapping[str, ObjectFieldNode],
-) -> None:
-    keys = list(field_node_map)
-    is_not_exactly_one_filed = len(keys) != 1
-
-    if is_not_exactly_one_filed:
-        context.report_error(
-            GraphQLError(
-                f"OneOf Input Object '{type_.name}' must specify exactly one key.",
+            validate_input_literal(
                 node,
+                input_type,
+                on_error,
+                None,
+                None,
+                self.context.hide_suggestions,
             )
-        )
-        return
-
-    object_field_node = field_node_map.get(keys[0])
-    value = object_field_node.value if object_field_node else None
-    is_null_literal = not value or isinstance(value, NullValueNode)
-
-    if is_null_literal:
-        context.report_error(
-            GraphQLError(
-                f"Field '{type_.name}.{keys[0]}' must be non-null.",
-                node,
-            )
-        )
+        return SKIP  # Don't traverse further.

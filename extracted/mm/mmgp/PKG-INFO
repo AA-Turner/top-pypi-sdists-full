@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mmgp
-Version: 3.8.1
+Version: 3.8.2
 Summary: Memory Management for the GPU Poor
 Author-email: deepbeepmeep <deepbeepmeep@yahoo.com>
 Requires-Python: >=3.10
@@ -15,7 +15,7 @@ Dynamic: license-file
 
 
 <p align="center">
-  <H2>Memory Management 3.8.1 for the GPU Poor by DeepBeepMeep</H2>	
+  <H2>Memory Management 3.8.2 for the GPU Poor by DeepBeepMeep</H2>	
 </p>
 
 
@@ -124,6 +124,7 @@ The smaller this number, the more VRAM left for image data / longer video but al
 - verboseLevel: number between 0 and 2 (1 by default), provides various level of feedback of the different processes
 - compile: list of model ids to compile, may accelerate up x2 depending on the type of GPU. It makes sense to compile only the model that is frequently used such as the "transformer" model in the case of video or image generation. Compilation requires Triton to be installed. Triton is available out of the box on Linux or WSL but requires to be installed with Windows: https://github.com/woct0rdho/triton-windows
 - coTenantsMap: a dictionary that maps a model id to a list of other models with which it accepts to share the VRAM at the same time. This is useful to avoid unefficient loading / unloading when two models processes are interleaved. For instance *coTenantsMap = { "text_encoder_2": ["text_encoder"] }* , here when *text_encoder_2* is loaded it won't unload *text_encoder*. Please note that the reverse is not true as these maps by design are not symetrical to allow tailored workflows. If you need to have as well *text_encoder* that won't unload *text_encoder_2* if it is already loaded *coTenantsMap = { "text_encoder_2": ["text_encoder"], "text_encoder": ["text_encoder_2"] }*
+  A string value `"*"` is a symmetric universal cotenant rule, for example `coTenantsMap={"tiny_vae": "*"}`. This model loads on first use, accepts every other component, and survives automatic component switches. Other component pairs retain their existing directional rules. Explicit `unload_all()` and `release()` still unload it. This does not reserve activation memory or make an oversized group fit in VRAM; use it for small auxiliary models.
 
 If you are short on RAM and plan to work with quantized models, it is recommended to load pre-quantized models direclty rather than using on the fly quantization, it will be faster and consume slightly less RAM.
  

@@ -1,12 +1,17 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: dbus-python
-Version: 1.4.0
+Version: 1.5.0
 Summary: Python bindings for libdbus
 Keywords: dbus,D-Bus
 Maintainer-Email: The D-Bus maintainers <dbus@lists.freedesktop.org>
-License: Expat (MIT/X11)
+License-Expression: MIT AND (GPL-2.0-or-later OR AFL-2.1)
+License-File: COPYING
+License-File: LICENSES/MIT.txt
+License-File: subprojects/dbus-gmain/COPYING
+License-File: subprojects/dbus-gmain/LICENSES/AFL-2.1.txt
+License-File: subprojects/dbus-gmain/LICENSES/GPL-2.0-or-later.txt
+License-File: subprojects/dbus-gmain/LICENSES/MIT.txt
 Classifier: Development Status :: 7 - Inactive
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: C
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: Implementation :: CPython
@@ -14,7 +19,7 @@ Classifier: Topic :: Software Development :: Object Brokering
 Project-URL: homepage, http://www.freedesktop.org/wiki/Software/DBusBindings/#python
 Project-URL: download, http://dbus.freedesktop.org/releases/dbus-python/
 Project-URL: source, https://gitlab.freedesktop.org/dbus/dbus-python/
-Project-URL: tracker, https://gitlab.freedesktop.org/dbus/dbus-python/-/issues
+Project-URL: tracker, https://gitlab.freedesktop.org/dbus/dbus-python/-/work_items
 Requires-Python: >=3.7
 Provides-Extra: doc
 Requires-Dist: sphinx; extra == "doc"

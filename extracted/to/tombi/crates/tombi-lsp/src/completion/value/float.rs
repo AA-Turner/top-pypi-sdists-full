@@ -69,7 +69,7 @@ impl FindCompletionContents for FloatSchema {
 
         async move {
             let mut completion_items = vec![];
-            let schema_uri = current_schema.map(|schema| schema.schema_uri.as_ref());
+            let schema_base_uri = current_schema.map(|schema| schema.schema_base_uri.as_ref());
 
             if let Some(const_value) = &self.const_value {
                 let label = const_value.to_string();
@@ -79,7 +79,7 @@ impl FindCompletionContents for FloatSchema {
                     self.title.clone(),
                     self.description.clone(),
                     edit,
-                    schema_uri,
+                    schema_base_uri,
                     self.deprecated(),
                 ));
 
@@ -107,7 +107,7 @@ impl FindCompletionContents for FloatSchema {
                         self.title.clone(),
                         self.description.clone(),
                         edit,
-                        schema_uri,
+                        schema_base_uri,
                         self.deprecated(),
                     ));
                 }
@@ -135,7 +135,7 @@ impl FindCompletionContents for FloatSchema {
                     self.title.clone(),
                     self.description.clone(),
                     edit,
-                    schema_uri,
+                    schema_base_uri,
                     self.deprecated(),
                 ));
             }
@@ -152,14 +152,18 @@ impl FindCompletionContents for FloatSchema {
                         self.title.clone(),
                         self.description.clone(),
                         edit,
-                        schema_uri,
+                        schema_base_uri,
                         self.deprecated(),
                     ));
                 }
             }
 
             if completion_items.is_empty() {
-                completion_items.extend(type_hint_float(position, schema_uri, completion_hint));
+                completion_items.extend(type_hint_float(
+                    position,
+                    schema_base_uri,
+                    completion_hint,
+                ));
             }
 
             merge_adjacent_schema_completion_items(
@@ -182,7 +186,7 @@ impl FindCompletionContents for FloatSchema {
 
 pub fn type_hint_float(
     position: tombi_text::Position,
-    schema_uri: Option<&SchemaUri>,
+    schema_base_uri: Option<&SchemaUri>,
     completion_hint: Option<CompletionHint>,
 ) -> Vec<CompletionContent> {
     let label = "3.14";
@@ -192,6 +196,6 @@ pub fn type_hint_float(
         label,
         "Float",
         edit,
-        schema_uri,
+        schema_base_uri,
     )]
 }

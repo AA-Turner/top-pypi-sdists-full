@@ -26,7 +26,7 @@ Outputs, under ``{dir_output}/calendar_validation/{today}/``::
     {crop}.csv             per-crop splits
     summary_{delta}.csv    per-crop medians, within-tolerance shares, circular r2
     skips.csv              every unscored region and why
-    models/                four-target comparison: design_matrix, predictions,
+    models/                four-target comparison: design_matrix, predictions, folds,
                            metrics (with skill vs the climatology null and a
                            bootstrap interval, plus the Franch et al. 2022
                            comparables: R2, calibration line, debiased RMSE,
@@ -446,6 +446,9 @@ def run(path_config_files):
             names=obj.cv_schemes,
         )
         cv.describe(schemes, design).to_csv(model_dir / "cv_schemes.csv", index=False)
+        # The folds themselves: GroupKFold's tile-to-fold assignment differs
+        # between scikit-learn versions, so they cannot be rebuilt later.
+        cv.fold_table(schemes, design, obj.block_degrees).to_csv(model_dir / "folds.csv", index=False)
         evaluation = models.evaluate(
             design,
             models=obj.models,

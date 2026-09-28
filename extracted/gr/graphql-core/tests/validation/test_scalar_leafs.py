@@ -20,11 +20,13 @@ assert_valid = partial(assert_errors, errors=[])
 
 def describe_validate_scalar_leafs():
     def valid_scalar_selection():
-        assert_valid("""
+        assert_valid(
+            """
             fragment scalarSelection on Dog {
               barks
             }
-            """)
+            """
+        )
 
     def object_type_missing_selection():
         assert_errors(
@@ -61,11 +63,13 @@ def describe_validate_scalar_leafs():
         )
 
     def valid_scalar_selection_with_args():
-        assert_valid("""
+        assert_valid(
+            """
             fragment scalarSelectionWithArgs on Dog {
               doesKnowCommand(dogCommand: SIT)
             }
-            """)
+            """
+        )
 
     def scalar_selection_not_allowed_on_boolean():
         assert_errors(
@@ -152,19 +156,19 @@ def describe_validate_scalar_leafs():
         # document node directly. We have to do this because this is technically
         # an invalid document.
         doc = DocumentNode(
-            definitions=[
+            definitions=(
                 OperationDefinitionNode(
                     operation=OperationType.QUERY,
                     selection_set=SelectionSetNode(
-                        selections=[
+                        selections=(
                             FieldNode(
                                 name=NameNode(value="human"),
-                                selection_set=SelectionSetNode(selections=[]),
+                                selection_set=SelectionSetNode(selections=()),
                             ),
-                        ],
+                        ),
                     ),
                 ),
-            ],
+            ),
         )
         errors = validate(test_schema, doc, [ScalarLeafsRule])
         assert errors == [

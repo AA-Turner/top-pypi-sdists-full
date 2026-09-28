@@ -19,7 +19,6 @@ from matrx_ai.tools.kinds.filesystem import (
     DirectoryEntry,
     DirectoryListing,
     FileEditApplied,
-    FileEditFailure,
     FileEditResult,
     FilePatchResult,
     FileReadResult,
@@ -125,6 +124,8 @@ async def fs_read(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
 
 
 async def fs_write(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
+    from matrx_ai.tools.implementations.filesystem import decode_prior, with_file_surface_write
+
     started_at = time.time()
     parsed = FsWriteArgs(**args)
     vfs = await get_workspace_fs(ctx)
@@ -136,12 +137,17 @@ async def fs_write(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
             if parent and parent != "/":
                 await vfs._makedirs(parent, exist_ok=True)
 
+        # The prior content is the receipt's "before" (and append's base).
+        existed = True
+        try:
+            existing = await vfs._cat_file(path)
+        except FileNotFoundError:
+            existing = b""
+            existed = False
+        before = decode_prior(existing)
+
         content_bytes = parsed.content.encode("utf-8")
         if parsed.append:
-            try:
-                existing = await vfs._cat_file(path)
-            except FileNotFoundError:
-                existing = b""
             content_bytes = existing + content_bytes
 
         await vfs._pipe_file(path, content_bytes)
@@ -157,15 +163,22 @@ async def fs_write(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     except OSError as exc:
         return _err(started_at, ctx, "fs_write", "filesystem", f"Write failed: {exc}")
 
-    return _ok(
-        started_at,
-        ctx,
-        "fs_write",
-        FileWriteResult(
-            path=parsed.path,
-            bytes_written=len(parsed.content.encode("utf-8")),
-            mode="append" if parsed.append else "write",
-        ).model_dump(mode="json"),
+    return with_file_surface_write(
+        _ok(
+            started_at,
+            ctx,
+            "fs_write",
+            FileWriteResult(
+                path=parsed.path,
+                bytes_written=len(parsed.content.encode("utf-8")),
+                mode="append" if parsed.append else "write",
+            ).model_dump(mode="json"),
+        ),
+        path=parsed.path,
+        before=before,
+        after=(before + parsed.content) if (parsed.append and before is not None) else parsed.content,
+        mode="append" if parsed.append else "overwrite",
+        existed=existed,
     )
 
 
@@ -391,6 +404,16 @@ async def fs_mkdir(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
 
 
 async def fs_edit(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
+    """``fs_edit`` against the durable VFS — a one-edit ``fs_patch``, same contract."""
+    from matrx_ai.tools.implementations.filesystem import (
+        apply_patch_edits,
+        decode_prior,
+        edit_as_patch,
+        edit_counts,
+        patch_failure_result,
+        with_file_surface_write,
+    )
+
     started_at = time.time()
     parsed = FsEditArgs(**args)
     vfs = await get_workspace_fs(ctx)
@@ -407,21 +430,21 @@ async def fs_edit(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     except OSError as exc:
         return _err(started_at, ctx, "fs_edit", "filesystem", f"Read failed: {exc}")
 
-    text = data.decode("utf-8", errors="replace")
-    count = text.count(parsed.old_str)
-
-    if count == 0:
-        return _err(started_at, ctx, "fs_edit", "validation", claude_tool.edit_string_not_found())
-
-    if count > 1 and not parsed.replace_all:
-        return _err(started_at, ctx, "fs_edit", "validation", claude_tool.edit_n_matches(count))
-
-    if parsed.replace_all:
-        new_text = text.replace(parsed.old_str, parsed.new_str)
-        replaced = count
-    else:
-        new_text = text.replace(parsed.old_str, parsed.new_str, 1)
-        replaced = 1
+    before = decode_prior(data)
+    text = before if before is not None else data.decode("utf-8", errors="replace")
+    new_text, applied, failures = apply_patch_edits(
+        text, edit_as_patch(parsed).edits, existed=True
+    )
+    if failures:
+        return patch_failure_result(
+            failures,
+            tool_name="fs_edit",
+            path=parsed.path,
+            total_edits=1,
+            call_id=ctx.call_id,
+            started_at=started_at,
+        )
+    count, replaced = edit_counts(applied)
 
     try:
         await vfs._pipe_file(path, new_text.encode("utf-8"))
@@ -430,15 +453,24 @@ async def fs_edit(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     except OSError as exc:
         return _err(started_at, ctx, "fs_edit", "filesystem", f"Write failed: {exc}")
 
-    return _ok(
-        started_at,
-        ctx,
-        "fs_edit",
-        FileEditResult(
-            path=parsed.path,
-            old_str_count=count,
-            replaced=replaced,
-        ).model_dump(mode="json"),
+    return with_file_surface_write(
+        _ok(
+            started_at,
+            ctx,
+            "fs_edit",
+            FileEditResult(
+                path=parsed.path,
+                old_str_count=count,
+                replaced=replaced,
+                size_before=len(text),
+                size_after=len(new_text),
+            ).model_dump(mode="json"),
+        ),
+        path=parsed.path,
+        before=before,
+        after=new_text if before is not None else None,
+        mode="patch",
+        edits=1,
     )
 
 
@@ -447,9 +479,15 @@ async def fs_patch(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
 
     The multi-edit apply/failure logic is shared with the local branch
     (``filesystem.apply_patch_edits``); only the read and the write change.
-    Imported lazily because ``filesystem`` dispatches INTO this module.
+    All-or-nothing: any failing edit writes nothing. Imported lazily because
+    ``filesystem`` dispatches INTO this module.
     """
-    from matrx_ai.tools.implementations.filesystem import apply_patch_edits
+    from matrx_ai.tools.implementations.filesystem import (
+        apply_patch_edits,
+        decode_prior,
+        patch_failure_result,
+        with_file_surface_write,
+    )
 
     started_at = time.time()
     parsed = FsPatchArgs(**args)
@@ -492,23 +530,20 @@ async def fs_patch(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
             f"File is {len(data)} bytes; fs_patch refuses files over {MAX_PATCH_SIZE}.",
         )
 
-    original_content = data.decode("utf-8", errors="replace")
+    before = decode_prior(data)
+    original_content = before if before is not None else data.decode("utf-8", errors="replace")
     content, applied_summaries, failures = apply_patch_edits(
         original_content, parsed.edits, existed=existed
     )
 
-    if not applied_summaries:
-        return ToolResult(
-            success=False,
-            error=ToolError(
-                error_type="patch_failed",
-                message=f"All {len(parsed.edits)} edit(s) failed; file unchanged.",
-            ),
-            output={"failures": failures, "path": parsed.path},
-            started_at=started_at,
-            completed_at=time.time(),
+    if failures:
+        return patch_failure_result(
+            failures,
             tool_name="fs_patch",
+            path=parsed.path,
+            total_edits=len(parsed.edits),
             call_id=ctx.call_id,
+            started_at=started_at,
         )
 
     try:
@@ -522,18 +557,25 @@ async def fs_patch(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     except OSError as exc:
         return _err(started_at, ctx, "fs_patch", "filesystem", f"Write failed: {exc}")
 
-    return _ok(
-        started_at,
-        ctx,
-        "fs_patch",
-        FilePatchResult(
-            path=parsed.path,
-            created=not existed,
-            edits_applied=[FileEditApplied(**s) for s in applied_summaries],
-            edits_failed=[FileEditFailure(**f) for f in failures],
-            size_before=len(original_content),
-            size_after=len(content),
-        ).model_dump(mode="json"),
+    return with_file_surface_write(
+        _ok(
+            started_at,
+            ctx,
+            "fs_patch",
+            FilePatchResult(
+                path=parsed.path,
+                created=not existed,
+                edits_applied=[FileEditApplied(**s) for s in applied_summaries],
+                edits_failed=[],
+                size_before=len(original_content),
+                size_after=len(content),
+            ).model_dump(mode="json"),
+        ),
+        path=parsed.path,
+        before=before,
+        after=content if before is not None else None,
+        mode="patch",
+        edits=len(applied_summaries),
     )
 
 

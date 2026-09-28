@@ -1,7 +1,9 @@
-from math import isnan, nan
-from typing import Any, Dict, Optional
+from __future__ import annotations
 
-from graphql.language import parse_value, ValueNode
+from math import isnan, nan
+from typing import Any
+
+from graphql.language import ValueNode, parse_value
 from graphql.pyutils import Undefined
 from graphql.type import (
     GraphQLBoolean,
@@ -24,13 +26,12 @@ def describe_value_from_ast():
     def _value_from(
         value_text: str,
         type_: GraphQLInputType,
-        variables: Optional[Dict[str, Any]] = None,
+        variables: dict[str, Any] | None = None,
     ):
         ast = parse_value(value_text)
         return value_from_ast(ast, type_, variables)
 
     def rejects_empty_input():
-        # noinspection PyTypeChecker
         assert value_from_ast(None, GraphQLBoolean) is Undefined
 
     def converts_according_to_input_coercion_rules():
@@ -65,6 +66,8 @@ def describe_value_from_ast():
         )
 
         assert _value_from('"value"', pass_through_scalar) == "value"
+        # also exercise the path where operation variables are provided
+        assert _value_from('"value"', pass_through_scalar, {"unused": True}) == "value"
 
         def throw_parse_literal(_node: ValueNode, _vars=None):
             raise RuntimeError("Test")
@@ -112,15 +115,15 @@ def describe_value_from_ast():
         assert isnan(_value_from("NAN", test_enum))
         assert _value_from("NO_CUSTOM_VALUE", test_enum) is Undefined
 
-    # Boolean!
+    # make a Boolean!
     non_null_bool = GraphQLNonNull(GraphQLBoolean)
-    # [Boolean]
+    # make a [Boolean]
     list_of_bool = GraphQLList(GraphQLBoolean)
-    # [Boolean!]
+    # make a [Boolean!]
     list_of_non_null_bool = GraphQLList(non_null_bool)
-    # [Boolean]!
+    # make a [Boolean]!
     non_null_list_of_bool = GraphQLNonNull(list_of_bool)
-    # [Boolean!]!
+    # make a [Boolean!]!
     non_null_list_of_non_mull_bool = GraphQLNonNull(list_of_non_null_bool)
 
     def coerces_to_null_unless_non_null():
@@ -195,6 +198,12 @@ def describe_value_from_ast():
             "requiredBool": False,
         }
         assert (
+            _value_from(
+                "{ bool: true, requiredBool: false, unknown: true }", test_input_obj
+            )
+            is Undefined
+        )
+        assert (
             _value_from("{ int: true, requiredBool: true }", test_input_obj)
             is Undefined
         )
@@ -206,6 +215,7 @@ def describe_value_from_ast():
         assert _value_from("{ a: null }", test_one_of_input_obj) is Undefined
         assert _value_from("{ a: 1 }", test_one_of_input_obj) is Undefined
         assert _value_from('{ a: "abc", b: "def" }', test_one_of_input_obj) is Undefined
+        assert _value_from('{ a: "abc", c: "def" }', test_one_of_input_obj) is Undefined
         assert _value_from("{}", test_one_of_input_obj) is Undefined
         assert _value_from('{ c: "abc" }', test_one_of_input_obj) is Undefined
 
@@ -214,8 +224,6 @@ def describe_value_from_ast():
         assert _value_from("$var", GraphQLBoolean, {"var": True}) is True
         assert _value_from("$var", GraphQLBoolean, {"var": None}) is None
         assert _value_from("$var", non_null_bool, {"var": None}) is Undefined
-        # Python dicts have no prototype chain, so an inherited attribute name
-        # is just a missing key, and an explicit Undefined value is missing too.
         assert _value_from("$toString", GraphQLBoolean, {}) is Undefined
         assert _value_from("$var", GraphQLBoolean, {"var": Undefined}) is Undefined
 
@@ -242,6 +250,12 @@ def describe_value_from_ast():
         assert _value_from(
             "{ int: $toString, requiredBool: true }", test_input_obj, {}
         ) == {"int": 42, "requiredBool": True}
+
+    def rejects_multiple_one_of_fields_when_one_variable_is_unprovided():
+        assert (
+            _value_from("{ a: $a, b: $b }", test_one_of_input_obj, {"a": "abc"})
+            is Undefined
+        )
 
     def transforms_names_using_out_name():
         # This is an extension of GraphQL.js.

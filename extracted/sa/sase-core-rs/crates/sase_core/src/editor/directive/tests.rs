@@ -108,7 +108,7 @@ fn contract_covers_the_audited_directive_matrix() {
             .iter()
             .map(|value| value.value.as_str())
             .collect::<Vec<_>>(),
-        ["1", "100"]
+        ["1", "100", "1.5x"]
     );
     assert_eq!(
         on_queue
@@ -119,6 +119,15 @@ fn contract_covers_the_audited_directive_matrix() {
         Some(DirectiveValueRole::PositiveInt)
     );
     assert!(on_queue.description.contains("capacity budget"));
+    assert!(on_queue.description.contains("<M>x"));
+    assert!(on_queue.argument_hint.contains("<M>x"));
+    assert!(on_queue
+        .keywords
+        .iter()
+        .find(|keyword| keyword.name == "capacity")
+        .map(|keyword| keyword.description.as_str())
+        .unwrap_or_default()
+        .contains("<M>x"));
     assert_eq!(
         queue
             .keywords
@@ -135,6 +144,20 @@ fn contract_covers_the_audited_directive_matrix() {
             .map(|keyword| keyword.conflicts_with.clone()),
         Some(vec!["weight".to_string()])
     );
+    for queue in [queue, &on_queue] {
+        for keyword in queue
+            .keywords
+            .iter()
+            .filter(|keyword| matches!(keyword.name.as_str(), "w" | "weight"))
+        {
+            assert_eq!(
+                keyword.value_role,
+                DirectiveValueRole::NonNegativeFloat
+            );
+            assert_eq!(keyword.suggested_values[0].value, "0");
+            assert!(keyword.description.contains("0 adds no load"));
+        }
+    }
     assert_eq!(
         queue
             .keywords
@@ -275,9 +298,38 @@ fn contract_covers_the_audited_directive_matrix() {
             .collect::<Vec<_>>(),
         [
             ("bead", Vec::new()),
-            ("clan", vec!["family".to_string(), "tribe".to_string()]),
-            ("family", vec!["clan".to_string(), "tribe".to_string()]),
-            ("tribe", vec!["clan".to_string(), "family".to_string()]),
+            (
+                "clan",
+                vec![
+                    "family".to_string(),
+                    "session".to_string(),
+                    "tribe".to_string(),
+                ],
+            ),
+            (
+                "session",
+                vec![
+                    "clan".to_string(),
+                    "family".to_string(),
+                    "tribe".to_string(),
+                ],
+            ),
+            (
+                "family",
+                vec![
+                    "clan".to_string(),
+                    "session".to_string(),
+                    "tribe".to_string(),
+                ],
+            ),
+            (
+                "tribe",
+                vec![
+                    "clan".to_string(),
+                    "family".to_string(),
+                    "session".to_string(),
+                ],
+            ),
         ]
     );
 
@@ -355,7 +407,7 @@ fn id_metadata_and_completion_match_the_editor_contract() {
     assert!(!metadata.allows_multiple);
     assert_eq!(
             metadata.description,
-            "Assign an agent ID with optional bead, clan, family, or user-managed tribe"
+            "Assign an agent ID with optional bead, clan, session, or user-managed tribe"
         );
     assert_eq!(canonical_directive_name("i"), Some("id"));
     assert_eq!(directive_metadata("i").map(|d| d.name), Some("id"));
@@ -385,7 +437,7 @@ fn id_metadata_and_completion_match_the_editor_contract() {
             .iter()
             .map(|candidate| candidate.insertion.as_str())
             .collect::<Vec<_>>(),
-        ["bead=", "clan=", "family=", "tribe="]
+        ["bead=", "clan=", "session=", "tribe="]
     );
     assert_eq!(
         id_args
@@ -395,7 +447,7 @@ fn id_metadata_and_completion_match_the_editor_contract() {
         [
             "Associate this launch with a bead",
             "Derive the full ID and join this agent clan",
-            "Attach this suffix to an existing agent family",
+            "Attach this suffix to an existing agent session",
             "Assign this agent to a user-managed tribe",
         ]
     );
@@ -410,6 +462,29 @@ fn id_metadata_and_completion_match_the_editor_contract() {
                 .is_empty()
         );
     }
+}
+
+#[test]
+fn legacy_family_keyword_stays_in_contract_but_unsuggested() {
+    let contract = directive_contract();
+    let id = contract
+        .iter()
+        .find(|entry| entry.name == "id")
+        .expect("id contract");
+    let keywords: Vec<&str> = id
+        .keywords
+        .iter()
+        .map(|keyword| keyword.name.as_str())
+        .collect();
+    assert_eq!(keywords, ["bead", "clan", "session", "family", "tribe"]);
+
+    let id_candidates = directive_argument_candidates("id");
+    let suggested: Vec<&str> = id_candidates
+        .candidates
+        .iter()
+        .map(|candidate| candidate.insertion.as_str())
+        .collect();
+    assert_eq!(suggested, ["bead=", "clan=", "session=", "tribe="]);
 }
 
 #[test]
@@ -647,7 +722,7 @@ fn queue_name_completion_uses_flag_aware_documentation() {
     assert_eq!(
         on_queue.documentation.as_deref(),
         Some(
-            "Set this launch's capacity budget, priority, and capacity weight"
+            "Set this launch's capacity budget, <M>x multiplier of this machine's max_running_agents budget, priority, and capacity weight"
         )
     );
 }
@@ -1075,7 +1150,7 @@ fn clause_candidates_cover_roles_conflicts_and_self_references() {
         queue_insertions("%q(w=0.25, "),
         ["capacity=", "p=", "priority=", "0", "1"]
     );
-    assert_eq!(queue_insertions("%q(weight="), ["0.25", "1.0", "2.0"]);
+    assert_eq!(queue_insertions("%q(weight="), ["0", "0.25", "1.0", "2.0"]);
     assert!(queue_insertions("%q(")
         .iter()
         .all(|value| value != "planner" && value != "builders"));

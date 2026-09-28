@@ -8,10 +8,11 @@ from typing import TYPE_CHECKING, Any, Iterator, Mapping, Sequence, cast
 
 from ..errors import HwpxStateError, HwpxValueError
 from ..objects.checkbox import CheckBox
-from ..objects.form_field import FieldLocation, FieldParameter, FormField
+from ..objects.form_field import CellField, FieldLocation, FieldParameter, FormField
 from ..objects.results import FieldFillResult
 from ..oxml import HwpxOxmlParagraph
 from ..oxml.namespaces import HP
+from ..oxml.section_story import control_twins
 
 if TYPE_CHECKING:
     from hwpx.document import HwpxDocument
@@ -291,11 +292,13 @@ def _iter_form_field_matches(doc: "HwpxDocument") -> list[dict[str, Any]]:
             paragraph.element: index
             for index, paragraph in enumerate(section.paragraphs)
         }
+        # a header/footer python-hwpx keeps twice counts once: its hp:secPr copy
+        twins = control_twins(section.element)
 
         def iter_content_paragraphs(element: Any) -> Iterator[Any]:
             for child in element:
                 local = _local_name(child)
-                if local == "memogroup":
+                if local == "memogroup" or child in twins:
                     continue
                 if local == "p":
                     yield child
@@ -401,6 +404,42 @@ def list_form_fields(doc: "HwpxDocument") -> tuple[FormField, ...]:
     """Return native form/click-here fields in document order."""
 
     return tuple(_form_field_from_match(doc, match) for match in _iter_form_field_matches(doc))
+
+
+def _named_cells(paragraphs: Any) -> Iterator[Any]:
+    for paragraph in paragraphs:
+        for table in paragraph.tables:
+            for row in table.rows:
+                for cell in row.cells:
+                    if cell.field_name:
+                        yield cell
+                    yield from _named_cells(cell.paragraphs)
+
+
+def list_cell_fields(doc: "HwpxDocument") -> tuple[CellField, ...]:
+    """Named table cells (Hancom's cell fields) in document order: body tables and the tables in their cells."""
+
+    return tuple(CellField(cell) for section in doc.sections for cell in _named_cells(section.paragraphs))
+
+
+def fill_cell_fields(doc: "HwpxDocument", value: str, *, name: str, index: int | None = None) -> tuple[CellField, ...]:
+    """Set the text of every cell field called *name*, or of the *index*-th of them only."""
+
+    wanted = (name or "").strip()
+    fields = [field for field in list_cell_fields(doc) if wanted and field.name == wanted]
+    if index is not None:
+        fields = fields[index : index + 1] if index >= 0 else []
+    if not fields:
+        where = f"{wanted!r}" if index is None else f"{wanted!r} at index {index}"
+        raise HwpxValueError(
+            f"no cell field named {where}",
+            code="field-cell-not-found",
+            context={"name": wanted, "index": index},
+            suggestion="List doc.fields.cells to see the cell field names.",
+        )
+    for field in fields:
+        field.text = value
+    return tuple(fields)
 
 
 _PROMPT_TEXT_COLOR = "#FF0000"
@@ -823,7 +862,10 @@ def _measure_form_field_fit(
 ) -> "FitResult":
     """Run the FormFit engine for a native field (plan §2 C)."""
 
+    from dataclasses import replace
+
     from hwpx.form_fit import DEFAULT_SAFETY, FitEngine, FitResult, SlotMetrics
+    from hwpx.form_fit.measure import text_style_from_refs
 
     runs = match["_runs"]
     begin_index = int(match["_begin_run_index"])
@@ -850,10 +892,16 @@ def _measure_form_field_fit(
             field_id=field_id,
         )
 
+    # The field sits inside its paragraph, so the paragraph's indent does not
+    # apply to the box.
+    text_style = text_style_from_refs(
+        doc._root, match["_paragraph"].para_pr_id_ref, [begin_ref]
+    )
     slot = SlotMetrics(
         available_width=float(box_width) * DEFAULT_SAFETY,
         font_pt=resolved_pt,
         max_lines=fit_policy.effective_max_lines,
+        text_style=replace(text_style, indent=0),
     )
     return FitEngine().fit(value, slot, fit_policy, field_id=field_id)
 

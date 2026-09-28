@@ -144,40 +144,135 @@ async def knowledge_search(args: dict[str, Any], ctx: ToolContext) -> ToolResult
             ctx,
         )
 
-    try:
-        search_fn = _get_rag_search()
-    except Exception as exc:
-        return _stamp(
-            ToolResult(
-                success=False,
-                error=ToolError(
-                    error_type="unavailable",
-                    message=(
-                        f"RAG search backend not configured in this host: {exc}. "
-                        "The host must call matrx_ai.configure(rag_search=...)."
-                    ),
-                ),
-            ),
-            started_at,
-            ctx,
-        )
+    from matrx_ai._ext import get_ext, has_ext
 
-    # The caller's active org rides the ToolContext (resolved from the live
-    # AppContext). Forwarding it is what lets the search ACL's org branch
-    # match org-shared chunks owned by teammates; hardcoding None here
-    # silently hid ALL org-shared content from agents (2026-06-10 audit fix).
+    # The caller's active org rides the ToolContext. It ATTRIBUTES the search (spend,
+    # audit); reach is the person's own access (2026-09-23). Hardcoding None here once
+    # hid org-shared content from agents (2026-06-10), so it is still forwarded.
     organization_id = ctx.organization_id
 
-    include_sources: list[dict[str, str]] | None = None
-    if parsed.data_store_id:
-        from matrx_ai._ext import get_ext, has_ext
+    # Default narrowing to what the conversation is attached to — unless the agent
+    # chose its own containers with `within` (then it searches exactly those).
+    requested_scopes = parsed.scope_ids
+    if requested_scopes is None and parsed.within:
+        requested_scopes = []
+    scope_ids, scope_document_ids, scope_note, searched_scope_ids = await _resolve_scope_ids(
+        requested_scopes, ctx, user_id=user_id, organization_id=organization_id
+    )
 
-        if has_ext("rag_materialize_member_filter"):
-            materialize = get_ext("rag_materialize_member_filter")
-            scoped = await materialize(
-                store_id=parsed.data_store_id,
+    sections_payload: dict[str, Any] | None = None
+    if has_ext("knowledge_search_service"):
+        # THE ONE SEARCH SERVICE (Knowledge Hub §3). Old fields map onto the query:
+        # data_store_id → within a data store, source_ids → within those Sources,
+        # scopes → within scopes; rerank/mmr/multi-query/HyDE ride the passage lane.
+        within: list[dict[str, Any]] = [w.model_dump(exclude_none=True) for w in (parsed.within or [])]
+        within += [{"type": "scope", "id": sid} for sid in (scope_ids or [])]
+        if parsed.data_store_id:
+            within.append({"type": "data_store", "id": parsed.data_store_id})
+        within += [{"type": "source", "id": sid} for sid in (parsed.source_ids or [])]
+        query: dict[str, Any] = {
+            "text": parsed.query,
+            "limit": parsed.limit,
+            "types": parsed.types,
+            "source_kinds": parsed.source_kinds,
+            "within": within or None,
+            "entities": parsed.entities,
+            "captured_by": parsed.captured_by,
+            "origin": parsed.origin,
+            "date": parsed.date.model_dump(by_alias=True, exclude_none=True) if parsed.date else None,
+            "state": parsed.state,
+            "organizations": parsed.organizations,
+            "sort": parsed.sort,
+            "cursors": parsed.cursors,
+        }
+        try:
+            conversation_id = ctx.conversation_id
+        except Exception:
+            conversation_id = None
+        try:
+            sections_payload, response = await get_ext("knowledge_search_service")(
+                query={k: v for k, v in query.items() if v is not None},
                 user_id=user_id,
                 organization_id=organization_id,
+                conversation_id=str(conversation_id) if conversation_id else None,
+                segment_options={
+                    "rerank": parsed.rerank,
+                    "use_mmr": parsed.use_mmr,
+                    "multi_query": parsed.multi_query,
+                    "use_hyde": parsed.use_hyde,
+                    "scope_document_ids": scope_document_ids,
+                    "include_entity_map": True,
+                },
+            )
+        except Exception as exc:
+            return _stamp(
+                ToolResult(
+                    success=False,
+                    error=ToolError.from_exception(
+                        exc, error_type="search_failed", message=f"Knowledge search failed: {exc}"
+                    ),
+                ),
+                started_at,
+                ctx,
+            )
+        if response is None:
+            segment_error = next(
+                (e for e in sections_payload.get("errors") or [] if e.get("section") == "segments"), None
+            )
+            segments = next(
+                (s for s in sections_payload.get("sections") or [] if s.get("section") == "segments"), None
+            )
+            if segment_error is not None:
+                return _stamp(
+                    ToolResult(
+                        success=False,
+                        error=ToolError(error_type="search_failed", message=str(segment_error.get("message") or "")),
+                    ),
+                    started_at,
+                    ctx,
+                )
+            if parsed.data_store_id and segments is not None:
+                return _stamp(
+                    ToolResult(
+                        success=True,
+                        output={
+                            "query": parsed.query,
+                            "hits": [],
+                            "total_candidates": 0,
+                            "data_store_id": parsed.data_store_id,
+                            "note": segments.get("note")
+                            or "Data store is empty or not visible to this user; no scope to search.",
+                            "sections": _other_sections(sections_payload),
+                        },
+                    ),
+                    started_at,
+                    ctx,
+                )
+            response = _EmptyResponse(parsed.query)
+    else:
+        # A host without the Knowledge search service (matrx-ai standalone): passages
+        # only, through the rag_search seam — and the result says so.
+        try:
+            search_fn = _get_rag_search()
+        except Exception as exc:
+            return _stamp(
+                ToolResult(
+                    success=False,
+                    error=ToolError(
+                        error_type="unavailable",
+                        message=(
+                            f"RAG search backend not configured in this host: {exc}. "
+                            "The host must call matrx_ai.configure(rag_search=...)."
+                        ),
+                    ),
+                ),
+                started_at,
+                ctx,
+            )
+        include_sources: list[dict[str, str]] | None = None
+        if parsed.data_store_id and has_ext("rag_materialize_member_filter"):
+            scoped = await get_ext("rag_materialize_member_filter")(
+                store_id=parsed.data_store_id, user_id=user_id, organization_id=organization_id
             )
             if not scoped:
                 return _stamp(
@@ -188,45 +283,45 @@ async def knowledge_search(args: dict[str, Any], ctx: ToolContext) -> ToolResult
                             "hits": [],
                             "total_candidates": 0,
                             "data_store_id": parsed.data_store_id,
-                            "note": (
-                                "Data store is empty or not visible to this user; "
-                                "no scope to search."
-                            ),
+                            "note": "Data store is empty or not visible to this user; no scope to search.",
                         },
                     ),
                     started_at,
                     ctx,
                 )
             include_sources = scoped
-
-    try:
-        response = await search_fn(
-            parsed.query,
-            user_id=user_id,
-            organization_id=organization_id,
-            source_kinds=parsed.source_kinds,
-            include_sources=include_sources,
-            limit=parsed.limit,
-            rerank=parsed.rerank,
-            use_mmr=parsed.use_mmr,
-            multi_query=parsed.multi_query,
-            use_hyde=parsed.use_hyde,
-            scope_ids=parsed.scope_ids,
-            source_ids=parsed.source_ids,
+        search_scope_kwargs: dict[str, Any] = (
+            {"scope_document_ids": scope_document_ids} if scope_document_ids else {}
         )
-    except Exception as exc:
-        return _stamp(
-            ToolResult(
-                success=False,
-                error=ToolError.from_exception(
-                    exc,
-                    error_type="search_failed",
-                    message=f"RAG search failed: {exc}",
+        try:
+            response = await search_fn(
+                parsed.query,
+                user_id=user_id,
+                organization_id=organization_id,
+                source_kinds=parsed.source_kinds,
+                include_sources=include_sources,
+                limit=parsed.limit,
+                rerank=parsed.rerank,
+                use_mmr=parsed.use_mmr,
+                multi_query=parsed.multi_query,
+                use_hyde=parsed.use_hyde,
+                scope_ids=scope_ids,
+                source_ids=parsed.source_ids,
+                **search_scope_kwargs,
+            )
+        except Exception as exc:
+            return _stamp(
+                ToolResult(
+                    success=False,
+                    error=ToolError.from_exception(
+                        exc,
+                        error_type="search_failed",
+                        message=f"RAG search failed: {exc}",
+                    ),
                 ),
-            ),
-            started_at,
-            ctx,
-        )
+                started_at,
+                ctx,
+            )
 
     hits = [_hit_to_dict(h) for h in getattr(response, "hits", [])]
     entity_map_raw = getattr(response, "entity_map", None) or []
@@ -244,6 +339,26 @@ async def knowledge_search(args: dict[str, Any], ctx: ToolContext) -> ToolResult
         "validation_guidance": PHYSICAL_PAGE_VALIDATION_GUIDANCE,
     }
     output.update(_relevance_report(response, hits))
+    if sections_payload is not None:
+        output["sections"] = _other_sections(sections_payload)
+        other_errors = [e for e in sections_payload.get("errors") or [] if e.get("section") != "segments"]
+        if other_errors:
+            output["section_errors"] = other_errors
+        if sections_payload.get("chips"):
+            output["chips"] = sections_payload["chips"]
+    else:
+        output["sections_note"] = (
+            "Only passages were searched: this host has no Knowledge search service, so "
+            "titles, chats and records were not part of this search."
+        )
+    announcements: dict[str, Any] = {}
+    if scope_note:
+        announcements["scope_note"] = scope_note
+    if searched_scope_ids:
+        announcements["searched_scope_ids"] = searched_scope_ids
+    if scope_document_ids:
+        announcements["searched_source_ids"] = scope_document_ids
+    output.update(announcements)
     result = ToolResult(
         success=True,
         output=output,
@@ -252,10 +367,85 @@ async def knowledge_search(args: dict[str, Any], ctx: ToolContext) -> ToolResult
     # SearchResultContent block (Anthropic `search_result` + citations enabled,
     # matrx:// identity source) so quotes come back as REAL citations with
     # file/page click-through. `output` (storage/trace/UI) stays unchanged.
-    provider_blocks = _citable_blocks_for_hits(hits)
+    provider_blocks = _citable_blocks_for_hits(hits, announcements)
     if provider_blocks is not None:
+        # The model sees what the person sees: the citable passages AND a compact
+        # rendering of every other section (storage-only sections were invisible to it).
+        sections_text = render_sections_for_model(output)
+        if sections_text:
+            from matrx_ai.config import TextContent
+
+            provider_blocks.append(TextContent(text=sections_text))
         result.provider_content = provider_blocks
     return _stamp(result, started_at, ctx)
+
+
+_SECTION_LABELS = {
+    "top_hit": "Top hit",
+    "sources": "Sources",
+    "chats": "Chats",
+    "messages": "Messages",
+    "projects_tasks": "Projects & tasks",
+    "notes": "Notes",
+    "files": "Files",
+    "agents_workflows": "Agents & workflows",
+    "records": "Records",
+}
+
+
+def render_sections_for_model(output: dict[str, Any]) -> str | None:
+    """One line per result of every non-passage section, with counts, withheld reasons
+    and section errors — compact enough for the context, complete enough that the agent
+    knows everything the person's search returned."""
+    sections = output.get("sections")
+    errors = output.get("section_errors") or []
+    if not sections and not errors:
+        return None
+    lines = ["Every section of this search (what the person sees; open any with knowledge_open entity+id):"]
+    # Segments ARE the citable passages above (`hits`) — named here so the list is complete.
+    hits = output.get("hits") or []
+    lines.append(f"Segments ({len(hits)}): the citable passages above" if hits else "Segments: none")
+    for h in hits:
+        meta = h.get("metadata") or {}
+        name = meta.get("title") or meta.get("file_name") or h.get("source_kind") or "passage"
+        pages = h.get("page_numbers") or []
+        where = f" p. {pages[0]}" if pages else ""
+        lines.append(f"- segment {h.get('chunk_id')} — {' '.join(str(name).split())[:80]}{where}")
+    for sec in sections or []:
+        label = _SECTION_LABELS.get(str(sec.get("section")), str(sec.get("section")))
+        if sec.get("withheld"):
+            lines.append(f"{label}: withheld — {sec['withheld']}")
+            continue
+        items = sec.get("items") or []
+        more = " (more available)" if sec.get("has_more") else ""
+        lines.append(f"{label} ({sec.get('count', len(items))}){more}:" if items else f"{label}: none")
+        for it in items:
+            title = " ".join(str(it.get("title") or "Untitled").split())[:100]
+            extra = ""
+            if it.get("matches"):
+                extra = f" — “{' '.join(str(it['matches'][0].get('snippet') or '').split())[:90]}”"
+            lines.append(f"- {it.get('entity')} {it.get('id')} — {title}{extra}")
+    for err in errors:
+        label = _SECTION_LABELS.get(str(err.get("section")), str(err.get("section")))
+        lines.append(f"{label}: could not be searched — {err.get('message')}")
+    return "\n".join(lines)
+
+
+class _EmptyResponse:
+    """The passage lane was not planned (e.g. ``types`` excluded every chunked kind)."""
+
+    def __init__(self, query: str) -> None:
+        self.query = query
+        self.hits: list[Any] = []
+        self.total_candidates = 0
+        self.embedding_model = ""
+        self.reranker_model = None
+        self.latency_ms = 0
+
+
+def _other_sections(payload: dict[str, Any]) -> list[dict[str, Any]]:
+    """Every typed section except Segments (those are ``hits``, with citations)."""
+    return [s for s in payload.get("sections") or [] if s.get("section") != "segments"]
 
 
 def _relevance_report(response: Any, hits: list[dict[str, Any]]) -> dict[str, Any]:
@@ -308,7 +498,110 @@ def _relevance_report(response: Any, hits: list[dict[str, Any]]) -> dict[str, An
     return report
 
 
-def _citable_blocks_for_hits(hits: list[dict[str, Any]]) -> list[Any] | None:
+async def _resolve_scope_ids(
+    requested: list[str] | None,
+    ctx: ToolContext,
+    *,
+    user_id: str,
+    organization_id: str | None,
+) -> tuple[list[str] | None, list[str] | None, str | None, list[str]]:
+    """Decide what the search runs within — and the sentence that says so.
+
+    Returns ``(scope_ids, scope_document_ids, scope_note, auto_scope_ids)``.
+
+    * The agent passed scope ids → used as given, nothing to announce.
+    * The agent passed ``[]`` → search everything (the engine treats an empty
+      list as "no valid scope" and returns nothing).
+    * The agent passed nothing → what the conversation is attached to (host
+      seam ``rag_conversation_scopes``): its scopes, and each project it works
+      in (``conversation → project`` edges or the request's working project)
+      expanded to that project's scopes and the Sources filed under it —
+      searched as a union, announced by name with how to widen. A failed lookup
+      is announced and the search runs unscoped — never a silent narrowing or
+      widening.
+    """
+    if requested is not None:
+        return (requested or None), None, None, []
+
+    from matrx_ai._ext import get_ext, has_ext
+
+    try:
+        conversation_id = ctx.conversation_id
+    except Exception:
+        conversation_id = None
+    try:
+        project_id = ctx.project_id
+    except Exception:
+        project_id = None
+    if not (conversation_id or project_id) or not has_ext("rag_conversation_scopes"):
+        return None, None, None, []
+
+    try:
+        lookup = get_ext("rag_conversation_scopes")
+        attached = await lookup(
+            conversation_id=str(conversation_id) if conversation_id else None,
+            user_id=user_id,
+            organization_id=organization_id,
+            project_id=str(project_id) if project_id else None,
+        )
+    except Exception as exc:
+        return (
+            None,
+            None,
+            (
+                "Could not check what this conversation is attached to "
+                f"({type(exc).__name__}: {exc}), so this search ran across everything "
+                "you can see. Pass scope_ids=[...] to narrow it yourself."
+            ),
+            [],
+        )
+
+    if isinstance(attached, list):  # a host that reports scopes only
+        attached = {"scopes": attached}
+    attached = attached or {}
+    ids: list[str] = []
+    labels: list[str] = []
+    for scope in attached.get("scopes") or []:
+        scope_id = str((scope or {}).get("id") or "").strip()
+        if not scope_id or scope_id in ids:
+            continue
+        ids.append(scope_id)
+        name = str(scope.get("name") or scope_id)
+        via = scope.get("via_project")
+        labels.append(f"{name} ({scope_id})" + (f", via project {via}" if via else ""))
+    document_ids = [
+        str(d) for d in dict.fromkeys(attached.get("document_ids") or []) if str(d).strip()
+    ]
+    projects = [
+        str((p or {}).get("name") or (p or {}).get("id"))
+        for p in attached.get("projects") or []
+        if (p or {}).get("id")
+    ]
+    if not ids and not document_ids:
+        return None, None, None, []
+    parts: list[str] = []
+    if ids:
+        parts.append(f"the scope(s) {', '.join(labels)}")
+    if document_ids:
+        where = f" project {', '.join(projects)}" if projects else " its project"
+        parts.append(f"the {len(document_ids)} Source(s) filed under{where}")
+    return (
+        ids or None,
+        document_ids or None,
+        (
+            "Searched what this conversation is attached to: "
+            + " and ".join(parts)
+            + ". Pass scope_ids=[] to search everything you can see, or "
+            "scope_ids=[...] to choose other scopes."
+        ),
+        ids,
+    )
+
+
+def _citable_blocks_for_hits(
+    hits: list[dict[str, Any]],
+    announcements: dict[str, Any] | None = None,
+) -> list[Any] | None:
     """One citable SearchResultContent per snippet-bearing hit + a trailing
     TextContent with the metadata JSON (snippets removed — they live in the
     citable blocks; sending both would double the tokens)."""
@@ -350,7 +643,7 @@ def _citable_blocks_for_hits(hits: list[dict[str, Any]]) -> list[Any] | None:
         )
     if not blocks:
         return None
-    payload_meta: dict[str, Any] = {"hits": meta_hits}
+    payload_meta: dict[str, Any] = {**(announcements or {}), "hits": meta_hits}
     from matrx_ai.config.unified_content import cap_citable_blocks
 
     blocks = cap_citable_blocks(blocks, payload_meta)

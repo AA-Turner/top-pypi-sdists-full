@@ -1,4 +1,6 @@
-from typing import Optional
+"""Get operation AST node"""
+
+from __future__ import annotations
 
 from ..language import DocumentNode, OperationDefinitionNode
 
@@ -6,13 +8,26 @@ __all__ = ["get_operation_ast"]
 
 
 def get_operation_ast(
-    document_ast: DocumentNode, operation_name: Optional[str] = None
-) -> Optional[OperationDefinitionNode]:
+    document_ast: DocumentNode, operation_name: str | None = None
+) -> OperationDefinitionNode | None:
     """Get operation AST node.
 
     Returns an operation AST given a document AST and optionally an operation
     name. If a name is not provided, an operation is only returned if only one
     is provided in the document.
+
+    :param document_ast: The parsed GraphQL document AST.
+    :param operation_name: The optional name of the operation to select.
+    :returns: The selected operation definition node, or ``None`` if no matching
+        operation could be determined.
+
+    >>> from graphql import get_operation_ast, parse
+    >>> document = parse('query GetName { name }')
+    >>> operation = get_operation_ast(document, 'GetName')
+    >>> operation.name.value
+    'GetName'
+    >>> print(get_operation_ast(document, 'Missing'))
+    None
     """
     operation = None
     for definition in document_ast.definitions:

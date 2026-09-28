@@ -100,6 +100,8 @@ async def dictionary(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     try:
         from matrx_orm import ArrayArg, call_function
 
+        from matrx_ai.tools.structured_surface_write import read_prior, structured_surface_write
+
         if action == "list_owners":
             r = await call_function(database, "public", "dict_list_owners_for", user_id)
             return _ok(ctx, started, _json(r))
@@ -129,6 +131,15 @@ async def dictionary(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
 
         if action == "upsert_entries":
             oid = _owner_id(parsed, user_id)
+
+            async def _read_entries() -> list[dict[str, Any]]:
+                return _rows(
+                    await call_function(
+                        database, "public", "dict_list_entries_for", user_id, parsed.level, oid, mode="rows"
+                    )
+                )
+
+            prior = await read_prior(_read_entries, what=f"dictionary entries {parsed.level}:{oid}")
             rows = await call_function(
                 database,
                 "public",
@@ -139,7 +150,13 @@ async def dictionary(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
                 json.dumps(parsed.entries),
                 mode="rows",
             )
-            return _ok(ctx, started, {"entries": _rows(rows), "count": len(rows)})
+            written = _rows(rows)
+            return _entries_surface_write(
+                _ok(ctx, started, {"entries": written, "count": len(rows)}),
+                prior,
+                written,
+                target_id=f"{parsed.level}:{oid}",
+            )
 
         if action == "delete_entries":
             oid = _owner_id(parsed, user_id)
@@ -163,6 +180,15 @@ async def dictionary(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
 
         if action == "set_settings":
             oid = _owner_id(parsed, user_id)
+
+            async def _read_settings() -> Any:
+                return _json(
+                    await call_function(
+                        database, "public", "dict_get_settings_for", user_id, parsed.level, oid
+                    )
+                )
+
+            prior = await read_prior(_read_settings, what=f"dictionary settings {parsed.level}:{oid}")
             r = await call_function(
                 database,
                 "public",
@@ -172,7 +198,16 @@ async def dictionary(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
                 oid,
                 parsed.max_inline_chars,
             )
-            return _ok(ctx, started, _json(r))
+            after = _json(r)
+            return structured_surface_write(
+                _ok(ctx, started, after),
+                before=prior,
+                after=after,
+                target_type="dictionary_settings",
+                target_id=f"{parsed.level}:{oid}",
+                target_label=f"{parsed.level} dictionary settings",
+                keys=("max_inline_chars",),
+            )
 
         if action == "fetch_user_content":
             return _ok(ctx, started, await _fetch_user_content(user_id, parsed))
@@ -189,6 +224,45 @@ async def dictionary(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         return _err(ctx, started, etype, msg)
 
     return _err(ctx, started, "invalid_arguments", f"dictionary: unknown action {action!r}")
+
+
+#: Entry columns that are bookkeeping, not the entry — kept out of the receipt.
+_ENTRY_HIDDEN = frozenset({"created_at", "updated_at", "created_by", "updated_by"})
+
+
+def _entries_surface_write(
+    result: ToolResult,
+    prior: list[dict[str, Any]] | None,
+    written: list[dict[str, Any]],
+    *,
+    target_id: str,
+) -> ToolResult:
+    """Before → after of exactly the entries this upsert returned, keyed by term.
+
+    An entry absent before is an addition; an existing one shows its moved fields."""
+    from matrx_ai.tools.structured_surface_write import structured_surface_write
+
+    def _key(row: dict[str, Any]) -> str:
+        return str(row.get("term") or row.get("id"))
+
+    def _view(row: dict[str, Any]) -> dict[str, Any]:
+        return {k: v for k, v in row.items() if k not in _ENTRY_HIDDEN}
+
+    ids = {str(r.get("id")) for r in written}
+    before = (
+        {_key(r): _view(r) for r in prior if str(r.get("id")) in ids} if prior is not None else None
+    )
+    after = {_key(r): _view(r) for r in written}
+    return structured_surface_write(
+        result,
+        before=before,
+        after=after,
+        keys=tuple(after),
+        target_type="dictionary_entries",
+        target_id=target_id,
+        target_label=f"{len(written)} dictionary entr{'y' if len(written) == 1 else 'ies'}",
+        edits=len(written),
+    )
 
 
 # Registered in matrx_ai/tools/_generated_declarations.py via _reg(...) — the

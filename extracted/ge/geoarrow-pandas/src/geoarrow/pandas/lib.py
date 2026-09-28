@@ -1,9 +1,11 @@
 import re as _re
-import pandas as _pd
-import pyarrow as _pa
-import numpy as _np
-from geoarrow.c import lib
+
 import geoarrow.pyarrow as _ga
+import numpy as _np
+import pyarrow as _pa
+from geoarrow.types import Encoding, TypeSpec, type_spec
+
+import pandas as _pd
 
 
 class GeoArrowExtensionScalar(bytes):
@@ -79,11 +81,14 @@ class GeoArrowExtensionArray(_pd.api.extensions.ExtensionArray):
     not instantiate this class directly.
     """
 
+    # Added to pandas' ExtensionArray base class in pandas 3.0. Defining it
+    # here keeps the behavior consistent when using older pandas versions.
+    _readonly = False
+
     def __init__(self, obj, type=None):
         if type is not None:
             self._dtype = GeoArrowExtensionDtype(type)
-            arrow_type = _ga.GeometryExtensionType._from_ctype(self._dtype._parent)
-            self._data = _ga.array(obj, arrow_type)
+            self._data = _ga.array(obj, self._dtype._parent)
         else:
             self._data = _ga.array(obj)
             self._dtype = GeoArrowExtensionDtype(self._data.type)
@@ -106,10 +111,12 @@ class GeoArrowExtensionArray(_pd.api.extensions.ExtensionArray):
             else:
                 return None
         elif isinstance(item, slice):
-            return GeoArrowExtensionArray(self._data[item])
-        elif isinstance(item, list):
-            return self.take(item)
-        elif hasattr(item, "dtype") and item.dtype.kind == "i":
+            result = GeoArrowExtensionArray(self._data[item])
+            result._readonly = self._readonly
+            return result
+        elif (
+            isinstance(item, list) or hasattr(item, "dtype") and item.dtype.kind == "i"
+        ):
             return self.take(item)
         elif hasattr(item, "dtype") and item.dtype.kind == "b":
             if len(item) != len(self):
@@ -127,6 +134,32 @@ class GeoArrowExtensionArray(_pd.api.extensions.ExtensionArray):
             raise IndexError(
                 "only integers, slices (`:`), ellipsis (`...`), numpy.newaxis (`None`) and integer or boolean arrays are valid indices"
             )
+
+    def __setitem__(self, key, value):
+        if self._readonly:
+            raise ValueError("Cannot modify read-only array")
+
+        values = list(self)
+        indices = _np.arange(len(self))[key]
+
+        if _np.isscalar(indices):
+            values[int(indices)] = value
+        else:
+            indices = indices.tolist()
+            if _pd.api.types.is_scalar(value):
+                for index in indices:
+                    values[index] = value
+            else:
+                replacements = list(value)
+                if len(replacements) != len(indices):
+                    raise ValueError(
+                        "Length of values does not match length of indexer"
+                    )
+                for index, replacement in zip(indices, replacements):
+                    values[index] = replacement
+
+        replacement = self._from_sequence(values, dtype=self.dtype)
+        self._data = replacement._data
 
     def __contains__(self, item: object):
         for scalar in self:
@@ -246,8 +279,8 @@ class GeoArrowExtensionArray(_pd.api.extensions.ExtensionArray):
 
         return _np.array(list(self), dtype=object)
 
-    def __array__(self, dtype=None):
-        return self.to_numpy(dtype=dtype)
+    def __array__(self, dtype=None, copy=True):
+        return self.to_numpy(dtype=dtype, copy=copy)
 
 
 @_pd.api.extensions.register_extension_dtype
@@ -270,20 +303,20 @@ class GeoArrowExtensionDtype(_pd.api.extensions.ExtensionDtype):
 
     def __init__(self, parent):
         if isinstance(parent, _ga.GeometryExtensionType):
-            self._parent = parent._type
-        elif isinstance(parent, lib.CVectorType):
             self._parent = parent
+        elif isinstance(parent, TypeSpec):
+            self._parent = _ga.extension_type(parent)
         elif isinstance(parent, GeoArrowExtensionDtype):
             self._parent = parent._parent
         else:
             raise TypeError(
-                "`geoarrow_type` must inherit from geoarrow.pyarrow.VectorType, "
-                "geoarrow.CVectorType, or geoarrow.pandas.GeoArrowExtensionDtype"
+                "`geoarrow_type` must be a pyarrow extension type, "
+                "geoarrow.types.TypeSpec, or geoarrow.pandas.GeoArrowExtensionDtype"
             )
 
     @property
     def pyarrow_dtype(self):
-        return _ga.GeometryExtensionType._from_ctype(self._parent)
+        return self._parent
 
     @property
     def type(self):
@@ -322,9 +355,9 @@ class GeoArrowExtensionDtype(_pd.api.extensions.ExtensionDtype):
         if params["coord_type"] == "[interleaved]":
             coord_type = _ga.CoordType.INTERLEAVED
         elif params["type"] in ("wkt", "wkb"):
-            coord_type = _ga.CoordType.UNKNOWN
+            coord_type = _ga.CoordType.UNSPECIFIED
         else:
-            coord_type = _ga.CoordType.SEPARATE
+            coord_type = _ga.CoordType.SEPARATED
 
         if params["type"] == "point":
             geometry_type = _ga.GeometryType.POINT
@@ -346,7 +379,9 @@ class GeoArrowExtensionDtype(_pd.api.extensions.ExtensionDtype):
         elif params["type"] == "wkt":
             base_type = _ga.wkt()
         else:
-            base_type = _ga.extension_type(geometry_type, dims, coord_type)
+            base_type = _ga.extension_type(
+                type_spec(Encoding.GEOARROW, geometry_type, dims, coord_type)
+            )
 
         try:
             if params["metadata"]:
@@ -361,13 +396,13 @@ class GeoArrowExtensionDtype(_pd.api.extensions.ExtensionDtype):
             ) from e
 
     def __repr__(self):
-        return f"{type(self).__name__}({repr(self._parent)})"
+        return f"{type(self).__name__}({self._parent!r})"
 
     def __str__(self):
         ext_name = self._parent.extension_name
         ext_dims = self._parent.dimensions
         ext_coord = self._parent.coord_type
-        ext_meta = self._parent.extension_metadata.decode("UTF-8")
+        ext_meta = self._parent.__arrow_ext_serialize__().decode("UTF-8")
 
         if ext_dims == _ga.Dimensions.XYZ:
             dims_str = "[z]"
@@ -439,7 +474,14 @@ class GeoArrowAccessor:
         )
 
     def _obj_is_geoarrow(self):
-        return isinstance(self._obj.dtype, GeoArrowExtensionDtype)
+        if isinstance(self._obj.dtype, GeoArrowExtensionDtype):
+            return True
+
+        if not isinstance(self._obj.dtype, _pd.ArrowDtype):
+            return False
+
+        arrow_type = self._obj.dtype.pyarrow_dtype
+        return isinstance(arrow_type, _ga.GeometryExtensionType)
 
     def parse_all(self):
         """See :func:`geoarrow.pyarrow.parse_all`"""
@@ -498,18 +540,18 @@ class GeoArrowAccessor:
         """See :func:`geoarrow.pyarrow.box`"""
         array_or_chunked = _ga.box(self._obj)
         if isinstance(array_or_chunked, _pa.ChunkedArray):
-            flattened = [chunk.flatten() for chunk in array_or_chunked.chunks]
+            flattened = [chunk.storage.flatten() for chunk in array_or_chunked.chunks]
             seriesish = [
                 _pa.chunked_array(item, _pa.float64()) for item in zip(*flattened)
             ]
         else:
-            seriesish = array_or_chunked.flatten()
+            seriesish = array_or_chunked.storage.flatten()
 
         return _pd.DataFrame(
             {
                 "xmin": seriesish[0],
-                "xmax": seriesish[1],
-                "ymin": seriesish[2],
+                "xmax": seriesish[2],
+                "ymin": seriesish[1],
                 "ymax": seriesish[3],
             },
             index=self._obj.index,
@@ -528,9 +570,9 @@ class GeoArrowAccessor:
         """See :func:`geoarrow.pyarrow.with_edge_type`"""
         return self._wrap_series(_ga.with_edge_type(self._obj, edge_type))
 
-    def with_crs(self, crs, crs_type=None):
+    def with_crs(self, crs):
         """See :func:`geoarrow.pyarrow.with_crs`"""
-        return self._wrap_series(_ga.with_crs(self._obj, crs=crs, crs_type=crs_type))
+        return self._wrap_series(_ga.with_crs(self._obj, crs=crs))
 
     def with_dimensions(self, dimensions):
         """See :func:`geoarrow.pyarrow.with_dimensions`"""

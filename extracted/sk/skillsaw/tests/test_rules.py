@@ -25,7 +25,6 @@ from skillsaw.rules.builtin.marketplace import (
     MarketplaceJsonValidRule,
     MarketplaceRegistrationRule,
 )
-from skillsaw.rules.builtin.skills import SkillFrontmatterRule
 
 
 def test_plugin_json_required_passes(valid_plugin):
@@ -465,8 +464,8 @@ def test_marketplace_name_not_kebab_case_warns(temp_dir):
     assert kebab[0].severity == Severity.WARNING
 
 
-def test_marketplace_command_bun_note_warns_while_executions_error(temp_dir):
-    """The bun note is a verify-intent heads-up; execution findings are not."""
+def test_marketplace_local_bun_is_allowed_while_download_execution_errors(temp_dir):
+    """A local runtime is allowed; downloading and executing code is not."""
     (temp_dir / "bun").mkdir()
     bun_repo = _marketplace_with(
         temp_dir / "bun",
@@ -475,9 +474,7 @@ def test_marketplace_command_bun_note_warns_while_executions_error(temp_dir):
         ],
     )
     violations = MarketplaceJsonValidRule().check(RepositoryContext(bun_repo))
-    bun = [v for v in violations if "uses bun runtime" in v.message]
-    assert len(bun) == 1
-    assert bun[0].severity == Severity.WARNING
+    assert violations == []
 
     (temp_dir / "exec").mkdir()
     exec_repo = _marketplace_with(
@@ -896,29 +893,6 @@ def test_valid_severity_override():
     """Test that a valid severity string overrides the default"""
     rule = PluginJsonRequiredRule({"severity": "warning"})
     assert rule.severity == Severity.WARNING
-
-
-def test_skill_frontmatter_malformed_yaml_reports_line(temp_dir):
-    """Malformed YAML frontmatter should report the error line number."""
-    plugin_dir = temp_dir / "test-plugin"
-    plugin_dir.mkdir()
-    claude_dir = plugin_dir / ".claude-plugin"
-    claude_dir.mkdir()
-    (claude_dir / "plugin.json").write_text(
-        '{"name": "test-plugin", "description": "test", "version": "1.0"}'
-    )
-    skills_dir = plugin_dir / "skills" / "bad-skill"
-    skills_dir.mkdir(parents=True)
-    (skills_dir / "SKILL.md").write_text(
-        "---\nname: bad\ndescription: test\nbad: [unclosed\n---\n# Body\n"
-    )
-    context = RepositoryContext(plugin_dir)
-    rule = SkillFrontmatterRule()
-    violations = rule.check(context)
-    fm_violations = [v for v in violations if "Invalid frontmatter" in v.message]
-    assert len(fm_violations) == 1
-    assert fm_violations[0].line is not None
-    assert fm_violations[0].line == 5
 
 
 # --- claude-marketplace-registration autofix ---

@@ -125,6 +125,11 @@ class TestOptimizer(unittest.TestCase):
         CREATE TABLE pivotable (id INT, cat TEXT, val INT, kind TEXT, amt INT);
         INSERT INTO pivotable VALUES (1, 'a', 10, 'x', 5);
         INSERT INTO pivotable VALUES (1, 'b', 20, 'x', 5);
+
+        CREATE TABLE comparisons AS
+        SELECT * FROM (VALUES (1), (2), (NULL)) AS x(a)
+        CROSS JOIN (VALUES (1), (2), (NULL)) AS y(b)
+        CROSS JOIN (VALUES (TRUE), (FALSE), (NULL)) AS z(c);
         """
         )
 
@@ -164,6 +169,11 @@ class TestOptimizer(unittest.TestCase):
                 "a": "BOOLEAN",
                 "b": "BOOLEAN",
             },
+            "comparisons": {
+                "a": "INT",
+                "b": "INT",
+                "c": "BOOLEAN",
+            },
             "unpivotable": {
                 "id": "INT",
                 "jan": "INT",
@@ -185,7 +195,7 @@ class TestOptimizer(unittest.TestCase):
         file,
         func,
         pretty=False,
-        execute=False,
+        execute=None,
         only=None,
         **kwargs,
     ):
@@ -226,7 +236,7 @@ class TestOptimizer(unittest.TestCase):
                     title,
                     expected,
                     dialect,
-                    execute if meta.get("execute") is None else False,
+                    False if execute is False else meta.get("execute", execute),
                 )
 
         for future in as_completed(results):
@@ -247,11 +257,12 @@ class TestOptimizer(unittest.TestCase):
 
                 if string_to_bool(execute):
                     with self.subTest(f"(execute) {title}"):
-                        df1 = self.conn.execute(
-                            sqlglot.transpile(sql, read=dialect, write="duckdb")[0]
-                        ).df()
-                        df2 = self.conn.execute(optimized.sql(dialect="duckdb")).df()
-                        assert_frame_equal(df1, df2)
+                        dfs = []
+                        for expression in (parse_one(sql, read=dialect), optimized):
+                            if not isinstance(expression, (exp.Query, exp.Values)):
+                                expression = exp.select(exp.alias_(expression, "_col_0"))
+                            dfs.append(self.conn.execute(expression.sql(dialect="duckdb")).df())
+                        assert_frame_equal(*dfs)
 
     @patch("sqlglot.generator.logger")
     def test_optimize(self, logger):
@@ -1405,23 +1416,6 @@ SELECT :with_,WITH :expressions,CTE :this,UNION :this,SELECT :expressions,1,:exp
             "SELECT :expressions,item_id /* description */",
         )
 
-    def test_simplify_coalesce_null_fallback(self):
-        for predicate in (
-            "COALESCE(a, NULL, 1) = 1",
-            "1 = COALESCE(a, NULL, 1)",
-            "0 < COALESCE(a, NULL, -1)",
-            "COALESCE(a, NULL, b, 3) = 3",
-            "COALESCE(a, NULL, NULL, 1) = 1",
-            "COALESCE(a, NULL) = 1",
-        ):
-            with self.subTest(predicate=predicate):
-                sql = f"SELECT {predicate} FROM x"
-                simplified = simplify(parse_one(sql, read="duckdb"), dialect="duckdb")
-                self.assertEqual(
-                    self.conn.execute(sql).fetchall(),
-                    self.conn.execute(simplified.sql(dialect="duckdb")).fetchall(),
-                )
-
     def test_simplify_nested(self):
         sql = """
         SELECT x, 1 + 1
@@ -1626,6 +1620,33 @@ SELECT :with_,WITH :expressions,CTE :this,UNION :this,SELECT :expressions,1,:exp
         )
 
         self.check_file("merge_subqueries", optimize, execute=True, schema=self.schema)
+
+    def test_merge_subqueries_copy_budget(self):
+        # Each CTE references its source's projection twice, so merging the whole chain would
+        # double the expression at every step
+        ctes = ["q0 AS (SELECT x.a AS a FROM x AS x)"] + [
+            f"q{i} AS (SELECT q{i - 1}.a + q{i - 1}.a AS a FROM q{i - 1} AS q{i - 1})"
+            for i in range(1, 17)
+        ]
+        expression = parse_one(f"WITH {', '.join(ctes)} SELECT q16.a AS a FROM q16 AS q16")
+        input_size = sum(1 for _ in expression.walk())
+
+        merged = optimizer.merge_subqueries.merge_subqueries(expression.copy())
+        self.assertIsNotNone(merged.args.get("with_"))
+        self.assertLess(sum(1 for _ in merged.walk()), 10 * input_size)
+
+        # With no budget, only q16 is merged, since the outer query references it once
+        merged = optimizer.merge_subqueries.merge_subqueries(
+            expression.copy(), max_copy_factor=0, min_copy_budget=0
+        )
+        self.assertEqual(len(merged.args["with_"].expressions), 16)
+
+        # A None factor disables the budget, so everything is merged despite the zero minimum
+        short_chain = parse_one(f"WITH {', '.join(ctes[:5])} SELECT q4.a AS a FROM q4 AS q4")
+        merged = optimizer.merge_subqueries.merge_subqueries(
+            short_chain, max_copy_factor=None, min_copy_budget=0
+        )
+        self.assertIsNone(merged.args.get("with_"))
 
     def test_eliminate_subqueries(self):
         self.check_file("eliminate_subqueries", optimizer.eliminate_subqueries.eliminate_subqueries)
@@ -1935,7 +1956,9 @@ SELECT :with_,WITH :expressions,CTE :this,UNION :this,SELECT :expressions,1,:exp
         self.check_file("tpc-h/tpc-h", optimizer.optimize, schema=TPCH_SCHEMA, pretty=True)
 
     def test_tpcds(self):
-        self.check_file("tpc-ds/tpc-ds", optimizer.optimize, schema=TPCDS_SCHEMA, pretty=True)
+        self.check_file(
+            "tpc-ds/tpc-ds", optimizer.optimize, schema=TPCDS_SCHEMA, pretty=True, execute=False
+        )
 
     def test_file_schema(self):
         self.assertEqual(

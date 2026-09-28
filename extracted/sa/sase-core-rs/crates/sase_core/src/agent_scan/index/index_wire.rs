@@ -1,7 +1,7 @@
 use crate::agent_scan::wire::{AgentArtifactRecordShapeWire, UsedXPromptWire};
 use serde::{Deserialize, Serialize};
 
-pub const AGENT_ARTIFACT_INDEX_SCHEMA_VERSION: u32 = 31;
+pub const AGENT_ARTIFACT_INDEX_SCHEMA_VERSION: u32 = 34;
 
 /// Newest hidden terminal rows kept hot in the materialized SQLite view.
 ///
@@ -131,6 +131,11 @@ pub enum AgentArtifactIndexFreshnessWire {
 }
 
 /// Scalar fields that can be tested before `record_json` is decoded.
+///
+/// `AgentSession` reads the indexed `agent_session` column, which stores
+/// `agent_meta.agent_session`. Matching is case-insensitive like every other
+/// `Equals` field, so a caller that needs an exact lane match re-checks the
+/// hydrated record.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum AgentArtifactCandidateFieldWire {
@@ -140,6 +145,7 @@ pub enum AgentArtifactCandidateFieldWire {
     Provider,
     Machine,
     Type,
+    AgentSession,
 }
 
 /// Exact candidate filter compiled by Python from the agent-query AST.
@@ -188,9 +194,9 @@ pub struct AgentArtifactIndexQueryWire {
     pub include_hidden: bool,
     #[serde(default)]
     pub freshness: AgentArtifactIndexFreshnessWire,
-    /// Restrict results to real monitor family members
-    /// (`agent_meta.agent_family_role == "monitor"` and a non-empty
-    /// `agent_meta.family_shell.id` on a `"monitor"`-kind shell).
+    /// Restrict results to real monitor agent session members
+    /// (`agent_meta.agent_session_role == "monitor"` and a non-empty
+    /// `agent_meta.agent_session_turn.id` on a `"monitor"`-kind turn).
     #[serde(default)]
     pub only_monitors: bool,
     #[serde(default)]

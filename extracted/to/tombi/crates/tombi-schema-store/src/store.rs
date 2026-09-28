@@ -1,14 +1,20 @@
-use std::{borrow::Cow, ops::Deref, str::FromStr, sync::Arc};
+use std::{
+    borrow::Cow,
+    ops::Deref,
+    str::FromStr,
+    sync::{Arc, Weak},
+};
 
 use crate::resolve_json_pointer;
 use crate::{
     AllOfSchema, AnyOfSchema, CatalogUri, DocumentSchema, OneOfSchema, PatternAccessor,
-    PatternAccessors, SchemaView, SourceSchema, SubSchemaLink, SubSchemaLinkMap,
-    get_tombi_schemastore_content,
+    PatternAccessors, SchemaDocumentResources, SchemaView, SourceSchema, SubSchemaLink,
+    SubSchemaLinkMap, get_tombi_schemastore_content,
     http_client::{DefaultHttpClient, HttpClient},
     json::JsonCatalog,
 };
 use itertools::{Either, Itertools};
+use parking_lot::RwLock as ParkingRwLock;
 use tokio::sync::RwLock;
 #[cfg(feature = "ast-syntax")]
 use tombi_ast_syntax::SchemaDocumentCommentDirective;
@@ -18,6 +24,53 @@ use tombi_future::{BoxFuture, Boxable};
 use tombi_uri::SchemaUri;
 
 type DocumentSchemas = Arc<RwLock<tombi_hashmap::HashMap<SchemaUri, CachedDocumentSchema>>>;
+// Index operations are short and never span an `.await`; avoid scheduling an
+// async lock acquisition on every schema reference during parallel formatting.
+type SchemaResourceIndex =
+    Arc<ParkingRwLock<tombi_hashmap::HashMap<SchemaUri, SchemaResourceLocation>>>;
+
+tokio::task_local! {
+    /// Same-task stack of schema URIs currently being built. Detects cyclic embedded
+    /// root `$ref`s without blocking concurrent loads on other tasks.
+    static LOADING_SCHEMA_URIS: std::cell::RefCell<tombi_hashmap::HashSet<SchemaUri>>;
+
+    /// Same-task, in-progress `DocumentSchema`s (no `schema_view` yet, but with
+    /// `anchors` / `dynamic_anchors` already collected), keyed by resource URI.
+    /// A resource whose root `$ref` is a self-bookended `$dynamicRef` /
+    /// `$recursiveRef` looks itself up while still being built; this gives that
+    /// reentrant lookup something to find instead of failing outright. Entries
+    /// are removed via `PartialDocumentSchemaGuard`'s `Drop` once their resource
+    /// finishes loading, so a stale partial can never shadow the real,
+    /// fully-resolved document for a later lookup in the same call tree, and
+    /// nothing here ever reaches the persistent `document_schemas` cache.
+    pub(crate) static PARTIAL_DOCUMENT_SCHEMAS: std::cell::RefCell<tombi_hashmap::HashMap<SchemaUri, Arc<DocumentSchema>>>;
+}
+
+/// Registers a resource's in-progress `DocumentSchema` in
+/// [`PARTIAL_DOCUMENT_SCHEMAS`] for the lifetime of this guard, then removes
+/// it on `Drop` (whichever way loading finished). See the field's doc comment
+/// for why this must never leak into the persistent cache.
+pub(crate) struct PartialDocumentSchemaGuard {
+    schema_uri: SchemaUri,
+}
+
+impl PartialDocumentSchemaGuard {
+    pub(crate) fn register(schema_uri: SchemaUri, document_schema: Arc<DocumentSchema>) -> Self {
+        let _ = PARTIAL_DOCUMENT_SCHEMAS.try_with(|partials| {
+            partials
+                .borrow_mut()
+                .insert(schema_uri.clone(), document_schema);
+        });
+        Self { schema_uri }
+    }
+}
+
+impl Drop for PartialDocumentSchemaGuard {
+    fn drop(&mut self) {
+        let _ = PARTIAL_DOCUMENT_SCHEMAS
+            .try_with(|partials| partials.borrow_mut().remove(&self.schema_uri));
+    }
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct SchemaCacheVersion {
@@ -29,6 +82,13 @@ struct SchemaCacheVersion {
 struct CachedDocumentSchema {
     version: Option<SchemaCacheVersion>,
     document_schema: Result<Arc<DocumentSchema>, crate::Error>,
+}
+
+#[derive(Debug, Clone)]
+struct SchemaResourceLocation {
+    schema_document_uri: SchemaUri,
+    schema_resource_uri: SchemaUri,
+    schema_resources: Weak<SchemaDocumentResources>,
 }
 
 #[derive(Debug, Clone)]
@@ -106,6 +166,7 @@ pub struct AssociateSchemaOptions {
 pub struct SchemaStore {
     http_client: Arc<dyn HttpClient>,
     document_schemas: DocumentSchemas,
+    schema_resource_index: SchemaResourceIndex,
     schemas: Arc<RwLock<Vec<StoredSchema>>>,
     options: crate::Options,
     base_dir_path: Arc<RwLock<Option<std::path::PathBuf>>>,
@@ -127,7 +188,69 @@ impl SchemaStore {
     }
 
     pub async fn is_empty(&self) -> bool {
-        self.document_schemas.read().await.is_empty() && self.schemas.read().await.is_empty()
+        // `schemas` is populated by `load_config` / associations and is the usual
+        // non-empty signal after initialization, so check it first to short-circuit.
+        // `schema_resource_index` is derived from cached documents (and may retain
+        // stale `Weak` entries), so it is not needed for emptiness.
+        self.schemas.read().await.is_empty() && self.document_schemas.read().await.is_empty()
+    }
+
+    /// Returns the physical file URI that owns a schema resource.
+    /// The fragment from `schema_uri` is preserved so callers can keep source ranges.
+    pub async fn source_schema_uri(&self, schema_uri: &SchemaUri) -> Option<SchemaUri> {
+        let fragment = schema_uri.fragment().map(ToOwned::to_owned);
+        let mut schema_resource_uri = schema_uri.clone();
+        schema_resource_uri.set_fragment(None);
+
+        let location = self
+            .schema_resource_index
+            .read()
+            .get(&schema_resource_uri)
+            .cloned()?;
+        let schema_resources = location.schema_resources.upgrade()?;
+        let is_root = location.schema_resource_uri == *schema_resources.root_schema_resource_uri();
+        let mut source_schema_uri = schema_resources.schema_document_uri().clone();
+        if is_root && source_schema_uri.scheme() != "file" {
+            return None;
+        }
+        source_schema_uri.set_fragment(fragment.as_deref());
+        Some(source_schema_uri)
+    }
+
+    /// Physical document that owns `schema_uri`, or `schema_uri` itself when it is not embedded.
+    pub async fn schema_document_uri_for(&self, schema_uri: &SchemaUri) -> SchemaUri {
+        let mut schema_resource_uri = schema_uri.clone();
+        schema_resource_uri.set_fragment(None);
+        let Some(location) = self
+            .schema_resource_index
+            .read()
+            .get(&schema_resource_uri)
+            .cloned()
+        else {
+            return schema_resource_uri;
+        };
+        let Some(schema_resources) = location.schema_resources.upgrade() else {
+            return schema_resource_uri;
+        };
+        schema_resources.schema_document_uri().clone()
+    }
+
+    /// Dialect of an indexed schema resource, including dialect inherited from the enclosing resource.
+    pub async fn schema_resource_dialect(
+        &self,
+        schema_uri: &SchemaUri,
+    ) -> Option<crate::JsonSchemaDialect> {
+        let mut schema_resource_uri = schema_uri.clone();
+        schema_resource_uri.set_fragment(None);
+        let location = self
+            .schema_resource_index
+            .read()
+            .get(&schema_resource_uri)
+            .cloned()?;
+        let schema_resources = location.schema_resources.upgrade()?;
+        schema_resources
+            .resource(&location.schema_resource_uri)?
+            .dialect
     }
 
     /// New with options
@@ -146,6 +269,7 @@ impl SchemaStore {
         Self {
             http_client,
             document_schemas: Arc::new(RwLock::default()),
+            schema_resource_index: Arc::new(ParkingRwLock::default()),
             schemas: Arc::new(RwLock::new(Vec::new())),
             options,
             base_dir_path: Arc::new(RwLock::new(None)),
@@ -186,6 +310,7 @@ impl SchemaStore {
         config_path: Option<&std::path::Path>,
     ) -> Result<(), crate::Error> {
         self.document_schemas.write().await.clear();
+        self.schema_resource_index.write().clear();
         self.schemas.write().await.clear();
         self.load_config(config, config_path).await?;
         Ok(())
@@ -481,6 +606,29 @@ impl SchemaStore {
         &self,
         schema_uri: &SchemaUri,
     ) -> Result<Option<tombi_json::ValueNode>, crate::Error> {
+        let mut schema_resource_uri = schema_uri.clone();
+        schema_resource_uri.set_fragment(None);
+        let location = self
+            .schema_resource_index
+            .read()
+            .get(&schema_resource_uri)
+            .cloned();
+        if let Some(location) = location {
+            if let Some(schema_resources) = location.schema_resources.upgrade() {
+                if schema_resource_uri != *schema_resources.schema_document_uri()
+                    && let Some(resource) = schema_resources.resource(&location.schema_resource_uri)
+                {
+                    return Ok(schema_resources.resource_value(resource).cloned());
+                }
+            } else if location.schema_document_uri != schema_resource_uri {
+                // Stale Weak index entry: drop it and fall through to file/HTTP fetch
+                // so embedded-then-external fallback still works.
+                self.schema_resource_index
+                    .write()
+                    .remove(&schema_resource_uri);
+            }
+        }
+
         match schema_uri.scheme() {
             "file" => {
                 let schema_path = tombi_uri::Uri::to_file_path(schema_uri).map_err(|_| {
@@ -607,30 +755,303 @@ impl SchemaStore {
                 schema_uri: schema_uri.clone(),
             });
         }
-        let document_schema =
-            DocumentSchema::new(schema_value, schema_uri.clone(), None, self).await;
+        let schema_resources =
+            SchemaDocumentResources::collect(schema_value, schema_uri, self).await?;
+        self.replace_schema_resources(schema_resources.clone())
+            .await?;
+        let document_schema = DocumentSchema::new_resource(
+            schema_resources.clone(),
+            schema_resources.root_schema_resource_uri().clone(),
+            None,
+            self,
+        )
+        .await
+        .expect("the root schema resource must exist");
+        self.resolve_root_composite_schemas(&document_schema)
+            .await?;
+
+        Ok(Some(Arc::new(document_schema)))
+    }
+
+    async fn resolve_root_composite_schemas(
+        &self,
+        document_schema: &DocumentSchema,
+    ) -> Result<(), crate::Error> {
         if let Some(
             SchemaView::AllOf(AllOfSchema { schemas, .. })
             | SchemaView::AnyOf(AnyOfSchema { schemas, .. })
             | SchemaView::OneOf(OneOfSchema { schemas, .. }),
         ) = document_schema.schema_view.as_deref()
         {
-            let document_base_uri = document_schema.base_uri().clone();
-            {
-                for referable_schema in schemas.write().await.iter_mut() {
-                    referable_schema
-                        .resolve(
-                            Cow::Borrowed(&document_base_uri),
-                            Cow::Borrowed(&document_schema.definitions),
-                            None,
-                            self,
-                        )
-                        .await?;
+            for referable_schema in schemas.write().await.iter_mut() {
+                if referable_schema.is_context_dependent_reference() {
+                    continue;
                 }
+                referable_schema
+                    .resolve(
+                        Cow::Borrowed(document_schema.schema_base_uri()),
+                        Cow::Borrowed(&document_schema.definitions),
+                        None,
+                        self,
+                    )
+                    .await?;
             }
         }
+        Ok(())
+    }
 
-        Ok(Some(Arc::new(document_schema)))
+    pub(crate) async fn replace_schema_resources(
+        &self,
+        schema_resources: Arc<SchemaDocumentResources>,
+    ) -> Result<(), crate::Error> {
+        let schema_document_uri = schema_resources.schema_document_uri();
+        let root_schema_resource_uri = schema_resources.root_schema_resource_uri();
+        // Identity aliases for each resource, plus document→root when `$id` renames the root.
+        let mut aliases = schema_resources
+            .resource_uris()
+            .map(|schema_resource_uri| (schema_resource_uri.clone(), schema_resource_uri.clone()))
+            .collect_vec();
+        if schema_document_uri != root_schema_resource_uri {
+            aliases.push((
+                schema_document_uri.clone(),
+                root_schema_resource_uri.clone(),
+            ));
+        }
+        // Stable order so cross-document duplicate diagnostics are deterministic.
+        aliases.sort_by(|left, right| left.0.as_str().cmp(right.0.as_str()));
+
+        let stale_schema_resource_uris = {
+            let mut index = self.schema_resource_index.write();
+            for (alias_uri, schema_resource_uri) in &aliases {
+                if let Some(existing) = index.get(alias_uri)
+                    && existing.schema_document_uri != *schema_document_uri
+                    && let Some(existing_resources) = existing.schema_resources.upgrade()
+                {
+                    let existing_location = existing_resources
+                        .resource(&existing.schema_resource_uri)
+                        .map(|resource| resource.location.clone())
+                        .unwrap_or_else(|| "#".to_string());
+                    let conflicting_location = schema_resources
+                        .resource(schema_resource_uri)
+                        .map(|resource| resource.location.clone())
+                        .unwrap_or_else(|| "#".to_string());
+                    return Err(crate::Error::DuplicateSchemaResourceAcrossDocuments(
+                        Box::new(crate::error::DuplicateSchemaResourceAcrossDocuments {
+                            schema_uri: alias_uri.clone(),
+                            existing_schema_document_uri: existing.schema_document_uri.clone(),
+                            existing_location,
+                            conflicting_schema_document_uri: schema_document_uri.clone(),
+                            conflicting_location,
+                        }),
+                    ));
+                }
+            }
+
+            let stale_schema_resource_uris = index
+                .iter()
+                .filter_map(|(uri, location)| {
+                    (location.schema_document_uri == *schema_document_uri).then_some(uri.clone())
+                })
+                .collect_vec();
+            index.retain(|_, location| {
+                location.schema_document_uri != *schema_document_uri
+                    && location.schema_resources.upgrade().is_some()
+            });
+            for (alias_uri, schema_resource_uri) in aliases {
+                index.insert(
+                    alias_uri,
+                    SchemaResourceLocation {
+                        schema_document_uri: schema_document_uri.clone(),
+                        schema_resource_uri,
+                        schema_resources: Arc::downgrade(&schema_resources),
+                    },
+                );
+            }
+            stale_schema_resource_uris
+        };
+
+        if !stale_schema_resource_uris.is_empty() {
+            let mut document_schemas = self.document_schemas.write().await;
+            for uri in stale_schema_resource_uris {
+                document_schemas.remove(&uri);
+            }
+        }
+        Ok(())
+    }
+
+    async fn cache_document_schema(
+        &self,
+        schema_uri: &SchemaUri,
+        document_schema: Result<Arc<DocumentSchema>, crate::Error>,
+        version: Option<SchemaCacheVersion>,
+    ) {
+        self.document_schemas.write().await.insert(
+            schema_uri.clone(),
+            CachedDocumentSchema {
+                version,
+                document_schema,
+            },
+        );
+    }
+
+    async fn embedded_resource_location(
+        &self,
+        schema_uri: &SchemaUri,
+    ) -> Option<SchemaResourceLocation> {
+        let location = self.schema_resource_index.read().get(schema_uri).cloned()?;
+        if location.schema_document_uri == *schema_uri {
+            return None;
+        }
+        if location.schema_resources.upgrade().is_none() {
+            self.schema_resource_index.write().remove(schema_uri);
+            return None;
+        }
+        Some(location)
+    }
+
+    async fn load_embedded_document_schema(
+        &self,
+        schema_uri: &SchemaUri,
+        location: &SchemaResourceLocation,
+    ) -> Result<Option<Arc<DocumentSchema>>, crate::Error> {
+        let Some(_guard) = SchemaLoadGuard::try_enter(schema_uri) else {
+            // Same-task cyclic embedded root `$ref`: prefer a partial cache, else stop.
+            if let Some(cached) = self.document_schemas.read().await.get(schema_uri).cloned() {
+                return match cached.document_schema {
+                    Ok(document_schema) => Ok(Some(document_schema)),
+                    Err(err) => Err(err),
+                };
+            }
+            return Ok(None);
+        };
+
+        let parent_version = schema_cache_version(&location.schema_document_uri).await;
+        let parent_cached = self
+            .document_schemas
+            .read()
+            .await
+            .get(&location.schema_document_uri)
+            .cloned();
+        // Refresh the physical document only when a cached copy is stale. A missing
+        // parent cache means this graph is still being loaded and must not be re-entered.
+        if let Some(parent_cached) = parent_cached
+            && parent_cached.version != parent_version
+            && let Some(parent) = self
+                .fetch_document_schema(&location.schema_document_uri)
+                .await?
+        {
+            self.cache_document_schema(&location.schema_document_uri, Ok(parent), parent_version)
+                .await;
+        }
+
+        let location = self
+            .schema_resource_index
+            .read()
+            .get(schema_uri)
+            .cloned()
+            .unwrap_or_else(|| location.clone());
+        let Some(schema_resources) = location.schema_resources.upgrade() else {
+            return Ok(None);
+        };
+        let Some(document_schema) = DocumentSchema::new_resource(
+            schema_resources,
+            location.schema_resource_uri.clone(),
+            None,
+            self,
+        )
+        .await
+        else {
+            return Ok(None);
+        };
+        self.resolve_root_composite_schemas(&document_schema)
+            .await?;
+        let document_schema = Arc::new(document_schema);
+        let version = schema_cache_version(&location.schema_document_uri).await;
+        self.cache_document_schema(schema_uri, Ok(document_schema.clone()), version)
+            .await;
+        Ok(Some(document_schema))
+    }
+
+    async fn load_retrieved_document_schema(
+        &self,
+        schema_uri: &SchemaUri,
+    ) -> Result<Option<Arc<DocumentSchema>>, crate::Error> {
+        let Some(_guard) = SchemaLoadGuard::try_enter(schema_uri) else {
+            if let Some(cached) = self.document_schemas.read().await.get(schema_uri).cloned() {
+                return match cached.document_schema {
+                    Ok(document_schema) => Ok(Some(document_schema)),
+                    Err(err) => Err(err),
+                };
+            }
+            return Ok(None);
+        };
+
+        match self.fetch_document_schema(schema_uri).await {
+            Ok(Some(document_schema)) => {
+                let cache_version = schema_cache_version(schema_uri).await;
+                self.cache_document_schema(schema_uri, Ok(document_schema.clone()), cache_version)
+                    .await;
+                Ok(Some(document_schema))
+            }
+            Ok(None) => Ok(None),
+            Err(error) => {
+                let pin_error = self
+                    .document_schemas
+                    .read()
+                    .await
+                    .get(schema_uri)
+                    .is_some_and(|cached| cached.document_schema.is_ok());
+                // Always drop partial index from this attempt; only pin Err when a prior
+                // successful document existed (true reload fail-closed).
+                self.invalidate_schema_document_after_fetch_error(
+                    schema_uri,
+                    error.clone(),
+                    pin_error,
+                )
+                .await;
+                Err(error)
+            }
+        }
+    }
+
+    /// Drop index entries produced by a failed fetch. Optionally pin `Err` so a
+    /// changed-on-disk reload does not keep serving the previous successful graph.
+    async fn invalidate_schema_document_after_fetch_error(
+        &self,
+        schema_document_uri: &SchemaUri,
+        error: crate::Error,
+        pin_error: bool,
+    ) {
+        let stale_schema_resource_uris = {
+            let mut index = self.schema_resource_index.write();
+            let stale_schema_resource_uris = index
+                .iter()
+                .filter_map(|(uri, location)| {
+                    (location.schema_document_uri == *schema_document_uri).then_some(uri.clone())
+                })
+                .collect_vec();
+            for uri in &stale_schema_resource_uris {
+                index.remove(uri);
+            }
+            stale_schema_resource_uris
+        };
+
+        let version = schema_cache_version(schema_document_uri).await;
+        let mut document_schemas = self.document_schemas.write().await;
+        for uri in stale_schema_resource_uris {
+            document_schemas.remove(&uri);
+        }
+        if pin_error && let Some(version) = version {
+            document_schemas.insert(
+                schema_document_uri.clone(),
+                CachedDocumentSchema {
+                    version: Some(version),
+                    document_schema: Err(error),
+                },
+            );
+        } else {
+            document_schemas.remove(schema_document_uri);
+        }
     }
 
     pub fn try_get_document_schema<'a: 'b, 'b>(
@@ -638,129 +1059,150 @@ impl SchemaStore {
         schema_uri: &'a SchemaUri,
     ) -> BoxFuture<'b, Result<Option<Arc<DocumentSchema>>, crate::Error>> {
         async move {
-            let requested_schema_uri = schema_uri.clone();
+            match LOADING_SCHEMA_URIS.try_with(|_| ()) {
+                Ok(()) => self.try_get_document_schema_inner(schema_uri).await,
+                Err(_) => {
+                    LOADING_SCHEMA_URIS
+                        .scope(
+                            std::cell::RefCell::new(tombi_hashmap::HashSet::default()),
+                            PARTIAL_DOCUMENT_SCHEMAS.scope(
+                                std::cell::RefCell::new(tombi_hashmap::HashMap::default()),
+                                self.try_get_document_schema_inner(schema_uri),
+                            ),
+                        )
+                        .await
+                }
+            }
+        }
+        .boxed()
+    }
 
-            let (schema_uri, fragment) = {
-                let mut uri = schema_uri.clone();
-                let fragment = uri.fragment().map(ToOwned::to_owned);
-                uri.set_fragment(None);
-                (uri, fragment)
-            };
+    async fn try_get_document_schema_inner(
+        &self,
+        schema_uri: &SchemaUri,
+    ) -> Result<Option<Arc<DocumentSchema>>, crate::Error> {
+        let requested_schema_uri = schema_uri.clone();
 
+        let (schema_uri, fragment) = {
+            let mut uri = schema_uri.clone();
+            let fragment = uri.fragment().map(ToOwned::to_owned);
+            uri.set_fragment(None);
+            (uri, fragment)
+        };
+
+        // A resource still under construction (its `PartialDocumentSchemaGuard`
+        // has not dropped yet) looking itself up, e.g. a root `$dynamicRef` /
+        // `$recursiveRef` bookended against its own `$defs`. Prefer this over
+        // the persistent cache so a lookup mid-construction always sees the
+        // resource's own (already collected) `anchors` / `dynamic_anchors`
+        // rather than racing the real load below.
+        let partial_document_schema = PARTIAL_DOCUMENT_SCHEMAS
+            .try_with(|partials| partials.borrow().get(&schema_uri).cloned())
+            .ok()
+            .flatten();
+
+        let document_schema = if let Some(partial_document_schema) = partial_document_schema {
+            Some(partial_document_schema)
+        } else {
             let cached_document_schema =
                 self.document_schemas.read().await.get(&schema_uri).cloned();
-            let document_schema = if let Some(cached_document_schema) = cached_document_schema {
-                let cache_version = schema_cache_version(&schema_uri).await;
-                if cached_document_schema.version == cache_version {
+            let embedded_location = self.embedded_resource_location(&schema_uri).await;
+            if let Some(location) = embedded_location {
+                let parent_version = schema_cache_version(&location.schema_document_uri).await;
+                if let Some(cached_document_schema) = cached_document_schema
+                    && cached_document_schema.version == parent_version
+                {
                     match cached_document_schema.document_schema {
                         Ok(document_schema) => Some(document_schema),
                         Err(err) => return Err(err),
                     }
                 } else {
-                    match self.fetch_document_schema(&schema_uri).await.transpose() {
-                        Some(document_schema) => {
-                            let cache_version = schema_cache_version(&schema_uri).await;
-                            self.document_schemas.write().await.insert(
-                                schema_uri.clone(),
-                                CachedDocumentSchema {
-                                    version: cache_version,
-                                    document_schema: document_schema.clone(),
-                                },
-                            );
-                            Some(document_schema?)
-                        }
-                        None => None,
-                    }
+                    self.load_embedded_document_schema(&schema_uri, &location)
+                        .await?
+                }
+            } else if let Some(cached_document_schema) = cached_document_schema
+                && cached_document_schema.version == schema_cache_version(&schema_uri).await
+            {
+                match cached_document_schema.document_schema {
+                    Ok(document_schema) => Some(document_schema),
+                    Err(err) => return Err(err),
                 }
             } else {
-                match self.fetch_document_schema(&schema_uri).await.transpose() {
-                    Some(document_schema) => {
-                        let cache_version = schema_cache_version(&schema_uri).await;
-                        self.document_schemas.write().await.insert(
-                            schema_uri.clone(),
-                            CachedDocumentSchema {
-                                version: cache_version,
-                                document_schema: document_schema.clone(),
-                            },
-                        );
-                        Some(document_schema?)
-                    }
-                    None => None,
-                }
-            };
+                self.load_retrieved_document_schema(&schema_uri).await?
+            }
+        };
 
-            let Some(document_schema) = document_schema else {
+        let Some(document_schema) = document_schema else {
+            return Ok(None);
+        };
+
+        // If no fragment, return the base document schema as-is
+        let Some(fragment) = fragment else {
+            return Ok(Some(document_schema));
+        };
+
+        let fragment_reference = format!("#{fragment}");
+
+        // Handle JSON Pointer fragments (e.g., "#/definitions/TableValue")
+        if fragment_reference == "#" || fragment_reference.starts_with("#/") {
+            let Some(schema_value) = self.fetch_schema_value(&schema_uri).await? else {
                 return Ok(None);
             };
 
-            // If no fragment, return the base document schema as-is
-            let Some(fragment) = fragment else {
-                return Ok(Some(document_schema));
+            let Some(fragment_schema_view) = resolve_json_pointer(
+                &schema_value,
+                &fragment_reference,
+                document_schema.string_formats(),
+                document_schema.dialect(),
+            )?
+            else {
+                return Err(crate::Error::InvalidJsonPointer {
+                    pointer: fragment_reference,
+                    schema_uri,
+                });
             };
 
-            let fragment_reference = format!("#{fragment}");
-
-            // Handle JSON Pointer fragments (e.g., "#/definitions/TableValue")
-            if fragment_reference == "#" || fragment_reference.starts_with("#/") {
-                let Some(schema_value) = self.fetch_schema_value(&schema_uri).await? else {
-                    return Ok(None);
-                };
-
-                let Some(fragment_schema_view) = resolve_json_pointer(
-                    &schema_value,
-                    &fragment_reference,
-                    document_schema.string_formats(),
-                    document_schema.dialect(),
-                )?
-                else {
-                    return Err(crate::Error::InvalidJsonPointer {
-                        pointer: fragment_reference,
-                        schema_uri,
-                    });
-                };
-
-                // Create a new document schema with the fragment-referenced schema_uri in the return value
-                let mut fragment_document_schema = document_schema.as_ref().clone();
-                fragment_document_schema.schema_uri = requested_schema_uri; // Use fragment-full URI for return value
-                fragment_document_schema.schema_view = Some(Arc::new(fragment_schema_view));
-                return Ok(Some(Arc::new(fragment_document_schema)));
-            }
-
-            // Handle anchor fragments (e.g., "#anchorName")
-            let anchor_schema = {
-                let anchors = document_schema.anchors.read().await;
-                if let Some(schema) = anchors.get(&fragment_reference).cloned() {
-                    Some(schema)
-                } else {
-                    drop(anchors);
-                    let dynamic_anchors = document_schema.dynamic_anchors.read().await;
-                    dynamic_anchors.get(&fragment_reference).cloned()
-                }
-            };
-
-            if let Some(anchor_schema) = anchor_schema
-                && let Some(current_schema) = anchor_schema
-                    .to_current_schema(
-                        Cow::Borrowed(document_schema.base_uri()),
-                        Cow::Borrowed(&document_schema.definitions),
-                        None,
-                        self,
-                    )
-                    .await?
-            {
-                // Create a new document schema with the fragment-referenced schema_uri in the return value
-                let mut fragment_document_schema = document_schema.as_ref().clone();
-                fragment_document_schema.schema_uri = requested_schema_uri; // Use fragment-full URI for return value
-                fragment_document_schema.schema_view = Some(current_schema.schema_view);
-                return Ok(Some(Arc::new(fragment_document_schema)));
-            }
-
-            Err(crate::Error::InvalidJsonSchemaReference {
-                reference: fragment_reference,
-                schema_uri,
-            })
+            // Create a new document schema with the fragment-referenced schema_uri in the return value
+            let mut fragment_document_schema = document_schema.as_ref().clone();
+            fragment_document_schema.schema_uri = requested_schema_uri; // Instance URI may include fragment
+            fragment_document_schema.schema_view = Some(Arc::new(fragment_schema_view));
+            return Ok(Some(Arc::new(fragment_document_schema)));
         }
-        .boxed()
+
+        // Handle anchor fragments (e.g., "#anchorName")
+        let anchor_schema = {
+            let anchors = document_schema.anchors.read().await;
+            if let Some(schema) = anchors.get(&fragment_reference).cloned() {
+                Some(schema)
+            } else {
+                drop(anchors);
+                let dynamic_anchors = document_schema.dynamic_anchors.read().await;
+                dynamic_anchors.get(&fragment_reference).cloned()
+            }
+        };
+
+        if let Some(anchor_schema) = anchor_schema
+            && let Some(current_schema) = anchor_schema
+                .to_current_schema(
+                    Cow::Borrowed(document_schema.schema_base_uri()),
+                    Cow::Borrowed(&document_schema.definitions),
+                    None,
+                    self,
+                    None,
+                )
+                .await?
+        {
+            // Create a new document schema with the fragment-referenced schema_uri in the return value
+            let mut fragment_document_schema = document_schema.as_ref().clone();
+            fragment_document_schema.schema_uri = requested_schema_uri; // Instance URI may include fragment
+            fragment_document_schema.schema_view = Some(current_schema.schema_view);
+            return Ok(Some(Arc::new(fragment_document_schema)));
+        }
+
+        Err(crate::Error::InvalidJsonSchemaReference {
+            reference: fragment_reference,
+            schema_uri,
+        })
     }
 
     #[inline]
@@ -940,8 +1382,9 @@ impl SchemaStore {
                                 .sub_schema_link_map
                                 .contains_key(sub_root_accessors)
                             {
-                                let schema_uri_key =
-                                    Self::normalize_schema_uri_key(&document_schema.schema_uri);
+                                let schema_uri_key = Self::normalize_schema_uri_key(
+                                    document_schema.schema_document_uri(),
+                                );
                                 if matching_schema.strict.is_none() {
                                     sub_schemas_inheriting_strict.push(sub_root_accessors.clone());
                                 }
@@ -972,8 +1415,9 @@ impl SchemaStore {
                             }
                         }
                         None => {
-                            let schema_uri_key =
-                                Self::normalize_schema_uri_key(&document_schema.schema_uri);
+                            let schema_uri_key = Self::normalize_schema_uri_key(
+                                document_schema.schema_document_uri(),
+                            );
                             if matching_schema.strict.is_none() {
                                 sub_schemas_inheriting_strict.push(sub_root_accessors.clone());
                             }
@@ -1017,8 +1461,9 @@ impl SchemaStore {
                     None => match source_schema {
                         Some(ref mut existing) => {
                             if existing.root_schema.is_none() {
-                                let schema_uri_key =
-                                    Self::normalize_schema_uri_key(&document_schema.schema_uri);
+                                let schema_uri_key = Self::normalize_schema_uri_key(
+                                    document_schema.schema_document_uri(),
+                                );
                                 let toml_version =
                                     existing.toml_version().or(matching_schema.toml_version);
                                 let sub_schema_link_map =
@@ -1053,8 +1498,9 @@ impl SchemaStore {
                             }
                         }
                         None => {
-                            let schema_uri_key =
-                                Self::normalize_schema_uri_key(&document_schema.schema_uri);
+                            let schema_uri_key = Self::normalize_schema_uri_key(
+                                document_schema.schema_document_uri(),
+                            );
                             let mut schema_format_rules = crate::SchemaFormatRulesMap::default();
                             if let Some(format_rules) = &matching_schema.format_rules {
                                 schema_format_rules
@@ -1147,7 +1593,10 @@ impl SchemaStore {
         .inspect(|source_schema| {
             if let Some(source_schema) = source_schema {
                 if let Some(root_schema) = &source_schema.root_schema {
-                    log::trace!("find root schema from {}", root_schema.schema_uri);
+                    log::trace!(
+                        "find root schema from {}",
+                        root_schema.schema_document_uri()
+                    );
                 }
                 for (accessors, link) in &source_schema.sub_schema_link_map {
                     log::trace!(
@@ -1204,6 +1653,30 @@ impl SchemaStore {
             .iter()
             .map(|schema| schema.schema.clone())
             .collect()
+    }
+}
+
+struct SchemaLoadGuard {
+    schema_uri: SchemaUri,
+}
+
+impl SchemaLoadGuard {
+    /// Returns `None` when this task is already loading `schema_uri` (cycle).
+    fn try_enter(schema_uri: &SchemaUri) -> Option<Self> {
+        let inserted = LOADING_SCHEMA_URIS
+            .try_with(|loading| loading.borrow_mut().insert(schema_uri.clone()))
+            .unwrap_or(true);
+        inserted.then(|| Self {
+            schema_uri: schema_uri.clone(),
+        })
+    }
+}
+
+impl Drop for SchemaLoadGuard {
+    fn drop(&mut self) {
+        let _ = LOADING_SCHEMA_URIS.try_with(|loading| {
+            loading.borrow_mut().remove(&self.schema_uri);
+        });
     }
 }
 

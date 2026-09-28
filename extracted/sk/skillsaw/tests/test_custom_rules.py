@@ -632,13 +632,13 @@ class MyCustomRule(Rule):
     context = RepositoryContext(valid_plugin)
 
     violations = Linter(context, config, no_custom_rules=True).run()
-    assert not any(v.rule_id == "invalid-config" for v in violations)
+    assert not any(v.rule_id == "unknown-rule" for v in violations)
 
     # Without custom-rules files configured, a typo'd ID still warns.
     typo_config = LinterConfig(rules={"my-custom-rule": {"enabled": True}})
     context = RepositoryContext(valid_plugin)
     violations = Linter(context, typo_config, no_custom_rules=True).run()
-    assert any(v.rule_id == "invalid-config" for v in violations)
+    assert any(v.rule_id == "unknown-rule" for v in violations)
 
 
 def _write_custom_rule(path, rule_id, since=None):
@@ -1243,3 +1243,41 @@ def test_nonstring_schema_key_does_not_crash_suggestions(valid_plugin, temp_dir)
     warnings = _custom_option_warnings(violations, "nonstring-key-schema-rule")
     assert len(warnings) == 1
     assert "Unknown option 'oops'" in warnings[0].message
+
+
+@pytest.mark.parametrize("rebuild", ["pickle", "args"])
+def test_custom_rule_warning_round_trips(rebuild):
+    """Pickling and pytest-xdist (``cls(*args)``) must not double the message."""
+    import pickle
+
+    from skillsaw.linter import CustomRuleWarning
+
+    warning = CustomRuleWarning(Path("/repo/rules/custom.py"))
+    if rebuild == "pickle":
+        restored = pickle.loads(pickle.dumps(warning))
+    else:
+        restored = type(warning)(*warning.args)
+
+    assert str(restored.path) == str(warning.path)
+    assert str(restored) == str(warning)
+    assert str(restored).count("Loading custom rule file") == 1
+
+
+def test_custom_rule_warning_survives_xdist_transport():
+    """xdist ships a warning's args between workers; they must serialize."""
+    import warnings
+
+    execnet = pytest.importorskip("execnet")
+    from xdist.remote import serialize_warning_message
+    from xdist.workermanage import unserialize_warning_message
+
+    from skillsaw.linter import CustomRuleWarning
+
+    warning = CustomRuleWarning(Path("/repo/rules/custom.py"))
+    sent = serialize_warning_message(
+        warnings.WarningMessage(warning, CustomRuleWarning, "linter.py", 1)
+    )
+    restored = unserialize_warning_message(execnet.loads(execnet.dumps(sent))).message
+
+    assert isinstance(restored, CustomRuleWarning)
+    assert str(restored) == str(warning)

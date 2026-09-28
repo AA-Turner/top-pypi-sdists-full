@@ -194,6 +194,20 @@ _LEGEND_POSITION_PY2JS = {
     "corner": "Corner",
 }
 _PLOT_BY_PY2JS = {"rows": "Rows", "columns": "Columns"}
+_MARKER_STYLE_PY2JS = {
+    "automatic": "Automatic",
+    "none": "None",
+    "square": "Square",
+    "diamond": "Diamond",
+    "triangle": "Triangle",
+    "x": "X",
+    "star": "Star",
+    "dot": "Dot",
+    "dash": "Dash",
+    "circle": "Circle",
+    "plus": "Plus",
+}
+_MARKER_STYLE_JS2PY = {v: k for k, v in _MARKER_STYLE_PY2JS.items()}
 
 # xlwings' pivot vocabulary mapped to Office.js' Excel.AggregationFunction and
 # Excel.PivotLayoutType values. main.py validates, so plain lookups suffice.
@@ -236,6 +250,64 @@ _VERTICAL_ALIGNMENT_PY2JS = {
 }
 _VERTICAL_ALIGNMENT_JS2PY = {v: k for k, v in _VERTICAL_ALIGNMENT_PY2JS.items()}
 
+_CONDITIONAL_FORMAT_TYPE_JS2PY = {
+    "CellValue": "cell_value",
+    "Custom": "custom",
+    "ColorScale": "color_scale",
+    "DataBar": "data_bar",
+    "IconSet": "icon_set",
+}
+_CONDITIONAL_FORMAT_OPERATOR_PY2JS = {
+    "between": "Between",
+    "not_between": "NotBetween",
+    "equal_to": "EqualTo",
+    "not_equal_to": "NotEqualTo",
+    "greater_than": "GreaterThan",
+    "less_than": "LessThan",
+    "greater_than_or_equal": "GreaterThanOrEqual",
+    "less_than_or_equal": "LessThanOrEqual",
+}
+_CONDITIONAL_FORMAT_OPERATOR_JS2PY = {
+    value: key for key, value in _CONDITIONAL_FORMAT_OPERATOR_PY2JS.items()
+}
+_CONDITIONAL_FORMAT_THRESHOLD_PY2JS = {
+    "automatic": "Automatic",
+    "lowest_value": "LowestValue",
+    "highest_value": "HighestValue",
+    "number": "Number",
+    "percent": "Percent",
+    "percentile": "Percentile",
+    "formula": "Formula",
+}
+_CONDITIONAL_FORMAT_THRESHOLD_JS2PY = {
+    value: key for key, value in _CONDITIONAL_FORMAT_THRESHOLD_PY2JS.items()
+}
+_CONDITIONAL_FORMAT_ICON_SET_PY2JS = {
+    "3_arrows": "ThreeArrows",
+    "3_arrows_gray": "ThreeArrowsGray",
+    "3_flags": "ThreeFlags",
+    "3_traffic_lights_1": "ThreeTrafficLights1",
+    "3_traffic_lights_2": "ThreeTrafficLights2",
+    "3_signs": "ThreeSigns",
+    "3_symbols": "ThreeSymbols",
+    "3_symbols_2": "ThreeSymbols2",
+    "4_arrows": "FourArrows",
+    "4_arrows_gray": "FourArrowsGray",
+    "4_red_to_black": "FourRedToBlack",
+    "4_rating": "FourRating",
+    "4_traffic_lights": "FourTrafficLights",
+    "5_arrows": "FiveArrows",
+    "5_arrows_gray": "FiveArrowsGray",
+    "5_rating": "FiveRating",
+    "5_quarters": "FiveQuarters",
+    "3_stars": "ThreeStars",
+    "3_triangles": "ThreeTriangles",
+    "5_boxes": "FiveBoxes",
+}
+_CONDITIONAL_FORMAT_ICON_SET_JS2PY = {
+    value: key for key, value in _CONDITIONAL_FORMAT_ICON_SET_PY2JS.items()
+}
+
 
 def _mark_sheet_values_loaded(sheet_api):
     sheet_api[_SHEET_VALUES_LOADED_KEY] = True
@@ -245,7 +317,7 @@ def _sheet_values_loaded(sheet_api):
     return sheet_api.get(_SHEET_VALUES_LOADED_KEY, False)
 
 
-def _normalize_jsnull(obj):
+def _normalize_jsnull(obj, *, normalize_values=False):
     """Recursively replace Pyodide's `JsNull` sentinel with Python `None`.
 
     Pyodide >= 0.28 converts JS `null` to `pyodide.ffi.jsnull` instead of
@@ -256,11 +328,14 @@ def _normalize_jsnull(obj):
     `None` at the JS boundary so downstream code stays Pyodide-version
     agnostic.
 
-    The `values` arrays (cell data) are skipped here for two reasons. First,
+    The `values` arrays (cell data) are skipped by default for two reasons. First,
     *book* data (`getBookData()`) represents empty cells as `""`, not
     `null`, so a book's `values` cannot contain `JsNull`. Second, walking
     them would mean an extra full pass over every cell of an eagerly-loaded book
     (e.g. `xw.Book(json=...)` in xlwings Lite's notebook runner).
+
+    Callers whose `values` fields are metadata rather than cell matrices can set
+    `normalize_values=True`.
 
     Note this is *not* true for custom function *arguments*: Excel's custom
     functions runtime sends empty cells in a range argument as JS `null` ->
@@ -276,7 +351,10 @@ def _normalize_jsnull(obj):
         if isinstance(o, JsNull):
             return None
         if isinstance(o, dict):
-            return {k: v if k == "values" else walk(v) for k, v in o.items()}
+            return {
+                k: v if k == "values" and not normalize_values else walk(v)
+                for k, v in o.items()
+            }
         if isinstance(o, list):
             return [walk(v) for v in o]
         return o
@@ -368,6 +446,10 @@ def _update_api_in_place(target, source):
                     if key == "sheets":
                         item = dict(item)
                         _update_pivots_in_place(entry, item)
+                        if "tables" in item:
+                            _update_api_in_place(entry, {"tables": item.pop("tables")})
+                    elif key == "tables":
+                        entry.pop("_columns_pending", None)
                     entry.update(item)
                     new_list.append(entry)
                 else:
@@ -772,18 +854,20 @@ class Book(base_classes.Book):
 
     def append_json_action(self, **kwargs):
         args = kwargs.get("args")
-        self._json["actions"].append(
-            {
-                "func": kwargs.get("func"),
-                "args": [args] if not isinstance(args, list) else args,
-                "values": kwargs.get("values"),
-                "sheet_position": kwargs.get("sheet_position"),
-                "start_row": kwargs.get("start_row"),
-                "start_column": kwargs.get("start_column"),
-                "row_count": kwargs.get("row_count"),
-                "column_count": kwargs.get("column_count"),
-            }
-        )
+        action = {
+            "func": kwargs.get("func"),
+            "args": [args] if not isinstance(args, list) else args,
+            "values": kwargs.get("values"),
+            "sheet_position": kwargs.get("sheet_position"),
+            "start_row": kwargs.get("start_row"),
+            "start_column": kwargs.get("start_column"),
+            "row_count": kwargs.get("row_count"),
+            "column_count": kwargs.get("column_count"),
+        }
+        if "pivot_name" in kwargs:
+            action["pivot_id"] = kwargs.get("pivot_id")
+            action["pivot_name"] = kwargs["pivot_name"]
+        self._json["actions"].append(action)
 
     @property
     def api(self):
@@ -803,8 +887,20 @@ class Book(base_classes.Book):
             actions_js = to_js(
                 {"actions": actions}, dict_converter=js.Object.fromEntries
             )
-            await js.xlwings.runActions(actions_js)
+            # runActions may fail after applying only part of the batch. Never retain
+            # that indeterminate batch: replaying it can duplicate non-idempotent
+            # actions such as adding a defined name.
             self._json["actions"] = []
+            try:
+                await js.xlwings.runActions(actions_js)
+            except Exception:
+                # Some actions may have succeeded. Refresh optimistic metadata
+                # without masking the original action error if refresh also fails.
+                try:
+                    await self.load(values=False)
+                except Exception:
+                    pass
+                raise
         # Yield to the browser event loop so it can repaint (to print to output pane)
         await asyncio.sleep(0.01)
 
@@ -857,6 +953,22 @@ class Book(base_classes.Book):
     @property
     def sheets(self):
         return Sheets(api=self.api["sheets"], book=self)
+
+    async def get_comments(self):
+        if sys.platform != "emscripten":
+            raise NotImplementedError(
+                "get_comments() is only supported in xlwings Lite"
+            )
+        import js
+
+        entries = _normalize_jsnull((await js.xlwings.getComments()).to_py())
+        return [
+            Comment(
+                Range(sheet=self.sheets(entry["sheet"]), arg1=entry["address"]),
+                entry["id"],
+            )
+            for entry in entries
+        ]
 
     @property
     def app(self):
@@ -1068,6 +1180,35 @@ class Sheet(base_classes.Sheet):
     def book(self):
         return self.sheets.book
 
+    @property
+    def notes(self):
+        if self.api.get("notes_supported") is False:
+            raise NotImplementedError("Notes require ExcelApi 1.18")
+        return [
+            Note(Range(sheet=self, arg1=entry["address"]))
+            for entry in self.api.get("notes", [])
+        ]
+
+    @property
+    def comments(self):
+        raise NotImplementedError(
+            "Reading comments synchronously isn't supported on this engine. "
+            "Use 'await sheet.get_comments()'."
+        )
+
+    async def get_comments(self):
+        if sys.platform != "emscripten":
+            raise NotImplementedError(
+                "get_comments() is only supported in xlwings Lite"
+            )
+        import js
+
+        entries = _normalize_jsnull((await js.xlwings.getComments(self.name)).to_py())
+        return [
+            Comment(Range(sheet=self, arg1=entry["address"]), entry["id"])
+            for entry in entries
+        ]
+
     def range(self, arg1, arg2=None):
         return Range(sheet=self, arg1=arg1, arg2=arg2)
 
@@ -1175,6 +1316,49 @@ class Sheet(base_classes.Sheet):
         sheets_api.insert(new_ix, api)
         self.append_json_action(func="copySheet", args=[position, target_ix, name])
 
+    def move(self, before=None, after=None):
+        target = before if before is not None else after
+        if target.book is not self.book:
+            raise ValueError("Sheets must belong to the same book.")
+
+        source_ix = self.index - 1
+        target_ix = target.index - 1
+        if source_ix == target_ix:
+            raise ValueError("A sheet can't be moved relative to itself.")
+        if before is not None:
+            new_ix = target_ix - 1 if source_ix < target_ix else target_ix
+        else:
+            new_ix = target_ix if source_ix < target_ix else target_ix + 1
+
+        # Queue the action against the source's position before changing the local
+        # snapshot. Office.js Worksheet.position is zero-based.
+        self.book.append_json_action(
+            func="setSheetPosition",
+            args=[new_ix],
+            sheet_position=source_ix,
+        )
+
+        sheets_api = self.book.api["sheets"]
+        moved_sheet = sheets_api.pop(source_ix)
+        sheets_api.insert(new_ix, moved_sheet)
+
+        def moved_index(index):
+            if index == source_ix:
+                return new_ix
+            if source_ix < new_ix and source_ix < index <= new_ix:
+                return index - 1
+            if new_ix < source_ix and new_ix <= index < source_ix:
+                return index + 1
+            return index
+
+        book_api = self.book.api["book"]
+        book_api["active_sheet_index"] = moved_index(book_api["active_sheet_index"])
+        for name in self.book.api["names"]:
+            for key in ("sheet_index", "scope_sheet_index"):
+                if name.get(key) is not None:
+                    name[key] = moved_index(name[key])
+        self._index = new_ix + 1
+
     def to_html(self, path):
         raise NotImplementedError(
             "Sheet.to_html() is not supported on this engine, which has no HTML export."
@@ -1230,6 +1414,18 @@ class Sheet(base_classes.Sheet):
             return Range(sheet=self, arg1=(1, 1))
         return Range(sheet=self, arg1=(1, 1), arg2=(nrows, ncols))
 
+    async def get_used_range(self, values_only=False):
+        if sys.platform != "emscripten":
+            raise NotImplementedError(
+                "Sheet.get_used_range() is only supported in xlwings Lite"
+            )
+        import js
+
+        address = _normalize_jsnull(
+            await js.xlwings.getUsedRangeAddress(self.name, values_only)
+        )
+        return Range(sheet=self, arg1=address) if address else None
+
     @property
     def freeze_panes(self):
         return FreezePanes(self)
@@ -1262,6 +1458,10 @@ class Sheet(base_classes.Sheet):
                     # metadata-only payload.
                     sheet_data.pop("values", None)
                 _update_pivots_in_place(self._api, sheet_data)
+                if "tables" in sheet_data:
+                    _update_api_in_place(
+                        self._api, {"tables": sheet_data.pop("tables")}
+                    )
                 self._api.update(sheet_data)
                 break
         if load_values:
@@ -1392,6 +1592,38 @@ class Range(base_classes.Range):
         )
 
     @property
+    def row_hidden(self):
+        raise NotImplementedError(
+            "Reading row visibility synchronously isn't supported on this engine. "
+            "Use 'await myrange.rows.get_hidden()' to fetch it."
+        )
+
+    @row_hidden.setter
+    def row_hidden(self, value):
+        self.append_json_action(func="setRowHidden", args=[value])
+
+    @property
+    def column_hidden(self):
+        raise NotImplementedError(
+            "Reading column visibility synchronously isn't supported on this engine. "
+            "Use 'await myrange.columns.get_hidden()' to fetch it."
+        )
+
+    @column_hidden.setter
+    def column_hidden(self, value):
+        self.append_json_action(func="setColumnHidden", args=[value])
+
+    async def get_row_hidden(self):
+        return await self._get_range_data("row_hidden", method="get_hidden")
+
+    async def get_column_hidden(self):
+        return await self._get_range_data("column_hidden", method="get_hidden")
+
+    @property
+    def autofilter(self):
+        return AutoFilter(self)
+
+    @property
     def api(self):
         return get_range_api(
             tuple(tuple(row) for row in self.sheet.api["values"]), self.arg1, self.arg2
@@ -1468,6 +1700,53 @@ class Range(base_classes.Range):
     def clear(self):
         self.append_json_action(
             func="rangeClear",
+        )
+
+    def sort(self, keys, ascending, has_headers):
+        self.append_json_action(
+            func="rangeSort",
+            args=[keys, ascending, has_headers],
+        )
+
+    def remove_duplicates(self, columns, has_headers):
+        self.append_json_action(
+            func="rangeRemoveDuplicates",
+            args=[columns, has_headers],
+        )
+
+    async def get_special_cells(self, cell_type, value_type):
+        if sys.platform != "emscripten":
+            raise NotImplementedError(
+                "Range.get_special_cells() requires xlwings Lite on this engine"
+            )
+        import js
+
+        addresses = await js.xlwings.getSpecialCells(
+            self.sheet.name, self.address, cell_type, value_type
+        )
+        return [Range(self.sheet, address) for address in addresses.to_py()]
+
+    async def find(self, text, whole, direction, order, match_case):
+        if sys.platform != "emscripten":
+            raise NotImplementedError(
+                "Range.find() requires xlwings Lite on this engine"
+            )
+        import js
+
+        address = await js.xlwings.findRange(
+            self.sheet.name,
+            self.address,
+            text,
+            whole,
+            direction,
+            order,
+            match_case,
+        )
+        return Range(self.sheet, address) if address else None
+
+    def replace_all(self, old, new, whole, match_case):
+        self.append_json_action(
+            func="rangeReplaceAll", args=[old, new, whole, match_case]
         )
 
     def clear_formats(self):
@@ -1595,6 +1874,16 @@ class Range(base_classes.Range):
     def color(self, value):
         self.append_json_action(func="setRangeColor", args=_color_to_hex(value))
 
+    def set_colors(self, colors):
+        matrix = [
+            ["keep" if color is ... else _color_to_hex(color) for color in row]
+            for row in colors
+        ]
+        self.append_json_action(
+            func="setRangeColors",
+            args=[matrix],
+        )
+
     @property
     def formula(self):
         # Formulas aren't part of the payload that the client sends with every
@@ -1675,14 +1964,58 @@ class Range(base_classes.Range):
         )
 
     @property
+    def conditional_formats(self):
+        # The collection itself is useful without a read because clear() is a
+        # queued mutation. Dynamic inspection requires the async getter below.
+        return ConditionalFormats(self)
+
+    @property
     def note(self):
         # The payload carries the sheet's notes keyed by address, so this
         # knows whether one exists without a fetch -- as the sync property
         # requires. Returns None when there's no note, like the other engines.
-        for note in self.sheet.api.get("notes", []):
+        for note in self.sheet.api.get("notes") or []:
             if _address_key(note["address"]) == _address_key(self.address):
                 return Note(self)
         return None
+
+    def add_note(self, text):
+        if self.sheet.book.api["client"] != "Office.js":
+            raise NotImplementedError("Adding notes requires an Office.js client")
+        notes = self.sheet.api.get("notes")
+        if notes is None or self.sheet.api.get("notes_supported") is False:
+            raise NotImplementedError("Notes require ExcelApi 1.18")
+        self.append_json_action(func="addNote", args=[self.address, text])
+        notes.append({"address": self.address})
+        return Note(self)
+
+    @property
+    def comment(self):
+        raise NotImplementedError(
+            "Reading a comment synchronously isn't supported on this engine. "
+            "Use 'await range.get_comment()'."
+        )
+
+    async def get_comment(self):
+        if sys.platform != "emscripten":
+            raise NotImplementedError("get_comment() is only supported in xlwings Lite")
+        import js
+
+        result = _normalize_jsnull(
+            await js.xlwings.getCommentAt(self.sheet.name, self.address)
+        )
+        if result is None:
+            return None
+        entry = _normalize_jsnull(result.to_py())
+        return Comment(self, entry["id"])
+
+    def add_comment(self, text):
+        if self.sheet.book.api["client"] != "Office.js":
+            raise NotImplementedError(
+                "Adding threaded comments requires an Office.js client"
+            )
+        self.append_json_action(func="addComment", args=[self.address, text])
+        return Comment(self)
 
     @property
     def hyperlink(self):
@@ -1718,6 +2051,14 @@ class Range(base_classes.Range):
                 return Table(self.sheet, ix + 1)
         raise KeyError(name)
 
+    async def get_data_validation(self):
+        entry = await self._get_range_data("data_validation")
+        return DataValidation(self, entry)
+
+    async def get_conditional_formats(self):
+        entries = await self._get_range_data("conditional_formats")
+        return ConditionalFormats(self, entries)
+
     async def _get_range_data(self, key, method=None):
         """Fetch one on-demand property for this range from the client.
 
@@ -1747,6 +2088,13 @@ class Range(base_classes.Range):
     async def get_color(self):
         color = await self._get_range_data("color")
         return utils.hex_to_rgb(color) if color else None
+
+    async def get_colors(self):
+        colors = await self._get_range_data("colors")
+        return [
+            [utils.hex_to_rgb(color) if color is not None else None for color in row]
+            for row in colors
+        ]
 
     async def get_wrap_text(self):
         return await self._get_range_data("wrap_text")
@@ -2080,6 +2428,10 @@ class Range(base_classes.Range):
     def borders(self):
         return Borders(self, self.sheet.book.api)
 
+    @property
+    def data_validation(self):
+        return DataValidation(self)
+
     def __len__(self):
         nrows, ncols = self.shape
         return nrows * ncols
@@ -2094,6 +2446,123 @@ class Range(base_classes.Range):
                 sheet=self.sheet,
                 arg1=(self.row + arg1 - 1, self.column + arg2 - 1),
             )
+
+
+class DataValidation(base_classes.DataValidation):
+    def __init__(self, parent, entry=None):
+        self.parent = parent
+        self._entry = entry
+
+    @property
+    def api(self):
+        return None
+
+    def _read(self, name):
+        if self._entry is None:
+            raise NotImplementedError(
+                "Reading data validation synchronously isn't supported on this "
+                "engine. Use 'await myrange.get_data_validation()' to fetch it on "
+                "demand."
+            )
+        return self._entry.get(name)
+
+    @property
+    def type(self):
+        return self._read("type")
+
+    @property
+    def operator(self):
+        return self._read("operator")
+
+    @property
+    def formula1(self):
+        return self._read("formula1")
+
+    @property
+    def formula2(self):
+        return self._read("formula2")
+
+    @property
+    def formula(self):
+        return self._read("formula")
+
+    @property
+    def source(self):
+        return self._read("source")
+
+    @property
+    def in_cell_dropdown(self):
+        return self._read("in_cell_dropdown")
+
+    @property
+    def ignore_blank(self):
+        return self._read("ignore_blank")
+
+    @property
+    def input_title(self):
+        return self._read("input_title")
+
+    @property
+    def input_message(self):
+        return self._read("input_message")
+
+    @property
+    def show_input(self):
+        return self._read("show_input")
+
+    @property
+    def error_title(self):
+        return self._read("error_title")
+
+    @property
+    def error_message(self):
+        return self._read("error_message")
+
+    @property
+    def show_error(self):
+        return self._read("show_error")
+
+    @property
+    def alert_style(self):
+        return self._read("alert_style")
+
+    def set_list(self, source, in_cell_dropdown):
+        self.parent._require_officejs("data_validation")
+        if isinstance(source, base_classes.Range):
+            source_payload = {
+                "type": "range",
+                "sheet_position": source.sheet.index - 1,
+                "start_row": source.row - 1,
+                "start_column": source.column - 1,
+                "row_count": source.shape[0],
+                "column_count": source.shape[1],
+            }
+        elif isinstance(source, base_classes.Name):
+            source_payload = {"type": "name", "name": source.name}
+        else:
+            source_payload = {"type": "literal", "values": source}
+        self.parent.append_json_action(
+            func="setDataValidationList",
+            args=[source_payload, in_cell_dropdown],
+        )
+
+    def set_rule(self, rule_type, operator, formula1, formula2):
+        self.parent._require_officejs("data_validation")
+        self.parent.append_json_action(
+            func="setDataValidationRule",
+            args=[
+                {
+                    "type": rule_type,
+                    "operator": operator,
+                    "formula1": formula1,
+                    "formula2": formula2,
+                }
+            ],
+        )
+
+    def delete(self):
+        self.parent._require_officejs("data_validation")
+        self.parent.append_json_action(func="deleteDataValidation")
 
 
 class Collection(base_classes.Collection):
@@ -2556,7 +3025,86 @@ class Names(base_classes.Names):
 engine = Engine()
 
 
+class AutoFilter(base_classes.AutoFilter):
+    def __init__(self, parent, table_index=None):
+        self.parent = parent
+        self.table_index = table_index
+
+    def _append(self, range_func, table_func, args):
+        self.parent._require_officejs("autofilter")
+        if self.table_index is None:
+            self.parent.append_json_action(func=range_func, args=args)
+        else:
+            self.parent.append_json_action(
+                func=table_func, args=[self.table_index, *args]
+            )
+
+    @property
+    def criteria(self):
+        raise NotImplementedError(
+            "AutoFilter.criteria isn't available on this engine; in xlwings Lite, "
+            "use await autofilter.get_criteria()"
+        )
+
+    async def get_criteria(self):
+        if sys.platform != "emscripten":
+            raise NotImplementedError(
+                "get_criteria() is only supported in xlwings Lite"
+            )
+        import js
+
+        data_js = await js.xlwings.getAutoFilterCriteria(
+            self.parent.sheet.name,
+            self.parent.address,
+            self.table_index,
+        )
+        return _normalize_jsnull(data_js.to_py(), normalize_values=True)
+
+    def apply_values(self, field, values):
+        self._append(
+            "applyAutoFilterRange",
+            "applyAutoFilterTable",
+            [field, {"type": "values", "values": values}],
+        )
+
+    def apply_comparison(self, field, operator, value1, value2):
+        spec = {
+            "type": "comparison",
+            "operator": operator,
+            "value1": value1,
+        }
+        if value2 is not None:
+            spec["value2"] = value2
+        self._append("applyAutoFilterRange", "applyAutoFilterTable", [field, spec])
+
+    def _apply_top_bottom(self, field, type_, value):
+        self._append(
+            "applyAutoFilterRange",
+            "applyAutoFilterTable",
+            [field, {"type": type_, "value": value}],
+        )
+
+    def apply_top_items(self, field, count):
+        self._apply_top_bottom(field, "top_items", count)
+
+    def apply_bottom_items(self, field, count):
+        self._apply_top_bottom(field, "bottom_items", count)
+
+    def apply_top_percent(self, field, percent):
+        self._apply_top_bottom(field, "top_percent", percent)
+
+    def apply_bottom_percent(self, field, percent):
+        self._apply_top_bottom(field, "bottom_percent", percent)
+
+    def clear(self, field):
+        self._append("clearAutoFilterRange", "clearAutoFilterTable", [field])
+
+
 class Table(base_classes.Table):
+    @property
+    def columns(self):
+        return TableColumns(self)
+
     @property
     def show_autofilter(self):
         return self.api["show_autofilter"]
@@ -2566,6 +3114,10 @@ class Table(base_classes.Table):
         self.append_json_action(
             func="showAutofilterTable", args=[self.index - 1, value]
         )
+
+    @property
+    def autofilter(self):
+        return AutoFilter(self.range, table_index=self.index - 1)
 
     def __init__(self, parent, key):
         self._parent = parent
@@ -2633,6 +3185,12 @@ class Table(base_classes.Table):
 
     @show_headers.setter
     def show_headers(self, value):
+        self.api["row_count"] = (
+            self.api.get("row_count", 0)
+            + int(value)
+            - int(self.api.get("show_headers", True))
+        )
+        self.api["show_headers"] = value
         self.append_json_action(func="showHeadersTable", args=[self.index - 1, value])
 
     @property
@@ -2641,6 +3199,12 @@ class Table(base_classes.Table):
 
     @show_totals.setter
     def show_totals(self, value):
+        self.api["row_count"] = (
+            self.api.get("row_count", 0)
+            + int(value)
+            - int(self.api.get("show_totals", False))
+        )
+        self.api["show_totals"] = value
         self.append_json_action(func="showTotalsTable", args=[self.index - 1, value])
 
     @property
@@ -2735,6 +3299,227 @@ class Table(base_classes.Table):
             func="resizeTable", args=[self.index - 1, range.address]
         )
 
+    @property
+    def rows(self):
+        return TableRows(self)
+
+
+class TableRow(base_classes.TableRow):
+    def __init__(self, parent, index):
+        self.parent = parent
+        self._index = index
+
+    @property
+    def index(self):
+        return self._index
+
+    @property
+    def range(self):
+        raise NotImplementedError(
+            "TableRow.range is not supported in xlwings Lite. Use 'await row.get_range()'."
+        )
+
+    async def get_range(self):
+        if sys.platform != "emscripten":
+            raise NotImplementedError("TableRow.get_range() requires xlwings Lite")
+        import js
+
+        address = await js.xlwings.getTableRowRangeAddress(
+            self.parent.parent.parent.name, self.parent.parent.index - 1, self.index - 1
+        )
+        return self.parent.parent.parent.range(str(address))
+
+    def delete(self):
+        self.parent.parent.append_json_action(
+            func="deleteTableRow",
+            args=[self.parent.parent.index - 1, self.index - 1],
+        )
+        self.parent.parent.api["row_count"] -= 1
+
+
+class TableRows(base_classes.TableRows):
+    def __init__(self, parent):
+        self._parent = parent
+
+    @property
+    def parent(self):
+        return self._parent
+
+    @property
+    def column_count(self):
+        return self.parent.api.get("column_count", 0)
+
+    def __len__(self):
+        metadata = self.parent.api
+        return max(
+            0,
+            metadata.get("row_count", 0)
+            - bool(metadata.get("show_headers", True))
+            - bool(metadata.get("show_totals", False)),
+        )
+
+    def __call__(self, key):
+        if (
+            not isinstance(key, numbers.Integral)
+            or isinstance(key, bool)
+            or not 1 <= key <= len(self)
+        ):
+            raise KeyError(key)
+        return TableRow(self, key)
+
+    def __iter__(self):
+        for index in range(1, len(self) + 1):
+            yield TableRow(self, index)
+
+    async def get_count(self):
+        if sys.platform != "emscripten":
+            raise NotImplementedError("TableRows.get_count() requires xlwings Lite")
+        import js
+
+        count = int(
+            await js.xlwings.getTableRowCount(
+                self.parent.parent.name, self.parent.index - 1
+            )
+        )
+        if not self.parent.parent.book.json()["actions"]:
+            self.parent.api["row_count"] = (
+                count
+                + bool(self.parent.api.get("show_headers", True))
+                + bool(self.parent.api.get("show_totals", False))
+            )
+        return count
+
+    def add(self, values, index):
+        position = len(self) + 1 if index is None else index
+        self.parent.append_json_action(
+            func="addTableRow",
+            args=[self.parent.index - 1, position - 1, values],
+        )
+        self.parent.api["row_count"] = self.parent.api.get("row_count", 0) + 1
+        return TableRow(self, position)
+
+
+class TableColumn(base_classes.TableColumn):
+    def __init__(self, parent, name):
+        self.parent = parent
+        self._name = name
+
+    @property
+    def name(self):
+        return self._name
+
+    @property
+    def index(self):
+        return self.parent.api.index(self.name) + 1
+
+    @property
+    def range(self):
+        raise NotImplementedError(
+            "TableColumn.range is not supported in xlwings Lite. Use 'await column.get_range()'."
+        )
+
+    @property
+    def data_body_range(self):
+        raise NotImplementedError(
+            "TableColumn.data_body_range is not supported in xlwings Lite. "
+            "Use 'await column.get_data_body_range()'."
+        )
+
+    async def _get_range(self, data_body):
+        if sys.platform != "emscripten":
+            raise NotImplementedError("TableColumn range reads require xlwings Lite")
+        import js
+
+        address = await js.xlwings.getTableColumnRangeAddress(
+            self.parent.parent.parent.name,
+            self.parent.parent.index - 1,
+            self.name,
+            bool(data_body),
+        )
+        return self.parent.parent.parent.range(str(address)) if address else None
+
+    async def get_range(self):
+        return await self._get_range(False)
+
+    async def get_data_body_range(self):
+        return await self._get_range(True)
+
+    def delete(self):
+        if len(self.parent) == 1:
+            raise ValueError("Cannot delete the last table column")
+        self.parent.parent.append_json_action(
+            func="deleteTableColumn",
+            args=[self.parent.parent.index - 1, self.name],
+        )
+        self.parent.api.remove(self.name)
+        self.parent.parent.api["column_count"] = len(self.parent.api)
+
+
+class TableColumns(base_classes.TableColumns):
+    def __init__(self, parent):
+        self.parent = parent
+
+    @property
+    def api(self):
+        if "columns" not in self.parent.api:
+            if self.parent.api.get("_columns_pending"):
+                raise XlwingsError(
+                    "The new table's column names are unavailable until Excel creates "
+                    "the table and its metadata is reloaded. In xlwings Lite, call "
+                    "'await book.flush()' and 'await sheet.load()', then obtain the "
+                    "table again."
+                )
+            raise NotImplementedError(
+                "Table columns require a matching xlwings Server or xlwings Lite client"
+            )
+        return self.parent.api["columns"]
+
+    def __len__(self):
+        return len(self.api)
+
+    def __call__(self, key):
+        if isinstance(key, numbers.Integral) and not isinstance(key, bool):
+            if not 1 <= key <= len(self):
+                raise KeyError(key)
+            return TableColumn(self, self.api[key - 1])
+        for name in self.api:
+            if name == key:
+                return TableColumn(self, name)
+        raise KeyError(key)
+
+    def __iter__(self):
+        for name in self.api:
+            yield TableColumn(self, name)
+
+    def __contains__(self, key):
+        return key in self.api
+
+    async def get_count(self):
+        if sys.platform != "emscripten":
+            raise NotImplementedError("TableColumns.get_count() requires xlwings Lite")
+        import js
+
+        count = int(
+            await js.xlwings.getTableColumnCount(
+                self.parent.parent.name, self.parent.index - 1
+            )
+        )
+        if not self.parent.parent.book.json()["actions"] and (
+            "columns" not in self.parent.api or count != len(self.parent.api["columns"])
+        ):
+            await self.parent.parent.book.load(values=False)
+        return count
+
+    def add(self, name, index):
+        position = len(self) + 1 if index is None else index
+        self.parent.append_json_action(
+            func="addTableColumn",
+            args=[self.parent.index - 1, position - 1, name],
+        )
+        self.api.insert(position - 1, name)
+        self.parent.api["column_count"] = len(self.api)
+        return TableColumn(self, name)
+
 
 class Tables(Collection, base_classes.Tables):
     _attr = "tables"
@@ -2760,6 +3545,8 @@ class Tables(Collection, base_classes.Tables):
         table_style_name=None,
         name=None,
     ):
+        if not isinstance(has_headers, bool):
+            raise TypeError("has_headers must be True or False")
         self.append_json_action(
             func="addTable",
             args=[source.address, has_headers, table_style_name, name],
@@ -2772,10 +3559,14 @@ class Tables(Collection, base_classes.Tables):
                 # there's nothing to seed until the payload refreshes.
                 "name": name if name else "",
                 "range_address": source.address if source else None,
+                "row_count": source.shape[0] if source else 0,
+                "column_count": source.shape[1] if source else 0,
+                # Excel determines the final names when the queued action runs.
+                "_columns_pending": True,
                 "header_row_range_address": None,
                 "data_body_range_address": None,
                 "total_row_range_address": None,
-                "show_headers": has_headers if has_headers is not None else True,
+                "show_headers": True,
                 "show_totals": False,
                 "table_style": table_style_name if table_style_name else "",
                 # Excel's defaults for a new table, so the getters work before
@@ -2914,6 +3705,36 @@ class Chart(base_classes.Chart):
     @property
     def legend(self):
         return ChartLegend(self)
+
+    @property
+    def category_axis(self):
+        return ChartAxis(self, "category")
+
+    @property
+    def value_axis(self):
+        return ChartAxis(self, "value")
+
+    @property
+    def series(self):
+        if self._pending is not None:
+            raise XlwingsError(
+                "Chart series require source data. Call Chart.set_source_data() "
+                "and await book.flush() first."
+            )
+        return ChartSeriesCollection(self)
+
+    async def get_series(self):
+        if self._pending is not None:
+            raise XlwingsError(
+                "Chart series reads require source data. Call Chart.set_source_data() "
+                "and await book.flush() first."
+            )
+        if sys.platform != "emscripten":
+            raise NotImplementedError("get_series() is only supported in xlwings Lite")
+        import js
+
+        count = await js.xlwings.getChartSeriesCount(self.parent.name, self.index - 1)
+        return ChartSeriesCollection(self, count=int(count))
 
     @property
     def plot_by(self):
@@ -3089,6 +3910,407 @@ class Chart(base_classes.Chart):
         )
 
 
+class ChartSeries(base_classes.ChartSeries):
+    def __init__(self, parent, key):
+        self.parent = parent
+        self.key = key
+
+    @property
+    def index(self):
+        return self.key
+
+    @property
+    def api(self):
+        raise NotImplementedError(
+            "ChartSeries.api isn't available on this engine: there is no native "
+            "series object, only queued actions."
+        )
+
+    def _state_key(self, attribute):
+        return f"series_{self.index}_{attribute}"
+
+    def _local_or_raise(self, attribute):
+        try:
+            return self.parent._local_or_raise(
+                self._state_key(attribute), f"series {self.index} {attribute}"
+            )
+        except NotImplementedError:
+            raise NotImplementedError(
+                "Reading chart series attributes synchronously isn't supported "
+                f"on this engine. Use 'await series.get_{attribute}()' to fetch "
+                "the value."
+            ) from None
+
+    @property
+    def name(self):
+        return self._local_or_raise("name")
+
+    @name.setter
+    def name(self, value):
+        self.set(name=value)
+
+    @property
+    def marker_style(self):
+        return self._local_or_raise("marker_style")
+
+    @marker_style.setter
+    def marker_style(self, value):
+        self.set(marker_style=value)
+
+    @property
+    def marker_size(self):
+        return self._local_or_raise("marker_size")
+
+    @marker_size.setter
+    def marker_size(self, value):
+        self.set(marker_size=value)
+
+    @property
+    def marker_foreground_color(self):
+        return self._local_or_raise("marker_foreground_color")
+
+    @marker_foreground_color.setter
+    def marker_foreground_color(self, value):
+        self.set(marker_foreground_color=value)
+
+    @property
+    def marker_background_color(self):
+        return self._local_or_raise("marker_background_color")
+
+    @marker_background_color.setter
+    def marker_background_color(self, value):
+        self.set(marker_background_color=value)
+
+    @property
+    def line_color(self):
+        return self._local_or_raise("line_color")
+
+    @line_color.setter
+    def line_color(self, value):
+        self.set(line_color=value)
+
+    @property
+    def fill_color(self):
+        return self._local_or_raise("fill_color")
+
+    @fill_color.setter
+    def fill_color(self, value):
+        self.set(fill_color=value)
+
+    def set(
+        self,
+        *,
+        name=base_classes._UNSET,
+        marker_style=base_classes._UNSET,
+        marker_size=base_classes._UNSET,
+        marker_foreground_color=base_classes._UNSET,
+        marker_background_color=base_classes._UNSET,
+        line_color=base_classes._UNSET,
+        fill_color=base_classes._UNSET,
+    ):
+        values = {}
+        local_values = {}
+        for attribute, value in (
+            ("name", name),
+            ("marker_style", marker_style),
+            ("marker_size", marker_size),
+            ("marker_foreground_color", marker_foreground_color),
+            ("marker_background_color", marker_background_color),
+            ("line_color", line_color),
+            ("fill_color", fill_color),
+        ):
+            if value is base_classes._UNSET:
+                continue
+            local_values[attribute] = value
+            if attribute == "marker_style":
+                values[attribute] = _MARKER_STYLE_PY2JS[value]
+            elif attribute.endswith("_color"):
+                values[attribute] = _color_to_hex(value)
+            else:
+                values[attribute] = value
+        if not values:
+            return
+        for attribute, value in local_values.items():
+            self.parent.api[self._state_key(attribute)] = value
+        self.parent.append_json_action(
+            func="setChartSeries",
+            args=[self.parent.index - 1, self.index - 1, values],
+        )
+
+    async def _get_series_data(self, key):
+        if sys.platform != "emscripten":
+            raise NotImplementedError(f"get_{key}() is only supported in xlwings Lite")
+        import js
+        from pyodide.ffi import to_js
+
+        data_js = await js.xlwings.getChartSeriesData(
+            self.parent.parent.name,
+            self.parent.index - 1,
+            self.index - 1,
+            to_js([key]),
+        )
+        value = _normalize_jsnull(data_js.to_py())[key]
+        if key == "marker_style":
+            return _MARKER_STYLE_JS2PY.get(value, value)
+        if key == "marker_size" and value is not None:
+            return int(value)
+        if key.endswith("_color"):
+            return utils.hex_to_rgb(value) if value else None
+        return value
+
+    async def get_name(self):
+        return await self._get_series_data("name")
+
+    async def get_marker_style(self):
+        return await self._get_series_data("marker_style")
+
+    async def get_marker_size(self):
+        return await self._get_series_data("marker_size")
+
+    async def get_marker_foreground_color(self):
+        return await self._get_series_data("marker_foreground_color")
+
+    async def get_marker_background_color(self):
+        return await self._get_series_data("marker_background_color")
+
+    async def get_line_color(self):
+        return await self._get_series_data("line_color")
+
+    async def get_fill_color(self):
+        return await self._get_series_data("fill_color")
+
+
+class ChartSeriesCollection(base_classes.ChartSeriesCollection):
+    def __init__(self, parent, count=None):
+        self._parent = parent
+        self._count = count
+
+    @property
+    def parent(self):
+        return self._parent
+
+    @property
+    def api(self):
+        raise NotImplementedError(
+            "ChartSeriesCollection.api isn't available on this engine."
+        )
+
+    def _loaded_count(self):
+        if self._count is None:
+            raise NotImplementedError(
+                "Inspecting chart series synchronously isn't supported on this "
+                "engine. Use 'await chart.get_series()' to fetch the collection."
+            )
+        return self._count
+
+    def __call__(self, key):
+        count = self._loaded_count()
+        if (
+            not isinstance(key, numbers.Integral)
+            or isinstance(key, bool)
+            or key < 1
+            or key > count
+        ):
+            raise KeyError(key)
+        return ChartSeries(self.parent, int(key))
+
+    def __len__(self):
+        return self._loaded_count()
+
+    def __iter__(self):
+        for key in range(1, self._loaded_count() + 1):
+            yield ChartSeries(self.parent, key)
+
+    def __contains__(self, key):
+        return (
+            isinstance(key, numbers.Integral)
+            and not isinstance(key, bool)
+            and 1 <= key <= self._loaded_count()
+        )
+
+
+class ChartAxis(base_classes.ChartAxis):
+    def __init__(self, parent, axis_type):
+        self.parent = parent
+        self.axis_type = axis_type
+
+    @property
+    def api(self):
+        raise NotImplementedError(
+            "ChartAxis.api isn't available on this engine: there is no native "
+            "axis object, only queued actions."
+        )
+
+    def _state_key(self, attribute):
+        return f"{self.axis_type}_axis_{attribute}"
+
+    def _local_or_raise(self, attribute):
+        return self.parent._local_or_raise(
+            self._state_key(attribute),
+            f"primary {self.axis_type} axis {attribute}",
+        )
+
+    def _queue(self, values):
+        args = [self.axis_type, values]
+        if self.parent._pending is not None:
+            self.parent._pending_actions.append(("setChartAxis", args))
+        else:
+            self.parent.append_json_action(
+                func="setChartAxis", args=[self.parent.index - 1, *args]
+            )
+
+    def _sync_read_error(self, getter):
+        return NotImplementedError(
+            "Reading chart axis attributes synchronously isn't supported on this "
+            f"engine. Use 'await chart.{self.axis_type}_axis.{getter}()' to fetch "
+            "the value."
+        )
+
+    @property
+    def title(self):
+        if self.parent.api.get(self._state_key("visible")) is False:
+            return None
+        try:
+            return self._local_or_raise("title")
+        except NotImplementedError:
+            raise self._sync_read_error("get_title") from None
+
+    @title.setter
+    def title(self, value):
+        self.set(title=value)
+
+    @property
+    def minimum_scale(self):
+        try:
+            return self._local_or_raise("minimum_scale")
+        except NotImplementedError:
+            raise self._sync_read_error("get_minimum_scale") from None
+
+    @minimum_scale.setter
+    def minimum_scale(self, value):
+        self.set(minimum_scale=value)
+
+    @property
+    def maximum_scale(self):
+        try:
+            return self._local_or_raise("maximum_scale")
+        except NotImplementedError:
+            raise self._sync_read_error("get_maximum_scale") from None
+
+    @maximum_scale.setter
+    def maximum_scale(self, value):
+        self.set(maximum_scale=value)
+
+    @property
+    def major_unit(self):
+        try:
+            return self._local_or_raise("major_unit")
+        except NotImplementedError:
+            raise self._sync_read_error("get_major_unit") from None
+
+    @major_unit.setter
+    def major_unit(self, value):
+        self.set(major_unit=value)
+
+    @property
+    def number_format(self):
+        try:
+            return self._local_or_raise("number_format")
+        except NotImplementedError:
+            raise self._sync_read_error("get_number_format") from None
+
+    @number_format.setter
+    def number_format(self, value):
+        self.set(number_format=value)
+
+    @property
+    def visible(self):
+        try:
+            return self._local_or_raise("visible")
+        except NotImplementedError:
+            raise self._sync_read_error("get_visible") from None
+
+    @visible.setter
+    def visible(self, value):
+        self.set(visible=value)
+
+    def set(
+        self,
+        *,
+        title=base_classes._UNSET,
+        minimum_scale=base_classes._UNSET,
+        maximum_scale=base_classes._UNSET,
+        major_unit=base_classes._UNSET,
+        number_format=base_classes._UNSET,
+        visible=base_classes._UNSET,
+    ):
+        values = {}
+        for attribute, value in (
+            ("title", title),
+            ("minimum_scale", minimum_scale),
+            ("maximum_scale", maximum_scale),
+            ("major_unit", major_unit),
+            ("number_format", number_format),
+            ("visible", visible),
+        ):
+            if value is base_classes._UNSET:
+                continue
+            values[attribute] = value
+            key = self._state_key(attribute)
+            if (
+                attribute in {"minimum_scale", "maximum_scale", "major_unit"}
+                and value is None
+            ):
+                # None restores Excel's automatic value, whose resolved numeric
+                # result isn't known until a synchronized read.
+                self.parent.api.pop(key, None)
+            else:
+                self.parent.api[key] = value
+        if title is not base_classes._UNSET and title is not None:
+            self.parent.api[self._state_key("visible")] = True
+        if visible is False:
+            self.parent.api[self._state_key("visible")] = False
+        if values:
+            self._queue(values)
+
+    async def _get_axis_data(self, key):
+        if self.parent._pending is not None:
+            raise XlwingsError(
+                "Chart axis reads require source data. Call Chart.set_source_data() "
+                "and await book.flush() first."
+            )
+        if sys.platform != "emscripten":
+            raise NotImplementedError(f"get_{key}() is only supported in xlwings Lite")
+        import js
+        from pyodide.ffi import to_js
+
+        data_js = await js.xlwings.getChartAxisData(
+            self.parent.parent.name,
+            self.parent.index - 1,
+            self.axis_type,
+            to_js([key]),
+        )
+        return _normalize_jsnull(data_js.to_py())[key]
+
+    async def get_title(self):
+        return await self._get_axis_data("title")
+
+    async def get_minimum_scale(self):
+        return await self._get_axis_data("minimum_scale")
+
+    async def get_maximum_scale(self):
+        return await self._get_axis_data("maximum_scale")
+
+    async def get_major_unit(self):
+        return await self._get_axis_data("major_unit")
+
+    async def get_number_format(self):
+        return await self._get_axis_data("number_format")
+
+    async def get_visible(self):
+        return await self._get_axis_data("visible")
+
+
 class ChartLegend(base_classes.ChartLegend):
     def __init__(self, parent):
         self.parent = parent
@@ -3229,7 +4451,12 @@ class PivotTable(base_classes.PivotTable):
         raise KeyError("The pivot table has been deleted.")
 
     def _queue(self, func, *args):
-        self.append_json_action(func=func, args=[self.index - 1, *args])
+        self.append_json_action(
+            func=func,
+            args=[self.index - 1, *args],
+            pivot_id=self.api.get("id"),
+            pivot_name=self.name,
+        )
 
     @property
     def name(self):
@@ -3293,16 +4520,38 @@ class PivotTable(base_classes.PivotTable):
     @property
     def range(self):
         raise NotImplementedError(
-            "PivotTable.range isn't supported on this engine: the payload doesn't "
-            "carry the pivot table's range."
+            "PivotTable.range is not supported on this engine. "
+            "In xlwings Lite, use 'await pivot.get_range()'."
         )
+
+    async def _get_range(self, kind):
+        if sys.platform != "emscripten":
+            raise NotImplementedError("PivotTable range reads require xlwings Lite")
+        import js
+
+        address = _normalize_jsnull(
+            await js.xlwings.getPivotTableRangeAddress(
+                self.parent.name, self.index - 1, self.api.get("id"), self.name, kind
+            )
+        )
+        if not address:
+            if kind == "data_body":
+                return None
+            raise RuntimeError("Excel returned no pivot table report range")
+        return self.parent.range(str(address))
+
+    async def get_range(self):
+        return await self._get_range("report")
 
     @property
     def data_body_range(self):
         raise NotImplementedError(
-            "PivotTable.data_body_range isn't supported on this engine: the "
-            "payload doesn't carry the pivot table's range."
+            "PivotTable.data_body_range is not supported on this engine. "
+            "In xlwings Lite, use 'await pivot.get_data_body_range()'."
         )
+
+    async def get_data_body_range(self):
+        return await self._get_range("data_body")
 
     def refresh(self):
         self._queue("refreshPivotTable")
@@ -3631,6 +4880,416 @@ class Characters(base_classes.Characters):
         return Characters(self.parent, start=item, length=1)
 
 
+class ConditionalFormat(base_classes.ConditionalFormat):
+    def __init__(self, parent, entry):
+        self.parent = parent
+        self._entry = entry
+
+    @property
+    def api(self):
+        return self._entry
+
+    @property
+    def type(self):
+        return _CONDITIONAL_FORMAT_TYPE_JS2PY.get(self._entry.get("type"), "unknown")
+
+    @property
+    def stop_if_true(self):
+        if self.type in {"color_scale", "data_bar", "icon_set"}:
+            return None
+        return self._entry.get("stop_if_true")
+
+    @property
+    def operator(self):
+        if self.type != "cell_value":
+            return None
+        return _CONDITIONAL_FORMAT_OPERATOR_JS2PY.get(self._entry.get("operator"))
+
+    @property
+    def formula1(self):
+        return self._entry.get("formula1") if self.type == "cell_value" else None
+
+    @property
+    def formula2(self):
+        if self.type != "cell_value" or self.operator not in {
+            "between",
+            "not_between",
+        }:
+            return None
+        return self._entry.get("formula2")
+
+    @property
+    def formula(self):
+        return self._entry.get("formula") if self.type == "custom" else None
+
+    @staticmethod
+    def _rgb(value):
+        return utils.hex_to_rgb(value) if value else None
+
+    @property
+    def fill_color(self):
+        return self._rgb(self._entry.get("fill_color"))
+
+    @property
+    def font_color(self):
+        return self._rgb(self._entry.get("font_color"))
+
+    @property
+    def font_bold(self):
+        return self._entry.get("font_bold")
+
+    @property
+    def font_italic(self):
+        return self._entry.get("font_italic")
+
+    @property
+    def colors(self):
+        if self.type != "color_scale":
+            return None
+        return tuple(self._rgb(value) for value in self._entry.get("colors", ()))
+
+    @property
+    def bar_color(self):
+        return (
+            self._rgb(self._entry.get("bar_color")) if self.type == "data_bar" else None
+        )
+
+    @property
+    def gradient(self):
+        return self._entry.get("gradient") if self.type == "data_bar" else None
+
+    @property
+    def show_value(self):
+        if self.type not in {"data_bar", "icon_set"}:
+            return None
+        return self._entry.get("show_value")
+
+    @property
+    def icon_set(self):
+        if self.type != "icon_set":
+            return None
+        return _CONDITIONAL_FORMAT_ICON_SET_JS2PY.get(self._entry.get("icon_set"))
+
+    @property
+    def reverse_order(self):
+        return self._entry.get("reverse_order") if self.type == "icon_set" else None
+
+    @property
+    def threshold_types(self):
+        if self.type not in {"color_scale", "data_bar", "icon_set"}:
+            return None
+        return tuple(
+            _CONDITIONAL_FORMAT_THRESHOLD_JS2PY.get(value, "unknown")
+            for value in self._entry.get("threshold_types", ())
+        )
+
+    @property
+    def thresholds(self):
+        if self.type not in {"color_scale", "data_bar", "icon_set"}:
+            return None
+        return tuple(self._entry.get("thresholds", ()))
+
+    def _snapshot(self):
+        keys = (
+            "type",
+            "stop_if_true",
+            "operator",
+            "formula1",
+            "formula2",
+            "formula",
+            "fill_color",
+            "font_color",
+            "font_bold",
+            "font_italic",
+            "colors",
+            "bar_color",
+            "gradient",
+            "show_value",
+            "icon_set",
+            "reverse_order",
+            "threshold_types",
+            "thresholds",
+        )
+        snapshot = {}
+        for key in keys:
+            if key not in self._entry:
+                continue
+            value = self._entry[key]
+            if isinstance(value, (list, tuple)):
+                value = list(value)
+            if key == "thresholds":
+                value = [None if item is None else str(item) for item in value]
+            snapshot[key] = value
+        return snapshot
+
+    def set(self, changes):
+        position = self.parent.position(self._entry)
+        expected = self._snapshot()
+        serialized = dict(changes)
+        if "operator" in serialized:
+            serialized["operator"] = _CONDITIONAL_FORMAT_OPERATOR_PY2JS[
+                serialized["operator"]
+            ]
+        for key in ("fill_color", "font_color"):
+            if key in serialized:
+                serialized[key] = _color_to_hex(serialized[key])
+        self.parent.range.append_json_action(
+            func="setConditionalFormat",
+            args=[position, expected, serialized],
+        )
+        self._entry.update(serialized)
+
+    def delete(self):
+        try:
+            position = self.parent.position(self._entry)
+        except ValueError:
+            raise XlwingsError(
+                "This conditional-format rule is no longer in its collection."
+            ) from None
+        self.parent.range.append_json_action(
+            func="deleteConditionalFormat",
+            args=[position, self._snapshot()],
+        )
+        # Keep this loaded snapshot aligned with the actions already queued so
+        # deleting several objects from it continues to target the right index.
+        self.parent.remove(self._entry)
+
+
+class ConditionalFormats(base_classes.ConditionalFormats):
+    def __init__(self, range, entries=None):
+        self.range = range
+        self._api = entries
+        self._pending = []
+
+    @property
+    def api(self):
+        return self._api
+
+    @property
+    def parent(self):
+        return self.range
+
+    def _loaded(self):
+        if self._api is None:
+            raise NotImplementedError(
+                "Inspecting conditional formats synchronously isn't supported on "
+                "this engine. Use 'await myrange.get_conditional_formats()' to "
+                "fetch them on demand."
+            )
+        return self._api
+
+    def __call__(self, key):
+        entries = self._loaded()
+        if not isinstance(key, numbers.Number) or key < 1 or key > len(entries):
+            raise KeyError(key)
+        return ConditionalFormat(self, entries[key - 1])
+
+    def __len__(self):
+        return len(self._loaded())
+
+    def __iter__(self):
+        # Iterate over a copy so deleting the current rule doesn't skip the next.
+        for entry in list(self._loaded()):
+            yield ConditionalFormat(self, entry)
+
+    def __contains__(self, key):
+        return isinstance(key, numbers.Number) and 1 <= key <= len(self._loaded())
+
+    def position(self, entry):
+        entries = self._api if self._api is not None else self._pending
+        return entries.index(entry)
+
+    def remove(self, entry):
+        entries = self._api if self._api is not None else self._pending
+        entries.remove(entry)
+
+    @staticmethod
+    def _entry(rule_type, spec):
+        entry = {
+            "type": rule_type,
+            "stop_if_true": spec.get("stop_if_true"),
+            "fill_color": None,
+            "font_color": None,
+            "font_bold": None,
+            "font_italic": None,
+        }
+        entry.update(spec)
+        if "operator" in entry:
+            entry["operator"] = _CONDITIONAL_FORMAT_OPERATOR_PY2JS[entry["operator"]]
+        for key in ("fill_color", "font_color"):
+            if entry.get(key) is not None:
+                entry[key] = _color_to_hex(entry[key])
+        if "colors" in entry:
+            entry["colors"] = [_color_to_hex(value) for value in entry["colors"]]
+        if entry.get("bar_color") is not None:
+            entry["bar_color"] = _color_to_hex(entry["bar_color"])
+        if "threshold_types" in entry:
+            entry["threshold_types"] = [
+                _CONDITIONAL_FORMAT_THRESHOLD_PY2JS[value]
+                for value in entry["threshold_types"]
+            ]
+        if "thresholds" in entry:
+            entry["thresholds"] = list(entry["thresholds"])
+        if "icon_set" in entry:
+            entry["icon_set"] = _CONDITIONAL_FORMAT_ICON_SET_PY2JS[entry["icon_set"]]
+        return entry
+
+    def _add(self, rule_type, spec):
+        entry = self._entry(rule_type, spec)
+        self.range.append_json_action(func="addConditionalFormat", args=[entry])
+        entries = self._api if self._api is not None else self._pending
+        entries.insert(0, entry)
+        return ConditionalFormat(self, entry)
+
+    def add_cell_value(self, spec):
+        return self._add("CellValue", spec)
+
+    def add_custom(self, spec):
+        return self._add("Custom", spec)
+
+    def add_color_scale(self, spec):
+        return self._add("ColorScale", spec)
+
+    def add_data_bar(self, spec):
+        return self._add("DataBar", spec)
+
+    def add_icon_set(self, spec):
+        return self._add("IconSet", spec)
+
+    def clear(self):
+        self.range.append_json_action(func="clearConditionalFormats", args=[])
+        if self._api is not None:
+            self._api.clear()
+        self._pending.clear()
+
+
+class Comment(base_classes.Comment):
+    def __init__(self, range, comment_id=None):
+        self.range = range
+        self.comment_id = comment_id
+
+    @property
+    def api(self):
+        raise NotImplementedError("Comment.api is not available in xlwings Lite")
+
+    async def _read(self, key):
+        if sys.platform != "emscripten":
+            raise NotImplementedError(f"get_{key}() is only supported in xlwings Lite")
+        import js
+
+        value = await js.xlwings.getCommentData(
+            self.range.sheet.name, self.comment_id, self.range.address, key
+        )
+        return _normalize_jsnull(value.to_py() if hasattr(value, "to_py") else value)
+
+    @property
+    def text(self):
+        raise NotImplementedError("Use 'await comment.get_text()' in xlwings Lite")
+
+    @text.setter
+    def text(self, value):
+        self.range.append_json_action(
+            func="setCommentText", args=[self.comment_id, self.range.address, value]
+        )
+
+    async def get_text(self):
+        return await self._read("text")
+
+    @property
+    def author(self):
+        raise NotImplementedError("Use 'await comment.get_author()' in xlwings Lite")
+
+    async def get_author(self):
+        return await self._read("author")
+
+    @property
+    def creation_date(self):
+        raise NotImplementedError(
+            "Use 'await comment.get_creation_date()' in xlwings Lite"
+        )
+
+    async def get_creation_date(self):
+        value = await self._read("creation_date")
+        return (
+            dt.datetime.fromisoformat(value.replace("Z", "+00:00")) if value else None
+        )
+
+    @property
+    def resolved(self):
+        raise NotImplementedError("Use 'await comment.get_resolved()' in xlwings Lite")
+
+    async def get_resolved(self):
+        return await self._read("resolved")
+
+    def set_resolved(self, value):
+        self.range.append_json_action(
+            func="setCommentResolved", args=[self.comment_id, self.range.address, value]
+        )
+
+    @property
+    def location(self):
+        raise NotImplementedError("Use 'await comment.get_location()' in xlwings Lite")
+
+    async def get_location(self):
+        value = await self._read("location")
+        if value is None:
+            return None
+        sheet = self.range.sheet.book.sheets(value["sheet"])
+        return Range(sheet=sheet, arg1=value["address"])
+
+    @property
+    def replies(self):
+        raise NotImplementedError("Use 'await comment.get_replies()' in xlwings Lite")
+
+    async def get_replies(self):
+        if sys.platform != "emscripten":
+            raise NotImplementedError("get_replies() is only supported in xlwings Lite")
+        import js
+
+        entries = _normalize_jsnull(
+            (
+                await js.xlwings.getCommentReplies(
+                    self.range.sheet.name, self.comment_id, self.range.address
+                )
+            ).to_py()
+        )
+        return [CommentReply(self, entry["id"]) for entry in entries]
+
+    def add_reply(self, text):
+        self.range.append_json_action(
+            func="addCommentReply", args=[self.comment_id, self.range.address, text]
+        )
+
+    def delete(self):
+        self.range.append_json_action(
+            func="deleteComment", args=[self.comment_id, self.range.address]
+        )
+
+
+class CommentReply(base_classes.CommentReply):
+    def __init__(self, comment, reply_id):
+        self.comment = comment
+        self.reply_id = reply_id
+
+    @property
+    def text(self):
+        raise NotImplementedError("Use 'await reply.get_text()' in xlwings Lite")
+
+    async def get_text(self):
+        if sys.platform != "emscripten":
+            raise NotImplementedError("get_text() is only supported in xlwings Lite")
+        import js
+
+        return _normalize_jsnull(
+            await js.xlwings.getCommentReplyText(
+                self.comment.range.sheet.name,
+                self.comment.comment_id,
+                self.comment.range.address,
+                self.reply_id,
+            )
+        )
+
+
 class Note(base_classes.Note):
     def __init__(self, range):
         self.range = range
@@ -3642,7 +5301,7 @@ class Note(base_classes.Note):
     @property
     def _entry(self):
         """This note's entry in the sheet's notes payload, keyed by address."""
-        for note in self.range.sheet.api.get("notes", []):
+        for note in self.range.sheet.api.get("notes") or []:
             if _address_key(note["address"]) == _address_key(self.range.address):
                 return note
         return None
@@ -3666,6 +5325,41 @@ class Note(base_classes.Note):
             await js.xlwings.getNoteText(self.range.sheet.name, self.range.address)
         )
 
+    @property
+    def author(self):
+        raise NotImplementedError(
+            "Reading a note's author synchronously isn't supported on this "
+            "engine. Use 'await mynote.get_author()'."
+        )
+
+    async def get_author(self):
+        if sys.platform != "emscripten":
+            raise NotImplementedError("get_author() is only supported in xlwings Lite")
+        import js
+
+        return _normalize_jsnull(
+            await js.xlwings.getNoteAuthor(self.range.sheet.name, self.range.address)
+        )
+
+    @property
+    def location(self):
+        raise NotImplementedError(
+            "Reading a note's location synchronously isn't supported on this "
+            "engine. Use 'await mynote.get_location()'."
+        )
+
+    async def get_location(self):
+        if sys.platform != "emscripten":
+            raise NotImplementedError(
+                "get_location() is only supported in xlwings Lite"
+            )
+        import js
+
+        address = _normalize_jsnull(
+            await js.xlwings.getNoteLocation(self.range.sheet.name, self.range.address)
+        )
+        return Range(sheet=self.range.sheet, arg1=address) if address else None
+
     @text.setter
     def text(self, value):
         self.range.append_json_action(
@@ -3673,7 +5367,7 @@ class Note(base_classes.Note):
         )
 
     def delete(self):
-        notes = self.range.sheet.api.get("notes", [])
+        notes = self.range.sheet.api.get("notes") or []
         entry = self._entry
         if entry is not None:
             notes.remove(entry)

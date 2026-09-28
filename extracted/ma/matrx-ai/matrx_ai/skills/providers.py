@@ -20,7 +20,7 @@ from uuid import UUID
 
 from matrx_utils import vcprint
 
-from matrx_ai.skills.models import SkillBody, SkillHint
+from matrx_ai.skills.models import SkillBody, SkillHint, not_runnable_tooling
 
 # Skill categories live in the consolidated, dimension-based category table
 # (platform.categories, 2026-06-28 canonical reorg) alongside every other
@@ -148,6 +148,7 @@ def _row_to_hint(row: Any, category_path: list[str]) -> SkillHint:
         category_path=category_path,
         has_resources=False,  # filled in lazily by callers that need it
         has_allowed_tools=bool(allowed),
+        not_runnable=not_runnable_tooling(getattr(row, "config", None)),
     )
 
 
@@ -184,6 +185,7 @@ def _row_to_body(row: Any, category_path: list[str]) -> SkillBody:
         allowed_tools=allowed,
         trigger_patterns=triggers,
         disable_auto_invocation=bool(getattr(row, "disable_auto_invocation", False)),
+        not_runnable=not_runnable_tooling(getattr(row, "config", None)),
         version=getattr(row, "version", None),
     )
 

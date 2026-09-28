@@ -104,7 +104,7 @@ impl IntoLsp for tombi_extension::CompletionContent {
                 Priority::TypeHint | Priority::TypeHintTrue | Priority::TypeHintFalse
             );
 
-        let schema_text = self.schema_uri.as_ref().and_then(|schema_uri| {
+        let schema_text = self.schema_base_uri.as_ref().and_then(|schema_uri| {
             tombi_schema_store::get_schema_name(schema_uri)
                 .map(|name| format!("Schema: [{name}]({schema_uri})\n"))
         });

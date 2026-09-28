@@ -214,3 +214,43 @@ async def test_a_class_without_a_mandate_key_is_unmandated_and_still_runs(monkey
         "inputs": {"topic": "unmandated"},
         "config_overrides": {"temperature": 0.1},
     }
+
+
+class _RunStopper(RuntimeError):
+    """What the host raises for an answer missing required keys from a Holder
+    chosen although it does not declare them (aidream MandateOutputError)."""
+
+    fails_the_run = True
+
+
+@pytest.mark.asyncio
+async def test_a_completion_that_fails_the_run_stops_the_job(monkeypatch) -> None:
+    """RED before 2026-09-27: every completion failure was swallowed, so a warned
+    Holder's hollow answer reached the call site to be saved."""
+
+    async def resolver(mandate_key: str) -> mandates.MandateResolution:
+        return mandates.MandateResolution(
+            source=AgentRecordSource(agent_id="warned-agent", is_version=False),
+            complete=AsyncMock(side_effect=_RunStopper("missing slides")),
+        )
+
+    monkeypatch.setattr(mandates, "_MANDATE_RESOLVER", resolver)
+
+    with pytest.raises(_RunStopper):
+        await mandates.run_mandated(_PackageAgent, inputs={"topic": "x"})
+
+
+@pytest.mark.asyncio
+async def test_any_other_completion_failure_still_never_invalidates_the_answer(
+    monkeypatch,
+) -> None:
+    async def resolver(mandate_key: str) -> mandates.MandateResolution:
+        return mandates.MandateResolution(
+            source=AgentRecordSource(agent_id="agent", is_version=False),
+            complete=AsyncMock(side_effect=RuntimeError("exemplar store down")),
+        )
+
+    monkeypatch.setattr(mandates, "_MANDATE_RESOLVER", resolver)
+
+    result = await mandates.run_mandated(_PackageAgent, inputs={"topic": "x"})
+    assert result.success is True

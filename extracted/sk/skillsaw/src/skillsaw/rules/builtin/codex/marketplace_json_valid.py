@@ -11,7 +11,8 @@ from skillsaw.rule import Rule, RuleViolation, Severity
 from skillsaw.context import RepositoryContext, codex_local_source_path
 from skillsaw.diagnostics import safe_display
 from skillsaw.lint_target import CodexMarketplaceConfigNode
-from skillsaw.paths import safe_exists
+from skillsaw.paths import safe_exists, safe_resolve
+from skillsaw.formats.codex_manifest import portable_name_matches
 from skillsaw.rules.builtin.utils import read_json
 
 from ._helpers import (
@@ -101,8 +102,7 @@ class CodexMarketplaceJsonValidRule(Rule):
     def check(self, context: RepositoryContext) -> List[RuleViolation]:
         violations: List[RuleViolation] = []
         # Shared across every catalog, not rebuilt per file: Codex aggregates
-        # siblings into one namespace and ``skillsaw docs`` writes one page
-        # per name, so two catalogs claiming a name can silently lose a page.
+        # siblings into one namespace, so names must be unique across catalogs.
         # Maps a name to the (file, index, source) that claimed it first.
         seen_names: Dict[str, Tuple[Path, int, str]] = {}
 
@@ -178,7 +178,9 @@ class CodexMarketplaceJsonValidRule(Rule):
                 )
                 continue
 
-            violations.extend(self._check_entry_name(entry, idx, marketplace_file, seen_names))
+            violations.extend(
+                self._check_entry_name(entry, idx, marketplace_file, seen_names, root)
+            )
 
             if "source" not in entry:
                 violations.append(
@@ -236,6 +238,7 @@ class CodexMarketplaceJsonValidRule(Rule):
         idx: int,
         marketplace_file: Path,
         seen_names: Dict[str, Tuple[Path, int, str]],
+        root: Path,
     ) -> List[RuleViolation]:
         if "name" not in entry:
             return [
@@ -288,7 +291,16 @@ class CodexMarketplaceJsonValidRule(Rule):
             )
         elif first is None:
             seen_names[name] = (marketplace_file, idx, source_key)
-        if not KEBAB_CASE.match(name):
+        if KEBAB_CASE.match(name):
+            return violations
+        source_path = codex_local_source_path(entry.get("source"))
+        local_root = safe_resolve(root / source_path) if source_path is not None else None
+        portable_name = (
+            local_root is not None
+            and (local_root == root or local_root.is_relative_to(root))
+            and portable_name_matches(local_root, name)
+        )
+        if not portable_name:
             violations.append(
                 self.violation(
                     f"plugins[{idx}] plugin name '{safe_display(name)}' should use kebab-case",

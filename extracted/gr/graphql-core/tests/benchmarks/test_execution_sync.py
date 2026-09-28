@@ -1,7 +1,7 @@
 from graphql import (
-    GraphQLSchema,
-    GraphQLObjectType,
     GraphQLField,
+    GraphQLObjectType,
+    GraphQLSchema,
     GraphQLString,
     graphql_sync,
 )
@@ -15,7 +15,7 @@ user = GraphQLObjectType(
 )
 
 
-def resolve_user(obj, info):
+def resolve_user(_obj, _info):
     return {
         "id": "1",
         "name": "Sarah",

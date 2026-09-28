@@ -435,7 +435,7 @@ class TestCanonicalIdentityRulesDeferred:
         # BUG: a scheme-less URL handed straight to the identity function comes out
         # malformed ("https:example.com/x" — no "//", host stuck in the path) because
         # urlparse reads it as a bare path. In practice ingestion sources supply
-        # absolute URLs and the input-acceptance layer (url_utils.normalize_url) adds
+        # absolute URLs and the input-acceptance layer (url_utils.accept_url_input) adds
         # the scheme first, so this rarely bites — but it is a real latent defect in
         # THE stored identity. Fixing it changes stored-identity output, so it ships
         # with the Identity-Contract-completion migration, never alone. This test

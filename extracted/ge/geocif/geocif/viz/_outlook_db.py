@@ -48,6 +48,37 @@ def _written_at(df):
                                     errors="coerce"))
 
 
+def dedup_upserts(df, key, label=""):
+    """Collapse upsert duplicates, keeping the most recently WRITTEN copy.
+
+    The results table's primary key includes the wall-clock ``Time``, so
+    re-running into an existing DB appends a SECOND copy of every logical row
+    instead of replacing it. Left in place, duplicates double-weight a region
+    in every aggregate.
+
+    ``key`` is the logical identity of a row. Callers differ: the viz loaders
+    key on the renamed ``(Model, Region, year, stage)``; an exporter reading
+    the raw table keys on the DB's own column names. Requires ``Date`` and
+    ``Time`` — the ordering is done on the PARSED timestamp, never the raw
+    strings, which are month-name-first and so do not sort chronologically.
+    """
+    if df.empty or not df.duplicated(key).any():
+        return df
+    n_dup = int(df.duplicated(key).sum())
+    # Sort on the PARSED write time, never the raw strings: Date/Time are
+    # month-name-first, so a lexicographic sort orders 'December' before
+    # 'February' and keep='last' would keep the stale copy. The stable
+    # sort keeps insertion order among ties, so equal (or missing)
+    # timestamps still resolve to the last-inserted copy.
+    out = (df.assign(_ts=_written_at(df))
+           .sort_values("_ts", na_position="first", kind="stable")
+           .drop_duplicates(key, keep="last")
+           .drop(columns="_ts"))
+    print(f"{label}: dropped {n_dup} duplicate ({', '.join(key)}) "
+          f"row(s); kept the most recently written copy of each")
+    return out
+
+
 def load_outlook(db_path, table, *, model=None, extra_columns=(),
                  require_obs=False, validate_ci=False):
     """Read one crop table's outlook rows with the shared cleanup applied.
@@ -108,20 +139,7 @@ def load_outlook(db_path, table, *, model=None, extra_columns=(),
     # cone's full-pool calibration filters reject every year — silently.
     # Model is part of the key because leadtime loads every model at once; a
     # model-free key would "dedup" cubist against tabpfn.
-    key = ["Model", "Region", "year", "stage"]
-    if df.duplicated(key).any():
-        n_dup = int(df.duplicated(key).sum())
-        # Sort on the PARSED write time, never the raw strings: Date/Time are
-        # month-name-first, so a lexicographic sort orders 'December' before
-        # 'February' and keep='last' would keep the stale copy. The stable
-        # sort keeps insertion order among ties, so equal (or missing)
-        # timestamps still resolve to the last-inserted copy.
-        df = (df.assign(_ts=_written_at(df))
-              .sort_values("_ts", na_position="first", kind="stable")
-              .drop_duplicates(key, keep="last")
-              .drop(columns="_ts"))
-        print(f"{table}: dropped {n_dup} duplicate (Model, Region, year, stage) "
-              f"row(s); kept the most recently written copy of each")
+    df = dedup_upserts(df, ["Model", "Region", "year", "stage"], table)
     df = df.copy()
 
     if validate_ci:

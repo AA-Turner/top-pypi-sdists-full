@@ -31,7 +31,7 @@ pub(super) struct RecordSummary {
     pub(super) agent_clan_generation: Option<String>,
     pub(super) clan_tribe: Option<String>,
     pub(super) clan_summary: Option<String>,
-    pub(super) agent_family: Option<String>,
+    pub(super) agent_session: Option<String>,
     pub(super) model: Option<String>,
     pub(super) llm_provider: Option<String>,
     pub(super) started_at: Option<String>,
@@ -48,7 +48,7 @@ pub(super) struct RecordSummary {
     pub(super) model_alias_origin: Option<String>,
     pub(super) source_machine: Option<String>,
     pub(super) imported_owner_machine: Option<String>,
-    pub(super) gate_shell_id: Option<String>,
+    pub(super) gate_turn_id: Option<String>,
 }
 
 impl RecordSummary {
@@ -106,7 +106,7 @@ impl RecordSummary {
                 .and_then(|(_, generation)| generation.clone()),
             clan_tribe: meta.and_then(|m| m.clan_tribe.clone()),
             clan_summary: meta.and_then(|m| m.clan_summary.clone()),
-            agent_family: meta.and_then(|m| m.agent_family.clone()),
+            agent_session: meta.and_then(|m| m.agent_session.clone()),
             model: meta
                 .and_then(|m| m.model.clone())
                 .or_else(|| done.and_then(|d| d.model.clone()))
@@ -144,19 +144,19 @@ impl RecordSummary {
             model_alias_origin: meta.and_then(|m| m.model_alias_origin.clone()),
             source_machine: machines.source_machine,
             imported_owner_machine: machines.imported_owner_machine,
-            gate_shell_id: gate_shell_id_from_record(record),
+            gate_turn_id: gate_turn_id_from_record(record),
         }
     }
 }
 
-/// Return the durable gate id iff *record* is a real gate-shell member.
+/// Return the durable gate id iff *record* is a real gate-turn member.
 ///
 /// `gate_id` alone is inherited by later gate-associated follow-ups, so
-/// indexing it unconditionally would let a successor shadow the shell that
+/// indexing it unconditionally would let a successor shadow the turn that
 /// actually owns the gate. Only [`is_real_gate_member_record`] rows project
-/// a value here, which is what makes an exact `gate_shell_id` match resolve
-/// the owning shell instead of an inheritor.
-pub(super) fn gate_shell_id_from_record(
+/// a value here, which is what makes an exact `gate_turn_id` match resolve
+/// the owning turn instead of an inheritor.
+pub(super) fn gate_turn_id_from_record(
     record: &AgentArtifactRecordWire,
 ) -> Option<String> {
     if !is_real_gate_member_record(record) {
@@ -165,8 +165,8 @@ pub(super) fn gate_shell_id_from_record(
     record
         .agent_meta
         .as_ref()
-        .and_then(|meta| meta.family_shell.as_ref())
-        .and_then(|shell| shell.id.clone())
+        .and_then(|meta| meta.agent_session_turn.as_ref())
+        .and_then(|turn| turn.id.clone())
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]

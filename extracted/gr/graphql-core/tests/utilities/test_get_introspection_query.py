@@ -1,18 +1,21 @@
+from __future__ import annotations
+
 import re
+from re import Pattern
 
-from typing import Pattern
-
-from pytest import raises
+import pytest
 
 from graphql.language import parse
 from graphql.utilities import build_schema, get_introspection_query
 from graphql.validation import validate
 
-dummy_schema = build_schema("""
+dummy_schema = build_schema(
+    """
   type Query {
     dummy: String
   }
-  """)
+  """
+)
 
 
 class ExcpectIntrospectionQuery:
@@ -107,10 +110,10 @@ def describe_get_introspection_query():
         query.to_not_contain("directives(includeDeprecated: true) {")
         query.to_match("deprecationReason", 2)
 
-    def includes_input_object_one_of_field():
+    def includes_is_one_of_on_input_objects():
         ExcpectIntrospectionQuery().to_not_match("isOneOf")
-        ExcpectIntrospectionQuery(input_object_one_of=True).to_match("isOneOf")
-        ExcpectIntrospectionQuery(input_object_one_of=False).to_not_match("isOneOf")
+        ExcpectIntrospectionQuery(one_of=True).to_match("isOneOf")
+        ExcpectIntrospectionQuery(one_of=False).to_not_match("isOneOf")
 
     def includes_deprecated_input_field_and_args():
         ExcpectIntrospectionQuery().to_match("includeDeprecated: true", 2)
@@ -122,9 +125,9 @@ def describe_get_introspection_query():
         )
 
     def throws_error_if_type_depth_is_too_high():
-        with raises(ValueError) as exc_info:
+        with pytest.raises(
+            ValueError,
+            match="Please set type_depth to a reasonable value"
+            r" between 0 and 100; the default is 9\.",
+        ):
             get_introspection_query(type_depth=101)
-        assert str(exc_info.value) == (
-            "Please set type_depth to a reasonable value"
-            " between 0 and 100; the default is 9."
-        )

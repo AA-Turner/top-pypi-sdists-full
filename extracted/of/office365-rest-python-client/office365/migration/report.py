@@ -12,7 +12,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from office365.migration._util import iso, write_csv_json
+from office365.migration.report_io import write_formats
+from office365.runtime.converters.scalars import iso
 
 if TYPE_CHECKING:
     from office365.migration.job import MigrationJob
@@ -79,6 +80,10 @@ def build_report(job: "MigrationJob") -> MigrationReport:
             "status": item.status.value,
             "error": item.error or "",
             "error_code": item.error_code or "",
+            "modified": item.modified or "",
+            "created": item.created or "",
+            "author_id": item.author_id,
+            "editor_id": item.editor_id,
         }
         for item in job.manifest.items
     ]
@@ -107,5 +112,5 @@ def export_reports(job: "MigrationJob", output_dir: str | Path) -> list[str]:
     ):
         if not records:
             continue
-        written += write_csv_json(output_dir, name, records)
+        written += write_formats(records, output_dir, name)
     return written

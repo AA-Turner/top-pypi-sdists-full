@@ -11,7 +11,7 @@
 //! full phase plan and `..._phase3a_handoff.md` for the wire contract
 //! Phase 3B reproduces here.
 
-mod context;
+pub(crate) mod context;
 pub mod index;
 pub mod layout;
 pub mod scanner;
@@ -21,15 +21,15 @@ pub mod wire;
 pub use index::{
     agent_artifact_index_status, delete_agent_artifact_index_row,
     delete_agent_artifact_index_row_with_busy_timeout,
-    find_gate_shell_by_gate_id, load_agent_artifact_records,
+    find_gate_turn_by_gate_id, load_agent_artifact_records,
     prune_hidden_terminal_agent_artifact_index_rows, query_agent_alias_history,
     query_agent_artifact_index, query_agent_output_variable_history,
     query_related_agent_artifact_dirs, read_agent_artifact_index_meta,
     rebuild_agent_artifact_index,
-    reconcile_agent_artifact_index_dismissed_family_members,
+    reconcile_agent_artifact_index_dismissed_agent_session_members,
     replace_agent_artifact_index_dismissed_agents,
     replace_agent_artifact_index_dismissed_agents_with_force,
-    resolve_family_dismissal_lineage,
+    resolve_agent_session_dismissal_lineage,
     terminalize_stale_active_agent_artifact_index_rows,
     upsert_agent_artifact_index_row, vacuum_agent_artifact_index,
     write_agent_artifact_index_meta, AgentAliasHistoryGroupWire,
@@ -38,8 +38,9 @@ pub use index::{
     AgentArtifactCandidateFilterWire, AgentArtifactIndexDismissalReconcileWire,
     AgentArtifactIndexFreshnessWire, AgentArtifactIndexQueryWire,
     AgentArtifactIndexStatusWire, AgentArtifactIndexUpdateWire,
-    AgentArtifactIndexVacuumWire, FamilyDismissalLineageCandidateWire,
-    FamilyDismissalLineageResultWire, AGENT_ALIAS_HISTORY_WIRE_SCHEMA_VERSION,
+    AgentArtifactIndexVacuumWire, AgentSessionDismissalLineageCandidateWire,
+    AgentSessionDismissalLineageResultWire,
+    AGENT_ALIAS_HISTORY_WIRE_SCHEMA_VERSION,
     AGENT_ARTIFACT_INDEX_SCHEMA_VERSION, DEFAULT_HIDDEN_TERMINAL_HOT_ROWS,
 };
 pub use layout::{
@@ -68,12 +69,14 @@ pub use wire::{
     AgentOutputVariableOccurrenceWire, AgentOutputVariableSelectorMatchWire,
     AgentOutputVariableSelectorQueryWire,
     AgentOutputVariableSelectorResultWire, AgentOutputVariableValueGroupWire,
-    DoneMarkerWire, FamilyShellGateWire, FamilyShellMonitorWire,
-    FamilyShellWire, OutputVariableSelectorPathWire,
-    OutputVariableSelectorScopeWire, OutputVariableSelectorWire,
-    OutputVariableValue, PlanPathMarkerWire, PromptStepMarkerWire,
-    RunningMarkerWire, UsedXPromptWire, WaitingMarkerWire, WorkflowStateWire,
-    WorkflowStepStateWire, AGENT_OUTPUT_VARIABLE_HISTORY_WIRE_SCHEMA_VERSION,
+    AgentSessionTurnGateWire, AgentSessionTurnMonitorWire,
+    AgentSessionTurnWire, DoneMarkerWire, FinalizerStatusInstanceWire,
+    FinalizerStatusRunnerWire, FinalizerStatusSummaryWire,
+    OutputVariableSelectorPathWire, OutputVariableSelectorScopeWire,
+    OutputVariableSelectorWire, OutputVariableValue, PlanPathMarkerWire,
+    PromptStepMarkerWire, RunningMarkerWire, UsedXPromptWire,
+    WaitingMarkerWire, WorkflowStateWire, WorkflowStepStateWire,
+    AGENT_OUTPUT_VARIABLE_HISTORY_WIRE_SCHEMA_VERSION,
     AGENT_OUTPUT_VARIABLE_SELECTOR_WIRE_SCHEMA_VERSION,
     AGENT_SCAN_WIRE_SCHEMA_VERSION, DONE_WORKFLOW_DIR_NAMES,
     DONE_WORKFLOW_DIR_PREFIXES, WORKFLOW_STATE_DIR_NAMES,

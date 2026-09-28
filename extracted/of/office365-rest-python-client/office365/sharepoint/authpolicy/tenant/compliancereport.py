@@ -49,3 +49,8 @@ class SPTenantIBPolicyComplianceReport(Entity):
     @property
     def entity_type_name(self):
         return "Microsoft.SharePoint.AuthPolicy.SPTenantIBPolicyComplianceReport"
+
+    @property
+    def id(self) -> Optional[str]:
+        """Gets the Id property"""
+        return self.properties.get("Id", None)

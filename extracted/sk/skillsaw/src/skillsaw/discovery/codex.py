@@ -14,7 +14,9 @@ from pathlib import Path
 from typing import Any, Callable, Iterable, List, Optional, Set
 
 from skillsaw.formats.codex import CODEX_PLUGIN_MANIFEST, codex_local_source_path
+from skillsaw.formats.codex_manifest import declares_openai_extension, portable_manifest_is_usable
 from skillsaw.paths import (
+    Resolver,
     contained_resolve,
     safe_exists,
     safe_is_dir,
@@ -116,9 +118,7 @@ def enumerate_codex_catalogs(
         return contained_resolve(path, root) is not None
 
     def _keep(path: Path) -> bool:
-        # Exclusions applied here, not at each reader: ``skillsaw docs``
-        # reads this list directly, so an excluded catalog would
-        # otherwise still supply published pages and the generated title.
+        # Apply exclusions centrally so every consumer sees the same catalogs.
         return _inside(path) and not is_excluded(path)
 
     found: List[Path] = []
@@ -184,6 +184,7 @@ def discover_codex_plugins(
     """
     found: List[Path] = []
     seen: Set[Path] = set()
+    local_sources = tuple(local_sources)
 
     root = safe_resolve(root_path) or root_path
 
@@ -193,13 +194,19 @@ def discover_codex_plugins(
             return None
         return resolved if resolved == root or resolved.is_relative_to(root) else None
 
-    def _add(directory: Path) -> None:
+    def _add(directory: Path, *, installed: bool = False) -> None:
         # Either half can be the symlink out of the repository:
         # ``plugins/foo`` itself, or ``plugins/foo/.codex-plugin`` under
         # a real directory. Both would make skillsaw read an out-of-tree
         # manifest, so both are containment-checked.
         resolved = _contained(directory)
         if resolved is None or resolved in seen:
+            return
+        if declares_openai_extension(directory) or (
+            (installed or directory in local_sources) and portable_manifest_is_usable(directory)
+        ):
+            seen.add(resolved)
+            found.append(directory)
             return
         # The marker must resolve within *this plugin*, not merely the
         # repository: `plugins/a/.codex-plugin -> plugins/b/.codex-plugin`
@@ -241,7 +248,7 @@ def discover_codex_plugins(
             continue
         for item in entries:
             if item.is_dir() and not item.name.startswith("."):
-                _add(item)
+                _add(item, installed=parent == root_path.joinpath(*CODEX_INSTALL_DIR))
 
     for source in local_sources:
         _add(source)
@@ -298,7 +305,11 @@ def codex_install_root(root_path: Path) -> Optional[Path]:
 
 
 def is_installed_codex_plugin(
-    plugin_dir: Path, root_path: Path, install_root: Optional[Path]
+    plugin_dir: Path,
+    root_path: Path,
+    install_root: Optional[Path],
+    *,
+    resolve: Resolver = safe_resolve,
 ) -> bool:
     """Whether *plugin_dir* sits under the personal-install location.
 
@@ -319,7 +330,7 @@ def is_installed_codex_plugin(
             return True
     except ValueError:  # pragma: no cover - defensive
         pass
-    resolved = safe_resolve(plugin_dir)
+    resolved = resolve(plugin_dir)
     if resolved is None:
         return False
     return resolved != install_root and resolved.is_relative_to(install_root)

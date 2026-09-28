@@ -1,0 +1,55 @@
+name: Snyk
+
+on:
+  push:
+    branches: [develop]
+  pull_request:
+  schedule:
+    - cron: "18 6 * * 1"
+
+permissions:
+  contents: read
+
+jobs:
+  snyk:
+    runs-on: ubuntu-latest
+    env:
+      SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7  # v10.2.0
+
+      - name: Install Snyk CLI
+        uses: snyk/actions/setup@9adf32b1121593767fc3c057af55b55db032dc04  # v1.0.0
+
+      # Snyk's native uv support is Enterprise-only. Its pip support wants an
+      # installed environment and a requirements file it can resolve against
+      # that environment, so the locked set is installed into a pip virtualenv
+      # and frozen back out. The freeze strips the environment markers that
+      # `uv export` emits, which otherwise name packages (Windows-only, PyPy-
+      # only) that are not installed on the runner.
+      - name: Install the locked set into a pip environment
+        run: |
+          uv export --locked --no-emit-project --no-hashes --format requirements-txt > requirements.txt
+          python -m venv .snyk-venv
+          .snyk-venv/bin/python -m pip install --upgrade pip
+          .snyk-venv/bin/python -m pip install -r requirements.txt
+          .snyk-venv/bin/python -m pip freeze | grep -viE '^(pip|setuptools|wheel)==' > requirements.txt
+
+      - name: Test for vulnerabilities
+        if: env.SNYK_TOKEN != ''
+        run: >-
+          snyk test --file=requirements.txt
+          --command="$GITHUB_WORKSPACE/.snyk-venv/bin/python"
+
+      - name: Update Snyk monitor
+        if: github.event_name == 'push' && env.SNYK_TOKEN != ''
+        run: >-
+          snyk monitor --file=requirements.txt
+          --command="$GITHUB_WORKSPACE/.snyk-venv/bin/python"
+          --project-name=fqdn

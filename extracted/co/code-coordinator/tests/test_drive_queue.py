@@ -956,6 +956,52 @@ def test_total_fix_round_budget_is_work_plus_fix_rounds():
     assert total_fix_round_budget(default_e, None) == DEFAULT_TICK_MAX_FIX_ROUNDS + 1
 
 
+# ── #3463: a re-added row's budget is measured from ITS OWN baseline ────────
+#
+# `IssueFacts.work_leg_count` is a LIFETIME, cross-row count — every
+# predecessor row this (repo, issue) has ever had contributes to it. Before
+# #3463, `remaining_fix_rounds` compared that raw lifetime figure against
+# `max_fix_rounds`, so a fresh row re-added (`coord drive-queue remove` +
+# `add`) after its issue had already burned through 5 lifetime legs read
+# back almost no budget at all — exactly the opposite of what the #3454
+# ceiling message promises ("remove + add ... is the only way to give it
+# another attempt"). `entry.legs_at_enqueue` is the lifetime count AS OF the
+# row's own `enqueue_drive_queue` call — see `coord.state.
+# _enqueue_drive_queue_local` for where it is stamped — so a row's own spend
+# is `work_leg_count - legs_at_enqueue`, never the raw lifetime total.
+
+
+def test_remaining_fix_rounds_gives_a_re_added_row_its_full_budget():
+    """quadraui#1081's exact shape: `--max-fix-rounds 5`, re-added when the
+    issue already has 5 lifetime work legs. Current main (pre-#3463) reads
+    this back as `1` (`5 - 4` against `effective_max_fix_rounds`) — this
+    pins the fix: a freshly re-added row (no legs of its OWN yet) gets its
+    full `max_fix_rounds` back, not a near-exhausted one inherited from
+    every predecessor row's history."""
+    e = entry(1081, max_fix_rounds=5, legs_at_enqueue=5)
+    facts = IssueFacts(known=True, work_leg_count=5)
+    assert remaining_fix_rounds(e, facts, None) == 5
+
+
+def test_remaining_fix_rounds_still_shrinks_across_relaunches_of_the_re_added_row():
+    """The #2972 no-fresh-budget-on-relaunch guarantee is unchanged for the
+    re-added row ITSELF: two more legs run against it (still no new `add`,
+    so `legs_at_enqueue` does not move) shrinks its remaining budget by the
+    one fix round actually spent, same as any other row."""
+    e = entry(1081, max_fix_rounds=5, legs_at_enqueue=5)
+    facts = IssueFacts(known=True, work_leg_count=7)
+    assert remaining_fix_rounds(e, facts, None) == 4
+
+
+def test_remaining_fix_rounds_legs_at_enqueue_default_matches_pre_3463_behaviour():
+    """A row predating the `legs_at_enqueue` column (or one that has never
+    been re-added) reads `legs_at_enqueue == 0` — reproducing the pre-#3463
+    `work_leg_count - 1` formula exactly, byte for byte."""
+    e = entry(1650, max_fix_rounds=2)
+    assert e.legs_at_enqueue == 0
+    assert remaining_fix_rounds(e, IssueFacts(known=True, work_leg_count=2), None) == 1
+
+
 def test_build_board_view_folds_leg_counts_into_work_leg_count():
     """Only WORK_LIKE types count as a work leg — a `review`/`smoke` leg on
     the SAME issue must never inflate the fix-round budget's own count."""
@@ -1263,7 +1309,14 @@ def test_only_one_entry_launches_per_tick():
     entries = [entry(1650, position=0), entry(1654, position=1)]
     plan = plan_tick(entries, board(), capacity=5)
     assert plan.launch is not None and plan.launch.issue == 1650
-    assert len(plan.writes()) == 0  # nothing else touched
+    # #3461: the OTHER row is never launched, retried, or escalated — but its
+    # `last_reason` (previously "", never set) does refresh, so the report
+    # cell it feeds does not stay blank/stale for as long as this entry sits
+    # behind its own repo's in-flight slot.
+    assert len(plan.writes()) == 1
+    key, updates = plan.writes()[0]
+    assert key == entry_key(REPO, 1654)
+    assert updates == {"last_reason": plan.deferrals[0].reason}
 
 
 def test_entries_after_the_launch_are_reported_but_never_counted():
@@ -1275,8 +1328,14 @@ def test_entries_after_the_launch_are_reported_but_never_counted():
     assert plan.launch is not None and plan.launch.issue == 1650
     assert [d.key for d in plan.deferrals] == [entry_key(REPO, 1654)]
     assert plan.deferrals[0].counted is False
-    assert plan.deferrals[0].updates == {}
-    assert plan.writes() == []  # a launch tick mutates only the launched row
+    # #3461: `counted` staying `False` means no attempt is spent and no
+    # `deferrals` bump — but the TEXT still refreshes (from "" to the fresh
+    # "waiting on ..." reading), so `writes()` is no longer empty even though
+    # this tick launched exactly one row.
+    assert plan.deferrals[0].updates == {"last_reason": plan.deferrals[0].reason}
+    assert plan.writes() == [
+        (entry_key(REPO, 1654), {"last_reason": plan.deferrals[0].reason})
+    ]
     text = "\n".join(render_plan(plan))
     assert f"defer {entry_key(REPO, 1654)}" in text
     assert entry_key(REPO, 1650) in text
@@ -1496,9 +1555,25 @@ def test_the_launch_takes_its_own_repos_slot_in_the_report_only_tail():
     assert plan.launch is not None and plan.launch.issue == 302
     assert [d.key for d in plan.deferrals] == ["quadraui#303"]
     assert plan.deferrals[0].counted is False  # never competed for the slot
-    assert plan.deferrals[0].updates == {}
-    assert plan.writes() == []
     assert "at its limit (1/1)" in plan.deferrals[0].reason
+    # #3461: the TEXT still refreshes even though nothing here counts as a
+    # deferral — this entry's stored `last_reason` was "" (never set), so
+    # the first tick that reaches it writes the fresh reading...
+    assert plan.deferrals[0].updates == {"last_reason": plan.deferrals[0].reason}
+    assert plan.writes() == [("quadraui#303", {"last_reason": plan.deferrals[0].reason})]
+    # ...but a SECOND tick against a row that already carries that exact
+    # text writes nothing — no churn once the reading stops changing.
+    stable_entries = [
+        other(302, "quadraui", position=0),
+        other(303, "quadraui", position=1, last_reason=plan.deferrals[0].reason),
+    ]
+    plan2 = plan_tick(
+        stable_entries,
+        cross_repo_board(open_=("quadraui#302", "quadraui#303")),
+        capacity=3,
+    )
+    assert plan2.deferrals[0].updates == {}
+    assert plan2.writes() == []
 
 
 def test_an_unsatisfiable_prereq_still_blocks_inside_a_full_repo():
@@ -1541,6 +1616,128 @@ def test_a_plan_without_a_per_repo_ceiling_renders_the_original_line():
     entries = [entry(1650, position=0)]
     plan = plan_tick(entries, board(), capacity=1, max_parallel_per_repo=0)
     assert "per-repo" not in "\n".join(render_plan(plan))
+
+
+# ── plan_tick: #3461 — a waiting entry's `last_reason` must not freeze ──────
+
+
+def test_stale_last_reason_refreshes_while_the_queue_sits_at_capacity():
+    """The steady state of a deep queue is AT CAPACITY, not mid-walk — before
+    #3461 that early return produced no deferral at all, so a dependent's
+    `last_reason` could quote a pre-req's LONG-GONE `blocked` state for as
+    long as the queue stayed full."""
+    dep_key = entry_key(REPO, 1650)
+    stale_reason = (
+        f"waiting on {dep_key} (queued, blocked, but its own gate reading is "
+        "an unconfirmed probe failure, not a confirmed-still-shut gate — "
+        "retrying, not blocked permanently, #3368)"
+    )
+    entries = [
+        # Occupies the queue's only slot — recently launched, so #1794's
+        # startup grace keeps it counted even with no live session yet.
+        entry(1600, position=0, state=STATE_RUNNING, launched_at=NOW - 41.0),
+        # X: was `blocked` (the stale text above quotes it), has SINCE been
+        # removed and re-added as `waiting` — exactly the #3461 incident.
+        entry(1650, position=1, state=STATE_WAITING),
+        entry(
+            1654,
+            position=2,
+            after=(dep_key,),
+            last_reason=stale_reason,
+            deferrals=3,
+        ),
+    ]
+    plan = plan_tick(entries, board(open_=(1650, 1654)), capacity=1, now=NOW)
+    assert plan.launch is None
+    assert plan.occupied == plan.capacity == 1  # the whole point: AT capacity
+    dep_update = next(d for d in plan.deferrals if d.key == entry_key(REPO, 1654))
+    assert dep_update.counted is False  # never competed for a slot
+    assert dep_update.reason == f"waiting on {dep_key} (queued, waiting)"
+    assert dep_update.reason != stale_reason
+    assert dep_update.updates == {"last_reason": dep_update.reason}
+    # A text refresh is not a counted deferral: the persisted `deferrals`
+    # counter must not move.
+    assert "deferrals" not in dep_update.updates
+    # `writes()` also carries #1794's own "still starting" reconcile note for
+    # the running entry — unrelated to this fix — so check D's write by key
+    # rather than asserting the whole list.
+    assert dict(plan.writes())[entry_key(REPO, 1654)] == {
+        "last_reason": dep_update.reason
+    }
+
+
+def test_stale_last_reason_refreshes_in_the_report_only_tail():
+    """Same staleness, different cause: D is walked AFTER this tick's own
+    launch already won, so the pre-#3461 report-only pass discarded its
+    freshly re-derived reason instead of persisting it."""
+    dep_key = entry_key(REPO, 1650)
+    stale_reason = (
+        f"waiting on {dep_key} (queued, blocked, but its own gate reading is "
+        "an unconfirmed probe failure, not a confirmed-still-shut gate — "
+        "retrying, not blocked permanently, #3368)"
+    )
+    entries = [
+        # X: fully eligible, wins this tick's one launch.
+        entry(1650, position=0),
+        entry(
+            1654,
+            position=1,
+            after=(dep_key,),
+            last_reason=stale_reason,
+            deferrals=3,
+        ),
+    ]
+    plan = plan_tick(entries, board(open_=(1650, 1654)), capacity=1)
+    assert plan.launch is not None and plan.launch.issue == 1650
+    dep_update = next(d for d in plan.deferrals if d.key == entry_key(REPO, 1654))
+    assert dep_update.counted is False
+    assert dep_update.reason == f"waiting on {dep_key} (queued, waiting)"
+    assert dep_update.reason != stale_reason
+    assert dep_update.updates == {"last_reason": dep_update.reason}
+    assert "deferrals" not in dep_update.updates
+
+
+def test_an_unchanged_reason_writes_nothing_even_when_reported():
+    """No churn: once a `waiting` entry's stored `last_reason` already
+    matches what this tick would derive, refreshing it again is a no-op —
+    at capacity and in the report-only tail alike."""
+    dep_key = entry_key(REPO, 1650)
+    current_reason = f"waiting on {dep_key} (queued, waiting)"
+
+    at_capacity_entries = [
+        entry(1600, position=0, state=STATE_RUNNING, launched_at=NOW - 41.0),
+        entry(1650, position=1, state=STATE_WAITING),
+        entry(
+            1654,
+            position=2,
+            after=(dep_key,),
+            last_reason=current_reason,
+            deferrals=3,
+        ),
+    ]
+    at_capacity_plan = plan_tick(
+        at_capacity_entries, board(open_=(1650, 1654)), capacity=1, now=NOW
+    )
+    # #1794's own "still starting" reconcile note for the running entry is
+    # unrelated to this fix and writes every tick regardless — what matters
+    # here is that D's OWN row (whose text hasn't changed) gets no write.
+    assert entry_key(REPO, 1654) not in dict(at_capacity_plan.writes())
+
+    report_only_entries = [
+        entry(1650, position=0),
+        entry(
+            1654,
+            position=1,
+            after=(dep_key,),
+            last_reason=current_reason,
+            deferrals=3,
+        ),
+    ]
+    report_only_plan = plan_tick(
+        report_only_entries, board(open_=(1650, 1654)), capacity=1
+    )
+    assert report_only_plan.launch is not None
+    assert report_only_plan.writes() == []
 
 
 # ── plan_tick: reconciliation ────────────────────────────────────────────────
@@ -4246,6 +4443,155 @@ def test_an_unreadable_note_never_overrides_a_confirmed_still_shut_reading():
     assert plan.launch is None
 
 
+# ── #3460: a CONFIRMED still-shut reading must show its reason, and must ────
+# never clobber the entry's original block cause doing so
+#
+# claude-coordinator#3460 (quadraui#1081): the #2806 sweep's shell used to
+# misreport a genuinely still-shut merge gate as an "unconfirmed probe
+# failure" (no merge-queue row exists for an entry whose Work fails the
+# review/smoke gates — `enqueue_approved_work`'s self-heal can never
+# enqueue it). Once the shell correctly classifies this as confirmed-shut
+# (`live_blocked_gate[key] is True`) and names why (`live_blocked_gate_
+# reason[key]`), `_reconcile_blocked` must show that reason — but the
+# original `last_reason` (a #2972 fix-round-ceiling marker, an ordinary
+# "exhausted" text, ...) must survive, since later ticks' classifiers read
+# only that field.
+
+
+def test_a_confirmed_still_shut_reading_with_a_reason_surfaces_it_without_dropping_the_original_cause():
+    original = (
+        "drive session died without landing the work, launched 90s ago "
+        "(attempt 2/2) — giving up"
+    )
+    entries = [_blocked_entry(555, position=1, last_reason=original)]
+    plan = plan_tick(
+        entries,
+        board(),
+        capacity=1,
+        live_blocked_gate={entry_key(REPO, 555): True},
+        live_blocked_gate_reason={
+            entry_key(REPO, 555): "review gate — review required but not "
+            "approved; smoke gate — test verdict missing"
+        },
+    )
+    reconcile = plan.reconciles[0]
+    assert reconcile.outcome == "gate_confirmed_shut"
+    assert "state" not in reconcile.updates
+    # The original cause is still there, verbatim...
+    assert original in reconcile.updates["last_reason"]
+    # ...with the fresh gate reason layered on top, not replacing it.
+    assert "review gate" in reconcile.updates["last_reason"]
+    assert "smoke gate" in reconcile.updates["last_reason"]
+    assert plan.launch is None
+
+
+def test_a_confirmed_still_shut_reading_with_no_reason_stays_exactly_silent():
+    """No `live_blocked_gate_reason` entry for this key (the pre-#3460
+    shape, or a reading that came off the cached board rather than a fresh
+    live re-check) — nothing new to say, so nothing is written, exactly as
+    before #3460."""
+    entries = [_blocked_entry(309, position=3)]
+    plan = plan_tick(
+        entries, board(), capacity=1, live_blocked_gate={entry_key(REPO, 309): True}
+    )
+    assert plan.reconciles == ()
+    assert plan.launch is None
+
+
+def test_a_confirmed_still_shut_reading_does_not_repeat_the_same_write_every_tick():
+    """An unchanged gate reason across two consecutive ticks must not grow
+    `last_reason` without bound — the second tick's write, computed against
+    the FIRST tick's already-annotated `last_reason`, must equal the first
+    tick's write byte for byte."""
+    original = (
+        "drive session died without landing the work, launched 90s ago "
+        "(attempt 2/2) — giving up"
+    )
+    reason_map = {
+        entry_key(REPO, 555): "review gate — review required but not approved"
+    }
+    entries = [_blocked_entry(555, position=1, last_reason=original)]
+    plan1 = plan_tick(
+        entries,
+        board(),
+        capacity=1,
+        live_blocked_gate={entry_key(REPO, 555): True},
+        live_blocked_gate_reason=reason_map,
+    )
+    first_write = plan1.reconciles[0].updates["last_reason"]
+
+    entries2 = [_blocked_entry(555, position=1, last_reason=first_write)]
+    plan2 = plan_tick(
+        entries2,
+        board(),
+        capacity=1,
+        live_blocked_gate={entry_key(REPO, 555): True},
+        live_blocked_gate_reason=reason_map,
+    )
+    # Same reason, same tick's-worth of new information -> no new write at
+    # all (idempotent), not a second copy of the same note appended.
+    assert plan2.reconciles == ()
+
+
+def test_the_confirmed_still_shut_last_reason_is_never_an_unconfirmed_probe_reason():
+    """#3368's own dependent-verdict logic reads `is_unconfirmed_block_
+    reason` off a pre-req's `last_reason` to tell "probe merely failed,
+    retrying" apart from "confirmed still shut". The text
+    `_reconcile_blocked` writes for a CONFIRMED reading must never trip that
+    check — the exact #3460 incident: quadraui#1081's dependents all quoted
+    "retrying, not blocked permanently" about a gate this sweep HAD in fact
+    already confirmed shut."""
+    from coord.drive_queue import is_unconfirmed_block_reason
+
+    original = "drive session died without landing the work — giving up"
+    entries = [_blocked_entry(555, position=1, last_reason=original)]
+    plan = plan_tick(
+        entries,
+        board(),
+        capacity=1,
+        live_blocked_gate={entry_key(REPO, 555): True},
+        live_blocked_gate_reason={
+            entry_key(REPO, 555): "review gate — review required but not approved"
+        },
+    )
+    written = plan.reconciles[0].updates["last_reason"]
+    assert not is_unconfirmed_block_reason(written)
+
+
+def test_an_unreadable_probe_note_layers_on_top_of_the_original_cause_not_over_it():
+    """#3460's other half: `_reconcile_blocked_unreadable`'s write must not
+    replace `last_reason` wholesale — a marker classifier (`is_permanent_
+    block_reason`/`is_dispatch_failure_reason`/...) on a LATER tick reads
+    only that field, so overwriting it destroys the only signal those
+    classifiers have. Uses the #2273 dispatch-failure marker — a marker
+    that (unlike `(#2972)`, permanently excluded from this sweep since
+    #3454) is still a live #2230 sweep target, so this exercises the
+    ACTUAL write path rather than the early permanent-block return."""
+    original = (
+        "drive exited for claude-coordinator#1077 (exit_code=3): deadline "
+        "of 240m exceeded (2/2 attempts) — giving up — no assignment was "
+        "ever created for this run (#2273): likely an infrastructure/"
+        "dispatch-layer failure, not a code defect"
+    )
+    entries = [_blocked_entry(1077, position=1, last_reason=original)]
+    plan = plan_tick(
+        entries,
+        board(),
+        capacity=1,
+        live_blocked_gate={},
+        live_blocked_unreadable={
+            entry_key(REPO, 1077): "no merge-queue row for this entry, even "
+            "after the self-heal enqueue attempt"
+        },
+    )
+    reconcile = plan.reconciles[0]
+    assert reconcile.outcome == "gate_unreadable"
+    written = reconcile.updates["last_reason"]
+    assert original in written
+    assert "could not be read" in written
+    assert "#2273" in written
+
+
 def test_a_pre_dispatch_reason_text_does_not_suppress_a_real_unreadable_note():
     """#2635's own lesson, applied to #2806: `is_pre_dispatch_block_reason`'s
     text match is per-RUN, not per-ENTRY, and can be wrong — a retry's own
@@ -4353,6 +4699,78 @@ def test_a_dead_end_blocked_entry_is_never_resumed():
     )
     assert plan.reconciles == ()
     assert plan.launch is None
+
+
+def test_a_fix_round_ceiling_blocked_entry_is_never_resumed():
+    """#3454: same posture as the #1844/#2019 permanent blocks above — a
+    #2972 fix-round-ceiling give-up must not auto-resume just because the
+    merge gate reads clear again. Before this fix, `_reconcile_blocked`
+    treated this reason as an ordinary re-checkable `exhausted` (#309's
+    shape) and would have relaunched with `attempts` reset to 0 — handing
+    the entry a fresh work-leg budget the ceiling exists to deny, exactly
+    the quadraui#625 silent-reset bug #2972 itself closed for the ordinary
+    retry path. Contrast with
+    test_a_blocked_entry_whose_live_gate_reads_clear_resumes_with_attempts_reset,
+    where an entry blocked for an ordinary reason DOES resume on identical
+    gate evidence."""
+    entries = [
+        _blocked_entry(
+            1077,
+            position=1,
+            last_reason=(
+                "fix-round ceiling reached across relaunches (#2972): 3 "
+                "work leg(s) already run against a budget of 3 (1 work "
+                "dispatch + 2 fix round(s)) — giving up rather than "
+                "relaunching with a fresh budget. Stopped (#3454): no "
+                "further relaunch, gate-clear resume, or auto-dispatched "
+                "stale-rebase conflict-fix (from any of this fleet's "
+                "independent dispatchers) will fire for this entry — "
+                "`coord drive-queue remove claude-coordinator 1077` + "
+                "`add` (a fresh row) is the only way to give it another "
+                "attempt."
+            ),
+        )
+    ]
+    key = entry_key(REPO, 1077)
+    plan = plan_tick(
+        entries,
+        board(),
+        capacity=1,
+        live_blocked_gate={key: False},  # gate reads clear
+        merge_only_ready={key: True},  # even Merge-only-ready must not fire
+    )
+    assert plan.reconciles == ()
+    assert plan.blocked == ()
+    assert plan.merge_only == ()
+    assert plan.launch is None
+
+
+def test_fix_round_ceiling_blocked_keys_finds_only_2972_blocked_rows():
+    """#3454: `coord.commands.drive_queue._fix_round_ceiling_blocked_keys` —
+    the filter `_run_auto_revalidate_checks_stale` uses so it never
+    re-dispatches a stale-rebase conflict-fix for an entry that already gave
+    up on the ceiling (quadraui#1077: this mechanism fired one 6h07m after
+    the block). A `waiting`/`running` row and a `blocked` row for an
+    UNRELATED (#1844) reason must both be left out — only a genuinely
+    #2972-blocked row counts."""
+    from coord.commands.drive_queue import _fix_round_ceiling_blocked_keys
+
+    ceiling_reason = (
+        "fix-round ceiling reached across relaunches (#2972): 3 work "
+        "leg(s) already run against a budget of 3 — giving up"
+    )
+    entries = [
+        entry(1077, state=STATE_BLOCKED, last_reason=ceiling_reason),
+        entry(
+            70,
+            state=STATE_BLOCKED,
+            last_reason=(
+                "... (#1844); blocking without spending an attempt"
+            ),
+        ),
+        entry(309, state=STATE_WAITING, last_reason=""),
+    ]
+    assert _fix_round_ceiling_blocked_keys(entries) == {(REPO, 1077)}
 
 
 def test_a_blocked_entry_that_has_hit_the_resume_ceiling_stays_blocked_and_says_so():
@@ -5194,16 +5612,63 @@ def test_a_parked_entry_with_review_still_pending_falls_through_to_the_ordinary_
     assert plan.launch is not None and plan.launch.issue == 2350
 
 
-def test_is_permanent_block_reason_recognises_both_markers_and_nothing_else():
+def test_is_permanent_block_reason_recognises_all_three_markers_and_nothing_else():
     from coord.drive_queue import is_permanent_block_reason
 
     assert is_permanent_block_reason("... (#1844); blocking without spending an attempt")
     assert is_permanent_block_reason("... (#2019); blocking without spending an attempt")
+    # #3454: the #2972 fix-round ceiling joined the permanent set — see
+    # test_a_fix_round_ceiling_block_never_auto_resumes below for why.
+    assert is_permanent_block_reason(
+        "fix-round ceiling reached across relaunches (#2972): 3 work leg(s) "
+        "already run against a budget of 3 — giving up"
+    )
     assert not is_permanent_block_reason(
         "drive session died without landing the work 2/2 times — giving up"
     )
     assert not is_permanent_block_reason("")
     assert not is_permanent_block_reason(None)
+
+
+def test_is_fix_round_ceiling_reason_matches_only_the_2972_marker():
+    """#3454: the narrower predicate `coord.commands.drive_queue` uses to
+    also stop its OWN independent stale-rebase auto-dispatch — must not
+    fire for the OTHER two permanent-block markers, or that other call site
+    would silently widen to #1844/#2019 rows too."""
+    from coord.drive_queue import is_fix_round_ceiling_reason
+
+    assert is_fix_round_ceiling_reason(
+        "fix-round ceiling reached across relaunches (#2972): giving up"
+    )
+    assert not is_fix_round_ceiling_reason(
+        "... (#1844); blocking without spending an attempt"
+    )
+    assert not is_fix_round_ceiling_reason(
+        "... (#2019); blocking without spending an attempt"
+    )
+    assert not is_fix_round_ceiling_reason(
+        "drive session died without landing the work 2/2 times — giving up"
+    )
+    assert not is_fix_round_ceiling_reason("")
+    assert not is_fix_round_ceiling_reason(None)
+
+
+def test_is_fix_round_ceiling_blocked_requires_both_state_and_reason():
+    """#3454 review: `is_fix_round_ceiling_blocked` is the ONE predicate
+    `coord.commands.drive_queue` (via `_fix_round_ceiling_blocked_keys`) AND
+    `coord.notify` (via `_fix_round_ceiling_blocked_for_work`) now both
+    call — must require the LIVE `blocked` state, not just a reason string
+    that merely mentions #2972 (e.g. a stale/archived one from a row an
+    operator already removed and re-added)."""
+    from coord.drive_queue import STATE_BLOCKED, STATE_WAITING, is_fix_round_ceiling_blocked
+
+    ceiling_reason = "fix-round ceiling reached across relaunches (#2972): giving up"
+    assert is_fix_round_ceiling_blocked(STATE_BLOCKED, ceiling_reason)
+    assert not is_fix_round_ceiling_blocked(STATE_WAITING, ceiling_reason)
+    assert not is_fix_round_ceiling_blocked(
+        STATE_BLOCKED, "... (#1844); blocking without spending an attempt"
+    )
+    assert not is_fix_round_ceiling_blocked(STATE_BLOCKED, None)
 
 
 def test_a_genuinely_dead_drive_without_ci_pending_still_retries_normally():

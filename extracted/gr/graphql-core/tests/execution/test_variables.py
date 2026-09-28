@@ -1,5 +1,7 @@
+from __future__ import annotations
+
 from math import nan
-from typing import Any, Dict, Optional
+from typing import Any
 
 from graphql.error import GraphQLError
 from graphql.execution import ExecutionResult, execute_sync
@@ -8,6 +10,7 @@ from graphql.language import OperationDefinitionNode, StringValueNode, ValueNode
 from graphql.pyutils import Undefined
 from graphql.type import (
     GraphQLArgument,
+    GraphQLDefaultInput,
     GraphQLEnumType,
     GraphQLEnumValue,
     GraphQLField,
@@ -21,42 +24,64 @@ from graphql.type import (
     GraphQLSchema,
     GraphQLString,
 )
-
-TestFaultyScalarGraphQLError = GraphQLError(
-    "FaultyScalarErrorMessage", extensions={"code": "FaultyScalarExtensionCode"}
-)
+from graphql.utilities.value_from_ast_untyped import value_from_ast_untyped
 
 
-def faulty_parse_value(value: str) -> str:
-    raise TestFaultyScalarGraphQLError
+def make_faulty_scalar_error() -> GraphQLError:
+    # Note: unlike GraphQL.js, a fresh error is raised on each call. The runtime
+    # argument-coercion fallback now mutates the error message in place, so a
+    # shared singleton would otherwise leak the mutated message into other tests
+    # (test order is randomized).
+    return GraphQLError(
+        "FaultyScalarErrorMessage", extensions={"code": "FaultyScalarExtensionCode"}
+    )
 
 
-def faulty_parse_literal(ast: ValueNode, _variables=None) -> str:
-    raise TestFaultyScalarGraphQLError
+def faulty_coerce_input_value(_value: str) -> str:
+    raise make_faulty_scalar_error()
+
+
+def faulty_coerce_input_literal(_ast: ValueNode) -> str:
+    raise make_faulty_scalar_error()
 
 
 TestFaultyScalar = GraphQLScalarType(
     name="FaultyScalar",
-    parse_value=faulty_parse_value,
-    parse_literal=faulty_parse_literal,
+    coerce_input_value=faulty_coerce_input_value,
+    coerce_input_literal=faulty_coerce_input_literal,
 )
 
 
-def parse_serialized_value(value: str) -> str:
-    assert value == "SerializedValue"
-    return "DeserializedValue"
+def coerce_complex_input_value(value: str) -> str:
+    assert value == "ExternalValue"
+    return "InternalValue"
 
 
-def parse_literal_value(ast: ValueNode, _variables=None) -> str:
+def coerce_input_literal_value(ast: ValueNode) -> str:
     assert isinstance(ast, StringValueNode)
-    assert ast.value == "SerializedValue"
-    return parse_serialized_value(ast.value)
+    assert ast.value == "ExternalValue"
+    return coerce_complex_input_value(ast.value)
 
 
 TestComplexScalar = GraphQLScalarType(
     name="ComplexScalar",
-    parse_value=parse_serialized_value,
-    parse_literal=parse_literal_value,
+    coerce_input_value=coerce_complex_input_value,
+    coerce_input_literal=coerce_input_literal_value,
+)
+
+
+def coerce_json_input_value(value: Any) -> Any:
+    return value
+
+
+def coerce_json_input_literal(value: ValueNode) -> Any:
+    return value_from_ast_untyped(value)
+
+
+TestJSONScalar = GraphQLScalarType(
+    name="JSONScalar",
+    coerce_input_value=coerce_json_input_value,
+    coerce_input_literal=coerce_json_input_literal,
 )
 
 
@@ -75,6 +100,16 @@ TestCustomInputObject = GraphQLInputObjectType(
     "TestCustomInputObject",
     {"x": GraphQLInputField(GraphQLFloat), "y": GraphQLInputField(GraphQLFloat)},
     out_type=lambda value: f"(x|y) = ({value['x']}|{value['y']})",
+)
+
+
+TestOneOfInputObject = GraphQLInputObjectType(
+    "TestOneOfInputObject",
+    {
+        "a": GraphQLInputField(GraphQLString),
+        "b": GraphQLInputField(GraphQLString),
+    },
+    is_one_of=True,
 )
 
 
@@ -110,6 +145,14 @@ def field_with_input_arg(input_arg: GraphQLArgument):
     )
 
 
+NestedType = GraphQLObjectType(
+    "NestedType",
+    {
+        "echo": field_with_input_arg(GraphQLArgument(GraphQLString)),
+    },
+)
+
+
 TestType = GraphQLObjectType(
     "TestType",
     {
@@ -118,6 +161,9 @@ TestType = GraphQLObjectType(
             GraphQLArgument(GraphQLNonNull(TestEnum))
         ),
         "fieldWithObjectInput": field_with_input_arg(GraphQLArgument(TestInputObject)),
+        "fieldWithOneOfObjectInput": field_with_input_arg(
+            GraphQLArgument(TestOneOfInputObject)
+        ),
         "fieldWithCustomObjectInput": field_with_input_arg(
             GraphQLArgument(TestCustomInputObject)
         ),
@@ -128,14 +174,23 @@ TestType = GraphQLObjectType(
             GraphQLArgument(GraphQLNonNull(GraphQLString))
         ),
         "fieldWithDefaultArgumentValue": field_with_input_arg(
-            GraphQLArgument(GraphQLString, default_value="Hello World")
+            GraphQLArgument(
+                GraphQLString, default=GraphQLDefaultInput(value="Hello World")
+            )
         ),
         "fieldWithNonNullableStringInputAndDefaultArgValue": field_with_input_arg(
-            GraphQLArgument(GraphQLNonNull(GraphQLString), default_value="Hello World")
+            GraphQLArgument(
+                GraphQLNonNull(GraphQLString),
+                default=GraphQLDefaultInput(value="Hello World"),
+            )
         ),
         "fieldWithNestedInputObject": field_with_input_arg(
-            GraphQLArgument(TestNestedInputObject, default_value="Hello World")
+            GraphQLArgument(TestNestedInputObject)
         ),
+        "fieldWithJSONScalarInput": field_with_input_arg(
+            GraphQLArgument(TestJSONScalar)
+        ),
+        "nested": GraphQLField(NestedType, resolve=lambda *_args: {}),
         "list": field_with_input_arg(GraphQLArgument(GraphQLList(GraphQLString))),
         "nnList": field_with_input_arg(
             GraphQLArgument(GraphQLNonNull(GraphQLList(GraphQLString)))
@@ -149,13 +204,49 @@ TestType = GraphQLObjectType(
     },
 )
 
+TestTypeWithInvalidDefaultArgumentValue = GraphQLObjectType(
+    "TestTypeWithInvalidDefaultArgumentValue",
+    {
+        "fieldWithInvalidDefaultArgumentValue": field_with_input_arg(
+            GraphQLArgument(GraphQLString, default=GraphQLDefaultInput(value=123))
+        ),
+    },
+)
+
+TestTypeWithInvalidNestedDefaultArgumentValue = GraphQLObjectType(
+    "TestTypeWithInvalidNestedDefaultArgumentValue",
+    {
+        "fieldWithInvalidNestedDefaultArgumentValue": field_with_input_arg(
+            GraphQLArgument(
+                GraphQLInputObjectType(
+                    "InputWithInvalidNestedFieldDefault",
+                    {
+                        "foo": GraphQLInputField(
+                            GraphQLString,
+                            default=GraphQLDefaultInput(value=123),
+                        )
+                    },
+                ),
+                default=GraphQLDefaultInput(value={}),
+            )
+        ),
+    },
+)
+
 schema = GraphQLSchema(TestType)
 
 
 def execute_query(
-    query: str, variable_values: Optional[Dict[str, Any]] = None
+    query: str, variable_values: dict[str, Any] | None = None
 ) -> ExecutionResult:
     document = parse(query)
+    return execute_sync(schema, document, variable_values=variable_values)
+
+
+def execute_query_with_fragment_arguments(
+    query: str, variable_values: dict[str, Any] | None = None
+) -> ExecutionResult:
+    document = parse(query, experimental_fragment_arguments=True)
     return execute_sync(schema, document, variable_values=variable_values)
 
 
@@ -163,12 +254,14 @@ def describe_execute_handles_inputs():
     def describe_handles_objects_and_nullability():
         def describe_using_inline_struct():
             def executes_with_complex_input():
-                result = execute_query("""
+                result = execute_query(
+                    """
                     {
                       fieldWithObjectInput(
                         input: {a: "foo", b: ["bar"], c: "baz"})
                     }
-                    """)
+                    """
+                )
 
                 assert result == (
                     {"fieldWithObjectInput": "{'a': 'foo', 'b': ['bar'], 'c': 'baz'}"},
@@ -177,12 +270,14 @@ def describe_execute_handles_inputs():
 
             def executes_with_custom_input():
                 # This is an extension of GraphQL.js.
-                result = execute_query("""
+                result = execute_query(
+                    """
                     {
                       fieldWithCustomObjectInput(
                         input: {x: -3.0, y: 4.5})
                     }
-                    """)
+                    """
+                )
 
                 assert result == (
                     {"fieldWithCustomObjectInput": "'(x|y) = (-3.0|4.5)'"},
@@ -190,11 +285,13 @@ def describe_execute_handles_inputs():
                 )
 
             def properly_parses_single_value_to_list():
-                result = execute_query("""
+                result = execute_query(
+                    """
                     {
                       fieldWithObjectInput(input: {a: "foo", b: "bar", c: "baz"})
                     }
-                    """)
+                    """
+                )
 
                 assert result == (
                     {"fieldWithObjectInput": "{'a': 'foo', 'b': ['bar'], 'c': 'baz'}"},
@@ -202,12 +299,14 @@ def describe_execute_handles_inputs():
                 )
 
             def properly_parses_null_value_to_null():
-                result = execute_query("""
+                result = execute_query(
+                    """
                     {
                       fieldWithObjectInput(
                         input: {a: null, b: null, c: "C", d: null})
                     }
-                    """)
+                    """
+                )
 
                 assert result == (
                     {
@@ -218,11 +317,13 @@ def describe_execute_handles_inputs():
                 )
 
             def properly_parses_null_value_in_list():
-                result = execute_query("""
+                result = execute_query(
+                    """
                     {
                       fieldWithObjectInput(input: {b: ["A",null,"C"], c: "C"})
                     }
-                    """)
+                    """
+                )
 
                 assert result == (
                     {"fieldWithObjectInput": "{'b': ['A', None, 'C'], 'c': 'C'}"},
@@ -230,51 +331,59 @@ def describe_execute_handles_inputs():
                 )
 
             def does_not_use_incorrect_value():
-                result = execute_query("""
+                result = execute_query(
+                    """
                     {
                       fieldWithObjectInput(input: ["foo", "bar", "baz"])
                     }
-                    """)
+                    """
+                )
 
                 assert result == (
                     {"fieldWithObjectInput": None},
                     [
                         {
-                            "message": "Argument 'input' has invalid value"
-                            ' ["foo", "bar", "baz"].',
+                            "message": "Argument 'input' has invalid value:"
+                            " Expected value of type 'TestInputObject'"
+                            ' to be an object, found: ["foo", "bar", "baz"].',
                             "path": ["fieldWithObjectInput"],
                             "locations": [(3, 51)],
                         }
                     ],
                 )
 
-            def properly_runs_parse_literal_on_complex_scalar_types():
-                result = execute_query("""
+            def properly_runs_coerce_input_literal_on_complex_scalar_types():
+                result = execute_query(
+                    """
                     {
-                      fieldWithObjectInput(input: {c: "foo", d: "SerializedValue"})
+                      fieldWithObjectInput(input: {c: "foo", d: "ExternalValue"})
                     }
-                    """)
+                    """
+                )
 
                 assert result == (
-                    {"fieldWithObjectInput": "{'c': 'foo', 'd': 'DeserializedValue'}"},
+                    {"fieldWithObjectInput": "{'c': 'foo', 'd': 'InternalValue'}"},
                     None,
                 )
 
             def errors_on_faulty_scalar_type_input():
-                result = execute_query("""
+                result = execute_query(
+                    """
                     {
                       fieldWithObjectInput(input: {c: "foo", e: "bar"})
                     }
-                    """)
+                    """
+                )
 
                 assert result == (
                     {"fieldWithObjectInput": None},
                     [
                         {
-                            "message": "Argument 'input' has invalid value"
-                            ' {c: "foo", e: "bar"}.',
+                            "message": "Argument 'input' has invalid value at .e:"
+                            " FaultyScalarErrorMessage",
                             "path": ["fieldWithObjectInput"],
-                            "locations": [(3, 51)],
+                            "locations": [(3, 23)],
+                            "extensions": {"code": "FaultyScalarExtensionCode"},
                         }
                     ],
                 )
@@ -319,17 +428,96 @@ def describe_execute_handles_inputs():
 
                 assert result == ({"fieldWithNullableStringInput": "None"}, None)
 
+            def preserves_explicit_null_variables_within_input_object_literals():
+                result = execute_query(
+                    """
+                    query q($input: String) {
+                      fieldWithObjectInput(input: { a: $input, c: "baz" })
+                    }
+                    """,
+                    {"input": None},
+                )
+
+                assert result == (
+                    {"fieldWithObjectInput": "{'a': None, 'c': 'baz'}"},
+                    None,
+                )
+
             def uses_default_value_when_not_provided():
-                result = execute_query("""
+                result = execute_query(
+                    """
                     query ($input: TestInputObject = {
                       a: "foo", b: ["bar"], c: "baz"}) {
                         fieldWithObjectInput(input: $input)
                     }
-                    """)
+                    """
+                )
 
                 assert result == (
                     {"fieldWithObjectInput": "{'a': 'foo', 'b': ['bar'], 'c': 'baz'}"},
                     None,
+                )
+
+            def reports_invalid_default_values_with_variable_definition_locations():
+                result = execute_query(
+                    "query ($input: String = 123)"
+                    " { fieldWithNullableStringInput(input: $input) }"
+                )
+
+                assert result == (
+                    None,
+                    [
+                        {
+                            "message": "Variable '$input' has invalid default value:"
+                            " String cannot represent a non string value: 123",
+                            "locations": [(1, 8)],
+                        }
+                    ],
+                )
+
+            def includes_suggestions_for_invalid_default_values():
+                result = execute_sync(
+                    schema,
+                    parse(
+                        'query ($input: TestInputObject = { c: "ok", aa: "x" })'
+                        " { fieldWithObjectInput(input: $input) }"
+                    ),
+                )
+
+                assert result == (
+                    None,
+                    [
+                        {
+                            "message": "Variable '$input' has invalid default value:"
+                            " Expected value of type 'TestInputObject' not to include"
+                            " unknown field 'aa'. Did you mean 'a'?"
+                            ' Found: { c: "ok", aa: "x" }.',
+                            "locations": [(1, 8)],
+                        }
+                    ],
+                )
+
+            def hides_suggestions_for_invalid_default_values_when_specified():
+                result = execute_sync(
+                    schema,
+                    parse(
+                        'query ($input: TestInputObject = { c: "ok", aa: "x" })'
+                        " { fieldWithObjectInput(input: $input) }"
+                    ),
+                    hide_suggestions=True,
+                )
+
+                assert result == (
+                    None,
+                    [
+                        {
+                            "message": "Variable '$input' has invalid default value:"
+                            " Expected value of type 'TestInputObject' not to include"
+                            " unknown field 'aa',"
+                            ' found: { c: "ok", aa: "x" }.',
+                            "locations": [(1, 8)],
+                        }
+                    ],
                 )
 
             def does_not_use_default_value_when_provided():
@@ -359,6 +547,21 @@ def describe_execute_handles_inputs():
 
                 assert result == ({"fieldWithNullableStringInput": "None"}, None)
 
+            def treats_explicitly_undefined_variable_values_as_omitted():
+                result = execute_query(
+                    """
+                    query q($input: String = "Default value") {
+                      fieldWithNullableStringInput(input: $input)
+                    }
+                    """,
+                    {"input": Undefined},
+                )
+
+                assert result == (
+                    {"fieldWithNullableStringInput": "'Default value'"},
+                    None,
+                )
+
             def uses_null_default_value_when_not_provided():
                 result = execute_query(
                     """
@@ -381,24 +584,24 @@ def describe_execute_handles_inputs():
                 )
 
             def executes_with_complex_scalar_input():
-                params = {"input": {"c": "foo", "d": "SerializedValue"}}
+                params = {"input": {"c": "foo", "d": "ExternalValue"}}
                 result = execute_query(doc, params)
 
                 assert result == (
-                    {"fieldWithObjectInput": "{'c': 'foo', 'd': 'DeserializedValue'}"},
+                    {"fieldWithObjectInput": "{'c': 'foo', 'd': 'InternalValue'}"},
                     None,
                 )
 
             def errors_on_faulty_scalar_type_input():
-                params = {"input": {"c": "foo", "e": "SerializedValue"}}
+                params = {"input": {"c": "foo", "e": "ExternalValue"}}
                 result = execute_query(doc, params)
 
                 assert result == (
                     None,
                     [
                         {
-                            "message": "Variable '$input' got invalid value"
-                            " 'SerializedValue' at 'input.e'; FaultyScalarErrorMessage",
+                            "message": "Variable '$input' has invalid value at .e:"
+                            " FaultyScalarErrorMessage",
                             "locations": [(2, 24)],
                             "extensions": {"code": "FaultyScalarExtensionCode"},
                         }
@@ -413,9 +616,9 @@ def describe_execute_handles_inputs():
                     None,
                     [
                         {
-                            "message": "Variable '$input' got invalid value"
-                            " None at 'input.c';"
-                            " Expected non-nullable type 'String!' not to be None.",
+                            "message": "Variable '$input' has invalid value at .c:"
+                            " Expected value of non-null type 'String!'"
+                            " not to be None.",
                             "locations": [(2, 24)],
                         }
                     ],
@@ -428,8 +631,9 @@ def describe_execute_handles_inputs():
                     None,
                     [
                         {
-                            "message": "Variable '$input' got invalid value 'foo bar';"
-                            " Expected type 'TestInputObject' to be a mapping.",
+                            "message": "Variable '$input' has invalid value:"
+                            " Expected value of type 'TestInputObject'"
+                            " to be an object, found: 'foo bar'.",
                             "locations": [(2, 24)],
                             "path": None,
                         }
@@ -443,9 +647,10 @@ def describe_execute_handles_inputs():
                     None,
                     [
                         {
-                            "message": "Variable '$input' got invalid value"
-                            " {'a': 'foo', 'b': 'bar'};"
-                            " Field 'c' of required type 'String!' was not provided.",
+                            "message": "Variable '$input' has invalid value:"
+                            " Expected value of type 'TestInputObject'"
+                            " to include required field 'c',"
+                            " found: {'a': 'foo', 'b': 'bar'}.",
                             "locations": [(2, 24)],
                         }
                     ],
@@ -463,15 +668,17 @@ def describe_execute_handles_inputs():
                     None,
                     [
                         {
-                            "message": "Variable '$input' got invalid value"
-                            " {'a': 'foo'} at 'input.na';"
-                            " Field 'c' of required type 'String!' was not provided.",
+                            "message": "Variable '$input' has invalid value at .na:"
+                            " Expected value of type 'TestInputObject'"
+                            " to include required field 'c',"
+                            " found: {'a': 'foo'}.",
                             "locations": [(2, 28)],
                         },
                         {
-                            "message": "Variable '$input' got invalid value"
-                            " {'na': {'a': 'foo'}};"
-                            " Field 'nb' of required type 'String!' was not provided.",
+                            "message": "Variable '$input' has invalid value:"
+                            " Expected value of type 'TestNestedInputObject'"
+                            " to include required field 'nb',"
+                            " found: {'na': {'a': 'foo'}}.",
                             "locations": [(2, 28)],
                         },
                     ],
@@ -485,9 +692,10 @@ def describe_execute_handles_inputs():
                     None,
                     [
                         {
-                            "message": "Variable '$input' got invalid value {'a':"
-                            " 'foo', 'b': 'bar', 'c': 'baz', 'extra': 'dog'}; Field"
-                            " 'extra' is not defined by type 'TestInputObject'.",
+                            "message": "Variable '$input' has invalid value:"
+                            " Expected value of type 'TestInputObject'"
+                            " not to include unknown field 'extra', found:"
+                            " {'a': 'foo', 'b': 'bar', 'c': 'baz', 'extra': 'dog'}.",
                             "locations": [(2, 24)],
                         }
                     ],
@@ -495,7 +703,8 @@ def describe_execute_handles_inputs():
 
     def describe_handles_custom_enum_values():
         def allows_custom_enum_values_as_inputs():
-            result = execute_query("""
+            result = execute_query(
+                """
                 {
                   null: fieldWithEnumInput(input: NULL)
                   NaN: fieldWithEnumInput(input: NAN)
@@ -503,7 +712,8 @@ def describe_execute_handles_inputs():
                   customValue: fieldWithEnumInput(input: CUSTOM)
                   defaultValue: fieldWithEnumInput(input: DEFAULT_VALUE)
                 }
-                """)
+                """
+            )
 
             assert result == (
                 {
@@ -518,39 +728,47 @@ def describe_execute_handles_inputs():
             )
 
         def allows_non_nullable_inputs_to_have_null_as_enum_custom_value():
-            result = execute_query("""
+            result = execute_query(
+                """
                 {
                    fieldWithNonNullableEnumInput(input: NULL)
                 }
-                """)
+                """
+            )
 
             assert result == ({"fieldWithNonNullableEnumInput": "None"}, None)
 
     def describe_handles_nullable_scalars():
         def allows_nullable_inputs_to_be_omitted():
-            result = execute_query("""
+            result = execute_query(
+                """
                 {
                   fieldWithNullableStringInput
                 }
-                """)
+                """
+            )
 
             assert result == ({"fieldWithNullableStringInput": None}, None)
 
         def allows_nullable_inputs_to_be_omitted_in_a_variable():
-            result = execute_query("""
+            result = execute_query(
+                """
                 query ($value: String) {
                   fieldWithNullableStringInput(input: $value)
                 }
-                """)
+                """
+            )
 
             assert result == ({"fieldWithNullableStringInput": None}, None)
 
         def allows_nullable_inputs_to_be_omitted_in_an_unlisted_variable():
-            result = execute_query("""
+            result = execute_query(
+                """
                 query SetsNullable {
                   fieldWithNullableStringInput(input: $value)
                 }
-                """)
+                """
+            )
 
             assert result == ({"fieldWithNullableStringInput": None}, None)
 
@@ -575,46 +793,55 @@ def describe_execute_handles_inputs():
             assert result == ({"fieldWithNullableStringInput": "'a'"}, None)
 
         def allows_nullable_inputs_to_be_set_to_a_value_directly():
-            result = execute_query("""
+            result = execute_query(
+                """
                 {
                   fieldWithNullableStringInput(input: "a")
                 }
-                """)
+                """
+            )
 
             assert result == ({"fieldWithNullableStringInput": "'a'"}, None)
 
     def describe_handles_non_nullable_scalars():
         def allows_non_nullable_variable_to_be_omitted_given_a_default():
-            result = execute_query("""
+            result = execute_query(
+                """
                 query ($value: String! = "default") {
                   fieldWithNullableStringInput(input: $value)
                 }
-                """)
+                """
+            )
 
             assert result == ({"fieldWithNullableStringInput": "'default'"}, None)
 
         def allows_non_nullable_inputs_to_be_omitted_given_a_default():
-            result = execute_query("""
+            result = execute_query(
+                """
                 query ($value: String = "default") {
                   fieldWithNonNullableStringInput(input: $value)
                 }
-                """)
+                """
+            )
 
             assert result == ({"fieldWithNonNullableStringInput": "'default'"}, None)
 
         def does_not_allow_non_nullable_inputs_to_be_omitted_in_a_variable():
-            result = execute_query("""
+            result = execute_query(
+                """
                 query ($value: String!) {
                   fieldWithNonNullableStringInput(input: $value)
                 }
-                """)
+                """
+            )
 
             assert result == (
                 None,
                 [
                     {
-                        "message": "Variable '$value' of required type 'String!'"
-                        " was not provided.",
+                        "message": "Variable '$value' has invalid value:"
+                        " Expected a value of non-null type 'String!'"
+                        " to be provided.",
                         "locations": [(2, 24)],
                         "path": None,
                     }
@@ -633,8 +860,9 @@ def describe_execute_handles_inputs():
                 None,
                 [
                     {
-                        "message": "Variable '$value' of non-null type 'String!'"
-                        " must not be null.",
+                        "message": "Variable '$value' has invalid value:"
+                        " Expected value of non-null type 'String!'"
+                        " not to be None.",
                         "locations": [(2, 24)],
                         "path": None,
                     }
@@ -652,11 +880,13 @@ def describe_execute_handles_inputs():
             assert result == ({"fieldWithNonNullableStringInput": "'a'"}, None)
 
         def allows_non_nullable_inputs_to_be_set_to_a_value_directly():
-            result = execute_query("""
+            result = execute_query(
+                """
                 {
                   fieldWithNonNullableStringInput(input: "a")
                 }
-                """)
+                """
+            )
 
             assert result == ({"fieldWithNonNullableStringInput": "'a'"}, None)
 
@@ -687,7 +917,7 @@ def describe_execute_handles_inputs():
                 None,
                 [
                     {
-                        "message": "Variable '$value' got invalid value [1, 2, 3];"
+                        "message": "Variable '$value' has invalid value:"
                         " String cannot represent a non string value: [1, 2, 3]",
                         "locations": [(2, 24)],
                         "path": None,
@@ -706,24 +936,96 @@ def describe_execute_handles_inputs():
             # have introduced a breaking change to make a formerly non-required
             # argument required, this asserts failure before allowing the
             # underlying code to receive a non-null value.
-            result = execute_query("""
+            result = execute_query(
+                """
                 {
                   fieldWithNonNullableStringInput(input: $foo)
                 }
-                """)
+                """
+            )
 
             assert result == (
                 {"fieldWithNonNullableStringInput": None},
                 [
                     {
-                        "message": "Argument 'input' of required type 'String!'"
-                        " was provided the variable '$foo' which was"
-                        " not provided a runtime value.",
+                        "message": "Argument 'input' has invalid value:"
+                        " Expected variable '$foo' provided to type 'String!'"
+                        " to provide a runtime value.",
                         "locations": [(3, 58)],
                         "path": ["fieldWithNonNullableStringInput"],
                     }
                 ],
             )
+
+    # Note: the below is non-specified custom graphql-core behavior.
+    def describe_handles_custom_scalars_with_embedded_variables():
+        expected = "{'a': 'foo', 'b': ['bar'], 'c': 'baz'}"
+
+        def allows_custom_scalars():
+            result = execute_query(
+                """
+                {
+                  fieldWithJSONScalarInput(input: { a: "foo", b: ["bar"], c: "baz" })
+                }
+                """
+            )
+
+            assert result == ({"fieldWithJSONScalarInput": expected}, None)
+
+        def allows_custom_scalars_with_non_embedded_variables():
+            result = execute_query(
+                """
+                query ($input: JSONScalar) {
+                  fieldWithJSONScalarInput(input: $input)
+                }
+                """,
+                {"input": {"a": "foo", "b": ["bar"], "c": "baz"}},
+            )
+
+            assert result == ({"fieldWithJSONScalarInput": expected}, None)
+
+        def allows_custom_scalars_with_embedded_operation_variables():
+            result = execute_query(
+                """
+                query ($input: String) {
+                  fieldWithJSONScalarInput(input: { a: $input, b: ["bar"], c: "baz" })
+                }
+                """,
+                {"input": "foo"},
+            )
+
+            assert result == ({"fieldWithJSONScalarInput": expected}, None)
+
+        def allows_custom_scalars_with_embedded_fragment_variables():
+            result = execute_query_with_fragment_arguments(
+                """
+                {
+                  ...JSONFragment(input: "foo")
+                }
+                fragment JSONFragment($input: String) on TestType {
+                  fieldWithJSONScalarInput(input: { a: $input, b: ["bar"], c: "baz" })
+                }
+                """
+            )
+
+            assert result == ({"fieldWithJSONScalarInput": expected}, None)
+
+        def allows_custom_scalars_with_embedded_nested_fragment_variables():
+            result = execute_query_with_fragment_arguments(
+                """
+                {
+                  ...JSONFragment(input1: "foo")
+                }
+                fragment JSONFragment($input1: String) on TestType {
+                  ...JSONNestedFragment(input2: $input1)
+                }
+                fragment JSONNestedFragment($input2: String) on TestType {
+                  fieldWithJSONScalarInput(input: { a: $input2, b: ["bar"], c: "baz" })
+                }
+                """
+            )
+
+            assert result == ({"fieldWithJSONScalarInput": expected}, None)
 
     def describe_handles_lists_and_nullability():
         def allows_lists_to_be_null():
@@ -770,8 +1072,9 @@ def describe_execute_handles_inputs():
                 None,
                 [
                     {
-                        "message": "Variable '$input' of non-null type '[String]!'"
-                        " must not be null.",
+                        "message": "Variable '$input' has invalid value:"
+                        " Expected value of non-null type '[String]!'"
+                        " not to be None.",
                         "locations": [(2, 24)],
                         "path": None,
                     }
@@ -834,9 +1137,9 @@ def describe_execute_handles_inputs():
                 None,
                 [
                     {
-                        "message": "Variable '$input' got invalid value None"
-                        " at 'input[1]';"
-                        " Expected non-nullable type 'String!' not to be None.",
+                        "message": "Variable '$input' has invalid value at [1]:"
+                        " Expected value of non-null type 'String!'"
+                        " not to be None.",
                         "locations": [(2, 24)],
                     }
                 ],
@@ -854,8 +1157,9 @@ def describe_execute_handles_inputs():
                 None,
                 [
                     {
-                        "message": "Variable '$input' of non-null type '[String!]!'"
-                        " must not be null.",
+                        "message": "Variable '$input' has invalid value:"
+                        " Expected value of non-null type '[String!]!'"
+                        " not to be None.",
                         "locations": [(2, 24)],
                     }
                 ],
@@ -883,9 +1187,9 @@ def describe_execute_handles_inputs():
                 None,
                 [
                     {
-                        "message": "Variable '$input' got invalid value None"
-                        " at 'input[1]';"
-                        " Expected non-nullable type 'String!' not to be None.",
+                        "message": "Variable '$input' has invalid value at [1]:"
+                        " Expected value of non-null type 'String!'"
+                        " not to be None.",
                         "locations": [(2, 24)],
                         "path": None,
                     }
@@ -932,6 +1236,399 @@ def describe_execute_handles_inputs():
                 ],
             )
 
+    def describe_using_fragment_arguments():
+        def when_there_are_no_fragment_arguments():
+            result = execute_query_with_fragment_arguments(
+                """
+                query {
+                  ...a
+                }
+                fragment a on TestType {
+                  fieldWithNonNullableStringInput(input: "A")
+                }
+                """
+            )
+            assert result == (
+                {"fieldWithNonNullableStringInput": "'A'"},
+                None,
+            )
+
+        def when_a_value_is_required_and_provided():
+            result = execute_query_with_fragment_arguments(
+                """
+                query {
+                  ...a(value: "A")
+                }
+                fragment a($value: String!) on TestType {
+                  fieldWithNonNullableStringInput(input: $value)
+                }
+                """
+            )
+            assert result == (
+                {"fieldWithNonNullableStringInput": "'A'"},
+                None,
+            )
+
+        def when_a_value_is_required_and_not_provided():
+            result = execute_query_with_fragment_arguments(
+                """
+                query {
+                  ...a
+                }
+                fragment a($value: String!) on TestType {
+                  fieldWithNullableStringInput(input: $value)
+                }
+                """
+            )
+            assert result == (
+                None,
+                [
+                    {
+                        "message": "Variable '$value' defined by fragment 'a'"
+                        " of required type 'String!' was not provided.",
+                        "locations": [(3, 19)],
+                    }
+                ],
+            )
+
+        def when_the_definition_has_a_default_and_is_provided():
+            result = execute_query_with_fragment_arguments(
+                """
+                query {
+                  ...a(value: "A")
+                }
+                fragment a($value: String! = "B") on TestType {
+                  fieldWithNonNullableStringInput(input: $value)
+                }
+                """
+            )
+            assert result == (
+                {"fieldWithNonNullableStringInput": "'A'"},
+                None,
+            )
+
+        def when_the_definition_has_a_default_and_is_not_provided():
+            result = execute_query_with_fragment_arguments(
+                """
+                query {
+                  ...a
+                }
+                fragment a($value: String! = "B") on TestType {
+                  fieldWithNonNullableStringInput(input: $value)
+                }
+                """
+            )
+            assert result == (
+                {"fieldWithNonNullableStringInput": "'B'"},
+                None,
+            )
+
+        def when_the_definition_has_an_invalid_default_and_is_not_provided():
+            result = execute_query_with_fragment_arguments(
+                "query { ...a } fragment a($value: String = 123) on TestType"
+                " { fieldWithNullableStringInput(input: $value) }"
+            )
+
+            assert result == (
+                None,
+                [
+                    {
+                        "message": "Variable '$value' defined by fragment 'a'"
+                        " has invalid default value:"
+                        " String cannot represent a non string value: 123",
+                        "locations": [(1, 9)],
+                    }
+                ],
+            )
+
+        def does_not_allow_invalid_types_to_be_used_as_fragment_variables():
+            result = execute_query_with_fragment_arguments(
+                """
+                query {
+                  ...a
+                }
+                fragment a($value: TestType!) on TestType {
+                  fieldWithNullableStringInput(input: $value)
+                }
+                """
+            )
+            assert result == (
+                None,
+                [
+                    {
+                        "message": "Variable '$value' expected value of type"
+                        " 'TestType!' which cannot be used as an input type.",
+                        "locations": [(5, 36)],
+                    }
+                ],
+            )
+
+        def when_a_default_is_not_provided_and_spreads_another_fragment():
+            result = execute_query_with_fragment_arguments(
+                """
+                query {
+                  ...a
+                }
+                fragment a($a: String! = "B") on TestType {
+                  ...b(b: $a)
+                }
+                fragment b($b: String!) on TestType {
+                  fieldWithNonNullableStringInput(input: $b)
+                }
+                """
+            )
+            assert result == (
+                {"fieldWithNonNullableStringInput": "'B'"},
+                None,
+            )
+
+        def when_the_definition_has_a_non_nullable_default_and_is_provided_null():
+            result = execute_query_with_fragment_arguments(
+                """
+                query {
+                  ...a(value: null)
+                }
+                fragment a($value: String! = "B") on TestType {
+                  fieldWithNullableStringInput(input: $value)
+                }
+                """
+            )
+            assert result == (
+                None,
+                [
+                    {
+                        "message": "Variable '$value' defined by fragment 'a'"
+                        " has invalid value: Expected value of non-null type"
+                        " 'String!' not to be None.",
+                        "locations": [(3, 31)],
+                    }
+                ],
+            )
+
+        def when_the_definition_has_no_default_and_is_not_provided():
+            result = execute_query_with_fragment_arguments(
+                """
+                query {
+                  ...a
+                }
+                fragment a($value: String) on TestType {
+                  fieldWithNonNullableStringInputAndDefaultArgValue(input: $value)
+                }
+                """
+            )
+            assert result == (
+                {"fieldWithNonNullableStringInputAndDefaultArgValue": "'Hello World'"},
+                None,
+            )
+
+        def when_an_argument_is_shadowed_by_an_operation_variable():
+            result = execute_query_with_fragment_arguments(
+                """
+                query($x: String! = "A") {
+                  ...a(x: "B")
+                }
+                fragment a($x: String) on TestType {
+                  fieldWithNullableStringInput(input: $x)
+                }
+                """
+            )
+            assert result == (
+                {"fieldWithNullableStringInput": "'B'"},
+                None,
+            )
+
+        def when_a_nullable_argument_without_field_default_is_shadowed():
+            result = execute_query_with_fragment_arguments(
+                """
+                query($x: String = "A") {
+                  ...a
+                }
+                fragment a($x: String) on TestType {
+                  fieldWithNullableStringInput(input: $x)
+                }
+                """
+            )
+            assert result == (
+                {"fieldWithNullableStringInput": None},
+                None,
+            )
+
+        def when_a_nullable_argument_with_field_default_is_shadowed():
+            result = execute_query_with_fragment_arguments(
+                """
+                query($x: String = "A") {
+                  ...a
+                }
+                fragment a($x: String) on TestType {
+                  fieldWithNonNullableStringInputAndDefaultArgValue(input: $x)
+                }
+                """
+            )
+            assert result == (
+                {"fieldWithNonNullableStringInputAndDefaultArgValue": "'Hello World'"},
+                None,
+            )
+
+        def when_a_fragment_variable_is_shadowed_but_defined_in_op_variables():
+            result = execute_query_with_fragment_arguments(
+                """
+                query($x: String = "A") {
+                  ...a
+                }
+                fragment a($x: String) on TestType {
+                  ...b
+                }
+
+                fragment b on TestType {
+                  fieldWithNullableStringInput(input: $x)
+                }
+                """
+            )
+            assert result == (
+                {"fieldWithNullableStringInput": "'A'"},
+                None,
+            )
+
+        def when_a_fragment_is_used_with_different_args():
+            result = execute_query_with_fragment_arguments(
+                """
+                query($x: String = "Hello") {
+                  a: nested {
+                    ...a(x: "a")
+                  }
+                  b: nested {
+                    ...a(x: "b", b: true)
+                  }
+                  hello: nested {
+                    ...a(x: $x)
+                  }
+                }
+                fragment a($x: String, $b: Boolean = false) on NestedType {
+                  a: echo(input: $x) @skip(if: $b)
+                  b: echo(input: $x) @include(if: $b)
+                }
+                """
+            )
+            assert result == (
+                {
+                    "a": {"a": "'a'"},
+                    "b": {"b": "'b'"},
+                    "hello": {"a": "'Hello'"},
+                },
+                None,
+            )
+
+        def when_the_argument_variable_is_nested_in_a_complex_type():
+            result = execute_query_with_fragment_arguments(
+                """
+                query {
+                  ...a(value: "C")
+                }
+                fragment a($value: String) on TestType {
+                  list(input: ["A", "B", $value, "D"])
+                }
+                """
+            )
+            assert result == (
+                {"list": "['A', 'B', 'C', 'D']"},
+                None,
+            )
+
+        def when_argument_variables_are_used_recursively():
+            result = execute_query_with_fragment_arguments(
+                """
+                query {
+                  ...a(aValue: "C")
+                }
+                fragment a($aValue: String) on TestType {
+                  ...b(bValue: $aValue)
+                }
+                fragment b($bValue: String) on TestType {
+                  list(input: ["A", "B", $bValue, "D"])
+                }
+                """
+            )
+            assert result == (
+                {"list": "['A', 'B', 'C', 'D']"},
+                None,
+            )
+
+        def when_same_name_argument_variables_used_directly_and_recursively():
+            result = execute_query_with_fragment_arguments(
+                """
+                query {
+                  ...a(value: "A")
+                }
+                fragment a($value: String!) on TestType {
+                  ...b(value: "B")
+                  fieldInFragmentA: fieldWithNonNullableStringInput(input: $value)
+                }
+                fragment b($value: String!) on TestType {
+                  fieldInFragmentB: fieldWithNonNullableStringInput(input: $value)
+                }
+                """
+            )
+            assert result == (
+                {
+                    "fieldInFragmentA": "'A'",
+                    "fieldInFragmentB": "'B'",
+                },
+                None,
+            )
+
+        def when_argument_passed_in_as_list():
+            result = execute_query_with_fragment_arguments(
+                """
+                query Q($opValue: String = "op") {
+                  ...a(aValue: "A")
+                }
+                fragment a($aValue: String, $bValue: String) on TestType {
+                  ...b(aValue: [$aValue, "B"], bValue: [$bValue, $opValue])
+                }
+                fragment b(
+                  $aValue: [String], $bValue: [String], $cValue: String
+                ) on TestType {
+                  aList: list(input: $aValue)
+                  bList: list(input: $bValue)
+                  cList: list(input: [$cValue])
+                }
+                """
+            )
+            assert result == (
+                {
+                    "aList": "['A', 'B']",
+                    "bList": "[None, 'op']",
+                    "cList": "[None]",
+                },
+                None,
+            )
+
+        def when_argument_passed_to_a_directive():
+            result = execute_query_with_fragment_arguments(
+                """
+                query {
+                  ...a(value: true)
+                }
+                fragment a($value: Boolean!) on TestType {
+                  fieldWithNonNullableStringInput @skip(if: $value)
+                }
+                """
+            )
+            assert result == ({}, None)
+
+        def when_argument_passed_to_a_directive_on_a_nested_field():
+            result = execute_query_with_fragment_arguments(
+                """
+                query {
+                  ...a(value: true)
+                }
+                fragment a($value: Boolean!) on TestType {
+                  nested { echo(input: "echo") @skip(if: $value) }
+                }
+                """
+            )
+            assert result == ({"nested": {}}, None)
+
     def describe_execute_uses_argument_default_values():
         def when_no_argument_provided():
             result = execute_query("{ fieldWithDefaultArgumentValue }")
@@ -939,26 +1636,31 @@ def describe_execute_handles_inputs():
             assert result == ({"fieldWithDefaultArgumentValue": "'Hello World'"}, None)
 
         def when_omitted_variable_provided():
-            result = execute_query("""
+            result = execute_query(
+                """
                 query ($optional: String) {
                   fieldWithDefaultArgumentValue(input: $optional)
                 }
-                """)
+                """
+            )
 
             assert result == ({"fieldWithDefaultArgumentValue": "'Hello World'"}, None)
 
         def not_when_argument_cannot_be_coerced():
-            result = execute_query("""
+            result = execute_query(
+                """
                 {
                   fieldWithDefaultArgumentValue(input: WRONG_TYPE)
                 }
-                """)
+                """
+            )
 
             assert result == (
                 {"fieldWithDefaultArgumentValue": None},
                 [
                     {
-                        "message": "Argument 'input' has invalid value WRONG_TYPE.",
+                        "message": "Argument 'input' has invalid value:"
+                        " String cannot represent a non string value: WRONG_TYPE",
                         "locations": [(3, 56)],
                         "path": ["fieldWithDefaultArgumentValue"],
                     }
@@ -966,23 +1668,71 @@ def describe_execute_handles_inputs():
             )
 
         def when_no_runtime_value_is_provided_to_a_non_null_argument():
-            result = execute_query("""
+            result = execute_query(
+                """
                 query optionalVariable($optional: String) {
                   fieldWithNonNullableStringInputAndDefaultArgValue(input: $optional)
                 }
-                """)
+                """
+            )
 
             assert result == (
                 {"fieldWithNonNullableStringInputAndDefaultArgValue": "'Hello World'"},
                 None,
             )
 
+        def localizes_invalid_default_value_errors_during_execution():
+            schema_with_invalid_default_argument_value = GraphQLSchema(
+                TestTypeWithInvalidDefaultArgumentValue, assume_valid=True
+            )
+
+            result = execute_sync(
+                schema_with_invalid_default_argument_value,
+                parse("{ fieldWithInvalidDefaultArgumentValue }"),
+            )
+
+            assert result == (
+                {"fieldWithInvalidDefaultArgumentValue": None},
+                [
+                    {
+                        "message": "Argument 'input' has invalid default value:"
+                        " String cannot represent a non string value: 123",
+                        "locations": [(1, 3)],
+                        "path": ["fieldWithInvalidDefaultArgumentValue"],
+                    }
+                ],
+            )
+
+        def localizes_nested_invalid_field_default_value_errors_during_execution():
+            schema_with_invalid_nested_default_argument_value = GraphQLSchema(
+                TestTypeWithInvalidNestedDefaultArgumentValue, assume_valid=True
+            )
+
+            result = execute_sync(
+                schema_with_invalid_nested_default_argument_value,
+                parse("{ fieldWithInvalidNestedDefaultArgumentValue }"),
+            )
+
+            assert result == (
+                {"fieldWithInvalidNestedDefaultArgumentValue": None},
+                [
+                    {
+                        "message": "Argument 'input' has invalid default value:"
+                        " Expected value of type 'String' to be valid, found: 123.",
+                        "locations": [(1, 3)],
+                        "path": ["fieldWithInvalidNestedDefaultArgumentValue"],
+                    }
+                ],
+            )
+
     def describe_get_variable_values_limit_maximum_number_of_coercion_errors():
-        doc = parse("""
+        doc = parse(
+            """
             query ($input: [String!]) {
               listNN(input: $input)
             }
-            """)
+            """
+        )
 
         operation = doc.definitions[0]
         assert isinstance(operation, OperationDefinitionNode)
@@ -991,10 +1741,10 @@ def describe_execute_handles_inputs():
 
         input_value = {"input": [0, 1, 2]}
 
-        def _invalid_value_error(value: int, index: int) -> Dict[str, Any]:
+        def _invalid_value_error(value: int, index: int) -> dict[str, Any]:
             return {
-                "message": "Variable '$input' got invalid value"
-                f" {value} at 'input[{index}]';"
+                "message": "Variable '$input' has invalid value"
+                f" at [{index}]:"
                 f" String cannot represent a non string value: {value}",
                 "locations": [(2, 20)],
             }
@@ -1032,3 +1782,24 @@ def describe_execute_handles_inputs():
                     " error limit reached. Execution aborted."
                 },
             ]
+
+    def describe_get_variable_values_explicit_undefined_values():
+        doc = parse(
+            """
+            query ($input: String) {
+              fieldWithNullableStringInput(input: $input)
+            }
+            """
+        )
+
+        operation = doc.definitions[0]
+        assert isinstance(operation, OperationDefinitionNode)
+        variable_definitions = operation.variable_definitions
+        assert variable_definitions is not None
+
+        def treats_explicit_undefined_values_as_omitted():
+            result = get_variable_values(
+                schema, variable_definitions, {"input": Undefined}
+            )
+            assert not isinstance(result, list)
+            assert "input" not in result.coerced

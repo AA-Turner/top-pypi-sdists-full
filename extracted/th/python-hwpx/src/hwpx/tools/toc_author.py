@@ -30,6 +30,7 @@ from uuid import uuid4
 from lxml import etree as ET
 
 from hwpx.document import HwpxDocument
+from hwpx.errors import HwpxValueError
 
 _HP = "{http://www.hancom.co.kr/hwpml/2011/paragraph}"
 _NON_UNIQUE_PARA_ID = "2147483648"
@@ -43,9 +44,61 @@ _TOC_COMMAND = (
     "ContentsLeader:int:{leader} ContentsHyperlink:bool:{hyperlink}  "
 )
 
+#: ``hh:tabItem/@leader`` names indexed by the leader code the TOC Command
+#: (``ContentsLeader``) and the inline ``hp:tab/@leader`` use. Hancom draws
+#: ``DASH`` (code 3, the default) as the fine dotted leader of its own TOC.
+_TAB_LEADER_NAMES = (
+    "NONE", "SOLID", "DOT", "DASH", "DASH_DOT", "DASH_DOT_DOT", "LONG_DASH",
+    "CIRCLE", "DOUBLE_SLIM", "SLIM_THICK", "THICK_SLIM", "SLIM_THICK_SLIM",
+)
+
+
+#: ``hp:ctrl`` children that set up the section from its first paragraph on.
+_SECTION_START_CONTROLS = frozenset(
+    {"colPr", "header", "footer", "pageNum", "pageNumCtrl", "pageHiding", "newNum"}
+)
+
 
 def _rand_id() -> str:
     return str(uuid4().int & 0x7FFFFFFF)
+
+
+def _keep_section_setup_first(section: Any) -> bool:
+    """Move the section setup back into the section's first paragraph.
+
+    Paragraphs inserted in front of the one that carries ``hp:secPr`` leave the
+    setup in the middle of the section, and Hancom reads a ``hp:secPr`` that is
+    not in a section's first paragraph as the start of a new section: a TOC
+    put at index 0 became a section of its own, followed by a page break.
+    ``hp:secPr`` and the controls that
+    apply from the section start (columns, header, footer, page numbering) move,
+    in order, into a new leading run of the first paragraph -- where Hancom
+    keeps them when it inserts a TOC at the start of a document itself.
+    Returns whether anything moved.
+    """
+    paragraphs = [p.element for p in section.paragraphs]
+    if not paragraphs or paragraphs[0].find(f"{_HP}run/{_HP}secPr") is not None:
+        return False
+    holder = next((p for p in paragraphs[1:] if p.find(f"{_HP}run/{_HP}secPr") is not None), None)
+    if holder is None:
+        return False
+    first = paragraphs[0]
+    setup_run = first.makeelement(f"{_HP}run", {"charPrIDRef": "0"})
+    for run in holder.findall(f"{_HP}run"):
+        for node in list(run):
+            name = ET.QName(node).localname
+            if name == "secPr" or (
+                name == "ctrl" and any(ET.QName(c).localname in _SECTION_START_CONTROLS for c in node)
+            ):
+                if name == "secPr":
+                    setup_run.set("charPrIDRef", run.get("charPrIDRef", "0"))
+                run.remove(node)
+                setup_run.append(node)
+        if len(run) == 0 and len(holder.findall(f"{_HP}run")) > 1:
+            holder.remove(run)
+    first.insert(0, setup_run)
+    section.mark_dirty()
+    return True
 
 
 def _existing_paragraph_ids(doc: HwpxDocument) -> set[str]:
@@ -128,10 +181,38 @@ def _field_end(run: ET.Element, field_id: str) -> None:
     ET.SubElement(ctrl, f"{_HP}fieldEnd", {"beginIDRef": field_id})
 
 
-def _entry_paragraph(numbered_title: str, page: int, target_id: str, char_pr: str = "0") -> ET.Element:
+def _entry_para_pr(doc: HwpxDocument, leader: int) -> str:
+    """Paragraph property for TOC entries: a right tab stop at the text edge.
+
+    Hancom lays a tab out from the paragraph's tab stops; the ``hp:tab``
+    attributes are only a cache of that layout. Without a right tab stop the
+    page number lands at the next default tab, right after the title.
+    """
+    properties = doc.oxml.sections[0].properties
+    size, margins = properties.page_size, properties.page_margins
+    width = size.drawn_width - margins.left - margins.right - margins.gutter
+    if width <= 0:
+        return "0"
+    header = doc.oxml.headers[0]
+    tab_pr_id = header.ensure_tab_definition(
+        tab_stops=[{"pos": width, "type": "RIGHT", "leader": _TAB_LEADER_NAMES[leader]}],
+        auto_tab_left=True,
+    )
+    return header.ensure_paragraph_format(base_para_pr_id="0", tab_pr_id_ref=tab_pr_id)
+
+
+def _entry_paragraph(
+    numbered_title: str,
+    page: int,
+    target_id: str,
+    char_pr: str = "0",
+    *,
+    para_pr: str = "0",
+    leader: int = 3,
+) -> ET.Element:
     """One generated TOC entry: HYPERLINK field wrapping ``title<tab/>page``."""
     p = ET.Element(f"{_HP}p", {
-        "id": _rand_id(), "paraPrIDRef": "0", "styleIDRef": "0",
+        "id": _rand_id(), "paraPrIDRef": para_pr, "styleIDRef": "0",
         "pageBreak": "0", "columnBreak": "0", "merged": "0",
     })
     field_id = _rand_id()
@@ -147,7 +228,7 @@ def _entry_paragraph(numbered_title: str, page: int, target_id: str, char_pr: st
     run2 = ET.SubElement(p, f"{_HP}run", {"charPrIDRef": char_pr})
     t = ET.SubElement(run2, f"{_HP}t")
     t.text = numbered_title
-    tab = ET.SubElement(t, f"{_HP}tab", {"width": "34032", "leader": "3", "type": "2"})
+    tab = ET.SubElement(t, f"{_HP}tab", {"width": "34032", "leader": str(leader), "type": "2"})
     tab.tail = str(page)
 
     run3 = ET.SubElement(p, f"{_HP}run", {"charPrIDRef": char_pr})
@@ -260,29 +341,46 @@ def add_native_toc(
     level: int = 2,
     leader: int = 3,
     hyperlink: bool = True,
-    dirty: bool = True,
+    dirty: bool | None = None,
     headings: Sequence[Any] | None = None,
 ) -> dict[str, Any]:
     """Insert a Hancom-native TABLEOFCONTENTS field region at ``at_index``.
 
     Entries are generated from ``headings`` (paragraph wrappers) or, when
     omitted, auto-detected 개요/Outline-styled paragraphs. Emitted entry page
-    numbers are naive estimates; with ``dirty=True`` (default, measured
-    semantics) Hancom regenerates the whole region — correct entries, styles,
-    and page numbers — on its next open, so the first thing a user sees is a
-    TOC Hancom itself computed. Returns a summary dict.
+    numbers are naive estimates; with ``dirty=True`` Hancom regenerates the
+    whole region — correct entries, styles, and page numbers — on its next
+    open, so the first thing a user sees is a TOC Hancom itself computed.
+    Hancom regenerates it from the paragraphs it collects (see below), so a
+    TOC built from explicit ``headings`` that are not outline paragraphs would
+    lose its entries and links. ``dirty`` therefore defaults to ``True`` for
+    auto-detected headings and to ``False`` when ``headings`` is given; pass
+    it explicitly to choose. Returns a summary dict.
 
     Collection note (measured): Hancom collects outline-styled paragraphs and
     — via the ``ContentsStyles:wstring:0:`` command — style-0 (바탕글)
     paragraphs too; give body text a non-collected style (e.g. 본문, style 1)
     or it will appear as TOC entries after regeneration.
+
+    Entry paragraphs get a right tab stop at the text edge of the first
+    section with the ``leader`` fill (a code from 0 to 11: 0 none, 3 the
+    dotted leader of Hancom's own TOC), so page numbers line up on the right.
     """
+    if isinstance(leader, bool) or not 0 <= leader < len(_TAB_LEADER_NAMES):
+        raise HwpxValueError(
+            f"leader must be a tab leader code from 0 to {len(_TAB_LEADER_NAMES) - 1}, got {leader!r}",
+            code="paragraph-tab-leader-invalid",
+            context={"requested": leader, "available": f"0-{len(_TAB_LEADER_NAMES) - 1}"},
+            suggestion="0 은 채움 없음, 3 은 한컴 차례의 점선이다.",
+        )
     if headings is None:
         detected = outline_heading_paragraphs(doc)
     else:
         detected = [(p, 1, (p.text or "").strip()) for p in headings]
     if not detected:
         raise ValueError("no outline headings found to build a TOC from")
+    if dirty is None:
+        dirty = headings is None
 
     anchors: list[tuple[str, int, str]] = []
     for paragraph, lvl, text in detected:
@@ -312,8 +410,9 @@ def add_native_toc(
     t = ET.SubElement(run, f"{_HP}t")
     t.text = title
 
+    entry_para_pr = _entry_para_pr(doc, leader)
     entry_elements = [
-        _entry_paragraph(f"{i}. {text}", 1, anchor)
+        _entry_paragraph(f"{i}. {text}", 1, anchor, para_pr=entry_para_pr, leader=leader)
         for i, (anchor, _lvl, text) in enumerate(anchors, start=1)
     ]
 
@@ -326,6 +425,8 @@ def add_native_toc(
     _field_end(close_run, toc_field_id)
 
     section.insert_paragraphs(at_index, [open_p, *entry_elements, close_p])
+    if at_index == 0:
+        _keep_section_setup_first(section)
     return {
         "tocFieldId": toc_field_id,
         "entryCount": len(anchors),

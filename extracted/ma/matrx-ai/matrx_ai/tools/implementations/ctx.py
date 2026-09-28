@@ -403,6 +403,28 @@ async def _known_missing_key_result(
     )
 
 
+def _unreadable_manifest_result(exc: BaseException) -> ToolResult:
+    """This turn HAS attached context, but it could not be rebuilt."""
+    reason = str(getattr(exc, "reason", "") or f"{type(exc).__name__}: {exc}")
+    return ToolResult(
+        success=False,
+        error=ToolError(
+            error_type="context_unreadable",
+            message=(
+                "This turn's attached context could not be read, so no context key "
+                f"can be returned. Reason: {reason}"
+            ),
+            is_retryable=False,
+            suggested_action=(
+                "Do NOT call context again this turn — the answer will not change. "
+                "Tell the user their attached context could not be read (the failure "
+                "has been recorded for the platform team) and answer from what you "
+                "can see, or ask them to resend."
+            ),
+        ),
+    )
+
+
 async def ctx_get(
     args: dict[str, Any], ctx: ToolContext, *, budget: int = _MAX_RESULT_CHARS
 ) -> ToolResult:
@@ -507,7 +529,12 @@ async def _ctx_get_body(
 
         # --- load manifest ---
         app_ctx = get_app_context()
-        manifest = load_manifest_from_ctx(app_ctx)
+        try:
+            manifest = load_manifest_from_ctx(app_ctx)
+        except Exception as exc:
+            # The host captured it; the agent must hear the truth, never
+            # "nothing is attached" (which is what None would render as).
+            return _unreadable_manifest_result(exc)
 
         # KNOWN-BUT-MISSING responder — a requested key that isn't in the
         # current turn's manifest is NOT a dead end. When it's an attached-

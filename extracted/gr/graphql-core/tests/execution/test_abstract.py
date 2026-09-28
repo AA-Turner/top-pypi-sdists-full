@@ -1,10 +1,12 @@
-from inspect import isawaitable
-from typing import Any, Callable, NamedTuple, Optional
+from __future__ import annotations
 
-from pytest import mark
+from typing import TYPE_CHECKING, Any, NamedTuple
+
+import pytest
 
 from graphql.execution import ExecutionResult, execute, execute_sync
 from graphql.language import parse
+from graphql.pyutils import is_awaitable
 from graphql.type import (
     GraphQLBoolean,
     GraphQLField,
@@ -17,18 +19,21 @@ from graphql.type import (
 )
 from graphql.utilities import build_schema
 
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
 
 def sync_and_async(spec):
     """Decorator for running a test synchronously and asynchronously."""
-    return mark.asyncio(
-        mark.parametrize("sync", (True, False), ids=("sync", "async"))(spec)
+    return pytest.mark.anyio(
+        pytest.mark.parametrize("sync", [True, False], ids=("sync", "async"))(spec)
     )
 
 
 def access_variants(spec):
     """Decorator for tests with dict and object access, including inheritance."""
-    return mark.asyncio(
-        mark.parametrize("access", ("dict", "object", "inheritance"))(spec)
+    return pytest.mark.anyio(
+        pytest.mark.parametrize("access", ["dict", "object", "inheritance"])(spec)
     )
 
 
@@ -41,7 +46,7 @@ async def execute_query(
     assert isinstance(query, str)
     document = parse(query)
     result = (execute_sync if sync else execute)(schema, document, root_value)
-    if not sync and isawaitable(result):
+    if not sync and is_awaitable(result):
         result = await result
     assert isinstance(result, ExecutionResult)
     return result
@@ -81,13 +86,11 @@ def get_type_error(sync=True):
 
 
 class Dog(NamedTuple):
-
     name: str
     woofs: bool
 
 
 class Cat(NamedTuple):
-
     name: str
     meows: bool
 
@@ -412,7 +415,6 @@ def describe_execute_handles_synchronous_execution_of_abstract_types():
         )
 
     def describe_using_typename_on_source_object():
-
         expected = (
             {
                 "pets": [
@@ -423,7 +425,6 @@ def describe_execute_handles_synchronous_execution_of_abstract_types():
             None,
         )
 
-        # noinspection PyShadowingNames
         def _root_value(access: str) -> Any:
             if access == "dict":
                 return {
@@ -454,11 +455,11 @@ def describe_execute_handles_synchronous_execution_of_abstract_types():
 
                 class Pet:
                     __typename = "Pet"
-                    name: Optional[str] = None
+                    name: str | None = None
 
                 class DogPet(Pet):
                     __typename = "Dog"
-                    woofs: Optional[bool] = None
+                    woofs: bool | None = None
 
                 class Odie(DogPet):
                     name = "Odie"
@@ -466,7 +467,7 @@ def describe_execute_handles_synchronous_execution_of_abstract_types():
 
                 class CatPet(Pet):
                     __typename = "Cat"
-                    meows: Optional[bool] = None
+                    meows: bool | None = None
 
                 class Tabby(CatPet):
                     pass
@@ -483,8 +484,8 @@ def describe_execute_handles_synchronous_execution_of_abstract_types():
             assert False, f"Unknown access variant: {access}"  # pragma: no cover
 
         def describe_union_type():
-
-            schema = build_schema("""
+            schema = build_schema(
+                """
                 type Query {
                   pets: [Pet]
                 }
@@ -500,7 +501,8 @@ def describe_execute_handles_synchronous_execution_of_abstract_types():
                   name: String
                   woofs: Boolean
                 }
-                """)
+                """
+            )
 
             query = """
                 {
@@ -523,14 +525,15 @@ def describe_execute_handles_synchronous_execution_of_abstract_types():
                 assert await execute_query(sync, schema, query, root_value) == expected
 
         def describe_interface_type():
-            schema = build_schema("""
+            schema = build_schema(
+                """
                 type Query {
                   pets: [Pet]
                 }
 
                 interface Pet {
                   name: String
-                  }
+                }
 
                 type Cat implements Pet {
                   name: String
@@ -541,7 +544,8 @@ def describe_execute_handles_synchronous_execution_of_abstract_types():
                   name: String
                   woofs: Boolean
                 }
-                """)
+                """
+            )
 
             query = """
                 {
@@ -564,7 +568,8 @@ def describe_execute_handles_synchronous_execution_of_abstract_types():
                 assert await execute_query(sync, schema, query, root_value) == expected
 
     def resolve_type_on_interface_yields_useful_error():
-        schema = build_schema("""
+        schema = build_schema(
+            """
             type Query {
               pet: Pet
             }
@@ -580,15 +585,18 @@ def describe_execute_handles_synchronous_execution_of_abstract_types():
             type Dog implements Pet {
               name: String
             }
-            """)
+            """
+        )
 
-        document = parse("""
+        document = parse(
+            """
             {
               pet {
                 name
               }
             }
-            """)
+            """
+        )
 
         def expect_error(for_type_name: Any, message: str) -> None:
             root_value = {"pet": {"__typename": for_type_name}}
@@ -629,5 +637,6 @@ def describe_execute_handles_synchronous_execution_of_abstract_types():
             None,
             "Abstract type 'Pet' must resolve"
             " to an Object type at runtime for field 'Query.pet'"
-            " with value {'__typename': None}, received '[]'.",
+            " with value {'__typename': None}, received '[]',"
+            " which is not a valid Object type name.",
         )

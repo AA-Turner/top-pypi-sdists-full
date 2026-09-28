@@ -1,8 +1,9 @@
 use super::*;
 use crate::agent_launch::{
-    py_collect_queue_fields, py_format_queue_directive,
-    py_normalize_persisted_queue_capacity, py_parse_queue_capacity,
-    py_queue_directive_flag_key,
+    py_collect_queue_fields, py_format_queue_capacity_multiplier,
+    py_format_queue_directive, py_normalize_persisted_queue_capacity,
+    py_parse_queue_capacity, py_parse_queue_capacity_value,
+    py_queue_directive_flag_key, py_resolve_queue_capacity_multiplier,
 };
 use crate::json_bridge::{json_value_to_py, py_to_json_value};
 use crate::provider_policy::{
@@ -396,7 +397,7 @@ fn directive_contract_and_completion_bindings_return_plain_json_shapes() {
             .unwrap()
             .iter()
             .any(|keyword| keyword["name"] == "weight"
-                && keyword["value_role"] == "positive_float"));
+                && keyword["value_role"] == "non_negative_float"));
         assert_eq!(py_queue_directive_flag_key(), "queue_directive");
         let occurrences = json_value_to_py(
             py,
@@ -413,7 +414,55 @@ fn directive_contract_and_completion_bindings_return_plain_json_shapes() {
         let collected = py_to_json_value(collected.bind(py)).unwrap();
         assert_eq!(collected["fields"]["queue_capacity"], json!(5));
         assert_eq!(collected["fields"]["weight"], json!(0.25));
+        assert!(collected["fields"]
+            .get("queue_capacity_multiplier")
+            .is_none());
         assert!(collected["errors"].as_array().unwrap().is_empty());
+        let multiplier_occurrences = json_value_to_py(
+            py,
+            &json!([{
+                "source": "%q(1.5x, w=0.25)",
+                "source_span": [0, 16],
+                "args": [{"value": "1.5x"}, {"name": "w", "value": "0.25"}],
+                "has_plus_suffix": false
+            }]),
+        )
+        .unwrap();
+        let multiplier_collected =
+            py_collect_queue_fields(py, multiplier_occurrences.bind(py), None)
+                .unwrap();
+        let multiplier_collected =
+            py_to_json_value(multiplier_collected.bind(py)).unwrap();
+        assert!(multiplier_collected["fields"]
+            .get("queue_capacity")
+            .is_none());
+        assert_eq!(
+            multiplier_collected["fields"]["queue_capacity_multiplier"],
+            json!(1.5)
+        );
+        let multiplier_formatted = py_format_queue_directive(
+            json_value_to_py(
+                py,
+                &json!({"queue_capacity_multiplier": 1.5, "weight": 0.25}),
+            )
+            .unwrap()
+            .bind(py),
+        )
+        .unwrap();
+        assert_eq!(
+            multiplier_formatted.as_deref(),
+            Some("%queue(capacity=1.5x, weight=0.25)")
+        );
+        let parsed_value =
+            py_parse_queue_capacity_value(py, "1.5x", None).unwrap();
+        let parsed_value = py_to_json_value(parsed_value.bind(py)).unwrap();
+        assert!(parsed_value.get("queue_capacity").is_none());
+        assert_eq!(parsed_value["queue_capacity_multiplier"], json!(1.5));
+        assert_eq!(
+            py_format_queue_capacity_multiplier(1.5).as_deref(),
+            Some("1.5x")
+        );
+        assert_eq!(py_resolve_queue_capacity_multiplier(1.5, 5.0), Some(7.5));
         let formatted = py_format_queue_directive(
             json_value_to_py(
                 py,
@@ -427,6 +476,13 @@ fn directive_contract_and_completion_bindings_return_plain_json_shapes() {
             formatted.as_deref(),
             Some("%queue(capacity=5, priority=20, weight=2)")
         );
+        let zero_formatted = py_format_queue_directive(
+            json_value_to_py(py, &json!({"weight": 0.0}))
+                .unwrap()
+                .bind(py),
+        )
+        .unwrap();
+        assert_eq!(zero_formatted.as_deref(), Some("%queue(weight=0)"));
         assert_eq!(py_parse_queue_capacity("0", None).unwrap(), 0);
         assert_eq!(py_parse_queue_capacity("3", None).unwrap(), 3);
         assert!(py_parse_queue_capacity(
@@ -435,7 +491,7 @@ fn directive_contract_and_completion_bindings_return_plain_json_shapes() {
         )
         .is_err());
         assert!(py_parse_queue_capacity("true", None).is_err());
-        assert_eq!(py_runner_capacity_policy_schema_version(), 5);
+        assert_eq!(py_runner_capacity_policy_schema_version(), 6);
         let on_contract = py_directive_contract(
             py,
             Some(vec!["queue_capacity_budget".to_string()]),
@@ -455,7 +511,7 @@ fn directive_contract_and_completion_bindings_return_plain_json_shapes() {
             .iter()
             .map(|value| value["value"].as_str().unwrap())
             .collect::<Vec<_>>();
-        assert_eq!(suggestions, ["1", "100"]);
+        assert_eq!(suggestions, ["1", "100", "1.5x"]);
         assert!(!suggestions.contains(&"0"));
         let capacity_kw = on_queue["keywords"]
             .as_array()
@@ -471,12 +527,27 @@ fn directive_contract_and_completion_bindings_return_plain_json_shapes() {
             0.25,
             8.0,
             true,
+            None,
         )
         .unwrap();
         let normalized = py_to_json_value(normalized.bind(py)).unwrap();
         assert_eq!(normalized["admission_limit"], json!(0.25));
         assert_eq!(normalized["legacy_zero"], json!(true));
         assert!(normalized.get("reauthor_capacity").is_none());
+        let multiplier_normalized = py_normalize_persisted_queue_capacity(
+            py,
+            None,
+            false,
+            0.25,
+            5.0,
+            true,
+            Some(1.5),
+        )
+        .unwrap();
+        let multiplier_normalized =
+            py_to_json_value(multiplier_normalized.bind(py)).unwrap();
+        assert_eq!(multiplier_normalized["admission_limit"], json!(7.5));
+        assert_eq!(multiplier_normalized["reauthor_multiplier"], json!(1.5));
         let capacity_request = json_value_to_py(
             py,
             &json!({
@@ -503,7 +574,7 @@ fn directive_contract_and_completion_bindings_return_plain_json_shapes() {
         let capacity =
             py_runner_capacity_snapshot(py, capacity_request.bind(py)).unwrap();
         let capacity = py_to_json_value(capacity.bind(py)).unwrap();
-        assert_eq!(capacity["schema_version"], json!(5));
+        assert_eq!(capacity["schema_version"], json!(6));
         assert_eq!(capacity["occupied_capacity"], json!(0.75));
         assert_eq!(
             capacity["first_eligible_artifact_dir"],
@@ -518,7 +589,7 @@ fn directive_contract_and_completion_bindings_return_plain_json_shapes() {
                         "artifact_dir": "/tmp/root",
                         "project_name": "proj",
                         "timestamp": "root",
-                        "agent_family": "fam",
+                        "agent_session": "fam",
                         "run_started_at": "2026-09-10T00:00:00Z",
                         "queue_weight": 2.0
                     }
@@ -528,7 +599,7 @@ fn directive_contract_and_completion_bindings_return_plain_json_shapes() {
                     "project_name": "proj",
                     "timestamp": "successor",
                     "parent_timestamp": "root",
-                    "agent_family": "fam",
+                    "agent_session": "fam",
                     "slot_requested_at": "2026-09-10T00:00:01Z"
                 }
             }),
@@ -562,14 +633,14 @@ fn directive_contract_and_completion_bindings_return_plain_json_shapes() {
             &json!({
                 "effective_limit": 1.0,
                 "holds": [{
-                    "schema_version": 1,
+                    "schema_version": 2,
                     "armer": {
                         "kind": "agent",
                         "key": "agent:hold",
                         "display": "Hold Agent",
                         "project": "proj",
                         "agent_name": "holder.agent--code",
-                        "family": "holder.agent",
+                        "agent_session": "holder.agent",
                         "pid": 123
                     },
                     "scope": {"kind": "project", "project": "proj"},

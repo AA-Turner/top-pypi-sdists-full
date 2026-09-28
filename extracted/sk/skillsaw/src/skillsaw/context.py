@@ -22,9 +22,12 @@ from .discovery import detect as detect_discovery
 from .discovery.excludes import pattern_variants as _pattern_variants
 from .discovery.excludes import is_root_or_ancestor_excluded, path_matches_patterns
 from .paths import safe_is_dir, safe_resolve
+from .pi_patterns import reset_pattern_state
 from .utils import read_yaml
 from .repository_external_content import RepositoryExternalContentMixin
+from .repository_openclaw import RepositoryOpenClawMixin
 from .repository_grok import RepositoryGrokMixin
+from .repository_cursor import RepositoryCursorMixin
 from .repository_antigravity import RepositoryAntigravityMixin
 from .repository_mcp_registry import RepositoryMcpRegistryMixin
 from .repository_provenance import PluginProvenance, RepositoryProvenanceMixin
@@ -60,7 +63,9 @@ class RepositoryContext(
     RepositoryScanMixin,
     RepositoryMcpRegistryMixin,
     RepositoryExternalContentMixin,
+    RepositoryOpenClawMixin,
     RepositoryGrokMixin,
+    RepositoryCursorMixin,
     RepositoryAntigravityMixin,
     RepositoryProvenanceMixin,
 ):
@@ -79,10 +84,14 @@ class RepositoryContext(
         # convention is a Codex plugin first, not an agentskills.io repo.
         RepositoryType.CODEX_MARKETPLACE,
         RepositoryType.CODEX_PLUGIN,
+        RepositoryType.CURSOR_MARKETPLACE,
+        RepositoryType.CURSOR_PLUGIN,
         RepositoryType.GROK_MARKETPLACE,
         RepositoryType.GROK_PLUGIN,
         RepositoryType.ANTIGRAVITY_PLUGIN,
         RepositoryType.AGENT_PLUGIN,
+        RepositoryType.OPENCLAW_PLUGIN,
+        RepositoryType.PI_PACKAGE,
         RepositoryType.AGENTSKILLS,
         RepositoryType.MCP_REGISTRY,
         RepositoryType.CODERABBIT,
@@ -90,6 +99,7 @@ class RepositoryContext(
         # Tool configuration sorts below everything that describes how the
         # repository packages its content, so a marketplace that also ships
         # a `.cursor/` keeps `marketplace` as its primary type.
+        RepositoryType.PI,
         RepositoryType.CODEX_PROJECT,
         RepositoryType.MUSE,
         RepositoryType.GROK_PROJECT,
@@ -151,6 +161,9 @@ class RepositoryContext(
             lint_external_content: Whether externally sourced nodes should be
                 attached to the lint tree.
         """
+        # Pi pattern timeout history is per repository, not per process.
+        reset_pattern_state()
+        self._resolve_cache: Dict[Path, Optional[Path]] = {}
         self.root_path = safe_resolve(root_path) or root_path
         self.content_paths: List[str] = list(content_paths) if content_paths else []
         self.lint_external_content = lint_external_content
@@ -160,6 +173,8 @@ class RepositoryContext(
         self._excluded_cache_patterns: Tuple[str, ...] = ()
         self.has_apm = detect_discovery.has_apm(self.root_path)
         self._scan: Optional[detect_discovery.RepositoryScan] = None
+        self._pi_packages_cache: Optional[Tuple[Tuple[str, ...], List[Path], Set[Path]]] = None
+        self._pi_portable_skills: List[Path] = []
         self._apm_compiled_roots: Optional[Set[Path]] = None
         self._apm_targets: Any = _UNSET  # frozenset once read; None = unknown
         self._codex_marketplace_paths: Optional[List[Path]] = None
@@ -170,6 +185,8 @@ class RepositoryContext(
         self._agent_plugin_roots: Optional[Set[Path]] = None
         self._contained_plugin_roots: Optional[Set[Path]] = None
         self._agent_plugin_claims: Optional[Set[Path]] = None
+        self._agent_plugin_installed_roots: Set[Path] = set()
+        self._agent_plugin_catalog_paths: Tuple[Path, ...] = ()
         self._init_mcp_registry(repo_types)
         self._provenance_cache: Dict[Path, PluginProvenance] = {}
         # Views over _provenance_cache, invalidated with it: keeping them
@@ -207,6 +224,8 @@ class RepositoryContext(
         self.agent_plugins: List[Path] = (
             self._discover_agent_plugins() if self._agent_plugin_discovery_enabled else []
         )
+        self._init_openclaw(repo_types)
+        self._init_cursor(repo_types)
         self._init_grok(repo_types)
         self._init_antigravity(repo_types)
         # An explicit ``--type`` answers "how is this content packaged", and
@@ -269,6 +288,7 @@ class RepositoryContext(
 
     def rebuild_lint_tree(self) -> None:
         self._lint_tree = None
+        self._resolve_cache.clear()
 
     @property
     def repo_type(self) -> RepositoryType:
@@ -383,11 +403,20 @@ class RepositoryContext(
         after construction must call it again. Filtering only narrows —
         previously excluded paths are not rediscovered.
         """
+        self._resolve_cache.clear()
+        # A removed Pi declaration changes a skill's role, not its visibility.
+        pi_candidates = set(self._pi_portable_skills)
+        self.skills = sorted(set(self.skills) | pi_candidates)
+        self._pi_portable_skills = []
         if self.exclude_patterns:
             codex_before = list(self.codex_plugins)
             agent_plugins_before = list(self.agent_plugins)
+            agent_roots_before = self._agent_plugin_root_set().copy()
             roots_before = {r for r in (safe_resolve(p) for p in codex_before) if r}
-            marketplaces_before = tuple(self._codex_marketplace_paths or ())
+            marketplaces_before = (
+                *tuple(self._codex_marketplace_paths or ()),
+                *self._agent_plugin_catalog_paths,
+            )
             self.plugins = [p for p in self.plugins if not self.is_path_excluded(p)]
             self.codex_plugins = [p for p in self.codex_plugins if not self.is_path_excluded(p)]
             self.agent_plugins = [p for p in self.agent_plugins if not self.is_path_excluded(p)]
@@ -407,41 +436,55 @@ class RepositoryContext(
             # exclusion.
             if codex_catalog_changed:
                 self._codex_marketplace_paths = None
+                self._agent_plugin_claims = None
+                self._agent_plugin_roots = None
             if self._codex_discovery_enabled and codex_set_changed:
                 self._codex_install_root = _UNSET
                 self.codex_plugins = [
                     p for p in self._discover_codex_plugins() if not self.is_path_excluded(p)
                 ]
+            if self._agent_plugin_discovery_enabled and codex_catalog_changed:
+                self.agent_plugins = self._discover_agent_plugins()
             roots_after = {r for r in (safe_resolve(p) for p in self.codex_plugins) if r}
             dropped = roots_before - roots_after
             if dropped:
                 # Prune skills owned by plugins that just left the Codex set;
                 # otherwise they attach as standalone nodes and keep linting
                 # the very content the exclusion removed. Skills of a
-                # dual-host plugin that remains an active Claude plugin still
+                # dual-host plugin that remains an active Claude or Pi package still
                 # have a surviving owner and must not be pruned.
-                claude_roots = {r for r in (safe_resolve(p) for p in self.plugins) if r}
+                surviving_roots = {
+                    r
+                    for p in (*self.plugins, *self.pi_discovery_roots())
+                    if (r := safe_resolve(p)) is not None
+                }
                 self.skills = [
                     sk
                     for sk in self.skills
-                    if not self._under_any(sk, dropped) or self._under_any(sk, claude_roots)
+                    if not self._under_any(sk, dropped) or self._under_any(sk, surviving_roots)
                 ]
             if codex_set_changed:
                 self._codex_roots = None
-            if self.agent_plugins != agent_plugins_before:
+            if self.agent_plugins != agent_plugins_before or codex_catalog_changed:
+                self._agent_plugin_roots = None
                 active_roots = {
-                    root for p in self.agent_plugins if (root := safe_resolve(p)) is not None
+                    root
+                    for p in (
+                        *self.agent_plugin_roots(),
+                        *self.codex_plugins,
+                        *self.plugins,
+                        *self.pi_discovery_roots(),
+                    )
+                    if (root := safe_resolve(p)) is not None
                 }
                 dropped_roots = {
                     root
-                    for p in agent_plugins_before
+                    for p in agent_roots_before
                     if (root := safe_resolve(p)) is not None and root not in active_roots
                 }
                 self.skills = [
                     skill for skill in self.skills if not self._under_any(skill, dropped_roots)
                 ]
-        if not self.skills and self._overridden_types is None:
-            self.repo_types.discard(RepositoryType.AGENTSKILLS)
         # The claim set folds in both plugin roots and catalog sources, and
         # excludes can drop either — always recompute on the next consult.
         # The unconditional clear is also load-bearing for __init__ ordering:
@@ -452,43 +495,21 @@ class RepositoryContext(
         self._codex_evidence = None
         self._agent_plugin_claims = None
         self._agent_plugin_roots = None
+        self._reset_cursor()
         self._reset_grok_caches(filtering=bool(self.exclude_patterns))
         self._reset_antigravity_caches(filtering=bool(self.exclude_patterns))
         self._contained_plugin_roots = self._mcp_registry_paths = None
         self._provenance_cache.clear()
         self._format_scope_cache.clear()
         self.reset_external_content_provenance()
+        self.skills = self._filter_pi_skills(self.skills)
+        if self._overridden_types is None:
+            if pi_candidates.intersection(self.skills):
+                self.repo_types.add(RepositoryType.AGENTSKILLS)
+            elif not self.skills:
+                self.repo_types.discard(RepositoryType.AGENTSKILLS)
         self._refresh_tool_types()
         self._lint_tree = None
-
-    def _refresh_tool_types(self) -> None:
-        """Fold committed tool configuration into the detected types.
-
-        Runs at the end of ``__init__`` — tool evidence includes AGENTS.md
-        and friends, which are not discovered when the packaging types are
-        worked out — and again whenever a caller mutates
-        ``exclude_patterns``, so an exclude added after construction takes
-        that tool's rules with it.
-
-        An explicit ``--type`` is the operator's answer to how the content is
-        *packaged*, and it stays authoritative for that: every forced type
-        survives, including a tool type the checkout has no marker for, so
-        ``--type muse`` runs the Muse rules on a repository that has yet to
-        commit ``.muse/hooks.json``. It is not an answer to which tools the
-        checkout configures, so the detected tool types are unioned in rather
-        than replaced — otherwise ``--type marketplace`` would quietly switch
-        off every tool-gated rule and leave rules that read
-        ``RepositoryType.X in context.repo_types`` reading a stale set.
-        """
-        detected = {RepositoryType(value) for value in self._detect_tool_type_values()}
-        if self._overridden_types is not None:
-            self.repo_types = set(self._overridden_types) | detected
-        else:
-            self.repo_types = (self.repo_types - TOOL_REPO_TYPES) | detected
-        if len(self.repo_types) > 1:
-            self.repo_types.discard(RepositoryType.UNKNOWN)
-        elif not self.repo_types:
-            self.repo_types.add(RepositoryType.UNKNOWN)
 
     def _detect_types(self) -> Set[RepositoryType]:
         """Detect all applicable repository types.
@@ -527,14 +548,22 @@ class RepositoryContext(
             types.add(RepositoryType.CODEX_MARKETPLACE)
         if self.codex_plugins:
             types.add(RepositoryType.CODEX_PLUGIN)
+        if self.openclaw_plugin_roots():
+            types.add(RepositoryType.OPENCLAW_PLUGIN)
         if self.agent_plugins:
             types.add(RepositoryType.AGENT_PLUGIN)
+        if self.cursor_marketplace_paths():
+            types.add(RepositoryType.CURSOR_MARKETPLACE)
+        if self._cursor_enabled and self.cursor_plugin_roots():
+            types.add(RepositoryType.CURSOR_PLUGIN)
         if self.has_grok_marketplace():
             types.add(RepositoryType.GROK_MARKETPLACE)
         if self.grok_plugins:
             types.add(RepositoryType.GROK_PLUGIN)
         if self.antigravity_plugin_roots():
             types.add(RepositoryType.ANTIGRAVITY_PLUGIN)
+        if self.pi_package_roots():
+            types.add(RepositoryType.PI_PACKAGE)
         if self.mcp_registry_server_paths():
             types.add(RepositoryType.MCP_REGISTRY)
 
@@ -542,50 +571,6 @@ class RepositoryContext(
             types.add(RepositoryType.UNKNOWN)
 
         return types
-
-    def _plugins_dir_suggests_claude_marketplace(self) -> bool:
-        """Whether ``plugins/`` is marketplace evidence once non-Claude claims
-        are subtracted.
-
-        A bare ``plugins/`` directory has always inferred MARKETPLACE. A
-        Codex catalog explains the children it claims, so only a child it
-        does not claim (or a dual-marker child) keeps that inference. A
-        repository with no Codex evidence keeps its historical type exactly.
-        """
-        plugins_dir = self.root_path / "plugins"
-        if not safe_is_dir(plugins_dir):
-            return False
-        try:
-            children = [
-                item
-                for item in plugins_dir.iterdir()
-                if item.is_dir() and not item.name.startswith(".")
-            ]
-        except OSError:
-            return False
-        if not children:
-            # An empty plugins/ keeps its historical meaning unless another
-            # ecosystem has positive evidence explaining the directory. A
-            # portable Agent Plugins claim counts only when it lives under
-            # plugins/ itself — a package declared at the repository root
-            # says nothing about why plugins/ exists. Grok's catalog is asked
-            # of the root for the same reason, and Codex's is root-anchored
-            # already: a package's own catalog at
-            # ``packages/foo/.grok-plugin/marketplace.json`` explains that
-            # package's directory, not the repository's.
-            resolved_plugins = safe_resolve(plugins_dir)
-            agent_plugin_claims_plugins_dir = resolved_plugins is not None and any(
-                claim.is_relative_to(resolved_plugins) for claim in self._agent_plugin_claim_set()
-            )
-            return (
-                not self.codex_catalog_exists()
-                and not self.grok_root_catalog_exists()
-                and not agent_plugin_claims_plugins_dir
-            )
-        return any(
-            not (provenance := self.provenance(item)).ecosystems or provenance.claude
-            for item in children
-        )
 
     #: Filesystem traversal policy lives in discovery; context keeps the
     #: predicate name used by its stateful orchestration.
@@ -709,12 +694,15 @@ class RepositoryContext(
             self.codex_plugins,
             self.agent_plugins,
             self.grok_plugins,
+            self.openclaw_plugin_roots(),
+            self.cursor_plugin_roots(),
             # Both spellings: the direct list keeps its unresolved path for
             # display, and the claim union adds the plugins a
             # ``plugins.json`` registry names, which are counted nowhere
             # else. ``merge_plugin_dirs`` dedupes by resolved path.
             self.antigravity_plugins,
             self.antigravity_plugin_roots(),
+            self.pi_discovery_roots(),
         )
 
     def codex_marketplace_paths(self) -> List[Path]:
@@ -732,25 +720,22 @@ class RepositoryContext(
         )
 
     def _discover_agent_plugins(self) -> List[Path]:
-        """Portable packages declared at the root or under ``plugins/*``."""
+        """Portable packages in collections, host installs and local catalogs."""
+        # Keep discovery's contributing catalogs so late excludes can drop
+        # their packages even when --type switched Codex discovery off.
+        self._agent_plugin_catalog_paths = tuple(self._codex_catalog_files())
         return [
             path
             for path in agent_plugins_discovery.discover_agent_plugins(
                 self.root_path,
                 forced=self._agent_plugin_forced,
+                package_roots=codex_discovery.codex_local_sources(
+                    self.root_path, self._agent_plugin_catalog_paths
+                ),
+                collection_roots=(self.root_path.joinpath(*codex_discovery.CODEX_INSTALL_DIR),),
             )
             if not self.is_path_excluded(path)
         ]
-
-    def _agent_plugin_claim_set(self) -> Set[Path]:
-        """Filesystem-declared portable plugin roots, independent of ``--type``."""
-        if self._agent_plugin_claims is None:
-            self._agent_plugin_claims = {
-                resolved
-                for path in agent_plugins_discovery.discover_agent_plugins(self.root_path)
-                if not self.is_path_excluded(path) and (resolved := safe_resolve(path)) is not None
-            }
-        return self._agent_plugin_claims
 
     def _codex_local_sources(self) -> List[Path]:
         """Local plugin directories declared by the Codex marketplace."""
@@ -785,8 +770,16 @@ class RepositoryContext(
         quadratic in the catalog size.
         """
         if self._codex_claims is None:
+            from .formats.codex_manifest import declares_openai_extension
+
             claims = {r for r in (safe_resolve(p) for p in self.codex_plugins) if r is not None}
             claims.update(self._codex_local_sources())
+            claims.update(
+                path
+                for path in self._agent_plugin_claim_set()
+                if declares_openai_extension(path, resolve=self.resolve_path)
+                or self.is_codex_installed_plugin(path)
+            )
             self._codex_claims = claims
         return self._codex_claims
 
@@ -802,9 +795,12 @@ class RepositoryContext(
             # Resolved once — this runs per SkillNode, so re-resolving per
             # call costs a filesystem round-trip for every skill.
             self._codex_install_root = codex_discovery.codex_install_root(self.root_path)
-        return codex_discovery.is_installed_codex_plugin(
-            plugin_dir, self.root_path, self._codex_install_root
-        )
+        if codex_discovery.is_installed_codex_plugin(
+            plugin_dir, self.root_path, self._codex_install_root, resolve=self.resolve_path
+        ):
+            return True
+        self._agent_plugin_claim_set()
+        return self.resolve_path(plugin_dir) in self._agent_plugin_installed_roots
 
     def _load_marketplace(self) -> Optional[Dict[str, Any]]:
         """Load marketplace.json if it exists"""

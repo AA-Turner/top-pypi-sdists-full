@@ -1081,7 +1081,13 @@ class CIDs:
                 # CCI frame on crop=="" -> empty -> no 'cci' column, silently.
                 # Derive the crop from the file name instead.
                 crop_for_cci = self.crop or utils.get_crop_season(self.file_name)[0]
-                cci_frame = _cci.get_cci_frame(cci_path, crop_for_cci, years=yrs)
+                # [DEFAULT] cci_gap_fill: carry the last weekly report into in-season
+                # months NASS did not report (Oct 2025 shutdown) instead of leaving the
+                # window empty -> fillna(0) -> "total crop failure" at the ML stage.
+                cci_frame = _cci.get_cci_frame(
+                    cci_path, crop_for_cci, years=yrs,
+                    gap_fill=self.parser.getboolean("DEFAULT", "cci_gap_fill", fallback=True),
+                )
                 if cci_frame is not None and not cci_frame.empty:
                     # CCI is reported at the state (admin_1) level. For an
                     # admin_1 run, adm1_name IS the state -> join directly. For

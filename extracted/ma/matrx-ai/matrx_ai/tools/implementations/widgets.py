@@ -63,9 +63,10 @@ async def _has_manifest_key(key: str) -> bool:
 
         app_ctx = get_app_context()
         load_manifest_from_ctx = get_ext("load_manifest_from_ctx")
-        manifest = load_manifest_from_ctx(app_ctx)
     except Exception:
         return False
+    # An unreadable manifest raises (host-captured) — never "key missing".
+    manifest = load_manifest_from_ctx(app_ctx)
     if manifest is None:
         return False
     return manifest.get(key) is not None

@@ -493,7 +493,7 @@ fn queue_has_capacity_assignment(
 }
 fn agent_entry_kind(entry: &AgentCompletionEntry) -> &str {
     match entry.kind.as_str() {
-        "family" => "family",
+        "family" | "session" => "session",
         "clan" => "clan",
         "hood" => "hood",
         "tribe" => "tribe",
@@ -507,7 +507,7 @@ fn agent_kind_rank(kind: &str) -> u8 {
         "hood" => 1,
         "tribe" => 2,
         "clan" => 3,
-        "family" => 4,
+        "family" | "session" => 4,
         "agent" => 5,
         "proc" => 6,
         _ => 7,

@@ -35,7 +35,8 @@ child = os.fork()
 
 if 0 == child:
     DBusGMainLoop(set_as_default=True)
-    server = dbus.server.Server('unix:tmpdir=/tmp')
+    test_socket_dir = os.environ.get('DBUS_TEST_SOCKET_DIR', '/tmp')
+    server = dbus.server.Server('unix:tmpdir=' + test_socket_dir)
 
     def new_connection(conn):
         print "new connection, %r" % conn

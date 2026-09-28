@@ -38,12 +38,9 @@ pub(crate) use sase_core::agent_cleanup::{
     release_workspace_from_content as core_release_workspace_from_content,
     save_dismissed_agents_index as core_save_dismissed_agents_index,
     save_dismissed_bundle_json as core_save_dismissed_bundle_json,
+    update_dismissed_agents_index as core_update_dismissed_agents_index,
     AgentCleanupIdentityWire, AgentCleanupRequestWire, AgentCleanupTargetWire,
     ForceReuseStopBarrierRequestWire,
-};
-pub(crate) use sase_core::agent_family::{
-    resolve_agent_family_parent as core_resolve_agent_family_parent,
-    AgentFamilyParentResolutionRequestWire,
 };
 pub(crate) use sase_core::agent_group_archive::{
     delete_dismissed_agent_group as core_delete_dismissed_agent_group,
@@ -88,7 +85,7 @@ pub(crate) use sase_core::agent_identity::{
     globalize_owned_agent_name as core_globalize_owned_agent_name,
     normalize_agent_archive_name as core_normalize_agent_archive_name,
     normalize_owned_agent_name as core_normalize_owned_agent_name,
-    parse_agent_family_name as core_parse_agent_family_name,
+    parse_agent_session_name as core_parse_agent_session_name,
     parse_owned_agent_name as core_parse_owned_agent_name,
     project_agent_relationship_graph as core_project_agent_relationship_graph,
     rewrite_agent_relationship_batch as core_rewrite_agent_relationship_batch,
@@ -132,7 +129,7 @@ pub(crate) use sase_core::agent_launch::{
     sanitized_proc_env as core_sanitized_proc_env,
     summarize_admission as core_summarize_admission,
     validate_proc_workspace_intent as core_validate_proc_workspace_intent,
-    validate_standalone_proc_shell_name as core_validate_standalone_proc_shell_name,
+    validate_standalone_named_proc_name as core_validate_standalone_named_proc_name,
     wait_target_key as core_wait_target_key, AgentLaunchPreparedWire,
     AgentLaunchRequestWire, AgentUnitWire, BatchPredecessorContextWire,
     ConditionEvalRequestWire, LaunchAdmissionHoldBlockWire,
@@ -176,7 +173,7 @@ pub(crate) use sase_core::agent_scan::{
     collect_workflow_artifact_candidates as core_collect_workflow_artifact_candidates,
     delete_agent_artifact_index_row as core_delete_agent_artifact_index_row,
     delete_agent_artifact_index_row_with_busy_timeout as core_delete_agent_artifact_index_row_with_busy_timeout,
-    find_gate_shell_by_gate_id as core_find_gate_shell_by_gate_id,
+    find_gate_turn_by_gate_id as core_find_gate_turn_by_gate_id,
     load_agent_artifact_records as core_load_agent_artifact_records,
     parse_agent_artifact_path as core_parse_agent_artifact_path,
     parse_output_variable_selector as core_parse_output_variable_selector,
@@ -188,7 +185,7 @@ pub(crate) use sase_core::agent_scan::{
     query_related_agent_artifact_dirs as core_query_related_agent_artifact_dirs,
     read_agent_artifact_index_meta as core_read_agent_artifact_index_meta,
     rebuild_agent_artifact_index as core_rebuild_agent_artifact_index,
-    reconcile_agent_artifact_index_dismissed_family_members as core_reconcile_agent_artifact_index_dismissed_family_members,
+    reconcile_agent_artifact_index_dismissed_agent_session_members as core_reconcile_agent_artifact_index_dismissed_agent_session_members,
     replace_agent_artifact_index_dismissed_agents_with_force as core_replace_agent_artifact_index_dismissed_agents_with_force,
     resolve_agent_artifact_path as core_resolve_agent_artifact_path,
     resolve_agent_artifact_timestamp_path as core_resolve_agent_artifact_timestamp_path,
@@ -204,6 +201,10 @@ pub(crate) use sase_core::agent_scan::{
     AGENT_ALIAS_HISTORY_WIRE_SCHEMA_VERSION,
     AGENT_OUTPUT_VARIABLE_HISTORY_WIRE_SCHEMA_VERSION,
     AGENT_OUTPUT_VARIABLE_SELECTOR_WIRE_SCHEMA_VERSION,
+};
+pub(crate) use sase_core::agent_session::{
+    resolve_agent_session_parent as core_resolve_agent_session_parent,
+    AgentSessionParentResolutionRequestWire,
 };
 pub(crate) use sase_core::agent_stats::{
     query_activity_stats as core_query_activity_stats,
@@ -613,6 +614,7 @@ pub(crate) use sase_core::finalizer::{
     finalizer_instance_spec_digest as core_finalizer_instance_spec_digest,
     finalizer_plan_digest as core_finalizer_plan_digest,
     finalizer_provider_spec_digest as core_finalizer_provider_spec_digest,
+    project_finalizer_node_view as core_project_finalizer_node_view,
     resolve_finalizer_plan as core_resolve_finalizer_plan,
     select_remaining_commit_obligations as core_select_remaining_commit_obligations,
     validate_finalizer_context as core_validate_finalizer_context,
@@ -622,8 +624,9 @@ pub(crate) use sase_core::finalizer::{
     validate_finalizer_submission as core_validate_finalizer_submission,
     FinalizerAssignedBeadWire, FinalizerContextWire, FinalizerError,
     FinalizerInstanceResultWire, FinalizerInstanceSpecWire,
-    FinalizerPlanInputWire, FinalizerPlanWire, FinalizerProviderSpecWire,
-    FinalizerSubmissionEnvelopeWire, RemainingCommitWorkRequestWire,
+    FinalizerNodeViewRequestWire, FinalizerPlanInputWire, FinalizerPlanWire,
+    FinalizerProviderSpecWire, FinalizerSubmissionEnvelopeWire,
+    RemainingCommitWorkRequestWire, RunViewError,
     FINALIZER_WIRE_SCHEMA_VERSION,
 };
 pub(crate) use sase_core::fleet_attention::{
@@ -655,8 +658,8 @@ pub(crate) use sase_core::fleet_contract::{
     ResolvedAgentSummaryWire, RuntimeDurationRequestWire,
 };
 pub(crate) use sase_core::fleet_follow_promotion::{
-    followed_batch_family_promotions as core_followed_batch_family_promotions,
-    FollowedBatchFamilyPromotionRequestWire,
+    followed_batch_agent_session_promotions as core_followed_batch_agent_session_promotions,
+    FollowedBatchAgentSessionPromotionRequestWire,
 };
 pub(crate) use sase_core::fleet_mutation::{
     self as core_fleet_mutation, FleetMutationIntentWire,
@@ -885,7 +888,9 @@ pub(crate) use sase_core::provider_usage::{
     classify_freshness as core_classify_freshness,
     evaluate_provider_usage_refresh_due as core_evaluate_provider_usage_refresh_due,
     format_remaining_text as core_format_remaining_text,
-    load_provider_usage_store as core_load_provider_usage_store,
+    list_provider_usage_refresh_reservations as core_list_refresh_reservations,
+    load_provider_usage_store_with_floors as core_load_provider_usage_with_floors,
+    mark_provider_usage_hot as core_mark_provider_usage_hot,
     mark_provider_usage_refresh_due as core_mark_provider_usage_refresh_due,
     normalize_agy_usage as core_normalize_agy_usage,
     normalize_grok_billing as core_normalize_grok_billing,
@@ -903,6 +908,7 @@ pub(crate) use sase_core::provider_usage::{
     usage_window_applies as core_usage_window_applies,
     validate_usage_indicator_config as core_validate_usage_indicator_config,
     validate_usage_observation as core_validate_usage_observation,
+    MarkProviderUsageHotRequestWire,
     ProviderUsageError as ProviderUsageDomainError,
     ProviderUsageNormalizeAgyUsageRequestWire,
     ProviderUsageNormalizeGrokBillingRequestWire,
@@ -929,6 +935,7 @@ pub(crate) use sase_core::query::{
     CompiledQueryProfile, QueryCorpus as CoreQueryCorpus, QueryFieldValues,
     QueryPredicateFacts, QueryProgram as CoreQueryProgram, QueryRow,
 };
+pub(crate) use sase_core::queue_directive::normalize_persisted_queue_capacity_with_multiplier as core_normalize_persisted_queue_capacity_with_multiplier;
 pub(crate) use sase_core::referenced_by::{
     parse_referenced_by_block as core_parse_referenced_by_block,
     remove_referenced_by_block as core_remove_referenced_by_block,
@@ -1030,12 +1037,14 @@ pub(crate) use sase_core::tool_run::{
     retention_preview as core_tool_run_retention_preview,
     show_run as core_tool_run_show, store_stats as core_tool_run_store_stats,
     summarize as core_tool_run_summary,
+    tool_run_receipts_report as core_tool_run_receipts_report,
     unknown_evidence as core_tool_run_unknown_evidence, ToolDefinitionWire,
     ToolFingerprintWire, ToolRunAppendRequestWire, ToolRunBeginRequestWire,
     ToolRunFinishRequestWire, ToolRunListRequestWire,
-    ToolRunObserveRequestWire, ToolRunReconcileRequestWire,
-    ToolRunRetentionRequestWire, ToolRunShowRequestWire,
-    ToolRunSummaryRequestWire, TOOL_RUN_WIRE_SCHEMA_VERSION,
+    ToolRunObserveRequestWire, ToolRunReceiptsReportRequestWire,
+    ToolRunReconcileRequestWire, ToolRunRetentionRequestWire,
+    ToolRunShowRequestWire, ToolRunSummaryRequestWire,
+    TOOL_RUN_WIRE_SCHEMA_VERSION,
 };
 pub(crate) use sase_core::vcs_log::{
     aggregate_commit_log as core_aggregate_commit_log,
@@ -1055,7 +1064,6 @@ pub(crate) use sase_core::{
     format_hold_directive as core_format_hold_directive,
     format_queue_directive as core_format_queue_directive,
     hold_fields_to_selectors_with_identity as core_hold_fields_to_selectors_with_identity,
-    normalize_persisted_queue_capacity as core_normalize_persisted_queue_capacity,
     parse_queue_capacity_with_flags as core_parse_queue_capacity_with_flags,
     queue_directive_flag_key as core_queue_directive_flag_key, HoldFieldsWire,
     HoldOccurrenceWire, HoldSelectorIdentityWire, QueueFieldsWire,

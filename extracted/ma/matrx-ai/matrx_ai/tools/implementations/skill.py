@@ -237,6 +237,7 @@ async def skill_get(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
             "allowed_tools": [str(u) for u in body.allowed_tools],
             "disable_auto_invocation": body.disable_auto_invocation,
             "trigger_patterns": body.trigger_patterns,
+            "not_runnable": body.not_runnable,
         }
 
         if mode == "full":

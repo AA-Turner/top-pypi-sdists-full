@@ -25,6 +25,7 @@ _DIFF_FINDING_CATEGORIES = (
     "custom_rules",
     "circular_dependencies",
     "dependency_vulnerabilities",
+    "publisher_change_findings",
 )
 
 
@@ -115,7 +116,6 @@ def run_scan_command(argv: Sequence[str], *, cli_module: ModuleType) -> None:
     interactive_selection = cli_module.interactive_selection
     json = cli_module.json
     logging = cli_module.logging
-    os = cli_module.os
     pathlib = cli_module.pathlib
     print_badge = cli_module.print_badge
     remove_unused_function = cli_module.remove_unused_function
@@ -130,6 +130,8 @@ def run_scan_command(argv: Sequence[str], *, cli_module: ModuleType) -> None:
 
     parser = _build_main_parser()
     args = _parse_main_cli_args(parser, argv)
+    if getattr(args, "scan_publisher_changes", False):
+        args.sca = True
     if args.upload and (args.diff or args.diff_base):
         parser.error(
             "diff-scoped results cannot be uploaded as a full scan; "
@@ -269,6 +271,29 @@ def run_scan_command(argv: Sequence[str], *, cli_module: ModuleType) -> None:
                 if args.verbose:
                     console.print(f"[warn]SCA scan error: {e}[/warn]")
 
+        if getattr(args, "scan_publisher_changes", False):
+            try:
+                from skylos.rules.sca.publisher_changes import scan_publisher_changes
+
+                publisher_scan = scan_publisher_changes(project_root, enabled=True)
+                result["publisher_change_findings"] = list(publisher_scan.findings)
+                summary = result.setdefault("analysis_summary", {})
+                summary["publisher_change_count"] = len(publisher_scan.findings)
+                receipt = dict(publisher_scan.receipt)
+                receipt["warnings"] = list(publisher_scan.warnings)
+                summary["publisher_change_scan"] = receipt
+            except Exception as exc:
+                result["publisher_change_findings"] = []
+                summary = result.setdefault("analysis_summary", {})
+                summary["publisher_change_count"] = 0
+                summary["publisher_change_scan"] = {
+                    "status": "incomplete",
+                    "complete": False,
+                    "reason": "scanner_exception",
+                    "error_type": type(exc).__name__,
+                }
+                logger.debug("npm publisher scan failed", exc_info=True)
+
         if getattr(args, "diff", None):
             from skylos.cicd.review import (
                 get_changed_line_ranges,
@@ -278,9 +303,9 @@ def run_scan_command(argv: Sequence[str], *, cli_module: ModuleType) -> None:
 
             base_ref = args.diff
             if base_ref == "auto":
-                base_ref = os.environ.get("GITHUB_BASE_REF", "origin/main")
-                if base_ref and not base_ref.startswith("origin/"):
-                    base_ref = f"origin/{base_ref}"
+                from skylos.core.ci_env import auto_diff_base_ref
+
+                base_ref = auto_diff_base_ref()
 
             diff_root = find_git_root(project_root) or project_root
             try:
@@ -289,6 +314,10 @@ def run_scan_command(argv: Sequence[str], *, cli_module: ModuleType) -> None:
                     cwd=diff_root,
                     raise_on_error=True,
                     include_deletion_anchors=False,
+                    # Local runs must see uncommitted work: compare the merge
+                    # base with the working tree (committed + staged + unstaged)
+                    # and treat untracked files as fully changed.
+                    include_working_tree=True,
                 )
             except ValueError as exc:
                 print(f"Skylos diff unavailable: {exc}", file=sys.stderr)
@@ -358,6 +387,45 @@ def run_scan_command(argv: Sequence[str], *, cli_module: ModuleType) -> None:
             result_json = json.dumps(result)
 
         if getattr(args, "diff", None):
+            from skylos.analyzer import _split_outside_diff_analysis_errors
+
+            def _diff_scope(ranges):
+                return {
+                    str((pathlib.Path(diff_root) / r["file"]).resolve())
+                    for r in ranges
+                    if isinstance(r, dict) and r.get("file")
+                }
+
+            all_errors = list(result.get("analysis_errors") or [])
+            kept_errors, outside_warnings = _split_outside_diff_analysis_errors(
+                all_errors, _diff_scope(changed_ranges)
+            )
+            if outside_warnings:
+                # Only now pay for a second diff: deletion anchors keep
+                # delete-only files (a removed brace can break parsing) in the
+                # scope that decides whether the scan is incomplete.
+                try:
+                    anchored = get_changed_line_ranges(
+                        base_ref,
+                        cwd=diff_root,
+                        raise_on_error=True,
+                        include_deletion_anchors=True,
+                        include_working_tree=True,
+                    )
+                except ValueError as exc:
+                    print(f"Skylos diff unavailable: {exc}", file=sys.stderr)
+                    raise SystemExit(2) from None
+                kept_errors, outside_warnings = _split_outside_diff_analysis_errors(
+                    all_errors, _diff_scope(changed_ranges) | _diff_scope(anchored)
+                )
+            if outside_warnings:
+                result["analysis_errors"] = kept_errors
+                result["analysis_warnings"] = (
+                    list(result.get("analysis_warnings") or []) + outside_warnings
+                )
+                summary = result.setdefault("analysis_summary", {})
+                summary["analysis_error_count"] = len(kept_errors)
+                summary["analysis_warning_count"] = len(result["analysis_warnings"])
             for category in _DIFF_FINDING_CATEGORIES:
                 items = result.get(category, [])
                 if items:
@@ -394,6 +462,29 @@ def run_scan_command(argv: Sequence[str], *, cli_module: ModuleType) -> None:
                     f"changed line ranges from {base_ref}"
                 )
 
+        code_health_base = getattr(args, "diff_base", None) or (
+            base_ref if getattr(args, "diff", None) else None
+        )
+        if code_health_base and (
+            changed_files is not None or getattr(args, "diff", None)
+        ):
+            # Diff/PR scope: size, complexity and style metrics are code health,
+            # not findings. Only ones the change introduced or worsened are
+            # listed (in ``code_health``), and they never count toward the gate.
+            from skylos.core.file_discovery import find_git_root
+            from skylos.rules.quality.code_health import (
+                partition_code_health,
+                resolve_merge_base,
+            )
+
+            health_root = pathlib.Path(find_git_root(project_root) or project_root)
+            result = partition_code_health(
+                result,
+                git_root=health_root,
+                base_commit=resolve_merge_base(code_health_base, health_root),
+            )
+            result_json = json.dumps(result)
+
         if getattr(args, "select", None):
             result = _apply_rule_selection(result, args.select)
             result_json = json.dumps(result)
@@ -418,6 +509,22 @@ def run_scan_command(argv: Sequence[str], *, cli_module: ModuleType) -> None:
         _skip_provenance = getattr(args, "no_provenance", False) or getattr(
             args, "concise", False
         )
+        if _skip_provenance:
+            # Upload-only metadata: the cloud reports this reason instead of
+            # reading the missing provenance as "no agent-written code".
+            result["provenance_status"] = {
+                "ran": False,
+                "reason": "skipped with --no-provenance"
+                if getattr(args, "no_provenance", False)
+                else "skipped with --concise",
+            }
+        if _skip_provenance and getattr(args, "upload", False) and not machine_output:
+            # The upload then carries no provenance, and Skylos Cloud agent
+            # rules treat "which code did agents write" as unknown.
+            console.print(
+                "[warn]Agent provenance skipped (--no-provenance/--concise): "
+                "Skylos Cloud cannot tell which code agents wrote for this upload.[/warn]"
+            )
         if not _skip_provenance:
             try:
                 from skylos.reporting.provenance import (
@@ -458,6 +565,7 @@ def run_scan_command(argv: Sequence[str], *, cli_module: ModuleType) -> None:
                     "unused_parameters",
                     "unused_files",
                     "dependency_vulnerabilities",
+                    "publisher_change_findings",
                 ]
                 all_annotatable = []
                 for cat in _finding_categories:
@@ -493,6 +601,10 @@ def run_scan_command(argv: Sequence[str], *, cli_module: ModuleType) -> None:
                                 f"  [muted]Agents: {', '.join(agent_parts)}[/muted]"
                             )
             except Exception as e:
+                result["provenance_status"] = {
+                    "ran": False,
+                    "reason": f"provenance analysis failed ({type(e).__name__})",
+                }
                 if args.verbose:
                     console.print(f"[warn]Provenance annotation failed: {e}[/warn]")
 
@@ -559,6 +671,7 @@ def run_scan_command(argv: Sequence[str], *, cli_module: ModuleType) -> None:
                 result = filter_new_findings(result, baseline)
 
         json_result = dict(result)
+        json_result.pop("provenance_status", None)
         if _skip_provenance and json_result.get("provenance") is None:
             json_result.pop("provenance", None)
         result_json = json.dumps(json_result)
@@ -657,6 +770,11 @@ def run_scan_command(argv: Sequence[str], *, cli_module: ModuleType) -> None:
             _add(output_result.get("secrets", []), "SECRET", None)
             _add(
                 output_result.get("dependency_vulnerabilities", []), "DEPENDENCY", None
+            )
+            _add(
+                output_result.get("publisher_change_findings", []),
+                "PUBLISHER_CHANGE",
+                "SKY-SCA-NPM-PUB001",
             )
             _add(output_result.get("custom_rules", []), "CUSTOM", None)
             _add(
@@ -868,6 +986,7 @@ def run_scan_command(argv: Sequence[str], *, cli_module: ModuleType) -> None:
                 tree=args.tree,
                 root_path=project_root,
                 limit=getattr(args, "limit", None),
+                copy_badge=not getattr(args, "no_clipboard", False),
             )
             raise SystemExit(incomplete_exit_code)
 
@@ -919,6 +1038,7 @@ def run_scan_command(argv: Sequence[str], *, cli_module: ModuleType) -> None:
             tree=args.tree,
             root_path=project_root,
             limit=getattr(args, "limit", None),
+            copy_badge=not getattr(args, "no_clipboard", False),
         )
         raise SystemExit(2)
 
@@ -1028,6 +1148,7 @@ def run_scan_command(argv: Sequence[str], *, cli_module: ModuleType) -> None:
                 tree=args.tree,
                 root_path=project_root,
                 limit=_cli_limit,
+                copy_badge=not getattr(args, "no_clipboard", False),
             )
             if args.output:
                 _write_rich_report_output(

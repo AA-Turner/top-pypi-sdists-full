@@ -3,14 +3,13 @@
 from __future__ import annotations
 
 import datetime
-from dataclasses import dataclass, field
 import enum
-from typing import Any
 import json
+from dataclasses import dataclass, field
+from typing import Any
 
 from mashumaro import DataClassDictMixin, field_options
 from mashumaro.config import BaseConfig
-
 
 SUBSCRIBE_DEVICE_STATE_QUERY = """
 subscription onUpdateDeviceStateTable($PK : String!) {
@@ -105,12 +104,10 @@ class DeviceStateRecord(DataClassDictMixin):
         """Get the record updated_at datetime, falling back to current UTC time."""
         if self.timestamp:
             try:
-                return datetime.datetime.fromtimestamp(
-                    self.timestamp, datetime.timezone.utc
-                )
+                return datetime.datetime.fromtimestamp(self.timestamp, datetime.UTC)
             except (ValueError, OSError, OverflowError):
                 pass
-        return datetime.datetime.now(datetime.timezone.utc)
+        return datetime.datetime.now(datetime.UTC)
 
 
 @dataclass
@@ -145,10 +142,11 @@ class StationStateData(DataClassDictMixin):
         except json.JSONDecodeError as err:
             raise ValueError(f"Failed to parse record data: {err}")
         if (
-            remain_sec := record_data.get("remainSec", 0)
-        ) > 1000000000 and record.timestamp:
-            if remain_sec >= record.timestamp:
-                record_data["remainSec"] = remain_sec - record.timestamp
+            (remain_sec := record_data.get("remainSec", 0)) > 1000000000
+            and record.timestamp
+            and remain_sec >= record.timestamp
+        ):
+            record_data["remainSec"] = remain_sec - record.timestamp
         return cls.from_dict(record_data)
 
     @property
@@ -183,10 +181,13 @@ class ConnectedData(DataClassDictMixin):
             raise ValueError(f"Failed to parse record data: {err}")
 
         if isinstance(record_data, dict):
-            if (remain_sec := record_data.get("remainSec")) is not None:
-                if remain_sec > 1000000000 and record.timestamp:
-                    if remain_sec >= record.timestamp:
-                        record_data["remainSec"] = remain_sec - record.timestamp
+            if (
+                (remain_sec := record_data.get("remainSec")) is not None
+                and remain_sec > 1000000000
+                and record.timestamp
+                and remain_sec >= record.timestamp
+            ):
+                record_data["remainSec"] = remain_sec - record.timestamp
             return cls.from_dict(record_data)
 
         # Handle scalar (e.g. 0, "offline")

@@ -353,8 +353,14 @@ async def run_agent(
     stream_system_run: bool = False,
     require_complete_output: bool = False,
     max_iterations: int | None = None,
+    metadata: dict[str, Any] | None = None,
 ) -> AgentRunResult[ParsedT]:
     """Execute an already-prepared ``Agent`` inside ``child_agent_context``.
+
+    ``metadata`` (optional) is merged OVER the metadata the child inherits from
+    the parent context, so a caller can name what this child run IS — e.g. a
+    mandate run stamps its own ``mandate_key`` and resolution instead of
+    inheriting a parent chat's.
 
     The caller is responsible for:
       * loading the agent (``Agent.from_agent``, ``Agent.from_dict``, etc.)
@@ -507,6 +513,12 @@ async def run_agent(
                 label,
                 getattr(agent, "name", None),
             )
+            if metadata:
+                child_metadata.update(metadata)
+                # What PERSISTS on the run's request row is the agent's own
+                # request metadata (Agent.execute → AIMatrixRequest.metadata),
+                # not the context's — so the caller's naming rides both.
+                agent.request_metadata = {**agent.request_metadata, **metadata}
             from matrx_ai.tools.merge import (
                 ACTIVE_TOOL_EXECUTORS_KEY,
                 CLIENT_DELEGATION_DISABLED_KEY,

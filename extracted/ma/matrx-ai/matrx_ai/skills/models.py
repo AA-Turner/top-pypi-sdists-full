@@ -26,6 +26,29 @@ class SkillTier(str, Enum):
     FORBIDDEN = "forbidden"  # hidden everywhere
 
 
+def not_runnable_tooling(config: Any) -> list[str]:
+    """Tooling a skill's instructions depend on that does not exist on this platform.
+
+    Read from ``skill.definition.config.tooling_not_runnable`` — stamped by the
+    outside-pack importer (``packs.py``), but any row may carry it. The ONE
+    reader: hints, bodies and the preamble all go through here so an agent is
+    never offered a skill whose steps it cannot run without being told.
+    """
+    if not isinstance(config, dict):
+        return []
+    raw = config.get("tooling_not_runnable")
+    if not isinstance(raw, list):
+        return []
+    return [str(x).strip() for x in raw if isinstance(x, str) and x.strip()]
+
+
+def not_runnable_marker(not_runnable: list[str]) -> str:
+    """The short marker appended wherever a skill is offered by name + description."""
+    if not not_runnable:
+        return ""
+    return f"(needs tooling not in AI Matrx yet: {'; '.join(not_runnable)})"
+
+
 # ---------------------------------------------------------------------------
 # Wire-shape models
 # ---------------------------------------------------------------------------
@@ -45,6 +68,9 @@ class SkillHint(BaseModel):
     has_resources: bool = False
     has_allowed_tools: bool = False
     tier: SkillTier = SkillTier.DEFAULT
+    # Tooling the skill's steps need that this platform does not have yet
+    # (see ``not_runnable_tooling``). Empty for an ordinary skill.
+    not_runnable: list[str] = Field(default_factory=list)
 
 
 class SkillBody(BaseModel):
@@ -62,6 +88,7 @@ class SkillBody(BaseModel):
     allowed_tools: list[UUID] = Field(default_factory=list)
     trigger_patterns: list[str] = Field(default_factory=list)
     disable_auto_invocation: bool = False
+    not_runnable: list[str] = Field(default_factory=list)
     # DB truth: skill.definition.version is an INTEGER. This was `str | None`,
     # which made every skill_get ValidationError-out in resolve_skills_for_agent
     # — silently stripping ALL skills from every agent run that included one.

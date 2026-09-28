@@ -2,9 +2,10 @@
 //!
 //! A **touch** is one `(actor, bead)` pair with the verbs the actor performed
 //! on that bead. The per-bead event streams already record every mutation
-//! with its actor, so the index is a pure reduction of those streams: nothing
-//! new is tracked at write time, and the index is a derived cache that is
-//! always safe to delete and rebuild.
+//! with its actor, so the index is a pure reduction of those streams, with
+//! one write-time exception: every `issue_closed` event carries the acting
+//! closer in its `closed_by` payload field alongside the envelope actor. The
+//! index is a derived cache that is always safe to delete and rebuild.
 //!
 //! Three entry points, all deliberately separate:
 //!
@@ -45,16 +46,57 @@ use crate::store_lock::{
 
 use super::events::BeadEventOperationWire;
 use super::jsonl::event_streams_dir;
-use super::wire::{BeadError, IssueTypeWire, StatusWire};
+use super::wire::{BeadError, BeadResolutionWire, IssueTypeWire, StatusWire};
 
 /// Schema version of both the index file and every wire type in this module.
 ///
 /// Bumping it makes every existing index a cache miss: the next refresh
 /// rebuilds from the streams and the query returns nothing until then.
-pub const BEAD_TOUCH_INDEX_WIRE_SCHEMA_VERSION: u32 = 1;
+pub const BEAD_TOUCH_INDEX_WIRE_SCHEMA_VERSION: u32 = 4;
+
+/// Bound on the creation reason stored in a [`BeadTouchWire`], in Unicode
+/// scalar values (`char`s). The indexed row carries only this prefix (with
+/// `creation_reason_truncated` marking the cut); the full stored reason
+/// stays on the bead for detail views.
+pub const CREATION_REASON_PREVIEW_LIMIT: usize = 512;
+
+/// Bound on the note text stored in a [`BeadNotePreviewWire`], in Unicode
+/// scalar values (`char`s). One pathological note cannot grow the shared
+/// index without limit; longer text is cut at this prefix and marked with
+/// `truncated`. The TUI applies its separate three-display-line limit.
+pub const NOTE_PREVIEW_TEXT_LIMIT: usize = 1024;
 
 const LOCK_TIMEOUT_ENV: &str = "SASE_BEAD_TOUCH_INDEX_LOCK_TIMEOUT";
 const LOCK_TIMEOUT_DEFAULT: Duration = Duration::from_secs(2);
+
+/// Preview of the newest surviving structured note one agent authored on
+/// one bead.
+///
+/// Derived only from `note_appended` / `note_edited` / `note_removed`
+/// payloads replayed by stable note ID. The note keeps its original author
+/// and append timestamp even when another actor edits it later; `text` is
+/// the current text cut to [`NOTE_PREVIEW_TEXT_LIMIT`]. Legacy free-text
+/// note blobs without per-note attribution never produce a preview.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct BeadNotePreviewWire {
+    /// Stable note ID: the `event_id` of the `note_appended` event.
+    pub id: String,
+    /// Original author (trimmed event actor at append time).
+    pub author: String,
+    /// Original append timestamp (RFC 3339 Z display form).
+    pub timestamp: String,
+    /// Current text, cut to [`NOTE_PREVIEW_TEXT_LIMIT`] scalar values.
+    pub text: String,
+    /// Edit instant (RFC 3339 Z display form), when edited.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub edited_at: Option<String>,
+    /// Trimmed actor of the last edit, when edited.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub edited_by: Option<String>,
+    /// True when `text` was shortened for the cache.
+    #[serde(default)]
+    pub truncated: bool,
+}
 
 /// One `(actor, bead)` pair with aggregated verbs.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -74,9 +116,53 @@ pub struct BeadTouchWire {
     pub first_at: String,
     /// Newest contributing event timestamp (RFC 3339 Z).
     pub last_at: String,
+    /// Number of surviving structured notes this actor authored on this
+    /// bead. Retracted notes vanish; edits keep the count.
+    #[serde(default)]
+    pub current_note_count: u64,
+    /// Newest surviving structured note this actor authored on this bead,
+    /// by append timestamp with deterministic ID tie-break. `None` when the
+    /// actor has no surviving notes here.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub note_preview: Option<BeadNotePreviewWire>,
+    /// Bounded preview of why this bead was filed, taken from the original
+    /// `issue_created` event. Present only on the creating actor's row:
+    /// no other actor's row may imply it filed the bead. `None` on rows
+    /// whose bead predates the reason. The full text stays on the stored
+    /// bead for detail views.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub creation_reason: Option<String>,
+    /// True when `creation_reason` was shortened for the cache.
+    #[serde(default)]
+    pub creation_reason_truncated: bool,
+    /// This actor's latest credited close for this bead, in stream order.
+    /// `None` when the actor has no credited close here.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub close: Option<BeadTouchCloseWire>,
     /// Stream file that produced this row. Cache bookkeeping: a refresh
     /// reuses the rows of an unchanged stream verbatim. Consumers ignore it.
     pub stream_id: String,
+}
+
+/// One agent's close of one bead: when it happened, how it resolved, why,
+/// and whether it still stands.
+///
+/// Known limit: a `task_plus_one_recorded` reopen is not replayed, so such
+/// a bead reads as standing until its next status event.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct BeadTouchCloseWire {
+    /// The credited close event's timestamp (RFC 3339 Z display form).
+    pub closed_at: String,
+    /// Payload resolution in snake_case, `done` when absent.
+    pub resolution: String,
+    /// Trimmed `close_reason`, `None` when blank.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reason: Option<String>,
+    /// True iff the bead's final reduced status is `closed` and this event
+    /// is the bead's last `issue_closed` event in stream order, credited or
+    /// not. Re-closing an already-closed bead writes no event, so any later
+    /// close implies a reopen in between.
+    pub standing: bool,
 }
 
 /// `(mtime_ns, size)` of one stream file, serialized as a two-element array.
@@ -196,7 +282,20 @@ pub fn verb_for_operation(
 /// whoever recorded it, because the store owner's `issue_created` is often the
 /// only event carrying a title. Touch rows come only from events recorded by
 /// an agent actor: an email address, or a name `validate_agent_name` rejects,
-/// is not an agent and contributes nothing.
+/// is not an agent and contributes nothing. Close events are the exception:
+/// the credited closer is [`credited_close_actor`], never the envelope actor
+/// alone, and an uncredited close contributes no verb and no timestamp to any
+/// touch.
+///
+/// Note previews replay the structured `note_appended` / `note_edited` /
+/// `note_removed` payloads by stable note ID (the append event's `event_id`,
+/// mirroring the bead store's note rules: blank append/edit text is ignored,
+/// edits retarget text in place, removals delete the note, and an edit or
+/// remove naming an unknown ID leaves every other row alone). Only appends
+/// by a valid agent enter the projection; an edit by another actor updates
+/// the text without moving authorship. Embedded legacy note blobs on
+/// `issue_created` never produce previews. Verb counts and touch timestamps
+/// are unaffected by the preview replay, including edit/remove actions.
 pub fn reduce_stream_touches(
     stream_id: &str,
     contents: &str,
@@ -207,41 +306,346 @@ pub fn reduce_stream_touches(
         return Vec::new();
     }
 
-    let mut metas: HashMap<&str, BeadMeta> = HashMap::new();
-    let mut accs: BTreeMap<(&str, &str), TouchAcc> = BTreeMap::new();
+    // Legacy close recovery: the valid agent authors of `note_appended`
+    // events per exact instant across the whole stream. A legacy close (no
+    // `closed_by`) is credited only to the unique author at its instant.
+    let mut note_authors_by_instant: BTreeMap<DateTime<Utc>, BTreeSet<String>> =
+        BTreeMap::new();
     for event in &events {
+        if event.operation != BeadEventOperationWire::NoteAppended {
+            continue;
+        }
+        let NoteDetail::Append { entry } = &event.note_detail else {
+            continue;
+        };
+        if entry.trim().is_empty() {
+            continue;
+        }
+        let Some(author) = agent_actor(&event.actor) else {
+            continue;
+        };
+        note_authors_by_instant
+            .entry(event.at)
+            .or_default()
+            .insert(author.to_string());
+    }
+
+    // The bead's last `issue_closed` event in stream order, credited or not.
+    // It decides every close record's `standing` for that bead.
+    let mut last_close_idx_by_bead: HashMap<&str, usize> = HashMap::new();
+    for (idx, event) in events.iter().enumerate() {
+        if event.operation == BeadEventOperationWire::IssueClosed {
+            last_close_idx_by_bead.insert(event.issue_id.as_str(), idx);
+        }
+    }
+
+    let mut metas: HashMap<&str, BeadMeta> = HashMap::new();
+    // Owned keys: a credited closer is a new string (the `closed_by`
+    // payload or the legacy same-instant note author), not a borrow of the
+    // event, so it cannot live in a borrowed-key map.
+    let mut accs: BTreeMap<(String, String), TouchAcc> = BTreeMap::new();
+    // The creation reason per `(bead, creator)`, first `issue_created`
+    // wins: the reason belongs to the original filing, and only the
+    // credited creator's row may carry it.
+    let mut creation_reasons: HashMap<(String, String), (String, bool)> =
+        HashMap::new();
+    let mut notes: HashMap<String, BTreeMap<String, LiveNote>> = HashMap::new();
+    // The actor's latest credited close for that bead, in stream order:
+    // `((bead_id, actor), (stream index, close detail, display timestamp))`.
+    let mut latest_close: HashMap<
+        (String, String),
+        (usize, CloseDetail, String),
+    > = HashMap::new();
+    for (idx, event) in events.iter().enumerate() {
         metas
             .entry(event.issue_id.as_str())
             .or_default()
             .apply(&event.meta_update);
+        apply_note_event(&mut notes, event);
+        if event.operation == BeadEventOperationWire::IssueClosed {
+            let Some(credited) =
+                credited_close_actor(event, &note_authors_by_instant)
+            else {
+                continue;
+            };
+            let Some(verb) = verb_for_operation(event.operation) else {
+                continue;
+            };
+            accs.entry((event.issue_id.clone(), credited.clone()))
+                .or_default()
+                .record(verb, event);
+            latest_close.insert(
+                (event.issue_id.clone(), credited),
+                (idx, event.close_detail.clone(), event.at_text.clone()),
+            );
+            continue;
+        }
         let Some(verb) = verb_for_operation(event.operation) else {
             continue;
         };
         let Some(actor) = agent_actor(&event.actor) else {
             continue;
         };
-        accs.entry((event.issue_id.as_str(), actor))
+        accs.entry((event.issue_id.clone(), actor.to_string()))
             .or_default()
             .record(verb, event);
+        if event.operation == BeadEventOperationWire::IssueCreated {
+            if let Some(reason) = &event.creation_reason {
+                creation_reasons
+                    .entry((event.issue_id.clone(), actor.to_string()))
+                    .or_insert_with(|| truncate_creation_reason(reason));
+            }
+        }
     }
 
     accs.into_iter()
         .filter_map(|((bead_id, actor), acc)| {
             let (first, last) = (acc.first?, acc.last?);
-            let meta = metas.get(bead_id).cloned().unwrap_or_default();
+            let meta = metas.get(bead_id.as_str()).cloned().unwrap_or_default();
+            let (current_note_count, note_preview) =
+                note_preview_for(&bead_id, &actor, &notes);
+            let (creation_reason, creation_reason_truncated) = creation_reasons
+                .remove(&(bead_id.clone(), actor.clone()))
+                .map(|(text, truncated)| (Some(text), truncated))
+                .unwrap_or((None, false));
+            let close = latest_close
+                .get(&(bead_id.clone(), actor.clone()))
+                .map(|(idx, detail, at_text)| {
+                    let standing = meta.status == "closed"
+                        && last_close_idx_by_bead.get(bead_id.as_str())
+                            == Some(idx);
+                    BeadTouchCloseWire {
+                        closed_at: at_text.clone(),
+                        resolution: detail
+                            .resolution
+                            .as_ref()
+                            .map(BeadResolutionWire::as_str)
+                            .unwrap_or("done")
+                            .to_string(),
+                        reason: detail
+                            .close_reason
+                            .as_deref()
+                            .map(str::trim)
+                            .filter(|reason| !reason.is_empty())
+                            .map(str::to_string),
+                        standing,
+                    }
+                });
             Some(BeadTouchWire {
-                actor: actor.to_string(),
-                bead_id: bead_id.to_string(),
+                actor,
+                bead_id,
                 title: meta.title,
                 issue_type: meta.issue_type,
                 status: meta.status,
                 verbs: acc.verbs,
                 first_at: first.text,
                 last_at: last.text,
+                current_note_count,
+                note_preview,
+                creation_reason,
+                creation_reason_truncated,
+                close,
                 stream_id: stream_id.to_string(),
             })
         })
         .collect()
+}
+
+/// The actor credited with an `issue_closed` event, if any.
+///
+/// A `closed_by` payload marks the new format: the trimmed value must itself
+/// be a valid agent, and legacy recovery is never applied. Humans and the
+/// owner get no credit. Otherwise the legacy rule applies: the unique valid
+/// agent author of a `note_appended` event at the identical instant across
+/// the whole stream. Zero or several such authors means no credit; the
+/// envelope actor (the creator by construction on legacy events) is never a
+/// fallback.
+fn credited_close_actor(
+    event: &ParsedEvent,
+    note_authors_by_instant: &BTreeMap<DateTime<Utc>, BTreeSet<String>>,
+) -> Option<String> {
+    if let Some(closed_by) = event.close_detail.closed_by.as_deref() {
+        let trimmed = closed_by.trim();
+        if trimmed.is_empty() {
+            return legacy_close_actor(event, note_authors_by_instant);
+        }
+        return agent_actor(trimmed).map(str::to_string);
+    }
+    legacy_close_actor(event, note_authors_by_instant)
+}
+
+/// Legacy close recovery: the unique valid agent that appended a note at the
+/// identical instant, or `None` when there is no such agent or more than one.
+fn legacy_close_actor(
+    event: &ParsedEvent,
+    note_authors_by_instant: &BTreeMap<DateTime<Utc>, BTreeSet<String>>,
+) -> Option<String> {
+    let authors = note_authors_by_instant.get(&event.at)?;
+    if authors.len() == 1 {
+        authors.iter().next().cloned()
+    } else {
+        None
+    }
+}
+
+/// One surviving structured note before it is projected onto a touch row.
+struct LiveNote {
+    author: String,
+    at: DateTime<Utc>,
+    at_text: String,
+    text: String,
+    edited_at: Option<String>,
+    edited_by: Option<String>,
+}
+
+impl LiveNote {
+    fn preview(&self, id: &str) -> BeadNotePreviewWire {
+        let (text, truncated) = truncate_preview_text(&self.text);
+        BeadNotePreviewWire {
+            id: id.to_string(),
+            author: self.author.clone(),
+            timestamp: self.at_text.clone(),
+            text,
+            edited_at: self.edited_at.clone(),
+            edited_by: self.edited_by.clone(),
+            truncated,
+        }
+    }
+}
+
+/// Replay one event's note payload into the per-bead note tables.
+///
+/// Never affects verbs or timestamps; those stay with [`TouchAcc`].
+fn apply_note_event(
+    notes: &mut HashMap<String, BTreeMap<String, LiveNote>>,
+    event: &ParsedEvent,
+) {
+    match (&event.note_detail, event.operation) {
+        (
+            NoteDetail::Append { entry },
+            BeadEventOperationWire::NoteAppended,
+        ) => {
+            let text = entry.trim();
+            if text.is_empty() {
+                return;
+            }
+            let Some(author) = agent_actor(&event.actor) else {
+                return;
+            };
+            let note_id = event.event_id.trim();
+            if note_id.is_empty() {
+                return;
+            }
+            notes.entry(event.issue_id.clone()).or_default().insert(
+                note_id.to_string(),
+                LiveNote {
+                    author: author.to_string(),
+                    at: event.at,
+                    at_text: event.at_text.clone(),
+                    text: text.to_string(),
+                    edited_at: None,
+                    edited_by: None,
+                },
+            );
+        }
+        (
+            NoteDetail::Edit { note_id, text },
+            BeadEventOperationWire::NoteEdited,
+        ) => {
+            let note_id = note_id.trim();
+            let text = text.trim();
+            if note_id.is_empty() || text.is_empty() {
+                return;
+            }
+            if let Some(note) = notes
+                .get_mut(&event.issue_id)
+                .and_then(|by_id| by_id.get_mut(note_id))
+            {
+                note.text = text.to_string();
+                note.edited_at = Some(event.at_text.clone());
+                note.edited_by = Some(event.actor.clone());
+            }
+        }
+        (
+            NoteDetail::Remove { note_id },
+            BeadEventOperationWire::NoteRemoved,
+        ) => {
+            let note_id = note_id.trim();
+            if note_id.is_empty() {
+                return;
+            }
+            if let Some(by_id) = notes.get_mut(&event.issue_id) {
+                by_id.remove(note_id);
+            }
+        }
+        _ => {}
+    }
+}
+
+/// Count the surviving notes one author holds on one bead and select the
+/// newest preview by append instant, breaking ties on the stable note ID.
+fn note_preview_for(
+    bead_id: &str,
+    actor: &str,
+    notes: &HashMap<String, BTreeMap<String, LiveNote>>,
+) -> (u64, Option<BeadNotePreviewWire>) {
+    let Some(by_id) = notes.get(bead_id) else {
+        return (0, None);
+    };
+    let mut authored: Vec<(&String, &LiveNote)> = by_id
+        .iter()
+        .filter(|(_, note)| note.author == actor)
+        .collect();
+    if authored.is_empty() {
+        return (0, None);
+    }
+    authored.sort_by(|(left_id, left), (right_id, right)| {
+        left.at.cmp(&right.at).then_with(|| left_id.cmp(right_id))
+    });
+    let count = authored.len() as u64;
+    let (id, newest) = authored.last().expect("non-empty after length check");
+    (count, Some(newest.preview(id)))
+}
+
+/// Cut note text to [`NOTE_PREVIEW_TEXT_LIMIT`] Unicode scalar values.
+fn truncate_preview_text(text: &str) -> (String, bool) {
+    if text.chars().nth(NOTE_PREVIEW_TEXT_LIMIT).is_none() {
+        return (text.to_string(), false);
+    }
+    (text.chars().take(NOTE_PREVIEW_TEXT_LIMIT).collect(), true)
+}
+
+/// Read the trimmed creation reason off an `issue_created` payload.
+///
+/// Untyped on purpose, like [`meta_update`]: a reasonless legacy payload
+/// simply yields `None` instead of failing the whole stream, and a blank
+/// reason is indistinguishable from no reason.
+fn creation_reason_of(
+    operation: BeadEventOperationWire,
+    payload: &Value,
+) -> Option<String> {
+    if operation != BeadEventOperationWire::IssueCreated {
+        return None;
+    }
+    payload
+        .get("issue")
+        .and_then(|issue| issue.get("creation_reason"))
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|reason| !reason.is_empty())
+        .map(str::to_string)
+}
+
+/// Cut a creation reason to [`CREATION_REASON_PREVIEW_LIMIT`] Unicode
+/// scalar values.
+fn truncate_creation_reason(text: &str) -> (String, bool) {
+    if text.chars().nth(CREATION_REASON_PREVIEW_LIMIT).is_none() {
+        return (text.to_string(), false);
+    }
+    (
+        text.chars().take(CREATION_REASON_PREVIEW_LIMIT).collect(),
+        true,
+    )
 }
 
 /// Bring the index at `index_path` up to date with `beads_dir`'s streams.
@@ -565,11 +969,50 @@ impl TouchAcc {
 
 struct ParsedEvent {
     operation: BeadEventOperationWire,
+    event_id: String,
     issue_id: String,
     actor: String,
     at: DateTime<Utc>,
     at_text: String,
     meta_update: MetaUpdate,
+    note_detail: NoteDetail,
+    close_detail: CloseDetail,
+    /// Trimmed `creation_reason` from an `issue_created` payload, `None`
+    /// when the operation is anything else or the reason is blank.
+    creation_reason: Option<String>,
+}
+
+/// Close facts carried by an `issue_closed` event's payload.
+///
+/// `closed_by` is the durable closer on new events and absent on legacy
+/// ones; `resolution` is `None` when absent (which reads as `done`), and
+/// `close_reason` is the raw payload value before trimming.
+#[derive(Debug, Default, Clone)]
+struct CloseDetail {
+    closed_by: Option<String>,
+    resolution: Option<BeadResolutionWire>,
+    close_reason: Option<String>,
+}
+
+/// Structured note payload carried by one event, if any.
+///
+/// Kept separate from [`MetaUpdate`] because previews replay by stable note
+/// ID while verbs and timestamps stay with [`TouchAcc`]. A detail whose
+/// operation disagrees is ignored by [`apply_note_event`].
+#[derive(Debug, Default)]
+enum NoteDetail {
+    Append {
+        entry: String,
+    },
+    Edit {
+        note_id: String,
+        text: String,
+    },
+    Remove {
+        note_id: String,
+    },
+    #[default]
+    None,
 }
 
 impl ParsedEvent {
@@ -598,14 +1041,88 @@ impl ParsedEvent {
         let at = DateTime::parse_from_rfc3339(raw_at.trim())
             .ok()?
             .with_timezone(&Utc);
+        let event_id = value
+            .get("event_id")
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .to_string();
+        let note_detail = note_detail(operation, payload);
+        let close_detail = close_detail(operation, payload);
         Some(Self {
             operation,
+            event_id,
             issue_id: issue_id.to_string(),
             actor: value.get("actor")?.as_str()?.trim().to_string(),
             at,
             at_text: display_timestamp(raw_at.trim(), at),
             meta_update: meta_update(operation, payload),
+            note_detail,
+            close_detail,
+            creation_reason: creation_reason_of(operation, payload),
         })
+    }
+}
+
+/// Extract the structured note payload, if the operation carries one.
+///
+/// Missing or mistyped fields yield [`NoteDetail::None`]: the event still
+/// counts its verb, it just has no preview effect.
+fn note_detail(
+    operation: BeadEventOperationWire,
+    payload: &Value,
+) -> NoteDetail {
+    match operation {
+        BeadEventOperationWire::NoteAppended => match payload.get("entry") {
+            Some(Value::String(entry)) => NoteDetail::Append {
+                entry: entry.clone(),
+            },
+            _ => NoteDetail::None,
+        },
+        BeadEventOperationWire::NoteEdited => {
+            match (payload.get("note_id"), payload.get("text")) {
+                (Some(Value::String(note_id)), Some(Value::String(text))) => {
+                    NoteDetail::Edit {
+                        note_id: note_id.clone(),
+                        text: text.clone(),
+                    }
+                }
+                _ => NoteDetail::None,
+            }
+        }
+        BeadEventOperationWire::NoteRemoved => match payload.get("note_id") {
+            Some(Value::String(note_id)) => NoteDetail::Remove {
+                note_id: note_id.clone(),
+            },
+            _ => NoteDetail::None,
+        },
+        _ => NoteDetail::None,
+    }
+}
+
+/// Extract the close facts, if the operation is a close.
+///
+/// Missing or mistyped fields are tolerated: a non-string `closed_by`
+/// reads as absent (the legacy path), and a missing or unknown resolution
+/// reads as `done` downstream.
+fn close_detail(
+    operation: BeadEventOperationWire,
+    payload: &Value,
+) -> CloseDetail {
+    if operation != BeadEventOperationWire::IssueClosed {
+        return CloseDetail::default();
+    }
+    CloseDetail {
+        closed_by: payload
+            .get("closed_by")
+            .and_then(Value::as_str)
+            .map(str::to_string),
+        resolution: payload.get("resolution").and_then(|value| {
+            serde_json::from_value::<BeadResolutionWire>(value.clone()).ok()
+        }),
+        close_reason: payload
+            .get("close_reason")
+            .and_then(Value::as_str)
+            .map(str::to_string),
     }
 }
 
@@ -907,17 +1424,32 @@ mod tests {
         issue_type: &str,
         timestamp: &str,
     ) -> String {
+        created_with_reason(actor, issue_id, title, issue_type, timestamp, None)
+    }
+
+    fn created_with_reason(
+        actor: &str,
+        issue_id: &str,
+        title: &str,
+        issue_type: &str,
+        timestamp: &str,
+        reason: Option<&str>,
+    ) -> String {
+        let mut issue = json!({
+            "id": issue_id,
+            "title": title,
+            "status": "open",
+            "issue_type": issue_type,
+        });
+        if let Some(reason) = reason {
+            issue["creation_reason"] = json!(reason);
+        }
         event(
             actor,
             "issue_created",
             issue_id,
             timestamp,
-            json!({"issue": {
-                "id": issue_id,
-                "title": title,
-                "status": "open",
-                "issue_type": issue_type,
-            }}),
+            json!({"issue": issue}),
         )
     }
 
@@ -929,6 +1461,75 @@ mod tests {
             timestamp,
             json!({"entry": "text"}),
         )
+    }
+
+    fn note_entry(
+        actor: &str,
+        issue_id: &str,
+        timestamp: &str,
+        entry: &str,
+    ) -> String {
+        event(
+            actor,
+            "note_appended",
+            issue_id,
+            timestamp,
+            json!({"entry": entry}),
+        )
+    }
+
+    fn note_with_id(
+        event_id: &str,
+        actor: &str,
+        issue_id: &str,
+        timestamp: &str,
+        entry: &str,
+    ) -> String {
+        json!({
+            "schema_version": 1,
+            "event_id": event_id,
+            "timestamp": timestamp,
+            "actor": actor,
+            "operation": "note_appended",
+            "issue_id": issue_id,
+            "payload": {"kind": "note_appended", "entry": entry},
+        })
+        .to_string()
+    }
+
+    fn note_edited(
+        actor: &str,
+        issue_id: &str,
+        timestamp: &str,
+        note_id: &str,
+        text: &str,
+    ) -> String {
+        event(
+            actor,
+            "note_edited",
+            issue_id,
+            timestamp,
+            json!({"note_id": note_id, "text": text}),
+        )
+    }
+
+    fn note_removed(
+        actor: &str,
+        issue_id: &str,
+        timestamp: &str,
+        note_id: &str,
+    ) -> String {
+        event(
+            actor,
+            "note_removed",
+            issue_id,
+            timestamp,
+            json!({"note_id": note_id}),
+        )
+    }
+
+    fn append_id(issue_id: &str, timestamp: &str) -> String {
+        format!("{issue_id}:note_appended:{timestamp}")
     }
 
     fn bare(actor: &str, operation: &str, issue_id: &str, ts: &str) -> String {
@@ -1076,7 +1677,13 @@ mod tests {
             "b-1",
             &lines(&[
                 created(OWNER, "b-1", "Bead", "task", "2026-01-01T00:00:00Z"),
-                bare(AGENT_A, "issue_closed", "b-1", "2026-01-01T00:04:00Z"),
+                event(
+                    AGENT_A,
+                    "issue_closed",
+                    "b-1",
+                    "2026-01-01T00:04:00Z",
+                    json!({"closed_by": AGENT_A}),
+                ),
             ]),
         );
         assert_eq!(touches[0].first_at, touches[0].last_at);
@@ -1545,12 +2152,17 @@ mod tests {
 
         store.refresh();
         let full = fs::read(&store.index_path).unwrap();
+        let wrong_shape = serde_json::to_vec(&json!({
+            "schema_version": BEAD_TOUCH_INDEX_WIRE_SCHEMA_VERSION,
+            "touches": 7,
+        }))
+        .unwrap();
         for corrupt in [
             full[..full.len() / 2].to_vec(),
             b"not json".to_vec(),
             b"{}".to_vec(),
             b"[]".to_vec(),
-            b"{\"schema_version\":1,\"touches\":7}".to_vec(),
+            wrong_shape,
             Vec::new(),
         ] {
             fs::write(&store.index_path, &corrupt).unwrap();
@@ -1681,7 +2293,10 @@ mod tests {
         let raw: Value =
             serde_json::from_slice(&fs::read(&store.index_path).unwrap())
                 .unwrap();
-        assert_eq!(raw["schema_version"], json!(1));
+        assert_eq!(
+            raw["schema_version"],
+            json!(BEAD_TOUCH_INDEX_WIRE_SCHEMA_VERSION)
+        );
         assert_eq!(raw["generation"], json!(outcome.generation));
         let signature = raw["streams"]["b-1"].as_array().unwrap();
         assert_eq!(signature.len(), 2);
@@ -1698,9 +2313,336 @@ mod tests {
                 "verbs": {"noted": 1},
                 "first_at": "2026-01-01T00:01:00Z",
                 "last_at": "2026-01-01T00:01:00Z",
+                "current_note_count": 1,
+                "note_preview": {
+                    "id": "b-1:note_appended:2026-01-01T00:01:00Z",
+                    "author": AGENT_A,
+                    "timestamp": "2026-01-01T00:01:00Z",
+                    "text": "text",
+                    "truncated": false,
+                },
+                "creation_reason_truncated": false,
                 "stream_id": "b-1",
             })
         );
+    }
+
+    #[test]
+    fn note_preview_covers_append_and_selects_the_newest() {
+        let touches = reduce_stream_touches(
+            "b-1",
+            &lines(&[
+                created(OWNER, "b-1", "Bead", "task", "2026-01-01T00:00:00Z"),
+                note_entry(AGENT_A, "b-1", "2026-01-01T00:01:00Z", "first"),
+                note_entry(AGENT_A, "b-1", "2026-01-01T00:02:00Z", "second"),
+            ]),
+        );
+        let touch = touch_for(&touches, "b-1", AGENT_A);
+        assert_eq!(touch.current_note_count, 2);
+        let preview = touch.note_preview.as_ref().expect("preview");
+        assert_eq!(preview.id, append_id("b-1", "2026-01-01T00:02:00Z"));
+        assert_eq!(preview.author, AGENT_A);
+        assert_eq!(preview.timestamp, "2026-01-01T00:02:00Z");
+        assert_eq!(preview.text, "second");
+        assert_eq!(preview.edited_at, None);
+        assert_eq!(preview.edited_by, None);
+        assert!(!preview.truncated);
+        // Verbs and timestamps are untouched by the preview replay.
+        assert_eq!(touch.verbs, verbs(&[("noted", 2)]));
+        assert_eq!(touch.first_at, "2026-01-01T00:01:00Z");
+        assert_eq!(touch.last_at, "2026-01-01T00:02:00Z");
+    }
+
+    #[test]
+    fn note_preview_tie_breaks_on_stable_id() {
+        let touches = reduce_stream_touches(
+            "b-1",
+            &lines(&[
+                created(OWNER, "b-1", "Bead", "task", "2026-01-01T00:00:00Z"),
+                note_with_id(
+                    "n-b",
+                    AGENT_A,
+                    "b-1",
+                    "2026-01-01T00:01:00Z",
+                    "bravo",
+                ),
+                note_with_id(
+                    "n-a",
+                    AGENT_A,
+                    "b-1",
+                    "2026-01-01T00:01:00Z",
+                    "alpha",
+                ),
+            ]),
+        );
+        let touch = touch_for(&touches, "b-1", AGENT_A);
+        assert_eq!(touch.current_note_count, 2);
+        // Same append instant: the larger stable ID wins, deterministically.
+        assert_eq!(touch.note_preview.as_ref().unwrap().id, "n-b");
+        assert_eq!(touch.note_preview.as_ref().unwrap().text, "bravo");
+    }
+
+    #[test]
+    fn note_previews_stay_scoped_to_author_and_bead() {
+        let touches = reduce_stream_touches(
+            "b-1",
+            &lines(&[
+                created(OWNER, "b-1", "Bead", "task", "2026-01-01T00:00:00Z"),
+                created(OWNER, "b-2", "Other", "task", "2026-01-01T00:00:00Z"),
+                note_entry(AGENT_A, "b-1", "2026-01-01T00:01:00Z", "a-note"),
+                note_entry(AGENT_B, "b-1", "2026-01-01T00:02:00Z", "b-note"),
+                note_entry(AGENT_A, "b-2", "2026-01-01T00:03:00Z", "a-other"),
+            ]),
+        );
+        let a1 = touch_for(&touches, "b-1", AGENT_A);
+        assert_eq!(a1.current_note_count, 1);
+        assert_eq!(a1.note_preview.as_ref().unwrap().text, "a-note");
+        let b1 = touch_for(&touches, "b-1", AGENT_B);
+        assert_eq!(b1.current_note_count, 1);
+        assert_eq!(b1.note_preview.as_ref().unwrap().text, "b-note");
+        assert_eq!(b1.note_preview.as_ref().unwrap().author, AGENT_B);
+    }
+
+    #[test]
+    fn edit_by_another_actor_updates_text_without_moving_authorship() {
+        let first_id = append_id("b-1", "2026-01-01T00:01:00Z");
+        let touches = reduce_stream_touches(
+            "b-1",
+            &lines(&[
+                created(OWNER, "b-1", "Bead", "task", "2026-01-01T00:00:00Z"),
+                note_entry(AGENT_A, "b-1", "2026-01-01T00:01:00Z", "original"),
+                note_edited(
+                    AGENT_B,
+                    "b-1",
+                    "2026-01-01T00:02:00Z",
+                    &first_id,
+                    "revised",
+                ),
+            ]),
+        );
+        let authored = touch_for(&touches, "b-1", AGENT_A);
+        assert_eq!(authored.current_note_count, 1);
+        let preview = authored.note_preview.as_ref().expect("preview");
+        assert_eq!(preview.id, first_id);
+        assert_eq!(preview.author, AGENT_A);
+        assert_eq!(preview.timestamp, "2026-01-01T00:01:00Z");
+        assert_eq!(preview.text, "revised");
+        assert_eq!(preview.edited_at.as_deref(), Some("2026-01-01T00:02:00Z"));
+        assert_eq!(preview.edited_by.as_deref(), Some(AGENT_B));
+        // The editor still earns its noted verb, but gains no preview from
+        // someone else's note.
+        let editor = touch_for(&touches, "b-1", AGENT_B);
+        assert_eq!(editor.verbs, verbs(&[("noted", 1)]));
+        assert_eq!(editor.current_note_count, 0);
+        assert_eq!(editor.note_preview, None);
+    }
+
+    #[test]
+    fn removal_falls_back_to_the_previous_note_then_to_nothing() {
+        let first_id = append_id("b-1", "2026-01-01T00:01:00Z");
+        let second_id = append_id("b-1", "2026-01-01T00:02:00Z");
+        let base = [
+            created(OWNER, "b-1", "Bead", "task", "2026-01-01T00:00:00Z"),
+            note_entry(AGENT_A, "b-1", "2026-01-01T00:01:00Z", "first"),
+            note_entry(AGENT_A, "b-1", "2026-01-01T00:02:00Z", "second"),
+        ];
+        let touches = reduce_stream_touches("b-1", &lines(&base));
+        assert_eq!(
+            touch_for(&touches, "b-1", AGENT_A)
+                .note_preview
+                .as_ref()
+                .unwrap()
+                .id,
+            second_id
+        );
+
+        let mut removed_second = base.to_vec();
+        removed_second.push(note_removed(
+            AGENT_A,
+            "b-1",
+            "2026-01-01T00:03:00Z",
+            &second_id,
+        ));
+        let touches = reduce_stream_touches("b-1", &lines(&removed_second));
+        let touch = touch_for(&touches, "b-1", AGENT_A);
+        assert_eq!(touch.current_note_count, 1);
+        assert_eq!(touch.note_preview.as_ref().unwrap().id, first_id);
+        assert_eq!(touch.note_preview.as_ref().unwrap().text, "first");
+        // Removal counts as a noted action even as the preview shrinks.
+        assert_eq!(touch.verbs, verbs(&[("noted", 3)]));
+
+        let mut removed_both = removed_second.clone();
+        removed_both.push(note_removed(
+            AGENT_B,
+            "b-1",
+            "2026-01-01T00:04:00Z",
+            &first_id,
+        ));
+        let touches = reduce_stream_touches("b-1", &lines(&removed_both));
+        let touch = touch_for(&touches, "b-1", AGENT_A);
+        assert_eq!(touch.current_note_count, 0);
+        assert_eq!(touch.note_preview, None);
+    }
+
+    #[test]
+    fn unknown_edit_and_remove_ids_leave_previews_alone() {
+        let touches = reduce_stream_touches(
+            "b-1",
+            &lines(&[
+                created(OWNER, "b-1", "Bead", "task", "2026-01-01T00:00:00Z"),
+                note_entry(AGENT_A, "b-1", "2026-01-01T00:01:00Z", "kept"),
+                note_edited(
+                    AGENT_A,
+                    "b-1",
+                    "2026-01-01T00:02:00Z",
+                    "missing",
+                    "elsewhere",
+                ),
+                note_removed(AGENT_A, "b-1", "2026-01-01T00:03:00Z", "missing"),
+            ]),
+        );
+        let touch = touch_for(&touches, "b-1", AGENT_A);
+        assert_eq!(touch.current_note_count, 1);
+        assert_eq!(touch.note_preview.as_ref().unwrap().text, "kept");
+        // Unknown IDs still count their noted verbs.
+        assert_eq!(touch.verbs, verbs(&[("noted", 3)]));
+    }
+
+    #[test]
+    fn non_agent_and_blank_appends_never_produce_previews() {
+        let touches = reduce_stream_touches(
+            "b-1",
+            &lines(&[
+                created(OWNER, "b-1", "Bead", "task", "2026-01-01T00:00:00Z"),
+                note_entry(OWNER, "b-1", "2026-01-01T00:01:00Z", "owner note"),
+                note_entry(
+                    "has space",
+                    "b-1",
+                    "2026-01-01T00:02:00Z",
+                    "bad actor",
+                ),
+                note_entry(AGENT_A, "b-1", "2026-01-01T00:03:00Z", "   "),
+                note_entry(AGENT_A, "b-1", "2026-01-01T00:04:00Z", "real"),
+            ]),
+        );
+        let touch = touch_for(&touches, "b-1", AGENT_A);
+        assert_eq!(touch.current_note_count, 1);
+        assert_eq!(touch.note_preview.as_ref().unwrap().text, "real");
+        // Blank appends still earn verbs; human appends never become rows.
+        assert_eq!(touch.verbs, verbs(&[("noted", 2)]));
+        assert!(touches.iter().all(|touch| touch.actor != OWNER));
+    }
+
+    #[test]
+    fn malformed_note_payloads_keep_verbs_but_skip_previews() {
+        let text = lines(&[
+            created(OWNER, "b-1", "Bead", "task", "2026-01-01T00:00:00Z"),
+            // Non-string entry: verb without a preview.
+            event(
+                AGENT_A,
+                "note_appended",
+                "b-1",
+                "2026-01-01T00:01:00Z",
+                json!({"entry": 7}),
+            ),
+            // Blank edit text: preview effect skipped.
+            note_edited(
+                AGENT_A,
+                "b-1",
+                "2026-01-01T00:02:00Z",
+                &append_id("b-1", "2026-01-01T00:01:00Z"),
+                "   ",
+            ),
+            // Missing note_id: preview effect skipped.
+            event(
+                AGENT_A,
+                "note_removed",
+                "b-1",
+                "2026-01-01T00:03:00Z",
+                json!({}),
+            ),
+        ]);
+        let touches = reduce_stream_touches("b-1", &text);
+        let touch = touch_for(&touches, "b-1", AGENT_A);
+        assert_eq!(touch.verbs, verbs(&[("noted", 3)]));
+        assert_eq!(touch.current_note_count, 0);
+        assert_eq!(touch.note_preview, None);
+    }
+
+    #[test]
+    fn long_and_unicode_note_text_truncates_on_char_boundaries() {
+        let long = "é".repeat(NOTE_PREVIEW_TEXT_LIMIT + 5);
+        let touches = reduce_stream_touches(
+            "b-1",
+            &lines(&[
+                created(OWNER, "b-1", "Bead", "task", "2026-01-01T00:00:00Z"),
+                note_entry(AGENT_A, "b-1", "2026-01-01T00:01:00Z", &long),
+            ]),
+        );
+        let preview = touch_for(&touches, "b-1", AGENT_A)
+            .note_preview
+            .clone()
+            .unwrap();
+        assert!(preview.truncated);
+        assert_eq!(preview.text.chars().count(), NOTE_PREVIEW_TEXT_LIMIT);
+        assert_eq!(preview.text, "é".repeat(NOTE_PREVIEW_TEXT_LIMIT));
+
+        let exact = "x".repeat(NOTE_PREVIEW_TEXT_LIMIT);
+        let touches = reduce_stream_touches(
+            "b-1",
+            &lines(&[
+                created(OWNER, "b-1", "Bead", "task", "2026-01-01T00:00:00Z"),
+                note_entry(AGENT_A, "b-1", "2026-01-01T00:01:00Z", &exact),
+            ]),
+        );
+        let preview = touch_for(&touches, "b-1", AGENT_A)
+            .note_preview
+            .clone()
+            .unwrap();
+        assert!(!preview.truncated);
+        assert_eq!(preview.text, exact);
+    }
+
+    #[test]
+    fn a_schema_one_index_is_a_miss_until_the_rebuild() {
+        let store = Store::new();
+        store.write_stream(
+            "b-1",
+            &[
+                created(OWNER, "b-1", "One", "task", "2026-01-01T00:00:00Z"),
+                note_entry(AGENT_A, "b-1", "2026-01-01T00:01:00Z", "hello"),
+            ],
+        );
+        store.refresh();
+        // Hand back the file to the pre-preview schema: the query must miss
+        // and the next refresh must rebuild with the preview attached.
+        let raw = fs::read(&store.index_path).unwrap();
+        let mut value: Value = serde_json::from_slice(&raw).unwrap();
+        value["schema_version"] = json!(1);
+        if let Some(touches) =
+            value.get_mut("touches").and_then(Value::as_array_mut)
+        {
+            for touch in touches {
+                touch.as_object_mut().unwrap().remove("current_note_count");
+                touch.as_object_mut().unwrap().remove("note_preview");
+            }
+        }
+        fs::write(&store.index_path, serde_json::to_vec(&value).unwrap())
+            .unwrap();
+
+        assert_eq!(store.query(None).touches, Vec::new());
+        assert_eq!(
+            store.status().state,
+            BeadTouchIndexStateWire::SchemaMismatch
+        );
+        assert_eq!(store.status().index_schema_version, Some(1));
+
+        let outcome = store.refresh();
+        assert!(outcome.full_rebuild && outcome.wrote);
+        let query = store.query(None);
+        let touch = touch_for(&query.touches, "b-1", AGENT_A);
+        assert_eq!(touch.current_note_count, 1);
+        assert_eq!(touch.note_preview.as_ref().unwrap().text, "hello");
     }
 
     #[test]
@@ -1724,5 +2666,455 @@ mod tests {
                 .unwrap_err();
         std::env::remove_var(LOCK_TIMEOUT_ENV);
         assert_eq!(error.kind, "conflict");
+    }
+
+    #[test]
+    fn close_credits_the_closed_by_closer_never_the_creator() {
+        let touches = reduce_stream_touches(
+            "b-1",
+            &lines(&[
+                created(AGENT_A, "b-1", "Bead", "task", "2026-01-01T00:00:00Z"),
+                event(
+                    AGENT_B,
+                    "issue_closed",
+                    "b-1",
+                    "2026-01-01T00:01:00Z",
+                    json!({
+                        "closed_by": AGENT_B,
+                        "close_reason": "verified",
+                        "resolution": "done",
+                    }),
+                ),
+            ]),
+        );
+        let closer = touch_for(&touches, "b-1", AGENT_B);
+        assert_eq!(closer.verbs, verbs(&[("closed", 1)]));
+        let close = closer.close.clone().expect("close record");
+        assert_eq!(close.closed_at, "2026-01-01T00:01:00Z");
+        assert_eq!(close.resolution, "done");
+        assert_eq!(close.reason.as_deref(), Some("verified"));
+        assert!(close.standing);
+        // The creator keeps its origin verb but earns no close.
+        let creator = touch_for(&touches, "b-1", AGENT_A);
+        assert_eq!(creator.verbs, verbs(&[("created", 1)]));
+        assert_eq!(creator.close, None);
+    }
+
+    #[test]
+    fn human_closed_by_produces_no_touch() {
+        let touches = reduce_stream_touches(
+            "b-1",
+            &lines(&[
+                created(OWNER, "b-1", "Bead", "task", "2026-01-01T00:00:00Z"),
+                event(
+                    OWNER,
+                    "issue_closed",
+                    "b-1",
+                    "2026-01-01T00:01:00Z",
+                    json!({"closed_by": OWNER}),
+                ),
+                note(AGENT_A, "b-1", "2026-01-01T00:02:00Z"),
+            ]),
+        );
+        // Only the agent's note touch remains; the human close credits
+        // nobody and leaves no close record behind.
+        assert_eq!(touches.len(), 1);
+        assert_eq!(touches[0].actor, AGENT_A);
+        assert_eq!(touches[0].verbs, verbs(&[("noted", 1)]));
+        assert_eq!(touches[0].close, None);
+    }
+
+    #[test]
+    fn creation_reason_lands_only_on_the_creator_row() {
+        let touches = reduce_stream_touches(
+            "b-1",
+            &lines(&[
+                created_with_reason(
+                    AGENT_A,
+                    "b-1",
+                    "Bead",
+                    "task",
+                    "2026-01-01T00:00:00Z",
+                    Some("a second agent reproduced the flake"),
+                ),
+                note(AGENT_B, "b-1", "2026-01-01T00:01:00Z"),
+            ]),
+        );
+        let creator = touch_for(&touches, "b-1", AGENT_A);
+        assert_eq!(creator.verbs, verbs(&[("created", 1)]));
+        assert_eq!(
+            creator.creation_reason.as_deref(),
+            Some("a second agent reproduced the flake")
+        );
+        assert!(!creator.creation_reason_truncated);
+        // The noter never filed this bead, so its row carries no reason.
+        let noter = touch_for(&touches, "b-1", AGENT_B);
+        assert_eq!(noter.verbs, verbs(&[("noted", 1)]));
+        assert_eq!(noter.creation_reason, None);
+        assert!(!noter.creation_reason_truncated);
+    }
+
+    #[test]
+    fn reasonless_and_blank_reasons_index_as_absent() {
+        let touches = reduce_stream_touches(
+            "b-1",
+            &lines(&[
+                created(AGENT_A, "b-1", "Bead", "task", "2026-01-01T00:00:00Z"),
+                created_with_reason(
+                    AGENT_A,
+                    "b-2",
+                    "Bead",
+                    "task",
+                    "2026-01-01T00:00:00Z",
+                    Some("   "),
+                ),
+            ]),
+        );
+        for bead_id in ["b-1", "b-2"] {
+            let touch = touch_for(&touches, bead_id, AGENT_A);
+            assert_eq!(touch.creation_reason, None);
+            assert!(!touch.creation_reason_truncated);
+        }
+        // Absent reasons stay out of the serialized row entirely.
+        let value = serde_json::to_value(&touches[0]).unwrap();
+        assert!(value.get("creation_reason").is_none());
+    }
+
+    #[test]
+    fn long_creation_reason_truncates_with_a_marker() {
+        let exact = "é".repeat(CREATION_REASON_PREVIEW_LIMIT);
+        let touches = reduce_stream_touches(
+            "b-1",
+            &lines(&[created_with_reason(
+                AGENT_A,
+                "b-1",
+                "Bead",
+                "task",
+                "2026-01-01T00:00:00Z",
+                Some(&exact),
+            )]),
+        );
+        let touch = touch_for(&touches, "b-1", AGENT_A);
+        assert_eq!(touch.creation_reason.as_deref(), Some(exact.as_str()));
+        assert!(!touch.creation_reason_truncated);
+
+        let long = "é".repeat(CREATION_REASON_PREVIEW_LIMIT + 5);
+        let touches = reduce_stream_touches(
+            "b-2",
+            &lines(&[created_with_reason(
+                AGENT_A,
+                "b-2",
+                "Bead",
+                "task",
+                "2026-01-01T00:00:00Z",
+                Some(&long),
+            )]),
+        );
+        let touch = touch_for(&touches, "b-2", AGENT_A);
+        assert_eq!(touch.creation_reason.as_deref(), Some(exact.as_str()));
+        assert!(touch.creation_reason_truncated);
+    }
+
+    #[test]
+    fn created_plus_closed_row_keeps_both_reason_and_close() {
+        let touches = reduce_stream_touches(
+            "b-1",
+            &lines(&[
+                created_with_reason(
+                    AGENT_A,
+                    "b-1",
+                    "Bead",
+                    "task",
+                    "2026-01-01T00:00:00Z",
+                    Some("filed from the flake triage"),
+                ),
+                event(
+                    AGENT_A,
+                    "issue_closed",
+                    "b-1",
+                    "2026-01-01T00:01:00Z",
+                    json!({
+                        "closed_by": AGENT_A,
+                        "close_reason": "verified",
+                        "resolution": "done",
+                    }),
+                ),
+            ]),
+        );
+        assert_eq!(touches.len(), 1);
+        let touch = &touches[0];
+        assert_eq!(touch.verbs, verbs(&[("created", 1), ("closed", 1)]));
+        assert_eq!(
+            touch.creation_reason.as_deref(),
+            Some("filed from the flake triage")
+        );
+        let close = touch.close.clone().expect("close record");
+        assert_eq!(close.reason.as_deref(), Some("verified"));
+        assert!(close.standing);
+    }
+
+    #[test]
+    fn refresh_rebuilds_reasons_from_streams_end_to_end() {
+        let store = Store::new();
+        store.write_stream(
+            "b-1",
+            &[
+                created_with_reason(
+                    AGENT_A,
+                    "b-1",
+                    "Bead",
+                    "task",
+                    "2026-01-01T00:00:00Z",
+                    Some("filed from the flake triage"),
+                ),
+                created(
+                    AGENT_B,
+                    "b-2",
+                    "Reasonless",
+                    "task",
+                    "2026-01-01T00:00:00Z",
+                ),
+            ],
+        );
+        let refreshed = store.refresh();
+        assert!(refreshed.full_rebuild);
+        assert_eq!(refreshed.touch_count, 2);
+
+        let queried = store.query(None);
+        assert_eq!(
+            queried.schema_version,
+            BEAD_TOUCH_INDEX_WIRE_SCHEMA_VERSION
+        );
+        let reasoned = touch_for(&queried.touches, "b-1", AGENT_A);
+        assert_eq!(
+            reasoned.creation_reason.as_deref(),
+            Some("filed from the flake triage")
+        );
+        let reasonless = touch_for(&queried.touches, "b-2", AGENT_B);
+        assert_eq!(reasonless.creation_reason, None);
+
+        // A v3 cache is a miss under the bumped schema and rebuilds with
+        // reasons instead of reusing stale rows.
+        let mut stale = store.read_index();
+        stale.schema_version = BEAD_TOUCH_INDEX_WIRE_SCHEMA_VERSION - 1;
+        stale.touches.clear();
+        store.write_index(&stale);
+        let rebuilt = store.refresh();
+        assert!(rebuilt.full_rebuild);
+        let queried = store.query(None);
+        assert_eq!(
+            touch_for(&queried.touches, "b-1", AGENT_A)
+                .creation_reason
+                .as_deref(),
+            Some("filed from the flake triage")
+        );
+    }
+
+    #[test]
+    fn legacy_close_credits_only_the_unique_same_instant_note_author() {
+        // One valid agent appended a note at the close instant.
+        let touches = reduce_stream_touches(
+            "b-1",
+            &lines(&[
+                created(OWNER, "b-1", "Bead", "task", "2026-01-01T00:00:00Z"),
+                note(AGENT_B, "b-1", "2026-01-01T00:01:00Z"),
+                bare(AGENT_A, "issue_closed", "b-1", "2026-01-01T00:01:00Z"),
+            ]),
+        );
+        let closer = touch_for(&touches, "b-1", AGENT_B);
+        assert_eq!(closer.verbs.get("closed"), Some(&1));
+        assert!(closer.close.clone().is_some_and(|close| close.standing));
+        assert!(touches.iter().all(|touch| touch.actor != AGENT_A));
+
+        // Two different authors at the same instant are ambiguous.
+        let touches = reduce_stream_touches(
+            "b-2",
+            &lines(&[
+                created(OWNER, "b-2", "Bead", "task", "2026-01-01T00:00:00Z"),
+                note_with_id(
+                    "n-a",
+                    AGENT_A,
+                    "b-2",
+                    "2026-01-01T00:01:00Z",
+                    "alpha",
+                ),
+                note_with_id(
+                    "n-b",
+                    AGENT_B,
+                    "b-2",
+                    "2026-01-01T00:01:00Z",
+                    "bravo",
+                ),
+                bare(OWNER, "issue_closed", "b-2", "2026-01-01T00:01:00Z"),
+            ]),
+        );
+        for touch in &touches {
+            assert!(!touch.verbs.contains_key("closed"), "{touch:?}");
+            assert_eq!(touch.close, None);
+        }
+
+        // No note at the instant: the envelope actor is never a fallback.
+        let touches = reduce_stream_touches(
+            "b-3",
+            &lines(&[
+                created(OWNER, "b-3", "Bead", "task", "2026-01-01T00:00:00Z"),
+                note(AGENT_B, "b-3", "2026-01-01T00:02:00Z"),
+                bare(AGENT_A, "issue_closed", "b-3", "2026-01-01T00:01:00Z"),
+            ]),
+        );
+        for touch in &touches {
+            assert!(!touch.verbs.contains_key("closed"), "{touch:?}");
+            assert_eq!(touch.close, None);
+        }
+    }
+
+    #[test]
+    fn close_record_reports_resolution_reason_and_standing() {
+        let touches = reduce_stream_touches(
+            "b-1",
+            &lines(&[
+                created(OWNER, "b-1", "Bead", "task", "2026-01-01T00:00:00Z"),
+                event(
+                    AGENT_A,
+                    "issue_closed",
+                    "b-1",
+                    "2026-01-01T00:01:00Z",
+                    json!({
+                        "closed_by": AGENT_A,
+                        "resolution": "canceled",
+                        "close_reason": "  duplicate  ",
+                    }),
+                ),
+            ]),
+        );
+        let close = touch_for(&touches, "b-1", AGENT_A)
+            .close
+            .clone()
+            .expect("close");
+        assert_eq!(close.closed_at, "2026-01-01T00:01:00Z");
+        assert_eq!(close.resolution, "canceled");
+        assert_eq!(close.reason.as_deref(), Some("duplicate"));
+        assert!(close.standing);
+
+        // A missing resolution reads as done; a blank reason reads as none.
+        let touches = reduce_stream_touches(
+            "b-2",
+            &lines(&[
+                created(OWNER, "b-2", "Bead", "task", "2026-01-01T00:00:00Z"),
+                event(
+                    AGENT_A,
+                    "issue_closed",
+                    "b-2",
+                    "2026-01-01T00:01:00Z",
+                    json!({"closed_by": AGENT_A, "close_reason": "   "}),
+                ),
+            ]),
+        );
+        let close = touch_for(&touches, "b-2", AGENT_A)
+            .close
+            .clone()
+            .expect("close");
+        assert_eq!(close.resolution, "done");
+        assert_eq!(close.reason, None);
+        assert!(close.standing);
+    }
+
+    #[test]
+    fn reopened_close_loses_standing_and_the_next_closer_wins() {
+        let touches = reduce_stream_touches(
+            "b-1",
+            &lines(&[
+                created(OWNER, "b-1", "Bead", "task", "2026-01-01T00:00:00Z"),
+                event(
+                    AGENT_A,
+                    "issue_closed",
+                    "b-1",
+                    "2026-01-01T00:01:00Z",
+                    json!({"closed_by": AGENT_A}),
+                ),
+                bare(AGENT_A, "issue_opened", "b-1", "2026-01-01T00:02:00Z"),
+                event(
+                    AGENT_B,
+                    "issue_closed",
+                    "b-1",
+                    "2026-01-01T00:03:00Z",
+                    json!({"closed_by": AGENT_B}),
+                ),
+            ]),
+        );
+        let first = touch_for(&touches, "b-1", AGENT_A)
+            .close
+            .clone()
+            .expect("close");
+        assert!(!first.standing);
+        let second = touch_for(&touches, "b-1", AGENT_B)
+            .close
+            .clone()
+            .expect("close");
+        assert!(second.standing);
+        assert_eq!(second.closed_at, "2026-01-01T00:03:00Z");
+
+        // A reopen with no later close leaves the record non-standing.
+        let touches = reduce_stream_touches(
+            "b-2",
+            &lines(&[
+                created(OWNER, "b-2", "Bead", "task", "2026-01-01T00:00:00Z"),
+                event(
+                    AGENT_A,
+                    "issue_closed",
+                    "b-2",
+                    "2026-01-01T00:01:00Z",
+                    json!({"closed_by": AGENT_A}),
+                ),
+                bare(AGENT_B, "issue_opened", "b-2", "2026-01-01T00:02:00Z"),
+                note(AGENT_A, "b-2", "2026-01-01T00:03:00Z"),
+            ]),
+        );
+        let touch = touch_for(&touches, "b-2", AGENT_A);
+        assert_eq!(touch.status, "open");
+        assert!(!touch.close.clone().expect("close").standing);
+    }
+
+    #[test]
+    fn a_schema_two_index_is_a_miss_until_the_rebuild() {
+        let store = Store::new();
+        store.write_stream(
+            "b-1",
+            &[
+                created(OWNER, "b-1", "One", "task", "2026-01-01T00:00:00Z"),
+                note_entry(AGENT_A, "b-1", "2026-01-01T00:01:00Z", "hello"),
+            ],
+        );
+        store.refresh();
+        // Hand back the file to the pre-close schema: the query must miss
+        // and the next refresh must rebuild with close support attached.
+        let raw = fs::read(&store.index_path).unwrap();
+        let mut value: Value = serde_json::from_slice(&raw).unwrap();
+        value["schema_version"] = json!(2);
+        if let Some(touches) =
+            value.get_mut("touches").and_then(Value::as_array_mut)
+        {
+            for touch in touches {
+                touch.as_object_mut().unwrap().remove("close");
+            }
+        }
+        fs::write(&store.index_path, serde_json::to_vec(&value).unwrap())
+            .unwrap();
+
+        assert_eq!(store.query(None).touches, Vec::new());
+        assert_eq!(
+            store.status().state,
+            BeadTouchIndexStateWire::SchemaMismatch
+        );
+        assert_eq!(store.status().index_schema_version, Some(2));
+
+        let outcome = store.refresh();
+        assert!(outcome.full_rebuild && outcome.wrote);
+        let query = store.query(None);
+        assert_eq!(query.touches.len(), 1);
+        assert_eq!(
+            store.read_index().schema_version,
+            BEAD_TOUCH_INDEX_WIRE_SCHEMA_VERSION
+        );
     }
 }

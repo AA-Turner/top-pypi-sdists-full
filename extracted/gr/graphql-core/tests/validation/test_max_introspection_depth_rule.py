@@ -26,7 +26,8 @@ def describe_validate_max_introspection_nodes_rule():
         )
 
     def three_flat_fields_introspection_query():
-        assert_valid("""
+        assert_valid(
+            """
             {
               __type(name: "Query") {
                 trueFields: fields(includeDeprecated: true) {
@@ -40,7 +41,8 @@ def describe_validate_max_introspection_nodes_rule():
                 }
               }
             }
-            """)
+            """
+        )
 
     def three_fields_deep_introspection_query_from_schema():
         assert_errors(
@@ -316,7 +318,8 @@ def describe_validate_max_introspection_nodes_rule():
         )
 
     def one_fields_deep_with_three_fields_introspection_query():
-        assert_valid("""
+        assert_valid(
+            """
             {
               __schema {
                 types {
@@ -336,7 +339,8 @@ def describe_validate_max_introspection_nodes_rule():
                 }
               }
             }
-            """)
+            """
+        )
 
     def three_fields_deep_from_varying_parents_introspection_query():
         assert_errors(
@@ -465,7 +469,8 @@ def describe_validate_max_introspection_nodes_rule():
         )
 
     def opts_out_if_fragment_is_missing():
-        assert_valid("""
+        assert_valid(
+            """
             query test {
               __schema {
                 types {
@@ -473,10 +478,12 @@ def describe_validate_max_introspection_nodes_rule():
                 }
               }
             }
-            """)
+            """
+        )
 
     def does_not_infinitely_recurse_on_fragment_cycle():
-        assert_valid("""
+        assert_valid(
+            """
             query test {
               __schema {
                 types {
@@ -487,4 +494,5 @@ def describe_validate_max_introspection_nodes_rule():
             fragment Cycle on __Type {
               ...Cycle
             }
-            """)
+            """
+        )

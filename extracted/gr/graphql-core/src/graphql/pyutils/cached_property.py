@@ -1,12 +1,15 @@
-from typing import Any, Callable, TYPE_CHECKING
+"""Cached properties"""
+
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     standard_cached_property = None
 else:
-    try:
-        from functools import cached_property as standard_cached_property
-    except ImportError:  # Python < 3.8
-        standard_cached_property = None
+    from functools import cached_property as standard_cached_property
 
 if standard_cached_property:
     cached_property = standard_cached_property
@@ -21,7 +24,7 @@ else:
         """
 
         def __init__(self, func: Callable) -> None:
-            self.__doc__ = getattr(func, "__doc__")
+            self.__doc__ = func.__doc__
             self.func = func
 
         def __get__(self, obj: object, cls: type) -> Any:

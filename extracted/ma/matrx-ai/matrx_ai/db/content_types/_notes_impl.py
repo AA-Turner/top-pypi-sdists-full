@@ -4,11 +4,10 @@ import textwrap
 from typing import Any
 
 from matrx_ai.db._registry import get_base, get_model
+from matrx_ai.db.content_types.patch_utils import PatchError, apply_patch
 
 NotesBase = get_base("NotesBase")
 Notes = get_model("Notes")
-
-from matrx_ai.db.content_types.patch_utils import PatchError, apply_patch
 
 # ---------------------------------------------------------------------------
 # XML rendering templates — edit these to change how notes are sent to LLMs.
@@ -116,6 +115,34 @@ def _err(operation: str, note_id: str, error: Exception, **extra: Any) -> dict[s
     }
 
 
+def _not_visible(operation: str, note_id: str) -> dict[str, Any]:
+    """The note does not exist FOR THIS CALLER — missing, archived, and hidden
+    read the same. Under the caller's RLS session a row they may not see is
+    simply absent, so this one honest answer names the id and leaks nothing."""
+    return {
+        "success": False,
+        "operation": operation,
+        "note_id": note_id,
+        "error_type": "not_found",
+        "error": f"Note {note_id} was not found, or you do not have access to it.",
+    }
+
+
+def _no_write_access(operation: str, note_id: str, **extra: Any) -> dict[str, Any]:
+    """The caller can see the note but the database refused the change."""
+    return {
+        "success": False,
+        "operation": operation,
+        "note_id": note_id,
+        "error_type": "no_access",
+        "error": f"You can view note {note_id} but you do not have permission to change it.",
+        **extra,
+    }
+
+
+_RLS_REFUSAL_MARKERS = ("row-level security", "permission denied", "42501")
+
+
 class NotesManager(NotesBase):
     _instance: NotesManager | None = None
 
@@ -131,16 +158,89 @@ class NotesManager(NotesBase):
         pass
 
     # ------------------------------------------------------------------
+    # ACCESS IS NOT DECIDED HERE. Callers acting for a person run these
+    # methods inside that person's RLS session
+    # (``matrx_ai.tools.person_session.as_the_person``); Postgres RLS decides
+    # what exists and what may change. Every by-id read is AUTHORITATIVE
+    # (``use_cache=False``): the ORM's identity cache is shared across callers
+    # and knows nothing about who is asking.
+    # ------------------------------------------------------------------
+
+    async def _read_live(self, note_id: str) -> Notes | None:
+        """The note as the current connection sees it — None when missing,
+        archived, or hidden from the caller by RLS."""
+        note = await self.load_item_or_none(use_cache=False, **self._pk_filter(note_id))
+        if note is None or getattr(note, "deleted_at", None) is not None:
+            return None
+        return note
+
+    async def _explain_refused_write(
+        self, operation: str, note_id: str, version_before: Any, error: Exception, **extra: Any
+    ) -> dict[str, Any]:
+        """Name why a write to a note the caller could SEE did not land.
+
+        RLS refuses an UPDATE silently (0 rows) or, for a WITH CHECK breach,
+        with 42501. Either way the note is still there, unchanged, for this
+        caller — a permission refusal, not a conflict. The database decided;
+        this only reports it.
+        """
+        if any(marker in str(error) for marker in _RLS_REFUSAL_MARKERS):
+            return _no_write_access(operation, note_id, **extra)
+        try:
+            now = await self._read_live(note_id)
+        except Exception:
+            return _err(operation, note_id, error, **extra)
+        if now is None:
+            return _not_visible(operation, note_id)
+        if getattr(now, "version", None) == version_before:
+            return _no_write_access(operation, note_id, **extra)
+        return _err(operation, note_id, error, **extra)
+
+    async def _write_visible(
+        self, operation: str, note_id: str, updates: dict[str, Any], **extra: Any
+    ) -> tuple[Notes | None, dict[str, Any] | None]:
+        """Read the note as the caller, then write to exactly that row.
+
+        Returns ``(note, None)`` on success or ``(None, error_dict)``.
+        """
+        try:
+            note = await self._read_live(note_id)
+        except Exception as e:
+            return None, _err(operation, note_id, e, **extra)
+        if note is None:
+            return None, _not_visible(operation, note_id)
+        return await self._write_row(operation, note, updates, **extra)
+
+    async def _write_row(
+        self, operation: str, note: Notes, updates: dict[str, Any], **extra: Any
+    ) -> tuple[Notes | None, dict[str, Any] | None]:
+        note_id = str(note.id)
+        version_before = getattr(note, "version", None)
+        try:
+            async with self._governed_write():
+                note = await self._update_item(note, **updates)
+        except Exception as e:
+            return None, await self._explain_refused_write(
+                operation, note_id, version_before, e, **extra
+            )
+        return note, None
+
+    # ------------------------------------------------------------------
     # Read
     # ------------------------------------------------------------------
 
     async def get_note(self, note_id: str) -> dict[str, Any]:
-        """Return the full note dict, or a structured error."""
+        """Return the full note dict, or a structured error.
+
+        A note the caller may not see is ``error_type='not_found'`` naming the id.
+        """
         try:
-            note = await self.load_notes_by_id(note_id)
-            return _ok(note)
+            note = await self._read_live(note_id)
         except Exception as e:
             return _err("get_note", note_id, e)
+        if note is None:
+            return _not_visible("get_note", note_id)
+        return _ok(note)
 
     async def get_note_as_xml(
         self, note_id: str, template: str = DEFAULT_XML_TEMPLATE
@@ -156,7 +256,7 @@ class NotesManager(NotesBase):
         """Return all notes belonging to a user (owner = created_by), newest
         first — callers count-cap the list, so ordering decides WHICH rows survive."""
         try:
-            notes = await self._get_items(order_by="-created_at", created_by=user_id)
+            notes = await self._get_items(order_by="-created_at", created_by=user_id, deleted_at__isnull=True)
             return {"success": True, "notes": [n.to_dict() for n in notes if n]}
         except Exception as e:
             return {
@@ -240,22 +340,21 @@ class NotesManager(NotesBase):
                 "unknown_fields": unknown,
             }
 
-        try:
-            note = await self.update_notes(note_id, **safe)
-            result = _ok(note)
-            if stripped_immutable:
-                result["warning_stripped_immutable"] = stripped_immutable
-            if unknown:
-                result["warning_unknown_fields"] = unknown
-            return result
-        except Exception as e:
-            return _err(
-                "update_note",
-                note_id,
-                e,
-                stripped_immutable=stripped_immutable,
-                unknown_fields=unknown,
-            )
+        note, error = await self._write_visible(
+            "update_note",
+            note_id,
+            safe,
+            stripped_immutable=stripped_immutable,
+            unknown_fields=unknown,
+        )
+        if error is not None:
+            return error
+        result = _ok(note)
+        if stripped_immutable:
+            result["warning_stripped_immutable"] = stripped_immutable
+        if unknown:
+            result["warning_unknown_fields"] = unknown
+        return result
 
     # ------------------------------------------------------------------
     # Convenience single-field updaters (LLM tools often prefer these)
@@ -299,9 +398,11 @@ class NotesManager(NotesBase):
         Returns a structured error if no level produces a match.
         """
         try:
-            note = await self.load_notes_by_id(note_id)
+            note = await self._read_live(note_id)
         except Exception as e:
             return _err("patch_note_content", note_id, e)
+        if note is None:
+            return _not_visible("patch_note_content", note_id)
 
         try:
             patch_result = apply_patch(
@@ -313,18 +414,20 @@ class NotesManager(NotesBase):
         except PatchError as pe:
             return {"success": False, **pe.to_dict()}
 
-        try:
-            updated_note = await self.update_notes(note_id, content=patch_result.new_content)
-            return {
-                "success": True,
-                "matched_at_pass": patch_result.matched_at.value,
-                "original_snippet": patch_result.original_snippet,
-                "note": updated_note.to_dict(),
-            }
-        except Exception as e:
-            return _err(
-                "patch_note_content", note_id, e, matched_at_pass=patch_result.matched_at.value
-            )
+        updated_note, error = await self._write_row(
+            "patch_note_content",
+            note,
+            {"content": patch_result.new_content},
+            matched_at_pass=patch_result.matched_at.value,
+        )
+        if error is not None:
+            return error
+        return {
+            "success": True,
+            "matched_at_pass": patch_result.matched_at.value,
+            "original_snippet": patch_result.original_snippet,
+            "note": updated_note.to_dict(),
+        }
 
     # ------------------------------------------------------------------
     # Append / prepend helpers (common LLM operations)
@@ -359,12 +462,25 @@ class NotesManager(NotesBase):
     # ------------------------------------------------------------------
 
     async def delete_note(self, note_id: str) -> dict[str, Any]:
-        """Permanently delete a note."""
+        """ARCHIVE a note (sets ``deleted_at``; the row and its history survive).
+
+        Arman's law: soft-delete everything important — an agent never destroys a
+        person's note. There is deliberately no hard-delete path on this manager.
+        """
         try:
-            success = await self.delete_notes(note_id)
-            return {"success": success, "note_id": note_id}
+            from matrx_ai.tools.soft_delete import archive_where
+
+            if await self._read_live(note_id) is None:
+                return _not_visible("delete_note", note_id)
+            archived = await archive_where(Notes, {"id": note_id})
         except Exception as e:
+            if any(marker in str(e) for marker in _RLS_REFUSAL_MARKERS):
+                return _no_write_access("delete_note", note_id)
             return _err("delete_note", note_id, e)
+        if archived == 0:
+            # The caller could see the live note, and RLS let no row change.
+            return _no_write_access("delete_note", note_id)
+        return {"success": True, "note_id": note_id, "archived": True}
 
     # ------------------------------------------------------------------
     # XML rendering (internal)

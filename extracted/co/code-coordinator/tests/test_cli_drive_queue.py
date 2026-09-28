@@ -3960,7 +3960,7 @@ def test_fetch_live_blocked_gate_self_heals_a_target_with_no_queue_row_yet(
     monkeypatch.setattr(state_mod, "load_board", lambda: object())
     monkeypatch.setattr(ci_store_mod, "build_ci_store", lambda *a, **k: object())
 
-    overrides, unreadable = _fetch_live_blocked_gate([entry], None)
+    overrides, reasons, unreadable = _fetch_live_blocked_gate([entry], None)
 
     assert calls["enqueue"] == 1
     assert overrides == {entry_key(REPO, 555): False}  # PLAN_READY -> resumable
@@ -4001,7 +4001,7 @@ def test_fetch_live_blocked_gate_suppresses_the_no_row_note_for_a_pre_dispatch_r
     monkeypatch.setattr(state_mod, "load_board", lambda: object())
     monkeypatch.setattr(ci_store_mod, "build_ci_store", lambda *a, **k: object())
 
-    overrides, unreadable = _fetch_live_blocked_gate([entry], None)
+    overrides, reasons, unreadable = _fetch_live_blocked_gate([entry], None)
 
     assert overrides == {}
     assert unreadable == {}  # suppressed — not "unreadable", not "still shut"
@@ -4062,7 +4062,7 @@ def test_fetch_live_blocked_gate_unreadable_causes_all_log_at_warning(
     monkeypatch.setattr(state_mod, "load_board", lambda: object())
     monkeypatch.setattr(ci_store_mod, "build_ci_store", lambda *a, **k: object())
 
-    overrides, unreadable = _fetch_live_blocked_gate([entry_a, entry_b], None)
+    overrides, reasons, unreadable = _fetch_live_blocked_gate([entry_a, entry_b], None)
 
     assert overrides == {}
     assert set(unreadable) == {
@@ -4137,12 +4137,146 @@ def test_fetch_live_blocked_gate_finds_an_acceptance_slices_row_keyed_to_the_epi
     monkeypatch.setattr(state_mod, "load_board", lambda: fake_board)
     monkeypatch.setattr(ci_store_mod, "build_ci_store", lambda *a, **k: object())
 
-    overrides, unreadable = _fetch_live_blocked_gate([entry], None)
+    overrides, reasons, unreadable = _fetch_live_blocked_gate([entry], None)
 
     # Found and read — NOT "could not be read". The gate is confirmed still
     # shut (still blocked), which is the true, reportable state.
     assert unreadable == {}
     assert overrides == {entry_key(REPO, 164): True}
+
+
+# ── #3460: a genuinely still-shut merge gate must never render as an ───────
+# "unconfirmed probe failure"
+#
+# claude-coordinator#3460 (quadraui#1081, 2026-09-27): a `blocked` entry
+# whose Work fails the review/smoke gates NEVER earns a merge-queue row —
+# `enqueue_approved_work`'s own self-heal above only enqueues gate-CLEAR
+# work (`coord/merge_queue.py:4973`) — so the pre-#3460 shell reported
+# EXACTLY the entries most worth confirming "still shut" as "unreadable"
+# instead. These pin the fix: the sweep resolves the branch's winning work
+# row directly and evaluates it with the same gates `enqueue_approved_work`
+# itself checks, rather than conceding defeat the instant no queue row
+# exists.
+
+
+def test_fetch_live_blocked_gate_confirms_still_shut_via_the_winning_work_row_with_no_queue_row(
+    monkeypatch, coord_db,
+):
+    """The exact quadraui#1081 shape: a done work row with Test failed and
+    (implicitly, via the mocked `merge_gate_failures`) a request-changes
+    review, no merge-queue row at all. Must land in the CONFIRMED
+    still-shut dict, naming the failing gates — never in `unreadable`."""
+    import types
+
+    import coord.board_service as board_service
+    import coord.ci_store as ci_store_mod
+    import coord.commands._common as common
+    import coord.merge_queue as mq
+    import coord.state as state_mod
+    from coord.commands.drive_queue import _fetch_live_blocked_gate
+    from coord.drive_queue import STATE_BLOCKED, QueueEntry, entry_key
+    from coord.models import Assignment, Board
+
+    entry = QueueEntry(
+        repo=REPO, issue=1081, position=1, state=STATE_BLOCKED,
+        last_reason=(
+            "fix-round ceiling reached across relaunches: 3 work leg(s) "
+            "already run — giving up"
+        ),
+    )
+    work = Assignment(
+        machine_name="m1", repo_name=REPO, issue_number=1081, issue_title="t",
+        assignment_id="w1081", type="work", status="done",
+        branch="issue-1081-x", test_state="failed",
+    )
+    fake_board = Board(active=[], completed=[work])
+
+    def fake_repo(name):
+        return types.SimpleNamespace(
+            name=name, github="john/claude-coordinator",
+            develop_branch=None, default_branch="main",
+        )
+
+    cfg = types.SimpleNamespace(
+        ci_store=types.SimpleNamespace(type="github", host=None, token_env=None),
+        repo=fake_repo,
+    )
+
+    failures = [
+        mq.MergeGateFailure(
+            gate="review", reason="review required but not approved",
+            waiver_flag="--skip-review",
+        ),
+        mq.MergeGateFailure(
+            gate="smoke", reason="test verdict missing", waiver_flag="--skip-smoke",
+        ),
+    ]
+
+    monkeypatch.setattr(mq, "load_queue", lambda: [])
+    monkeypatch.setattr(mq, "enqueue_approved_work", lambda cfg, board: [])
+    monkeypatch.setattr(mq, "live_gate_entry", lambda a, repo_github, target_branch, gh_ops: a)
+    monkeypatch.setattr(
+        mq, "merge_gate_failures",
+        lambda a, config, board, gh_ops=None, stop_early=False: list(failures),
+    )
+    monkeypatch.setattr(board_service, "resolve", lambda: None)
+    monkeypatch.setattr(common, "_load_config", lambda path: cfg)
+    monkeypatch.setattr(state_mod, "load_board", lambda: fake_board)
+    monkeypatch.setattr(ci_store_mod, "build_ci_store", lambda *a, **k: object())
+
+    overrides, reasons, unreadable = _fetch_live_blocked_gate([entry], None)
+
+    key = entry_key(REPO, 1081)
+    assert overrides == {key: True}
+    assert "review" in reasons[key]
+    assert "smoke" in reasons[key]
+    assert key not in unreadable
+
+
+def test_fetch_live_blocked_gate_confirms_still_shut_for_a_queue_row_with_no_pr_yet(
+    monkeypatch, coord_db,
+):
+    """A merge-queue row DOES exist, but has no PR number yet (a BLOCKED row
+    `coord merge`'s own auto-enqueue loop created, #1695). `entry_gate_
+    status` must still be called directly — its review/smoke/uat checks
+    don't need a PR (#1150: only CI is per-PR) — so a PLAN_BLOCKED verdict
+    here is confirmed still shut, never "merge-queue row has no PR number
+    yet"."""
+    import types
+
+    import coord.board_service as board_service
+    import coord.ci_store as ci_store_mod
+    import coord.commands._common as common
+    import coord.merge_queue as mq
+    import coord.state as state_mod
+    from coord.commands.drive_queue import _fetch_live_blocked_gate
+    from coord.drive_queue import STATE_BLOCKED, QueueEntry, entry_key
+
+    entry = QueueEntry(
+        repo=REPO, issue=1081, position=1, state=STATE_BLOCKED,
+        last_reason="drive session died without landing the work, launched "
+        "90s ago (attempt 2/2) — giving up",
+    )
+    row = types.SimpleNamespace(repo_name=REPO, issue_number=1081, pr_number=None)
+
+    def fake_entry_gate_status(q, board, cfg, ci_store, gh_ops):
+        assert q is row
+        return mq.PLAN_BLOCKED, "review not approved"
+
+    monkeypatch.setattr(mq, "load_queue", lambda: [row])
+    monkeypatch.setattr(mq, "entry_gate_status", fake_entry_gate_status)
+    monkeypatch.setattr(board_service, "resolve", lambda: None)
+    monkeypatch.setattr(common, "_load_config", lambda path: _fake_cfg())
+    monkeypatch.setattr(state_mod, "load_board", lambda: object())
+    monkeypatch.setattr(ci_store_mod, "build_ci_store", lambda *a, **k: object())
+
+    overrides, reasons, unreadable = _fetch_live_blocked_gate([entry], None)
+
+    key = entry_key(REPO, 1081)
+    assert overrides == {key: True}
+    assert reasons[key] == "review not approved"
+    assert key not in unreadable
+    assert "no PR number" not in str(unreadable)
 
 
 # ── tick: the cross-host guard (#1870) ───────────────────────────────────────
@@ -4899,6 +5033,70 @@ def test_leg_counts_non_lock_failure_warns_and_degrades_to_zero_not_silence(
     # The tick still did real work — the degrade is fail-soft, not fail-closed.
     assert "launched" in result.output
     assert queued(1650)["state"] == "running"
+
+
+# ── #3463: `list`'s `fix_rounds=` renders spend, not "every leg incl. the
+#    initial one against budget+1" — and never clamps an overrun back to a
+#    reassuring `N/N`.
+
+
+def test_list_renders_fix_rounds_as_spent_over_max_not_legs_over_budget_plus_one(
+    cli, seed
+):
+    """`--max-fix-rounds 4` — a row that has run 1 work + 4 fix legs (5 legs
+    total) must render `fix_rounds=4/4` (4 fix rounds spent of 4 allowed),
+    never the pre-#3463 `5/5` (every leg, including the unconditional
+    initial one, against `max_fix_rounds + 1`)."""
+    seed(issues={1650: "open"})
+    assert cli("add", REPO, "1650", "--max-fix-rounds", "4").exit_code == 0
+    # The row's own history accrues AFTER it is declared — `legs_at_enqueue`
+    # was stamped at 0 by the `add` above, so every one of these counts as
+    # this row's own spend.
+    seed(assignments=[
+        {"issue_number": 1650, "type": "work", "status": "done"}
+        for _ in range(5)
+    ])
+
+    result = cli("list")
+    assert result.exit_code == 0, result.output
+    assert "fix_rounds=4/4" in result.output
+    assert "fix_rounds=5/5" not in result.output
+
+
+def test_list_renders_zero_spent_for_a_fresh_row_with_only_its_initial_leg(
+    cli, seed
+):
+    """A fresh `--max-fix-rounds 5` row with only its initial (unconditional)
+    work leg has spent NO fix rounds yet — `fix_rounds=0/5`, never the
+    pre-#3463 `1/6`."""
+    seed(issues={1650: "open"})
+    assert cli("add", REPO, "1650", "--max-fix-rounds", "5").exit_code == 0
+    seed(assignments=[{"issue_number": 1650, "type": "work", "status": "running"}])
+
+    result = cli("list")
+    assert result.exit_code == 0, result.output
+    assert "fix_rounds=0/5" in result.output
+    assert "fix_rounds=1/6" not in result.output
+
+
+def test_list_marks_an_overrun_row_rather_than_clamping_to_n_over_n(cli, seed):
+    """A row that dispatched PAST its own ceiling (the #3454 leak this issue
+    also reports) must stay visibly an overrun — never silently clamp back
+    down to a reassuring `budget/budget`."""
+    seed(issues={1650: "open"})
+    assert cli("add", REPO, "1650", "--max-fix-rounds", "2").exit_code == 0
+    # 1 work + 5 more legs = 6 total, 5 fix rounds spent against a 2-round
+    # allowance — well past the ceiling.
+    seed(assignments=[
+        {"issue_number": 1650, "type": "work", "status": "done"}
+        for _ in range(6)
+    ])
+
+    result = cli("list")
+    assert result.exit_code == 0, result.output
+    assert "fix_rounds=5/2!" in result.output
+    assert "fix_rounds=2/2" not in result.output
+    assert "fix_rounds=3/3" not in result.output
 
 
 def test_a_failed_launch_is_a_consumed_attempt_not_a_running_entry(

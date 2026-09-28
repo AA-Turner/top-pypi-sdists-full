@@ -8,7 +8,73 @@ from pyocse.interfaces.parmed import ParmEdStructure, ommffs_to_paramedstruc
 from pyocse.interfaces.rdkit import smiles_to_ase_and_pmg
 from pyocse.lmp import LAMMPSStructure
 from pyxtal.constants import single_smiles
+import os
 import re
+
+# SMIRNOFF force field selection for style="openff".
+#
+# Sage 2.0.0 has no proper torsion for the sp3 C-N-N(=O)=O nitramine pattern
+# (RDX, HMX, CL-20, tetryl fail with "ProperTorsionHandler was not able to find
+# parameters"); Sage 2.1 covers it. Short names map to the first offxml the
+# installed openff-toolkit / openff-forcefields can load:
+SAGE_VERSIONS = {
+    "1.3": ["openff-1.3.1.offxml", "openff-1.3.0.offxml"],
+    "2.0": ["openff-2.0.0.offxml"],
+    "2.1": ["openff-2.1.0.offxml", "openff-2.1.0-rc.1.offxml"],
+    "2.2": ["openff-2.2.1.offxml", "openff-2.2.0.offxml"],
+}
+DEFAULT_SAGE_VERSION = "2.1"
+
+
+def available_openff_files():
+    """offxml files the installed OpenFF stack can load (empty set if unknown)."""
+    try:
+        from openff.toolkit.typing.engines.smirnoff import get_available_force_fields
+        return set(get_available_force_fields())
+    except Exception:
+        return set()
+
+
+def resolve_openff(name=None):
+    """Turn a Sage version or offxml name into a loadable offxml file name.
+
+    Accepts "2.0", "2.1", "2.0.0", "sage-2.1", "openff-2.1", "Sage 2.0",
+    a full file name such as "openff-2.0.0.offxml", or None (-> the default
+    version). Raises ValueError for versions this installation cannot load.
+    """
+    if name is None or str(name).strip() == "":
+        name = DEFAULT_SAGE_VERSION
+    name = str(name).strip()
+    if name.endswith(".offxml"):
+        return name
+    key = re.sub(r"^(openff|sage)[-_ ]*", "", name, flags=re.IGNORECASE).strip()
+    key = re.sub(r"\.0$", "", key) if re.fullmatch(r"\d+\.\d+\.0", key) else key  # 2.0.0 -> 2.0
+    if key not in SAGE_VERSIONS:
+        raise ValueError(
+            f"unknown OpenFF/Sage version {name!r}; use one of {sorted(SAGE_VERSIONS)} "
+            "or a full *.offxml file name"
+        )
+    avail = available_openff_files()
+    for cand in SAGE_VERSIONS[key]:
+        if not avail or cand in avail:
+            return cand
+    raise ValueError(
+        f"Sage {key} is not installed ({SAGE_VERSIONS[key]} not found); "
+        "install conda-forge openff-forcefields or pick another version"
+    )
+
+
+def _split_openff_style(style):
+    """'openff-2.0' -> ('openff', '2.0'); 'openff' / 'gaff' -> (style, None)."""
+    if isinstance(style, str) and style.lower().startswith("openff") and len(style) > 6:
+        return "openff", style[6:].lstrip("-_ ")
+    return style, None
+
+
+# Process-wide default: PYOCSE_OPENFF may hold a version ("2.0") or a file name.
+# Multiprocessing workers inherit it. Explicit ff_name= / openff_version=
+# arguments to forcefield() / ForceFieldParameters() win.
+DEFAULT_OPENFF = resolve_openff(os.environ.get("PYOCSE_OPENFF"))
 
 
 class forcefield:
@@ -19,16 +85,28 @@ class forcefield:
         - 2. generate the structures with multiple molecules and force fields
     """
 
-    def __init__(self, smiles, style="gaff", chargemethod="am1bcc", workdir="."):
+    def __init__(self, smiles, style="gaff", chargemethod="am1bcc", workdir=".",
+                 ff_name=None, openff_version=None):
         """
         Args:
             smiles (list): molecular smiles
-            style (str): 'gaff' or 'openff'
+            style (str): 'gaff', 'openff', or 'openff-2.0' / 'openff-2.1' (version shorthand)
             chargemethod (str): 'mmff94', 'am1bcc', 'am1-mulliken', 'gasteiger'
             workdir (str): '.'
+            ff_name (str): SMIRNOFF offxml for style='openff' (full file name)
+            openff_version (str): Sage version for style='openff', e.g. '2.0' or '2.1'
+                           (default: PYOCSE_OPENFF env or Sage 2.1); ignored for 'gaff'
         """
         self.dics = []
         self.smiles = smiles
+        style, style_version = _split_openff_style(style)
+        self.style = style
+        if ff_name is not None:
+            self.ff_name = resolve_openff(ff_name)
+        elif openff_version is not None or style_version:
+            self.ff_name = resolve_openff(openff_version or style_version)
+        else:
+            self.ff_name = DEFAULT_OPENFF
         self.chargemethod = chargemethod
         if max([len(s) for s in smiles]) > 180:
             self.chargemethod = "gasteiger" #chargemethod
@@ -37,7 +115,10 @@ class forcefield:
         self.set_partial_charges()
 
         # setup converter
-        converter = get_gaff if style == "gaff" else get_openff
+        if style == "gaff":
+            converter = get_gaff
+        else:
+            converter = lambda smi, chg: get_openff(smi, chg, ff_name=self.ff_name)
 
         self.molecules = []
         for i, smi in enumerate(smiles):
@@ -209,7 +290,7 @@ class forcefield:
                 count += 1
 
 
-def get_openff(smiles, chargemethod, ff_name="openff-2.0.0.offxml"):
+def get_openff(smiles, chargemethod, ff_name=DEFAULT_OPENFF):
     """
     Get Openff parameters from smiles
     """
@@ -257,7 +338,7 @@ def get_gaff(smiles, chargemethod="gas", base="ff"):
     return struc
 
 
-def get_openff_with_silicon(xml="openff-2.0.0.offxml"):
+def get_openff_with_silicon(xml=DEFAULT_OPENFF):
     ff2 = ForceField(xml)
     # Dreiding Si3   0.3100 4.2700
     # Dreiding P_3   0.3200 4.1500

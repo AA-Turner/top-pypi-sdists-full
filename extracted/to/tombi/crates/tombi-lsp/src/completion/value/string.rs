@@ -112,7 +112,7 @@ impl FindCompletionContents for StringSchema {
     ) -> tombi_future::BoxFuture<'b, Vec<CompletionContent>> {
         async move {
             let mut completion_items = vec![];
-            let schema_uri = current_schema.map(|schema| schema.schema_uri.as_ref());
+            let schema_base_uri = current_schema.map(|schema| schema.schema_base_uri.as_ref());
 
             if let Some(default) = &self.default {
                 let label = format!("\"{default}\"");
@@ -122,7 +122,7 @@ impl FindCompletionContents for StringSchema {
                     self.title.clone(),
                     self.description.clone(),
                     edit,
-                    schema_uri,
+                    schema_base_uri,
                     self.deprecated(),
                 ));
             }
@@ -135,7 +135,7 @@ impl FindCompletionContents for StringSchema {
                     self.title.clone(),
                     self.description.clone(),
                     edit,
-                    schema_uri,
+                    schema_base_uri,
                     self.deprecated(),
                 ));
                 return merge_adjacent_schema_completion_items(
@@ -162,7 +162,7 @@ impl FindCompletionContents for StringSchema {
                         self.title.clone(),
                         self.description.clone(),
                         edit,
-                        schema_uri,
+                        schema_base_uri,
                         self.deprecated(),
                     ));
                 }
@@ -193,14 +193,14 @@ impl FindCompletionContents for StringSchema {
                         self.title.clone(),
                         self.description.clone(),
                         edit,
-                        schema_uri,
+                        schema_base_uri,
                         self.deprecated(),
                     ));
                 }
             }
 
             completion_items.extend(
-                type_hint_string(position, schema_uri, completion_hint)
+                type_hint_string(position, schema_base_uri, completion_hint)
                     .into_iter()
                     .filter(|completion_content| {
                         self.default
@@ -230,7 +230,7 @@ impl FindCompletionContents for StringSchema {
 
 pub fn type_hint_string(
     position: tombi_text::Position,
-    schema_uri: Option<&SchemaUri>,
+    schema_base_uri: Option<&SchemaUri>,
     completion_hint: Option<CompletionHint>,
 ) -> Vec<CompletionContent> {
     [
@@ -246,7 +246,7 @@ pub fn type_hint_string(
             quote,
             detail,
             CompletionEdit::new_string_literal(quote, position, completion_hint),
-            schema_uri,
+            schema_base_uri,
         )
     })
     .collect()

@@ -1,12 +1,12 @@
-from asyncio import Future, Queue, ensure_future, sleep
-from inspect import isawaitable
-from typing import Any, AsyncIterator, Callable, Optional, Set
+"""Simple public-subscribe system"""
 
-try:
-    from asyncio import get_running_loop
-except ImportError:
-    from asyncio import get_event_loop as get_running_loop  # Python < 3.7
+from __future__ import annotations
 
+from asyncio import Future, Queue, create_task, get_running_loop, sleep
+from collections.abc import AsyncIterator, Callable
+from typing import Any
+
+from .is_awaitable import is_awaitable
 
 __all__ = ["SimplePubSub", "SimplePubSubIterator"]
 
@@ -19,7 +19,7 @@ class SimplePubSub:
     Useful for mocking a PubSub system for tests.
     """
 
-    subscribers: Set[Callable]
+    subscribers: set[Callable]
 
     def __init__(self) -> None:
         self.subscribers = set()
@@ -28,18 +28,19 @@ class SimplePubSub:
         """Emit an event."""
         for subscriber in self.subscribers:
             result = subscriber(event)
-            if isawaitable(result):
-                ensure_future(result)
+            if is_awaitable(result):
+                create_task(result)  # type: ignore # noqa: RUF006
         return bool(self.subscribers)
 
-    def get_subscriber(
-        self, transform: Optional[Callable] = None
-    ) -> "SimplePubSubIterator":
+    def get_subscriber(self, transform: Callable | None = None) -> SimplePubSubIterator:
+        """Return subscriber iterator"""
         return SimplePubSubIterator(self, transform)
 
 
 class SimplePubSubIterator(AsyncIterator):
-    def __init__(self, pubsub: SimplePubSub, transform: Optional[Callable]) -> None:
+    """Async iterator used for subscriptions."""
+
+    def __init__(self, pubsub: SimplePubSub, transform: Callable | None) -> None:
         self.pubsub = pubsub
         self.transform = transform
         self.pull_queue: Queue[Future] = Queue()
@@ -47,7 +48,7 @@ class SimplePubSubIterator(AsyncIterator):
         self.listening = True
         pubsub.subscribers.add(self.push_value)
 
-    def __aiter__(self) -> "SimplePubSubIterator":
+    def __aiter__(self) -> SimplePubSubIterator:
         return self
 
     async def __anext__(self) -> Any:
@@ -61,10 +62,12 @@ class SimplePubSubIterator(AsyncIterator):
         return future
 
     async def aclose(self) -> None:
+        """Close the iterator."""
         if self.listening:
             await self.empty_queue()
 
     async def empty_queue(self) -> None:
+        """Empty the queue."""
         self.listening = False
         self.pubsub.subscribers.remove(self.push_value)
         while not self.pull_queue.empty():
@@ -74,6 +77,7 @@ class SimplePubSubIterator(AsyncIterator):
             await self.push_queue.get()
 
     async def push_value(self, event: Any) -> None:
+        """Push a new value."""
         value = event if self.transform is None else self.transform(event)
         if self.pull_queue.empty():
             await self.push_queue.put(value)

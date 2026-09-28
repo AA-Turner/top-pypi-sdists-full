@@ -21,8 +21,8 @@ def parse_table(content: str, *, is_final: bool = False) -> TableBlockData | Non
         if len(lines) < 2:
             return None
 
-        if "|" not in lines[0]:
-            return None
+        # The header needs no pipe of its own: `Notes` over `|---|` is a one-column
+        # table (GFM); the delimiter row below decides.
         headers = _parse_row(lines[0])
         if not headers:
             return None

@@ -1,4 +1,3 @@
-from collections.abc import Mapping, Sequence
 from typing import Any, Literal, TypeAlias
 
 from typing_extensions import NotRequired, ReadOnly, TypedDict
@@ -98,4 +97,3 @@ class AnthropicMessagesResponse(TypedDict, total=False):
     type: Literal["message"] | None
     usage: AnthropicUsage | None
     context_management: NotRequired[ContextManagementResponse]
-    safeguard_results: NotRequired[ReadOnly[Sequence[Mapping[str, object]]]]

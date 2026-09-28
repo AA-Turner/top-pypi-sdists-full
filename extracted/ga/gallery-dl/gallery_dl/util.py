@@ -762,6 +762,7 @@ NONE = CustomNone()
 FLAGS = Flags()
 WINDOWS = (os.name == "nt")
 SENTINEL = object()
+SYMLINKS = False
 SUFFIXES = "KMGTPEZY"
 EXECUTABLE = getattr(sys, "frozen", False)
 SPECIAL_EXTRACTORS = {"oauth", "recursive", "generic"}

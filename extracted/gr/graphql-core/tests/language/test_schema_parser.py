@@ -1,15 +1,19 @@
+from __future__ import annotations
+
 import pickle
 from copy import deepcopy
 from textwrap import dedent
-from typing import List, Optional, Tuple
 
-from pytest import raises
+import pytest
 
 from graphql.error import GraphQLSyntaxError
 from graphql.language import (
     ArgumentNode,
     BooleanValueNode,
+    ConstDirectiveNode,
+    ConstValueNode,
     DirectiveDefinitionNode,
+    DirectiveExtensionNode,
     DirectiveNode,
     DocumentNode,
     EnumTypeDefinitionNode,
@@ -20,8 +24,9 @@ from graphql.language import (
     InterfaceTypeDefinitionNode,
     InterfaceTypeExtensionNode,
     ListTypeNode,
-    NameNode,
+    Location,
     NamedTypeNode,
+    NameNode,
     NonNullTypeNode,
     ObjectTypeDefinitionNode,
     ObjectTypeExtensionNode,
@@ -30,20 +35,31 @@ from graphql.language import (
     ScalarTypeDefinitionNode,
     SchemaDefinitionNode,
     SchemaExtensionNode,
+    Source,
     StringValueNode,
+    Token,
+    TokenKind,
     TypeNode,
     UnionTypeDefinitionNode,
-    ValueNode,
     parse,
 )
 
 from ..fixtures import kitchen_sink_sdl  # noqa: F401
 
-Location = Optional[Tuple[int, int]]
+
+def make_loc(position: tuple[int, int]) -> Location:
+    """Create a Location for testing with the given (start, end) offsets."""
+    source = Source(body="")
+    token = Token(
+        kind=TokenKind.NAME, start=position[0], end=position[1], line=1, column=1
+    )
+    return Location(start_token=token, end_token=token, source=source)
 
 
-def assert_syntax_error(text: str, message: str, location: Location) -> None:
-    with raises(GraphQLSyntaxError) as exc_info:
+def assert_syntax_error(
+    text: str, message: str, location: tuple[int, int] | None
+) -> None:
+    with pytest.raises(GraphQLSyntaxError) as exc_info:
         parse(text)
     error = exc_info.value
     assert error.message == f"Syntax Error: {message}"
@@ -51,100 +67,123 @@ def assert_syntax_error(text: str, message: str, location: Location) -> None:
     assert error.locations == [location]
 
 
-def assert_definitions(body: str, loc: Location, num=1):
+def assert_definitions(body: str, position: tuple[int, int] | None, num: int = 1):
     doc = parse(body)
     assert isinstance(doc, DocumentNode)
-    assert doc.loc == loc
+    assert doc.loc == position
     definitions = doc.definitions
     assert isinstance(definitions, tuple)
     assert len(definitions) == num
     return definitions[0] if num == 1 else definitions
 
 
-def type_node(name: str, loc: Location):
-    return NamedTypeNode(name=name_node(name, loc), loc=loc)
+def type_node(name: str, position: tuple[int, int]):
+    return NamedTypeNode(name=name_node(name, position), loc=make_loc(position))
 
 
-def name_node(name: str, loc: Location):
-    return NameNode(value=name, loc=loc)
+def name_node(name: str, position: tuple[int, int]):
+    return NameNode(value=name, loc=make_loc(position))
 
 
-def field_node(name: NameNode, type_: TypeNode, loc: Location):
-    return field_node_with_args(name, type_, [], loc)
+def field_node(name: NameNode, type_: TypeNode, position: tuple[int, int]):
+    return field_node_with_args(name, type_, None, position)
 
 
-def field_node_with_args(name: NameNode, type_: TypeNode, args: List, loc: Location):
+def field_node_with_args(
+    name: NameNode, type_: TypeNode, args: tuple | None, position: tuple[int, int]
+):
     return FieldDefinitionNode(
-        name=name, arguments=args, type=type_, directives=[], loc=loc, description=None
+        name=name,
+        arguments=args,
+        type=type_,
+        directives=None,
+        loc=make_loc(position),
+        description=None,
     )
 
 
-def non_null_type(type_: TypeNode, loc: Location):
-    return NonNullTypeNode(type=type_, loc=loc)
+def non_null_type(type_: NamedTypeNode | ListTypeNode, position: tuple[int, int]):
+    return NonNullTypeNode(type=type_, loc=make_loc(position))
 
 
-def enum_value_node(name: str, loc: Location):
+def enum_value_node(name: str, position: tuple[int, int]):
     return EnumValueDefinitionNode(
-        name=name_node(name, loc), directives=[], loc=loc, description=None
+        name=name_node(name, position),
+        directives=None,
+        loc=make_loc(position),
+        description=None,
     )
 
 
 def input_value_node(
-    name: NameNode, type_: TypeNode, default_value: Optional[ValueNode], loc: Location
+    name: NameNode,
+    type_: TypeNode,
+    default_value: ConstValueNode | None,
+    position: tuple[int, int],
 ):
     return InputValueDefinitionNode(
         name=name,
         type=type_,
         default_value=default_value,
-        directives=[],
-        loc=loc,
+        directives=None,
+        loc=make_loc(position),
         description=None,
     )
 
 
-def boolean_value_node(value: bool, loc: Location):
-    return BooleanValueNode(value=value, loc=loc)
+def boolean_value_node(value: bool, position: tuple[int, int]):
+    return BooleanValueNode(value=value, loc=make_loc(position))
 
 
-def string_value_node(value: str, block: Optional[bool], loc: Location):
-    return StringValueNode(value=value, block=block, loc=loc)
+def string_value_node(value: str, block: bool | None, position: tuple[int, int]):
+    return StringValueNode(value=value, block=block, loc=make_loc(position))
 
 
-def list_type_node(type_: TypeNode, loc: Location):
-    return ListTypeNode(type=type_, loc=loc)
+def list_type_node(type_: TypeNode, position: tuple[int, int]):
+    return ListTypeNode(type=type_, loc=make_loc(position))
 
 
 def schema_extension_node(
-    directives: List[DirectiveNode],
-    operation_types: List[OperationTypeDefinitionNode],
-    loc: Location,
+    directives: tuple[ConstDirectiveNode, ...] | None,
+    operation_types: tuple[OperationTypeDefinitionNode, ...] | None,
+    position: tuple[int, int],
 ):
     return SchemaExtensionNode(
-        directives=directives, operation_types=operation_types, loc=loc
+        directives=directives, operation_types=operation_types, loc=make_loc(position)
     )
 
 
-def operation_type_definition(operation: OperationType, type_: TypeNode, loc: Location):
-    return OperationTypeDefinitionNode(operation=operation, type=type_, loc=loc)
+def operation_type_definition(
+    operation: OperationType, type_: NamedTypeNode, position: tuple[int, int]
+):
+    return OperationTypeDefinitionNode(
+        operation=operation, type=type_, loc=make_loc(position)
+    )
 
 
-def directive_node(name: NameNode, arguments: List[ArgumentNode], loc: Location):
-    return DirectiveNode(name=name, arguments=arguments, loc=loc)
+def directive_node(
+    name: NameNode,
+    arguments: tuple[ArgumentNode, ...] | None,
+    position: tuple[int, int],
+):
+    return DirectiveNode(name=name, arguments=arguments, loc=make_loc(position))
 
 
 def describe_schema_parser():
     def simple_type():
-        body = dedent("""
+        body = dedent(
+            """
             type Hello {
               world: String
             }
-            """)
+            """
+        )
         definition = assert_definitions(body, (0, 32))
         assert isinstance(definition, ObjectTypeDefinitionNode)
         assert definition.name == name_node("Hello", (6, 11))
         assert definition.description is None
-        assert definition.interfaces == ()
-        assert definition.directives == ()
+        assert definition.interfaces is None
+        assert definition.directives is None
         assert definition.fields == (
             field_node(
                 name_node("world", (16, 21)), type_node("String", (23, 29)), (16, 29)
@@ -153,12 +192,14 @@ def describe_schema_parser():
         assert definition.loc == (1, 31)
 
     def parses_type_with_description_string():
-        body = dedent("""
+        body = dedent(
+            """
             "Description"
             type Hello {
               world: String
             }
-            """)
+            """
+        )
         definition = assert_definitions(body, (0, 46))
         assert isinstance(definition, ObjectTypeDefinitionNode)
         assert definition.name == name_node("Hello", (20, 25))
@@ -166,14 +207,16 @@ def describe_schema_parser():
         assert description == string_value_node("Description", False, (1, 14))
 
     def parses_type_with_description_multi_line_string():
-        body = dedent('''
+        body = dedent(
+            '''
             """
             Description
             """
             # Even with comments between them
             type Hello {
               world: String
-            }''')
+            }'''
+        )
         definition = assert_definitions(body, (0, 85))
         assert isinstance(definition, ObjectTypeDefinitionNode)
         assert definition.name == name_node("Hello", (60, 65))
@@ -181,12 +224,14 @@ def describe_schema_parser():
         assert description == string_value_node("Description", True, (1, 20))
 
     def parses_schema_with_description_string():
-        body = dedent("""
+        body = dedent(
+            """
             "Description"
             schema {
               query: Foo
             }
-            """)
+            """
+        )
         definition = assert_definitions(body, (0, 39))
         assert isinstance(definition, SchemaDefinitionNode)
         description = definition.description
@@ -196,16 +241,18 @@ def describe_schema_parser():
         assert_syntax_error('"Description" 1', "Unexpected Int '1'.", (1, 15))
 
     def simple_extension():
-        body = dedent("""
+        body = dedent(
+            """
             extend type Hello {
               world: String
             }
-            """)
+            """
+        )
         extension = assert_definitions(body, (0, 39))
         assert isinstance(extension, ObjectTypeExtensionNode)
         assert extension.name == name_node("Hello", (13, 18))
-        assert extension.interfaces == ()
-        assert extension.directives == ()
+        assert extension.interfaces is None
+        assert extension.directives is None
         assert extension.fields == (
             field_node(
                 name_node("world", (23, 28)), type_node("String", (30, 36)), (23, 36)
@@ -219,8 +266,8 @@ def describe_schema_parser():
         assert isinstance(extension, ObjectTypeExtensionNode)
         assert extension.name == name_node("Hello", (12, 17))
         assert extension.interfaces == (type_node("Greeting", (29, 37)),)
-        assert extension.directives == ()
-        assert extension.fields == ()
+        assert extension.directives is None
+        assert extension.fields is None
         assert extension.loc == (0, 37)
 
     def interface_extension_without_fields():
@@ -229,8 +276,8 @@ def describe_schema_parser():
         assert isinstance(extension, InterfaceTypeExtensionNode)
         assert extension.name == name_node("Hello", (17, 22))
         assert extension.interfaces == (type_node("Greeting", (34, 42)),)
-        assert extension.directives == ()
-        assert extension.fields == ()
+        assert extension.directives is None
+        assert extension.fields is None
         assert extension.loc == (0, 42)
 
     def object_extension_without_fields_followed_by_extension():
@@ -243,15 +290,15 @@ def describe_schema_parser():
         assert isinstance(extension, ObjectTypeExtensionNode)
         assert extension.name == name_node("Hello", (19, 24))
         assert extension.interfaces == (type_node("Greeting", (36, 44)),)
-        assert extension.directives == ()
-        assert extension.fields == ()
+        assert extension.directives is None
+        assert extension.fields is None
         assert extension.loc == (7, 44)
         extension = extensions[1]
         assert isinstance(extension, ObjectTypeExtensionNode)
         assert extension.name == name_node("Hello", (64, 69))
         assert extension.interfaces == (type_node("SecondGreeting", (81, 95)),)
-        assert extension.directives == ()
-        assert extension.fields == ()
+        assert extension.directives is None
+        assert extension.fields is None
         assert extension.loc == (52, 95)
 
     def extension_without_anything_throws():
@@ -272,15 +319,15 @@ def describe_schema_parser():
         assert isinstance(extension, InterfaceTypeExtensionNode)
         assert extension.name == name_node("Hello", (24, 29))
         assert extension.interfaces == (type_node("Greeting", (41, 49)),)
-        assert extension.directives == ()
-        assert extension.fields == ()
+        assert extension.directives is None
+        assert extension.fields is None
         assert extension.loc == (7, 49)
         extension = extensions[1]
         assert isinstance(extension, InterfaceTypeExtensionNode)
         assert extension.name == name_node("Hello", (74, 79))
         assert extension.interfaces == (type_node("SecondGreeting", (91, 105)),)
-        assert extension.directives == ()
-        assert extension.fields == ()
+        assert extension.directives is None
+        assert extension.fields is None
         assert extension.loc == (57, 105)
 
     def object_extension_do_not_include_descriptions():
@@ -290,7 +337,7 @@ def describe_schema_parser():
             extend type Hello {
               world: String
             }""",
-            "Unexpected description," " only GraphQL definitions support descriptions.",
+            "Unexpected description, only GraphQL definitions support descriptions.",
             (2, 13),
         )
         assert_syntax_error(
@@ -309,7 +356,7 @@ def describe_schema_parser():
             extend interface Hello {
               world: String
             }""",
-            "Unexpected description," " only GraphQL definitions support descriptions.",
+            "Unexpected description, only GraphQL definitions support descriptions.",
             (2, 13),
         )
         assert_syntax_error(
@@ -331,14 +378,14 @@ def describe_schema_parser():
         assert doc.loc == (0, 75)
         assert doc.definitions == (
             schema_extension_node(
-                [],
-                [
+                None,
+                (
                     operation_type_definition(
                         OperationType.MUTATION,
                         type_node("Mutation", (53, 61)),
                         (43, 61),
-                    )
-                ],
+                    ),
+                ),
                 (13, 75),
             ),
         )
@@ -350,8 +397,8 @@ def describe_schema_parser():
         assert doc.loc == (0, 24)
         assert doc.definitions == (
             schema_extension_node(
-                [directive_node(name_node("directive", (15, 24)), [], (14, 24))],
-                [],
+                (directive_node(name_node("directive", (15, 24)), None, (14, 24)),),
+                None,
                 (0, 24),
             ),
         )
@@ -365,17 +412,19 @@ def describe_schema_parser():
         )
 
     def simple_non_null_type():
-        body = dedent("""
+        body = dedent(
+            """
             type Hello {
               world: String!
             }
-            """)
+            """
+        )
         definition = assert_definitions(body, (0, 33))
         assert isinstance(definition, ObjectTypeDefinitionNode)
         assert definition.name == name_node("Hello", (6, 11))
         assert definition.description is None
-        assert definition.interfaces == ()
-        assert definition.directives == ()
+        assert definition.interfaces is None
+        assert definition.directives is None
         assert definition.fields == (
             field_node(
                 name_node("world", (16, 21)),
@@ -392,7 +441,7 @@ def describe_schema_parser():
         assert definition.name == name_node("Hello", (10, 15))
         assert definition.description is None
         assert definition.interfaces == (type_node("World", (27, 32)),)
-        assert definition.directives == ()
+        assert definition.directives is None
         assert definition.fields == (
             field_node(
                 name_node("field", (35, 40)), type_node("String", (42, 48)), (35, 48)
@@ -407,7 +456,7 @@ def describe_schema_parser():
         assert definition.name == name_node("Hello", (5, 10))
         assert definition.description is None
         assert definition.interfaces == (type_node("World", (22, 27)),)
-        assert definition.directives == ()
+        assert definition.directives is None
         assert definition.fields == (
             field_node(
                 name_node("field", (30, 35)), type_node("String", (37, 43)), (30, 43)
@@ -425,7 +474,7 @@ def describe_schema_parser():
             type_node("Wo", (22, 24)),
             type_node("rld", (27, 30)),
         )
-        assert definition.directives == ()
+        assert definition.directives is None
         assert definition.fields == (
             field_node(
                 name_node("field", (33, 38)), type_node("String", (40, 46)), (33, 46)
@@ -443,7 +492,7 @@ def describe_schema_parser():
             type_node("Wo", (27, 29)),
             type_node("rld", (32, 35)),
         )
-        assert definition.directives == ()
+        assert definition.directives is None
         assert definition.fields == (
             field_node(
                 name_node("field", (38, 43)), type_node("String", (45, 51)), (38, 51)
@@ -461,7 +510,7 @@ def describe_schema_parser():
             type_node("Wo", (24, 26)),
             type_node("rld", (29, 32)),
         )
-        assert definition.directives == ()
+        assert definition.directives is None
         assert definition.fields == (
             field_node(
                 name_node("field", (35, 40)), type_node("String", (42, 48)), (35, 48)
@@ -479,7 +528,7 @@ def describe_schema_parser():
             type_node("Wo", (29, 31)),
             type_node("rld", (34, 37)),
         )
-        assert definition.directives == ()
+        assert definition.directives is None
         assert definition.fields == (
             field_node(
                 name_node("field", (40, 45)), type_node("String", (47, 53)), (40, 53)
@@ -493,7 +542,7 @@ def describe_schema_parser():
         assert isinstance(definition, EnumTypeDefinitionNode)
         assert definition.name == name_node("Hello", (5, 10))
         assert definition.description is None
-        assert definition.directives == ()
+        assert definition.directives is None
         assert definition.values == (enum_value_node("WORLD", (13, 18)),)
         assert definition.loc == (0, 20)
 
@@ -503,7 +552,7 @@ def describe_schema_parser():
         assert isinstance(definition, EnumTypeDefinitionNode)
         assert definition.name == name_node("Hello", (5, 10))
         assert definition.description is None
-        assert definition.directives == ()
+        assert definition.directives is None
         assert definition.values == (
             enum_value_node("WO", (13, 15)),
             enum_value_node("RLD", (17, 20)),
@@ -511,17 +560,19 @@ def describe_schema_parser():
         assert definition.loc == (0, 22)
 
     def simple_interface():
-        body = dedent("""
+        body = dedent(
+            """
             interface Hello {
               world: String
             }
-            """)
+            """
+        )
         definition = assert_definitions(body, (0, 37))
         assert isinstance(definition, InterfaceTypeDefinitionNode)
         assert definition.name == name_node("Hello", (11, 16))
         assert definition.description is None
-        assert definition.interfaces == ()
-        assert definition.directives == ()
+        assert definition.interfaces is None
+        assert definition.directives is None
         assert definition.fields == (
             field_node(
                 name_node("world", (21, 26)), type_node("String", (28, 34)), (21, 34)
@@ -530,109 +581,117 @@ def describe_schema_parser():
         assert definition.loc == (1, 36)
 
     def simple_field_with_arg():
-        body = dedent("""
+        body = dedent(
+            """
             type Hello {
               world(flag: Boolean): String
             }
-            """)
+            """
+        )
         definition = assert_definitions(body, (0, 47))
         assert isinstance(definition, ObjectTypeDefinitionNode)
         assert definition.name == name_node("Hello", (6, 11))
         assert definition.description is None
-        assert definition.interfaces == ()
-        assert definition.directives == ()
+        assert definition.interfaces is None
+        assert definition.directives is None
         assert definition.fields == (
             field_node_with_args(
                 name_node("world", (16, 21)),
                 type_node("String", (38, 44)),
-                [
+                (
                     input_value_node(
                         name_node("flag", (22, 26)),
                         type_node("Boolean", (28, 35)),
                         None,
                         (22, 35),
-                    )
-                ],
+                    ),
+                ),
                 (16, 44),
             ),
         )
         assert definition.loc == (1, 46)
 
     def simple_field_with_arg_with_default_value():
-        body = dedent("""
+        body = dedent(
+            """
             type Hello {
               world(flag: Boolean = true): String
             }
-            """)
+            """
+        )
         definition = assert_definitions(body, (0, 54))
         assert isinstance(definition, ObjectTypeDefinitionNode)
         assert definition.name == name_node("Hello", (6, 11))
         assert definition.description is None
-        assert definition.interfaces == ()
-        assert definition.directives == ()
+        assert definition.interfaces is None
+        assert definition.directives is None
         assert definition.fields == (
             field_node_with_args(
                 name_node("world", (16, 21)),
                 type_node("String", (45, 51)),
-                [
+                (
                     input_value_node(
                         name_node("flag", (22, 26)),
                         type_node("Boolean", (28, 35)),
                         boolean_value_node(True, (38, 42)),
                         (22, 42),
-                    )
-                ],
+                    ),
+                ),
                 (16, 51),
             ),
         )
         assert definition.loc == (1, 53)
 
     def simple_field_with_list_arg():
-        body = dedent("""
+        body = dedent(
+            """
             type Hello {
               world(things: [String]): String
             }
-            """)
+            """
+        )
         definition = assert_definitions(body, (0, 50))
         assert isinstance(definition, ObjectTypeDefinitionNode)
         assert definition.name == name_node("Hello", (6, 11))
         assert definition.description is None
-        assert definition.interfaces == ()
-        assert definition.directives == ()
+        assert definition.interfaces is None
+        assert definition.directives is None
         assert definition.fields == (
             field_node_with_args(
                 name_node("world", (16, 21)),
                 type_node("String", (41, 47)),
-                [
+                (
                     input_value_node(
                         name_node("things", (22, 28)),
                         list_type_node(type_node("String", (31, 37)), (30, 38)),
                         None,
                         (22, 38),
-                    )
-                ],
+                    ),
+                ),
                 (16, 47),
             ),
         )
         assert definition.loc == (1, 49)
 
     def simple_field_with_two_args():
-        body = dedent("""
+        body = dedent(
+            """
           type Hello {
             world(argOne: Boolean, argTwo: Int): String
           }
-          """)
+          """
+        )
         definition = assert_definitions(body, (0, 62))
         assert isinstance(definition, ObjectTypeDefinitionNode)
         assert definition.name == name_node("Hello", (6, 11))
         assert definition.description is None
-        assert definition.interfaces == ()
-        assert definition.directives == ()
+        assert definition.interfaces is None
+        assert definition.directives is None
         assert definition.fields == (
             field_node_with_args(
                 name_node("world", (16, 21)),
                 type_node("String", (53, 59)),
-                [
+                (
                     input_value_node(
                         name_node("argOne", (22, 28)),
                         type_node("Boolean", (30, 37)),
@@ -645,7 +704,7 @@ def describe_schema_parser():
                         None,
                         (39, 50),
                     ),
-                ],
+                ),
                 (16, 59),
             ),
         )
@@ -657,7 +716,7 @@ def describe_schema_parser():
         assert isinstance(definition, UnionTypeDefinitionNode)
         assert definition.name == name_node("Hello", (6, 11))
         assert definition.description is None
-        assert definition.directives == ()
+        assert definition.directives is None
         assert definition.types == (type_node("World", (14, 19)),)
         assert definition.loc == (0, 19)
 
@@ -667,7 +726,7 @@ def describe_schema_parser():
         assert isinstance(definition, UnionTypeDefinitionNode)
         assert definition.name == name_node("Hello", (6, 11))
         assert definition.description is None
-        assert definition.directives == ()
+        assert definition.directives is None
         assert definition.types == (
             type_node("Wo", (14, 16)),
             type_node("Rld", (19, 22)),
@@ -679,7 +738,7 @@ def describe_schema_parser():
         definition = assert_definitions(body, (0, 24))
         assert isinstance(definition, UnionTypeDefinitionNode)
         assert definition.name == name_node("Hello", (6, 11))
-        assert definition.directives == ()
+        assert definition.directives is None
         assert definition.types == (
             type_node("Wo", (16, 18)),
             type_node("Rld", (21, 24)),
@@ -710,7 +769,7 @@ def describe_schema_parser():
         assert isinstance(definition, ScalarTypeDefinitionNode)
         assert definition.name == name_node("Hello", (7, 12))
         assert definition.description is None
-        assert definition.directives == ()
+        assert definition.directives is None
 
         assert definition.loc == (0, 12)
 
@@ -720,7 +779,7 @@ def describe_schema_parser():
         assert isinstance(definition, InputObjectTypeDefinitionNode)
         assert definition.name == name_node("Hello", (7, 12))
         assert definition.description is None
-        assert definition.directives == ()
+        assert definition.directives is None
         assert definition.fields == (
             input_value_node(
                 name_node("world", (17, 22)),
@@ -744,8 +803,8 @@ def describe_schema_parser():
         assert isinstance(definition, DirectiveDefinitionNode)
         assert definition.name == name_node("foo", (11, 14))
         assert definition.description is None
-        assert definition.arguments == ()
-        assert definition.directives == ()
+        assert definition.arguments is None
+        assert definition.directives is None
         assert definition.repeatable is False
         assert definition.locations == (
             name_node("OBJECT", (18, 24)),
@@ -758,20 +817,24 @@ def describe_schema_parser():
         assert isinstance(definition, DirectiveDefinitionNode)
         assert definition.name == name_node("foo", (11, 14))
         assert definition.description is None
-        assert definition.arguments == ()
-        assert definition.directives == ()
+        assert definition.arguments is None
+        assert definition.directives is None
         assert definition.repeatable is True
         assert definition.locations == (
             name_node("OBJECT", (29, 35)),
             name_node("INTERFACE", (38, 47)),
         )
 
-    def directive_definition_extensions_require_the_experimental_flag():
-        assert_syntax_error(
-            "extend directive @foo @bar",
-            "Unexpected Name 'directive'.",
-            (1, 8),
+    def directive_extension():
+        doc = parse("extend directive @foo @bar")
+        assert isinstance(doc, DocumentNode)
+        definition = doc.definitions[0]
+        assert isinstance(definition, DirectiveExtensionNode)
+        assert definition.name == name_node("foo", (18, 21))
+        assert definition.directives == (
+            directive_node(name_node("bar", (23, 26)), None, (22, 26)),
         )
+        assert definition.loc == (0, 26)
 
     def directive_with_incorrect_locations():
         assert_syntax_error(

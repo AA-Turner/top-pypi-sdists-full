@@ -1,7 +1,7 @@
 use std::borrow::Cow;
 
 use tombi_future::Boxable;
-use tombi_schema_store::{Accessor, CurrentSchema, SchemaContext, SchemaUri};
+use tombi_schema_store::{Accessor, CurrentSchema, SchemaContext};
 
 use super::CompositeKind;
 use crate::{HoverContent, hover::display_value::GetEnum};
@@ -16,9 +16,7 @@ pub fn get_any_of_hover_content<'a: 'b, 'b, T>(
     keys: &'a [tombi_document_tree_syntax::Key],
     accessors: &'a [tombi_schema_store::Accessor],
     any_of_schema: &'a tombi_schema_store::AnyOfSchema,
-    schema_uri: &'a SchemaUri,
-    definitions: &'a tombi_schema_store::SchemaDefinitions,
-    strict: Option<tombi_schema_type::BoolDefaultTrue>,
+    current_schema: &'a CurrentSchema<'a>,
     schema_context: &'a SchemaContext,
 ) -> tombi_future::BoxFuture<'b, Option<HoverContent>>
 where
@@ -33,7 +31,7 @@ where
     log::trace!("keys = {:?}", keys);
     log::trace!("accessors = {:?}", accessors);
     log::trace!("any_of_schema = {:?}", any_of_schema);
-    log::trace!("schema_uri = {:?}", schema_uri);
+    log::trace!("schema_base_uri = {:?}", current_schema.schema_base_uri);
 
     async move {
         let mut hover_value_contents = vec![];
@@ -42,14 +40,15 @@ where
             .as_ref()
             .and_then(|default| DisplayValue::try_from(default).ok());
 
-        let resolved_schemas = tombi_schema_store::resolve_and_collect_schemas(
+        let resolved_schemas = tombi_schema_store::resolve_and_collect_schemas_in_scope(
             &any_of_schema.schemas,
-            Cow::Borrowed(schema_uri),
-            Cow::Borrowed(definitions),
-            strict,
+            Cow::Borrowed(current_schema.schema_base_uri.as_ref()),
+            Cow::Borrowed(current_schema.definitions.as_ref()),
+            current_schema.strict,
             schema_context.store,
             &schema_context.schema_visits,
             accessors,
+            Some(&current_schema.dynamic_scope),
         )
         .await?;
         let value_type = any_of_schema.value_type().await;
@@ -114,12 +113,7 @@ where
                         && let Some(enum_values) = resolved_schema
                             .schema_view
                             .as_ref()
-                            .get_enum(
-                                &resolved_schema.schema_uri,
-                                &resolved_schema.definitions,
-                                resolved_schema.strict,
-                                schema_context,
-                            )
+                            .get_enum(resolved_schema, schema_context)
                             .await
                     {
                         hover_value_content
@@ -152,14 +146,22 @@ where
             accessors: tombi_schema_store::Accessors::from(accessors.to_vec()),
             value_type: value.value_type().into(),
             constraints: None,
-            schema_uri: Some(super::schema_link_uri(schema_uri, any_of_schema.range)),
+            schema_document_uri: Some(super::schema_link_uri(
+                current_schema.schema_document_uri.as_ref(),
+                any_of_schema.range,
+            )),
             range: None,
             schema_tooltip: None,
         });
         super::inherit_matching_nullable_type(&value_type, &mut hover_value_content.value_type);
         hover_value_content
-            .schema_uri
-            .get_or_insert_with(|| super::schema_link_uri(schema_uri, any_of_schema.range));
+            .schema_document_uri
+            .get_or_insert_with(|| {
+                super::schema_link_uri(
+                    current_schema.schema_document_uri.as_ref(),
+                    any_of_schema.range,
+                )
+            });
 
         if let Some(default) = default {
             if let Some(constraints) = hover_value_content.constraints.as_mut() {
@@ -198,14 +200,15 @@ impl GetHoverContent for tombi_schema_store::AnyOfSchema {
                 .as_ref()
                 .and_then(|default| DisplayValue::try_from(default).ok());
 
-            let resolved_schemas = tombi_schema_store::resolve_and_collect_schemas(
+            let resolved_schemas = tombi_schema_store::resolve_and_collect_schemas_in_scope(
                 &self.schemas,
-                current_schema.schema_uri.clone(),
+                current_schema.schema_base_uri.clone(),
                 current_schema.definitions.clone(),
                 current_schema.strict,
                 schema_context.store,
                 &schema_context.schema_visits,
                 accessors,
+                Some(&current_schema.dynamic_scope),
             )
             .await?;
 
@@ -229,7 +232,7 @@ impl GetHoverContent for tombi_schema_store::AnyOfSchema {
                         accessors: tombi_schema_store::Accessors::from(accessors.to_vec()),
                         value_type,
                         constraints: None,
-                        schema_uri: super::current_schema_link_uri(Some(current_schema)),
+                        schema_document_uri: super::current_schema_link_uri(Some(current_schema)),
                         range: None,
                         schema_tooltip: None,
                     });

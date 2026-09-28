@@ -21,13 +21,16 @@ from ._document_primitives import (
     _children_by_local,
     _clear_paragraph_layout_cache,
     _is_tab_control_element,
+    _text_element_content,
     _normalize_enum_attr,
     _object_id,
     _sanitize_text,
     NEW_NUM_KINDS,
 )
 from .namespaces import XML_NS, tag_local_name
+from .drop_cap import _paragraph_add_drop_cap
 from .dutmal_compose import _paragraph_add_composed_character, _paragraph_add_dutmal
+from .hyperlink_form import HYPERLINK_FIELD_ID, hyperlink_char_pr, hyperlink_parameters, hyperlink_target
 from .field_marks import (
     _paragraph_add_date_field,
     _paragraph_add_mail_merge_field,
@@ -40,7 +43,12 @@ from .note_authoring import (
     _paragraph_endnotes,
     _paragraph_footnotes,
 )
-from ._paragraph_text_edit import edit_node_candidates, plain_text_nodes_for_edit
+from ._paragraph_text_edit import (
+    edit_node_candidates,
+    paragraph_container,
+    plain_text_nodes_for_edit,
+    remove_paragraph_element,
+)
 from .objects import (
     HwpxOxmlInlineObject,
     _create_picture_element,
@@ -92,7 +100,9 @@ class HwpxOxmlParagraph:
     def apply_model(self, model: "body.Paragraph") -> None:
         new_node = body.serialize_paragraph(model)
         xml_bytes = LET.tostring(new_node)
-        parent = self.section.element
+        parent = paragraph_container(self.element, self.section.element)
+        if parent is None:
+            parent = self.section.element
         if isinstance(parent, LET._Element):
             replacement = LET.fromstring(xml_bytes)
         else:
@@ -299,8 +309,7 @@ class HwpxOxmlParagraph:
         for run in self._run_elements():
             for child in run:
                 if tag_local_name(child.tag) == "t":
-                    if child.text:
-                        texts.append(child.text)
+                    texts.append(_text_element_content(child))
                 elif tag_local_name(child.tag) == "tab" or _is_tab_control_element(child):
                     texts.append("\t")
         return "".join(texts)
@@ -392,24 +401,17 @@ class HwpxOxmlParagraph:
         self.section.mark_dirty()
 
     def remove(self) -> None:
-        """Remove this paragraph from its parent section.
+        """Remove this paragraph from the section, table cell, header or footer holding it.
 
-        After removal, the paragraph wrapper should no longer be used.
-        Raises ``ValueError`` if the section would become empty (HWPX
-        requires at least one ``<hp:p>`` per section).
+        After removal, the paragraph wrapper should no longer be used, and a
+        second call does nothing. Raises :class:`~hwpx.errors.HwpxValueError`
+        (a ``ValueError``, ``code="paragraph-remove-last"``) if that container
+        would be left without a paragraph: HWPX needs at least one ``<hp:p>``
+        per section, and Hancom cannot open a cell, header or footer whose
+        paragraph list is empty.
         """
-        parent = self.section.element
-        siblings = parent.findall(f"{_HP}p")
-        if len(siblings) <= 1:
-            raise ValueError(
-                "섹션에는 최소 하나의 단락이 필요합니다. "
-                "마지막 단락은 삭제할 수 없습니다."
-            )
-        try:
-            parent.remove(self.element)
-        except ValueError:  # pragma: no cover – defensive
-            return
-        self.section.mark_dirty()
+        if remove_paragraph_element(self.element, self.section.element):
+            self.section.mark_dirty()
 
     def _create_run_for_object(
         self,
@@ -556,7 +558,7 @@ class HwpxOxmlParagraph:
             return None
         if page.width <= 0:
             return None
-        usable = page.width - margins.left - margins.right - margins.gutter
+        usable = page.drawn_width - margins.left - margins.right - margins.gutter
         return usable if usable > 0 else None
 
     def add_table(
@@ -799,11 +801,11 @@ class HwpxOxmlParagraph:
         )
         ctrl = _append_child(run, f"{_HP}ctrl", {})
         col_pr_attrs: dict[str, str] = {
-            "id": _object_id(),
+            "id": "",
             "type": col_type,
             "layout": layout,
             "colCount": str(col_count),
-            "sameSz": str(same_size).lower(),
+            "sameSz": "1" if same_size else "0",
             "sameGap": str(same_gap) if same_size else "0",
         }
         col_pr = _append_child(ctrl, f"{_HP}colPr", col_pr_attrs)
@@ -862,8 +864,11 @@ class HwpxOxmlParagraph:
         """Insert a hyperlink spanning three runs: fieldBegin, text, fieldEnd.
 
         Args:
-            url: The target URL or bookmark reference.
-            display_text: The visible text for the hyperlink.
+            url: The target URL, a ``mailto:`` address, or ``#name`` for the
+                bookmark ``name``. It is written where Hancom reads it, the
+                field's ``Command``/``Path`` parameters (``hyperlink_form``),
+                and kept in ``@name`` for older readers.
+            display_text: The visible text in the paragraph's look, blue and underlined as Hancom writes links, unless char_pr_id_ref is given.
 
         Returns:
             The ``<hp:ctrl>`` element wrapping the ``<hp:fieldBegin>``.
@@ -879,20 +884,27 @@ class HwpxOxmlParagraph:
             "id": field_id,
             "type": "HYPERLINK",
             "name": url,
-            "editable": "false",
-            "dirty": "false",
+            "editable": "0",
+            "dirty": "0",
+            "zorder": "-1",
+            "fieldid": HYPERLINK_FIELD_ID,
         }
-        _append_child(ctrl1, f"{_HP}fieldBegin", fb_attrs)
+        begin = _append_child(ctrl1, f"{_HP}fieldBegin", fb_attrs)
+        params = hyperlink_parameters(url)
+        holder = _append_child(begin, f"{_HP}parameters", {"cnt": str(len(params)), "name": ""})
+        for kind, name, text in params:
+            _append_child(holder, f"{_HP}{kind}", {"name": name}).text = text
 
         # Run 2: visible text content
-        run2 = self._create_run_for_object(char_pr_id_ref=char_pr_id_ref)
+        link_style = hyperlink_char_pr(self.section, char_pr_id_ref, self.char_pr_id_ref or "0")
+        run2 = self._create_run_for_object(char_pr_id_ref=link_style)
         t = _append_child(run2, f"{_HP}t", {})
         t.text = _sanitize_text(display_text)
 
         # Run 3: fieldEnd
         run3 = self._create_run_for_object()
         ctrl3 = _append_child(run3, f"{_HP}ctrl", {})
-        _append_child(ctrl3, f"{_HP}fieldEnd", {"beginIDRef": field_id})
+        _append_child(ctrl3, f"{_HP}fieldEnd", {"beginIDRef": field_id, "fieldid": HYPERLINK_FIELD_ID})
 
         self.section.mark_dirty()
         return HwpxOxmlInlineObject(ctrl1, self)
@@ -1039,7 +1051,7 @@ class HwpxOxmlParagraph:
     ) -> HwpxOxmlInlineObject:
         """Insert ``<hp:ctrl><hp:pageHiding .../></hp:ctrl>``.
 
-        Hides the named page elements from this paragraph's page onward
+        Hides the named page elements on this paragraph's page only
         (``ParaList XML schema.xml:148-163`` — six independent booleans, all
         default ``false``/unhidden). Matches real corpus (hwpxlib_corpus, 4
         files) sibling placement: its own dedicated ``hp:ctrl``, typically
@@ -1136,39 +1148,7 @@ class HwpxOxmlParagraph:
         self.section.mark_dirty()
         return HwpxOxmlInlineObject(chart, self)
 
-    def add_drop_cap(
-        self,
-        character: str,
-        *,
-        width: int,
-        height: int,
-        style: str = "TripleLine",
-        char_pr_id_ref: str | int | None = None,
-        para_pr_id_ref: str | int | None = None,
-        run_attributes: dict[str, str] | None = None,
-    ) -> HwpxOxmlInlineObject:
-        """Insert a real-Hancom-shaped drop cap (문단 첫 글자 장식).
-
-        Element construction lives in :mod:`.drop_cap` (real-corpus reverse
-        engineering, ``TripleLine``-only v1 scope -- see that module's own
-        docstring). This method only wires the built element into this
-        paragraph's run, matching :meth:`add_chart`'s own thin-wiring shape.
-        """
-
-        from .drop_cap import create_drop_cap_element
-
-        run = self._create_run_for_object(run_attributes, char_pr_id_ref=char_pr_id_ref)
-        drop_cap = create_drop_cap_element(
-            width, height, character,
-            style=style, char_pr_id_ref=char_pr_id_ref, para_pr_id_ref=para_pr_id_ref,
-        )
-        # Ensure element type matches the run type (lxml vs stdlib ET) --
-        # same bridge _paragraph_insert_shape_element uses.
-        if type(drop_cap) is not type(run):
-            drop_cap = LET.fromstring(ET.tostring(drop_cap, encoding="utf-8"))
-        run.append(drop_cap)
-        self.section.mark_dirty()
-        return HwpxOxmlInlineObject(drop_cap, self)
+    add_drop_cap = _paragraph_add_drop_cap
 
     def add_equation(
         self,
@@ -1191,20 +1171,18 @@ class HwpxOxmlParagraph:
             script: EqEdit script stored verbatim (e.g. ``{a} over {b}``).
             base_unit: Equation base font size in 1/100 pt (gold: 1100/1200).
             size: Optional explicit ``(width, height)`` HWPUNIT pair for
-                ``<hp:sz>``; when omitted a proportional placeholder is
-                written — Hancom re-measures on open (P0 evidence).
+                ``<hp:sz>``; when omitted the box is measured from the script.
+                Hancom lays the page out with the stored box on open.
         """
         text = script.strip()
         if not text:
             raise ValueError("equation script must be a non-empty string")
         if base_unit <= 0:
             raise ValueError("base_unit must be positive")
-        if size is None:
-            visible = len(text.replace("{", "").replace("}", "").replace(" ", ""))
-            width = int(base_unit * 0.45 * max(6, visible))
-            height = int(base_unit * 2.5)
-        else:
-            width, height = size
+        from ..equation.measure import measure_equation
+
+        measured = measure_equation(text, base_unit=base_unit)
+        width, height = size if size is not None else (measured.width, measured.height)
         run = self._create_run_for_object(
             run_attributes, char_pr_id_ref=char_pr_id_ref
         )
@@ -1217,7 +1195,7 @@ class HwpxOxmlParagraph:
             "lock": "0",
             "dropcapstyle": "None",
             "version": "Equation Version 60",
-            "baseLine": str(max(1, round(base_unit * 69 / 1200))),
+            "baseLine": str(measured.base_line),
             "textColor": "#000000",
             "baseUnit": str(base_unit),
             "lineMode": "CHAR",
@@ -1456,8 +1434,8 @@ class HwpxOxmlParagraph:
     def hyperlinks(self) -> list[dict[str, str]]:
         """Return metadata for all hyperlinks in this paragraph.
 
-        Each dict has ``id``, ``url`` (from the ``name`` attribute),
-        and ``type`` keys.
+        Each dict has ``id``, ``url`` (the target: ``Path``, else ``Command``,
+        else ``@name`` -- see ``hyperlink_form.hyperlink_target``) and ``type``.
         """
         result: list[dict[str, str]] = []
         for run in self._run_elements():
@@ -1466,7 +1444,7 @@ class HwpxOxmlParagraph:
                     if fb.get("type") == "HYPERLINK":
                         result.append({
                             "id": fb.get("id", ""),
-                            "url": fb.get("name", ""),
+                            "url": hyperlink_target(fb),
                             "type": fb.get("type", ""),
                         })
         return result
@@ -1488,12 +1466,17 @@ class HwpxOxmlParagraph:
         if value is None:
             if "paraPrIDRef" in self.element.attrib:
                 del self.element.attrib["paraPrIDRef"]
+                _clear_paragraph_layout_cache(self.element)
                 self.section.mark_dirty()
             return
 
         new_value = str(value)
         if self.element.get("paraPrIDRef") != new_value:
             self.element.set("paraPrIDRef", new_value)
+            # A new paragraph shape changes line spacing, indents and alignment.
+            # Hancom takes the line heights from the cached layout, so a kept
+            # cache would draw the old line spacing.
+            _clear_paragraph_layout_cache(self.element)
             self.section.mark_dirty()
 
     @property

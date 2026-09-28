@@ -1,14 +1,16 @@
 from typing import Any
 
-from pytest import raises
+import pytest
 
 from graphql.language import DirectiveLocation
 from graphql.type import (
     GraphQLArgument,
-    GraphQLDeprecatedDirective,
     GraphQLBoolean,
+    GraphQLDefaultInput,
+    GraphQLDeprecatedDirective,
     GraphQLDirective,
     GraphQLEnumType,
+    GraphQLField,
     GraphQLFloat,
     GraphQLID,
     GraphQLIncludeDirective,
@@ -20,13 +22,18 @@ from graphql.type import (
     GraphQLNonNull,
     GraphQLObjectType,
     GraphQLScalarType,
+    GraphQLSchema,
     GraphQLSkipDirective,
     GraphQLString,
     GraphQLUnionType,
     assert_abstract_type,
+    assert_argument,
     assert_composite_type,
     assert_directive,
     assert_enum_type,
+    assert_enum_value,
+    assert_field,
+    assert_input_field,
     assert_input_object_type,
     assert_input_type,
     assert_interface_type,
@@ -38,28 +45,34 @@ from graphql.type import (
     assert_object_type,
     assert_output_type,
     assert_scalar_type,
+    assert_schema,
     assert_type,
     assert_union_type,
     assert_wrapping_type,
     get_named_type,
     get_nullable_type,
     is_abstract_type,
+    is_argument,
     is_composite_type,
     is_directive,
     is_enum_type,
+    is_enum_value,
+    is_field,
+    is_input_field,
     is_input_object_type,
     is_input_type,
     is_interface_type,
     is_leaf_type,
     is_list_type,
     is_named_type,
-    is_required_argument,
-    is_required_input_field,
     is_non_null_type,
     is_nullable_type,
     is_object_type,
     is_output_type,
+    is_required_argument,
+    is_required_input_field,
     is_scalar_type,
+    is_schema,
     is_specified_directive,
     is_specified_scalar_type,
     is_type,
@@ -67,11 +80,16 @@ from graphql.type import (
     is_wrapping_type,
 )
 
-ObjectType = GraphQLObjectType("Object", {})
+ObjectType = GraphQLObjectType(
+    "Object",
+    {"f": GraphQLField(GraphQLString, args={"a": GraphQLArgument(GraphQLString)})},
+)
 InterfaceType = GraphQLInterfaceType("Interface", {})
 UnionType = GraphQLUnionType("Union", types=[ObjectType])
 EnumType = GraphQLEnumType("Enum", values={"foo": {}})
-InputObjectType = GraphQLInputObjectType("InputObject", {})
+InputObjectType = GraphQLInputObjectType(
+    "InputObject", {"f": GraphQLInputField(GraphQLString)}
+)
 ScalarType = GraphQLScalarType("Scalar")
 Directive = GraphQLDirective("Directive", [DirectiveLocation.QUERY])
 
@@ -90,12 +108,12 @@ def describe_type_predicates():
 
         def returns_false_for_type_classes_rather_than_instance():
             assert is_type(GraphQLObjectType) is False
-            with raises(TypeError):
+            with pytest.raises(TypeError):
                 assert_type(GraphQLObjectType)
 
         def returns_false_for_random_garbage():
             assert is_type({"what": "is this"}) is False
-            with raises(TypeError):
+            with pytest.raises(TypeError):
                 assert_type({"what": "is this"})
 
     def describe_is_scalar_type():
@@ -109,28 +127,28 @@ def describe_type_predicates():
 
         def returns_false_for_scalar_class_rather_than_instance():
             assert is_scalar_type(GraphQLScalarType) is False
-            with raises(TypeError):
+            with pytest.raises(TypeError):
                 assert_scalar_type(GraphQLScalarType)
 
         def returns_false_for_wrapped_scalar():
             assert is_scalar_type(GraphQLList(ScalarType)) is False
-            with raises(TypeError):
+            with pytest.raises(TypeError):
                 assert_scalar_type(GraphQLList(ScalarType))
 
         def returns_false_for_non_scalar():
             assert is_scalar_type(EnumType) is False
-            with raises(TypeError):
+            with pytest.raises(TypeError):
                 assert_scalar_type(EnumType)
             assert is_scalar_type(Directive) is False
-            with raises(TypeError):
+            with pytest.raises(TypeError):
                 assert_scalar_type(Directive)
 
         def returns_false_for_random_garbage():
             assert is_scalar_type(None) is False
-            with raises(TypeError):
+            with pytest.raises(TypeError):
                 assert_scalar_type(None)
             assert is_scalar_type({"what": "is this"}) is False
-            with raises(TypeError):
+            with pytest.raises(TypeError):
                 assert_scalar_type({"what": "is this"})
 
     def describe_is_specified_scalar_type():
@@ -148,13 +166,37 @@ def describe_type_predicates():
 
         def returns_false_for_wrapped_object_type():
             assert is_object_type(GraphQLList(ObjectType)) is False
-            with raises(TypeError):
+            with pytest.raises(TypeError):
                 assert_object_type(GraphQLList(ObjectType))
 
         def returns_false_for_non_object_type():
             assert is_scalar_type(InterfaceType) is False
-            with raises(TypeError):
+            with pytest.raises(TypeError):
                 assert_scalar_type(InterfaceType)
+
+    def describe_is_field():
+        def returns_true_for_fields():
+            f = ObjectType.fields["f"]
+            assert is_field(f) is True
+            assert_field(f)
+
+        def returns_false_for_non_field():
+            input_field = InputObjectType.fields["f"]
+            assert is_field(input_field) is False
+            with pytest.raises(TypeError):
+                assert_field(input_field)
+
+    def describe_is_argument():
+        def returns_true_for_arguments():
+            a = ObjectType.fields["f"].args["a"]
+            assert is_argument(a) is True
+            assert_argument(a)
+
+        def returns_false_for_non_arguments():
+            f = ObjectType.fields["f"]
+            assert is_argument(f) is False
+            with pytest.raises(TypeError):
+                assert_argument(f)
 
     def describe_is_interface_type():
         def returns_true_for_interface_type():
@@ -163,12 +205,12 @@ def describe_type_predicates():
 
         def returns_false_for_wrapped_interface_type():
             assert is_interface_type(GraphQLList(InterfaceType)) is False
-            with raises(TypeError):
+            with pytest.raises(TypeError):
                 assert_interface_type(GraphQLList(InterfaceType))
 
         def returns_false_for_non_interface_type():
             assert is_interface_type(ObjectType) is False
-            with raises(TypeError):
+            with pytest.raises(TypeError):
                 assert_interface_type(ObjectType)
 
     def describe_is_union_type():
@@ -178,12 +220,12 @@ def describe_type_predicates():
 
         def returns_false_for_wrapped_union_type():
             assert is_union_type(GraphQLList(UnionType)) is False
-            with raises(TypeError):
+            with pytest.raises(TypeError):
                 assert_union_type(GraphQLList(UnionType))
 
         def returns_false_for_non_union_type():
             assert is_union_type(ObjectType) is False
-            with raises(TypeError):
+            with pytest.raises(TypeError):
                 assert_union_type(ObjectType)
 
     def describe_is_enum_type():
@@ -193,13 +235,24 @@ def describe_type_predicates():
 
         def returns_false_for_wrapped_enum_type():
             assert is_enum_type(GraphQLList(EnumType)) is False
-            with raises(TypeError):
+            with pytest.raises(TypeError):
                 assert_enum_type(GraphQLList(EnumType))
 
         def returns_false_for_non_enum_type():
             assert is_enum_type(ScalarType) is False
-            with raises(TypeError):
+            with pytest.raises(TypeError):
                 assert_enum_type(ScalarType)
+
+    def describe_is_enum_value():
+        def returns_true_for_enum_value():
+            value = EnumType.values["foo"]
+            assert is_enum_value(value) is True
+            assert_enum_value(value)
+
+        def returns_false_for_non_enum_value():
+            assert is_enum_value(EnumType) is False
+            with pytest.raises(TypeError):
+                assert_enum_value(EnumType)
 
     def describe_is_input_object_type():
         def returns_true_for_input_object_type():
@@ -208,13 +261,25 @@ def describe_type_predicates():
 
         def returns_false_for_wrapped_input_object_type():
             assert is_input_object_type(GraphQLList(InputObjectType)) is False
-            with raises(TypeError):
+            with pytest.raises(TypeError):
                 assert_input_object_type(GraphQLList(InputObjectType))
 
         def returns_false_for_non_input_object_type():
             assert is_input_object_type(ObjectType) is False
-            with raises(TypeError):
+            with pytest.raises(TypeError):
                 assert_input_object_type(ObjectType)
+
+    def describe_is_input_field():
+        def returns_true_for_input_fields():
+            f = InputObjectType.fields["f"]
+            assert is_input_field(f) is True
+            assert_input_field(f)
+
+        def returns_false_for_non_input_fields():
+            f = ObjectType.fields["f"]
+            assert is_input_field(f) is False
+            with pytest.raises(TypeError):
+                assert_input_field(f)
 
     def describe_is_list_type():
         def returns_true_for_a_list_wrapped_type():
@@ -223,12 +288,12 @@ def describe_type_predicates():
 
         def returns_false_for_a_unwrapped_type():
             assert is_list_type(ObjectType) is False
-            with raises(TypeError):
+            with pytest.raises(TypeError):
                 assert_list_type(ObjectType)
 
         def returns_false_for_a_non_list_wrapped_type():
             assert is_list_type(GraphQLNonNull(GraphQLList(ObjectType))) is False
-            with raises(TypeError):
+            with pytest.raises(TypeError):
                 assert_list_type(GraphQLNonNull(GraphQLList(ObjectType)))
 
     def describe_is_non_null_type():
@@ -238,12 +303,12 @@ def describe_type_predicates():
 
         def returns_false_for_an_unwrapped_type():
             assert is_non_null_type(ObjectType) is False
-            with raises(TypeError):
+            with pytest.raises(TypeError):
                 assert_non_null_type(ObjectType)
 
         def returns_false_for_a_not_non_null_wrapped_type():
             assert is_non_null_type(GraphQLList(GraphQLNonNull(ObjectType))) is False
-            with raises(TypeError):
+            with pytest.raises(TypeError):
                 assert_non_null_type(GraphQLList(GraphQLNonNull(ObjectType)))
 
     def describe_is_input_type():
@@ -267,7 +332,7 @@ def describe_type_predicates():
 
         def _assert_non_input_type(type_: Any):
             assert is_input_type(type_) is False
-            with raises(TypeError):
+            with pytest.raises(TypeError):
                 assert_input_type(type_)
 
         def returns_false_for_an_output_type():
@@ -311,7 +376,7 @@ def describe_type_predicates():
 
         def _assert_non_output_type(type_: Any):
             assert is_output_type(type_) is False
-            with raises(TypeError):
+            with pytest.raises(TypeError):
                 assert_output_type(type_)
 
         def returns_false_for_an_input_type():
@@ -330,17 +395,17 @@ def describe_type_predicates():
 
         def returns_false_for_wrapped_leaf_type():
             assert is_leaf_type(GraphQLList(ScalarType)) is False
-            with raises(TypeError):
+            with pytest.raises(TypeError):
                 assert_leaf_type(GraphQLList(ScalarType))
 
         def returns_false_for_non_leaf_type():
             assert is_leaf_type(ObjectType) is False
-            with raises(TypeError):
+            with pytest.raises(TypeError):
                 assert_leaf_type(ObjectType)
 
         def returns_false_for_wrapped_non_leaf_type():
             assert is_leaf_type(GraphQLList(ObjectType)) is False
-            with raises(TypeError):
+            with pytest.raises(TypeError):
                 assert_leaf_type(GraphQLList(ObjectType))
 
     def describe_is_composite_type():
@@ -354,17 +419,17 @@ def describe_type_predicates():
 
         def returns_false_for_wrapped_composite_type():
             assert is_composite_type(GraphQLList(ObjectType)) is False
-            with raises(TypeError):
+            with pytest.raises(TypeError):
                 assert_composite_type(GraphQLList(ObjectType))
 
         def returns_false_for_non_composite_type():
             assert is_composite_type(InputObjectType) is False
-            with raises(TypeError):
+            with pytest.raises(TypeError):
                 assert_composite_type(InputObjectType)
 
         def returns_false_for_wrapped_non_composite_type():
             assert is_composite_type(GraphQLList(InputObjectType)) is False
-            with raises(TypeError):
+            with pytest.raises(TypeError):
                 assert_composite_type(GraphQLList(InputObjectType))
 
     def describe_is_abstract_type():
@@ -376,17 +441,20 @@ def describe_type_predicates():
 
         def returns_false_for_wrapped_abstract_type():
             assert is_abstract_type(GraphQLList(InterfaceType)) is False
-            with raises(TypeError):
+            with pytest.raises(TypeError):
                 assert_abstract_type(GraphQLList(InterfaceType))
 
         def returns_false_for_non_abstract_type():
             assert is_abstract_type(ObjectType) is False
-            with raises(TypeError):
+            with pytest.raises(TypeError) as exc_info:
                 assert_abstract_type(ObjectType)
+            assert str(exc_info.value) == (
+                "Expected Object to be a GraphQL abstract type."
+            )
 
         def returns_false_for_wrapped_non_abstract_type():
             assert is_abstract_type(GraphQLList(ObjectType)) is False
-            with raises(TypeError):
+            with pytest.raises(TypeError):
                 assert_abstract_type(GraphQLList(ObjectType))
 
     def describe_is_wrapping_type():
@@ -398,7 +466,7 @@ def describe_type_predicates():
 
         def returns_false_for_unwrapped_types():
             assert is_wrapping_type(ObjectType) is False
-            with raises(TypeError):
+            with pytest.raises(TypeError):
                 assert_wrapping_type(ObjectType)
 
     def describe_is_nullable_type():
@@ -412,7 +480,7 @@ def describe_type_predicates():
 
         def returns_false_for_non_null_types():
             assert is_nullable_type(GraphQLNonNull(ObjectType)) is False
-            with raises(TypeError):
+            with pytest.raises(TypeError):
                 assert_nullable_type(GraphQLNonNull(ObjectType))
 
     def describe_get_nullable_type():
@@ -434,10 +502,10 @@ def describe_type_predicates():
 
         def returns_false_for_list_and_non_null_types():
             assert is_named_type(GraphQLList(ObjectType)) is False
-            with raises(TypeError):
+            with pytest.raises(TypeError):
                 assert_named_type(GraphQLList(ObjectType))
             assert is_named_type(GraphQLNonNull(ObjectType)) is False
-            with raises(TypeError):
+            with pytest.raises(TypeError):
                 assert_named_type(GraphQLNonNull(ObjectType))
 
     def describe_get_named_type():
@@ -466,14 +534,17 @@ def describe_type_predicates():
             opt_arg1 = GraphQLArgument(GraphQLString)
             assert is_required_argument(opt_arg1) is False
 
-            opt_arg2 = GraphQLArgument(GraphQLString, default_value=None)
+            opt_arg2 = GraphQLArgument(
+                GraphQLString, default=GraphQLDefaultInput(value=None)
+            )
             assert is_required_argument(opt_arg2) is False
 
             opt_arg3 = GraphQLArgument(GraphQLList(GraphQLNonNull(GraphQLString)))
             assert is_required_argument(opt_arg3) is False
 
             opt_arg4 = GraphQLArgument(
-                GraphQLNonNull(GraphQLString), default_value="default"
+                GraphQLNonNull(GraphQLString),
+                default=GraphQLDefaultInput(value="default"),
             )
             assert is_required_argument(opt_arg4) is False
 
@@ -486,14 +557,17 @@ def describe_type_predicates():
             opt_field1 = GraphQLInputField(GraphQLString)
             assert is_required_input_field(opt_field1) is False
 
-            opt_field2 = GraphQLInputField(GraphQLString, default_value=None)
+            opt_field2 = GraphQLInputField(
+                GraphQLString, default=GraphQLDefaultInput(value=None)
+            )
             assert is_required_input_field(opt_field2) is False
 
             opt_field3 = GraphQLInputField(GraphQLList(GraphQLNonNull(GraphQLString)))
             assert is_required_input_field(opt_field3) is False
 
             opt_field4 = GraphQLInputField(
-                GraphQLNonNull(GraphQLString), default_value="default"
+                GraphQLNonNull(GraphQLString),
+                default=GraphQLDefaultInput(value="default"),
             )
             assert is_required_input_field(opt_field4) is False
 
@@ -509,23 +583,23 @@ def describe_type_predicates():
 
             def returns_false_for_directive_class_rather_than_instance():
                 assert is_directive(GraphQLDirective) is False
-                with raises(TypeError):
+                with pytest.raises(TypeError):
                     assert_directive(GraphQLScalarType)
 
             def returns_false_for_non_directive():
                 assert is_directive(EnumType) is False
-                with raises(TypeError):
+                with pytest.raises(TypeError):
                     assert_directive(EnumType)
                 assert is_directive(ScalarType) is False
-                with raises(TypeError):
+                with pytest.raises(TypeError):
                     assert_directive(ScalarType)
 
             def returns_false_for_random_garbage():
                 assert is_directive(None) is False
-                with raises(TypeError):
+                with pytest.raises(TypeError):
                     assert_directive(None)
                 assert is_directive({"what": "is this"}) is False
-                with raises(TypeError):
+                with pytest.raises(TypeError):
                     assert_directive({"what": "is this"})
 
         def describe_is_specified_directive():
@@ -536,3 +610,30 @@ def describe_type_predicates():
 
             def returns_false_for_custom_directive():
                 assert is_specified_directive(Directive) is False
+
+
+def describe_schema_predicates():
+    schema = GraphQLSchema()
+
+    def describe_is_schema_and_assert_schema():
+        def returns_true_for_schema():
+            assert is_schema(schema) is True
+            assert assert_schema(schema) is schema
+
+        def returns_false_for_schema_class_rather_than_instance():
+            assert is_schema(GraphQLSchema) is False
+            with pytest.raises(TypeError):
+                assert_schema(GraphQLSchema)
+
+        def returns_false_for_non_schema():
+            assert is_schema(EnumType) is False
+            with pytest.raises(TypeError):
+                assert_schema(EnumType)
+            assert is_schema(ScalarType) is False
+            with pytest.raises(TypeError):
+                assert_schema(ScalarType)
+
+        def return_false_for_random_garbage():
+            assert is_schema({"what": "is this"}) is False
+            with pytest.raises(TypeError):
+                assert_schema({"what": "is this"})

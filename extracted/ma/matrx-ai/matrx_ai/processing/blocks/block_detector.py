@@ -37,8 +37,11 @@ from matrx_ai.processing.blocks.fence_nesting import (
 from matrx_ai.processing.blocks.gfm_table_lines import (
     continues_table,
     is_gfm_delimiter_row,
+    is_html_block_tag_name,
     is_pipe_led_row,
     opens_table,
+    table_container_indent,
+    table_starts_at,
 )
 from matrx_ai.processing.blocks.kind_catalog import is_registered_kind
 
@@ -1328,21 +1331,28 @@ def _generic_xml_opening(source: str) -> tuple[int, str, bool, bool] | None:
     if is_page_break_line(source):
         return None
     tag = _read_xml_tag(source.lstrip(), 0)
-    if (
-        not tag
-        or tag[2]
-        or tag[1] in KNOWN_XML_TAG_NAMES
-        or tag[1].lower() in ALLOWED_RAW_HTML_TAGS
-    ):
+    if not tag or tag[2] or _is_html_or_known_tag(tag[1]):
         return None
     return tag
+
+
+def _is_html_or_known_tag(name: str) -> bool:
+    """A known Matrx XML tag or a raw HTML tag the renderer keeps: never a generic XML
+    container (twin of the TS splitter ``isHtmlOrKnownTag``)."""
+    return name in KNOWN_XML_TAG_NAMES or name.lower() in ALLOWED_RAW_HTML_TAGS
+
+
+def _leading_tag_name(line: str) -> str:
+    """The tag name a line opens with (``<div class="x">`` → ``div``), or ""."""
+    match = re.match(r"^<([A-Za-z_][\w.:-]*)", line.lstrip())
+    return match[1] if match else ""
 
 
 def _unclosed_generic_xml_opening(source: str) -> bool:
     if is_page_break_line(source):
         return False
     prefix = re.match(r"^<([A-Za-z_][\w.:-]*)(?=\s|/|$)", source.lstrip())
-    if not prefix or prefix[1] in KNOWN_XML_TAG_NAMES or prefix[1].lower() in ALLOWED_RAW_HTML_TAGS:
+    if not prefix or _is_html_or_known_tag(prefix[1]):
         return False
     quote = None
     for char in source.lstrip()[prefix.end() :]:
@@ -1494,14 +1504,21 @@ def extract_table(start_index: int, lines: list[str]) -> ExtractionResult:
     table_lines = [lines[start_index]]
     i = start_index + 1
 
-    # The delimiter row, then GFM continuation rows (gfm_table_lines).
+    # The delimiter row, then GFM continuation rows (gfm_table_lines); indentation
+    # counts from the table's container (the list item it sits in).
+    container = table_container_indent(lines, start_index)
     while i < len(lines) and (
-        continues_table(normalize_line(lines[i])) or (i == start_index + 1 and _is_table_separator(lines[i]))
+        continues_table(normalize_line(lines[i]), container)
+        or (i == start_index + 1 and _is_table_separator(lines[i]))
     ):
         table_lines.append(lines[i])
         i += 1
 
-    if len(table_lines) < 2 or not _is_table_separator(table_lines[1]):
+    # THE rule decides (gfm_table_lines.table_starts_at: a same-width delimiter that is
+    # no list item, a header that is no indented code); only a delimiter row still
+    # arriving as the last line is taken on trust.
+    still_arriving = start_index + 2 >= len(lines) and len(table_lines) >= 2 and _is_table_separator(table_lines[1])
+    if len(table_lines) < 2 or not (table_starts_at(lines, start_index) or still_arriving):
         return ExtractionResult(content="", next_index=start_index + 1, metadata={"isValid": False})
 
     table_has_ended = i < len(lines)
@@ -1562,8 +1579,10 @@ def detect_video(line: str) -> tuple[bool, str | None, str | None]:
 # ---------------------------------------------------------------------------
 
 # Raw HTML tags the markdown renderer sanitizes and renders itself -- they must
-# NOT be captured as XML blocks. Mirrors ALLOWED_RAW_HTML_TAGS in
-# components/mardown-display/chat-markdown/rehypeSafeRawHtml.ts.
+# NOT be captured as XML blocks. EXACTLY ALLOWED_RAW_HTML_TAGS in
+# components/mardown-display/chat-markdown/rehypeSafeRawHtml.ts (held by the shared
+# vectors' rawHtmlTags). HTML BLOCK names (div, dl, …) are HTML through
+# is_html_block_tag_name, not through this list.
 ALLOWED_RAW_HTML_TAGS: frozenset[str] = frozenset(
     {
         "img",
@@ -1608,14 +1627,10 @@ ALLOWED_RAW_HTML_TAGS: frozenset[str] = frozenset(
         "caption",
         "col",
         "colgroup",
-        "div",
         "figure",
         "figcaption",
         "details",
         "summary",
-        "dl",
-        "dt",
-        "dd",
     }
 )
 
@@ -1914,7 +1929,10 @@ def detect_matrx_file_markdown(line: str) -> dict[str, Any] | None:
 # ---------------------------------------------------------------------------
 
 _TREE_CHARS_RE = re.compile(r"[├└│┌┐┘┬┴┤┼─]")
-_ASCII_TREE_RE = re.compile(r"^[\s│|]*[├└+|][\s─\-]+")
+# An ASCII connector is `+`/`|` followed by a dash (`|-- src`, `+-- lib`), after any
+# run of vertical rails; a bare `| ` is a table row's edge, never a connector
+# (verify-RC-B4 round 9 — twin of the TS ASCII_TREE_PATTERNS).
+_ASCII_TREE_RE = re.compile(r"^[\s│|]*(?:[├└]|[+|][─\-])")
 _HEADING_RE = re.compile(r"^#{1,6}\s")
 ACCENT_DIVIDER_RE = re.compile(r"^\*\s*\*\s*\*\s*$")
 HEAVY_DIVIDER_RE = re.compile(r"^#\s*={3,}\s*$")
@@ -1923,7 +1941,10 @@ HEAVY_DIVIDER_RE = re.compile(r"^#\s*={3,}\s*$")
 def is_tree_line(line: str) -> bool:
     if not line:
         return False
-    return bool(_TREE_CHARS_RE.search(line) or _ASCII_TREE_RE.match(line))
+    if _TREE_CHARS_RE.search(line):
+        return True
+    # A GFM delimiter row (`|---|---|`) is a table's, never a tree connector.
+    return bool(_ASCII_TREE_RE.match(line)) and not is_gfm_delimiter_row(line)
 
 
 def _is_markdown_heading_line(line: str) -> bool:
@@ -2243,8 +2264,13 @@ def split_content_into_blocks(md_content: str) -> list[DetectedBlock]:
             i = unrecognized_xml.next_index
             continue
 
-        # An incomplete generic XML root retains ownership through final recovery.
-        if _generic_xml_opening(processed_line) or _unclosed_generic_xml_opening(processed_line):
+        # An incomplete generic XML root retains ownership through final recovery —
+        # except an HTML BLOCK tag (div, section, …) that never closes: GFM ends that
+        # HTML block at the first blank line, so it stays in the text and the prose
+        # after it stays prose (verify-RC-B4 round 9; twin of the TS splitter).
+        if not is_html_block_tag_name(_leading_tag_name(processed_line)) and (
+            _generic_xml_opening(processed_line) or _unclosed_generic_xml_opening(processed_line)
+        ):
             flush_text()
             blocks.append(
                 DetectedBlock(

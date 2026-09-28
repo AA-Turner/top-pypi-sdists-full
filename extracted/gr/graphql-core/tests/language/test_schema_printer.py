@@ -1,8 +1,8 @@
 from copy import deepcopy
 
-from pytest import raises
+import pytest
 
-from graphql.language import ScalarTypeDefinitionNode, NameNode, print_ast, parse
+from graphql.language import NameNode, ScalarTypeDefinitionNode, parse, print_ast
 
 from ..fixtures import kitchen_sink_sdl  # noqa: F401
 from ..utils import dedent
@@ -15,13 +15,11 @@ def describe_printer_sdl_document():
 
     def produces_helpful_error_messages():
         bad_ast = {"random": "Data"}
-        with raises(TypeError) as exc_info:
-            # noinspection PyTypeChecker
+        with pytest.raises(TypeError) as exc_info:
             print_ast(bad_ast)  # type: ignore
         msg = str(exc_info.value)
         assert msg == "Not an AST Node: {'random': 'Data'}."
 
-    # noinspection PyShadowingNames
     def prints_kitchen_sink_without_altering_ast(kitchen_sink_sdl):  # noqa: F811
         ast = parse(kitchen_sink_sdl, no_location=True)
 
@@ -32,7 +30,8 @@ def describe_printer_sdl_document():
         assert printed_ast == ast
         assert deepcopy(ast) == ast_before_print_call
 
-        assert printed == dedent('''
+        assert printed == dedent(
+            '''
             """This is a description of the schema as a whole."""
             schema {
               query: QueryType
@@ -55,7 +54,7 @@ def describe_printer_sdl_document():
               three(argument: InputType, other: String): Int
               four(argument: String = "string"): String
               five(argument: [String] = ["string", "string"]): String
-              six(argument: InputType = {key: "value"}): Type
+              six(argument: InputType = { key: "value" }): Type
               seven(argument: Int = null): Type
               eight(argument: OneOfInputType): Type
             }
@@ -157,11 +156,13 @@ def describe_printer_sdl_document():
 
             extend input InputType @onInputObject
 
+            directive @onDirectiveDefinition on DIRECTIVE_DEFINITION
+
             """This is a description of the `@skip` directive"""
             directive @skip(
               """This is a description of the `if` argument"""
               if: Boolean! @onArgumentDefinition
-            ) on FIELD | FRAGMENT_SPREAD | INLINE_FRAGMENT
+            ) @onDirectiveDefinition on FIELD | FRAGMENT_SPREAD | INLINE_FRAGMENT
 
             directive @include(if: Boolean!) on FIELD | FRAGMENT_SPREAD | INLINE_FRAGMENT
 
@@ -169,9 +170,12 @@ def describe_printer_sdl_document():
 
             directive @myRepeatableDir(name: String!) repeatable on OBJECT | INTERFACE
 
+            extend directive @skip @onDirectiveDefinition
+
             extend schema @onSchema
 
             extend schema @onSchema {
               subscription: SubscriptionType
             }
-            ''')  # noqa: E501
+            '''  # noqa: E501
+        )

@@ -55,7 +55,9 @@ FASTINO_RATE_LIMIT_BURST: float = 10.0
 # transport it is NOT a chat model: the request carries a `schema` (entity labels)
 # and the assistant message content is a JSON string of typed spans. We call the
 # HTTP API directly so we never ship the gliner2 SDK (it drags in torch).
-DEFAULT_BASE_URL = "https://api.pioneer.ai"
+# Moved 2026-09-26: api.pioneer.ai answers every call with HTTP 410 `host_retired`,
+# `moved_to: https://api.fastino.ai/v1/chat/completions` (same path, same contract).
+DEFAULT_BASE_URL = "https://api.fastino.ai"
 COMPLETIONS_PATH = "v1/chat/completions"
 
 

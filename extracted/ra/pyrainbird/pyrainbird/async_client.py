@@ -32,7 +32,7 @@ import ssl
 import time
 from collections.abc import Callable
 from http import HTTPStatus
-from typing import Any, TypeVar, Union
+from typing import Any, TypeVar
 
 import aiohttp
 from aiohttp.client_exceptions import (
@@ -42,10 +42,10 @@ from aiohttp.client_exceptions import (
     ClientError,
     ClientResponseError,
 )
-from aiohttp_retry import RetryClient, RetryOptions, JitterRetry
-
+from aiohttp_retry import JitterRetry, RetryClient, RetryOptions
 
 from . import encryption, rainbird
+from .const import DayOfWeek, ProgramFrequency
 from .data import (
     AvailableStations,
     ControllerFirmwareVersion,
@@ -153,12 +153,12 @@ class RainbirdTokenProvider:
 
 
 __all__ = [
-    "CreateController",
-    "create_controller",
     "AsyncRainbirdController",
     "ControllerFeature",
+    "CreateController",
     "RainbirdController",
     "RainbirdTokenProvider",
+    "create_controller",
 ]
 
 _LOGGER = logging.getLogger(__name__)
@@ -197,7 +197,7 @@ def _device_busy_retry() -> JitterRetry:
     return JitterRetry(
         attempts=_retry_attempts(),
         start_timeout=_retry_delay(),
-        statuses=set([HTTPStatus.SERVICE_UNAVAILABLE.value]),
+        statuses={HTTPStatus.SERVICE_UNAVAILABLE.value},
         retry_all_server_errors=False,
     )
 
@@ -212,7 +212,7 @@ class AsyncRainbirdClient:
         self,
         websession: aiohttp.ClientSession,
         url: str,
-        password: Union[str, None],
+        password: str | None,
         *,
         ssl_context: ssl.SSLContext | bool | None = None,
         min_delay: float = 0.0,
@@ -237,7 +237,7 @@ class AsyncRainbirdClient:
         )
 
     async def request(
-        self, method: str, params: Union[dict[str, Any], None] = None
+        self, method: str, params: dict[str, Any] | None = None
     ) -> dict[str, Any]:
         """Send a request for any command."""
         # Enforce inter-request cooldown pacing if configured
@@ -269,12 +269,7 @@ class AsyncRainbirdClient:
             raise RainbirdCertificateError(
                 "TLS certificate verification error communicating with Rain Bird device"
             ) from err
-        except (
-            ClientConnectorError,
-            ClientConnectorSSLError,
-            asyncio.TimeoutError,
-            TimeoutError,
-        ) as err:
+        except (ClientConnectorError, ClientConnectorSSLError, TimeoutError) as err:
             _LOGGER.debug(
                 "Connection error communicating with Rain Bird device: %s", err
             )
@@ -400,10 +395,8 @@ class AsyncRainbirdController(RainbirdController):
         max_stations = model.model_info.max_stations
         pages = math.ceil(max_stations / 32) if max_stations else 1
 
-        mask_format = (
-            "%%0%dX"
-            % RAINBIRD_COMMANDS["AvailableStationsResponse"]["setStations"][LENGTH]
-        )
+        length = RAINBIRD_COMMANDS["AvailableStationsResponse"]["setStations"][LENGTH]
+        mask_format = f"%0{length}X"
         mask = ""
         for page in range(pages):
             mask += await self._cacheable_command(
@@ -504,6 +497,20 @@ class AsyncRainbirdController(RainbirdController):
             budget,
         )
 
+    async def set_water_budget(self, program: int, seasonal_adjust: int) -> None:
+        """Set the water budget (seasonal adjust) of a program.
+
+        The value is a percentage of the programmed runtime where 100 means no
+        adjustment, in the range 10 to 200. LCR series devices hold a single
+        controller wide value and expect the program code 0xFF.
+        """
+        await self._process_command(
+            lambda resp: True,
+            "WaterBudgetSetRequest",
+            program,
+            seasonal_adjust,
+        )
+
     async def get_rain_sensor_state(self) -> bool:
         """Get the current state for the rain sensor."""
         return await self._process_command(
@@ -517,12 +524,10 @@ class AsyncRainbirdController(RainbirdController):
         max_stations = model.model_info.max_stations
         pages = math.ceil(max_stations / 32) if max_stations else 1
 
-        mask_format = (
-            "%%0%dX"
-            % RAINBIRD_COMMANDS["CurrentStationsActiveResponse"]["activeStations"][
-                LENGTH
-            ]
-        )
+        length = RAINBIRD_COMMANDS["CurrentStationsActiveResponse"]["activeStations"][
+            LENGTH
+        ]
+        mask_format = f"%0{length}X"
         mask = ""
         for page in range(pages):
             mask += await self._process_command(
@@ -637,21 +642,21 @@ class AsyncRainbirdController(RainbirdController):
         if max_programs > 0:
             # Legacy ESP-ME / TM2 Schedule Loop
             # Program details
-            for program in range(0, max_programs):
+            for program in range(max_programs):
                 commands.append("%04x" % (0x10 | program))
             # Start times
-            for program in range(0, max_programs):
+            for program in range(max_programs):
                 commands.append("%04x" % (0x60 | program))
             # Run times per zone
             _LOGGER.debug("Loading schedule for %d zones", max_stations)
-            for zone_page in range(0, math.ceil(max_stations / 2)):
+            for zone_page in range(math.ceil(max_stations / 2)):
                 commands.append("%04x" % (0x80 | zone_page))
         else:
             # LCR Series (ESP-RZXe / ST8) Schedule Loop
             _LOGGER.debug("Loading schedule for %d independent zones", max_stations)
             for zone_page in range(1, max_stations + 1):
                 if zone_page in stations.stations.active_set:
-                    commands.append("%04x" % zone_page)
+                    commands.append(f"{zone_page:04x}")
 
         _LOGGER.debug("Sending schedule commands: %s", commands)
         # Run command serially to avoid overwhelming the controller
@@ -676,7 +681,7 @@ class AsyncRainbirdController(RainbirdController):
                 continue
             if not isinstance(result, dict):
                 continue
-            for key in schedule_data:
+            for key, target in schedule_data.items():
                 if (value := result.get(key)) is not None:
                     if key == "durations":
                         for entry in value:
@@ -684,11 +689,11 @@ class AsyncRainbirdController(RainbirdController):
                                 entry.get("zone", 0) + 1
                             ) not in stations.stations.active_set:
                                 continue
-                            schedule_data[key].append(entry)
+                            target.append(entry)
                     elif key == "controllerInfo" or key == "zoneInfo":
-                        schedule_data[key].update(value)
+                        target.update(value)
                     else:
-                        schedule_data[key].append(value)
+                        target.append(value)
         return Schedule.from_dict(schedule_data)
 
     async def get_schedule_command(self, command_code: str) -> dict[str, Any]:
@@ -697,6 +702,41 @@ class AsyncRainbirdController(RainbirdController):
             lambda resp: resp,
             "RetrieveScheduleRequest",
             command_code,
+        )
+
+    async def set_zone_schedule(
+        self,
+        zone: int,
+        duration: datetime.timedelta,
+        starts: list[datetime.time],
+        frequency: ProgramFrequency = ProgramFrequency.CUSTOM,
+        days_of_week: set[DayOfWeek] | None = None,
+        period: int = 0,
+        synchro: int = 0,
+    ) -> None:
+        """Set the schedule of a single zone.
+
+        This applies to LCR series devices (ESP-RZXe, ST8), the ones that
+        schedule each zone on its own and report `Schedule.zone_schedules`.
+        The zone keeps at most six start times, stored with a resolution of ten
+        minutes. `days_of_week` only applies to a CUSTOM frequency, `period`
+        and `synchro`, the days remaining of the current interval, only to a
+        CYCLIC one.
+        """
+        schedule = rainbird.encode_zone_schedule(
+            duration=int(duration.total_seconds() // 60),
+            starts=[start.hour * 60 + start.minute for start in starts],
+            frequency=frequency,
+            days_of_week_mask=sum(1 << day for day in days_of_week or set()),
+            period=period,
+            synchro=synchro,
+        )
+        await self._process_command(
+            lambda resp: True,
+            "SetScheduleRequest",
+            0,
+            zone,
+            schedule,
         )
 
     async def test_command_support(self, command_id: int) -> bool:
@@ -733,16 +773,13 @@ class AsyncRainbirdController(RainbirdController):
         )
         _LOGGER.debug("Response from line: " + str(decrypted_data))
         decoded = rainbird.decode(decrypted_data)
-        _LOGGER.debug("Response: %s" % decoded)
+        _LOGGER.debug(f"Response: {decoded}")
         response_code = decrypted_data[:2]
-        allowed = set([command_data[RESPONSE]])
+        allowed = {command_data[RESPONSE]}
         if funct is None:
             allowed.add("00")  # Allow NACK
         if response_code not in allowed:
-            msg = (
-                "Request (%s) failed with wrong response! Requested (%s), got %s:\n%s"
-                % (command, allowed, response_code, decoded)
-            )
+            msg = f"Request ({command}) failed with wrong response! Requested ({allowed}), got {response_code}:\n{decoded}"
             if response_code == "00":
                 _LOGGER.debug(msg)
                 raise RainbirdDeviceNackError("Device returned a NACK response")

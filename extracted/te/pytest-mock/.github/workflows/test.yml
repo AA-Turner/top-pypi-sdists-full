@@ -21,9 +21,9 @@ jobs:
       id-token: write
       attestations: write
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - name: Build and Check Package
-        uses: hynek/build-and-inspect-python-package@v2.13.0
+        uses: hynek/build-and-inspect-python-package@v3.0.1
         with:
           # Disabling because this is failing currently, see #466.
           attest-build-provenance-github: 'false'
@@ -37,7 +37,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python: ["3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
+        python: ["3.10", "3.11", "3.12", "3.13", "3.14", "3.15"]
         os: [ubuntu-latest, windows-latest]
         tox_env: ["py"]
         include:
@@ -52,16 +52,16 @@ jobs:
             tox_env: "norewrite"
 
     steps:
-    - uses: actions/checkout@v5
+    - uses: actions/checkout@v7
 
     - name: Download Package
-      uses: actions/download-artifact@v5
+      uses: actions/download-artifact@v8
       with:
         name: Packages
         path: dist
 
     - name: Set up Python
-      uses: actions/setup-python@v6
+      uses: actions/setup-python@v7
       with:
         python-version: ${{ matrix.python }}
         allow-prereleases: true

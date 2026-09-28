@@ -35,7 +35,7 @@ from skillsaw.blocks.antigravity_hooks import read_hooks_config
 from skillsaw.formats.opencode import MCP_OAUTH_V1_TO_V2
 from skillsaw.formats.vscode import VSCODE_HOOK_COMMAND_FIELDS
 from skillsaw.lint_target import LintTarget
-from skillsaw.repository_types import RepositoryType
+from skillsaw.repository_types import PORTABLE_COMPONENT_REPO_TYPES, RepositoryType
 from skillsaw.utils import (
     commented_key_line,
     has_utf8_bom,
@@ -979,10 +979,9 @@ class AntigravityHooksBlock(HooksBlock):
 
     @property
     def effective_events(self) -> Dict[str, List[HookEventConfig]]:
-        """Only the reading ``agy`` dispatches, for ``skillsaw docs``.
+        """Only the reading ``agy`` dispatches.
 
-        A published document says what the tool does, so it must not list a
-        command the host discards. The event decides: a grouped event runs
+        Consumers need the commands the host actually dispatches. A grouped event runs
         the nested ``hooks`` and ignores a stray top-level ``command``; a
         flat event runs the entry's own handler and ignores a ``hooks`` key.
         An event this release does not know — one a project declares
@@ -1014,7 +1013,7 @@ class AntigravityHooksBlock(HooksBlock):
                 # own spelling is normalized to the canonical name and two
                 # spellings of one event land in the same bucket.
                 canonical = antigravity.HOOK_EVENTS_BY_CASEFOLD.get(
-                    antigravity.hook_key_fold(event_type) if isinstance(event_type, str) else "",
+                    (antigravity.hook_key_fold(event_type) if isinstance(event_type, str) else ""),
                     event_type,
                 )
                 configs: List[HookEventConfig] = []
@@ -1280,7 +1279,7 @@ class AgentPluginMcpBlock(McpBlock):
     """
 
     shape_deferral: ClassVar[Optional[McpShapeDeferral]] = McpShapeDeferral(
-        repo_types=frozenset({RepositoryType.AGENT_PLUGIN}),
+        repo_types=PORTABLE_COMPONENT_REPO_TYPES,
         keeps_dialect_neutral_checks=False,
     )
 
@@ -1499,6 +1498,23 @@ class OpenCodeMcpBlock(McpBlock):
                 continue
             entries.append((name, cfg))
         return entries
+
+
+@dataclass(eq=False)
+class OpenClawInlineMcpBlock(_InlineJsonPayload, McpBlock):
+    """Static native MCP entries, with dialect-neutral security inspection.
+
+    OpenClaw's manifest loader accepts arbitrary object-valued server records;
+    runtime registration owns their transport validation. Claude's shape rules
+    would reject host-specific fields here. The deferral retains shared secret
+    and command-policy checks while leaving runtime shape validation to OpenClaw.
+    """
+
+    inline_data: Optional[Dict[str, Any]] = None
+    shape_deferral: ClassVar[Optional[McpShapeDeferral]] = McpShapeDeferral()
+
+    def tree_label(self) -> str:
+        return f"{self.path.name} (OpenClaw mcpServers)"
 
 
 @dataclass(eq=False)

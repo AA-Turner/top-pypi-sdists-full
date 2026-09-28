@@ -142,7 +142,7 @@ async def test_a_wired_hook_lands_the_parse_as_sections_with_structured_raw_fiel
         "capture_method": "http",
         "user_id": USER_ID,
     }
-    assert landing["original"]["mime_type"] == "text/html"
+    assert landing["original"]["mime_type"] == "application/json"  # the scraper envelope, raw HTML inside
     assert landing["visibility"] == "internal" and landing["keep"] is False
 
 
@@ -465,3 +465,50 @@ async def test_http_hook_still_reads_a_bare_fastapi_refusal(monkeypatch: pytest.
     with pytest.raises(SourceLandingFailed) as excinfo:
         await hook(_landing())
     assert excinfo.value.code == "person_mismatch" and excinfo.value.remedy == "sign_in"
+
+
+def test_a_scrape_landing_stores_the_scrapers_own_envelope_as_the_original() -> None:
+    """Arman watching: a page saved from the scraper reopened as a plain-text dump because only the
+    page HTML was kept. The original is now the scraper's own fetch_results envelope for this page
+    (organized data, text, structured data, markdown, images, links, metadata, SEO, hashes), with
+    the raw HTML in metadata, and structured_json names the shape."""
+    import base64
+    import json
+
+    from matrx_scraper.orchestrator import ScrapeResult
+    from matrx_scraper.source_landing import SCRAPER_ENVELOPE_SHAPE, page_landing
+
+    r = ScrapeResult(url="https://example.com/a", response_url="https://example.com/a", success=True, content_type="html")
+    r.title = "A page"
+    r.text_data = "Heading\\n\\nWords on the page. " * 5
+    r.organized_data = {"sections": [{"heading": "Heading", "text": "Words on the page."}]}
+    r.links = {"internal": ["https://example.com/b"]}
+    r.raw_html = "<html><body><h1>Heading</h1><p>Words on the page.</p></body></html>"
+    landing = page_landing(r, organization_id="o", user_id="u", origin_client="web")
+    assert landing is not None and landing["original"]["mime_type"] == "application/json"
+    env = json.loads(base64.b64decode(landing["original"]["bytes_b64"]))
+    assert env["type"] == "fetch_results" and env["__kind"] == SCRAPER_ENVELOPE_SHAPE
+    [page] = env["results"]
+    assert page["organized_data"] == r.organized_data and page["links"] == r.links and page["title"] == "A page"
+    assert env["metadata"]["raw_html"] == r.raw_html and env["metadata"]["raw_html_kept"] is True
+    assert landing["structured"]["original_shape"] == SCRAPER_ENVELOPE_SHAPE
+
+
+def test_a_cache_hit_recapture_still_carries_its_own_original() -> None:
+    """Seated walk 2026-09-27: a Full Scrape of an already-saved URL (served from the page cache,
+    no raw HTML) added a newer capture with NO stored original, and the Source screen opened it.
+    Every scraper landing now carries the scraper envelope as its original — with raw_html_kept
+    false when the cache had no HTML."""
+    import base64
+    import json
+
+    from matrx_scraper.orchestrator import ScrapeResult
+    from matrx_scraper.source_landing import page_landing
+
+    cached = ScrapeResult(url="https://example.com/c", response_url="https://example.com/c", success=True, content_type="html")
+    cached.engine = "cache"
+    cached.text_data = "Cached words on the page. " * 5
+    landing = page_landing(cached, organization_id="o", user_id="u", origin_client="web")
+    assert landing is not None and landing["original"] is not None
+    env = json.loads(base64.b64decode(landing["original"]["bytes_b64"]))
+    assert env["metadata"]["raw_html_kept"] is False and env["results"][0]["engine"] == "cache"

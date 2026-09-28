@@ -4,18 +4,18 @@ repos:
     hooks:
       - id: rst
         name: rst
-        entry: rst-lint --encoding utf-8
+        entry: rst-lint
         files: ^(CHANGELOG.rst|README.rst|HOWTORELEASE.rst|changelog/.*)$
         language: python
         additional_dependencies: [pygments, restructuredtext_lint]
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.13.0
+    rev: v0.16.8
     hooks:
       - id: ruff
         args: ["--fix"]
       - id: ruff-format
   - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.18.1
+    rev: v2.3.1
     hooks:
       - id: mypy
         files: ^(src|tests)

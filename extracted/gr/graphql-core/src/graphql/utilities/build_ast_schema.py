@@ -1,4 +1,8 @@
-from typing import cast, Union
+"""GraphQL Schema creation from GraphQL AST"""
+
+from __future__ import annotations
+
+from typing import cast
 
 from ..language import DocumentNode, Source, parse
 from ..type import (
@@ -22,23 +26,45 @@ def build_ast_schema(
 ) -> GraphQLSchema:
     """Build a GraphQL Schema from a given AST.
 
-    This takes the ast of a schema document produced by the parse function in
-    src/language/parser.py.
+    This takes the AST of a schema definition language document produced by the
+    :func:`~graphql.language.parse` function and constructs a GraphQLSchema from it.
 
     If no schema definition is provided, then it will look for types named Query,
     Mutation and Subscription.
 
-    Given that AST it constructs a GraphQLSchema. The resulting schema has no
-    resolve methods, so execution will use default resolvers.
+    The resulting schema has no resolver functions, so execution will use the default
+    field resolver.
 
     When building a schema from a GraphQL service's introspection result, it might
     be safe to assume the schema is valid. Set ``assume_valid`` to ``True`` to assume
     the produced schema is valid. Set ``assume_valid_sdl`` to ``True`` to assume it is
     already a valid SDL document.
-    """
-    if not isinstance(document_ast, DocumentNode):
-        raise TypeError("Must provide valid Document AST.")
 
+    :param document_ast: The parsed GraphQL document AST.
+    :param assume_valid: Set to ``True`` to assume the produced schema is valid and
+        skip schema validation.
+    :param assume_valid_sdl: Set to ``True`` to assume the SDL document is valid and
+        skip SDL validation.
+    :returns: The schema built from the provided SDL document.
+
+    Build a schema from a valid parsed SDL document:
+
+    >>> from graphql import build_ast_schema, parse
+    >>> document = parse('type Query { hello: String }')
+    >>> schema = build_ast_schema(document)
+    >>> schema.query_type.name
+    'Query'
+
+    This variant uses validation options when the SDL references unknown
+    directives:
+
+    >>> document = parse('type Query { hello: String @unknown }')
+    >>> build_ast_schema(document)
+    Traceback (most recent call last):
+    ...
+    TypeError: Unknown directive '@unknown'.
+    >>> schema = build_ast_schema(document, assume_valid=True, assume_valid_sdl=True)
+    """
     if not (assume_valid or assume_valid_sdl):
         from ..validation.validate import assert_valid_sdl
 
@@ -67,19 +93,20 @@ def build_ast_schema(
             # validation with validate_schema() will produce more actionable results.
             type_name = type_.name
             if type_name == "Query":
-                schema_kwargs["query"] = cast(GraphQLObjectType, type_)
+                schema_kwargs["query"] = cast("GraphQLObjectType", type_)
             elif type_name == "Mutation":
-                schema_kwargs["mutation"] = cast(GraphQLObjectType, type_)
+                schema_kwargs["mutation"] = cast("GraphQLObjectType", type_)
             elif type_name == "Subscription":
-                schema_kwargs["subscription"] = cast(GraphQLObjectType, type_)
+                schema_kwargs["subscription"] = cast("GraphQLObjectType", type_)
 
     # If specified directives were not explicitly declared, add them.
     directives = schema_kwargs["directives"]
-    directive_names = set(directive.name for directive in directives)
-    missing_directives = []
-    for directive in specified_directives:
-        if directive.name not in directive_names:
-            missing_directives.append(directive)
+    directive_names = {directive.name for directive in directives}
+    missing_directives = [
+        directive
+        for directive in specified_directives
+        if directive.name not in directive_names
+    ]
     if missing_directives:
         schema_kwargs["directives"] = directives + tuple(missing_directives)
 
@@ -87,22 +114,53 @@ def build_ast_schema(
 
 
 def build_schema(
-    source: Union[str, Source],
+    source: str | Source,
     assume_valid: bool = False,
     assume_valid_sdl: bool = False,
     no_location: bool = False,
-    allow_legacy_fragment_variables: bool = False,
-    experimental_directives_on_directive_definitions: bool = False,
+    experimental_fragment_arguments: bool = False,
 ) -> GraphQLSchema:
-    """Build a GraphQLSchema directly from a source document."""
+    r"""Build a GraphQLSchema directly from a source document.
+
+    Builds a GraphQLSchema directly from a schema definition language source.
+
+    :param source: The GraphQL source text or source object.
+    :param assume_valid: Set to ``True`` to assume the produced schema is valid and
+        skip schema validation.
+    :param assume_valid_sdl: Set to ``True`` to assume the SDL document is valid and
+        skip SDL validation.
+    :param no_location: Set to ``True`` to create AST nodes without location
+        information.
+    :param experimental_fragment_arguments: Allows fragment variable definitions
+        and arguments on fragment spreads to be parsed (experimental).
+    :returns: The schema built from the provided SDL document.
+
+    Build a schema from SDL source using the default options:
+
+    >>> from graphql import build_schema
+    >>> schema = build_schema('type Query { hello: String }')
+    >>> schema.query_type.name
+    'Query'
+
+    This variant enables parser options and omits source locations:
+
+    >>> schema = build_schema(
+    ...     'directive @tag on DIRECTIVE_DEFINITION\n'
+    ...     'directive @compose @tag on FIELD_DEFINITION',
+    ...     experimental_fragment_arguments=True,
+    ...     no_location=True,
+    ... )
+    >>> directive = schema.get_directive('compose')
+    >>> directive.name
+    'compose'
+    >>> print(directive.ast_node.loc)
+    None
+    """
     return build_ast_schema(
         parse(
             source,
             no_location=no_location,
-            allow_legacy_fragment_variables=allow_legacy_fragment_variables,
-            experimental_directives_on_directive_definitions=(
-                experimental_directives_on_directive_definitions
-            ),
+            experimental_fragment_arguments=experimental_fragment_arguments,
         ),
         assume_valid=assume_valid,
         assume_valid_sdl=assume_valid_sdl,

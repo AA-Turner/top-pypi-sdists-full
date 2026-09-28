@@ -1,5 +1,22 @@
+"""The `toolcomp_*` tools — author the UI components that render tool results.
+
+EVERY ACTION RUNS AS THE PERSON (chair ruling, 2026-09-27: RLS owns access).
+Each action runs inside the caller's RLS session (``acts_as_the_person`` → host
+``acting_as_caller`` → ``rls_session``), so ``tool.definition`` / ``tool.ui`` /
+``tool.test_sample`` / ``tool.ui_incident`` policies decide what exists and what
+may change. What RLS says (live, 2026-09-27): the tool catalog is readable by
+everyone for ``public`` tools; a component is readable when its tool is, and
+writable only by an editor of its tool; a component with no tool (workflow /
+extension surfaces) is reachable only through an explicit grant or the admin
+lane. On an admin surface the admin lane is opened inside the same session, so
+the database's own admin arm — never this module — grants the wider reach. A
+row the caller cannot see answers ``not_found`` naming its id; one they can see
+but not change answers ``no_access``.
+"""
+
 from __future__ import annotations
 
+import functools
 import json
 import re
 import traceback
@@ -19,6 +36,12 @@ from matrx_ai.tools.kinds.tool_components import (
     ToolComponentUpdateResult,
 )
 from matrx_ai.tools.models import ToolContext, ToolError, ToolResult
+from matrx_ai.tools.person_session import acts_as_the_person
+from matrx_ai.tools.surface_write import (
+    attach_sections_surface_write,
+    attach_structured_write,
+    attach_surface_write,
+)
 
 # ── Render surfaces (ui_surface.name) ──────────────────────────────────────
 # tool_ui.surface_name is NOT NULL (FK → ui_surface.name) with no DB default,
@@ -34,6 +57,58 @@ from matrx_ai.tools.models import ToolContext, ToolError, ToolResult
 #   component has NO backing tool_def row, so tool_id is NULL.
 DEFAULT_RENDER_SURFACE = "matrx-default/default"
 WORKFLOW_RENDER_SURFACE = "matrx-user/workflow"
+
+
+def _as_the_person(tool_name: str):
+    """``acts_as_the_person`` for a toolcomp action, with the admin lane opened
+    inside the person's session on an admin surface (the database's admin arm
+    answers only there — 2026-09-25)."""
+    shared = acts_as_the_person(tool_name, subject="tool components")
+
+    def wrap(fn):
+        @functools.wraps(fn)
+        async def in_lane(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
+            from matrx_connect import admin_surface_active
+
+            from matrx_ai.context.app_context import try_get_app_context
+
+            if admin_surface_active(try_get_app_context()):
+                from matrx_orm import admin_lane
+
+                async with admin_lane(database=get_db_model("ToolUi")._database):
+                    return await fn(args, ctx)
+            return await fn(args, ctx)
+
+        return shared(in_lane)
+
+    return wrap
+
+
+def _not_visible(noun: str, row_id: str) -> ToolResult:
+    return ToolResult(
+        success=False,
+        error=ToolError(
+            error_type="not_found",
+            message=f"{noun} {row_id} was not found, or you do not have access to it.",
+        ),
+    )
+
+
+async def _refused_write(model: Any, noun: str, row_id: str) -> ToolResult:
+    """A write that changed no row: RLS hid it (not_found) or refused the change (no_access)."""
+    seen = await model.get_or_none(use_cache=False, id=row_id)
+    if seen is None:
+        return _not_visible(noun, row_id)
+    return ToolResult(
+        success=False,
+        error=ToolError(
+            error_type="no_access",
+            message=f"You can view {noun.lower()} {row_id} but you do not have permission to change it.",
+        ),
+    )
+
+
+_RLS_REFUSAL_MARKERS = ("row-level security", "permission denied", "42501")
 
 
 async def _get_tools_manager():
@@ -103,7 +178,6 @@ def _extract_sample_shape(sample: dict) -> dict:
     final_payload = sample.get("final_payload") or {}
     output = final_payload.get("output") or {}
     full_result = output.get("full_result") or {}
-    metadata = final_payload.get("metadata") or {}
 
     events = sample.get("raw_stream_events") or []
     timeline = []
@@ -309,6 +383,7 @@ async def _fetch_components_by_name_surface(
     return [_row_dict(r) for r in rows]
 
 
+@_as_the_person("toolcomp_get_context")
 async def toolcomp_get_context(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     """
     Primary context-fetching tool for the tool component agent.
@@ -387,7 +462,7 @@ async def toolcomp_get_context(args: dict[str, Any], ctx: ToolContext) -> ToolRe
             if not tool:
                 return ToolResult(
                     success=False,
-                    error=ToolError(error_type="not_found", message=f"Tool '{tool_id}' not found."),
+                    error=ToolError(error_type="not_found", message=f"Tool {tool_id} was not found, or you do not have access to it."),
                 )
             resolved_tool_name = tool["name"]
             components = await _fetch_components_by_tool_id(tool_id, surface_name=surface_name)
@@ -513,6 +588,7 @@ async def toolcomp_get_context(args: dict[str, Any], ctx: ToolContext) -> ToolRe
         )
 
 
+@_as_the_person("toolcomp_get_code")
 async def toolcomp_get_code(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     """
     Retrieve the full source code for a specific tool UI component.
@@ -580,7 +656,7 @@ async def toolcomp_get_code(args: dict[str, Any], ctx: ToolContext) -> ToolResul
             return ToolResult(
                 success=False,
                 error=ToolError(
-                    error_type="not_found", message=f"Component '{component_id}' not found."
+                    error_type="not_found", message=f"Component {component_id} was not found, or you do not have access to it."
                 ),
             )
 
@@ -635,6 +711,7 @@ async def toolcomp_get_code(args: dict[str, Any], ctx: ToolContext) -> ToolResul
         )
 
 
+@_as_the_person("toolcomp_update_code")
 async def toolcomp_update_code(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     """
     Write updated code to a specific section of a tool UI component.
@@ -692,10 +769,10 @@ async def toolcomp_update_code(args: dict[str, Any], ctx: ToolContext) -> ToolRe
 
         # bump_version advances the human-facing semver (TEXT). The integer
         # `version` is DB-trigger-managed and must never be written here.
-        if bump_version:
-            cur = await ToolUi.get_or_none(id=component_id)
-            if cur:
-                updates["semver"] = _bump_semver_patch(cur.semver)
+        cur = await ToolUi.get_or_none(id=component_id)
+        prior_sections = {k: getattr(cur, k, None) for k in code_sections} if cur else {}
+        if bump_version and cur:
+            updates["semver"] = _bump_semver_patch(cur.semver)
 
         if notes is not None:
             updates["notes"] = notes
@@ -706,25 +783,30 @@ async def toolcomp_update_code(args: dict[str, Any], ctx: ToolContext) -> ToolRe
         # than trusting a stale in-memory instance.
         rows_affected = await ToolUi.update_where({"id": component_id}, **updates)
         if not rows_affected:
-            return ToolResult(
-                success=False,
-                error=ToolError(
-                    error_type="execution", message="Update returned no data. Check component_id."
-                ),
-            )
+            return await _refused_write(ToolUi, "Component", component_id)
         updated_row = await ToolUi.get_or_none(id=component_id)
 
         updated = _row_dict(updated_row, ("semver", "version", "updated_at")) if updated_row else {}
-        return ToolResult(
-            success=True,
-            output=ToolComponentUpdateResult(
-                component_id=component_id,
-                updated_sections=code_sections,
-                semver=updated.get("semver"),  # human-facing version label
-                version=updated.get("version"),  # DB-managed integer revision (auto-bumped)
-                updated_at=updated.get("updated_at"),
-                message=f"Successfully updated {len(code_sections)} section(s) on component {component_id}.",
+        return attach_sections_surface_write(
+            ToolResult(
+                success=True,
+                output=ToolComponentUpdateResult(
+                    component_id=component_id,
+                    updated_sections=code_sections,
+                    semver=updated.get("semver"),  # human-facing version label
+                    version=updated.get("version"),  # DB-managed integer revision (auto-bumped)
+                    updated_at=updated.get("updated_at"),
+                    message=f"Successfully updated {len(code_sections)} section(s) on component {component_id}.",
+                ),
             ),
+            before=prior_sections,
+            after={k: updates.get(k) for k in code_sections},
+            target_type="tool_ui_component",
+            target_id=component_id,
+            target_label=str(getattr(cur, "display_name", None) or getattr(cur, "tool_name", None) or component_id),
+            mode="overwrite",
+            content_format="code",
+            language="tsx",
         )
 
     except Exception as e:
@@ -736,6 +818,7 @@ async def toolcomp_update_code(args: dict[str, Any], ctx: ToolContext) -> ToolRe
         )
 
 
+@_as_the_person("toolcomp_update_settings")
 async def toolcomp_update_settings(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     """
     Update non-code settings on a tool UI component.
@@ -803,23 +886,28 @@ async def toolcomp_update_settings(args: dict[str, Any], ctx: ToolContext) -> To
 
     try:
         ToolUi = get_db_model("ToolUi")
+        prior_row = await ToolUi.get_or_none(id=component_id)
         rows_affected = await ToolUi.update_where({"id": component_id}, **settings)
 
         if not rows_affected:
-            return ToolResult(
-                success=False,
-                error=ToolError(error_type="execution", message="Update returned no data."),
-            )
+            return await _refused_write(ToolUi, "Component", component_id)
         updated_row = await ToolUi.get_or_none(id=component_id)
 
         updated = _row_dict(updated_row, ("updated_at",)) if updated_row else {}
-        return ToolResult(
-            success=True,
-            output=ToolComponentUpdateResult(
-                component_id=component_id,
-                updated_settings=list(settings.keys()),
-                updated_at=updated.get("updated_at"),
+        return attach_structured_write(
+            ToolResult(
+                success=True,
+                output=ToolComponentUpdateResult(
+                    component_id=component_id,
+                    updated_settings=list(settings.keys()),
+                    updated_at=updated.get("updated_at"),
+                ),
             ),
+            before={k: getattr(prior_row, k, None) for k in settings},
+            after={k: getattr(updated_row, k, None) for k in settings},
+            target_type="tool_ui_component",
+            target_id=component_id,
+            target_label=f"{getattr(updated_row, 'display_name', None) or component_id} · settings",
         )
 
     except Exception as e:
@@ -831,6 +919,7 @@ async def toolcomp_update_settings(args: dict[str, Any], ctx: ToolContext) -> To
         )
 
 
+@_as_the_person("toolcomp_get_sample_detail")
 async def toolcomp_get_sample_detail(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     """
     Retrieve the complete raw stream events for a specific test sample.
@@ -865,7 +954,7 @@ async def toolcomp_get_sample_detail(args: dict[str, Any], ctx: ToolContext) -> 
         if not sample_row:
             return ToolResult(
                 success=False,
-                error=ToolError(error_type="not_found", message=f"Sample '{sample_id}' not found."),
+                error=ToolError(error_type="not_found", message=f"Sample {sample_id} was not found, or you do not have access to it."),
             )
 
         sample = _row_dict(sample_row)
@@ -927,6 +1016,7 @@ async def toolcomp_get_sample_detail(args: dict[str, Any], ctx: ToolContext) -> 
         )
 
 
+@_as_the_person("toolcomp_get_incident_detail")
 async def toolcomp_get_incident_detail(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     """
     Retrieve full details for a specific tool UI component incident (error report).
@@ -957,7 +1047,7 @@ async def toolcomp_get_incident_detail(args: dict[str, Any], ctx: ToolContext) -
             return ToolResult(
                 success=False,
                 error=ToolError(
-                    error_type="not_found", message=f"Incident '{incident_id}' not found."
+                    error_type="not_found", message=f"Incident {incident_id} was not found, or you do not have access to it."
                 ),
             )
 
@@ -991,6 +1081,7 @@ async def toolcomp_get_incident_detail(args: dict[str, Any], ctx: ToolContext) -
         )
 
 
+@_as_the_person("toolcomp_resolve_incident")
 async def toolcomp_resolve_incident(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     """
     Mark a tool UI component incident as resolved.
@@ -1028,12 +1119,7 @@ async def toolcomp_resolve_incident(args: dict[str, Any], ctx: ToolContext) -> T
         rows_affected = await ToolUiIncident.update_where({"id": incident_id}, **updates)
 
         if not rows_affected:
-            return ToolResult(
-                success=False,
-                error=ToolError(
-                    error_type="not_found", message=f"Incident '{incident_id}' not found."
-                ),
-            )
+            return await _refused_write(ToolUiIncident, "Incident", incident_id)
 
         updates["resolved_at"] = resolved_at.isoformat()
         return ToolResult(
@@ -1055,6 +1141,7 @@ async def toolcomp_resolve_incident(args: dict[str, Any], ctx: ToolContext) -> T
         )
 
 
+@_as_the_person("toolcomp_list_tools")
 async def toolcomp_list_tools(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     """
     List and discover available tools.
@@ -1226,6 +1313,7 @@ async def toolcomp_list_tools(args: dict[str, Any], ctx: ToolContext) -> ToolRes
         )
 
 
+@_as_the_person("toolcomp_create_component")
 async def toolcomp_create_component(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     """
     Create a new tool UI render component.
@@ -1298,7 +1386,7 @@ async def toolcomp_create_component(args: dict[str, Any], ctx: ToolContext) -> T
             if not def_row:
                 return ToolResult(
                     success=False,
-                    error=ToolError(error_type="not_found", message=f"Tool '{tool_id}' not found."),
+                    error=ToolError(error_type="not_found", message=f"Tool {tool_id} was not found, or you do not have access to it."),
                 )
             derived_name = def_row.name
             if tool_name and tool_name != derived_name:
@@ -1388,6 +1476,16 @@ async def toolcomp_create_component(args: dict[str, Any], ctx: ToolContext) -> T
         )
 
     except Exception as e:
+        if any(marker in str(e) for marker in _RLS_REFUSAL_MARKERS):
+            return ToolResult(
+                success=False,
+                error=ToolError(
+                    error_type="no_access",
+                    message=f"You do not have permission to add a component for '{tool_name}' "
+                    f"on surface '{surface_name}'; nothing was created.",
+                    traceback=traceback.format_exc(),
+                ),
+            )
         return ToolResult(
             success=False,
             error=ToolError(
@@ -1414,6 +1512,10 @@ def _normalize_quotes(s: str) -> str:
     return s
 
 
+class AmbiguousPatchError(ValueError):
+    """The old_string matched several places — the patch names no ONE edit."""
+
+
 def _apply_patch(code: str, old_str: str, new_str: str) -> tuple[str, str]:
     """
     Apply a single old→new replacement using three rounds of matching:
@@ -1426,17 +1528,35 @@ def _apply_patch(code: str, old_str: str, new_str: str) -> tuple[str, str]:
     Returns (patched_code, round_applied).
     Raises ValueError if no round matches.
     """
+    def _one(spans: list[tuple[int, int]], round_name: str) -> tuple[str, str] | None:
+        # A patch names ONE place or it is refused — never the first of several.
+        if not spans:
+            return None
+        if len(spans) > 1:
+            lines = ", ".join(str(code.count("\n", 0, s) + 1) for s, _ in spans[:10])
+            raise AmbiguousPatchError(
+                f"old_string matches {len(spans)} places (lines {lines}) in round "
+                f"'{round_name}', so it does not name one edit. Nothing was changed. "
+                "Add surrounding lines to old_string until it matches exactly one place."
+            )
+        s, e = spans[0]
+        return code[:s] + new_str + code[e:], round_name
+
     # Round 1: exact
-    if old_str in code:
-        return code.replace(old_str, new_str, 1), "exact"
+    exact: list[tuple[int, int]] = []
+    at = code.find(old_str) if old_str else -1
+    while at != -1:
+        exact.append((at, at + len(old_str)))
+        at = code.find(old_str, at + 1)
+    if (hit := _one(exact, "exact")) is not None:
+        return hit
 
     # Round 2: whitespace-normalized regex
     # Build a pattern from old_str where whitespace sequences become \s+
     escaped = re.escape(old_str)
     ws_pattern = re.sub(r"(\\ |\\\t|\\\n|\\\r)+", r"\\s+", escaped)
-    match = re.search(ws_pattern, code)
-    if match:
-        return code[: match.start()] + new_str + code[match.end() :], "whitespace_normalized"
+    if (hit := _one([(m.start(), m.end()) for m in re.finditer(ws_pattern, code)], "whitespace_normalized")) is not None:
+        return hit
 
     # Round 3: quote + whitespace normalized
     quote_chars = r"""['"` \u2018\u2019\u201c\u201d]"""
@@ -1456,13 +1576,13 @@ def _apply_patch(code: str, old_str: str, new_str: str) -> tuple[str, str]:
         i += 1
 
     combined = "".join(parts)
-    match = re.search(combined, code)
-    if match:
-        return code[: match.start()] + new_str + code[match.end() :], "quote_normalized"
+    if (hit := _one([(m.start(), m.end()) for m in re.finditer(combined, code)], "quote_normalized")) is not None:
+        return hit
 
     raise ValueError(f"No match found in any round.\nold_string preview: {old_str[:200]!r}")
 
 
+@_as_the_person("toolcomp_patch_code")
 async def toolcomp_patch_code(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     """
     Apply one or more targeted string replacements to a tool UI component's
@@ -1539,7 +1659,7 @@ async def toolcomp_patch_code(args: dict[str, Any], ctx: ToolContext) -> ToolRes
             return ToolResult(
                 success=False,
                 error=ToolError(
-                    error_type="not_found", message=f"Component '{component_id}' not found."
+                    error_type="not_found", message=f"Component {component_id} was not found, or you do not have access to it."
                 ),
             )
 
@@ -1575,14 +1695,17 @@ async def toolcomp_patch_code(args: dict[str, Any], ctx: ToolContext) -> ToolRes
                     }
                 )
             except ValueError as ve:
+                ambiguous = isinstance(ve, AmbiguousPatchError)
                 return ToolResult(
                     success=False,
                     error=ToolError.from_exception(
                         ve,
-                        error_type="patch_no_match",
-                        message=f"Patch {i} ('{description}') failed: {ve}",
+                        error_type="patch_ambiguous" if ambiguous else "patch_no_match",
+                        message=f"Patch {i} ('{description}') failed: {ve} Nothing was written.",
                         suggested_action=(
-                            "Fetch the current code with toolcomp_get_code and verify your "
+                            "Add surrounding lines to old_string until it matches exactly one place."
+                            if ambiguous
+                            else "Fetch the current code with toolcomp_get_code and verify your "
                             "old_string exactly matches a contiguous substring. "
                             "Avoid including surrounding indentation that may differ."
                         ),
@@ -1606,22 +1729,34 @@ async def toolcomp_patch_code(args: dict[str, Any], ctx: ToolContext) -> ToolRes
         if notes:
             update_payload["notes"] = notes
 
-        await ToolUi.update_where({"id": component_id}, **update_payload)
+        if not await ToolUi.update_where({"id": component_id}, **update_payload):
+            return await _refused_write(ToolUi, "Component", component_id)
         updated_row = await ToolUi.get_or_none(id=component_id)
         updated = _row_dict(updated_row, ("semver", "version", "updated_at")) if updated_row else {}
 
-        return ToolResult(
-            success=True,
-            output=ToolComponentPatchResult(
-                component_id=component_id,
-                section=section,
-                patches_applied=len(patches),
-                patch_results=patch_results,
-                semver=updated.get("semver"),  # human-facing version label
-                version=updated.get("version"),  # DB-managed integer revision (auto-bumped)
-                updated_at=updated.get("updated_at"),
-                message=f"Applied {len(patches)} patch(es) to '{section}'.",
+        return attach_surface_write(
+            ToolResult(
+                success=True,
+                output=ToolComponentPatchResult(
+                    component_id=component_id,
+                    section=section,
+                    patches_applied=len(patches),
+                    patch_results=patch_results,
+                    semver=updated.get("semver"),  # human-facing version label
+                    version=updated.get("version"),  # DB-managed integer revision (auto-bumped)
+                    updated_at=updated.get("updated_at"),
+                    message=f"Applied {len(patches)} patch(es) to '{section}'.",
+                ),
             ),
+            before=code,
+            after=working_code,
+            target_type="tool_ui_component",
+            target_id=component_id,
+            target_label=f"{getattr(comp_row, 'display_name', None) or getattr(comp_row, 'tool_name', None) or component_id} · {section}",
+            mode="patch",
+            content_format="code",
+            language="tsx",
+            edits=len(patches),
         )
 
     except Exception as e:

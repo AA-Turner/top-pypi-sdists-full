@@ -524,16 +524,24 @@ fn previous_char_boundary(text: &str, byte_idx: usize) -> Option<usize> {
 ///
 /// Each candidate applies the shared project-tag accept algorithm (see
 /// [`crate::project_tag::apply_project_tag_selection`]): the primary edit
-/// replaces the typed `+query` token in place with the row's insertion — a
-/// project row inserts `+<name> ` (or `#<workflow>:<name> ` when the name is
-/// not in the tag grammar), a PR row inserts its `#` spelling — while
-/// `additional_edits` delete every other workspace target in the trigger's
-/// `---` segment. The edits never overlap.
-pub fn build_vcs_project_completion_candidates(
+/// removes the typed `+query` token (or, when the trigger already occupies
+/// the destination, carries the merged insertion) — a project row inserts
+/// `+<name> ` (or `#<workflow>:<name> ` when the name is not in the tag
+/// grammar), a PR row inserts its `#` spelling — while `additional_edits`
+/// put the row at the earliest workspace target in the trigger's `---`
+/// segment (or at the segment's leading position) and delete every other
+/// workspace target there. The edits never overlap.
+///
+/// `entries` drive the visible rows (enabled projects plus patches);
+/// `targets` is the catalog's tag-resolution set (every non-sibling project
+/// plus `home`, including disabled rows) and drives the other-target
+/// deletions, so the LSP and the TUI accept remove the same resolved tags.
+pub fn build_vcs_project_completion_candidates_with_targets(
     token: &TokenInfo,
     document: &DocumentSnapshot,
     position: EditorPosition,
     entries: &[VcsProjectEntry],
+    targets: &[ProjectTagTargetWire],
     known_workflow_names: &[String],
 ) -> CompletionList {
     let text = document.text();
@@ -547,7 +555,6 @@ pub fn build_vcs_project_completion_candidates(
     // bare `+`), matching the Python `find_vcs_project_trigger`.
     let query = text.get(t0 + 1..cursor).unwrap_or("").to_lowercase();
 
-    let targets = entry_completion_targets(entries);
     let mut candidates = Vec::new();
     for entry in entries {
         let matches_query = query.is_empty()
@@ -566,7 +573,7 @@ pub fn build_vcs_project_completion_candidates(
             (t0, t1),
             &insertion,
             known_workflow_names,
-            &targets,
+            targets,
         );
         let Some(primary) = selection_edit_to_text_edit(document, &primary)
         else {
@@ -603,9 +610,11 @@ pub fn build_vcs_project_completion_candidates(
         shared_extension: String::new(),
     }
 }
-/// Tag-resolution targets behind the `+` menu: project rows only. Patch rows
-/// are accepted through their `#` spelling, never as tags.
-fn entry_completion_targets(
+/// Tag-resolution targets behind the `+` menu, derived from the visible
+/// entries (project rows only). Patch rows are accepted through their `#`
+/// spelling, never as tags. The LSP falls back to this set for pre-v5
+/// catalogs, which carry no `project_tags`.
+pub fn vcs_project_entry_targets(
     entries: &[VcsProjectEntry],
 ) -> Vec<ProjectTagTargetWire> {
     entries
@@ -620,6 +629,8 @@ fn entry_completion_targets(
             name: entry.name.clone(),
             aliases: entry.aliases.clone(),
             workflow_type: Some(entry.vcs_prefix.clone()),
+            state: None,
+            workspace_dir: None,
         })
         .collect()
 }

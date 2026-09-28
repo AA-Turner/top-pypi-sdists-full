@@ -3,10 +3,11 @@ import os
 from setuptools import setup, find_packages
 
 install_requires = [
-    "graphql-core>=3.2,<3.3",
+    "graphql-core>=3.3.0a3,<3.4",
     "yarl>=1.6,<2.0",
-    "backoff>=1.11.1,<3.0",
+    "tenacity>=9.1.2,<10.0",
     "anyio>=3.0,<5",
+    "typing_extensions>=4.0.0; python_version<'3.11'",
 ]
 
 console_scripts = [
@@ -15,22 +16,22 @@ console_scripts = [
 
 tests_requires = [
     "parse==1.20.2",
-    "pytest==8.3.4",
-    "pytest-asyncio==0.25.3",
+    "packaging>=21.0",
+    "pytest==9.1.1",
+    "pytest-asyncio==1.4.0",
     "pytest-console-scripts==1.4.1",
-    "pytest-cov==6.0.0",
-    "vcrpy==7.0.0",
+    "pytest-cov==7.1.0",
+    "vcrpy==8.2.1",
     "aiofiles",
 ]
 
 dev_requires = [
-    "black==25.1.0",
+    "black==26.5.1",
     "check-manifest>=0.42,<1",
-    "flake8==7.1.2",
-    "isort==6.0.1",
-    "mypy==1.15",
-    "sphinx>=7.0.0,<8;python_version<='3.9'",
-    "sphinx>=8.1.0,<9;python_version>'3.9'",
+    "flake8==7.3.0",
+    "isort==8.0.1",
+    "mypy==2.1.0",
+    "sphinx>=8.1.0,<9",
     "sphinx_rtd_theme>=3.0.2,<4",
     "sphinx-argparse==0.5.2",
     "types-aiofiles",
@@ -50,8 +51,13 @@ install_httpx_requires = [
     "httpx>=0.27.0,<1",
 ]
 
+install_httpx2_requires = [
+    "httpx2>=2.0.0,<3",
+]
+
 install_websockets_requires = [
-    "websockets>=14.2,<16",
+    "websockets>=14.2,<18; python_version>='3.11'",
+    "websockets>=14.2,<17; python_version<'3.11'",
 ]
 
 install_botocore_requires = [
@@ -63,7 +69,7 @@ install_aiofiles_requires = [
 ]
 
 install_all_requires = (
-    install_aiohttp_requires + install_requests_requires + install_httpx_requires + install_websockets_requires + install_botocore_requires + install_aiofiles_requires
+    install_aiohttp_requires + install_requests_requires + install_httpx2_requires + install_websockets_requires + install_botocore_requires + install_aiofiles_requires
 )
 
 # Get version from __version__.py file
@@ -88,11 +94,12 @@ setup(
         "Topic :: Software Development :: Libraries",
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3 :: Only",
-        "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
         "Programming Language :: Python :: 3.13",
+        "Programming Language :: Python :: 3.14",
+        "Programming Language :: Python :: 3.15",
         "Programming Language :: Python :: Implementation :: PyPy",
     ],
     keywords="api graphql protocol rest relay gql client",
@@ -108,6 +115,7 @@ setup(
         "aiohttp": install_aiohttp_requires,
         "requests": install_requests_requires,
         "httpx": install_httpx_requires,
+        "httpx2": install_httpx2_requires,
         "websockets": install_websockets_requires,
         "botocore": install_botocore_requires,
         "aiofiles": install_aiofiles_requires,

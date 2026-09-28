@@ -240,6 +240,11 @@ class TestHTTPUtility:
         content = base64.b64encode(b"\xffser:pass").decode()
         assert Authorization.from_header(f"Basic {content}") is None
 
+    def test_authorization_basic_validate(self):
+        """Non-alphabet characters are rejected."""
+        content = "!".join(base64.b64encode(b"test").decode())
+        assert Authorization.from_header(f"Basic {content}") is None
+
     def test_authorization_eq(self):
         basic1 = Authorization.from_header("Basic QWxhZGRpbjpvcGVuIHNlc2FtZQ==")
         basic2 = Authorization(
@@ -429,12 +434,16 @@ class TestHTTPUtility:
 
         # any method is allowed
         env["REQUEST_METHOD"] = "POST"
-        assert http.is_resource_modified(env, etag="testing")
+        assert http.is_resource_modified(env)
         env["REQUEST_METHOD"] = "GET"
 
-        # etagify from data
-        pytest.raises(TypeError, http.is_resource_modified, env, data="42", etag="23")
-        env["HTTP_IF_NONE_MATCH"] = http.generate_etag(b"awesome")
+        # only one of etag or data
+        with pytest.raises(TypeError):
+            http.is_resource_modified(env, data=b"42", etag='"23"')
+
+        etag = http.quote_etag(http.generate_etag(b"awesome"))
+        env["HTTP_IF_NONE_MATCH"] = etag
+        assert not http.is_resource_modified(env, etag=etag)
         assert not http.is_resource_modified(env, data=b"awesome")
 
         env["HTTP_IF_MODIFIED_SINCE"] = http.http_date(datetime(2008, 1, 1, 12, 30))
@@ -449,7 +458,7 @@ class TestHTTPUtility:
         env = create_environ()
 
         env["HTTP_IF_MODIFIED_SINCE"] = http.http_date(datetime(2008, 1, 1, 12, 30))
-        env["HTTP_IF_RANGE"] = http.generate_etag(b"awesome_if_range")
+        env["HTTP_IF_RANGE"] = http.quote_etag(http.generate_etag(b"awesome_if_range"))
         # Range header not present, so If-Range should be ignored
         assert not http.is_resource_modified(
             env,
@@ -491,7 +500,6 @@ class TestHTTPUtility:
             "b": '";',
             "fo234{": "bar",
             "blub": "Blah",
-            '"__Secure-c"': "d",
             "__Host-eq": "good",
         }
 
@@ -619,10 +627,10 @@ class TestRange:
         assert rv.to_header() == '"Test"'
 
         # broken etags are supported too
-        rv = http.parse_if_range_header("bullshit")
-        assert rv.etag == "bullshit"
+        rv = http.parse_if_range_header("invalid_unquoted")
+        assert rv.etag == "invalid_unquoted"
         assert rv.date is None
-        assert rv.to_header() == '"bullshit"'
+        assert rv.to_header() == '"invalid_unquoted"'
 
         rv = http.parse_if_range_header("Thu, 01 Jan 1970 00:00:00 GMT")
         assert rv.etag is None
@@ -677,6 +685,9 @@ class TestRange:
         assert rv is None
 
         rv = http.parse_range_header("bytes=52-99, bad")
+        assert rv is None
+
+        rv = http.parse_range_header("bytes=-0")
         assert rv is None
 
     def test_content_range_parsing(self):

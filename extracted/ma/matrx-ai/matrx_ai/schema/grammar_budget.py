@@ -34,6 +34,17 @@ every one was tried against the live compiler before this module was written:
 * Inlining ``$defs`` does not help: refs are already expanded by the compiler,
   so inlining only duplicates what it was going to duplicate anyway.
 
+UPDATE 2026-09-27 (live probes, claude-sonnet-5 / claude-opus-5-5; see
+common-docs ``projects/checks-run-in-the-app/SCHEMA-TRANSLATION.md``): the
+ceiling is roughly ~70 properties per request plus the documented 16 union
+parameters (one tool spends one); ~12 optional parameters already answer
+"Schema is too complex". Two levers DO exist: narrowing nullable unions to
+their non-null branch (answers stay valid under the declared contract) cured
+the flashcards node and the agent factory's envelope, and IDENTICAL subtrees
+cost once when shared through ``$defs`` (distinct ones do not). The ladder in
+``AnthropicChat._retry_over_grammar_budget`` now narrows before it sheds, and
+every rung is recorded as a ``structured_output.*`` finding.
+
 What actually costs is STRUCTURE — a union of large object variants inside an
 array, each carrying a nested envelope with its own array of objects. There is
 no lossless transform of the bound copy that buys headroom, which is why the
@@ -55,6 +66,16 @@ from typing import Any
 #: the MESSAGE rather than a code because the provider gives this rejection no
 #: distinct code — it arrives as a generic 400 ``invalid_request_error``.
 GRAMMAR_TOO_LARGE_MARKER = "compiled grammar is too large"
+
+#: Every refusal Anthropic gives when a request is over its structured-output
+#: COMPLEXITY budget rather than outside its schema subset — measured live
+#: 2026-09-27. The ladder treats them alike: each is cured by a smaller grammar.
+GRAMMAR_BUDGET_MARKERS: tuple[str, ...] = (
+    GRAMMAR_TOO_LARGE_MARKER,
+    "too many parameters with union types",
+    "too many optional parameters",
+    "Schema is too complex",
+)
 
 
 def binds_structured_output(response_format: Any) -> bool:
@@ -86,7 +107,12 @@ def is_grammar_too_large(error: Any) -> bool:
     if error is None:
         return False
     text = error if isinstance(error, str) else str(error)
-    return GRAMMAR_TOO_LARGE_MARKER in text
+    return any(marker in text for marker in GRAMMAR_BUDGET_MARKERS)
 
 
-__all__ = ["GRAMMAR_TOO_LARGE_MARKER", "binds_structured_output", "is_grammar_too_large"]
+__all__ = [
+    "GRAMMAR_BUDGET_MARKERS",
+    "GRAMMAR_TOO_LARGE_MARKER",
+    "binds_structured_output",
+    "is_grammar_too_large",
+]

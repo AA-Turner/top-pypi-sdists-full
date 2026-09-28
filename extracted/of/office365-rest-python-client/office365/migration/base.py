@@ -7,6 +7,9 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass, field, fields
 from enum import Enum
 
+from office365.runtime.limits import DEFAULT_BATCH_SIZE
+from office365.runtime.operations import OperationStats
+
 
 class ConflictResolution(str, Enum):
     SKIP = "skip"
@@ -69,14 +72,26 @@ class MigrationItem:
     error: str | None = None  # failure message (SPMT "Message")
     error_code: str | None = None  # failure category/code (e.g. exception type name)
     modified: str | None = None  # source last-modified (ISO-8601), for incremental
+    created: str | None = None  # source created (ISO-8601)
+    author_id: int | None = None  # source author user id (system ``AuthorId``)
+    editor_id: int | None = None  # source last-modified-by user id (system ``EditorId``)
 
 
 @dataclass
-class MigrationStats:
-    total: int = 0
-    success: int = 0
-    skipped: int = 0
-    errors: int = 0
+class PermissionEntry:
+    """A single principal → role-names grant, used for best-effort ACL preservation.
+
+    Produced by :meth:`DataSource.read_permissions` and consumed by
+    :meth:`DataTarget.apply_permissions`; role names are the target's role
+    definition names (e.g. ``"Read"``, ``"Edit"``, ``"Full Control"``).
+    """
+
+    principal_name: str
+    roles: list[str] = field(default_factory=list)
+
+
+@dataclass
+class MigrationStats(OperationStats):
     bytes_transferred: int = 0
 
     def summary(self) -> str:
@@ -91,13 +106,23 @@ class MigrationStats:
 @dataclass
 class MigrationOptions:
     conflict_resolution: ConflictResolution = ConflictResolution.SKIP
-    incremental: bool = False  # skip items whose target is at least as new as the source
-    preserve_timestamps: bool = True
+    incremental: bool = False  # skip items at/below the persisted watermark (and target-newer ones)
+    # Fidelity flags. ``preserve_timestamps`` and ``preserve_permissions`` are
+    # applied client-side on a best-effort basis when the adapters support it
+    # (see ``DataSource.read_permissions`` / ``DataTarget.apply_timestamps`` /
+    # ``DataTarget.apply_permissions``); REST cannot restore version history, so
+    # ``preserve_versions`` requires the server-side Migration API
+    # (``MigrationServerJob``). Defaults are False so they are honest no-ops
+    # rather than silently doing nothing.
+    preserve_timestamps: bool = False
     preserve_permissions: bool = False
     preserve_versions: bool = False
     include_patterns: list[str] = field(default_factory=list)
     exclude_patterns: list[str] = field(default_factory=list)
-    batch_size: int = 100
+    # Date window (ISO-8601): skip items created/modified at or before these
+    created_after: str | None = None
+    modified_after: str | None = None
+    batch_size: int = DEFAULT_BATCH_SIZE
     concurrency: int = 1  # parallel workers for bulk file upload / batched writes
 
 

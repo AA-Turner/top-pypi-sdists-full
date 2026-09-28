@@ -237,6 +237,45 @@ def build_schemes(
     return out
 
 
+def fold_table(
+    schemes: dict[str, CVScheme], frame: pd.DataFrame, block_degrees: float = DEFAULT_BLOCK_DEGREES
+) -> pd.DataFrame:
+    """``row_id``, ``tile`` and the test fold of every row under every scheme.
+
+    Written next to the predictions by the runner, because the folds cannot
+    be rebuilt reliably later: scikit-learn 1.7 and 1.9 assign the same tiles
+    to different GroupKFold folds, so a rebuild in another environment silently
+    scores a different split.
+    """
+    table = pd.DataFrame({
+        "row_id": np.arange(len(frame)),
+        "tile": spatial_blocks(frame["lat"], frame["lon"], block_degrees),
+    })
+    for name, scheme in schemes.items():
+        fold = np.full(len(frame), -1, dtype=int)
+        for k, (_train, test) in enumerate(scheme.splits):
+            fold[test] = k
+        if (fold < 0).any():
+            raise ValueError(f"{name}: {int((fold < 0).sum())} rows are in no test fold")
+        table[f"fold_{name}"] = fold
+    return table
+
+
+def schemes_from_table(table: pd.DataFrame, names: Optional[Iterable[str]] = None) -> dict[str, CVScheme]:
+    """Rebuild :class:`CVScheme` objects from a :func:`fold_table`."""
+    available = [c[len("fold_"):] for c in table.columns if c.startswith("fold_")]
+    out: dict[str, CVScheme] = {}
+    for name in (names or available):
+        if name not in available:
+            raise KeyError(f"fold table has no scheme {name!r}")
+        fold = table[f"fold_{name}"].to_numpy()
+        rows = np.arange(len(table))
+        splits = [(rows[fold != k], rows[fold == k]) for k in np.unique(fold)]
+        out[name] = CVScheme(name, f"{name} (from fold table)", splits, leaky=(name == "random"),
+                             n_groups=None)
+    return out
+
+
 def describe(
     schemes: dict[str, CVScheme], frame: Optional[pd.DataFrame] = None
 ) -> pd.DataFrame:

@@ -13,7 +13,9 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import random
+import time
 from typing import Any
 
 import httpx
@@ -32,6 +34,8 @@ from .errors import (
     FastinoValidationError,
 )
 from .models import ExtractedSpan, SpanExtractionResult
+
+logger = logging.getLogger("matrx_ai.providers.fastino")
 
 
 def _coerce_int(value: Any, default: int = -1) -> int:
@@ -109,10 +113,60 @@ def _error_detail(resp: httpx.Response) -> str:
     return str(body)[:300]
 
 
+#: A refusal that no retry and no other chunk can get past — the key is refused, or the host is
+#: gone. Once one is seen, every call for ``_PERMANENT_REFUSAL_SECONDS`` fails immediately with the
+#: same sentence instead of spending a request: on 2026-09-26 a retired host failed 9,951 NER calls
+#: one by one, each a request, and every pass still "completed" with zero entities.
+_PERMANENT_STATUS: frozenset[int] = frozenset({401, 403, 404, 410})
+_PERMANENT_REFUSAL_SECONDS = 600.0
+_permanent_refusal: tuple[float, str, int] | None = None
+
+
+def _remember_permanent_refusal(exc: Exception, status: int) -> None:
+    global _permanent_refusal
+    _permanent_refusal = (time.monotonic(), str(exc), status)
+    logger.error(
+        "Fastino refused permanently (HTTP %s): %s — every extraction call fails immediately for "
+        "the next %ds instead of sending a request. Remedy: fix the base URL (PIONEER_API_BASE_URL / "
+        "DEFAULT_BASE_URL) or the API key (PIONEER_API_KEY / FASTINO_API_KEY).",
+        status,
+        exc,
+        int(_PERMANENT_REFUSAL_SECONDS),
+    )
+
+
+def _raise_if_permanently_refused() -> None:
+    if _permanent_refusal is None:
+        return
+    at, message, status = _permanent_refusal
+    if time.monotonic() - at > _PERMANENT_REFUSAL_SECONDS:
+        return
+    cls = FastinoAuthError if status in (401, 403) else FastinoError
+    err = cls(f"Not sent — Fastino refused permanently moments ago: {message}", status_code=status)
+    err.permanent = True  # type: ignore[attr-defined]
+    raise err
+
+
 def _handle_response(resp: httpx.Response) -> dict[str, Any]:
+    try:
+        return _handle_response_inner(resp)
+    except FastinoError as exc:
+        if resp.status_code in _PERMANENT_STATUS:
+            exc.permanent = True  # type: ignore[attr-defined]
+            _remember_permanent_refusal(exc, resp.status_code)
+        raise
+
+
+def _handle_response_inner(resp: httpx.Response) -> dict[str, Any]:
     status = resp.status_code
     if status == 401:
         raise FastinoAuthError("Invalid or expired Pioneer/Fastino API key", status_code=status)
+    if status == 410:
+        raise FastinoError(
+            f"This Fastino API host was retired (HTTP 410): {_error_detail(resp)}. Point the base "
+            "URL at the host it names.",
+            status_code=status,
+        )
     if status in (400, 422):
         raise FastinoValidationError(
             f"Fastino request validation failed (HTTP {status}): {_error_detail(resp)}",
@@ -438,6 +492,7 @@ class FastinoExtraction:
         return list(merged.values()), None
 
     async def _post(self, payload: dict[str, Any]) -> dict[str, Any]:
+        _raise_if_permanently_refused()
         url = gliner2_url()
         headers = fastino_auth_headers()
 

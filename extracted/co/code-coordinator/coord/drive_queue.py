@@ -160,9 +160,10 @@ def dispatch_type_for_labels(issue_labels: Iterable[str] | None) -> str:
 #
 # #2230 qualifies "terminal" for `blocked` specifically: it still means "no
 # `coord drive` launches from this row again on its own" and "stays in the
-# table for history" for a PERMANENT cause (#1844/#2019) or one the sweep has
-# no evidence about. It no longer means "nothing ever writes to this row
-# again" — a `blocked` entry whose cause was a re-evaluable gate reading may
+# table for history" for a PERMANENT cause (#1844/#2019/#2972 — see
+# `_PERMANENT_BLOCK_MARKERS`) or one the sweep has no evidence about. It no
+# longer means "nothing ever writes to this row again" — a `blocked` entry
+# whose cause was a re-evaluable gate reading may
 # be moved straight back to `waiting` by `plan_tick`'s own reconcile pass,
 # with no operator action, the moment that reading clears. See
 # `is_permanent_block_reason` and `_reconcile_blocked` below for exactly
@@ -282,7 +283,74 @@ PARK_STALE_SECONDS = 45 * 60.0
 # clear (see `_reconcile_blocked` and the `live_blocked_gate` parameter of
 # `plan_tick`). No evidence either way leaves the entry exactly as untouched
 # as it was before this feature existed.
-_PERMANENT_BLOCK_MARKERS: tuple[str, ...] = ("(#1844)", "(#2019)")
+#
+# #3454: `(#2972)` joined this tuple after quadraui#1077 (2026-09-27) showed
+# the gap a THIRD marker was needed for — a #2972 fix-round-ceiling give-up
+# is not like #309's ordinary `exhausted`: relaunching cannot produce more
+# budget no matter how the merge gate reads, so treating it as merely
+# "unlucky, re-check later" let #2230's own sweep silently resume it back to
+# `waiting` (attempts reset to 0!) the moment the gate cleared — handing the
+# exact fresh budget the ceiling exists to deny, from inside the mechanism
+# built to respect it. Marking it permanent here closes that specific hole:
+# `_reconcile_blocked` returns `None` for it unconditionally, same as
+# #1844/#2019, and only an operator's `coord drive-queue remove` + `add`
+# (a fresh row) ever gives this entry another attempt. This
+# does NOT stop the row from being noticed if the issue lands anyway
+# out-of-band — `plan_tick`'s own step-1b `facts.landed` check (#2055/#3368)
+# runs unconditionally for every `blocked` entry regardless of this marker,
+# exactly as it always has; what stops is only the AUTOMATIC relaunch/
+# merge-only paths #2230 gates. See :func:`is_fix_round_ceiling_reason` for
+# the narrower predicate `coord.commands.drive_queue` uses to also stop its
+# OWN independent auto-dispatch (the stale-rebase conflict-fix revalidation)
+# from re-firing against a row that has already given up this way.
+_PERMANENT_BLOCK_MARKERS: tuple[str, ...] = ("(#1844)", "(#2019)", "(#2972)")
+
+
+def is_fix_round_ceiling_reason(reason: str | None) -> bool:
+    """#3454: does *reason* name the #2972 fix-round-ceiling give-up — the
+    ``_reconcile_running`` "giving up rather than relaunching with a fresh
+    budget" branch, below?
+
+    Marker-based, same convention as :func:`is_permanent_block_reason` (whose
+    ``_PERMANENT_BLOCK_MARKERS`` this reuses the same ``(#2972)`` text for):
+    the branch that writes this reason stamps the marker unconditionally, so
+    a substring check is exact, not a heuristic guess. A dedicated predicate
+    rather than reusing ``is_permanent_block_reason`` directly because a
+    caller outside this module (``coord.commands.drive_queue``'s stale-rebase
+    auto-revalidation, #3454) wants to ask SPECIFICALLY "did this entry give
+    up on the fix-round ceiling", not the broader "is this blocked for any
+    permanent reason" — conflating the two would silently widen that other
+    caller's behaviour to #1844/#2019 rows too, which nothing in #3454 asked
+    for and nothing has verified is safe.
+    """
+    if not reason:
+        return False
+    return "(#2972)" in reason
+
+
+def is_fix_round_ceiling_blocked(state: str | None, last_reason: str | None) -> bool:
+    """#3454 review: the ONE predicate every auto-dispatcher must consult
+    before firing against a (repo, issue) — "has this row's drive-queue
+    entry already given up on the #2972 fix-round ceiling".
+
+    The review that opened this function found TWO independent
+    ``dispatch_conflict_fix`` callers deciding this question with different
+    logic: ``coord.commands.drive_queue``'s stale-rebase auto-revalidation
+    checked it, ``coord.notify``'s stalled-pipeline sweep (a third,
+    pre-existing caller of the same worker) did not — so a
+    ``(#2972)``-blocked entry could still receive a brand-new conflict-fix
+    leg via the second path, entirely unaffected by the first fix. Both now
+    call this one function instead of each re-deriving "blocked AND
+    :func:`is_fix_round_ceiling_reason`" — the "one question, one answer"
+    rule this module already applies elsewhere (#2096/#2085).
+
+    ``state`` must be the LIVE state (:data:`STATE_BLOCKED`, not merely "the
+    reason string looks like a ceiling give-up") — a row that has since been
+    removed/re-added by an operator (the documented remedy) has a fresh
+    ``last_reason`` from a NEW life, but a stale caller that only checked the
+    reason string could still misfire against the archived one.
+    """
+    return state == STATE_BLOCKED and is_fix_round_ceiling_reason(last_reason)
 
 
 def is_permanent_block_reason(text: str | None) -> bool:
@@ -1388,6 +1456,19 @@ class QueueEntry:
     # `last_reason`. `None` for a row predating this column or one whose
     # `apply_verdict` is still unset.
     apply_verdict_at: float | None = None
+    # #3463: the all-time WORK_LIKE leg count (the SAME per-issue figure
+    # `IssueFacts.work_leg_count` carries) this row saw at the moment
+    # `enqueue_drive_queue` last declared it — see
+    # `coord.state._enqueue_drive_queue_local` for where it is stamped, on
+    # every `add` (insert OR update-in-place), never carried forward.
+    # `remaining_fix_rounds` subtracts this off `facts.work_leg_count`
+    # before comparing spend against `max_fix_rounds`, so a row's own
+    # budget is measured from ITS OWN baseline — "legs since THIS row was
+    # last (re-)declared" — rather than the lifetime total every
+    # predecessor row for this issue ever spent. `0` for every row
+    # predating this column, which reproduces the pre-#3463
+    # `work_leg_count - 1` formula exactly for that row.
+    legs_at_enqueue: int = 0
 
     @property
     def key(self) -> str:
@@ -1488,6 +1569,7 @@ class QueueEntry:
                 if row.get("apply_verdict_at") is None
                 else float(row.get("apply_verdict_at"))
             ),
+            legs_at_enqueue=int(row.get("legs_at_enqueue") or 0),
         )
 
 
@@ -1549,29 +1631,46 @@ def remaining_fix_rounds(
     resumes rather than restarts.
 
     ``facts.work_leg_count`` is every work-like assignment `build_board_view`
-    has EVER seen for this issue, across every drive session this entry has
-    had — not just the one that just died. Subtracting the one unconditional
-    initial work leg turns that into "fix rounds already spent"; subtracting
-    THAT from :func:`effective_max_fix_rounds`'s plain per-drive allowance
-    (NOT :func:`total_fix_round_budget` — that figure already has the
-    initial work leg folded in, and folding it in a second time here would
-    hand a brand-new entry, with zero legs spent, a budget one round wider
-    than `coord drive`'s own interactive default ever allows) is what makes
-    a second (or third, or fourth) relaunch get a SMALLER budget than the
+    has EVER seen for this issue, across every drive session this entry (and
+    every predecessor row for the same issue) has ever had. #3463: what this
+    row has itself SPENT is that lifetime total minus
+    ``entry.legs_at_enqueue`` — the lifetime count as of the moment THIS row
+    was last (re-)declared by `enqueue_drive_queue` — not the raw lifetime
+    total. Subtracting the one unconditional initial work leg turns that
+    into "fix rounds already spent"; subtracting THAT from
+    :func:`effective_max_fix_rounds`'s plain per-drive allowance (NOT
+    :func:`total_fix_round_budget` — that figure already has the initial
+    work leg folded in, and folding it in a second time here would hand a
+    brand-new entry, with zero legs spent, a budget one round wider than
+    `coord drive`'s own interactive default ever allows) is what makes a
+    second (or third, or fourth) relaunch get a SMALLER budget than the
     first, instead of the same fresh one every time — the exact defect
     quadraui#625 reported: four work legs dispatched against a
     ``pipeline.max_fix_rounds`` of 2 (budget 3), because each relaunch's
     ``coord drive --max-fix-rounds`` was computed from `entry` alone, blind
     to what prior sessions had already spent. A fresh entry (``work_leg_count
-    == 0``) reads back exactly :func:`effective_max_fix_rounds` — unchanged
-    from every pre-#2972 launch.
+    == legs_at_enqueue``) reads back exactly :func:`effective_max_fix_rounds`
+    — unchanged from every pre-#2972 launch, and unchanged by #3463 for a row
+    predating the ``legs_at_enqueue`` column (``0``, reproducing the old
+    ``work_leg_count - 1`` formula exactly).
+
+    #3463: this is also what makes an explicit ``coord drive-queue remove``
+    + ``add`` actually hand out a fresh budget, as the #3454 ceiling message
+    promises — the re-added row's own ``legs_at_enqueue`` is stamped at
+    THAT ``add``, not inherited from a predecessor row. It does NOT change
+    the #2972 guarantee that a bare relaunch (no `add` in between) gets no
+    fresh budget: a relaunch never calls `enqueue_drive_queue` at all, only
+    `update_drive_queue_entry`, so `legs_at_enqueue` never moves between
+    relaunches of the SAME row.
 
     Never negative — an entry that has already met or exceeded
     :func:`total_fix_round_budget` reads ``0`` (no more fix rounds), the
     signal `_reconcile_running` uses to stop relaunching altogether rather
     than pass a session a budget it cannot spend down further.
     """
-    fix_rounds_spent = max(facts.work_leg_count - 1, 0)
+    fix_rounds_spent = max(
+        facts.work_leg_count - entry.legs_at_enqueue - 1, 0
+    )
     return max(effective_max_fix_rounds(entry, config_default) - fix_rounds_spent, 0)
 
 
@@ -5112,13 +5211,30 @@ def _reconcile_running(
     # ran.
     budget = total_fix_round_budget(entry, fix_round_config_default)
     if remaining_fix_rounds(entry, facts, fix_round_config_default) <= 0:
+        # #3454: this block now DOES mean "stop" — see
+        # `_PERMANENT_BLOCK_MARKERS`'s `(#2972)` entry and
+        # `is_fix_round_ceiling_reason` above for the mechanics. Say so
+        # explicitly rather than leaving an operator to infer it: quadraui#1077
+        # showed a bare "giving up" read as "nothing more will happen or be
+        # spent" while the fleet kept dispatching paid legs against the same
+        # branch for hours.
+        # #3463: legs run against THIS row's own baseline, not the raw
+        # lifetime count — see `remaining_fix_rounds`'s docstring. Reporting
+        # the raw `facts.work_leg_count` here would misstate a re-added
+        # row's spend as its predecessors' lifetime total.
+        row_legs = max(facts.work_leg_count - entry.legs_at_enqueue, 0)
         reason = (
             f"fix-round ceiling reached across relaunches (#2972): "
-            f"{facts.work_leg_count} work leg(s) already run against a "
+            f"{row_legs} work leg(s) already run against this row's own "
             f"budget of {budget} (1 work dispatch + "
             f"{effective_max_fix_rounds(entry, fix_round_config_default)} fix "
             f"round(s)) — giving up rather than relaunching with a fresh "
-            f"budget{dispatch_note}"
+            f"budget{dispatch_note}. Stopped (#3454): no further relaunch, "
+            f"gate-clear resume, or auto-dispatched stale-rebase conflict-fix "
+            f"(from any of this fleet's independent dispatchers) will fire "
+            f"for this entry — `coord drive-queue remove {entry.repo} "
+            f"{entry.issue}` + `add` (a fresh row, #3463: with its own fresh "
+            f"budget) is the only way to give it another attempt."
         )
         return (
             Reconcile(entry.key, "exhausted", reason, occupies=False),
@@ -5247,6 +5363,44 @@ def _blocked_gate_reading(
     return None
 
 
+# #3460: the separator this module uses whenever it needs to layer a
+# fresh, THIS-TICK-ONLY note (the #2806 "could not be read" verdict below,
+# or :func:`_reconcile_blocked`'s own "confirmed still shut" gate detail) on
+# top of a `blocked` entry's ORIGINAL block cause, without ever destroying
+# that cause the way a bare ``last_reason: reason`` overwrite used to
+# (claude-coordinator#3460, quadraui#1081: the #2806 write below replaced a
+# #2972 fix-round-ceiling give-up's own text outright, and every later
+# tick's `is_permanent_block_reason`/`is_fix_round_ceiling_reason`/
+# `is_pre_dispatch_block_reason` classification — which reads ONLY
+# `last_reason` — could then never recognise the row again).
+# :func:`_strip_blocked_gate_probe_note` removes any note a PREVIOUS tick
+# appended this same way before a new one is computed, so an unchanged
+# verdict across many ticks rewrites the identical string rather than
+# growing it forever.
+_BLOCKED_GATE_PROBE_NOTE_SEP = " — this tick's merge-gate probe: "
+
+
+def _strip_blocked_gate_probe_note(text: str | None) -> str:
+    """*text* with any :data:`_BLOCKED_GATE_PROBE_NOTE_SEP`-delimited note a
+    previous tick appended (via :func:`_with_blocked_gate_probe_note`)
+    removed, leaving only the entry's original block cause."""
+    base, _sep, _note = (text or "").partition(_BLOCKED_GATE_PROBE_NOTE_SEP)
+    return base.rstrip()
+
+
+def _with_blocked_gate_probe_note(original: str | None, note: str) -> str:
+    """*original* (an entry's ``last_reason``) with *note* — this tick's
+    gate-probe finding — appended, after first stripping any note an
+    earlier tick appended the same way (see :data:`_BLOCKED_GATE_PROBE_NOTE_SEP`).
+
+    The entry's own original cause is NEVER discarded: when there is one,
+    *note* is layered on top of it, never in place of it; when there is
+    none (``original`` empty), *note* stands alone.
+    """
+    base = _strip_blocked_gate_probe_note(original)
+    return f"{base}{_BLOCKED_GATE_PROBE_NOTE_SEP}{note}" if base else note
+
+
 def _reconcile_blocked_unreadable(
     entry: QueueEntry, live_blocked_unreadable: Mapping[str, str] | None
 ) -> Reconcile | None:
@@ -5294,15 +5448,27 @@ def _reconcile_blocked_unreadable(
     `oscillating` outcome's own channel — #2230's "no second alert channel"
     posture) every tick the condition holds, the same posture `oscillating`
     already takes for its own distinct-from-silence signal.
+
+    #3460: this write no longer REPLACES `last_reason` wholesale — it
+    layers the probe note on top of whatever cause was already recorded
+    (:func:`_with_blocked_gate_probe_note`), so a #2972 fix-round-ceiling
+    give-up (or any other marker/classifier text a later tick needs to
+    recognise this row by) survives an unreadable probe intact. Before this,
+    the incident's own root cause — the #2806 self-heal above can never
+    enqueue a row whose Work fails the review/smoke gates, so exactly the
+    entries most worth confirming "still shut" were the ones perpetually
+    reported "unreadable" — compounded with a SECOND bug: every such tick
+    also erased the real cause it was reporting on.
     """
     note = (live_blocked_unreadable or {}).get(entry.key)
     if not note:
         return None
-    reason = (
+    probe_note = (
         f"{entry.key}'s merge gate could not be read this tick ({note}) — "
         f"this is {_UNCONFIRMED_BLOCK_MARKER}; "
         "#2230's sweep will try again next tick rather than guessing (#2806)"
     )
+    reason = _with_blocked_gate_probe_note(entry.last_reason, probe_note)
     return Reconcile(
         entry.key,
         "gate_unreadable",
@@ -5318,14 +5484,16 @@ def _reconcile_blocked(
     live_blocked_gate: Mapping[str, bool] | None,
     merge_only_ready: Mapping[str, bool] | None = None,
     live_blocked_unreadable: Mapping[str, str] | None = None,
+    live_blocked_gate_reason: Mapping[str, str] | None = None,
 ) -> Reconcile | None:
     """Re-examine ONE `blocked` entry against the current gate reading.
 
     Returns ``None`` — nothing to report, nothing to write — in every case
-    except a CONFIRMED-clear reading OR a probe that came back unreadable
-    (#2806), which is deliberate: a `blocked` entry this sweep cannot say
-    anything new about must render EXACTLY as it did before #2230 existed.
-    Four ways to land there:
+    except a CONFIRMED-clear reading, a probe that came back unreadable
+    (#2806), or a CONFIRMED-still-shut reading that ALSO carries a fresh
+    *live_blocked_gate_reason* (#3460), which is deliberate: a `blocked`
+    entry this sweep cannot say anything NEW about must render EXACTLY as it
+    did before #2230 existed. Four ways to land on plain ``None``:
 
     * the block is PERMANENT (:func:`is_permanent_block_reason`) — #1844's
       guard refusal or #2019's dead end — neither of which any amount of
@@ -5348,8 +5516,12 @@ def _reconcile_blocked(
       nothing this sweep can cheaply re-check, and guessing would be
       exactly the "worse than nothing" sweep the issue warns a naive
       "retry everything" pass would be;
-    * the gate is CONFIRMED still shut — the common, honest outcome for a
-      `blocked` entry that has not in fact recovered yet.
+    * the gate is CONFIRMED still shut, but *live_blocked_gate_reason*
+      carries no fresh reason for it (either the reading came off the
+      cached board's own `facts.merge_gate_status`/`merge_ci_pending`, or
+      the shell's live re-check simply had nothing new to say) — the
+      common, honest outcome for a `blocked` entry that has not in fact
+      recovered yet, with nothing new worth writing.
 
     #2806: when there is no evidence either way BUT the shell's live probe
     was actually attempted against this entry and came back empty (as
@@ -5357,6 +5529,20 @@ def _reconcile_blocked(
     unreadable` reports THAT distinctly — "could not read", never silently
     folded into "still shut". See its own docstring for why the two must
     not render identically to an operator.
+
+    #3460: when the gate IS confirmed still shut AND *live_blocked_gate_
+    reason* carries a fresh reason for this key — the shell's live
+    ``entry_gate_status``/direct-evaluation read named WHICH gate(s) are
+    still failing and why — this writes `last_reason` too, layering that
+    reason on top of the entry's existing cause
+    (:func:`_with_blocked_gate_probe_note`, never replacing it). Before
+    this, a confirmed-still-shut reading was reported identically to "no
+    evidence at all" (plain silence), which is how the #3460 incident's
+    root cause hid: the SHELL was misclassifying a genuinely
+    confirmed-still-shut gate as an unconfirmed probe failure, and once
+    fixed there, this half makes the correct classification visible on
+    `coord drive-queue list`/`status` too, instead of leaving the entry's
+    possibly-stale original `last_reason` as the only thing shown.
 
     Only a confirmed-clear reading does anything else, and even then only up
     to :data:`MAX_BLOCKED_RESUMES` — past that ceiling the entry stays
@@ -5434,7 +5620,28 @@ def _reconcile_blocked(
     if reading is None:
         return _reconcile_blocked_unreadable(entry, live_blocked_unreadable)
     if reading:
-        return None
+        # #3460: confirmed still shut. Silent (render exactly as before
+        # #2230/#2806) unless the shell's live re-check also named WHY —
+        # see the docstring above and `_with_blocked_gate_probe_note` for
+        # why this layers the reason on top of `last_reason` rather than
+        # replacing it.
+        live_reason = (live_blocked_gate_reason or {}).get(entry.key)
+        if not live_reason:
+            return None
+        probe_note = (
+            f"{entry.key}'s merge gate is confirmed still shut this tick: "
+            f"{live_reason} (#3460)"
+        )
+        reason = _with_blocked_gate_probe_note(entry.last_reason, probe_note)
+        if reason == entry.last_reason:
+            return None
+        return Reconcile(
+            entry.key,
+            "gate_confirmed_shut",
+            reason,
+            occupies=False,
+            updates={"last_reason": reason},
+        )
 
     if entry.resumes >= MAX_BLOCKED_RESUMES:
         reason = (
@@ -5895,6 +6102,7 @@ def plan_tick(
     live_ci_gate: Mapping[str, bool] | None = None,
     live_ci_gate_reason: Mapping[str, str] | None = None,
     live_blocked_gate: Mapping[str, bool] | None = None,
+    live_blocked_gate_reason: Mapping[str, str] | None = None,
     live_blocked_unreadable: Mapping[str, str] | None = None,
     editable_drift: tuple[str, str] | None = None,
     merge_only_ready: Mapping[str, bool] | None = None,
@@ -6056,6 +6264,17 @@ def plan_tick(
     still finds it blocked. Same authority rule as *live_ci_gate*: present
     beats the cached board's `IssueFacts.merge_gate_status`; absent falls
     through to it. See :func:`_blocked_gate_reading`.
+
+    *live_blocked_gate_reason* (#3460) is *live_blocked_gate*'s own
+    `live_ci_gate_reason` counterpart: the reason text behind whichever way
+    the SAME fresh read came back, for a key also present in
+    *live_blocked_gate*. Used only when that reading is CONFIRMED still
+    shut (`True`) — :func:`_reconcile_blocked` surfaces it so a `blocked`
+    entry whose gate the #3460 incident's sweep bug used to misreport as an
+    "unconfirmed probe failure" now shows the real cause (which gate, and
+    why) instead, without discarding the entry's own original block reason.
+    A key ABSENT here changes nothing: exactly the pre-#3460 silent
+    "confirmed shut, nothing new to say" rendering.
 
     *live_blocked_unreadable* (#2806) maps a `blocked` entry's key to a
     short human-readable reason the shell's live probe for THAT entry was
@@ -6242,6 +6461,29 @@ def plan_tick(
     # recorded — instead of the `own_reason`-based text `reconcile.reason`
     # carries fresh, right below.
     effective_last_reason: dict[str, str] = {e.key: e.last_reason for e in ordered}
+
+    def _refresh_only(reason: str, current: str) -> dict[str, Any]:
+        """``{}`` unless *reason* is non-empty and differs from *current*.
+
+        #3461: a `counted=False` deferral must never bump `deferrals` or feed
+        the queue-level alert (see `Deferral`'s own docstring on that flag) —
+        but the descriptive TEXT still has to keep up with reality when the
+        walk re-derives it for an entry that isn't actually competing for a
+        slot this tick (the queue is at capacity, or this entry sits behind
+        an already-chosen launch in the report-only tail). Writing ONLY on a
+        real change means `reason_at` — stamped by
+        `coord.state._update_drive_queue_entry_local` whenever `last_reason`
+        is present in the same update, #2133 — only moves when the text
+        actually does, so the `(Nm ago)` age it powers keeps meaning "how
+        long this has been true" rather than "how long since some tick
+        happened to re-walk this row". An empty *reason* (the fully-eligible,
+        nothing-to-report shape `_Verdict(True)` returns) writes nothing —
+        overwriting a real reason with blank text would be a regression, not
+        a refresh.
+        """
+        if not reason or reason == current:
+            return {}
+        return {"last_reason": reason}
 
     reconciles: list[Reconcile] = []
     blocked: list[Blocked] = []
@@ -6446,6 +6688,7 @@ def plan_tick(
                     live_blocked_gate,
                     merge_only_ready,
                     live_blocked_unreadable,
+                    live_blocked_gate_reason,
                 )
             if blocked_reconcile is not None:
                 reconciles.append(blocked_reconcile)
@@ -6882,11 +7125,41 @@ def plan_tick(
         )
 
     if capacity - occupied <= 0:
+        # #3461: at capacity is the NORMAL steady state of a deep queue, so
+        # this early return can fire for many ticks in a row. Before this, it
+        # produced no deferral at all, which meant a `waiting` entry's
+        # `last_reason` — e.g. "waiting on X (queued, blocked, ...)" — never
+        # got a chance to notice X had since flipped back to `waiting`, or
+        # landed. `_resolve_prereqs` is cheap (no I/O, just the cached board
+        # + this tick's `states`), so it still runs for every `waiting` entry
+        # here; only the TEXT is refreshed (`_refresh_only` below is a no-op
+        # unless it actually changed) and only via `counted=False` — no
+        # attempt is spent, `deferrals` does not move, and the queue-level
+        # alert (computed only in the launch walk below) is untouched, same
+        # as every other early return in this function.
+        for entry in ordered:
+            if states.get(entry.key) != STATE_WAITING:
+                continue
+            verdict = _resolve_prereqs(
+                entry,
+                board,
+                states,
+                cycle_keys,
+                held_gates,
+                live_prereq_terminal,
+                effective_last_reason,
+            )
+            updates = _refresh_only(verdict.reason, entry.last_reason)
+            if not updates:
+                continue
+            deferrals.append(
+                Deferral(entry.key, verdict.reason, counted=False, updates=updates)
+            )
         return TickPlan(
             **plan_base,
             reconciles=tuple(reconciles),
             blocked=tuple(blocked),
-            deferrals=(),
+            deferrals=tuple(deferrals),
             alert=None,
             launch=None,
         )
@@ -7017,17 +7290,35 @@ def plan_tick(
     for entry in waiting:
         if launch is not None:
             # Report-only pass over the tail of the queue.  The launch above
-            # already won this tick, so nothing here is mutated (see
-            # Deferral.counted) — this exists so `--dry-run` explains the rest
-            # of the queue instead of going silent after the first line.
+            # already won this tick, so `counted` stays `False` and neither
+            # `deferrals` nor the queue-level alert moves for anything found
+            # here — that part is unchanged. #3461: the descriptive TEXT is
+            # no longer left frozen just because this entry never got to
+            # compete for a slot — `_refresh_only` (defined near the top of
+            # this function) still folds a changed reading into `updates` so
+            # `--dry-run` AND a real tick both keep `last_reason` current for
+            # every entry the walk reaches, not only the one that launched.
             cooldown = _cooldown_reason(entry)
             if cooldown:
-                deferrals.append(Deferral(entry.key, cooldown, counted=False))
+                deferrals.append(
+                    Deferral(
+                        entry.key,
+                        cooldown,
+                        counted=False,
+                        updates=_refresh_only(cooldown, entry.last_reason),
+                    )
+                )
                 continue
             backoff = _backoff_reason(entry)
             if backoff:
                 deferrals.append(
-                    Deferral(entry.key, backoff, counted=False, backing_off=True)
+                    Deferral(
+                        entry.key,
+                        backoff,
+                        counted=False,
+                        backing_off=True,
+                        updates=_refresh_only(backoff, entry.last_reason),
+                    )
                 )
                 continue
             verdict = _resolve_prereqs(
@@ -7041,20 +7332,35 @@ def plan_tick(
             )
             if not verdict.satisfied:
                 deferrals.append(
-                    Deferral(entry.key, verdict.reason, counted=False)
+                    Deferral(
+                        entry.key,
+                        verdict.reason,
+                        counted=False,
+                        updates=_refresh_only(verdict.reason, entry.last_reason),
+                    )
                 )
                 continue
             cordoned = _cordon_reason(entry)
             if cordoned:
                 deferrals.append(
-                    Deferral(entry.key, cordoned, counted=False, cordoned=True)
+                    Deferral(
+                        entry.key,
+                        cordoned,
+                        counted=False,
+                        cordoned=True,
+                        updates=_refresh_only(cordoned, entry.last_reason),
+                    )
                 )
                 continue
             repo_limit = _repo_limit_reason(entry)
             if repo_limit:
                 deferrals.append(
                     Deferral(
-                        entry.key, repo_limit, counted=False, repo_limited=True
+                        entry.key,
+                        repo_limit,
+                        counted=False,
+                        repo_limited=True,
+                        updates=_refresh_only(repo_limit, entry.last_reason),
                     )
                 )
             continue

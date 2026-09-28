@@ -7,14 +7,15 @@ use super::error::FleetContractError;
 use super::error::FLEET_CONTRACT_SCHEMA_VERSION;
 use super::error::MAX_INTENT_BYTES;
 use super::error::MAX_LABEL_BYTES;
+use super::locators::instance_key_matches;
 use super::locators::instance_key_unchecked;
 use super::locators::logical_key_unchecked;
 use super::locators::AgentInstanceLocatorWire;
 use super::locators::LogicalAgentLocatorWire;
+use super::projection::agent_session_role_for_projection;
 use super::projection::bucket_for_lifecycle;
 use super::projection::content_metadata;
 use super::projection::current_instance_locator_schema;
-use super::projection::family_role_for_projection;
 use super::projection::first_non_empty;
 use super::projection::fleet_queue_weight_is_valid;
 use super::projection::intent_for_record;
@@ -24,6 +25,7 @@ use super::projection::normalized_owner_facts;
 use super::projection::owner_resolved_logical_locator;
 use super::projection::provider_for_record;
 use super::projection::queue_capacity_for_record;
+use super::projection::queue_capacity_multiplier_for_record;
 use super::projection::queue_weight_for_record;
 use super::projection::reject_inconsistent_projection;
 use super::projection::status_for_record;
@@ -31,7 +33,7 @@ use super::projection::terminal_lifecycle;
 use super::projection::validate_projection_request;
 use super::status::default_row_kind;
 use super::status::ConnectionHealthWire;
-use super::status::FleetFamilyRoleWire;
+use super::status::FleetAgentSessionRoleWire;
 use super::status::FleetLifecycleWire;
 use super::status::FleetRowKindWire;
 use super::status::FleetStatusBucketWire;
@@ -69,8 +71,8 @@ pub struct OwnerResolutionFactsWire {
     pub run_started_at_unix: Option<f64>,
     #[serde(default)]
     pub stopped_at_unix: Option<f64>,
-    #[serde(default)]
-    pub family_id: Option<String>,
+    #[serde(default, alias = "family_id")]
+    pub agent_session_id: Option<String>,
     #[serde(default)]
     pub parent_timestamp: Option<String>,
     #[serde(default)]
@@ -85,7 +87,7 @@ pub struct OwnerResolutionFactsWire {
     pub clan_tribe: Option<String>,
     #[serde(default)]
     pub tribe: Option<String>,
-    /// Owner-derived shell, plan, question, retry, and lifecycle facts.
+    /// Owner-derived turn, plan, question, retry, and lifecycle facts.
     #[serde(default)]
     pub presentation: OwnerPresentationFactsWire,
     #[serde(default = "default_row_kind")]
@@ -111,7 +113,8 @@ pub struct HumanDisplayLabelsWire {
     pub schema_version: u32,
     pub project_label: String,
     pub agent_label: Option<String>,
-    pub family_label: Option<String>,
+    #[serde(alias = "family_label")]
+    pub agent_session_label: Option<String>,
     pub owner_label: Option<String>,
     pub alias: Option<String>,
 }
@@ -142,9 +145,10 @@ pub struct ResolvedAgentSummaryWire {
     pub logical_key: String,
     pub exact_key: Option<String>,
     pub row_kind: FleetRowKindWire,
-    pub family_role: FleetFamilyRoleWire,
-    /// Parent's record identity, when this row is a tracked family member.
-    /// `None` for roots and rows with no tracked family lineage.
+    #[serde(alias = "family_role")]
+    pub agent_session_role: FleetAgentSessionRoleWire,
+    /// Parent's record identity, when this row is a tracked agent session member.
+    /// `None` for roots and rows with no tracked agent session lineage.
     pub parent_timestamp: Option<String>,
     pub labels: HumanDisplayLabelsWire,
     pub project_name: String,
@@ -170,7 +174,7 @@ pub struct ResolvedAgentSummaryWire {
     pub clan_tribe: Option<String>,
     #[serde(default)]
     pub tribe: Option<String>,
-    /// Owner-derived shell, plan, question, retry, and lifecycle facts. Never
+    /// Owner-derived turn, plan, question, retry, and lifecycle facts. Never
     /// carries paths; omitted when empty so legacy consumers see no change.
     #[serde(
         default,
@@ -188,6 +192,8 @@ pub struct ResolvedAgentSummaryWire {
     pub queue_capacity: Option<u32>,
     #[serde(default)]
     pub queue_capacity_explicit: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub queue_capacity_multiplier: Option<f64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub queue_weight: Option<f64>,
     #[serde(default)]
@@ -242,9 +248,11 @@ pub fn project_resolved_agent_summary(
     ) = queue_weight_for_record(&request.record);
     let (queue_capacity, queue_capacity_explicit) =
         queue_capacity_for_record(&request.record);
-    let family = meta
-        .and_then(|value| value.family_shell.as_ref())
-        .or_else(|| done.and_then(|value| value.family_shell.as_ref()));
+    let queue_capacity_multiplier =
+        queue_capacity_multiplier_for_record(&request.record);
+    let agent_session = meta
+        .and_then(|value| value.agent_session_turn.as_ref())
+        .or_else(|| done.and_then(|value| value.agent_session_turn.as_ref()));
     let parent_timestamp = facts.parent_timestamp.clone().or_else(|| {
         meta.and_then(|value| {
             first_non_empty([
@@ -254,12 +262,12 @@ pub fn project_resolved_agent_summary(
             .map(str::to_string)
         })
     });
-    let family_role = family_role_for_projection(
+    let agent_session_role = agent_session_role_for_projection(
         facts.row_kind,
         lifecycle,
         facts.liveness,
         parent_timestamp.is_some()
-            || crate::fleet_family::record_is_concrete_family_shell(
+            || crate::fleet_agent_session::record_is_concrete_agent_session_turn(
                 &request.record,
             ),
     );
@@ -273,12 +281,12 @@ pub fn project_resolved_agent_summary(
         agent_label: first_non_empty([
             meta.and_then(|value| value.name.as_deref()),
             done.and_then(|value| value.name.as_deref()),
-            family.and_then(|value| value.label.as_deref()),
+            agent_session.and_then(|value| value.label.as_deref()),
         ])
         .map(|value| trim_to_limit(value, MAX_LABEL_BYTES)),
-        family_label: first_non_empty([
-            meta.and_then(|value| value.agent_family.as_deref()),
-            family.and_then(|value| value.label.as_deref()),
+        agent_session_label: first_non_empty([
+            meta.and_then(|value| value.agent_session.as_deref()),
+            agent_session.and_then(|value| value.label.as_deref()),
         ])
         .map(|value| trim_to_limit(value, MAX_LABEL_BYTES)),
         owner_label: None,
@@ -291,7 +299,7 @@ pub fn project_resolved_agent_summary(
         logical_key,
         exact_key,
         row_kind: facts.row_kind,
-        family_role,
+        agent_session_role,
         parent_timestamp,
         labels,
         project_name: trim_to_limit(
@@ -322,6 +330,7 @@ pub fn project_resolved_agent_summary(
         content: content_metadata(&facts.content_handles)?,
         queue_capacity,
         queue_capacity_explicit,
+        queue_capacity_multiplier,
         queue_weight,
         queue_weight_explicit,
         queue_weight_invalid,
@@ -369,12 +378,15 @@ pub fn validate_resolved_agent_summary(
             "summary logical_key does not match logical locator".to_string(),
         ));
     }
-    if summary.exact_key
-        != summary.exact_locator.as_ref().map(instance_key_unchecked)
-    {
-        return Err(FleetContractError::Validation(
-            "summary exact_key does not match exact locator".to_string(),
-        ));
+    match (&summary.exact_key, &summary.exact_locator) {
+        (Some(stored), Some(locator))
+            if instance_key_matches(stored, locator) => {}
+        (None, None) => {}
+        _ => {
+            return Err(FleetContractError::Validation(
+                "summary exact_key does not match exact locator".to_string(),
+            ));
+        }
     }
     summary.row_revision.validate()?;
     if summary.row_revision.logical_key != summary.logical_key {
@@ -436,8 +448,8 @@ pub fn validate_resolved_agent_summary(
         ("tribe", summary.tribe.as_deref()),
         ("labels.agent_label", summary.labels.agent_label.as_deref()),
         (
-            "labels.family_label",
-            summary.labels.family_label.as_deref(),
+            "labels.agent_session_label",
+            summary.labels.agent_session_label.as_deref(),
         ),
         ("labels.owner_label", summary.labels.owner_label.as_deref()),
         ("labels.alias", summary.labels.alias.as_deref()),
@@ -504,28 +516,29 @@ pub fn validate_resolved_agent_summary(
                 .to_string(),
         ));
     }
-    let family_role_matches_row_kind = match summary.row_kind {
+    let agent_session_role_matches_row_kind = match summary.row_kind {
         FleetRowKindWire::Proc => {
-            summary.family_role == FleetFamilyRoleWire::Proc
+            summary.agent_session_role == FleetAgentSessionRoleWire::Proc
         }
         FleetRowKindWire::Monitor => {
-            summary.family_role == FleetFamilyRoleWire::Monitor
+            summary.agent_session_role == FleetAgentSessionRoleWire::Monitor
         }
         FleetRowKindWire::Gate => {
-            summary.family_role == FleetFamilyRoleWire::Gate
+            summary.agent_session_role == FleetAgentSessionRoleWire::Gate
         }
-        FleetRowKindWire::AgentShell
+        FleetRowKindWire::AgentTurn
         | FleetRowKindWire::ContainerHeader
-        | FleetRowKindWire::HistoricalShell => matches!(
-            summary.family_role,
-            FleetFamilyRoleWire::Root
-                | FleetFamilyRoleWire::Member
-                | FleetFamilyRoleWire::HistoricalShell
+        | FleetRowKindWire::HistoricalTurn => matches!(
+            summary.agent_session_role,
+            FleetAgentSessionRoleWire::Root
+                | FleetAgentSessionRoleWire::Member
+                | FleetAgentSessionRoleWire::HistoricalTurn
         ),
     };
-    if !family_role_matches_row_kind {
+    if !agent_session_role_matches_row_kind {
         return Err(FleetContractError::Validation(
-            "summary family_role is inconsistent with row_kind".to_string(),
+            "summary agent session role is inconsistent with row_kind"
+                .to_string(),
         ));
     }
     Ok(summary.clone())

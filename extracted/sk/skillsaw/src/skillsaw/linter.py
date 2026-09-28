@@ -61,10 +61,29 @@ if TYPE_CHECKING:
 
 
 # Violations that display like warnings but never flip the exit code.
-# Deprecation notices must stay advisory: every pre-0.18 `skillsaw init`
-# config names now-deprecated rules, so a fatal warning would break every
-# strict-mode CI run on upgrade.
-ADVISORY_RULE_IDS = frozenset({"deprecated-rule"})
+# Unknown and deprecated rules must stay advisory so old config entries
+# cannot break strict-mode CI when rules are retired or removed on upgrade.
+ADVISORY_RULE_IDS = frozenset({"deprecated-rule", "unknown-rule"})
+
+# Builtin rules deleted from skillsaw: id -> (version removed, replacement).
+# The one source for every surface that meets a stale ID — config entries,
+# --rule and --skip-rule — so each names the removal instead of calling a
+# once-valid ID a typo.
+REMOVED_RULES: Dict[str, Tuple[str, Optional[str]]] = {
+    "content-actionability-score": ("0.21.0", None),
+    "content-critical-position": ("0.21.0", None),
+    "skill-frontmatter": ("0.21.0", "agentskill-valid"),
+}
+
+
+def removed_rule_note(rule_id: str) -> str:
+    """``Rule '<id>' was removed in <version>``, naming any replacement."""
+    version, replacement = REMOVED_RULES[rule_id]
+    note = f"Rule '{rule_id}' was removed in {version}"
+    if replacement:
+        note += f" (use '{replacement}' instead)"
+    return note
+
 
 # Violations exempt from path-based suppression (global and per-rule
 # excludes). Config-validation warnings point at the config file itself;
@@ -76,7 +95,7 @@ ADVISORY_RULE_IDS = frozenset({"deprecated-rule"})
 # visible edit at the exact line the warning names. Region `disable`
 # forms and bare all-rules directives are the same blanket this set
 # exists to close.
-_UNEXCLUDABLE_RULE_IDS = frozenset({"invalid-config"})
+_UNEXCLUDABLE_RULE_IDS = frozenset({"invalid-config", "unknown-rule"})
 
 
 # Config keys every rule accepts regardless of its config_schema. `enabled`
@@ -186,8 +205,14 @@ class CustomRuleWarning(UserWarning):
     """
 
     def __init__(self, path: Path):
+        # ``args`` holds only the path, as a string: pickling and pytest-xdist
+        # rebuild a warning as ``cls(*args)`` (xdist only when ``args``
+        # serializes), so a formatted message there would be formatted again.
         self.path = path
-        super().__init__(f"Loading custom rule file: {path} — use --no-custom-rules to skip")
+        super().__init__(str(path))
+
+    def __str__(self) -> str:
+        return f"Loading custom rule file: {self.path} — use --no-custom-rules to skip"
 
 
 class Linter:
@@ -249,16 +274,25 @@ class Linter:
 
         if self._rule_ids:
             unknown = self._rule_ids - self._known_rule_ids
-            if unknown:
-                formatted = ", ".join(sorted(unknown))
-                raise ValueError(f"Unknown rule(s): {formatted}")
+            removed = sorted(unknown & REMOVED_RULES.keys())
+            typos = sorted(unknown - REMOVED_RULES.keys())
+            problems = [f"Unknown rule(s): {', '.join(typos)}"] if typos else []
+            problems.extend(removed_rule_note(r) for r in removed)
+            if problems:
+                raise ValueError("; ".join(problems))
 
         # A typo in --skip-rule must not silently leave the rule running.
+        # Skipping a removed rule is already satisfied; the CLI warns.
         if self._skip_rule_ids:
-            unknown = self._skip_rule_ids - self._known_rule_ids
+            unknown = self._skip_rule_ids - self._known_rule_ids - REMOVED_RULES.keys()
             if unknown:
                 formatted = ", ".join(sorted(unknown))
                 raise ValueError(f"Unknown rule(s) in --skip-rule: {formatted}")
+
+    @property
+    def removed_skip_rule_ids(self) -> Set[str]:
+        """Skipped retired IDs that no loaded builtin, plugin or custom rule owns."""
+        return (self._skip_rule_ids - self._known_rule_ids) & REMOVED_RULES.keys()
 
     def _enabled_builtin_surfaces(self) -> frozenset:
         """Builtin format surfaces available independently of CLI selection.
@@ -776,18 +810,27 @@ class Linter:
         warnings.extend(self._deprecation_violations())
         for rule_id in self.config.rules:
             if rule_id not in self._known_rule_ids:
-                if skip_unknown:
+                # Report known builtin removals even when other unknown IDs may
+                # belong to plugins disabled for this run.
+                if skip_unknown and rule_id not in REMOVED_RULES:
                     logger.info(
                         "Rule %-30s unknown in config; may be a custom rule "
                         "(skipped due to --no-custom-rules)",
                         rule_id,
                     )
                     continue
+                if rule_id in REMOVED_RULES:
+                    message = (
+                        f"{removed_rule_note(rule_id)} and will be ignored — "
+                        "delete this entry from the config"
+                    )
+                else:
+                    message = f"Unknown rule '{rule_id}' in config — rule does not exist and will be ignored"
                 warnings.append(
                     RuleViolation(
-                        rule_id="invalid-config",
+                        rule_id="unknown-rule",
                         severity=Severity.WARNING,
-                        message=f"Unknown rule '{rule_id}' in config — rule does not exist and will be ignored",
+                        message=message,
                         file_path=self.config.config_path,
                         line=self.config.config_rule_lines.get(rule_id),
                         fingerprint_discriminator=f"unknown-rule:{rule_id}",
@@ -1012,6 +1055,13 @@ class Linter:
         promised removal warnings.
         """
         return self._deprecation_violations()
+
+    def advisory_notices(self) -> List[RuleViolation]:
+        """Config notices for commands whose output otherwise only lists fixes."""
+        return self._filter_violations(
+            [v for v in self._validate_config() if v.rule_id in ADVISORY_RULE_IDS],
+            record_baseline=False,
+        )
 
     def _is_excluded(self, violation: RuleViolation) -> bool:
         """Check if a violation's file path matches any exclude pattern."""

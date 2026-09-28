@@ -24,11 +24,14 @@ import os
 from pathlib import Path
 
 import pytest
+from dotenv import load_dotenv
 from test_chat_param_golden import load_golden
 
 from matrx_ai.config import MessageList, TextContent, UnifiedConfig, UnifiedMessage
 from matrx_ai.providers.google.translator import GoogleTranslator
 from matrx_ai.testing.profile_factory import make_profile
+
+load_dotenv(Path(__file__).resolve().parents[3] / ".env")
 
 FIXTURE = json.loads(
     (Path(__file__).parent / "fixtures" / "gemini_schema_beside_records_refused.json").read_text()

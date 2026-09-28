@@ -27,6 +27,7 @@ succeeded and before the response, whether or not the cache was used.
 from __future__ import annotations
 
 import base64
+import json
 import logging
 from datetime import UTC, datetime
 from typing import Any
@@ -140,6 +141,40 @@ def source_name_of(result: Any, url: str) -> str:
     return (f"{host}{path}" or url or "Untitled page")[:500]
 
 
+#: What a scraper-landed Source's original file is: the scraper's own ``fetch_results`` envelope
+#: (frontend ``ScrapedResultsEnvelope``) holding exactly this page's full result, so a saved Source
+#: reopens as it looked when captured — organized data, text, structured data, markdown, images,
+#: links, metadata, SEO, hashes — never as a plain-text dump. The page's raw HTML rides along in
+#: ``metadata.raw_html`` when the scrape had it (a cache hit does not).
+SCRAPER_ENVELOPE_SHAPE = "scraper_fetch_results.v1"
+
+
+def scraper_page_envelope(result: Any) -> dict[str, Any]:
+    """``{"__kind", "type": "fetch_results", "metadata": {...}, "results": [<the page>]}`` — the same
+    envelope the scraper streams, for this one page, JSON-safe."""
+    import json as _json
+
+    if isinstance(result, dict):
+        page = {k: v for k, v in result.items() if k not in ("raw_html", "raw_body")}
+    elif hasattr(result, "to_dict"):
+        page = result.to_dict()
+    else:
+        page = {k: v for k, v in vars(result).items() if k not in ("raw_html", "raw_body")}
+    raw_html = _get(result, "raw_html")
+    has_html = isinstance(raw_html, str) and bool(raw_html.strip())
+    envelope: dict[str, Any] = {
+        "__kind": SCRAPER_ENVELOPE_SHAPE,
+        "type": "fetch_results",
+        "metadata": {
+            "shape": SCRAPER_ENVELOPE_SHAPE,
+            "raw_html_kept": has_html,
+            **({"raw_html": raw_html} if has_html else {}),
+        },
+        "results": [page],
+    }
+    return _json.loads(_json.dumps(envelope, default=str))
+
+
 def page_landing(
     result: Any,
     *,
@@ -161,14 +196,12 @@ def page_landing(
     if not portions:
         return None
     url = str(_get(result, "response_url") or _get(result, "url") or "")
-    raw_html = _get(result, "raw_html")
-    original = None
-    if isinstance(raw_html, str) and raw_html.strip():
-        original = {
-            "bytes_b64": base64.b64encode(raw_html.encode("utf-8", errors="replace")).decode("ascii"),
-            "file_id": None,
-            "mime_type": "text/html",
-        }
+    envelope = scraper_page_envelope(result)
+    original = {
+        "bytes_b64": base64.b64encode(json.dumps(envelope, default=str).encode("utf-8")).decode("ascii"),
+        "file_id": None,
+        "mime_type": "application/json",
+    }
     engine = str(_get(result, "engine") or "") or None
     return {
         "source_kind": "scrape_parsed_page",
@@ -178,7 +211,7 @@ def page_landing(
         "mime_type": "text/html",
         "portions": portions,
         "original": original,
-        "structured": structured_from_parsed_page(result),
+        "structured": {**structured_from_parsed_page(result), "original_shape": SCRAPER_ENVELOPE_SHAPE},
         "provenance": {
             "origin_client": origin_client,
             "capture_method": capture_method or capture_method_of(result),

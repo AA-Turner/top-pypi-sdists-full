@@ -137,6 +137,34 @@ COMMANDS = [
         "group": "AI Agent",
     },
     {
+        "name": "skylos agent install-hooks [--claude|--codex|--cursor]",
+        "desc": "Install agent-loop hooks: verify every edit, block secret reads and hallucinated installs",
+        "details": [
+            "--project (default) writes .claude/settings.json, .codex/hooks.json or .cursor/hooks.json",
+            "--user writes the same file under your home directory",
+            "Existing hooks are kept; re-running is a no-op; --uninstall removes only Skylos hooks",
+        ],
+        "group": "AI Agent",
+    },
+    {
+        "name": "skylos agent warm-cache [path]",
+        "desc": "Prebuild the project index so the first agent edit check is fast",
+        "details": [
+            "Writes .skylos/cache/module-facts.json; later hooks re-parse only changed files",
+            "Optional: without it the first post-edit hook builds the index",
+        ],
+        "group": "AI Agent",
+    },
+    {
+        "name": "skylos hook <post-edit|pre-read|pre-bash|stop>",
+        "desc": "Agent hook entry point (reads hook JSON on stdin; installed by agent install-hooks)",
+        "details": [
+            "Fails open on internal errors and logs to .skylos/hook.log",
+            "Disable one hook with SKYLOS_HOOKS_DISABLE=pre-read (comma list or 'all')",
+        ],
+        "group": "AI Agent",
+    },
+    {
         "name": "skylos agent remediate [path]",
         "desc": "Scan and fix issues; optionally test or create a PR",
         "group": "AI Agent",
@@ -222,6 +250,16 @@ COMMANDS = [
         "group": "Account",
     },
     {"name": "skylos credits", "desc": "Check credit balance", "group": "Account"},
+    {
+        "name": "skylos upload --retry",
+        "desc": "Resend scans whose upload to Skylos Cloud did not finish",
+        "details": [
+            "Scans are saved in ~/.skylos/pending-uploads/ (signed, outside the repository) after a network error, timeout, server error, rate limit or interrupted upload",
+            "Each scan is resent with its original idempotency key, so Cloud never saves or charges it twice",
+            "Use skylos upload --list to see saved scans; they expire after 7 days",
+        ],
+        "group": "Account",
+    },
     {
         "name": "skylos init",
         "desc": "Initialize config in pyproject.toml",
@@ -364,9 +402,7 @@ COMMANDS = [
 def print_command_overview(console):
     from rich.table import Table
 
-    console.print(
-        f"\n[bold cyan]Skylos[/bold cyan] [dim]v{skylos.__version__}[/dim]"
-    )
+    console.print(f"\n[bold cyan]Skylos[/bold cyan] [dim]v{skylos.__version__}[/dim]")
     console.print("[bold]Choose by what you need to check[/bold]\n")
 
     table = Table(show_header=True, box=None, padding=(0, 2), pad_edge=False)

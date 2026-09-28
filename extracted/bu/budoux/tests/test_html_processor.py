@@ -101,6 +101,20 @@ class TestResolve(unittest.TestCase):
     expected = '<span style="word-break: keep-all; overflow-wrap: anywhere;">ab<a href="http://example.com">c\u200bd</a>ef</span>'
     self.assertEqual(result, expected)
 
+  def test_with_escaped_characters(self) -> None:
+    chunks = ['a<b>', 'c&d']
+    html = '<a title="&quot;x&quot;">a&lt;b&gt;c&amp;d</a>'
+    result = html_processor.resolve(chunks, html)
+    expected = '<span style="word-break: keep-all; overflow-wrap: anywhere;"><a title="&quot;x&quot;">a&lt;b&gt;\u200bc&amp;d</a></span>'
+    self.assertEqual(result, expected)
+
+  def test_with_escaped_characters_in_rcdata_element(self) -> None:
+    chunks = ['a<"b', 'c&d']
+    html = '<textarea>a&lt;"bc&amp;d</textarea>'
+    result = html_processor.resolve(chunks, html)
+    expected = '<span style="word-break: keep-all; overflow-wrap: anywhere;"><textarea>a&lt;"bc&amp;d</textarea></span>'
+    self.assertEqual(result, expected)
+
   def test_with_nodes_to_skip(self) -> None:
     chunks = ['abc', 'def', 'ghi']
     html = "a<button>bcde</button>fghi"
@@ -113,6 +127,13 @@ class TestResolve(unittest.TestCase):
     html = "abc<button>defghi</button>jkl"
     result = html_processor.resolve(chunks, html)
     expected = '<span style="word-break: keep-all; overflow-wrap: anywhere;">abc\u200b<button>defghi</button>\u200bjkl</span>'
+    self.assertEqual(result, expected)
+
+  def test_with_skip_node_at_end(self) -> None:
+    chunks = ['abc', 'def']
+    html = 'abcdef<button></button>'
+    result = html_processor.resolve(chunks, html)
+    expected = '<span style="word-break: keep-all; overflow-wrap: anywhere;">abc\u200bdef<button></button></span>'
     self.assertEqual(result, expected)
 
   def test_with_nothing_to_split(self) -> None:
@@ -136,4 +157,32 @@ class TestResolve(unittest.TestCase):
     html = '<ul><li>abc</li>\n<li>def</li></ul>'
     result = html_processor.resolve(chunks, html, '<wbr>')
     expected = '<span style="word-break: keep-all; overflow-wrap: anywhere;"><ul><li>abc</li>\n<li>def</li></ul></span>'
+    self.assertEqual(result, expected)
+
+  def test_with_self_closing_tag(self) -> None:
+    chunks = ['abc', 'def']
+    html = 'abc<br/>def'
+    result = html_processor.resolve(chunks, html)
+    expected = '<span style="word-break: keep-all; overflow-wrap: anywhere;">abc<br/>\u200bdef</span>'
+    self.assertEqual(result, expected)
+
+  def test_with_self_closing_skip_node(self) -> None:
+    chunks = ['abc', 'def', 'ghi']
+    html = 'abc<input type="text" />defghi'
+    result = html_processor.resolve(chunks, html)
+    expected = '<span style="word-break: keep-all; overflow-wrap: anywhere;">abc\u200b<input type="text"/>def\u200bghi</span>'
+    self.assertEqual(result, expected)
+
+  def test_with_void_skip_node(self) -> None:
+    chunks = ['abc', 'def', 'ghi']
+    html = 'abc<input type="text">defghi'
+    result = html_processor.resolve(chunks, html)
+    expected = '<span style="word-break: keep-all; overflow-wrap: anywhere;">abc\u200b<input type="text">def\u200bghi</span>'
+    self.assertEqual(result, expected)
+
+  def test_with_stray_void_end_tag_in_skip_node(self) -> None:
+    chunks = ['abc', 'def', 'ghi', 'jkl']
+    html = '<code>abc<br></br>def</code>ghijkl'
+    result = html_processor.resolve(chunks, html)
+    expected = '<span style="word-break: keep-all; overflow-wrap: anywhere;"><code>abc<br></br>def</code>\u200bghi\u200bjkl</span>'
     self.assertEqual(result, expected)

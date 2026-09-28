@@ -12,11 +12,13 @@ from office365.runtime.client_request_exception import ClientRequestException
 from office365.runtime.client_result import ClientResult
 from office365.runtime.http.http_method import HttpMethod
 from office365.runtime.http.request_options import RequestOptions
+from office365.runtime.limits import Limit, LimitDecl, collect_class_limits, collect_limit_meta
 from office365.runtime.queries.client_query import ClientQuery
 from office365.runtime.queries.read_entity import ReadEntityQuery
 
 if TYPE_CHECKING:
     from office365.runtime.client_object import ClientObject
+    from office365.runtime.http.throttling import RateLimiter
     from office365.runtime.queries.batch import BatchQuery
 
 
@@ -26,10 +28,25 @@ class ClientRuntimeContext(ABC):
     Provides core functionality for executing queries and managing request lifecycle.
     """
 
+    _limit_meta: dict[str, Tuple[LimitDecl, ...]] = {}
+    _class_limit_decls: Tuple[LimitDecl, ...] = ()
+
+    def __init_subclass__(cls, **kwargs: object) -> None:
+        super().__init_subclass__(**kwargs)
+        cls._limit_meta = collect_limit_meta(cls)
+        cls._class_limit_decls = collect_class_limits(cls)
+
     def __init__(self) -> None:
         self._queries: deque[ClientQuery] = deque()
         self._current_query = None
         self._pending_request: ClientRequest | None = None
+
+    @classmethod
+    def declared_limits(cls) -> Tuple[Limit, ...]:
+        """The limits declared on this class and its methods/properties (``@limit``)."""
+        class_limits = tuple(decl.limit for decl in cls._class_limit_decls)
+        member_limits = tuple(decl.limit for decls in cls._limit_meta.values() for decl in decls)
+        return (*class_limits, *member_limits)
 
     @property
     def service_root_url(self) -> str:
@@ -54,6 +71,7 @@ class ClientRuntimeContext(ABC):
         success_callback: Optional[Callable[[ClientObject | None], None]] = None,
         failure_callback: Optional[Callable[[int, Exception], Optional[int]]] = None,
         exceptions: Tuple[Type[Exception], ...] = (ClientRequestException,),
+        is_retriable: Optional[Callable[[Exception], bool]] = None,
     ) -> None:
         """Executes pending queries with retry logic.
 
@@ -74,8 +92,12 @@ class ClientRuntimeContext(ABC):
             failure_callback: Called after each failed attempt; may return a
                 retry delay in seconds to override the backoff
             exceptions: Exception types that trigger retries
+            is_retriable: Optional predicate deciding whether a caught exception
+                is retried. Defaults to :func:`~office365.runtime.retry.is_transient_error`;
+                pass :func:`~office365.runtime.retry.retry_on` to also retry
+                otherwise-permanent errors such as a locked file (HTTP 423).
         """
-        from office365.runtime.retry import retry
+        from office365.runtime.retry import is_transient_error, retry
 
         def _on_failure(_attempt: int, ex: Exception) -> Optional[int]:
             # Re-queue the failed query for a retry, except on the last attempt —
@@ -96,6 +118,7 @@ class ClientRuntimeContext(ABC):
                 max_delay=max_delay,
                 jitter=jitter,
                 exceptions=exceptions,
+                is_retriable=is_retriable or is_transient_error,
                 on_failure=_on_failure,
                 on_success=_on_success,
             )
@@ -188,6 +211,12 @@ class ClientRuntimeContext(ABC):
         return self
 
     def on_error(self, action: Callable[[ClientRequestException], None], once: bool = True) -> Self:
+        """Attach an error handler for the pending query — the error is swallowed.
+
+        This is a control hook (see :meth:`ClientRequest.on_error`): once a
+        handler is attached, a failing query is considered handled and does not
+        re-raise. Use ``after_execute`` / ``throttle_guard`` for observation.
+        """
         if len(self._queries) == 0:
             return self
         query = self._queries[-1]
@@ -209,6 +238,33 @@ class ClientRuntimeContext(ABC):
             Raw response from server
         """
         return self.pending_request().execute_request(path)
+
+    @property
+    def rate_limiter(self) -> "RateLimiter | None":
+        """The shared rate limiter pacing this context's requests, if any.
+
+        Returns ``None`` until :meth:`with_rate_limit` (or a shared limiter via
+        ``ClientRequest.with_rate_limiter``) is configured.
+        """
+        return self.pending_request().rate_limiter
+
+    def with_rate_limit(self, health_threshold: int = 80, min_interval: float = 0.0) -> Self:
+        """Enable fleet-wide pacing for this context (opt-in).
+
+        Wraps the context transport with a shared rate limiter, so every request
+        — including the parallel batches dispatched by ``execute_batch`` — is
+        gated by ``Retry-After`` / ``X-SharePointHealthScore`` as a group. Call
+        this after any transport configuration (``with_transport``).
+
+        Args:
+            health_threshold: Health score at/above which the group paces.
+            min_interval: Minimum pause applied on a high health score (seconds).
+
+        Returns:
+            Self: Supports method chaining
+        """
+        self.pending_request().with_rate_limit(health_threshold=health_threshold, min_interval=min_interval)
+        return self
 
     def execute_query(self) -> Self:
         """Executes all pending queries.
@@ -428,24 +484,39 @@ class ClientRuntimeContext(ABC):
         """Execute batch units concurrently on a thread pool.
 
         Reuses the generic :func:`~office365.runtime.parallel.run_parallel`
-        primitive; ``success_callback`` is invoked per batch in **input order**
-        (deterministic). On the first failure the exception is re-raised.
+        primitive; ``success_callback`` is invoked **live, as each batch
+        completes** (on the calling thread), so callers can report progress.
+        After the pool drains, the first failure is re-raised.
 
         Args:
             batches: Batch units to execute
             concurrency: Maximum number of concurrent batch requests
-            success_callback: Called with each batch's return types
+            success_callback: Called with each successfully completed batch's
+                return types, in completion order
         """
         from office365.runtime.parallel import run_parallel
 
-        results = run_parallel(
+        errors: list[BaseException] = []
+
+        def _on_progress(snapshot: Any) -> None:
+            if not callable(success_callback):
+                return
+            for return_types in snapshot.items or []:
+                if return_types is not None:
+                    success_callback(return_types)
+
+        def _on_error(_task: Any, error: BaseException) -> None:
+            errors.append(error)
+
+        run_parallel(
             lambda _ctx, batch_qry: self._execute_batch(batch_qry),
             batches,
             concurrency=concurrency,
+            progress=_on_progress,
+            on_error=_on_error,
         )
-        if callable(success_callback):
-            for return_types in results:
-                success_callback(return_types)
+        if errors:
+            raise errors[0]
 
     def _execute_batch(self, batch_qry: "BatchQuery") -> List[Any]:
         """Execute a single batch unit (implemented by concrete contexts)."""

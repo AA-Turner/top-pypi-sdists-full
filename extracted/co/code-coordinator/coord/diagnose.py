@@ -2340,6 +2340,71 @@ class StuckTestStateHeal:
     action: str = ""
 
 
+#: Sentinel anchor id for :func:`_stuck_test_state_heal_marker` /
+#: :func:`_already_healed_against` when there is no Test-stage child at all
+#: (:func:`_latest_smoke_child` returned ``None``) — the "no child found"
+#: classification in :func:`sweep_stuck_test_state_rows` has no real
+#: assignment id to key the re-heal guard on, so it uses this fixed string
+#: instead. Never collides with a real assignment id (those are
+#: ``uuid.uuid4().hex``-derived, never this literal).
+_NO_SMOKE_CHILD_MARKER_ID = "no-smoke-child"
+
+
+def _stuck_test_state_heal_marker(child_assignment_id: str) -> str:
+    """The marker embedded in a parent row's ``test_reason`` recording that
+    *this exact* Test-stage child (or, for
+    :data:`_NO_SMOKE_CHILD_MARKER_ID`, the "no child at all" case) was
+    already resolved by this sweep (#3453).
+
+    Before this, a parent whose ``test_state`` reads ``"running"`` again
+    (whatever re-stamps it without ever dispatching a fresh Test-stage
+    child — #3453 does not chase that separate bug, only guards against its
+    consequence here) with the SAME latest child still on file (or still no
+    child at all) would be "healed" all over again on the very next tick:
+    :func:`_latest_smoke_child` has nothing new to return, so the anchor is
+    still hours past :data:`STUCK_TEST_STATE_GRACE_SECONDS` and the row
+    re-heals immediately — quadraui#1077 posted ``stuck_test_state_healed``
+    five times in five minutes naming the identical child, each firing
+    spending one more tick of the #3315 environmental-retry budget until it
+    parked a branch whose Test stage had, in fact, already passed.
+
+    Checked via :func:`_already_healed_against` before any write for this
+    child is attempted — a parent whose current ``test_reason`` already
+    carries this marker for the CURRENT latest child (or the "no child"
+    sentinel) is left alone: no write, no tally, no duplicate heal.
+
+    Every classification branch in :func:`sweep_stuck_test_state_rows` embeds
+    this marker and checks the guard — not just the ``status=="done"`` one.
+    The #3182 fan-out sub-case cannot build its own ``test_reason`` (that text
+    belongs to :func:`coord.smoke.finalize_smoke_fanout`), so it stamps the
+    marker on in a second, verdict-preserving write via
+    :func:`_stamp_fanout_heal_marker`. The ``failed``/``cancelled`` branch's
+    recovery text is folded
+    through :func:`coord.reconcile.propagate_smoke_terminal_failure`, which
+    classifies environmental-vs-work itself (#1590): when that classifies as
+    WORK, the marker (embedded in the ``failure_reason`` passed through)
+    lands verbatim in the row's final ``test_reason`` and the guard is fully
+    effective on the next tick; when it classifies as ENVIRONMENTAL instead,
+    that function's own environmental-branch text is built from its
+    *classification*, not the raw ``failure_reason`` string handed to it, so
+    the marker does not survive into the written ``test_reason`` for that
+    sub-case. That narrower gap is a `coord.reconcile` seam limitation, not
+    something this module can close without changing a function shared by
+    `_recover_test`/`_reconcile_no_agent_record` — tracked, not silently
+    dropped.
+    """
+    return f"[[stuck-test-state-healed:{child_assignment_id}]]"
+
+
+def _already_healed_against(test_reason: str | None, child_assignment_id: str) -> bool:
+    """``True`` when *test_reason* already carries the #3453 marker for
+    *child_assignment_id* — i.e. this sweep already resolved the parent
+    against this exact Test-stage child (or, for
+    :data:`_NO_SMOKE_CHILD_MARKER_ID`, the "no child at all" case) once and
+    must not do it again."""
+    return bool(test_reason) and _stuck_test_state_heal_marker(child_assignment_id) in test_reason
+
+
 def _latest_smoke_child(board: "Board", parent_id: str) -> "Assignment | None":
     """The most recently dispatched ``type="smoke"`` row for *parent_id*, or
     ``None``.
@@ -2362,6 +2427,67 @@ def _latest_smoke_child(board: "Board", parent_id: str) -> "Assignment | None":
     if not candidates:
         return None
     return max(candidates, key=lambda a: a.dispatched_at or 0.0)
+
+
+def _stamp_fanout_heal_marker(
+    parent_id: str, observed_state: str, child_assignment_id: str,
+) -> None:
+    """Append this sweep's #3453 re-heal marker for *child_assignment_id* to a
+    fan-out parent's ``test_reason``, leaving *observed_state* and the rest of
+    the text (crucially the leading ``[[smoke-fanout:...]]`` manifest) intact.
+
+    :func:`coord.smoke.finalize_smoke_fanout` owns the fan-out parent's
+    ``test_reason`` and writes its own text (manifest line, headline, per-leg
+    summary) with no knowledge of this module's marker — so the
+    ``fanout_finalize`` branch of :func:`sweep_stuck_test_state_rows` cannot
+    embed the marker the way the other three classification branches do
+    (they build the ``failure_reason``/``test_reason`` string themselves).
+    This stamps it on in a second, verdict-preserving write instead, so the
+    :func:`_already_healed_against` guard is as effective for fan-out parents
+    as it is everywhere else.
+
+    Purely a duplicate-heal suppressor: best-effort, never raises, and never
+    changes the verdict. The marker is APPENDED so the manifest stays at
+    position 0 where :func:`coord.smoke._parse_fanout_manifest` (an anchored
+    ``match``) still finds it. A ``test_reason`` that reads back as ``None``
+    (absent row, NULL column, or a degraded remote read — indistinguishable
+    through this seam) is left completely alone rather than overwritten with a
+    bare marker: dropping a real aggregate's headline and manifest to win a
+    duplicate-comment guard would be a far worse trade.
+    """
+    from coord.state import (  # noqa: PLC0415
+        load_assignment_test_reason,
+        record_test_verdict,
+    )
+
+    marker = _stuck_test_state_heal_marker(child_assignment_id)
+    try:
+        reason = load_assignment_test_reason(parent_id)
+        if reason is None:
+            log.warning(
+                "sweep_stuck_test_state_rows: finalized the fan-out verdict "
+                "for %s but could not read its test_reason back to stamp the "
+                "#3453 re-heal marker — leaving the reason untouched",
+                parent_id,
+            )
+            return
+        if marker in reason:
+            return
+        record_test_verdict(
+            assignment_id=parent_id,
+            test_state=observed_state,
+            test_reason=f"{reason}\n{marker}",
+        )
+    except Exception as exc:  # noqa: BLE001 — never sink the sweep
+        # The fold itself already landed and was confirmed; failing to stamp
+        # the marker only risks ONE duplicate heal report on a later tick if
+        # something re-stamps `test_state` back to `running`. Never worth
+        # losing the heal we did achieve.
+        log.warning(
+            "sweep_stuck_test_state_rows: could not stamp the #3453 re-heal "
+            "marker on %s (%s) — the fan-out verdict itself stands",
+            parent_id, exc,
+        )
 
 
 def sweep_stuck_test_state_rows(
@@ -2390,10 +2516,42 @@ def sweep_stuck_test_state_rows(
       work, decided by :func:`coord.failure_class.classify_failure` from the
       child's own ``failure_reason``), just fleet-wide and automatic instead
       of issue-scoped and manual.
-    * **Child reached ``status == "done"``** — the child itself believes it
-      succeeded, but the parent's verdict write never landed. Always
-      resolved environmentally: a lost write is a coordinator/infra fault,
-      never a code defect.
+    * **Child reached ``status == "done"`` with its own recorded verdict**
+      (``test_state`` already ``"passed"``/``"failed"``/``"skipped"``/
+      :data:`coord.smoke.TEST_STATE_BLOCKED` on the CHILD's own row — all four
+      of the terminal verdicts ``finalize_smoke_fanout``'s own severity fold
+      recognizes, ``"blocked"`` very much included: #2272's mute-leg path
+      terminates a leg with exactly ``status="done"``,
+      ``test_state="blocked"``) — the write that was lost is the FOLD onto the
+      parent, not the verdict itself (#3453). For a single-leg row, propagate
+      that recorded verdict onto the parent verbatim; never re-classify it as
+      environmental and never spend a #3315 retry-budget tally on it —
+      nothing died, a verdict just never reached the row that gates the
+      merge. **For a #3182 fan-out parent** (its ``test_reason`` carries a
+      ``[[smoke-fanout:...]]`` manifest, :func:`coord.smoke._parse_fanout_manifest`)
+      the latest child found here is only ONE capability-partition leg —
+      :func:`_latest_smoke_child` picks it purely by ``dispatched_at``, which
+      says nothing about whether every OTHER leg in the manifest has
+      reported, let alone what any of them said. Propagating that one leg's
+      verdict verbatim would let whichever leg happens to have been
+      dispatched last silently decide the whole row's aggregate, masking a
+      still-running or already-FAILED sibling. This sweep never does that:
+      for a fan-out parent it instead defers to
+      :func:`coord.smoke.finalize_smoke_fanout` — the one place that already
+      folds every named leg with worst-wins severity
+      (``failed`` > ``blocked`` > ``skipped`` > ``passed``) — and only
+      reports (or, live, writes) a heal once every leg in the manifest is
+      itself terminal; while any sibling is still outstanding this is a
+      silent no-op each tick, spending no write and no #3315 tally. It is
+      also a silent no-op when a live re-read shows the parent already
+      carries a terminal verdict (a human's ``coord test`` override, or
+      another process's fold): ``finalize_smoke_fanout`` protects that value,
+      so reporting a heal for it would credit this sweep with a verdict it
+      did not produce.
+    * **Child reached ``status == "done"`` with no verdict of its own
+      either** — genuinely lost: the child itself believes it succeeded but
+      never recorded why. Resolved environmentally: a lost write is a
+      coordinator/infra fault, never a code defect.
     * **Child still ``running``/``pending`` itself, or nothing to anchor an
       age from** — left alone. A child that is still genuinely executing
       (or phantom-dead) is :func:`sweep_dead_running_rows`'s /
@@ -2408,18 +2566,37 @@ def sweep_stuck_test_state_rows(
     Test-stage completion has an expected, bounded propagation lag before
     its verdict lands on the parent, and that lag is not this bug.
 
-    Recovery is always :func:`coord.reconcile.propagate_smoke_terminal_failure`
-    — the same, already-reviewed seam ``_recover_test`` and
-    ``_reconcile_no_agent_record`` both use. It never fabricates a pass/fail
-    verdict: an environmental clear resets ``test_state`` back to ``NULL``
-    so ``dispatch_pending_smoke``'s ordinary bookkeeping (already run every
-    daemon tick) re-dispatches a fresh Test stage on its own next pass; a
-    work classification records ``test_state="failed"`` exactly like a
-    normal non-zero-exit smoke completion would have, spending a bounded
-    ``coord fix`` round exactly as it should have if the write had landed on
-    time. Writes go through ``coord.state.record_test_verdict`` directly
-    (not ``save_board``), so this function never mutates *board* and the
-    caller does not need to persist it.
+    #3453: a ``status == "done"`` child is additionally checked against
+    :func:`_already_healed_against` before anything else — a parent whose
+    current ``test_reason`` already carries the #3453 marker naming THIS
+    exact child is left alone entirely (no write, no tally, not even a
+    dry-run finding), because the row was already resolved once and
+    something (out of this sweep's control) re-stamped ``test_state`` back
+    to ``"running"`` without ever dispatching a fresh child for
+    :func:`_latest_smoke_child` to find instead.
+
+    Recovery for the environmental/work classifications is
+    :func:`coord.reconcile.propagate_smoke_terminal_failure` — the same,
+    already-reviewed seam ``_recover_test`` and ``_reconcile_no_agent_record``
+    both use. It never fabricates a pass/fail verdict: an environmental clear
+    resets ``test_state`` back to ``NULL`` so ``dispatch_pending_smoke``'s
+    ordinary bookkeeping (already run every daemon tick) re-dispatches a
+    fresh Test stage on its own next pass; a work classification records
+    ``test_state="failed"`` exactly like a normal non-zero-exit smoke
+    completion would have, spending a bounded ``coord fix`` round exactly as
+    it should have if the write had landed on time. The recorded-verdict case
+    above instead writes straight through ``coord.state.record_test_verdict``
+    with the child's own ``test_state`` — the propagation the lost write
+    should have performed, nothing more. Every write here goes through
+    ``coord.state.record_test_verdict`` (directly, or via
+    ``propagate_smoke_terminal_failure``'s own use of it) rather than
+    ``save_board``, so this function never mutates *board* and the caller
+    does not need to persist it. That propagation is then **confirmed by a
+    re-read** (``coord.state.load_assignment_test_state``) before it is
+    reported as healed (#2096) — a write that raised nothing but left no
+    observable verdict on the parent yields no
+    :class:`StuckTestStateHeal`, because the lost-write class this watchdog
+    exists for (#2802) is exactly the one that raises nothing.
 
     Returns one :class:`StuckTestStateHeal` per row actually healed (or, when
     *dry_run*, per row that WOULD be healed). A row whose recovery write
@@ -2430,6 +2607,7 @@ def sweep_stuck_test_state_rows(
     tick (or a human via ``coord diagnose --stage test``) to retry.
     """
     from coord.models import WORK_LIKE_TYPES  # noqa: PLC0415
+    from coord.smoke import TEST_STATE_BLOCKED, _parse_fanout_manifest  # noqa: PLC0415
 
     if now is None:
         now = time.time()
@@ -2447,15 +2625,40 @@ def sweep_stuck_test_state_rows(
 
         smoke = _latest_smoke_child(board, w.assignment_id)
 
+        recorded_verdict: str | None = None  # #3453: set only when the child's
+        # OWN row already carries a real "passed"/"failed"/"skipped" verdict —
+        # the correct recovery is then to PROPAGATE it, never to discard it.
+
+        fanout_finalize = False  # #3453 review: set only when the parent is a
+        # #3182 fan-out round and the latest child's own verdict must defer
+        # to `finalize_smoke_fanout`'s manifest-aware fold instead of being
+        # propagated verbatim (a single leg is never the whole row's answer).
+
         if smoke is None:
+            # #3453: mirror the `status=="done"` branch's re-heal guard — a
+            # parent that already carries this marker was resolved once with
+            # no Test-stage child present at all and must not be re-healed
+            # every tick just because something re-stamped `test_state` back
+            # to "running" without ever dispatching a fresh child (the same
+            # quadraui#1077 failure mode is reachable here too).
+            if _already_healed_against(w.test_reason, _NO_SMOKE_CHILD_MARKER_ID):
+                continue
             anchor = w.finished_at or w.dispatched_at
             cause = "no Test-stage (smoke) assignment exists for this work row at all"
             environmental: bool | None = True
             failure_reason = (
                 "watchdog (#2803): test_state='running' with no Test-stage "
-                "assignment found at all"
+                "assignment found at all. "
+                f"{_stuck_test_state_heal_marker(_NO_SMOKE_CHILD_MARKER_ID)}"
             )
         elif (smoke.status or "") in ("failed", "cancelled"):
+            # #3453: same re-heal guard, keyed on this child. See
+            # `_stuck_test_state_heal_marker`'s docstring for why the marker
+            # is not guaranteed to survive into the written `test_reason`
+            # for the ENVIRONMENTAL sub-classification of this branch (a
+            # `coord.reconcile` seam limitation, not skipped here).
+            if _already_healed_against(w.test_reason, smoke.assignment_id):
+                continue
             anchor = smoke.finished_at or smoke.dispatched_at
             cause = (
                 f"Test-stage worker {smoke.assignment_id} already finished "
@@ -2464,21 +2667,97 @@ def sweep_stuck_test_state_rows(
                 "verdict was never propagated to the parent"
             )
             environmental = None  # classify from failure_reason, like `_recover_test`
-            failure_reason = smoke.failure_reason
-        elif smoke.status == "done":
-            anchor = smoke.finished_at or smoke.dispatched_at
-            cause = (
-                f"Test-stage worker {smoke.assignment_id} finished "
-                "(status='done') but no verdict was ever recorded on the "
-                "parent row"
-            )
-            environmental = True
             failure_reason = (
-                f"watchdog (#2803): Test-stage worker {smoke.assignment_id} "
-                "finished but the parent verdict write never landed (the "
-                "DB-lock class of loss, #2802) — cleared for a fresh "
-                "Test-stage dispatch"
+                f"{smoke.failure_reason or cause}. "
+                f"{_stuck_test_state_heal_marker(smoke.assignment_id)}"
             )
+        elif smoke.status == "done":
+            # #3453: never re-heal against the SAME child this sweep already
+            # resolved — see `_stuck_test_state_heal_marker`'s docstring for
+            # the quadraui#1077 incident this guards.
+            if _already_healed_against(w.test_reason, smoke.assignment_id):
+                continue
+            anchor = smoke.finished_at or smoke.dispatched_at
+            # #3453 review: `TEST_STATE_BLOCKED` ("blocked") belongs in this
+            # set too — it is a first-class RECORDED terminal verdict, not an
+            # absent one. `coord.smoke.finalize_smoke_fanout` already treats
+            # it as one in both its severity fold
+            # (`{"failed": 3, TEST_STATE_BLOCKED: 2, "skipped": 1,
+            # "passed": 0}`) and its manifest-merge guard, and
+            # `coord.notify._record_smoke_verdict`'s #2272 mute-leg path
+            # terminates a leg's OWN row with exactly
+            # `status="done", test_state=TEST_STATE_BLOCKED` — a deliberate
+            # "park until a human runs `coord diagnose --stage test --reset`,
+            # never re-dispatch" verdict. Omitting it here sent that row down
+            # the `else` below: classified environmental, cleared back to
+            # NULL, one #3315 tally spent, the specific diagnostic reason
+            # discarded, and a fresh Test dispatch triggered — i.e. the exact
+            # silent-discard defect #3453 exists to fix, reintroduced for one
+            # verdict, plus the precise re-dispatch loop `TEST_STATE_BLOCKED`
+            # was designed to stop. Kept as one set rather than a narrower,
+            # silently-inconsistent copy — the same shape `STAGE_ASSIGNMENT_TYPES["test"]`
+            # above was already bitten by once (#3305).
+            if smoke.test_state in ("passed", "failed", "skipped", TEST_STATE_BLOCKED):
+                fanout_legs = _parse_fanout_manifest(w.test_reason)
+                if fanout_legs:
+                    # #3453 review: this parent is a #3182 fan-out round —
+                    # the latest smoke CHILD is only ONE partition leg, and
+                    # `_latest_smoke_child` picks it purely by
+                    # `dispatched_at`, independent of how long any leg's own
+                    # suite actually runs. Propagating ITS verdict verbatim
+                    # (as the single-leg case below correctly does) would
+                    # let whichever leg happens to have the greatest
+                    # `dispatched_at` silently decide the whole row's
+                    # aggregate — masking a still-running or already-FAILED
+                    # sibling partition. Defer entirely to
+                    # `coord.smoke.finalize_smoke_fanout`, the one place
+                    # that already folds every leg with worst-wins severity
+                    # (`failed` > `blocked` > `skipped` > `passed`), and only
+                    # once every leg named in the manifest is terminal.
+                    fanout_finalize = True
+                    environmental = None
+                    failure_reason = None
+                    cause = (
+                        f"Test-stage worker {smoke.assignment_id} (a #3182 "
+                        "fan-out leg) finished (status='done') with its own "
+                        f"recorded verdict test_state={smoke.test_state!r}, "
+                        "but this parent is a fan-out round — deferring to "
+                        "finalize_smoke_fanout's manifest-aware aggregation "
+                        "across every leg instead of propagating one leg's "
+                        "verdict"
+                    )
+                else:
+                    # Single-leg row — the child's own row already carries a
+                    # real verdict — the write that was lost is the FOLD
+                    # onto the parent, not the verdict itself. Propagate it
+                    # verbatim; this is never an environmental death
+                    # (nothing died) and must never spend a #3315
+                    # retry-budget tally.
+                    recorded_verdict = smoke.test_state
+                    environmental = None
+                    failure_reason = None
+                    cause = (
+                        f"Test-stage worker {smoke.assignment_id} finished "
+                        f"(status='done') with its own recorded verdict "
+                        f"test_state={smoke.test_state!r}, but that verdict "
+                        "never landed on the parent row (the #2802 "
+                        "lost-write class) — propagating it now instead of "
+                        "discarding it for a fresh dispatch"
+                    )
+            else:
+                cause = (
+                    f"Test-stage worker {smoke.assignment_id} finished "
+                    "(status='done') but no verdict was ever recorded on the "
+                    "parent row"
+                )
+                environmental = True
+                failure_reason = (
+                    f"watchdog (#2803): Test-stage worker {smoke.assignment_id} "
+                    "finished but the parent verdict write never landed (the "
+                    "DB-lock class of loss, #2802) — cleared for a fresh "
+                    "Test-stage dispatch. "
+                    f"{_stuck_test_state_heal_marker(smoke.assignment_id)}"
+                )
         else:
             continue  # still running/pending — not this sweep's job
 
@@ -2493,6 +2772,223 @@ def sweep_stuck_test_state_rows(
             f"(past the {STUCK_TEST_STATE_GRACE_SECONDS / 60.0:.0f}m grace "
             "window)"
         )
+
+        if fanout_finalize:
+            # #3453 review: never write a single leg's verdict onto a
+            # fan-out parent. Peek at every leg named in the manifest
+            # read-only first — this is the only way to know whether
+            # `finalize_smoke_fanout` would actually fold anything right
+            # now (it silently no-ops until every leg is terminal), so a
+            # dry-run can report accurately and a live run spends no tally
+            # and no write while siblings are still outstanding.
+            from coord.state import load_assignment_test_state  # noqa: PLC0415
+
+            manifest_legs = _parse_fanout_manifest(w.test_reason) or []
+            try:
+                # #3453 review: read the parent's LIVE `test_state` too, not
+                # just the legs'. *board* is a snapshot; between it being
+                # loaded and this sweep running, the parent may already have
+                # been resolved out of band (a human's `coord test` override,
+                # or a `finalize_smoke_fanout` fold from another process).
+                # `finalize_smoke_fanout` is documented to NO-OP against an
+                # already-terminal parent precisely to protect that override —
+                # so without this pre-read, the post-call re-read below would
+                # see that pre-existing verdict, conclude "terminal, therefore
+                # I finalized it", and post an "auto-healed ... finalized the
+                # fan-out aggregate verdict (X)" comment for a verdict this
+                # sweep did not produce. The value itself is never clobbered
+                # (the no-op protects it), so this is misattribution rather
+                # than corruption — but a gate that cannot tell its own write
+                # from someone else's is not a gate (#2096).
+                parent_live = load_assignment_test_state(w.assignment_id)
+                leg_states = [
+                    load_assignment_test_state(leg_id) for leg_id, _caps, _cmd in manifest_legs
+                ]
+            except Exception as exc:  # noqa: BLE001 — never sink the sweep
+                log.warning(
+                    "sweep_stuck_test_state_rows: could not read the fan-out "
+                    "leg/parent verdicts for %s (%s) — leaving it for the "
+                    "next tick",
+                    w.assignment_id, exc,
+                )
+                continue
+
+            if parent_live not in (None, "running"):
+                # Already resolved out of band — nothing wedged any more.
+                # Not a heal (this sweep did nothing), so no write, no tally
+                # and no comment, in dry-run and live alike.
+                continue
+
+            ready = bool(manifest_legs) and all(
+                s not in (None, "running") for s in leg_states
+            )
+            if not ready:
+                # A sibling leg hasn't reported in yet — nothing to fold.
+                # No write, no tally; try again next tick once it lands.
+                continue
+
+            if dry_run:
+                healed.append(StuckTestStateHeal(
+                    assignment_id=w.assignment_id,
+                    machine_name=w.machine_name or "unknown",
+                    repo_name=w.repo_name,
+                    issue_number=w.issue_number,
+                    detail=detail,
+                    action=(
+                        "(dry-run) would defer to finalize_smoke_fanout to "
+                        "fold every leg's own verdict into the parent's "
+                        "aggregate (#3453)"
+                    ),
+                ))
+                continue
+
+            from coord.smoke import finalize_smoke_fanout  # noqa: PLC0415
+
+            # `finalize_smoke_fanout` never raises (documented, catches and
+            # logs internally) — no try/except needed around the call
+            # itself, unlike `record_test_verdict` below.
+            finalize_smoke_fanout(w.assignment_id)
+
+            # #2096: same confirm-by-re-read discipline as the single-leg
+            # path — a lost write here is exactly the #2802 class this
+            # whole sweep exists to catch, so report a heal only once the
+            # aggregate is actually observable as terminal on the parent.
+            try:
+                observed = load_assignment_test_state(w.assignment_id)
+            except Exception as exc:  # noqa: BLE001 — never sink the sweep
+                log.warning(
+                    "sweep_stuck_test_state_rows: could not confirm the "
+                    "finalized fan-out verdict for %s (%s) — not reporting "
+                    "a heal",
+                    w.assignment_id, exc,
+                )
+                continue
+            if observed in (None, "running"):
+                # `finalize_smoke_fanout` no-op'd — e.g. a sibling leg's own
+                # verdict changed between our readiness peek above and the
+                # call (or the manifest was consumed/rewritten concurrently).
+                # Not healed yet; the next tick will re-check readiness.
+                continue
+
+            # #3453 review: `finalize_smoke_fanout` writes its own
+            # `test_reason` (manifest line + headline + per-leg summary) and
+            # knows nothing about this sweep's re-heal marker, so stamp it on
+            # afterwards — otherwise this branch alone lacks the guard the
+            # other three classifications now share, and a parent re-stamped
+            # to `running` without a fresh leg would re-enter here and
+            # re-report a duplicate heal (hence a duplicate "auto-healed"
+            # GitHub comment) every tick, the quadraui#1077 shape.
+            _stamp_fanout_heal_marker(w.assignment_id, observed, smoke.assignment_id)
+
+            healed.append(StuckTestStateHeal(
+                assignment_id=w.assignment_id,
+                machine_name=w.machine_name or "unknown",
+                repo_name=w.repo_name,
+                issue_number=w.issue_number,
+                detail=detail,
+                action=(
+                    f"finalized the fan-out aggregate verdict "
+                    f"({observed!r}) for the parent from every leg's own "
+                    "recorded verdict (#3453)"
+                ),
+            ))
+            continue
+
+        if recorded_verdict is not None:
+            # #3453: propagate the child's own already-recorded verdict —
+            # never `propagate_smoke_terminal_failure` (that always
+            # classifies environmental-vs-work and, for the environmental
+            # branch, always spends a #3315 tally; neither applies here,
+            # since nothing died and this is not a fresh Test-stage death).
+            if dry_run:
+                healed.append(StuckTestStateHeal(
+                    assignment_id=w.assignment_id,
+                    machine_name=w.machine_name or "unknown",
+                    repo_name=w.repo_name,
+                    issue_number=w.issue_number,
+                    detail=detail,
+                    action=(
+                        "(dry-run) would propagate the Test-stage child's "
+                        "recorded verdict to the parent (#3453)"
+                    ),
+                ))
+                continue
+
+            from coord.state import (  # noqa: PLC0415
+                load_assignment_test_state,
+                record_test_verdict,
+            )
+
+            propagated_reason = (
+                f"{cause}. {_stuck_test_state_heal_marker(smoke.assignment_id)}"
+            )
+            try:
+                record_test_verdict(
+                    assignment_id=w.assignment_id,
+                    test_state=recorded_verdict,
+                    test_reason=propagated_reason,
+                )
+            except Exception as exc:  # noqa: BLE001 — never sink the sweep
+                log.warning(
+                    "sweep_stuck_test_state_rows: recovery write failed for "
+                    "%s (%s) — leaving test_state='running' for the next "
+                    "tick",
+                    w.assignment_id, exc,
+                )
+                continue
+
+            # #2096: a returning `record_test_verdict` proves the write was
+            # ISSUED, not that it LANDED — and the whole reason this row is
+            # here is that a Test verdict write silently vanished once
+            # already (#2802: DB-lock contention, a daemon that accepted the
+            # POST and died before committing, a degraded remote write that
+            # fell back to a local DB nothing else reads). Re-read the parent
+            # row and only report a heal when the propagated verdict is
+            # actually observable on it. `load_assignment_test_state` is the
+            # same single-row reader `coord notify`'s smoke reap uses to ask
+            # this exact question (#2244) — one question, one answer — and it
+            # returns `None` for "absent row / NULL / degraded read", all of
+            # which mean "I cannot see the verdict", so this confirmation
+            # fails CLOSED: no `StuckTestStateHeal`, hence no "auto-healed"
+            # GitHub comment claiming a propagation nobody can observe. The
+            # repair itself still stands if it did land, and the #3453 marker
+            # in `test_reason` still suppresses a duplicate attempt next tick.
+            #
+            # The environmental branch below deliberately has no equivalent
+            # check: its recovery writes `test_state=NULL`, which this reader
+            # cannot distinguish from "row absent" or "read failed", so a
+            # re-read there could only produce a verdict that is always
+            # ambiguous — never a gate that can genuinely fail.
+            try:
+                observed = load_assignment_test_state(w.assignment_id)
+            except Exception as exc:  # noqa: BLE001 — never sink the sweep
+                log.warning(
+                    "sweep_stuck_test_state_rows: could not confirm the "
+                    "propagated verdict for %s (%s) — not reporting a heal",
+                    w.assignment_id, exc,
+                )
+                continue
+            if observed != recorded_verdict:
+                log.warning(
+                    "sweep_stuck_test_state_rows: propagated "
+                    "test_state=%r to %s but a re-read shows %r — the write "
+                    "did not land; not reporting a heal",
+                    recorded_verdict, w.assignment_id, observed,
+                )
+                continue
+
+            healed.append(StuckTestStateHeal(
+                assignment_id=w.assignment_id,
+                machine_name=w.machine_name or "unknown",
+                repo_name=w.repo_name,
+                issue_number=w.issue_number,
+                detail=detail,
+                action=(
+                    "propagated the Test-stage child's recorded verdict to "
+                    "the parent (#3453)"
+                ),
+            ))
+            continue
 
         if dry_run:
             healed.append(StuckTestStateHeal(

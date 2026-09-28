@@ -1,0 +1,23 @@
+version = 1
+SPDX-PackageName = "dbus-python"
+SPDX-PackageHomePage = "https://gitlab.freedesktop.org/dbus/dbus-python"
+SPDX-PackageDownloadLocation = "git+https://gitlab.freedesktop.org/dbus/dbus-python.git"
+
+[[annotations]]
+path = [
+  "AUTHORS",
+  "CONTRIBUTING.md",
+  "NEWS",
+  "README",
+  "doc/**",
+  "test/services/TestSuitePythonService.service.in",
+  "test/tmp-session-bus.conf.in",
+]
+precedence = "aggregate"
+SPDX-FileCopyrightText = [
+  "2006-2022 Collabora Ltd.",
+  "2006-2007 Red Hat, Inc.",
+  "2012 Barry Warsaw",
+  "2008-2019 Wayland contributors",
+]
+SPDX-License-Identifier = "MIT"

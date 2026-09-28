@@ -105,9 +105,15 @@ class WorkflowHolding:
 
     # ── inputs ─────────────────────────────────────────────────────────────
 
-    def delivered_values(self, user_text: str) -> tuple[dict[str, Any], list[str]]:
-        """The values the workflow receives, and a note for each fill made."""
-        delivered = dict(self.supplied)
+    def delivered_values(
+        self, user_text: str, per_turn: dict[str, Any] | None = None
+    ) -> tuple[dict[str, Any], list[str]]:
+        """The values the workflow receives, and a note for each fill made.
+
+        ``per_turn`` are one turn's own offered values (``HeldCall.turn_metadata``)
+        — they win over the call's, and make each turn of a loop its own run.
+        """
+        delivered = {**self.supplied, **dict(per_turn or {})}
         notes: list[str] = []
         declared = [v for v in self.offered_values if getattr(v, "name", "")]
         missing = [v for v in declared if delivered.get(v.name) in (None, "")]
@@ -138,7 +144,7 @@ class WorkflowHolding:
     async def answer(self, config: Any, metadata: dict[str, Any] | None) -> Any:
         """Run the workflow for this request and return a ``CompletedRequest``."""
         user_text = last_user_text(config)
-        delivered, notes = self.delivered_values(user_text)
+        delivered, notes = self.delivered_values(user_text, turn_values(metadata))
         key = self.correlation_key(delivered)
         cached = self._answers.get(key)
         reattached = cached is not None
@@ -189,6 +195,17 @@ def holding_for_metadata(metadata: dict[str, Any] | None) -> WorkflowHolding | N
     held_id = str(stamp.get(HELD_CALL_ID_KEY) or "")
     holding = _HOLDINGS.get(held_id) if held_id else None
     return holding if holding is not None else False
+
+
+def turn_values(metadata: dict[str, Any] | None) -> dict[str, Any]:
+    """One turn's offered values carried on the Holder stamp, or ``{}``."""
+    if not isinstance(metadata, dict):
+        return {}
+    from matrx_ai.orchestrator.mandate_carrier import MANDATE_HOLDER_METADATA_KEY
+
+    stamp = metadata.get(MANDATE_HOLDER_METADATA_KEY)
+    values = stamp.get("turn_values") if isinstance(stamp, dict) else None
+    return dict(values) if isinstance(values, dict) else {}
 
 
 def last_user_text(config: Any) -> str:

@@ -169,7 +169,7 @@ def _safe_replay_failure_text(exc: BaseException) -> str:
 # both the asyncpg class name and ``[SQLSTATE xxxxx]``), and of the live
 # exception a replay attempt raises — ONE classifier for both moments.
 PERMANENT_FAILURE_SIGNATURES: tuple[str, ...] = (
-    # A trigger / RAISE EXCEPTION rejected the row (ensure_personal_organization,
+    # A trigger / RAISE EXCEPTION rejected the row (a missing-user check,
     # component guards, doctrine checks). The refusal is deterministic.
     "RaiseError",
     "[SQLSTATE P0001]",

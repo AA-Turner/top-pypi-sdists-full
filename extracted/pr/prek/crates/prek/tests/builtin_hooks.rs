@@ -149,6 +149,104 @@ fn deny_pattern_hook_reports_matching_lines() {
 }
 
 #[test]
+fn pattern_hooks_support_lookaround() {
+    let context = TestEnv::new()
+        .with_config(indoc::indoc! {r"
+        files: '\.txt$'
+        repos:
+          - repo: builtin
+            hooks:
+              - id: deny-pattern
+                args: ['(?<!allow: )TODO(?!\(tracked\))']
+              - id: require-pattern
+                args: ['(?<=license: )MIT$']
+              - id: deny-filename-pattern
+                args: ['(?<!public)\.txt$']
+              - id: require-filename-pattern
+                args: ['^public(?=\.txt$)']
+    "})
+        .with_files([
+            (
+                "public.txt",
+                "license: MIT\r\nallow: TODO\r\nTODO(tracked)\r\n",
+            ),
+            ("private.txt", "license: Apache-2.0\r\nTODO: fix\r\n"),
+        ])
+        .init_git();
+
+    cmd_snapshot!(context, context.run(), @r#"
+    success: false
+    exit_code: 1
+    ----- stdout -----
+    deny patterns............................................................Failed
+    - hook id: deny-pattern
+    - description: Fails if any file contains a matching regular expression
+    - exit code: 1
+
+      private.txt:2:TODO: fix
+    require patterns.........................................................Failed
+    - hook id: require-pattern
+    - description: Fails if any file does not contain a matching regular expression
+    - exit code: 1
+
+      private.txt: file does not match any required pattern
+    deny filename patterns...................................................Failed
+    - hook id: deny-filename-pattern
+    - description: Fails if any selected filename matches a regular expression
+    - exit code: 1
+
+      private.txt: filename matches a denied pattern
+    require filename patterns................................................Failed
+    - hook id: require-filename-pattern
+    - description: Fails if any selected filename does not match a regular expression
+    - exit code: 1
+
+      private.txt: filename does not match any required pattern
+
+    ----- stderr -----
+    "#);
+}
+
+#[test]
+fn pattern_hooks_report_runtime_errors() {
+    let context = TestEnv::new()
+        .with_config(indoc::indoc! {r"
+        repos:
+          - repo: builtin
+            hooks:
+              - id: deny-pattern
+                args: ['^(a|aa)+(?=b)$']
+                files: '\.txt$'
+              - id: require-pattern
+                args: [--multiline, '^(a|aa)+(?=b)$']
+                files: '\.txt$'
+    "})
+        .with_file("file.txt", "a".repeat(40))
+        .init_git();
+
+    cmd_snapshot!(context, context.run().arg("deny-pattern"), @r#"
+    success: false
+    exit_code: 2
+    ----- stdout -----
+
+    ----- stderr -----
+    error: Failed to run hook `deny-pattern`
+      caused by: Failed to match patterns in `file.txt:1`
+      caused by: Error executing regex: Max limit for backtracking count exceeded
+    "#);
+    cmd_snapshot!(context, context.run().arg("require-pattern"), @r#"
+    success: false
+    exit_code: 2
+    ----- stdout -----
+
+    ----- stderr -----
+    error: Failed to run hook `require-pattern`
+      caused by: Failed to match patterns in `file.txt`
+      caused by: Error executing regex: Max limit for backtracking count exceeded
+    "#);
+}
+
+#[test]
 fn deny_pattern_hook_rejects_invalid_regex() {
     let context = TestEnv::new()
         .with_config(indoc::indoc! {r"
@@ -168,12 +266,8 @@ fn deny_pattern_hook_rejects_invalid_regex() {
 
     ----- stderr -----
     error: Failed to run hook `deny-pattern`
-      caused by: Failed to compile regex patterns
-      caused by: error parsing pattern 0
-      caused by: regex parse error:
-        *invalid-pattern*
-        ^
-    error: repetition operator missing expression
+      caused by: Failed to compile regex patterns `*invalid-pattern*`
+      caused by: Parsing error at position 0: Target of repeat operator is invalid
     "#);
 }
 
@@ -181,15 +275,15 @@ fn deny_pattern_hook_rejects_invalid_regex() {
 fn deny_pattern_hook_reports_earliest_multiline_match() {
     let context = TestEnv::new().init_git();
 
-    // `END` is listed first, but `BEGIN.*END` starts earlier in the file.
-    // Multiline matching should report the earliest match, not the first pattern.
+    // Each backreference belongs to its own pattern. The second pattern starts
+    // earlier than the first, and wins the tie with the shorter third pattern.
     let context = context
         .with_config(indoc::indoc! {r"
         repos:
           - repo: builtin
             hooks:
               - id: deny-pattern
-                args: [-m, 'END', 'BEGIN.*END']
+                args: [-m, '(END)\1', '(BEGIN).*\1', 'BEGIN']
                 files: '\.txt$'
     "})
         .with_file(
@@ -198,14 +292,15 @@ fn deny_pattern_hook_reports_earliest_multiline_match() {
         before
         BEGIN
         middle
-        END
+        BEGIN
+        ENDEND
         after
     "},
         );
 
     context.git().add(".");
 
-    cmd_snapshot!(context, context.run(), @r"
+    cmd_snapshot!(context, context.run(), @r#"
     success: false
     exit_code: 1
     ----- stdout -----
@@ -216,10 +311,10 @@ fn deny_pattern_hook_reports_earliest_multiline_match() {
 
       block.txt:2:BEGIN
       middle
-      END
+      BEGIN
 
     ----- stderr -----
-    ");
+    "#);
 }
 
 #[test]
@@ -277,7 +372,7 @@ fn require_pattern_hook_reports_files_without_any_match() {
         .with_file("missing.txt", "No required marker\n")
         .init_git();
 
-    cmd_snapshot!(context, context.run(), @r"
+    cmd_snapshot!(context, context.run(), @r#"
     success: false
     exit_code: 1
     ----- stdout -----
@@ -286,10 +381,68 @@ fn require_pattern_hook_reports_files_without_any_match() {
     - description: Fails if any file does not contain a matching regular expression
     - exit code: 1
 
-      missing.txt: no pattern matched
+      missing.txt: file does not match any required pattern
 
     ----- stderr -----
-    ");
+    "#);
+}
+
+#[test]
+fn trailing_whitespace_check() -> Result<()> {
+    let files = [
+        ("extra.md", "trim   \r\n"),
+        ("extra.txt", "trim \n"),
+        ("clean.md", "keep  \r\n"),
+        ("clean.txt", "keep\t\n"),
+        ("empty.txt", ""),
+    ];
+    let context = TestEnv::new()
+        .with_config(indoc::indoc! {r#"
+        repos:
+          - repo: builtin
+            hooks:
+              - id: trailing-whitespace
+                args: [--check, --markdown-linebreak-ext=md, "--chars= "]
+    "#})
+        .with_files(files)
+        .init_git();
+
+    let mut modified = Vec::new();
+    for (name, _) in files {
+        let path = context.child(name);
+        #[cfg(unix)]
+        fs_err::set_permissions(&path, std::fs::Permissions::from_mode(0o444))?;
+        modified.push(fs_err::metadata(&path)?.modified()?);
+    }
+
+    cmd_snapshot!(context, context.run(), @r#"
+    success: false
+    exit_code: 1
+    ----- stdout -----
+    trim trailing whitespace.................................................Failed
+    - hook id: trailing-whitespace
+    - description: Trims trailing whitespace
+    - exit code: 1
+
+      Would fix extra.txt
+      Would fix extra.md
+
+    ----- stderr -----
+    "#);
+    cmd_snapshot!(context, context.run().arg("--files").args(["clean.md", "clean.txt", "empty.txt"]), @r#"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+    trim trailing whitespace.................................................Passed
+
+    ----- stderr -----
+    "#);
+
+    for ((name, contents), modified) in files.into_iter().zip(modified) {
+        assert_eq!(context.read(name), contents);
+        assert_eq!(fs_err::metadata(context.child(name))?.modified()?, modified);
+    }
+    Ok(())
 }
 
 #[test]
@@ -354,6 +507,65 @@ fn end_of_file_fixer_hook() {
 
     ----- stderr -----
     ");
+}
+
+#[test]
+fn end_of_file_fixer_check() -> Result<()> {
+    let files = [
+        ("missing.txt", "no newline"),
+        ("extra.txt", "extra\r\n\r\n"),
+        ("only_newlines.txt", "\n\n"),
+        ("clean.txt", "keep\r\n"),
+        ("empty.txt", ""),
+    ];
+    let context = TestEnv::new()
+        .with_config(indoc::indoc! {r"
+        repos:
+          - repo: builtin
+            hooks:
+              - id: end-of-file-fixer
+                args: [--check]
+    "})
+        .with_files(files)
+        .init_git();
+
+    let mut modified = Vec::new();
+    for (name, _) in files {
+        let path = context.child(name);
+        #[cfg(unix)]
+        fs_err::set_permissions(&path, std::fs::Permissions::from_mode(0o444))?;
+        modified.push(fs_err::metadata(&path)?.modified()?);
+    }
+
+    cmd_snapshot!(context, context.run(), @r#"
+    success: false
+    exit_code: 1
+    ----- stdout -----
+    fix end of files.........................................................Failed
+    - hook id: end-of-file-fixer
+    - description: Ensures that a file is either empty, or ends with one newline
+    - exit code: 1
+
+      Would fix only_newlines.txt
+      Would fix extra.txt
+      Would fix missing.txt
+
+    ----- stderr -----
+    "#);
+    cmd_snapshot!(context, context.run().arg("--files").args(["clean.txt", "empty.txt"]), @r#"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+    fix end of files.........................................................Passed
+
+    ----- stderr -----
+    "#);
+
+    for ((name, contents), modified) in files.into_iter().zip(modified) {
+        assert_eq!(context.read(name), contents);
+        assert_eq!(fs_err::metadata(context.child(name))?.modified()?, modified);
+    }
+    Ok(())
 }
 
 #[test]
@@ -444,6 +656,78 @@ fn builtin_hook_checks_filename_from_args_after_options() {
 }
 
 #[test]
+fn file_contents_sorter_check() -> Result<()> {
+    let files = [
+        ("case-dirty.txt", "Banana\napple\n"),
+        ("case-clean.txt", "apple\nBanana\n"),
+        ("unique-dirty.txt", "alpha\nalpha\nbeta\n"),
+        ("unique-clean.txt", "alpha\nbeta\n"),
+        ("unique-crlf.txt", "alpha\r\nbeta\r\n"),
+        ("unique-empty.txt", ""),
+    ];
+    let context = TestEnv::new()
+        .with_config(indoc::indoc! {r"
+        repos:
+          - repo: builtin
+            hooks:
+              - id: file-contents-sorter
+                name: case-insensitive sorter
+                files: ^case-.*\.txt$
+                args: [--check, --ignore-case]
+              - id: file-contents-sorter
+                name: unique sorter
+                files: ^unique-.*\.txt$
+                args: [--check, --unique]
+    "})
+        .with_files(files)
+        .init_git();
+
+    let mut modified = Vec::new();
+    for (name, _) in files {
+        let path = context.child(name);
+        #[cfg(unix)]
+        fs_err::set_permissions(&path, std::fs::Permissions::from_mode(0o444))?;
+        modified.push(fs_err::metadata(&path)?.modified()?);
+    }
+
+    cmd_snapshot!(context, context.run(), @r#"
+    success: false
+    exit_code: 1
+    ----- stdout -----
+    case-insensitive sorter..................................................Failed
+    - hook id: file-contents-sorter
+    - description: Sorts the lines in specified files (defaults to alphabetical)
+    - exit code: 1
+
+      Would sort case-dirty.txt
+    unique sorter............................................................Failed
+    - hook id: file-contents-sorter
+    - description: Sorts the lines in specified files (defaults to alphabetical)
+    - exit code: 1
+
+      Would sort unique-crlf.txt
+      Would sort unique-dirty.txt
+
+    ----- stderr -----
+    "#);
+    cmd_snapshot!(context, context.run().arg("--files").args(["case-clean.txt", "unique-clean.txt", "unique-empty.txt"]), @r#"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+    case-insensitive sorter..................................................Passed
+    unique sorter............................................................Passed
+
+    ----- stderr -----
+    "#);
+
+    for ((name, contents), modified) in files.into_iter().zip(modified) {
+        assert_eq!(context.read(name), contents);
+        assert_eq!(fs_err::metadata(context.child(name))?.modified()?, modified);
+    }
+    Ok(())
+}
+
+#[test]
 fn requirements_txt_fixer_hook() {
     let context = TestEnv::new()
         .with_config(indoc::indoc! {r"
@@ -528,6 +812,66 @@ fn requirements_txt_fixer_hook() {
     ");
 
     assert_eq!(context.read("requirements.txt"), "flask\n  requests==2\n");
+}
+
+#[test]
+fn requirements_txt_fixer_check() -> Result<()> {
+    let files = [
+        (
+            "requirements.txt",
+            "requests==2\nFlask==3\nrequests==2\npkg-resources==0.0.0\n",
+        ),
+        ("requirements-invalid.txt", "flask\n  requests==2\n"),
+        ("constraints.txt", "flask\nrequests\n"),
+        ("requirements-empty.txt", ""),
+    ];
+    let context = TestEnv::new()
+        .with_config(indoc::indoc! {r"
+        repos:
+          - repo: builtin
+            hooks:
+              - id: requirements-txt-fixer
+                args: [--check]
+    "})
+        .with_files(files)
+        .init_git();
+
+    let mut modified = Vec::new();
+    for (name, _) in files {
+        let path = context.child(name);
+        #[cfg(unix)]
+        fs_err::set_permissions(&path, std::fs::Permissions::from_mode(0o444))?;
+        modified.push(fs_err::metadata(&path)?.modified()?);
+    }
+
+    cmd_snapshot!(context, context.run(), @r#"
+    success: false
+    exit_code: 1
+    ----- stdout -----
+    fix requirements.txt.....................................................Failed
+    - hook id: requirements-txt-fixer
+    - description: Sorts entries in requirements.txt
+    - exit code: 1
+
+      Would sort requirements.txt
+      requirements-invalid.txt:2: requirement entry starts with whitespace
+
+    ----- stderr -----
+    "#);
+    cmd_snapshot!(context, context.run().arg("--files").args(["constraints.txt", "requirements-empty.txt"]), @r#"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+    fix requirements.txt.....................................................Passed
+
+    ----- stderr -----
+    "#);
+
+    for ((name, contents), modified) in files.into_iter().zip(modified) {
+        assert_eq!(context.read(name), contents);
+        assert_eq!(fs_err::metadata(context.child(name))?.modified()?, modified);
+    }
+    Ok(())
 }
 
 #[test]
@@ -1372,6 +1716,64 @@ fn fix_byte_order_marker_hook() {
 
     ----- stderr -----
     ");
+}
+
+#[test]
+fn fix_byte_order_marker_check() -> Result<()> {
+    let files = [
+        ("with_bom.txt", "\u{feff}Hello, World!"),
+        ("bom_only.txt", "\u{feff}"),
+        ("clean.txt", "Hello, World!"),
+        ("short.txt", "Hi"),
+        ("empty.txt", ""),
+    ];
+    let context = TestEnv::new()
+        .with_config(indoc::indoc! {r"
+        repos:
+          - repo: builtin
+            hooks:
+              - id: fix-byte-order-marker
+                args: [--check]
+    "})
+        .with_files(files)
+        .init_git();
+
+    let mut modified = Vec::new();
+    for (name, _) in files {
+        let path = context.child(name);
+        #[cfg(unix)]
+        fs_err::set_permissions(&path, std::fs::Permissions::from_mode(0o444))?;
+        modified.push(fs_err::metadata(&path)?.modified()?);
+    }
+
+    cmd_snapshot!(context, context.run(), @r#"
+    success: false
+    exit_code: 1
+    ----- stdout -----
+    fix utf-8 byte order marker..............................................Failed
+    - hook id: fix-byte-order-marker
+    - description: Removes UTF-8 byte order marker
+    - exit code: 1
+
+      with_bom.txt: would remove byte-order marker
+      bom_only.txt: would remove byte-order marker
+
+    ----- stderr -----
+    "#);
+    cmd_snapshot!(context, context.run().arg("--files").args(["clean.txt", "short.txt", "empty.txt"]), @r#"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+    fix utf-8 byte order marker..............................................Passed
+
+    ----- stderr -----
+    "#);
+
+    for ((name, contents), modified) in files.into_iter().zip(modified) {
+        assert_eq!(context.read(name), contents);
+        assert_eq!(fs_err::metadata(context.child(name))?.modified()?, modified);
+    }
+    Ok(())
 }
 
 #[test]

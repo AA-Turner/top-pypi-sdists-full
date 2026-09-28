@@ -19,7 +19,7 @@ Layout:
     `skill(action="get", skill_id=...)` to read.
 
     <preconfigured_skills>
-    - <skill_id> — <description>
+    - <skill_id> — <description> [(needs tooling not in AI Matrx yet: …)]
     </preconfigured_skills>
 
     <active_skills>
@@ -36,7 +36,7 @@ what makes provider prompt caching work (A1).
 
 from __future__ import annotations
 
-from matrx_ai.skills.models import SkillPreamble
+from matrx_ai.skills.models import SkillHint, SkillPreamble, not_runnable_marker
 
 # Opening tag of the injected block. Also the idempotency marker used by the
 # host's preamble injector to avoid prepending twice into one system prompt.
@@ -78,6 +78,15 @@ def render_overview_lines(
     return lines
 
 
+def render_listed_line(hint: SkillHint) -> str:
+    """One ``<preconfigured_skills>`` line. A skill whose steps need tooling
+    this platform lacks says so right here — the agent sees only this line
+    until it loads the body, so the warning cannot live in the body alone."""
+    marker = not_runnable_marker(hint.not_runnable)
+    line = f"- {hint.skill_id} — {hint.description}"
+    return f"{line} {marker}" if marker else line
+
+
 def render_preamble(preamble: SkillPreamble) -> str:
     """Render the full markdown segment. Empty input → empty string."""
     if not preamble.overview_lines and not preamble.listed_skills and not preamble.included_skills:
@@ -100,7 +109,7 @@ def render_preamble(preamble: SkillPreamble) -> str:
     if preamble.listed_skills:
         parts.append("<preconfigured_skills>")
         for hint in preamble.listed_skills:
-            parts.append(f"- {hint.skill_id} — {hint.description}")
+            parts.append(render_listed_line(hint))
         parts.append("</preconfigured_skills>")
         parts.append("")
 

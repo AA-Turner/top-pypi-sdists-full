@@ -15,9 +15,8 @@ keep working unchanged.
 from __future__ import annotations
 
 import re
-import signal
-import threading
-from contextlib import contextmanager
+
+from skillsaw.timeouts import RegexTimeout, regex_timeout  # noqa: F401
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
@@ -111,14 +110,6 @@ class TautologicalMatch:
     line: int
     phrase: str
     reason: str
-
-
-@dataclass
-class PositionIssue:
-    line: int
-    keyword: str
-    position_score: float
-    suggested_position: str
 
 
 @dataclass
@@ -430,46 +421,6 @@ def patterns_matching_anywhere(content: str, patterns: List[tuple]) -> List[tupl
     return active
 
 
-class RegexTimeout(Exception):
-    """Raised when a regex operation exceeds its wall-clock budget."""
-
-
-@contextmanager
-def regex_timeout(seconds: float) -> Iterator[None]:
-    """Bound the wall-clock time of regex work inside the ``with`` body.
-
-    Config-supplied patterns (``.skillsaw.yaml``) run against untrusted file
-    bodies with Python's backtracking ``re`` engine, so a catastrophic pattern
-    can hang lint indefinitely (issue #316).  This wraps such work with a
-    ``SIGALRM`` timer that raises :class:`RegexTimeout`; CPython checks for
-    pending signals inside the matching loop, so an in-progress ``re.search``
-    is actually interrupted.
-
-    The timer requires ``SIGALRM`` and the main thread, so it is a **no-op**
-    on platforms without ``SIGALRM`` (e.g. Windows) or when called off the main
-    thread — callers must treat the timeout as best-effort hardening for the
-    CI (POSIX) threat, not a hard guarantee everywhere.
-    """
-    if (
-        seconds <= 0
-        or not hasattr(signal, "SIGALRM")
-        or threading.current_thread() is not threading.main_thread()
-    ):
-        yield
-        return
-
-    def _handle(signum, frame):
-        raise RegexTimeout(f"regex exceeded {seconds:g}s budget")
-
-    previous = signal.signal(signal.SIGALRM, _handle)
-    signal.setitimer(signal.ITIMER_REAL, seconds)
-    try:
-        yield
-    finally:
-        signal.setitimer(signal.ITIMER_REAL, 0)
-        signal.signal(signal.SIGALRM, previous)
-
-
 class WeakLanguageDetector:
     def analyze(self, cf: ContentBlock) -> List[WeakLanguageMatch]:
         content = _get_body_from_cf(cf)
@@ -500,37 +451,6 @@ class TautologicalDetector:
                 m = pattern.search(line)
                 if m:
                     results.append(TautologicalMatch(line_num, m.group(), reason))
-        return results
-
-
-class CriticalPositionAnalyzer:
-    def __init__(self, min_lines: int = 50):
-        self._min_lines = min_lines
-
-    def analyze(self, cf: ContentBlock) -> List[PositionIssue]:
-        content = _get_body_from_cf(cf)
-        if not content:
-            return []
-        lines = content.splitlines()
-        total = len(lines)
-        if total < self._min_lines:
-            return []
-        results: List[PositionIssue] = []
-        for line_num, line in enumerate(lines, 1):
-            m = _CRITICAL_KEYWORDS.search(line)
-            if not m:
-                continue
-            position = line_num / total
-            if 0.2 < position < 0.8:
-                score = 0.5
-                results.append(
-                    PositionIssue(
-                        line_num,
-                        m.group(),
-                        score,
-                        "Move to the first 20% or last 20% of the file for better attention",
-                    )
-                )
         return results
 
 

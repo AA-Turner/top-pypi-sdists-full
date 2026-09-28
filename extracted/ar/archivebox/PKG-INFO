@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: archivebox
-Version: 0.9.64
+Version: 0.9.70
 Summary: Self-hosted internet archiving solution.
 Keywords: internet archiving,web archiving,digipres,warc,preservation,backups,archiving,web,bookmarks,puppeteer,browser,download
 Author-Email: Nick Sweeting <pyproject.toml@archivebox.io>
@@ -73,8 +73,8 @@ Requires-Dist: tzdata>=2024.2
 Requires-Dist: w3lib>=2.2.1
 Requires-Dist: abxbus==2.5.65
 Requires-Dist: abxpkg==1.13.11
-Requires-Dist: abx-plugins[opencode]==1.13.67
-Requires-Dist: abx-dl==1.13.49
+Requires-Dist: abx-plugins[opencode]==1.13.81
+Requires-Dist: abx-dl==1.13.58
 Requires-Dist: uuid7>=0.1.0; python_version < "3.14"
 Requires-Dist: browser-cookie3>=0.20.1
 Provides-Extra: sonic

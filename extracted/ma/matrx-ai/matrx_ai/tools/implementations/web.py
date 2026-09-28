@@ -247,7 +247,7 @@ async def land_agent_read(result: Any, ctx: ToolContext, page: dict[str, Any]) -
             user_id=str(ctx.user_id or "") or None,
             origin_client="agent",
             keep=False,
-            visibility="personal",
+            visibility="internal",
         )
     except SourceLandingNotConfigured as exc:
         vcprint(f"[web_read] {exc}", color="red")

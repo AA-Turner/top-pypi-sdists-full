@@ -41,8 +41,33 @@ from matrx_ai.agent_runners.conversation_labeler import (
 )
 from matrx_ai.agents.response_parser import extract_model
 from matrx_ai.context.app_context import try_get_app_context
-from matrx_ai.db.cx_managers import cxm
 from matrx_ai.persistence import standalone_coordinator
+
+
+class _CxmProxy:
+    """Transparent proxy over the real ``cxm`` singleton (``matrx_ai.db.cx_managers``).
+
+    That facade resolves its DB bases lazily, at attribute-access time,
+    specifically so importing it never requires ``matrx_ai.configure()``
+    (see its own module docstring). A module-level
+    ``from matrx_ai.db.cx_managers import cxm`` here defeated that — the
+    import machinery's ``getattr(cx_managers, "cxm")`` fires immediately,
+    which forced DB configuration at THIS module's import time and crashed
+    any boot path that never configures matrx_ai's DB (e.g. a hosted
+    sandbox). This proxy is a genuine, harmless object at import time; every
+    attribute access is forwarded to the real singleton on first real use.
+    Kept as a real module-level name (rather than a local import per call
+    site) so ``monkeypatch.setattr(conversation_labeler, "cxm", fake)``
+    keeps working exactly as it did before this fix.
+    """
+
+    def __getattr__(self, name: str) -> Any:
+        from matrx_ai.db.cx_managers import cxm as _real_cxm
+
+        return getattr(_real_cxm, name)
+
+
+cxm = _CxmProxy()
 
 # ---------------------------------------------------------------------------
 # Recent conversation title cache (per-user, in-memory)

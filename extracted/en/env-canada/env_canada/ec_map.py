@@ -4,16 +4,16 @@ from datetime import timedelta
 from io import BytesIO
 
 import voluptuous as vol
+from aiohttp import ClientTimeout
 from aiohttp.client_exceptions import ClientError
 from PIL import Image, ImageDraw
 
-from .ec_validate import coordinates
 from .ec_cache import Cache
-from .ec_geomet import ATTRIBUTION
+from .ec_geomet import ATTRIBUTION, geomet_url, get_layer_dimension
 from .ec_geomet import compute_bounding_box as _compute_bounding_box
-from .ec_geomet import geomet_url, get_layer_dimension
 from .ec_geomet import get_resource as _get_resource
 from .ec_legend import generate_legend, load_font
+from .ec_validate import coordinates
 
 LOG = logging.getLogger(__name__)
 
@@ -37,6 +37,13 @@ MISSING_FRAME_CACHE_TIME = timedelta(minutes=2)
 # Natural Resources Canada
 
 basemap_url = "https://maps.geogratis.gc.ca/wms/CBMT"
+
+# The basemap server is fast most of the time and very slow some of it:
+# identical requests have taken from 2 s to nearly 2 minutes. It keeps the
+# limit it always had, aiohttp's default, rather than the library-wide 10 s,
+# which would lose it on a slow day. A basemap is cached for a week once
+# fetched, so the wait is rare.
+BASEMAP_TIMEOUT = ClientTimeout(total=300, sock_connect=30)
 basemap_params = {
     "service": "wms",
     "version": "1.3.0",
@@ -158,7 +165,6 @@ class ECMap:
         # How far past "now" to extend get_loop() using the radar
         # extrapolation (nowcast) layer, if one exists for self.layer.
         self.future_minutes = kwargs["future_minutes"]
-        self._future_layer = wms_layers_extrapolation.get(self.layer)
         self._future_boundary = None
         self._reference_time = None
         self._observed_end = None
@@ -168,6 +174,21 @@ class ECMap:
         # Frame spacing, replaced by whatever the layer's time dimension
         # actually advertises once GetCapabilities has been read.
         self._image_interval = image_interval
+
+    @property
+    def layer(self) -> str:
+        """The layer drawn: "rain", "snow" or "precip_type"."""
+        return self._layer
+
+    @layer.setter
+    def layer(self, value: str) -> None:
+        # Home Assistant switches layers by assigning to this attribute, so
+        # everything derived from the layer is worked out here rather than
+        # once in __init__.
+        if value not in wms_layers:
+            raise ValueError(f"layer must be one of: {', '.join(wms_layers)}")
+        self._layer = value
+        self._future_layer = wms_layers_extrapolation.get(value)
 
     def _get_cache_prefix(self):
         """Generate a location-specific cache prefix based on bounding box."""
@@ -194,18 +215,32 @@ class ECMap:
         return count
 
     async def _get_basemap(self):
-        """Fetch the background map image."""
+        """Fetch the background map image, or None if it can't be had."""
         basemap_cache_key = f"{self._get_cache_prefix()}-basemap"
         if base_bytes := Cache.get(basemap_cache_key):
             return base_bytes
 
-        basemap_params.update(self.map_params)
+        # A fresh dict: the module-level one is shared by every ECMap, and
+        # updating it in place let two maps fetching at once send each
+        # other's bounding box.
+        params = {**basemap_params, **self.map_params}
         try:
-            base_bytes = await _get_resource(basemap_url, basemap_params)
-            return Cache.add(basemap_cache_key, base_bytes, timedelta(days=7))
+            base_bytes = await _get_resource(
+                basemap_url, params, timeout=BASEMAP_TIMEOUT
+            )
         except FETCH_ERRORS as e:
             LOG.warning("Map from %s could not be retrieved: %s", basemap_url, e)
             return None
+
+        # A WMS error comes back as XML under HTTP 200. Cached as if it were
+        # the map, it would fail every frame for the week it is kept.
+        try:
+            Image.open(BytesIO(base_bytes)).load()
+        except OSError:
+            LOG.warning("Map from %s is not a usable image", basemap_url)
+            return None
+
+        return Cache.add(basemap_cache_key, base_bytes, timedelta(days=7))
 
     def _generate_legend(self) -> Image.Image | None:
         """Generate a horizontal legend image for the current layer."""
@@ -356,8 +391,9 @@ class ECMap:
 
         return Cache.add(layer_cache_key, layer_bytes, FRAME_CACHE_TIME)
 
-    async def _create_composite_image(self, frame_time):
-        """Create a composite image from the layer."""
+    async def _create_composite_image(self, frame_time, base_bytes):
+        """Draw one frame: the layer at `frame_time` over `base_bytes`, the
+        basemap, which callers fetch once for all the frames they draw."""
 
         layer_name, _, _ = self._resolve_layer(frame_time)
         time = frame_time.strftime("%Y-%m-%dT%H:%M:00Z")
@@ -426,10 +462,12 @@ class ECMap:
             return Cache.add(
                 cache_key,
                 img_byte_arr.getvalue(),
-                FRAME_CACHE_TIME if layer_bytes else MISSING_FRAME_CACHE_TIME,
+                # A frame missing either part is redrawn on the next poll.
+                FRAME_CACHE_TIME
+                if layer_bytes and base_bytes
+                else MISSING_FRAME_CACHE_TIME,
             )
 
-        base_bytes = await self._get_basemap()
         layer_bytes = await self._get_layer_image(frame_time)
         legend_image = self._generate_legend() if self.show_legend else None
 
@@ -441,7 +479,8 @@ class ECMap:
         if not dimensions:
             return None
 
-        return await self._create_composite_image(frame_time=dimensions[1])
+        base_bytes = await self._get_basemap()
+        return await self._create_composite_image(dimensions[1], base_bytes)
 
     async def update(self):
         self.image = await self.get_loop()
@@ -469,7 +508,9 @@ class ECMap:
             )
             return animation.getvalue()
 
-        await self._get_basemap()
+        # Fetched once and shared by every frame: if it fails, one request
+        # has failed, rather than one per frame.
+        base_bytes = await self._get_basemap()
 
         # Use the layer to determine the time dimensions
         timespan = await self._get_dimensions()
@@ -497,7 +538,7 @@ class ECMap:
         tasks = []
         curr = start
         while curr <= end:
-            tasks.append(self._create_composite_image(frame_time=curr))
+            tasks.append(self._create_composite_image(curr, base_bytes))
             curr = curr + self._image_interval
         composite_frames = await asyncio.gather(*tasks)
 

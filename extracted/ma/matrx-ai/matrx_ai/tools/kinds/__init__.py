@@ -136,6 +136,7 @@ from matrx_ai.tools.kinds.udt_content import WorkbookResult  # noqa: E402
 from matrx_ai.tools.kinds.user_secrets import UserSecretReceipt  # noqa: E402
 from matrx_ai.tools.kinds.value_store import ValueStoreResult  # noqa: E402
 from matrx_ai.tools.kinds.topical_map import TopicalMapResult  # noqa: E402
+from matrx_ai.tools.kinds.voice import VOICE_TOOL_RESULT_KINDS  # noqa: E402
 from matrx_ai.tools.kinds.weather import WeatherHistoryReading  # noqa: E402
 from matrx_ai.tools.kinds.wheel import WheelSpinResult  # noqa: E402
 from matrx_ai.tools.kinds.workbench import (  # noqa: E402
@@ -252,6 +253,9 @@ TOOL_RESULT_KINDS: dict[str, type[KindModel]] = {
     # image verification pair — ONE kind each, shared with the workflow nodes
     # web.google.reverse_image_search / image.metadata.read (no twin slugs).
     **MEDIA_FORENSICS_TOOL_RESULT_KINDS,
+    # brand_voice_measure (2026-09-27) — ONE union kind across extract and check,
+    # shared with the workflow node brand.voice_measure (kinds/voice.py).
+    **VOICE_TOOL_RESULT_KINDS,
     # the two Google tools (2026-09-17, google-native PLAN §5.8). ONE union kind
     # each — google_workspace_result was a PLACEHOLDER declared beside the other
     # agent-ops shapes and bound to nothing, so the tool it describes stamped no

@@ -251,7 +251,7 @@ fn collect_from_array_node(
     }
 }
 
-fn escape_json_pointer_token(token: &str) -> String {
+pub(crate) fn escape_json_pointer_token(token: &str) -> String {
     token.replace('~', "~0").replace('/', "~1")
 }
 

@@ -4,8 +4,8 @@ import datetime
 import logging
 from collections.abc import Iterable
 from dataclasses import dataclass, field
-from enum import IntEnum
-from typing import Any, Optional
+from enum import Flag, IntEnum, auto
+from typing import Any
 
 from ical.iter import MergedIterable, SortableItem
 from ical.timespan import Timespan
@@ -14,7 +14,7 @@ from mashumaro.types import SerializationStrategy
 
 from .const import DayOfWeek, ProgramFrequency
 from .resources import RAINBIRD_MODELS
-from .timeline import ProgramEvent, ProgramTimeline, create_recurrence, ProgramId
+from .timeline import ProgramEvent, ProgramId, ProgramTimeline, create_recurrence
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -29,7 +29,7 @@ class Echo:
     """Return the input command."""
 
     def __str__(self):
-        return "echo: %02X" % self.echo
+        return f"echo: {self.echo:02X}"
 
 
 @dataclass
@@ -43,7 +43,62 @@ class CommandSupport:
     """Return the input command."""
 
     def __str__(self):
-        return "command support: %02X, echo: %s" % (self.support, self.echo)
+        return f"command support: {self.support:02X}, echo: {self.echo}"
+
+
+class Feature(Flag):
+    """Controller feature capabilities."""
+
+    NONE = 0
+    PROGRAM_BASED = auto()
+    """Controller uses program-based scheduling (vs per-zone/LCR)."""
+
+    SECONDS_BASED = auto()
+    """Controller operates on seconds-based runtimes (vs minutes)."""
+
+    WATER_BUDGET = auto()
+    """Controller supports seasonal adjustment / water budgets."""
+
+    COMBINED_STATE = auto()
+    """Controller supports combined controller state request (0x4C)."""
+
+    EVENT_TIMESTAMP = auto()
+    """Controller supports controller event/schedule timestamp (0x4A)."""
+
+    STACKED_WATERING = auto()
+    """Controller supports stacked manual run station requests (0x4B)."""
+
+    FLOW_SENSOR = auto()
+    """Controller supports flow sensor monitoring."""
+
+
+@dataclass
+class ModelLimits:
+    """Quantitative hardware and firmware limits for a controller model."""
+
+    max_stations: int = 0
+    """The maximum number of stations supported by the device."""
+
+    max_programs: int = 0
+    """The maximum number of programs supported by the device."""
+
+    max_run_times: int = 0
+    """The maximum number of run times supported by the device."""
+
+    max_station_pages: int = 0
+    """The maximum 32-station page index queried by the device."""
+
+    max_rain_delay_days: int = 14
+    """The maximum rain delay duration in days supported by the device."""
+
+    max_runtime_seconds: int = 21600
+    """The maximum run time duration in seconds supported by the device."""
+
+    max_seasonal_adjust: int = 200
+    """The maximum seasonal adjustment percentage."""
+
+    max_sensors: int = 0
+    """The maximum number of external sensor inputs supported by the device."""
 
 
 @dataclass
@@ -59,20 +114,64 @@ class ModelInfo:
     name: str
     """The human readable model name."""
 
-    supports_water_budget: bool
-    """If the mode supports seasonal adjustment/water budgets."""
+    limits: ModelLimits = field(default_factory=ModelLimits)
+    """Quantitative hardware and firmware limits."""
 
-    max_programs: int
-    """The maximum number of programs supported by the device."""
-
-    max_run_times: int
-    """The maximum number of run times supported by the device."""
-
-    max_stations: int
-    """The maximum number of stations supported by the device."""
+    features: Feature = Feature.NONE
+    """Supported feature flags."""
 
     retries: bool = False
-    """If device busy errors should be retried"""
+    """If device busy errors should be retried."""
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "ModelInfo":
+        """Construct ModelInfo from a dictionary."""
+        limits = data.get("limits")
+        if not isinstance(limits, ModelLimits):
+            limits = ModelLimits(**limits) if limits else ModelLimits()
+
+        features = data.get("features", Feature.NONE)
+        if not isinstance(features, Feature):
+            raw_features = features
+            features = Feature.NONE
+            for f in raw_features:
+                if isinstance(f, Feature):
+                    features |= f
+                elif isinstance(f, str) and f in Feature.__members__:
+                    features |= Feature[f]
+
+        return cls(
+            device_id=data["device_id"],
+            code=data["code"],
+            name=data["name"],
+            limits=limits,
+            features=features,
+            retries=data.get("retries", False),
+        )
+
+    def is_feature_supported(self, feature: Feature) -> bool:
+        """Return True if the specified feature is supported."""
+        return feature in self.features
+
+    @property
+    def max_stations(self) -> int:
+        """The maximum number of stations supported by the device."""
+        return self.limits.max_stations
+
+    @property
+    def max_programs(self) -> int:
+        """The maximum number of programs supported by the device."""
+        return self.limits.max_programs
+
+    @property
+    def max_run_times(self) -> int:
+        """The maximum number of run times supported by the device."""
+        return self.limits.max_run_times
+
+    @property
+    def supports_water_budget(self) -> bool:
+        """If the mode supports seasonal adjustment/water budgets."""
+        return Feature.WATER_BUDGET in self.features
 
 
 @dataclass
@@ -103,15 +202,10 @@ class ModelAndVersion:
         """Return details about a device model capabilities."""
         key = f"{self.model:04x}"
         data = RAINBIRD_MODELS.get(key, RAINBIRD_MODELS["UNKNOWN"])
-        return ModelInfo(**data)
+        return ModelInfo.from_dict(data)
 
     def __str__(self):
-        return "model: %04X (%s), version: %d.%d" % (
-            self.model,
-            self.model_name,
-            self.major,
-            self.minor,
-        )
+        return f"model: {self.model:04X} ({self.model_name}), version: {self.major}.{self.minor}"
 
 
 @dataclass
@@ -145,7 +239,7 @@ class States:
         while rest:
             current = int(rest[:2], 16)
             rest = rest[2:]
-            for i in range(0, 8):
+            for i in range(8):
                 self.states = self.states + (bool((1 << i) & current),)
 
     def active(self, number: int) -> bool:
@@ -160,10 +254,10 @@ class States:
         return {number for number in range(1, self.count + 1) if self.active(number)}
 
     def __str__(self):
-        result = ()
-        for i in range(0, self.count):
-            result += ("%d:%d" % (i + 1, 1 if self.states[i] else 0),)
-        return "states: %s" % ", ".join(result)
+        result = tuple(
+            f"{i + 1}:{1 if self.states[i] else 0}" for i in range(self.count)
+        )
+        return f"states: {', '.join(result)}"
 
     def update_zone(self, zone: int, active: bool) -> "States":
         """Return a new States instance with the specified zone state updated."""
@@ -197,10 +291,7 @@ class AvailableStations:
         return self.stations.active_set
 
     def __str__(self):
-        return "available stations: %X, %s" % (
-            self.stations.mask,
-            super(AvailableStations, self).__str__(),
-        )
+        return f"available stations: {self.stations.mask:X}, {super().__str__()}"
 
 
 @dataclass
@@ -213,40 +304,40 @@ class WaterBudget:
 class WifiParams(DataClassDictMixin):
     """Wifi parameters for the device."""
 
-    mac_address: Optional[str] = field(
+    mac_address: str | None = field(
         metadata=field_options(alias="macAddress"), default=None
     )
     """The mac address for the device, also referred to as the stick id."""
 
-    local_ip_address: Optional[str] = field(
+    local_ip_address: str | None = field(
         metadata=field_options(alias="localIpAddress"), default=None
     )
-    local_netmask: Optional[str] = field(
+    local_netmask: str | None = field(
         metadata=field_options(alias="localNetmask"), default=None
     )
-    local_gateway: Optional[str] = field(
+    local_gateway: str | None = field(
         metadata=field_options(alias="localGateway"), default=None
     )
-    rssi: Optional[int] = None
-    wifi_ssid: Optional[str] = field(
+    rssi: int | None = None
+    wifi_ssid: str | None = field(
         metadata=field_options(alias="wifiSsid"), default=None
     )
-    wifi_password: Optional[str] = field(
+    wifi_password: str | None = field(
         metadata=field_options(alias="wifiPassword"), default=None
     )
-    wifi_security: Optional[str] = field(
+    wifi_security: str | None = field(
         metadata=field_options(alias="wifiSecurity"), default=None
     )
-    ap_timeout_no_lan: Optional[int] = field(
+    ap_timeout_no_lan: int | None = field(
         metadata=field_options(alias="apTimeoutNoLan"), default=None
     )
-    ap_timeout_idle: Optional[int] = field(
+    ap_timeout_idle: int | None = field(
         metadata=field_options(alias="apTimeoutIdle"), default=None
     )
-    ap_security: Optional[str] = field(
+    ap_security: str | None = field(
         metadata=field_options(alias="apSecurity"), default=None
     )
-    sick_version: Optional[str] = field(
+    sick_version: str | None = field(
         metadata=field_options(alias="stickVersion"), default=None
     )
 
@@ -292,10 +383,10 @@ class Settings(DataClassDictMixin):
     program_opt_out_mask: str = field(metadata=field_options(alias="programOptOutMask"))
     global_disable: bool = field(metadata=field_options(alias="globalDisable"))
 
-    code: Optional[str] = None
+    code: str | None = None
     """Zip code for the device."""
 
-    country: Optional[str] = None
+    country: str | None = None
     """Country location of the device."""
 
     # Program information
@@ -329,17 +420,17 @@ class WeatherAdjustmentMask(DataClassDictMixin):
 class ZipCode(DataClassDictMixin):
     """Get the zip code of the device."""
 
-    code: Optional[str] = None
+    code: str | None = None
     """Zip code for the device."""
 
-    country: Optional[str] = None
+    country: str | None = None
     """Country location of the device."""
 
 
 class ScheduleAndSettings:
     """Schedule and settings form the cloud API."""
 
-    def __init__(self, status: Optional[str], settings: Optional[Settings]) -> None:
+    def __init__(self, status: str | None, settings: Settings | None) -> None:
         self._status = status
         self._settings = settings
 
@@ -349,7 +440,7 @@ class ScheduleAndSettings:
         return self._status or "unknown"
 
     @property
-    def settings(self) -> Optional[Settings]:
+    def settings(self) -> Settings | None:
         """Return device settings."""
         return self._settings
 
@@ -368,7 +459,7 @@ class Controller(DataClassDictMixin):
     available_stations: list[int] = field(
         metadata=field_options(alias="availableStations"), default_factory=list
     )
-    custom_name: Optional[str] = field(
+    custom_name: str | None = field(
         metadata=field_options(alias="customName"), default=None
     )
     custom_program_names: dict[str, str] = field(
@@ -383,26 +474,26 @@ class Controller(DataClassDictMixin):
 class Forecast(DataClassDictMixin):
     """Weather forecast data from the cloud API."""
 
-    date_time: Optional[int] = field(metadata=field_options(alias="dateTime"))
-    icon: Optional[str] = None
-    description: Optional[str] = None
-    high: Optional[int] = None
-    low: Optional[int] = None
-    chance_of_rain: Optional[int] = None
-    precip: Optional[float] = None
+    date_time: int | None = field(metadata=field_options(alias="dateTime"))
+    icon: str | None = None
+    description: str | None = None
+    high: int | None = None
+    low: int | None = None
+    chance_of_rain: int | None = None
+    precip: float | None = None
 
 
 @dataclass
 class Weather(DataClassDictMixin):
     """Weather settings from the cloud API."""
 
-    city: Optional[str] = None
+    city: str | None = None
     forecast: list[Forecast] = field(default_factory=list)
-    location: Optional[str] = None
-    time_zone_id: Optional[str] = field(
+    location: str | None = None
+    time_zone_id: str | None = field(
         metadata=field_options(alias="timeZoneId"), default=None
     )
-    time_zone_raw_offset: Optional[str] = field(
+    time_zone_raw_offset: str | None = field(
         metadata=field_options(alias="timeZoneRawOffset"), default=None
     )
 
@@ -411,16 +502,14 @@ class Weather(DataClassDictMixin):
 class WeatherAndStatus(DataClassDictMixin):
     """Weather and status from the cloud API."""
 
-    stick_id: Optional[str] = field(
-        metadata=field_options(alias="StickId"), default=None
-    )
-    controller: Optional[Controller] = field(
+    stick_id: str | None = field(metadata=field_options(alias="StickId"), default=None)
+    controller: Controller | None = field(
         metadata=field_options(alias="Controller"), default=None
     )
-    forecasted_rain: Optional[dict[str, Any]] = field(
+    forecasted_rain: dict[str, Any] | None = field(
         metadata=field_options(alias="ForecastedRain"), default=None
     )
-    weather: Optional[Weather] = field(
+    weather: Weather | None = field(
         metadata=field_options(alias="Weather"), default=None
     )
 
@@ -452,10 +541,10 @@ class DeviceTime(SerializationStrategy):
 
     def deserialize(self, values: dict[str, Any]) -> datetime.datetime:
         """Deserialize the device time fields."""
-        for f in {"year", "month", "day", "hour", "minute", "second"}:
+        for f in ("year", "month", "day", "hour", "minute", "second"):
             if f not in values:
                 raise ValueError(f"Missing field '{f}' in values")
-        return datetime.datetime(
+        return datetime.datetime(  # noqa: DTZ001
             int(values["year"]),
             int(values["month"]),
             int(values["day"]),
@@ -534,8 +623,9 @@ class ZoneDuration(DataClassDictMixin):
 class TimeSerializationStrategy(SerializationStrategy):
     """Validate different ways the device time parameter is handled."""
 
-    def serialize(self, value: Any) -> Any:
-        raise ValueError("Serialize not implemented")
+    def serialize(self, value: list[datetime.time]) -> list[str]:
+        """Serialize the start times, matching the default for ZoneSchedule."""
+        return [start.isoformat() for start in value]
 
     def deserialize(self, starts: list[int]) -> list[datetime.time]:
         """Deserialize the device time fields."""
@@ -550,14 +640,15 @@ class TimeSerializationStrategy(SerializationStrategy):
 class DayOfWeekSerializationStrategy(SerializationStrategy):
     """Validate different ways the device time parameter is handled."""
 
-    def serialize(self, value: Any) -> str:
-        raise ValueError("Serialization not implemented")
+    def serialize(self, value: set[DayOfWeek]) -> list[int]:
+        """Serialize the days of the week, matching the default for ZoneSchedule."""
+        return sorted(day.value for day in value)
 
     def deserialize(self, mask: int) -> set[DayOfWeek]:
         """Deserialize the device time fields."""
         _LOGGER.debug("DayOfWeekSerializationStrategy=%s", mask)
         result: set[DayOfWeek] = set()
-        for day in range(0, 7):
+        for day in range(7):
             if mask & (1 << day):
                 result.add(DayOfWeek(day))
         return result
@@ -587,10 +678,10 @@ class Program(DataClassDictMixin):
     )
     """For a CUSTOM program determines the days of the week."""
 
-    period: Optional[int] = None
+    period: int | None = None
     """For a CYCLIC program determines how often to run."""
 
-    synchro: Optional[int] = None
+    synchro: int | None = None
     """Days from today before starting the first day of the program."""
 
     starts: list[datetime.time] = field(
@@ -602,7 +693,7 @@ class Program(DataClassDictMixin):
     durations: list[ZoneDuration] = field(default_factory=list)
     """Durations for run times for each zone."""
 
-    controller_info: Optional[ControllerInfo] = field(
+    controller_info: ControllerInfo | None = field(
         metadata=field_options(alias="controllerInfo"), default=None
     )
     """Information about the controller as input into the programs."""
@@ -616,7 +707,7 @@ class Program(DataClassDictMixin):
     @property
     def timeline(self) -> ProgramTimeline:
         """Return a timeline of events for the program."""
-        return self.timeline_tz(datetime.datetime.now().tzinfo)
+        return self.timeline_tz(datetime.datetime.now().tzinfo)  # noqa: DTZ005
 
     def timeline_tz(self, tzinfo: datetime.tzinfo | None) -> ProgramTimeline:
         """Return a timeline of events for the program."""
@@ -642,7 +733,7 @@ class Program(DataClassDictMixin):
     def zone_timeline(self) -> ProgramTimeline:
         """Return a timeline of events for the program."""
         iters: list[Iterable[SortableItem[Timespan, ProgramEvent]]] = []
-        now = datetime.datetime.now()
+        now = datetime.datetime.now()  # noqa: DTZ005
         for start in self.starts:
             dtstart = now.replace(hour=start.hour, minute=start.minute, second=0)
             for zone_duration in self.durations:
@@ -712,13 +803,13 @@ class ZoneSchedule(DataClassDictMixin):
     )
     """Custom days of week."""
 
-    period: Optional[int] = None
+    period: int | None = None
     """Interval for cyclic frequency."""
 
-    synchro: Optional[int] = None
+    synchro: int | None = None
     """Days remaining in interval for cyclic schedule."""
 
-    controller_info: Optional[ControllerInfo] = field(
+    controller_info: ControllerInfo | None = field(
         metadata=field_options(alias="controllerInfo"), default=None
     )
     """Controller settings that apply to this zone."""
@@ -732,7 +823,7 @@ class ZoneSchedule(DataClassDictMixin):
     @property
     def timeline(self) -> ProgramTimeline:
         """Return a timeline of events for the zone."""
-        return self.timeline_tz(datetime.datetime.now().tzinfo)
+        return self.timeline_tz(datetime.datetime.now().tzinfo)  # noqa: DTZ005
 
     def timeline_tz(self, tzinfo: datetime.tzinfo | None) -> ProgramTimeline:
         """Return a timeline of events for the zone."""
@@ -776,7 +867,7 @@ class ZoneSchedule(DataClassDictMixin):
 class Schedule(DataClassDictMixin):
     """Details about program schedules."""
 
-    controller_info: Optional[ControllerInfo] = field(
+    controller_info: ControllerInfo | None = field(
         metadata=field_options(alias="controllerInfo")
     )
     """Information about the controller used in the schedule."""
@@ -794,7 +885,7 @@ class Schedule(DataClassDictMixin):
     @property
     def timeline(self) -> ProgramTimeline:
         """Return a timeline of all programs."""
-        return self.timeline_tz(datetime.datetime.now().tzinfo)
+        return self.timeline_tz(datetime.datetime.now().tzinfo)  # noqa: DTZ005
 
     def timeline_tz(self, tzinfo: datetime.tzinfo | None) -> ProgramTimeline:
         """Return a timeline of all programs and zones."""
@@ -840,7 +931,7 @@ class Schedule(DataClassDictMixin):
             values["programInfo"][program]["controllerInfo"] = values.get(
                 "controllerInfo"
             )
-        for program in range(0, len(programs)):
+        for program in range(len(programs)):
             values["programInfo"][program]["durations"] = []
         for zone_durations in values.get("durations", []):
             zone = zone_durations.get("zone")
@@ -855,7 +946,7 @@ class Schedule(DataClassDictMixin):
                     values,
                 )
                 continue
-            for program in range(0, len(programs)):
+            for program in range(len(programs)):
                 duration = duration_values[program]
                 if not duration:
                     continue

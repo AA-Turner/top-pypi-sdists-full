@@ -110,6 +110,44 @@ class TestDBusBindings(unittest.TestCase):
         del bus
         self.assertTrue(ref() is None)
 
+    def testWeakRefsWithExportedObject(self):
+        # regression test: destroying an object on a connection should not
+        # raise AssertionError if Connection weakref is cleared during dealloc
+        address = os.environ['DBUS_SESSION_BUS_ADDRESS']
+        conn = _dbus_bindings.Connection(address)
+        obj = dbus.service.Object(conn, '/test/path')
+        del obj
+        del conn
+
+    def testWeakRefsToBaseConnection(self):
+        # regression test, using Py_TPFLAGS_MANAGED_WEAKREF without
+        # Py_TPFLAGS_HAVE_GC produced invalid memory accesses, this test should
+        # produce a segfault without the fix (adding Py_TPFLAGS_HAVE_GC to the
+        # Connection).
+        address = os.environ['DBUS_SESSION_BUS_ADDRESS']
+        conn = _dbus_bindings.Connection(address)
+        try:
+            ref = weakref.ref(conn)
+            self.assertTrue(ref() is conn)
+        finally:
+            conn.close()
+        del conn
+        self.assertTrue(ref() is None)
+
+    def testWeakRefsToBaseServer(self):
+        # regression test, using Py_TPFLAGS_MANAGED_WEAKREF without
+        # Py_TPFLAGS_HAVE_GC produced invalid memory accesses, this test should
+        # produce a segfault without the fix (adding Py_TPFLAGS_HAVE_GC to the
+        # Server).
+        server = _dbus_bindings._Server('unix:tmpdir=/tmp', _dbus_bindings.Connection)
+        try:
+            ref = weakref.ref(server)
+            self.assertTrue(ref() is server)
+        finally:
+            server.disconnect()
+        del server
+        self.assertTrue(ref() is None)
+
     def testInterfaceKeyword(self):
         #test dbus_interface parameter
         print(self.remote_object.Echo("dbus_interface on Proxy test Passed", 

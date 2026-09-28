@@ -1,17 +1,33 @@
 """
-.. image:: http://www.plantuml.com/plantuml/png/ZLAzJWCn3Dxz51vXw1im50ag8L4XwC1OkLTJ8gMvAd4GwEYxGuC8pTbKtUxy_TZEvsaIYfAt7e1MII9rWfsdbF1cSRzWpvtq4GT0JENduX8GXr_g7brQlf5tw-MBOx_-HlS0LV_Kzp8xr1kZav9PfCsMWvolEA_1VylHoZCExKwKv4Tg2s_VkSkca2kof2JDb0yxZYIk3qMZYUe1B1uUZOROXn96pQMugEMUdRnUUqUf6DBXQyIz2zu5RlgUQAFVNYaeRfBI79_JrUTaeg9JZFQj5MmUc69PDmNGE2iU61fDgfri3x36gxHw3gDHD6xqqQ7P4vjKqz2-602xtkO7uo17SCLhVSv25VjRjUAFcUE73Sspb8ADBl8gTT7j2cFAOPst_Wi0  # noqa
-    :alt: UML diagram
+.. image:: https://www.plantuml.com/plantuml/png/hLZXJkGs4FwVft1_NLXOfBR_Lcrrz3Wg93WA2rTL24Kc6LYtMITdErpf5QdFqaVharp6tincS8ZsLlTd8PxnpESltun7UMsTDAvPbichRzm2bY3gKYgT9Bfo8AGLfrNHb73KwDofIjjaCWahWfOca-J_V_yJXIsp-mzbEgbgCD9RziIazvHzL6wHQRc4dPdunSXwSNvo0HyQiCu7aDPbTwPQPW-oR23rltl2FTQGjHlEQWmYo-ltkFwkAk26xx9Wb2pLtr2405cZSM-HhWqlX05T23nkakIbj5OSpa_cUSk559yI8QRJzcStot9PbbcM8lwPiCxipD3nK1d8dNg0u7GFJZfdOh_B5ahoH1d20iKVtNgae2pONahg0-mMtMDMm1rHov0XI-Gs4sH30j1EAUC3JoP_VfJctWwS5vTViZF0xwLHyhQ4GxXJMdar1EWFAuD5JBcxjixizJVSR40GEQDRwvJvmwupfQtNPLENS1t3mFFlYVtz_Hl4As_Rc39tOgq3A25tbGbeBJxXjio2cubvzpW7Xu48wwSkq9DG5jMeYkmEtsBgVriyjrLLhYEc4x_kwoNy5sgbtIYHrmFzoE5n8U2HdYd18WdTiTdR3gSTXKfHKlglWynof1FwVnJbHLKvBsB6PiW_nizWi2CZxvUWtLU9zRL0OGnw3vnLQLq8CnDNMbNwsYSDR-9Obqf3TwAmHkUh3KZlrtjPracdyYU1AlVYW1L6ctOAYlH3wcSunqJ_zY_86-_5YxHVLBCNofgQ2NLQhEcRZQg7yGO40gNiAM0jvQoxLm96kcOoRFepGMRii-Z0u_KSU3E84vqtO1w7aeWVUPRzywkt5xzp4OsN4yjpsZWVQgDKfrUN1vV7P--spZPlRcrkLBrnnldLp_Ct5yU_RfsL14EweZRUtL0aD4JGKn02w2g1EuOGNTXEHgrEPLEwC0VuneIhpuAkhibZNJSE4wpBp5Ke4GyYxSQF3a8GCZVoEuZIfmm6Tzk2FEfyWRnUNubR1cStLZzj6H8_dj17IWDc7dx3MujlzVhIWQ-yqeNFo5qsPsIq__xM8ZX0035B-8UTqWDD_IzD4uEns6lWJJjAmysKRtFQU8fnyhZZwEqSUsyZGSGxokokNwCXr9jmkPO6T2YRxY9SkPpT_W6vhy0zGJNfmDp97Bgwt2ri-Rmfj738lF7uIdXmQS2skRnfnpZhvBJ5XG1EzWYdot_Phg_8Y2ZSkZFp8j-YnM3QSI9uZ2y0-KeSwmKOvQJEGHWe_Qra5wgsINz6_-6VwJGQws8FDk74PXfOnuF4asYIy8ayJZRWm2w5sCmRKfAmS16IP01LxCH2nkPaY01oew5W20gp9_qdRwTfQj140z2WbGqioV0PU8CRPuEx3WSSlWi6F6Dn9yERkKJHYRFCpMIdTMe9M1HlgcLTMNyRyA8GKt4Y7y68RyMgdWH-8H6cgjnEilwwCPt-H5yYPY8t81rORkTV6yXfi_JVYTJd3PiAKVasPJq4J8e9wBGCmU070-zDfYz6yxr86ollGIWjQDQrErp7F0dBZ_agxQJIbXVg44-D1TlNd_U9somTGJmeARgfAtaDkcYMvMS0  # noqa
+    :alt: UML diagram - rename png to uml to edit
 """
 
 import logging
 import re
+import sys
 from abc import ABC, abstractmethod
 from math import isfinite
-from typing import Any, Dict, Iterable, Mapping, Optional, Tuple, Union, cast
+from typing import (
+    Any,
+    Dict,
+    Iterable,
+    Literal,
+    Mapping,
+    Optional,
+    Set,
+    Tuple,
+    Union,
+    cast,
+    overload,
+)
 
 from graphql import (
     ArgumentNode,
     BooleanValueNode,
+    ConstDirectiveNode,
+    DirectiveLocation,
+    DirectiveNode,
     DocumentNode,
     EnumValueNode,
     FieldNode,
@@ -19,6 +35,7 @@ from graphql import (
     FragmentDefinitionNode,
     FragmentSpreadNode,
     GraphQLArgument,
+    GraphQLDirective,
     GraphQLEnumType,
     GraphQLError,
     GraphQLField,
@@ -61,11 +78,17 @@ from graphql import (
     is_non_null_type,
     is_wrapping_type,
     print_ast,
+    specified_directives,
 )
 from graphql.pyutils import inspect
 
 from .graphql_request import GraphQLRequest
 from .utils import to_camel_case
+
+if sys.version_info >= (3, 11):
+    from typing import Self  # pragma: no cover
+else:
+    from typing_extensions import Self  # pragma: no cover
 
 log = logging.getLogger(__name__)
 
@@ -132,8 +155,9 @@ def ast_from_value(value: Any, type_: GraphQLInputType) -> Optional[ValueNode]:
 
     Produce a GraphQL Value AST given a Python object.
 
-    Raises a GraphQLError instead of returning None if we receive an Undefined
-    of if we receive a Null value for a Non-Null type.
+    :raises graphql.error.GraphQLError:
+        instead of returning None if we receive an Undefined
+        of if we receive a Null value for a Non-Null type.
     """
     if isinstance(value, DSLVariable):
         return value.set_type(type_).ast_variable_name
@@ -213,67 +237,15 @@ def ast_from_value(value: Any, type_: GraphQLInputType) -> Optional[ValueNode]:
     raise TypeError(f"Unexpected input type: {inspect(type_)}.")
 
 
-def dsl_gql(
-    *operations: "DSLExecutable", **operations_with_name: "DSLExecutable"
-) -> GraphQLRequest:
-    r"""Given arguments instances of :class:`DSLExecutable`
-    containing GraphQL operations or fragments,
-    generate a Document which can be executed later in a
-    gql client or a gql session.
-
-    Similar to the :func:`gql.gql` function but instead of parsing a python
-    string to describe the request, we are using operations which have been generated
-    dynamically using instances of :class:`DSLField`, generated
-    by instances of :class:`DSLType` which themselves originated from
-    a :class:`DSLSchema` class.
-
-    :param \*operations: the GraphQL operations and fragments
-    :type \*operations: DSLQuery, DSLMutation, DSLSubscription, DSLFragment
-    :param \**operations_with_name: the GraphQL operations with an operation name
-    :type \**operations_with_name: DSLQuery, DSLMutation, DSLSubscription
-
-    :return: a :class:`GraphQLRequest <gql.GraphQLRequest>`
-        which can be later executed or subscribed by a
-        :class:`Client <gql.client.Client>`, by an
-        :class:`async session <gql.client.AsyncClientSession>` or by a
-        :class:`sync session <gql.client.SyncClientSession>`
-
-    :raises TypeError: if an argument is not an instance of :class:`DSLExecutable`
-    :raises AttributeError: if a type has not been provided in a :class:`DSLFragment`
-    """
-
-    # Concatenate operations without and with name
-    all_operations: Tuple["DSLExecutable", ...] = (
-        *operations,
-        *(operation for operation in operations_with_name.values()),
-    )
-
-    # Set the operation name
-    for name, operation in operations_with_name.items():
-        operation.name = name
-
-    # Check the type
-    for operation in all_operations:
-        if not isinstance(operation, DSLExecutable):
-            raise TypeError(
-                "Operations should be instances of DSLExecutable "
-                "(DSLQuery, DSLMutation, DSLSubscription or DSLFragment).\n"
-                f"Received: {type(operation)}."
-            )
-
-    document = DocumentNode(
-        definitions=[operation.executable_ast for operation in all_operations]
-    )
-
-    return GraphQLRequest(document)
-
-
 class DSLSchema:
     """The DSLSchema is the root of the DSL code.
 
     Attributes of the DSLSchema class are generated automatically
     with the `__getattr__` dunder method in order to generate
     instances of :class:`DSLType`
+
+    .. automethod:: __call__
+    .. automethod:: __getattr__
     """
 
     def __init__(self, schema: GraphQLSchema):
@@ -293,7 +265,56 @@ class DSLSchema:
 
         self._schema: GraphQLSchema = schema
 
+    @overload
+    def __call__(
+        self, shortcut: Literal["__typename", "__schema", "__type"]
+    ) -> "DSLMetaField": ...  # pragma: no cover
+
+    @overload
+    def __call__(
+        self, shortcut: Literal["..."]
+    ) -> "DSLInlineFragment": ...  # pragma: no cover
+
+    @overload
+    def __call__(self, shortcut: Any) -> "DSLDirective": ...  # pragma: no cover
+
+    def __call__(
+        self, shortcut: str
+    ) -> Union["DSLMetaField", "DSLInlineFragment", "DSLDirective"]:
+        """Factory method for creating DSL objects from a shortcut string.
+
+        The shortcut determines which DSL object is created:
+
+          * "__typename", "__schema", "__type" -> :class:`DSLMetaField`
+          * "..." -> :class:`DSLInlineFragment`
+          * "@<name>" -> :class:`DSLDirective`
+
+        :param shortcut: The shortcut string identifying the DSL object.
+        :type shortcut: str
+
+        :return: A DSL object corresponding to the given shortcut.
+        :rtype: DSLMetaField | DSLInlineFragment | DSLDirective
+
+        :raises ValueError: If the shortcut is not recognized.
+        """
+
+        if shortcut in ("__typename", "__schema", "__type"):
+            return DSLMetaField(name=shortcut)
+        if shortcut == "...":
+            return DSLInlineFragment()
+        if shortcut.startswith("@"):
+            return DSLDirective(name=shortcut[1:], dsl_schema=self)
+
+        raise ValueError(f"Unsupported shortcut: {shortcut}")
+
     def __getattr__(self, name: str) -> "DSLType":
+        """Attributes of the DSLSchema class are generated automatically
+        with this dunder method in order to generate
+        instances of :class:`DSLType`
+
+        :return: :class:`DSLType` instance
+        :raises AttributeError: if the name is not valid
+        """
 
         type_def: Optional[GraphQLNamedType] = self._schema.get_type(name)
 
@@ -307,6 +328,286 @@ class DSLSchema:
             )
 
         return DSLType(type_def, self)
+
+
+class DSLDirective:
+    """The DSLDirective represents a GraphQL directive for the DSL code.
+
+    Directives provide a way to describe alternate runtime execution and type validation
+    behavior in a GraphQL document.
+    """
+
+    def __init__(self, name: str, dsl_schema: DSLSchema):
+        r"""Initialize the DSLDirective with the given name and arguments.
+
+        :param name: the name of the directive
+        :param dsl_schema: DSLSchema for directive validation and definition lookup
+
+        :raises graphql.error.GraphQLError: if directive not found or not executable
+        """
+        self._dsl_schema = dsl_schema
+
+        # Find directive definition in schema or built-ins
+        directive_def = self._dsl_schema._schema.get_directive(name)
+
+        if directive_def is None:
+            # Try to find in built-in directives using specified_directives
+            builtins = {builtin.name: builtin for builtin in specified_directives}
+            directive_def = builtins.get(name)
+
+        if directive_def is None:
+            available: Set[str] = set()
+            available.update(f"@{d.name}" for d in self._dsl_schema._schema.directives)
+            available.update(f"@{d.name}" for d in specified_directives)
+            raise GraphQLError(
+                f"Directive '@{name}' not found in schema or built-ins. "
+                f"Available directives: {', '.join(sorted(available))}"
+            )
+
+        # Check directive has at least one executable location
+        executable_locations = {
+            DirectiveLocation.QUERY,
+            DirectiveLocation.MUTATION,
+            DirectiveLocation.SUBSCRIPTION,
+            DirectiveLocation.FIELD,
+            DirectiveLocation.FRAGMENT_DEFINITION,
+            DirectiveLocation.FRAGMENT_SPREAD,
+            DirectiveLocation.INLINE_FRAGMENT,
+            DirectiveLocation.VARIABLE_DEFINITION,
+        }
+
+        if not any(loc in executable_locations for loc in directive_def.locations):
+            raise GraphQLError(
+                f"Directive '@{name}' is not a valid request executable directive. "
+                f"It can only be used in type system locations, not in requests."
+            )
+
+        self.directive_def: GraphQLDirective = directive_def
+        self.ast_directive = DirectiveNode(name=NameNode(value=name), arguments=())
+
+    @property
+    def name(self) -> str:
+        """Get the directive name."""
+        return self.ast_directive.name.value
+
+    def __call__(self, **kwargs: Any) -> Self:
+        """Add arguments by calling the directive like a function.
+
+        :param kwargs: directive arguments
+        :return: itself
+        """
+        return self.args(**kwargs)
+
+    def args(self, **kwargs: Any) -> Self:
+        r"""Set the arguments of a directive
+
+        The arguments are parsed to be stored in the AST of this field.
+
+        .. note::
+            You can also call the field directly with your arguments.
+            :code:`ds("@someDirective").args(value="foo")` is equivalent to:
+            :code:`ds("@someDirective")(value="foo")`
+
+        :param \**kwargs: the arguments (keyword=value)
+
+        :return: itself
+
+        :raises AttributeError: if arguments already set for this directive
+        :raises graphql.error.GraphQLError:
+                if argument doesn't exist in directive definition
+        """
+        if self.ast_directive.arguments and len(self.ast_directive.arguments) > 0:
+            raise AttributeError(f"Arguments for directive @{self.name} already set.")
+
+        errs = []
+        for key, value in kwargs.items():
+            if key not in self.directive_def.args:
+                errs.append(
+                    f"Argument '{key}' does not exist in directive '@{self.name}'"
+                )
+        if errs:
+            raise GraphQLError("\n".join(errs))
+
+        # Update AST directive with arguments
+        self.ast_directive = DirectiveNode(
+            name=NameNode(value=self.name),
+            arguments=tuple(
+                ArgumentNode(
+                    name=NameNode(value=key),
+                    value=cast(
+                        ValueNode,
+                        ast_from_value(value, self.directive_def.args[key].type),
+                    ),
+                )
+                for key, value in kwargs.items()
+            ),
+        )
+
+        return self
+
+    def __repr__(self) -> str:
+        args_str = ", ".join(
+            f"{arg.name.value}={getattr(arg.value, 'value')}"
+            for arg in (self.ast_directive.arguments or ())
+        )
+        return f"<DSLDirective @{self.name}({args_str})>"
+
+
+class DSLDirectable(ABC):
+    """Mixin class for DSL elements that can have directives.
+
+    Provides the directives() method for adding GraphQL directives to DSL elements.
+    Classes that need immediate AST updates should override the directives() method.
+    """
+
+    _directives: Tuple[DSLDirective, ...]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._directives = ()
+
+    @abstractmethod
+    def is_valid_directive(self, directive: DSLDirective) -> bool:
+        """Check if a directive is valid for this DSL element.
+
+        :param directive: The DSLDirective to validate
+        :return: True if the directive can be used at this location
+        """
+        raise NotImplementedError(
+            "Any DSLDirectable concrete class must have an is_valid_directive method"
+        )  # pragma: no cover
+
+    def directives(self, *directives: DSLDirective) -> Self:
+        r"""Add directives to this DSL element.
+
+        :param \*directives: DSLDirective instances to add
+        :return: itself
+
+        :raises graphql.error.GraphQLError: if directive location is invalid
+        :raises TypeError: if argument is not a DSLDirective
+
+        Usage:
+
+        .. code-block:: python
+
+            # Using new factory method
+            element.directives(ds("@include")(**{"if": var.show}))
+            element.directives(ds("@skip")(**{"if": var.hide}))
+        """
+        validated_directives = []
+
+        for directive in directives:
+            if not isinstance(directive, DSLDirective):
+                raise TypeError(
+                    f"Expected DSLDirective, got {type(directive)}. "
+                    f"Use ds('@directiveName') to create directive instances."
+                )
+
+            # Validate directive location using the abstract method
+            if not self.is_valid_directive(directive):
+                # Get valid locations for error message
+                valid_locations = [
+                    loc.name
+                    for loc in directive.directive_def.locations
+                    if loc
+                    in {
+                        DirectiveLocation.QUERY,
+                        DirectiveLocation.MUTATION,
+                        DirectiveLocation.SUBSCRIPTION,
+                        DirectiveLocation.FIELD,
+                        DirectiveLocation.FRAGMENT_DEFINITION,
+                        DirectiveLocation.FRAGMENT_SPREAD,
+                        DirectiveLocation.INLINE_FRAGMENT,
+                        DirectiveLocation.VARIABLE_DEFINITION,
+                    }
+                ]
+                raise GraphQLError(
+                    f"Invalid directive location: '@{directive.name}' "
+                    f"cannot be used on {self.__class__.__name__}. "
+                    f"Valid locations for this directive: {', '.join(valid_locations)}"
+                )
+
+            validated_directives.append(directive)
+
+        # Update stored directives
+        self._directives = self._directives + tuple(validated_directives)
+
+        log.debug(
+            f"Added directives {[d.name for d in validated_directives]} to {self!r}"
+        )
+
+        return self
+
+    @property
+    def directives_ast(self) -> Tuple[DirectiveNode, ...]:
+        """Get AST directive nodes for this element."""
+        return tuple(directive.ast_directive for directive in self._directives)
+
+
+class DSLSelectable(DSLDirectable):
+    """DSLSelectable is an abstract class which indicates that
+    the subclasses can be used as arguments of the
+    :meth:`select <gql.dsl.DSLSelector.select>` method.
+
+    Inherited by
+    :class:`DSLField <gql.dsl.DSLField>`,
+    :class:`DSLFragment <gql.dsl.DSLFragment>`
+    :class:`DSLInlineFragment <gql.dsl.DSLInlineFragment>`
+    """
+
+    ast_field: Union[FieldNode, InlineFragmentNode, FragmentSpreadNode]
+
+    @staticmethod
+    def get_aliased_fields(
+        fields: Iterable["DSLSelectable"],
+        fields_with_alias: Dict[str, "DSLSelectableWithAlias"],
+    ) -> Tuple["DSLSelectable", ...]:
+        """
+        :meta private:
+
+        Concatenate all the fields (with or without alias) in a Tuple.
+
+        Set the requested alias for the fields with alias.
+        """
+
+        return (
+            *fields,
+            *(field.alias(alias) for alias, field in fields_with_alias.items()),
+        )
+
+    def __str__(self) -> str:
+        return print_ast(self.ast_field)
+
+
+class DSLSelectableWithAlias(DSLSelectable):
+    """DSLSelectableWithAlias is an abstract class which indicates that
+    the subclasses can be selected with an alias.
+    """
+
+    ast_field: FieldNode
+
+    def alias(self, alias: str) -> Self:
+        """Set an alias
+
+        .. note::
+            You can also pass the alias directly at the
+            :meth:`select <gql.dsl.DSLSelector.select>` method.
+            :code:`ds.Query.human.select(my_name=ds.Character.name)` is equivalent to:
+            :code:`ds.Query.human.select(ds.Character.name.alias("my_name"))`
+
+        :param alias: the alias
+        :type alias: str
+        :return: itself
+        """
+
+        self.ast_field = FieldNode(
+            name=self.ast_field.name,
+            alias=NameNode(value=alias),
+            arguments=self.ast_field.arguments,
+            directives=self.ast_field.directives,
+            selection_set=self.ast_field.selection_set,
+        )
+        return self
 
 
 class DSLSelector(ABC):
@@ -324,8 +625,8 @@ class DSLSelector(ABC):
 
     def __init__(
         self,
-        *fields: "DSLSelectable",
-        **fields_with_alias: "DSLSelectableWithAlias",
+        *fields: DSLSelectable,
+        **fields_with_alias: DSLSelectableWithAlias,
     ):
         """:meta private:"""
         self.selection_set = SelectionSetNode(selections=())
@@ -334,15 +635,15 @@ class DSLSelector(ABC):
             self.select(*fields, **fields_with_alias)
 
     @abstractmethod
-    def is_valid_field(self, field: "DSLSelectable") -> bool:
+    def is_valid_field(self, field: DSLSelectable) -> bool:
         raise NotImplementedError(
             "Any DSLSelector subclass must have a is_valid_field method"
         )  # pragma: no cover
 
     def select(
         self,
-        *fields: "DSLSelectable",
-        **fields_with_alias: "DSLSelectableWithAlias",
+        *fields: DSLSelectable,
+        **fields_with_alias: DSLSelectableWithAlias,
     ) -> Any:
         r"""Select the fields which should be added.
 
@@ -355,7 +656,7 @@ class DSLSelector(ABC):
         :raises graphql.error.GraphQLError: if an argument is not a valid field
         """
         # Concatenate fields without and with alias
-        added_fields: Tuple["DSLSelectable", ...] = DSLField.get_aliased_fields(
+        added_fields: Tuple[DSLSelectable, ...] = DSLField.get_aliased_fields(
             fields, fields_with_alias
         )
 
@@ -376,12 +677,14 @@ class DSLSelector(ABC):
         ] = tuple(field.ast_field for field in added_fields)
 
         # Update the current selection list with new selections
-        self.selection_set.selections = self.selection_set.selections + added_selections
+        self.selection_set = SelectionSetNode(
+            selections=self.selection_set.selections + added_selections
+        )
 
         log.debug(f"Added fields: {added_fields} in {self!r}")
 
 
-class DSLExecutable(DSLSelector):
+class DSLExecutable(DSLSelector, DSLDirectable):
     """Interface for the root elements which can be executed
     in the :func:`dsl_gql <gql.dsl.dsl_gql>` function
 
@@ -404,8 +707,8 @@ class DSLExecutable(DSLSelector):
 
     def __init__(
         self,
-        *fields: "DSLSelectable",
-        **fields_with_alias: "DSLSelectableWithAlias",
+        *fields: DSLSelectable,
+        **fields_with_alias: DSLSelectableWithAlias,
     ):
         r"""Given arguments of type :class:`DSLSelectable` containing GraphQL requests,
         generate an operation which can be converted to a Document
@@ -430,6 +733,7 @@ class DSLExecutable(DSLSelector):
         self.variable_definitions = DSLVariableDefinitions()
 
         DSLSelector.__init__(self, *fields, **fields_with_alias)
+        DSLDirectable.__init__(self)
 
 
 class DSLRootFieldSelector(DSLSelector):
@@ -441,7 +745,7 @@ class DSLRootFieldSelector(DSLSelector):
     :class:`DSLOperation <gql.dsl.DSLOperation>`
     """
 
-    def is_valid_field(self, field: "DSLSelectable") -> bool:
+    def is_valid_field(self, field: DSLSelectable) -> bool:
         """Check that a field is valid for a root field.
 
         For operations, the fields arguments should be fields of root GraphQL types
@@ -507,8 +811,8 @@ class DSLOperation(DSLExecutable, DSLRootFieldSelector):
             operation=OperationType(self.operation_type),
             selection_set=self.selection_set,
             variable_definitions=self.variable_definitions.get_ast_definitions(),
-            **({"name": NameNode(value=self.name)} if self.name else {}),
-            directives=(),
+            name=NameNode(value=self.name) if self.name else None,
+            directives=self.directives_ast,
         )
 
     def __repr__(self) -> str:
@@ -518,16 +822,28 @@ class DSLOperation(DSLExecutable, DSLRootFieldSelector):
 class DSLQuery(DSLOperation):
     operation_type = OperationType.QUERY
 
+    def is_valid_directive(self, directive: DSLDirective) -> bool:
+        """Check if directive is valid for Query operations."""
+        return DirectiveLocation.QUERY in directive.directive_def.locations
+
 
 class DSLMutation(DSLOperation):
     operation_type = OperationType.MUTATION
+
+    def is_valid_directive(self, directive: DSLDirective) -> bool:
+        """Check if directive is valid for Mutation operations."""
+        return DirectiveLocation.MUTATION in directive.directive_def.locations
 
 
 class DSLSubscription(DSLOperation):
     operation_type = OperationType.SUBSCRIPTION
 
+    def is_valid_directive(self, directive: DSLDirective) -> bool:
+        """Check if directive is valid for Subscription operations."""
+        return DirectiveLocation.SUBSCRIPTION in directive.directive_def.locations
 
-class DSLVariable:
+
+class DSLVariable(DSLDirectable):
     """The DSLVariable represents a single variable defined in a GraphQL operation
 
     Instances of this class are generated for you automatically as attributes
@@ -545,13 +861,20 @@ class DSLVariable:
         self.default_value = None
         self.type: Optional[GraphQLInputType] = None
 
+        DSLDirectable.__init__(self)
+
     def to_ast_type(self, type_: GraphQLInputType) -> TypeNode:
         if is_wrapping_type(type_):
             if isinstance(type_, GraphQLList):
                 return ListTypeNode(type=self.to_ast_type(type_.of_type))
 
             elif isinstance(type_, GraphQLNonNull):
-                return NonNullTypeNode(type=self.to_ast_type(type_.of_type))
+                return NonNullTypeNode(
+                    type=cast(
+                        Union[NamedTypeNode, ListTypeNode],
+                        self.to_ast_type(type_.of_type),
+                    )
+                )
 
         assert isinstance(
             type_, (GraphQLScalarType, GraphQLEnumType, GraphQLInputObjectType)
@@ -559,14 +882,26 @@ class DSLVariable:
 
         return NamedTypeNode(name=NameNode(value=type_.name))
 
-    def set_type(self, type_: GraphQLInputType) -> "DSLVariable":
+    def set_type(self, type_: GraphQLInputType) -> Self:
         self.type = type_
         self.ast_variable_type = self.to_ast_type(type_)
         return self
 
-    def default(self, default_value: Any) -> "DSLVariable":
+    def default(self, default_value: Any) -> Self:
         self.default_value = default_value
         return self
+
+    def is_valid_directive(self, directive: DSLDirective) -> bool:
+        """Check if directive is valid for Variable definitions."""
+        for arg in directive.ast_directive.arguments or ():
+            if isinstance(arg.value, VariableNode):
+                raise GraphQLError(
+                    f"Directive @{directive.name} argument value has "
+                    f"unexpected variable '${arg.value.name}' in constant location."
+                )
+        return (
+            DirectiveLocation.VARIABLE_DEFINITION in directive.directive_def.locations
+        )
 
 
 class DSLVariableDefinitions:
@@ -579,13 +914,21 @@ class DSLVariableDefinitions:
     with the `__getattr__` dunder method in order to generate
     instances of :class:`DSLVariable`, that can then be used as values
     in the :meth:`args <gql.dsl.DSLField.args>` method.
+
+    .. automethod:: __getattr__
     """
 
     def __init__(self):
         """:meta private:"""
         self.variables: Dict[str, DSLVariable] = {}
 
-    def __getattr__(self, name: str) -> "DSLVariable":
+    def __getattr__(self, name: str) -> DSLVariable:
+        """Attributes of the DSLVariableDefinitions class are generated automatically
+        with this dunder method in order to generate
+        instances of :class:`DSLVariable`
+
+        :return: :class:`DSLVariable` instance
+        """
         if name not in self.variables:
             self.variables[name] = DSLVariable(name)
         return self.variables[name]
@@ -598,14 +941,14 @@ class DSLVariableDefinitions:
         """
         return tuple(
             VariableDefinitionNode(
-                type=var.ast_variable_type,
+                type=cast(TypeNode, var.ast_variable_type),
                 variable=var.ast_variable_name,
                 default_value=(
                     None
                     if var.default_value is None
                     else ast_from_value(var.default_value, var.type)
                 ),
-                directives=(),
+                directives=cast(Tuple[ConstDirectiveNode, ...], var.directives_ast),
             )
             for var in self.variables.values()
             if var.type is not None  # only variables used
@@ -625,6 +968,8 @@ class DSLType:
     Attributes of the DSLType class are generated automatically
     with the `__getattr__` dunder method in order to generate
     instances of :class:`DSLField`
+
+    .. automethod:: __getattr__
     """
 
     def __init__(
@@ -646,6 +991,13 @@ class DSLType:
         log.debug(f"Creating {self!r})")
 
     def __getattr__(self, name: str) -> "DSLField":
+        """Attributes of the DSLType class are generated automatically
+        with this dunder method in order to generate
+        instances of :class:`DSLField`
+
+        :return: :class:`DSLField` instance
+        :raises AttributeError: if the field name does not exist in the type
+        """
         camel_cased_name = to_camel_case(name)
 
         if name in self._type.fields:
@@ -665,41 +1017,6 @@ class DSLType:
         return f"<{self.__class__.__name__} {self._type!r}>"
 
 
-class DSLSelectable(ABC):
-    """DSLSelectable is an abstract class which indicates that
-    the subclasses can be used as arguments of the
-    :meth:`select <gql.dsl.DSLSelector.select>` method.
-
-    Inherited by
-    :class:`DSLField <gql.dsl.DSLField>`,
-    :class:`DSLFragment <gql.dsl.DSLFragment>`
-    :class:`DSLInlineFragment <gql.dsl.DSLInlineFragment>`
-    """
-
-    ast_field: Union[FieldNode, InlineFragmentNode, FragmentSpreadNode]
-
-    @staticmethod
-    def get_aliased_fields(
-        fields: Iterable["DSLSelectable"],
-        fields_with_alias: Dict[str, "DSLSelectableWithAlias"],
-    ) -> Tuple["DSLSelectable", ...]:
-        """
-        :meta private:
-
-        Concatenate all the fields (with or without alias) in a Tuple.
-
-        Set the requested alias for the fields with alias.
-        """
-
-        return (
-            *fields,
-            *(field.alias(alias) for alias, field in fields_with_alias.items()),
-        )
-
-    def __str__(self) -> str:
-        return print_ast(self.ast_field)
-
-
 class DSLFragmentSelector(DSLSelector):
     """Class used to define the
     :meth:`is_valid_field <gql.dsl.DSLFragmentSelector.is_valid_field>` method
@@ -715,7 +1032,7 @@ class DSLFragmentSelector(DSLSelector):
 
         assert isinstance(self, (DSLFragment, DSLInlineFragment))
 
-        if isinstance(field, (DSLFragment, DSLInlineFragment)):
+        if isinstance(field, (DSLFragment, DSLFragmentSpread, DSLInlineFragment)):
             return True
 
         assert isinstance(field, DSLField)
@@ -747,7 +1064,7 @@ class DSLFieldSelector(DSLSelector):
 
         assert isinstance(self, DSLField)
 
-        if isinstance(field, (DSLFragment, DSLInlineFragment)):
+        if isinstance(field, (DSLFragment, DSLFragmentSpread, DSLInlineFragment)):
             return True
 
         assert isinstance(field, DSLField)
@@ -764,31 +1081,6 @@ class DSLFieldSelector(DSLSelector):
             return parent_type.fields[field.name].type == field.field.type
 
         return False
-
-
-class DSLSelectableWithAlias(DSLSelectable):
-    """DSLSelectableWithAlias is an abstract class which indicates that
-    the subclasses can be selected with an alias.
-    """
-
-    ast_field: FieldNode
-
-    def alias(self, alias: str) -> "DSLSelectableWithAlias":
-        """Set an alias
-
-        .. note::
-            You can also pass the alias directly at the
-            :meth:`select <gql.dsl.DSLSelector.select>` method.
-            :code:`ds.Query.human.select(my_name=ds.Character.name)` is equivalent to:
-            :code:`ds.Query.human.select(ds.Character.name.alias("my_name"))`
-
-        :param alias: the alias
-        :type alias: str
-        :return: itself
-        """
-
-        self.ast_field.alias = NameNode(value=alias)
-        return self
 
 
 class DSLField(DSLSelectableWithAlias, DSLFieldSelector):
@@ -837,16 +1129,17 @@ class DSLField(DSLSelectableWithAlias, DSLFieldSelector):
         log.debug(f"Creating {self!r}")
 
         DSLSelector.__init__(self)
+        DSLDirectable.__init__(self)
 
     @property
     def name(self):
         """:meta private:"""
         return self.ast_field.name.value
 
-    def __call__(self, **kwargs: Any) -> "DSLField":
+    def __call__(self, **kwargs: Any) -> Self:
         return self.args(**kwargs)
 
-    def args(self, **kwargs: Any) -> "DSLField":
+    def args(self, **kwargs: Any) -> Self:
         r"""Set the arguments of a field
 
         The arguments are parsed to be stored in the AST of this field.
@@ -865,12 +1158,22 @@ class DSLField(DSLSelectableWithAlias, DSLFieldSelector):
 
         assert self.ast_field.arguments is not None
 
-        self.ast_field.arguments = self.ast_field.arguments + tuple(
+        new_arguments = self.ast_field.arguments + tuple(
             ArgumentNode(
                 name=NameNode(value=name),
-                value=ast_from_value(value, self._get_argument(name).type),
+                value=cast(
+                    ValueNode,
+                    ast_from_value(value, self._get_argument(name).type),
+                ),
             )
             for name, value in kwargs.items()
+        )
+        self.ast_field = FieldNode(
+            name=self.ast_field.name,
+            alias=self.ast_field.alias,
+            arguments=new_arguments,
+            directives=self.ast_field.directives,
+            selection_set=self.ast_field.selection_set,
         )
 
         log.debug(f"Added arguments {kwargs} in field {self!r})")
@@ -892,16 +1195,39 @@ class DSLField(DSLSelectableWithAlias, DSLFieldSelector):
         return arg
 
     def select(
-        self, *fields: "DSLSelectable", **fields_with_alias: "DSLSelectableWithAlias"
-    ) -> "DSLField":
+        self, *fields: DSLSelectable, **fields_with_alias: DSLSelectableWithAlias
+    ) -> Self:
         """Calling :meth:`select <gql.dsl.DSLSelector.select>` method with
         corrected typing hints
         """
 
         super().select(*fields, **fields_with_alias)
-        self.ast_field.selection_set = self.selection_set
+        self.ast_field = FieldNode(
+            name=self.ast_field.name,
+            alias=self.ast_field.alias,
+            arguments=self.ast_field.arguments,
+            directives=self.ast_field.directives,
+            selection_set=self.selection_set,
+        )
 
         return self
+
+    def directives(self, *directives: DSLDirective) -> Self:
+        """Add directives to this field."""
+        super().directives(*directives)
+        self.ast_field = FieldNode(
+            name=self.ast_field.name,
+            alias=self.ast_field.alias,
+            arguments=self.ast_field.arguments,
+            directives=self.directives_ast,
+            selection_set=self.ast_field.selection_set,
+        )
+
+        return self
+
+    def is_valid_directive(self, directive: DSLDirective) -> bool:
+        """Check if directive is valid for Field locations."""
+        return DirectiveLocation.FIELD in directive.directive_def.locations
 
     def __repr__(self) -> str:
         return f"<{self.__class__.__name__} {self.parent_type.name}" f"::{self.name}>"
@@ -941,6 +1267,10 @@ class DSLMetaField(DSLField):
 
         super().__init__(name, self.meta_type, field)
 
+    def is_valid_directive(self, directive: DSLDirective) -> bool:
+        """Check if directive is valid for MetaField locations (same as Field)."""
+        return DirectiveLocation.FIELD in directive.directive_def.locations
+
 
 class DSLInlineFragment(DSLSelectable, DSLFragmentSelector):
     """DSLInlineFragment represents an inline fragment for the DSL code."""
@@ -950,8 +1280,8 @@ class DSLInlineFragment(DSLSelectable, DSLFragmentSelector):
 
     def __init__(
         self,
-        *fields: "DSLSelectable",
-        **fields_with_alias: "DSLSelectableWithAlias",
+        *fields: DSLSelectable,
+        **fields_with_alias: DSLSelectableWithAlias,
     ):
         r"""Initialize the DSLInlineFragment.
 
@@ -963,27 +1293,50 @@ class DSLInlineFragment(DSLSelectable, DSLFragmentSelector):
 
         log.debug(f"Creating {self!r}")
 
-        self.ast_field = InlineFragmentNode(directives=())
+        self.ast_field = InlineFragmentNode(
+            selection_set=SelectionSetNode(selections=()),
+            directives=(),
+        )
 
         DSLSelector.__init__(self, *fields, **fields_with_alias)
+        DSLDirectable.__init__(self)
 
     def select(
-        self, *fields: "DSLSelectable", **fields_with_alias: "DSLSelectableWithAlias"
-    ) -> "DSLInlineFragment":
+        self, *fields: DSLSelectable, **fields_with_alias: DSLSelectableWithAlias
+    ) -> Self:
         """Calling :meth:`select <gql.dsl.DSLSelector.select>` method with
         corrected typing hints
         """
         super().select(*fields, **fields_with_alias)
-        self.ast_field.selection_set = self.selection_set
+        self.ast_field = InlineFragmentNode(
+            selection_set=self.selection_set,
+            type_condition=self.ast_field.type_condition,
+            directives=self.ast_field.directives,
+        )
 
         return self
 
-    def on(self, type_condition: DSLType) -> "DSLInlineFragment":
+    def on(self, type_condition: DSLType) -> Self:
         """Provides the GraphQL type of this inline fragment."""
 
         self._type = type_condition._type
-        self.ast_field.type_condition = NamedTypeNode(
-            name=NameNode(value=self._type.name)
+        self.ast_field = InlineFragmentNode(
+            selection_set=self.ast_field.selection_set,
+            type_condition=NamedTypeNode(name=NameNode(value=self._type.name)),
+            directives=self.ast_field.directives,
+        )
+        return self
+
+    def directives(self, *directives: DSLDirective) -> Self:
+        """Add directives to this inline fragment.
+
+        Inline fragments support all directive types through auto-validation.
+        """
+        super().directives(*directives)
+        self.ast_field = InlineFragmentNode(
+            selection_set=self.ast_field.selection_set,
+            type_condition=self.ast_field.type_condition,
+            directives=self.directives_ast,
         )
         return self
 
@@ -997,13 +1350,65 @@ class DSLInlineFragment(DSLSelectable, DSLFragmentSelector):
 
         return f"<{self.__class__.__name__}{type_info}>"
 
+    def is_valid_directive(self, directive: DSLDirective) -> bool:
+        """Check if directive is valid for Inline Fragment locations."""
+        return DirectiveLocation.INLINE_FRAGMENT in directive.directive_def.locations
+
+
+class DSLFragmentSpread(DSLSelectable):
+    """Represents a fragment spread (usage) with its own directives.
+
+    This class is created by calling .spread() on a DSLFragment and allows
+    adding directives specific to the FRAGMENT_SPREAD location.
+    """
+
+    ast_field: FragmentSpreadNode
+    _fragment: "DSLFragment"
+
+    def __init__(self, fragment: "DSLFragment"):
+        """Initialize a fragment spread from a fragment definition.
+
+        :param fragment: The DSLFragment to create a spread from
+        """
+        self._fragment = fragment
+        self.ast_field = FragmentSpreadNode(
+            name=NameNode(value=fragment.name), directives=()
+        )
+
+        log.debug(f"Creating fragment spread for {fragment.name}")
+
+        DSLDirectable.__init__(self)
+
+    @property
+    def name(self) -> str:
+        """:meta private:"""
+        return self.ast_field.name.value
+
+    def directives(self, *directives: DSLDirective) -> Self:
+        """Add directives to this fragment spread.
+
+        Fragment spreads support all directive types through auto-validation.
+        """
+        super().directives(*directives)
+        self.ast_field = FragmentSpreadNode(
+            name=self.ast_field.name,
+            directives=self.directives_ast,
+        )
+        return self
+
+    def is_valid_directive(self, directive: DSLDirective) -> bool:
+        """Check if directive is valid for Fragment Spread locations."""
+        return DirectiveLocation.FRAGMENT_SPREAD in directive.directive_def.locations
+
+    def __repr__(self) -> str:
+        return f"<DSLFragmentSpread {self.name}>"
+
 
 class DSLFragment(DSLSelectable, DSLFragmentSelector, DSLExecutable):
     """DSLFragment represents a named GraphQL fragment for the DSL code."""
 
     _type: Optional[Union[GraphQLObjectType, GraphQLInterfaceType]]
     ast_field: FragmentSpreadNode
-    name: str
 
     def __init__(
         self,
@@ -1017,28 +1422,39 @@ class DSLFragment(DSLSelectable, DSLFragmentSelector, DSLExecutable):
 
         DSLExecutable.__init__(self)
 
-        self.name = name
+        self.ast_field = FragmentSpreadNode(name=NameNode(value=name), directives=())
+
         self._type = None
 
         log.debug(f"Creating {self!r}")
 
-    @property  # type: ignore
-    def ast_field(self) -> FragmentSpreadNode:  # type: ignore
-        """ast_field property will generate a FragmentSpreadNode with the
-        provided name.
+    @property
+    def name(self) -> str:
+        """:meta private:"""
+        return self.ast_field.name.value
 
-        Note: We need to ignore the type because of
-        `issue #4125 of mypy <https://github.com/python/mypy/issues/4125>`_.
+    @name.setter
+    def name(self, value: str) -> None:
+        """:meta private:"""
+        if hasattr(self, "ast_field"):
+            self.ast_field = FragmentSpreadNode(
+                name=NameNode(value=value),
+                directives=self.ast_field.directives,
+            )
+
+    def spread(self) -> DSLFragmentSpread:
+        """Create a fragment spread that can have its own directives.
+
+        This allows adding directives specific to the FRAGMENT_SPREAD location,
+        separate from directives on the fragment definition itself.
+
+        :return: DSLFragmentSpread instance for this fragment
         """
-
-        spread_node = FragmentSpreadNode(directives=())
-        spread_node.name = NameNode(value=self.name)
-
-        return spread_node
+        return DSLFragmentSpread(self)
 
     def select(
-        self, *fields: "DSLSelectable", **fields_with_alias: "DSLSelectableWithAlias"
-    ) -> "DSLFragment":
+        self, *fields: DSLSelectable, **fields_with_alias: DSLSelectableWithAlias
+    ) -> Self:
         """Calling :meth:`select <gql.dsl.DSLSelector.select>` method with
         corrected typing hints
         """
@@ -1051,7 +1467,7 @@ class DSLFragment(DSLSelectable, DSLFragmentSelector, DSLExecutable):
 
         return self
 
-    def on(self, type_condition: DSLType) -> "DSLFragment":
+    def on(self, type_condition: DSLType) -> Self:
         """Provides the GraphQL type of this fragment.
 
         :param type_condition: the provided type
@@ -1077,6 +1493,8 @@ class DSLFragment(DSLSelectable, DSLFragmentSelector, DSLExecutable):
 
         fragment_variable_definitions = self.variable_definitions.get_ast_definitions()
 
+        variable_definition_kwargs: Dict[str, Any]
+
         if len(fragment_variable_definitions) == 0:
             """Fragment variable definitions are obsolete and only supported on
             graphql-core if the Parser is initialized with:
@@ -1094,10 +1512,71 @@ class DSLFragment(DSLSelectable, DSLFragmentSelector, DSLExecutable):
         return FragmentDefinitionNode(
             type_condition=NamedTypeNode(name=NameNode(value=self._type.name)),
             selection_set=self.selection_set,
-            **variable_definition_kwargs,
             name=NameNode(value=self.name),
-            directives=(),
+            directives=self.directives_ast,
+            **variable_definition_kwargs,
+        )
+
+    def is_valid_directive(self, directive: DSLDirective) -> bool:
+        """Check if directive is valid for Fragment Definition locations."""
+        return (
+            DirectiveLocation.FRAGMENT_DEFINITION in directive.directive_def.locations
         )
 
     def __repr__(self) -> str:
         return f"<{self.__class__.__name__} {self.name!s}>"
+
+
+def dsl_gql(
+    *operations: DSLExecutable, **operations_with_name: DSLExecutable
+) -> GraphQLRequest:
+    r"""Given arguments instances of :class:`DSLExecutable`
+    containing GraphQL operations or fragments,
+    generate a Document which can be executed later in a
+    gql client or a gql session.
+
+    Similar to the :func:`gql.gql` function but instead of parsing a python
+    string to describe the request, we are using operations which have been generated
+    dynamically using instances of :class:`DSLField`, generated
+    by instances of :class:`DSLType` which themselves originated from
+    a :class:`DSLSchema` class.
+
+    :param \*operations: the GraphQL operations and fragments
+    :type \*operations: DSLQuery, DSLMutation, DSLSubscription, DSLFragment
+    :param \**operations_with_name: the GraphQL operations with an operation name
+    :type \**operations_with_name: DSLQuery, DSLMutation, DSLSubscription
+
+    :return: a :class:`GraphQLRequest <gql.GraphQLRequest>`
+        which can be later executed or subscribed by a
+        :class:`Client <gql.client.Client>`, by an
+        :class:`async session <gql.client.AsyncClientSession>` or by a
+        :class:`sync session <gql.client.SyncClientSession>`
+
+    :raises TypeError: if an argument is not an instance of :class:`DSLExecutable`
+    :raises AttributeError: if a type has not been provided in a :class:`DSLFragment`
+    """
+
+    # Concatenate operations without and with name
+    all_operations: Tuple[DSLExecutable, ...] = (
+        *operations,
+        *(operation for operation in operations_with_name.values()),
+    )
+
+    # Set the operation name
+    for name, operation in operations_with_name.items():
+        operation.name = name
+
+    # Check the type
+    for operation in all_operations:
+        if not isinstance(operation, DSLExecutable):
+            raise TypeError(
+                "Operations should be instances of DSLExecutable "
+                "(DSLQuery, DSLMutation, DSLSubscription or DSLFragment).\n"
+                f"Received: {type(operation)}."
+            )
+
+    document = DocumentNode(
+        definitions=tuple(operation.executable_ast for operation in all_operations)
+    )
+
+    return GraphQLRequest(document)

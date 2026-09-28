@@ -3,7 +3,7 @@ from collections import defaultdict, namedtuple
 from decimal import Decimal
 from itertools import count
 
-from graphql.pyutils import FrozenDict, FrozenList, is_collection, is_iterable
+from graphql.pyutils import is_collection, is_iterable
 
 
 def describe_is_collection():
@@ -12,18 +12,13 @@ def describe_is_collection():
         assert is_collection([0, 1, 2]) is True
         assert is_collection(["A", "B", "C"]) is True
 
-    def should_return_true_for_frozen_lists():
-        assert is_collection(FrozenList()) is True
-        assert is_collection(FrozenList([0, 1, 2])) is True
-        assert is_collection(FrozenList(["A", "B", "C"])) is True
-
     def should_return_true_for_tuples():
         assert is_collection(()) is True
         assert is_collection((0, 1, 1)) is True
         assert is_collection(("A", "B", "C")) is True
 
     def should_return_true_for_named_tuples():
-        named = namedtuple("named", "A B C")
+        named = namedtuple("named", "A B C")  # noqa: PYI024
         assert is_collection(named(0, 1, 2)) is True
 
     def should_return_true_for_arrays():
@@ -100,11 +95,6 @@ def describe_is_collection():
         assert is_collection({"__iter__": True}) is False
         assert is_collection({0: "A", 1: "B", 2: "C"}) is False
 
-    def should_return_false_for_frozen_dicts():
-        assert is_collection(FrozenDict()) is False
-        assert is_collection(FrozenDict({"__iter__": True})) is False
-        assert is_collection(FrozenDict({0: "A", 1: "B", 2: "C"})) is False
-
     def should_return_false_for_default_dicts():
         assert is_collection(defaultdict(list)) is False
 
@@ -126,18 +116,13 @@ def describe_is_iterable():
         assert is_iterable([0, 1, 2]) is True
         assert is_iterable(["A", "B", "C"]) is True
 
-    def should_return_true_for_frozen_lists():
-        assert is_iterable(FrozenList()) is True
-        assert is_iterable(FrozenList([0, 1, 2])) is True
-        assert is_iterable(FrozenList(["A", "B", "C"])) is True
-
     def should_return_true_for_tuples():
         assert is_iterable(()) is True
         assert is_iterable((0, 1, 1)) is True
         assert is_iterable(("A", "B", "C")) is True
 
     def should_return_true_for_named_tuples():
-        named = namedtuple("named", "a b c")
+        named = namedtuple("named", "a b c")  # noqa: PYI024
         assert is_iterable(named(0, 1, 2)) is True
 
     def should_return_true_for_arrays():
@@ -213,11 +198,6 @@ def describe_is_iterable():
         assert is_iterable({}) is False
         assert is_iterable({"__iter__": True}) is False
         assert is_iterable({0: "A", 1: "B", 2: "C"}) is False
-
-    def should_return_false_for_frozen_dicts():
-        assert is_iterable(FrozenDict()) is False
-        assert is_iterable(FrozenDict({"__iter__": True})) is False
-        assert is_iterable(FrozenDict({0: "A", 1: "B", 2: "C"})) is False
 
     def should_return_false_for_default_dicts():
         assert is_iterable(defaultdict(list)) is False

@@ -90,6 +90,7 @@ disable = [
     "too-many-lines",
     "use-implicit-booleaness-not-comparison",
     "too-many-positional-arguments",
+    "unnecessary-ellipsis",
     # Formatting stuff
     "superfluous-parens",
     "line-too-long",

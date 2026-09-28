@@ -27,19 +27,20 @@ pub(super) fn rec(name: &str) -> RunnerCapacityRecordWire {
         pid: None,
         run_started_at: None,
         parent_timestamp: None,
-        agent_family: None,
-        agent_family_role: None,
-        agent_family_parallel: false,
+        agent_session: None,
+        agent_session_role: None,
+        agent_session_parallel: false,
         runner_claim_owner_key: None,
-        family_shell_kind: None,
-        family_shell_id: None,
-        family_shell_state: None,
+        agent_session_turn_kind: None,
+        agent_session_turn_id: None,
+        agent_session_turn_state: None,
         queue_weight: None,
         queue_weight_explicit: false,
         queue_weight_invalid: false,
         slot_requested_at: None,
         queue_capacity: None,
         queue_capacity_explicit: false,
+        queue_capacity_multiplier: None,
         wait_runners: None,
         wait_runners_explicit: false,
         wait_priority: None,
@@ -167,7 +168,7 @@ pub(super) fn hold(
             display: format!("{key} display"),
             project: "proj".to_string(),
             agent_name: Some("holder.agent--code".to_string()),
-            family: Some("holder.agent".to_string()),
+            agent_session: Some("holder.agent".to_string()),
             clan: Some("holder-clan".to_string()),
             proc_id: None,
             pid: Some(123),
@@ -186,7 +187,7 @@ pub(super) fn hold(
 pub(super) fn identity_waiter(name: &str) -> RunnerCapacityRecordWire {
     let mut record = waiting(name, "2026-09-10T00:00:30Z", Some(1.0));
     record.agent_name = Some("target.agent--code".to_string());
-    record.agent_family = Some("target.agent".to_string());
+    record.agent_session = Some("target.agent".to_string());
     record.workflow = Some("build".to_string());
     record.clan = Some("blocked-clan".to_string());
     record.tribe = Some("ops".to_string());

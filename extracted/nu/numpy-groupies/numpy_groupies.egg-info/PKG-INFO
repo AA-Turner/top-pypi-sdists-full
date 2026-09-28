@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: numpy-groupies
-Version: 0.12.2
+Version: 0.12.3
 Summary: Optimised tools for group-indexing operations: aggregated sum and more.
 Author-email: Michael Löffler <ml@occam.com.ua>, Daniel Manson <danielmanson.uk@gmail.com>
 Maintainer-email: Deepak Cherian <dcherian@ucar.edu>

@@ -8,20 +8,20 @@ use super::support::*;
 fn default_weights_match_serial_and_parallel_lane_counting() {
     let standalone = running("standalone", None);
     let mut serial_root = running("serial-root", Some(2.0));
-    serial_root.agent_family = Some("fam".to_string());
+    serial_root.agent_session = Some("fam".to_string());
     let mut serial_child = running("serial-child", Some(1.0));
-    serial_child.agent_family = Some("fam".to_string());
+    serial_child.agent_session = Some("fam".to_string());
     serial_child.parent_timestamp = Some("serial-root".to_string());
     let mut parallel = running("parallel", Some(0.25));
-    parallel.agent_family = Some("fam".to_string());
-    parallel.agent_family_parallel = true;
+    parallel.agent_session = Some("fam".to_string());
+    parallel.agent_session_parallel = true;
     let mut pending_question = running("question", Some(4.0));
     pending_question.pending_question = true;
     let mut pending_gate = running("gate", Some(4.0));
-    pending_gate.agent_family_role = Some("gate".to_string());
-    pending_gate.family_shell_kind = Some("gate".to_string());
-    pending_gate.family_shell_id = Some("gate-1".to_string());
-    pending_gate.family_shell_state = Some("pending".to_string());
+    pending_gate.agent_session_role = Some("gate".to_string());
+    pending_gate.agent_session_turn_kind = Some("gate".to_string());
+    pending_gate.agent_session_turn_id = Some("gate-1".to_string());
+    pending_gate.agent_session_turn_state = Some("pending".to_string());
     let mut hidden_workflow = running("workflow", Some(4.0));
     hidden_workflow.workflow_dir_name = "workflow-build".to_string();
 
@@ -45,7 +45,7 @@ fn default_weights_match_serial_and_parallel_lane_counting() {
             .iter()
             .map(|claim| claim.claim_kind.as_str())
             .collect::<Vec<_>>(),
-        ["serial_family", "parallel_member", "standalone"]
+        ["serial_session", "parallel_member", "standalone"]
     );
 }
 
@@ -229,6 +229,41 @@ fn legacy_capacity_zero_translates_under_capacity_budget() {
     );
     assert!(drained.waiters[0].eligible);
     assert_eq!(drained.waiters[0].admission_limit, 0.25);
+}
+
+#[test]
+fn legacy_capacity_zero_with_zero_weight_is_a_true_drain_barrier() {
+    let flags = capacity_budget_flags();
+    let occupied = running("occupied", Some(f64::MIN_POSITIVE));
+    let mut waiting_agent =
+        waiting("waiter", "2026-09-10T00:00:00Z", Some(0.0));
+    waiting_agent.queue_weight_explicit = true;
+    waiting_agent.queue_capacity = Some(0);
+    waiting_agent.queue_capacity_explicit = true;
+
+    let blocked =
+        snapshot_with_flags(8.0, vec![occupied, waiting_agent.clone()], &flags);
+    let blocked_waiter = waiter(&blocked, "waiter");
+    assert!(!blocked_waiter.eligible);
+    assert_eq!(blocked_waiter.admission_limit, 0.0);
+    assert_eq!(blocked_waiter.blockers[0].code, "insufficient-capacity");
+    assert!(blocked_waiter
+        .blockers
+        .iter()
+        .all(|blocker| blocker.code != "invalid-capacity-limit"));
+    assert!(blocked
+        .diagnostics
+        .iter()
+        .any(|diagnostic| diagnostic.code == "legacy-capacity-zero"));
+
+    let drained = snapshot_with_flags(8.0, vec![waiting_agent], &flags);
+    assert_eq!(
+        drained.first_eligible_artifact_dir.as_deref(),
+        Some("/tmp/waiter")
+    );
+    assert!(drained.waiters[0].eligible);
+    assert_eq!(drained.waiters[0].admission_limit, 0.0);
+    assert!(drained.waiters[0].blockers.is_empty());
 }
 
 fn occupied_drain_admits(mut waiter: RunnerCapacityRecordWire) {

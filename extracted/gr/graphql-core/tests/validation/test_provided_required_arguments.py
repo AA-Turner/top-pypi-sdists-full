@@ -6,7 +6,7 @@ from graphql.validation.rules.provided_required_arguments import (
     ProvidedRequiredArgumentsOnDirectivesRule,
 )
 
-from .harness import assert_validation_errors, assert_sdl_validation_errors
+from .harness import assert_sdl_validation_errors, assert_validation_errors
 
 assert_errors = partial(assert_validation_errors, ProvidedRequiredArgumentsRule)
 
@@ -21,109 +21,222 @@ assert_sdl_valid = partial(assert_sdl_errors, errors=[])
 
 def describe_validate_provided_required_arguments():
     def ignores_unknown_arguments():
-        assert_valid("""
+        assert_valid(
+            """
             {
               dog {
                 isHouseTrained(unknownArgument: true)
               }
-            }""")
+            }"""
+        )
+
+    def describe_fragment_required_arguments():
+        def ignores_unknown_arguments():
+            assert_valid(
+                """
+                {
+                  ...Foo(unknownArgument: true)
+                }
+                fragment Foo on Query {
+                  dog
+                }
+                """
+            )
+
+        def missing_nullable_argument_with_default_is_allowed():
+            assert_valid(
+                """
+                {
+                  ...F
+                }
+                fragment F($x: Int = 3) on Query {
+                  foo
+                }
+                """
+            )
+
+        def missing_nullable_argument_is_allowed():
+            assert_valid(
+                """
+                {
+                  ...F
+                }
+                fragment F($x: Int) on Query {
+                  foo
+                }
+                """
+            )
+
+        def missing_non_nullable_argument_with_default_is_allowed():
+            assert_valid(
+                """
+                {
+                  ...F
+                }
+                fragment F($x: Int! = 3) on Query {
+                  foo
+                }
+                """
+            )
+
+        def missing_non_nullable_argument_is_not_allowed():
+            assert_errors(
+                """
+                {
+                  ...F
+                }
+                fragment F($x: Int!) on Query {
+                  foo
+                }
+                """,
+                [
+                    {
+                        "message": "Fragment 'F' argument 'x' of type 'Int!'"
+                        " is required, but it was not provided.",
+                        "locations": [(3, 19)],
+                    },
+                ],
+            )
+
+        def supplies_required_variables():
+            assert_valid(
+                """
+                {
+                  ...F(x: 3)
+                }
+                fragment F($x: Int!) on Query {
+                  foo
+                }
+                """
+            )
+
+        def skips_missing_fragments():
+            assert_valid(
+                """
+                {
+                  ...Missing(x: 3)
+                }
+                """
+            )
 
     def describe_valid_non_nullable_value():
         def arg_on_optional_arg():
-            assert_valid("""
+            assert_valid(
+                """
                 {
                   dog {
                     isHouseTrained(atOtherHomes: true)
                   }
-                }""")
+                }"""
+            )
 
         def no_arg_on_optional_arg():
-            assert_valid("""
+            assert_valid(
+                """
                 {
                   dog {
                     isHouseTrained
                   }
-                }""")
+                }"""
+            )
 
         def no_arg_on_non_null_field_with_default():
-            assert_valid("""
+            assert_valid(
+                """
                 {
                   complicatedArgs {
                     nonNullFieldWithDefault
                   }
-                }""")
+                }"""
+            )
 
         def multiple_args():
-            assert_valid("""
+            assert_valid(
+                """
                 {
                   complicatedArgs {
                     multipleReqs(req1: 1, req2: 2)
                   }
                 }
-                """)
+                """
+            )
 
         def multiple_args_reverse_order():
-            assert_valid("""
+            assert_valid(
+                """
                 {
                   complicatedArgs {
                     multipleReqs(req2: 2, req1: 1)
                   }
                 }
-                """)
+                """
+            )
 
         def no_args_on_multiple_optional():
-            assert_valid("""
+            assert_valid(
+                """
                 {
                   complicatedArgs {
                     multipleOpts
                   }
                 }
-                """)
+                """
+            )
 
         def one_arg_on_multiple_optional():
-            assert_valid("""
+            assert_valid(
+                """
                 {
                   complicatedArgs {
                     multipleOpts(opt1: 1)
                   }
                 }
-                """)
+                """
+            )
 
         def second_arg_on_multiple_optional():
-            assert_valid("""
+            assert_valid(
+                """
                 {
                     complicatedArgs {
                         multipleOpts(opt2: 1)
                     }
                 }
-                """)
+                """
+            )
 
         def multiple_required_args_on_mixed_list():
-            assert_valid("""
+            assert_valid(
+                """
                 {
                   complicatedArgs {
                     multipleOptAndReq(req1: 3, req2: 4)
                   }
                 }
-                """)
+                """
+            )
 
         def multiple_required_and_one_optional_arg_on_mixed_list():
-            assert_valid("""
+            assert_valid(
+                """
                 {
                   complicatedArgs {
                     multipleOptAndReq(req1: 3, req2: 4, opt1: 5)
                   }
                 }
-                """)
+                """
+            )
 
         def all_required_and_optional_args_on_mixed_list():
-            assert_valid("""
+            assert_valid(
+                """
                 {
                   complicatedArgs {
                     multipleOptAndReq(req1: 3, req2: 4, opt1: 5, opt2: 6)
                   }
                 }
-                """)
+                """
+            )
 
     def describe_invalid_non_nullable_value():
         def missing_one_non_nullable_argument():
@@ -137,7 +250,8 @@ def describe_validate_provided_required_arguments():
                 """,
                 [
                     {
-                        "message": "Field 'multipleReqs' argument 'req1'"
+                        "message": "Argument"
+                        " 'ComplicatedArgs.multipleReqs(req1:)'"
                         " of type 'Int!' is required, but it was not provided.",
                         "locations": [(4, 21)],
                     },
@@ -155,12 +269,14 @@ def describe_validate_provided_required_arguments():
                 """,
                 [
                     {
-                        "message": "Field 'multipleReqs' argument 'req1'"
+                        "message": "Argument"
+                        " 'ComplicatedArgs.multipleReqs(req1:)'"
                         " of type 'Int!' is required, but it was not provided.",
                         "locations": [(4, 21)],
                     },
                     {
-                        "message": "Field 'multipleReqs' argument 'req2'"
+                        "message": "Argument"
+                        " 'ComplicatedArgs.multipleReqs(req2:)'"
                         " of type 'Int!' is required, but it was not provided.",
                         "locations": [(4, 21)],
                     },
@@ -178,7 +294,8 @@ def describe_validate_provided_required_arguments():
                 """,
                 [
                     {
-                        "message": "Field 'multipleReqs' argument 'req2'"
+                        "message": "Argument"
+                        " 'ComplicatedArgs.multipleReqs(req2:)'"
                         " of type 'Int!' is required, but it was not provided.",
                         "locations": [(4, 21)],
                     },
@@ -187,14 +304,17 @@ def describe_validate_provided_required_arguments():
 
     def describe_directive_arguments():
         def ignores_unknown_directives():
-            assert_valid("""
+            assert_valid(
+                """
                 {
                   dog @unknown
                 }
-                """)
+                """
+            )
 
         def with_directives_of_valid_type():
-            assert_valid("""
+            assert_valid(
+                """
                 {
                   dog @include(if: true) {
                     name
@@ -203,7 +323,8 @@ def describe_validate_provided_required_arguments():
                     name
                   }
                 }
-                """)
+                """
+            )
 
         def with_directive_with_missing_types():
             assert_errors(
@@ -216,12 +337,12 @@ def describe_validate_provided_required_arguments():
                 """,
                 [
                     {
-                        "message": "Directive '@include' argument 'if' of type"
+                        "message": "Argument '@include(if:)' of type"
                         " 'Boolean!' is required, but it was not provided.",
                         "locations": [(3, 23)],
                     },
                     {
-                        "message": "Directive '@skip' argument 'if' of type"
+                        "message": "Argument '@skip(if:)' of type"
                         " 'Boolean!' is required, but it was not provided.",
                         "locations": [(4, 26)],
                     },
@@ -230,13 +351,15 @@ def describe_validate_provided_required_arguments():
 
     def describe_within_sdl():
         def missing_optional_args_on_directive_defined_inside_sdl():
-            assert_sdl_valid("""
+            assert_sdl_valid(
+                """
                 type Query {
                 foo: String @test
                 }
 
                 directive @test(arg1: String, arg2: String! = "") on FIELD_DEFINITION
-                """)
+                """
+            )
 
         def missing_arg_on_directive_defined_inside_sdl():
             assert_sdl_errors(
@@ -249,7 +372,7 @@ def describe_validate_provided_required_arguments():
                 """,
                 [
                     {
-                        "message": "Directive '@test' argument 'arg' of type"
+                        "message": "Argument '@test(arg:)' of type"
                         " 'String!' is required, but it was not provided.",
                         "locations": [(3, 31)],
                     },
@@ -265,7 +388,7 @@ def describe_validate_provided_required_arguments():
                 """,
                 [
                     {
-                        "message": "Directive '@include' argument 'if' of type"
+                        "message": "Argument '@include(if:)' of type"
                         " 'Boolean!' is required, but it was not provided.",
                         "locations": [(3, 31)],
                     },
@@ -282,7 +405,7 @@ def describe_validate_provided_required_arguments():
                 """,
                 [
                     {
-                        "message": "Directive '@deprecated' argument 'reason' of type"
+                        "message": "Argument '@deprecated(reason:)' of type"
                         " 'String!' is required, but it was not provided.",
                         "locations": [(3, 31)],
                     },
@@ -290,11 +413,13 @@ def describe_validate_provided_required_arguments():
             )
 
         def missing_arg_on_directive_defined_in_schema_extension():
-            schema = build_schema("""
+            schema = build_schema(
+                """
                 type Query {
                   foo: String
                 }
-                """)
+                """
+            )
             assert_sdl_errors(
                 """
                 directive @test(arg: String!) on OBJECT
@@ -303,7 +428,7 @@ def describe_validate_provided_required_arguments():
                 """,
                 [
                     {
-                        "message": "Directive '@test' argument 'arg' of type"
+                        "message": "Argument '@test(arg:)' of type"
                         " 'String!' is required, but it was not provided.",
                         "locations": [(4, 36)],
                     },
@@ -312,20 +437,22 @@ def describe_validate_provided_required_arguments():
             )
 
         def missing_arg_on_directive_used_in_schema_extension():
-            schema = build_schema("""
+            schema = build_schema(
+                """
                 directive @test(arg: String!) on OBJECT
 
                 type Query {
                   foo: String
                 }
-                """)
+                """
+            )
             assert_sdl_errors(
                 """
                 extend type Query  @test
                 """,
                 [
                     {
-                        "message": "Directive '@test' argument 'arg' of type"
+                        "message": "Argument '@test(arg:)' of type"
                         " 'String!' is required, but it was not provided.",
                         "locations": [(2, 36)],
                     },

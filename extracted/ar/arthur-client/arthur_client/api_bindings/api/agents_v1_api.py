@@ -1229,7 +1229,7 @@ class AgentsV1Api:
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="The page to return starting from 1 up to total_pages.")] = None,
         page_size: Annotated[Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]], Field(description="The number of records per page. The max is 1000.")] = None,
         source_ids: Annotated[Optional[List[StrictStr]], Field(description="Filter agents that any discovery source in this list reported.")] = None,
-        external_ids: Annotated[Optional[List[StrictStr]], Field(description="Filter agents by the source's own identifier for them. Canonical identity: never re-derived or reconciled across sensors.")] = None,
+        external_ids: Annotated[Optional[List[StrictStr]], Field(description="Filter agents by the source's own identifier for them. Canonical identity: never re-derived or reconciled across sources.")] = None,
         source_classes: Annotated[Optional[List[SourceClass]], Field(description="Filter agents by where they were observed from -- cloud, siem, endpoint, otel or manual.")] = None,
         _request_timeout: Union[
             None,
@@ -1276,7 +1276,7 @@ class AgentsV1Api:
         :type page_size: int
         :param source_ids: Filter agents that any discovery source in this list reported.
         :type source_ids: List[str]
-        :param external_ids: Filter agents by the source's own identifier for them. Canonical identity: never re-derived or reconciled across sensors.
+        :param external_ids: Filter agents by the source's own identifier for them. Canonical identity: never re-derived or reconciled across sources.
         :type external_ids: List[str]
         :param source_classes: Filter agents by where they were observed from -- cloud, siem, endpoint, otel or manual.
         :type source_classes: List[SourceClass]
@@ -1358,7 +1358,7 @@ class AgentsV1Api:
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="The page to return starting from 1 up to total_pages.")] = None,
         page_size: Annotated[Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]], Field(description="The number of records per page. The max is 1000.")] = None,
         source_ids: Annotated[Optional[List[StrictStr]], Field(description="Filter agents that any discovery source in this list reported.")] = None,
-        external_ids: Annotated[Optional[List[StrictStr]], Field(description="Filter agents by the source's own identifier for them. Canonical identity: never re-derived or reconciled across sensors.")] = None,
+        external_ids: Annotated[Optional[List[StrictStr]], Field(description="Filter agents by the source's own identifier for them. Canonical identity: never re-derived or reconciled across sources.")] = None,
         source_classes: Annotated[Optional[List[SourceClass]], Field(description="Filter agents by where they were observed from -- cloud, siem, endpoint, otel or manual.")] = None,
         _request_timeout: Union[
             None,
@@ -1405,7 +1405,7 @@ class AgentsV1Api:
         :type page_size: int
         :param source_ids: Filter agents that any discovery source in this list reported.
         :type source_ids: List[str]
-        :param external_ids: Filter agents by the source's own identifier for them. Canonical identity: never re-derived or reconciled across sensors.
+        :param external_ids: Filter agents by the source's own identifier for them. Canonical identity: never re-derived or reconciled across sources.
         :type external_ids: List[str]
         :param source_classes: Filter agents by where they were observed from -- cloud, siem, endpoint, otel or manual.
         :type source_classes: List[SourceClass]
@@ -1487,7 +1487,7 @@ class AgentsV1Api:
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="The page to return starting from 1 up to total_pages.")] = None,
         page_size: Annotated[Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]], Field(description="The number of records per page. The max is 1000.")] = None,
         source_ids: Annotated[Optional[List[StrictStr]], Field(description="Filter agents that any discovery source in this list reported.")] = None,
-        external_ids: Annotated[Optional[List[StrictStr]], Field(description="Filter agents by the source's own identifier for them. Canonical identity: never re-derived or reconciled across sensors.")] = None,
+        external_ids: Annotated[Optional[List[StrictStr]], Field(description="Filter agents by the source's own identifier for them. Canonical identity: never re-derived or reconciled across sources.")] = None,
         source_classes: Annotated[Optional[List[SourceClass]], Field(description="Filter agents by where they were observed from -- cloud, siem, endpoint, otel or manual.")] = None,
         _request_timeout: Union[
             None,
@@ -1534,7 +1534,7 @@ class AgentsV1Api:
         :type page_size: int
         :param source_ids: Filter agents that any discovery source in this list reported.
         :type source_ids: List[str]
-        :param external_ids: Filter agents by the source's own identifier for them. Canonical identity: never re-derived or reconciled across sensors.
+        :param external_ids: Filter agents by the source's own identifier for them. Canonical identity: never re-derived or reconciled across sources.
         :type external_ids: List[str]
         :param source_classes: Filter agents by where they were observed from -- cloud, siem, endpoint, otel or manual.
         :type source_classes: List[SourceClass]
@@ -3607,7 +3607,7 @@ class AgentsV1Api:
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="The page to return starting from 1 up to total_pages.")] = None,
         page_size: Annotated[Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]], Field(description="The number of records per page. The max is 1000.")] = None,
         source_ids: Annotated[Optional[List[StrictStr]], Field(description="Filter agents that any discovery source in this list reported.")] = None,
-        external_ids: Annotated[Optional[List[StrictStr]], Field(description="Filter agents by the source's own identifier for them. Canonical identity: never re-derived or reconciled across sensors.")] = None,
+        external_ids: Annotated[Optional[List[StrictStr]], Field(description="Filter agents by the source's own identifier for them. Canonical identity: never re-derived or reconciled across sources.")] = None,
         source_classes: Annotated[Optional[List[SourceClass]], Field(description="Filter agents by where they were observed from -- cloud, siem, endpoint, otel or manual.")] = None,
         _request_timeout: Union[
             None,
@@ -3652,7 +3652,7 @@ class AgentsV1Api:
         :type page_size: int
         :param source_ids: Filter agents that any discovery source in this list reported.
         :type source_ids: List[str]
-        :param external_ids: Filter agents by the source's own identifier for them. Canonical identity: never re-derived or reconciled across sensors.
+        :param external_ids: Filter agents by the source's own identifier for them. Canonical identity: never re-derived or reconciled across sources.
         :type external_ids: List[str]
         :param source_classes: Filter agents by where they were observed from -- cloud, siem, endpoint, otel or manual.
         :type source_classes: List[SourceClass]
@@ -3732,7 +3732,7 @@ class AgentsV1Api:
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="The page to return starting from 1 up to total_pages.")] = None,
         page_size: Annotated[Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]], Field(description="The number of records per page. The max is 1000.")] = None,
         source_ids: Annotated[Optional[List[StrictStr]], Field(description="Filter agents that any discovery source in this list reported.")] = None,
-        external_ids: Annotated[Optional[List[StrictStr]], Field(description="Filter agents by the source's own identifier for them. Canonical identity: never re-derived or reconciled across sensors.")] = None,
+        external_ids: Annotated[Optional[List[StrictStr]], Field(description="Filter agents by the source's own identifier for them. Canonical identity: never re-derived or reconciled across sources.")] = None,
         source_classes: Annotated[Optional[List[SourceClass]], Field(description="Filter agents by where they were observed from -- cloud, siem, endpoint, otel or manual.")] = None,
         _request_timeout: Union[
             None,
@@ -3777,7 +3777,7 @@ class AgentsV1Api:
         :type page_size: int
         :param source_ids: Filter agents that any discovery source in this list reported.
         :type source_ids: List[str]
-        :param external_ids: Filter agents by the source's own identifier for them. Canonical identity: never re-derived or reconciled across sensors.
+        :param external_ids: Filter agents by the source's own identifier for them. Canonical identity: never re-derived or reconciled across sources.
         :type external_ids: List[str]
         :param source_classes: Filter agents by where they were observed from -- cloud, siem, endpoint, otel or manual.
         :type source_classes: List[SourceClass]
@@ -3857,7 +3857,7 @@ class AgentsV1Api:
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="The page to return starting from 1 up to total_pages.")] = None,
         page_size: Annotated[Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]], Field(description="The number of records per page. The max is 1000.")] = None,
         source_ids: Annotated[Optional[List[StrictStr]], Field(description="Filter agents that any discovery source in this list reported.")] = None,
-        external_ids: Annotated[Optional[List[StrictStr]], Field(description="Filter agents by the source's own identifier for them. Canonical identity: never re-derived or reconciled across sensors.")] = None,
+        external_ids: Annotated[Optional[List[StrictStr]], Field(description="Filter agents by the source's own identifier for them. Canonical identity: never re-derived or reconciled across sources.")] = None,
         source_classes: Annotated[Optional[List[SourceClass]], Field(description="Filter agents by where they were observed from -- cloud, siem, endpoint, otel or manual.")] = None,
         _request_timeout: Union[
             None,
@@ -3902,7 +3902,7 @@ class AgentsV1Api:
         :type page_size: int
         :param source_ids: Filter agents that any discovery source in this list reported.
         :type source_ids: List[str]
-        :param external_ids: Filter agents by the source's own identifier for them. Canonical identity: never re-derived or reconciled across sensors.
+        :param external_ids: Filter agents by the source's own identifier for them. Canonical identity: never re-derived or reconciled across sources.
         :type external_ids: List[str]
         :param source_classes: Filter agents by where they were observed from -- cloud, siem, endpoint, otel or manual.
         :type source_classes: List[SourceClass]
@@ -4124,7 +4124,7 @@ class AgentsV1Api:
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="The page to return starting from 1 up to total_pages.")] = None,
         page_size: Annotated[Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]], Field(description="The number of records per page. The max is 1000.")] = None,
         source_ids: Annotated[Optional[List[StrictStr]], Field(description="Filter agents that any discovery source in this list reported.")] = None,
-        external_ids: Annotated[Optional[List[StrictStr]], Field(description="Filter agents by the source's own identifier for them. Canonical identity: never re-derived or reconciled across sensors.")] = None,
+        external_ids: Annotated[Optional[List[StrictStr]], Field(description="Filter agents by the source's own identifier for them. Canonical identity: never re-derived or reconciled across sources.")] = None,
         source_classes: Annotated[Optional[List[SourceClass]], Field(description="Filter agents by where they were observed from -- cloud, siem, endpoint, otel or manual.")] = None,
         _request_timeout: Union[
             None,
@@ -4171,7 +4171,7 @@ class AgentsV1Api:
         :type page_size: int
         :param source_ids: Filter agents that any discovery source in this list reported.
         :type source_ids: List[str]
-        :param external_ids: Filter agents by the source's own identifier for them. Canonical identity: never re-derived or reconciled across sensors.
+        :param external_ids: Filter agents by the source's own identifier for them. Canonical identity: never re-derived or reconciled across sources.
         :type external_ids: List[str]
         :param source_classes: Filter agents by where they were observed from -- cloud, siem, endpoint, otel or manual.
         :type source_classes: List[SourceClass]
@@ -4253,7 +4253,7 @@ class AgentsV1Api:
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="The page to return starting from 1 up to total_pages.")] = None,
         page_size: Annotated[Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]], Field(description="The number of records per page. The max is 1000.")] = None,
         source_ids: Annotated[Optional[List[StrictStr]], Field(description="Filter agents that any discovery source in this list reported.")] = None,
-        external_ids: Annotated[Optional[List[StrictStr]], Field(description="Filter agents by the source's own identifier for them. Canonical identity: never re-derived or reconciled across sensors.")] = None,
+        external_ids: Annotated[Optional[List[StrictStr]], Field(description="Filter agents by the source's own identifier for them. Canonical identity: never re-derived or reconciled across sources.")] = None,
         source_classes: Annotated[Optional[List[SourceClass]], Field(description="Filter agents by where they were observed from -- cloud, siem, endpoint, otel or manual.")] = None,
         _request_timeout: Union[
             None,
@@ -4300,7 +4300,7 @@ class AgentsV1Api:
         :type page_size: int
         :param source_ids: Filter agents that any discovery source in this list reported.
         :type source_ids: List[str]
-        :param external_ids: Filter agents by the source's own identifier for them. Canonical identity: never re-derived or reconciled across sensors.
+        :param external_ids: Filter agents by the source's own identifier for them. Canonical identity: never re-derived or reconciled across sources.
         :type external_ids: List[str]
         :param source_classes: Filter agents by where they were observed from -- cloud, siem, endpoint, otel or manual.
         :type source_classes: List[SourceClass]
@@ -4382,7 +4382,7 @@ class AgentsV1Api:
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="The page to return starting from 1 up to total_pages.")] = None,
         page_size: Annotated[Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]], Field(description="The number of records per page. The max is 1000.")] = None,
         source_ids: Annotated[Optional[List[StrictStr]], Field(description="Filter agents that any discovery source in this list reported.")] = None,
-        external_ids: Annotated[Optional[List[StrictStr]], Field(description="Filter agents by the source's own identifier for them. Canonical identity: never re-derived or reconciled across sensors.")] = None,
+        external_ids: Annotated[Optional[List[StrictStr]], Field(description="Filter agents by the source's own identifier for them. Canonical identity: never re-derived or reconciled across sources.")] = None,
         source_classes: Annotated[Optional[List[SourceClass]], Field(description="Filter agents by where they were observed from -- cloud, siem, endpoint, otel or manual.")] = None,
         _request_timeout: Union[
             None,
@@ -4429,7 +4429,7 @@ class AgentsV1Api:
         :type page_size: int
         :param source_ids: Filter agents that any discovery source in this list reported.
         :type source_ids: List[str]
-        :param external_ids: Filter agents by the source's own identifier for them. Canonical identity: never re-derived or reconciled across sensors.
+        :param external_ids: Filter agents by the source's own identifier for them. Canonical identity: never re-derived or reconciled across sources.
         :type external_ids: List[str]
         :param source_classes: Filter agents by where they were observed from -- cloud, siem, endpoint, otel or manual.
         :type source_classes: List[SourceClass]

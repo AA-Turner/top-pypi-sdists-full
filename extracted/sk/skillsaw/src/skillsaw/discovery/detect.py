@@ -20,6 +20,7 @@ from skillsaw.discovery.antigravity import (
 from skillsaw.discovery.excludes import is_root_or_ancestor_excluded
 from skillsaw.formats.promptfoo import is_promptfoo_config
 from skillsaw.formats import antigravity, codex, devin, grok, muse
+from skillsaw.formats.openclaw import MANIFEST as OPENCLAW_MANIFEST
 from skillsaw.paths import contained_resolve, safe_resolve
 from skillsaw.utils import read_yaml
 
@@ -42,6 +43,7 @@ VENDOR_DIR_NAMES = frozenset(
 # lookup.
 AGENT_TOOL_DIR_NAMES = frozenset(
     {
+        ".pi",
         ".cursor",
         ".clinerules",
         ".github",
@@ -84,7 +86,7 @@ NESTED_TOOL_SKILL_DIRS = (
 # second traversal. Recorded in the same ``tool_dirs`` mapping and read
 # through ``agent_tool_dirs``; kept a separate name so the editor-tool
 # vocabulary above keeps meaning editor tools.
-PLUGIN_MARKER_DIR_NAMES = frozenset({grok.PLUGIN_DIR_NAME})
+PLUGIN_MARKER_DIR_NAMES = frozenset({grok.PLUGIN_DIR_NAME, ".cursor-plugin"})
 
 #: Every directory name the walk records, from both sets above.
 SCANNED_DIR_NAMES = AGENT_TOOL_DIR_NAMES | PLUGIN_MARKER_DIR_NAMES
@@ -107,6 +109,7 @@ class RepositoryScan:
     skills_lock_files: Tuple[Path, ...]
     promptfoo_named_files: Tuple[Path, ...]
     promptfoo_eval_files: Dict[Path, Tuple[Path, ...]]
+    openclaw_manifest_files: Tuple[Path, ...] = ()
     walk_errors: Tuple[OSError, ...] = ()
 
 
@@ -126,6 +129,7 @@ def scan_repository(root: Path, root_names: Iterable[str]) -> RepositoryScan:
     legacy_editor: Dict[str, List[Path]] = {name: [] for name in LEGACY_EDITOR_FILES}
     mcp_registry_files: List[Path] = []
     package_json_files: List[Path] = []
+    openclaw_manifests: List[Path] = []
     skills_locks: List[Path] = []
     promptfoo_named: List[Path] = []
     promptfoo_evals: Dict[Path, List[Path]] = {}
@@ -137,6 +141,10 @@ def scan_repository(root: Path, root_names: Iterable[str]) -> RepositoryScan:
         # ``os.path.basename`` rather than ``here.name``: this runs once per
         # directory in the repository, and constructing the pathlib view of
         # every one of them to read a string costs more than the walk.
+        if os.path.basename(dirpath) == ".pi":
+            # Pi's npm/git install stores are dependency checkouts, not authored
+            # project resources. Explicit manifest paths can still select them.
+            dirnames[:] = [name for name in dirnames if name not in {"npm", "git"}]
         if os.path.basename(dirpath) == muse.TOOL_DIR_NAME:
             # Muse's per-agent worktrees are whole checkouts of this
             # repository; walking them would attach every file twice.
@@ -164,6 +172,8 @@ def scan_repository(root: Path, root_names: Iterable[str]) -> RepositoryScan:
             found.update(here / name for name in filenames if devin.is_instruction_filename(name))
             if "server.json" in filenames:
                 mcp_registry_files.append(here / "server.json")
+            if OPENCLAW_MANIFEST in filenames:
+                openclaw_manifests.append(here / OPENCLAW_MANIFEST)
             if "package.json" in filenames:
                 package_json_files.append(here / "package.json")
             if "skills-lock.json" in filenames:
@@ -181,6 +191,7 @@ def scan_repository(root: Path, root_names: Iterable[str]) -> RepositoryScan:
             if name in SCANNED_DIR_NAMES and not vendored:
                 tool_dirs[name].append(here / name)
     return RepositoryScan(
+        openclaw_manifest_files=tuple(sorted(openclaw_manifests)),
         walk_errors=tuple(walk_errors),
         instruction_files=tuple(sorted(found)),
         tool_dirs={name: tuple(sorted(paths)) for name, paths in tool_dirs.items()},
@@ -203,9 +214,22 @@ def scan_repository(root: Path, root_names: Iterable[str]) -> RepositoryScan:
 #: configured here, so a repository whose only Cursor artifact is
 #: ``hooks.json`` still activates the Cursor rules.
 _TOOL_EVIDENCE = {
+    "pi": (
+        ".pi",
+        (
+            ("settings.json", False),
+            ("skills", True),
+            ("prompts", True),
+            ("extensions", True),
+            ("themes", True),
+            ("SYSTEM.md", False),
+            ("APPEND_SYSTEM.md", False),
+        ),
+    ),
     "cursor": (
         ".cursor",
         (
+            ("agents", True),
             ("rules", True),
             ("commands", True),
             ("skills", True),
@@ -449,6 +473,7 @@ def tool_types(
 
     found: Set[str] = set()
     checks = (
+        ("pi", tool_marker("pi")),
         ("cursor", tool_marker("cursor") or legacy_cursor()),
         (
             "copilot",

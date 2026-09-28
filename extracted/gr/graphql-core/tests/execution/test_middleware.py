@@ -1,10 +1,20 @@
-from typing import Awaitable
+import inspect
+from collections.abc import Awaitable
+from typing import cast
 
-from pytest import mark, raises
+import pytest
 
-from graphql.execution import MiddlewareManager, execute
+from graphql.execution import (
+    ExecutionResult,
+    Middleware,
+    MiddlewareManager,
+    execute,
+    subscribe,
+)
 from graphql.language.parser import parse
 from graphql.type import GraphQLField, GraphQLObjectType, GraphQLSchema, GraphQLString
+
+pytestmark = pytest.mark.anyio
 
 
 def describe_middleware():
@@ -12,7 +22,6 @@ def describe_middleware():
         def default():
             doc = parse("{ field }")
 
-            # noinspection PyMethodMayBeStatic
             class Data:
                 def field(self, _info):
                     return "resolved"
@@ -31,7 +40,6 @@ def describe_middleware():
         def single_function():
             doc = parse("{ first second }")
 
-            # noinspection PyMethodMayBeStatic
             class Data:
                 def first(self, _info):
                     return "one"
@@ -60,7 +68,6 @@ def describe_middleware():
         def two_functions_and_field_resolvers():
             doc = parse("{ first second }")
 
-            # noinspection PyMethodMayBeStatic
             class Data:
                 first = "one"
                 second = "two"
@@ -90,11 +97,9 @@ def describe_middleware():
 
             assert result.data == {"first": "Eno", "second": "Owt"}  # type: ignore
 
-        @mark.asyncio
         async def single_async_function():
             doc = parse("{ first second }")
 
-            # noinspection PyMethodMayBeStatic
             class Data:
                 async def first(self, _info):
                     return "one"
@@ -124,7 +129,6 @@ def describe_middleware():
         def single_object():
             doc = parse("{ first second }")
 
-            # noinspection PyMethodMayBeStatic
             class Data:
                 def first(self, _info):
                     return "one"
@@ -141,8 +145,6 @@ def describe_middleware():
             )
 
             class ReverseMiddleware:
-
-                # noinspection PyMethodMayBeStatic
                 def resolve(self, next_, *args, **kwargs):
                     return next_(*args, **kwargs)[::-1]
 
@@ -172,7 +174,6 @@ def describe_middleware():
         def with_function_and_object():
             doc = parse("{ field }")
 
-            # noinspection PyMethodMayBeStatic
             class Data:
                 def field(self, _info):
                     return "resolved"
@@ -185,8 +186,6 @@ def describe_middleware():
                 return next_(*args, **kwargs)[::-1]
 
             class CaptitalizeMiddleware:
-
-                # noinspection PyMethodMayBeStatic
                 def resolve(self, next_, *args, **kwargs):
                     return next_(*args, **kwargs).capitalize()
 
@@ -202,11 +201,9 @@ def describe_middleware():
             )
             assert result.data == {"field": "devloseR"}  # type: ignore
 
-        @mark.asyncio
         async def with_async_function_and_object():
             doc = parse("{ field }")
 
-            # noinspection PyMethodMayBeStatic
             class Data:
                 async def field(self, _info):
                     return "resolved"
@@ -219,8 +216,6 @@ def describe_middleware():
                 return (await next_(*args, **kwargs))[::-1]
 
             class CaptitalizeMiddleware:
-
-                # noinspection PyMethodMayBeStatic
                 async def resolve(self, next_, *args, **kwargs):
                     return (await next_(*args, **kwargs)).capitalize()
 
@@ -240,11 +235,48 @@ def describe_middleware():
             result = await awaitable_result
             assert result.data == {"field": "devloseR"}
 
+        async def subscription_simple():
+            async def bar_resolve(_obj, _info):
+                yield "bar"
+                yield "oof"
+
+            test_type = GraphQLObjectType(
+                "Subscription",
+                {
+                    "bar": GraphQLField(
+                        GraphQLString,
+                        resolve=lambda message, _info: message,
+                        subscribe=bar_resolve,
+                    ),
+                },
+            )
+            doc = parse("subscription { bar }")
+
+            async def reverse_middleware(next_, value, info, **kwargs):
+                awaitable_maybe = next_(value, info, **kwargs)
+                return awaitable_maybe[::-1]
+
+            noop_type = GraphQLObjectType(
+                "Noop",
+                {"noop": GraphQLField(GraphQLString)},
+            )
+            schema = GraphQLSchema(query=noop_type, subscription=test_type)
+
+            agen = subscribe(
+                schema,
+                doc,
+                middleware=MiddlewareManager(reverse_middleware),
+            )
+            assert inspect.isasyncgen(agen)
+            data = cast("ExecutionResult", await agen.__anext__()).data
+            assert data == {"bar": "rab"}
+            data = cast("ExecutionResult", await agen.__anext__()).data
+            assert data == {"bar": "foo"}
+
     def describe_without_manager():
         def no_middleware():
             doc = parse("{ field }")
 
-            # noinspection PyMethodMayBeStatic
             class Data:
                 def field(self, _info):
                     return "resolved"
@@ -260,7 +292,6 @@ def describe_middleware():
         def empty_middleware_list():
             doc = parse("{ field }")
 
-            # noinspection PyMethodMayBeStatic
             class Data:
                 def field(self, _info):
                     return "resolved"
@@ -280,13 +311,12 @@ def describe_middleware():
                 "TestType", {"field": GraphQLField(GraphQLString)}
             )
 
-            with raises(TypeError) as exc_info:
-                # noinspection PyTypeChecker
+            with pytest.raises(TypeError) as exc_info:
                 execute(
                     GraphQLSchema(test_type),
                     doc,
                     None,
-                    middleware={"bad": "value"},  # type: ignore
+                    middleware=cast("Middleware", {"bad": "value"}),
                 )
 
             assert str(exc_info.value) == (
@@ -298,7 +328,6 @@ def describe_middleware():
         def list_of_functions():
             doc = parse("{ field }")
 
-            # noinspection PyMethodMayBeStatic
             class Data:
                 def field(self, _info):
                     return "resolved"
@@ -313,7 +342,6 @@ def describe_middleware():
                 def __init__(self, name):
                     self.name = name
 
-                # noinspection PyMethodMayBeStatic
                 def resolve(self, next_, *args, **kwargs):
                     log.append(f"enter {self.name}")
                     value = next_(*args, **kwargs)

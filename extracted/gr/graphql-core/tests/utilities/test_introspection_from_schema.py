@@ -2,7 +2,7 @@ import pickle
 import sys
 from copy import deepcopy
 
-from pytest import mark
+import pytest
 
 from graphql.language import DirectiveLocation
 from graphql.type import (
@@ -13,15 +13,15 @@ from graphql.type import (
     GraphQLString,
 )
 from graphql.utilities import (
+    IntrospectionQuery,
     build_client_schema,
     build_schema,
-    print_schema,
     introspection_from_schema,
-    IntrospectionQuery,
+    print_schema,
 )
 
 from ..fixtures import big_schema_introspection_result, big_schema_sdl  # noqa: F401
-from ..utils import dedent, timeout_factor
+from ..utils import dedent
 
 
 def introspection_to_sdl(introspection: IntrospectionQuery) -> str:
@@ -29,7 +29,6 @@ def introspection_to_sdl(introspection: IntrospectionQuery) -> str:
 
 
 def describe_introspection_from_schema():
-
     schema = GraphQLSchema(
         GraphQLObjectType(
             "Simple",
@@ -46,7 +45,8 @@ def describe_introspection_from_schema():
     def converts_a_simple_schema():
         introspection = introspection_from_schema(schema)
 
-        assert introspection_to_sdl(introspection) == dedent('''
+        assert introspection_to_sdl(introspection) == dedent(
+            '''
             """This is a simple schema"""
             schema {
               query: Simple
@@ -57,12 +57,14 @@ def describe_introspection_from_schema():
               """This is a string field"""
               string: String
             }
-            ''')
+            '''
+        )
 
     def converts_a_simple_schema_without_description():
         introspection = introspection_from_schema(schema, descriptions=False)
 
-        assert introspection_to_sdl(introspection) == dedent("""
+        assert introspection_to_sdl(introspection) == dedent(
+            """
             schema {
               query: Simple
             }
@@ -70,7 +72,8 @@ def describe_introspection_from_schema():
             type Simple {
               string: String
             }
-            """)
+            """
+        )
 
     def includes_deprecated_directives():
         schema_with_deprecated_directive = GraphQLSchema(
@@ -135,9 +138,9 @@ def describe_introspection_from_schema():
             # check that introspecting the copied schema gives the same result
             assert introspection_from_schema(copied) == introspected_schema
 
-    @mark.slow
+    @pytest.mark.slow
     def describe_deepcopy_and_pickle_big():  # pragma: no cover
-        @mark.timeout(20 * timeout_factor)
+        @pytest.mark.timeout(20)
         def can_deep_copy_big_schema(big_schema_sdl):  # noqa: F811
             # introspect the original big schema
             big_schema = build_schema(big_schema_sdl)
@@ -148,7 +151,7 @@ def describe_introspection_from_schema():
             # check that introspecting the copied schema gives the same result
             assert introspection_from_schema(copied) == expected_introspection
 
-        @mark.timeout(60 * timeout_factor)
+        @pytest.mark.timeout(60)
         def can_pickle_and_unpickle_big_schema(big_schema_sdl):  # noqa: F811
             # introspect the original big schema
             big_schema = build_schema(big_schema_sdl)
@@ -182,7 +185,7 @@ def describe_introspection_from_schema():
             finally:
                 sys.setrecursionlimit(limit)
 
-        @mark.timeout(60 * timeout_factor)
+        @pytest.mark.timeout(60)
         def can_deep_copy_pickled_big_schema(big_schema_sdl):  # noqa: F811
             # introspect the original big schema
             big_schema = build_schema(big_schema_sdl)

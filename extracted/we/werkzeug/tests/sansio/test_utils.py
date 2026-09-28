@@ -45,7 +45,17 @@ def test_get_host_missing() -> None:
 
 
 @pytest.mark.parametrize(
-    "value", ["", "a.test:8080@b.test", "a.test:port", "[z:443]:8080"]
+    "value",
+    [
+        "",
+        "a.test:8080@b.test",
+        "a.test:port",
+        "[z:443]:8080",
+        "a.test:0",
+        "a.test:65536",
+        "a.test:0443",
+        "a.test:",
+    ],
 )
 def test_get_host_invalid(value: str | None) -> None:
     assert get_host("http", value, None) == ""

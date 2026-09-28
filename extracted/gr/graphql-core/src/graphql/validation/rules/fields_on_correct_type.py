@@ -1,9 +1,14 @@
+"""Fields on correct type rule"""
+
+from __future__ import annotations
+
 from collections import defaultdict
 from functools import cmp_to_key
-from typing import Any, Dict, List, Union, cast
+from typing import TYPE_CHECKING, Any
 
+from ...error import GraphQLError
+from ...pyutils import did_you_mean, natural_comparison_key, suggestion_list
 from ...type import (
-    GraphQLAbstractType,
     GraphQLInterfaceType,
     GraphQLObjectType,
     GraphQLOutputType,
@@ -12,10 +17,10 @@ from ...type import (
     is_interface_type,
     is_object_type,
 )
-from ...error import GraphQLError
-from ...language import FieldNode
-from ...pyutils import did_you_mean, natural_comparison_key, suggestion_list
 from . import ValidationRule
+
+if TYPE_CHECKING:
+    from ...language import FieldNode
 
 __all__ = ["FieldsOnCorrectTypeRule"]
 
@@ -27,9 +32,26 @@ class FieldsOnCorrectTypeRule(ValidationRule):
     type, or are an allowed meta field such as ``__typename``.
 
     See https://spec.graphql.org/draft/#sec-Field-Selections
+
+    :param context: The validation context used while checking the document.
+
+    >>> from graphql import build_schema, parse, validate
+    >>> from graphql.validation import FieldsOnCorrectTypeRule
+    >>> schema = build_schema('type Query { name: String }')
+    >>> document = parse('{ missing }')
+    >>> errors = validate(schema, document, [FieldsOnCorrectTypeRule])
+    >>> print(errors[0].message)
+    Cannot query field 'missing' on type 'Query'.
+    >>> document = parse('{ name }')
+    >>> validate(schema, document, [FieldsOnCorrectTypeRule])
+    []
     """
 
     def enter_field(self, node: FieldNode, *_args: Any) -> None:
+        """Called when entering a field node.
+
+        :meta private:
+        """
         type_ = self.context.get_parent_type()
         if not type_:
             return
@@ -42,13 +64,19 @@ class FieldsOnCorrectTypeRule(ValidationRule):
 
         # First determine if there are any suggested types to condition on.
         suggestion = did_you_mean(
-            get_suggested_type_names(schema, type_, field_name),
+            []
+            if self.context.hide_suggestions
+            else get_suggested_type_names(schema, type_, field_name),
             "to use an inline fragment on",
         )
 
         # If there are no suggested types, then perhaps this was a typo?
         if not suggestion:
-            suggestion = did_you_mean(get_suggested_field_names(type_, field_name))
+            suggestion = did_you_mean(
+                []
+                if self.context.hide_suggestions
+                else get_suggested_field_names(type_, field_name)
+            )
 
         # Report an error, including helpful suggestions.
         self.report_error(
@@ -61,9 +89,8 @@ class FieldsOnCorrectTypeRule(ValidationRule):
 
 def get_suggested_type_names(
     schema: GraphQLSchema, type_: GraphQLOutputType, field_name: str
-) -> List[str]:
-    """
-    Get a list of suggested type names.
+) -> list[str]:
+    """Get a list of suggested type names.
 
     Go through all of the implementations of type, as well as the interfaces
     that they implement. If any of those types include the provided field,
@@ -73,10 +100,9 @@ def get_suggested_type_names(
         # Must be an Object type, which does not have possible fields.
         return []
 
-    type_ = cast(GraphQLAbstractType, type_)
     # Use a dict instead of a set for stable sorting when usage counts are the same
-    suggested_types: Dict[Union[GraphQLObjectType, GraphQLInterfaceType], None] = {}
-    usage_count: Dict[str, int] = defaultdict(int)
+    suggested_types: dict[GraphQLObjectType | GraphQLInterfaceType, None] = {}
+    usage_count: dict[str, int] = defaultdict(int)
     for possible_type in schema.get_possible_types(type_):
         if field_name not in possible_type.fields:
             continue
@@ -94,8 +120,8 @@ def get_suggested_type_names(
             usage_count[possible_interface.name] += 1
 
     def cmp(
-        type_a: Union[GraphQLObjectType, GraphQLInterfaceType],
-        type_b: Union[GraphQLObjectType, GraphQLInterfaceType],
+        type_a: GraphQLObjectType | GraphQLInterfaceType,
+        type_b: GraphQLObjectType | GraphQLInterfaceType,
     ) -> int:  # pragma: no cover
         # Suggest both interface and object types based on how common they are.
         usage_count_diff = usage_count[type_b.name] - usage_count[type_a.name]
@@ -103,13 +129,9 @@ def get_suggested_type_names(
             return usage_count_diff
 
         # Suggest super types first followed by subtypes
-        if is_interface_type(type_a) and schema.is_sub_type(
-            cast(GraphQLInterfaceType, type_a), type_b
-        ):
+        if is_interface_type(type_a) and schema.is_sub_type(type_a, type_b):
             return -1
-        if is_interface_type(type_b) and schema.is_sub_type(
-            cast(GraphQLInterfaceType, type_b), type_a
-        ):
+        if is_interface_type(type_b) and schema.is_sub_type(type_b, type_a):
             return 1
 
         name_a = natural_comparison_key(type_a.name)
@@ -123,14 +145,14 @@ def get_suggested_type_names(
     return [type_.name for type_ in sorted(suggested_types, key=cmp_to_key(cmp))]
 
 
-def get_suggested_field_names(type_: GraphQLOutputType, field_name: str) -> List[str]:
+def get_suggested_field_names(type_: GraphQLOutputType, field_name: str) -> list[str]:
     """Get a list of suggested field names.
 
     For the field name provided, determine if there are any similar field names that may
     be the result of a typo.
     """
     if is_object_type(type_) or is_interface_type(type_):
-        possible_field_names = list(type_.fields)  # type: ignore
+        possible_field_names = list(type_.fields)
         return suggestion_list(field_name, possible_field_names)
     # Otherwise, must be a Union type, which does not define fields.
     return []

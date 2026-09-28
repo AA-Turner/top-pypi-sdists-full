@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: aegra-api
-Version: 0.10.6
+Version: 0.10.7
 Summary: Aegra core API - Self-hosted Agent Protocol server
 Project-URL: Homepage, https://github.com/aegra/aegra
 Project-URL: Documentation, https://github.com/aegra/aegra#readme
@@ -17,6 +17,7 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Requires-Python: >=3.12
 Requires-Dist: alembic>=1.16.4
+Requires-Dist: anyio>=4.7.0
 Requires-Dist: asgi-correlation-id>=4.3.4
 Requires-Dist: asyncpg>=0.30.0
 Requires-Dist: croniter>=6.0.0

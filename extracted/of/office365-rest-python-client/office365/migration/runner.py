@@ -17,7 +17,6 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING, Callable, Iterable
 
-from office365.migration._util import emit_progress
 from office365.migration.adapters import DataTarget, resolve_dest
 from office365.migration.base import (
     ConflictResolution,
@@ -28,9 +27,78 @@ from office365.migration.base import (
     MigrationStats,
 )
 from office365.migration.checkpoint import Checkpoint
+from office365.runtime.operations import emit_progress
 
 if TYPE_CHECKING:
     from office365.runtime.operations import Progress
+
+
+def _assert_fidelity_supported(options: MigrationOptions, source, target: DataTarget) -> None:
+    """Reject fidelity flags the adapter pair cannot honor.
+
+    ``preserve_versions`` always needs the server-side Migration API (REST can't
+    restore version history). ``preserve_timestamps`` / ``preserve_permissions``
+    are applied client-side on a best-effort basis, but only when the adapters
+    expose the matching optional hooks — failing fast beats silently migrating
+    without the requested fidelity.
+    """
+    if options.preserve_versions:
+        raise NotImplementedError(
+            "preserve_versions is not supported by the client-side runner: REST cannot restore "
+            "version history. Use the server-side Migration API (MigrationServerJob) or set "
+            "preserve_versions to False."
+        )
+    if options.preserve_timestamps and not callable(getattr(target, "apply_timestamps", None)):
+        raise NotImplementedError(
+            "preserve_timestamps is not supported by this target: it does not implement apply_timestamps(item)."
+        )
+    if options.preserve_permissions and not (
+        callable(getattr(source, "read_permissions", None)) and callable(getattr(target, "apply_permissions", None))
+    ):
+        raise NotImplementedError(
+            "preserve_permissions is not supported by this adapter pair: it needs "
+            "source.read_permissions(item) and target.apply_permissions(item, permissions)."
+        )
+
+
+def _apply_fidelity(source, target: DataTarget, item: MigrationItem, options: MigrationOptions) -> None:
+    """Best-effort fidelity after a successful write (timestamps / ACLs).
+
+    Failures propagate (and are captured per-item by the caller) so a requested
+    fidelity that couldn't be applied is visible and the item stays resumable.
+    """
+    if options.preserve_timestamps:
+        _call_optional(target, "apply_timestamps", item)
+    if options.preserve_permissions:
+        permissions = source.read_permissions(item)
+        if permissions:
+            _call_optional(target, "apply_permissions", item, permissions)
+
+
+class _Watermark:
+    """Incremental watermark — the highest source ``modified`` migrated so far.
+
+    Persisted in ``Checkpoint.source_watermark``: a resumed incremental run skips
+    every item at or below it, so only new/changed items are re-scanned.
+    """
+
+    def __init__(self, checkpoint: Checkpoint) -> None:
+        self._checkpoint = checkpoint
+        self._value = checkpoint.source_watermark
+
+    @property
+    def value(self) -> str | None:
+        return self._value
+
+    def is_stale(self, item: MigrationItem) -> bool:
+        """Whether the item is at or below the watermark (already migrated)."""
+        return self._value is not None and item.modified is not None and item.modified <= self._value
+
+    def advance(self, item: MigrationItem) -> None:
+        """Raise the watermark to the item's ``modified`` when it is newer."""
+        if item.modified is not None and (self._value is None or item.modified > self._value):
+            self._value = item.modified
+            self._checkpoint.source_watermark = item.modified
 
 
 class MigrationRunner:
@@ -47,16 +115,20 @@ class MigrationRunner:
         progress: Callable[["Progress"], None] | None = None,
         stop_event: Callable[[], bool] | None = None,
     ) -> MigrationStats:
+        _assert_fidelity_supported(options, source, target)
+        watermark = _Watermark(checkpoint) if options.incremental else None
         parallel = (
             options.concurrency > 1
             and hasattr(target, "write_many")
             and options.conflict_resolution != ConflictResolution.RENAME
         )
         if parallel:
-            stats = self._run_parallel(source, target, items, options, checkpoint, checkpoint_path, progress, stop_event)
+            stats = self._run_parallel(
+                source, target, items, options, checkpoint, checkpoint_path, progress, stop_event, watermark
+            )
         else:
             stats = self._run_sequential(
-                source, target, items, options, checkpoint, checkpoint_path, progress, stop_event
+                source, target, items, options, checkpoint, checkpoint_path, progress, stop_event, watermark
             )
         _call_optional(target, "commit", options)
 
@@ -78,6 +150,7 @@ class MigrationRunner:
         checkpoint_path: str | Path | None,
         progress: Callable[["Progress"], None] | None,
         stop_event: Callable[[], bool] | None,
+        watermark: _Watermark | None = None,
     ) -> MigrationStats:
         items = list(items)
         stats = MigrationStats(total=len(items))
@@ -90,12 +163,19 @@ class MigrationRunner:
             if callable(stop_event) and stop_event():
                 checkpoint.phase = MigrationPhase.PAUSED
                 break
+            if watermark is not None and watermark.is_stale(item):
+                checkpoint.record(item, ItemStatus.SKIPPED)
+                stats.skipped += 1
+                self._report_progress(progress, stats, item)
+                continue
             checkpoint.record(item, ItemStatus.IN_PROGRESS)
             try:
                 if self._migrate(source, target, item, options):
                     checkpoint.record(item, ItemStatus.DONE)
                     stats.success += 1
                     stats.bytes_transferred += item.size_bytes
+                    if watermark is not None:
+                        watermark.advance(item)
                 else:
                     checkpoint.record(item, ItemStatus.SKIPPED)
                     stats.skipped += 1
@@ -119,10 +199,16 @@ class MigrationRunner:
         checkpoint_path: str | Path | None,
         progress: Callable[["Progress"], None] | None,
         stop_event: Callable[[], bool] | None,
+        watermark: _Watermark | None = None,
     ) -> MigrationStats:
         items = list(items)
         stats = MigrationStats(total=len(items))
         chunk: list[MigrationItem] = []
+
+        def _skip(item: MigrationItem) -> None:
+            checkpoint.record(item, ItemStatus.SKIPPED)
+            stats.skipped += 1
+            self._report_progress(progress, stats, item)
 
         def _flush() -> None:
             if not chunk:
@@ -137,9 +223,19 @@ class MigrationRunner:
                     checkpoint.record(item, ItemStatus.FAILED)
                     stats.errors += 1
                 else:
-                    checkpoint.record(item, ItemStatus.DONE)
-                    stats.success += 1
-                    stats.bytes_transferred += item.size_bytes
+                    try:
+                        _apply_fidelity(source, target, item, options)
+                    except Exception as e:  # noqa: BLE001 — per-item errors are captured, not fatal
+                        item.error = str(e)
+                        item.error_code = type(e).__name__
+                        checkpoint.record(item, ItemStatus.FAILED)
+                        stats.errors += 1
+                    else:
+                        checkpoint.record(item, ItemStatus.DONE)
+                        stats.success += 1
+                        stats.bytes_transferred += item.size_bytes
+                        if watermark is not None:
+                            watermark.advance(item)
                 self._report_progress(progress, stats, item)
             chunk.clear()
             if checkpoint_path is not None:
@@ -154,11 +250,12 @@ class MigrationRunner:
             if callable(stop_event) and stop_event():
                 checkpoint.phase = MigrationPhase.PAUSED
                 break
+            if (watermark is not None and watermark.is_stale(item)) or _outside_window(item, options):
+                _skip(item)
+                continue
             checkpoint.record(item, ItemStatus.IN_PROGRESS)
             if options.incremental and _target_up_to_date(source, target, item):
-                checkpoint.record(item, ItemStatus.SKIPPED)
-                stats.skipped += 1
-                self._report_progress(progress, stats, item)
+                _skip(item)
                 continue
             if options.conflict_resolution == ConflictResolution.SKIP and target.exists(item):
                 checkpoint.record(item, ItemStatus.SKIPPED)
@@ -178,7 +275,9 @@ class MigrationRunner:
 
     @staticmethod
     def _migrate(source, target: DataTarget, item: MigrationItem, options: MigrationOptions) -> bool:
-        """Move one item; returns ``False`` when skipped (conflict/incremental)."""
+        """Move one item; returns ``False`` when skipped (conflict/incremental/window)."""
+        if _outside_window(item, options):
+            return False
         if options.incremental and _target_up_to_date(source, target, item):
             return False
         if options.conflict_resolution == ConflictResolution.SKIP and target.exists(item):
@@ -187,7 +286,15 @@ class MigrationRunner:
         item.dest_path = dest
         payload = source.read(item)
         target.write(item, payload)
+        _apply_fidelity(source, target, item, options)
         return True
+
+
+def _outside_window(item: MigrationItem, options: MigrationOptions) -> bool:
+    """Whether the item is outside the ``created_after``/``modified_after`` window (skip it)."""
+    if options.modified_after and item.modified is not None and item.modified <= options.modified_after:
+        return True
+    return bool(options.created_after and item.created is not None and item.created <= options.created_after)
 
 
 def _target_up_to_date(source, target: DataTarget, item: MigrationItem) -> bool:

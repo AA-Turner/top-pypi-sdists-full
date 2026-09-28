@@ -1,4 +1,6 @@
-from typing import cast
+from typing import TYPE_CHECKING, cast
+
+import pytest
 
 from graphql import graphql_sync
 from graphql.language import DirectiveLocation
@@ -23,15 +25,16 @@ from graphql.utilities import (
     introspection_from_schema,
     print_schema,
 )
-from graphql.utilities.get_introspection_query import (
-    IntrospectionEnumType,
-    IntrospectionInputObjectType,
-    IntrospectionInterfaceType,
-    IntrospectionObjectType,
-    IntrospectionType,
-    IntrospectionUnionType,
-)
-from pytest import raises
+
+if TYPE_CHECKING:
+    from graphql.utilities.get_introspection_query import (
+        IntrospectionEnumType,
+        IntrospectionInputObjectType,
+        IntrospectionInterfaceType,
+        IntrospectionObjectType,
+        IntrospectionType,
+        IntrospectionUnionType,
+    )
 
 from ..utils import dedent
 
@@ -58,7 +61,8 @@ def cycle_introspection(sdl_string: str):
 
 def describe_type_system_build_schema_from_introspection():
     def builds_a_simple_schema():
-        sdl = dedent('''
+        sdl = dedent(
+            '''
             """Simple schema"""
             schema {
               query: Simple
@@ -69,16 +73,19 @@ def describe_type_system_build_schema_from_introspection():
               """This is a string field"""
               string: String
             }
-            ''')
+            '''
+        )
 
         assert cycle_introspection(sdl) == sdl
 
     def builds_a_schema_without_the_query_type():
-        sdl = dedent("""
+        sdl = dedent(
+            """
             type Query {
               foo: String
             }
-            """)
+            """
+        )
 
         schema = build_schema(sdl)
         introspection = introspection_from_schema(schema)
@@ -89,7 +96,8 @@ def describe_type_system_build_schema_from_introspection():
         assert print_schema(client_schema) == sdl
 
     def builds_a_simple_schema_with_all_operation_types():
-        sdl = dedent('''
+        sdl = dedent(
+            '''
             schema {
               query: QueryType
               mutation: MutationType
@@ -113,12 +121,14 @@ def describe_type_system_build_schema_from_introspection():
               """This is a string field"""
               string: String
             }
-            ''')
+            '''
+        )
 
         assert cycle_introspection(sdl) == sdl
 
     def uses_built_in_scalars_when_possible():
-        sdl = dedent("""
+        sdl = dedent(
+            """
             scalar CustomScalar
 
             type Query {
@@ -129,7 +139,8 @@ def describe_type_system_build_schema_from_introspection():
               id: ID
               custom: CustomScalar
             }
-            """)
+            """
+        )
 
         assert cycle_introspection(sdl) == sdl
 
@@ -149,11 +160,13 @@ def describe_type_system_build_schema_from_introspection():
         assert client_schema.get_type("CustomScalar") is not custom_scalar
 
     def includes_standard_types_only_if_they_are_used():
-        schema = build_schema("""
+        schema = build_schema(
+            """
             type Query {
               foo: String
             }
-            """)
+            """
+        )
         introspection = introspection_from_schema(schema)
         client_schema = build_client_schema(introspection)
 
@@ -162,7 +175,8 @@ def describe_type_system_build_schema_from_introspection():
         assert client_schema.get_type("ID") is None
 
     def builds_a_schema_with_a_recursive_type_reference():
-        sdl = dedent("""
+        sdl = dedent(
+            """
             schema {
               query: Recur
             }
@@ -170,12 +184,14 @@ def describe_type_system_build_schema_from_introspection():
             type Recur {
               recur: Recur
             }
-            """)
+            """
+        )
 
         assert cycle_introspection(sdl) == sdl
 
     def builds_a_schema_with_a_circular_type_reference():
-        sdl = dedent("""
+        sdl = dedent(
+            """
             type Dog {
               bestFriend: Human
             }
@@ -188,12 +204,14 @@ def describe_type_system_build_schema_from_introspection():
               dog: Dog
               human: Human
             }
-            """)
+            """
+        )
 
         assert cycle_introspection(sdl) == sdl
 
     def builds_a_schema_with_an_interface():
-        sdl = dedent('''
+        sdl = dedent(
+            '''
             type Dog implements Friendly {
               bestFriend: Friendly
             }
@@ -210,12 +228,14 @@ def describe_type_system_build_schema_from_introspection():
             type Query {
               friendly: Friendly
             }
-            ''')
+            '''
+        )
 
         assert cycle_introspection(sdl) == sdl
 
     def builds_a_schema_with_an_interface_hierarchy():
-        sdl = dedent('''
+        sdl = dedent(
+            '''
             type Dog implements Friendly & Named {
               bestFriend: Friendly
               name: String
@@ -239,12 +259,14 @@ def describe_type_system_build_schema_from_introspection():
             type Query {
               friendly: Friendly
             }
-            ''')
+            '''
+        )
 
         assert cycle_introspection(sdl) == sdl
 
     def builds_a_schema_with_an_implicit_interface():
-        sdl = dedent('''
+        sdl = dedent(
+            '''
             type Dog implements Friendly {
               bestFriend: Friendly
             }
@@ -257,12 +279,14 @@ def describe_type_system_build_schema_from_introspection():
             type Query {
               dog: Dog
             }
-            ''')
+            '''
+        )
 
         assert cycle_introspection(sdl) == sdl
 
     def builds_a_schema_with_a_union():
-        sdl = dedent("""
+        sdl = dedent(
+            """
             type Dog {
               bestFriend: Friendly
             }
@@ -276,12 +300,14 @@ def describe_type_system_build_schema_from_introspection():
             type Query {
               friendly: Friendly
             }
-            """)
+            """
+        )
 
         assert cycle_introspection(sdl) == sdl
 
     def builds_a_schema_with_complex_field_values():
-        sdl = dedent("""
+        sdl = dedent(
+            """
             type Query {
               string: String
               listOfString: [String]
@@ -289,12 +315,14 @@ def describe_type_system_build_schema_from_introspection():
               nonNullListOfString: [String]!
               nonNullListOfNonNullString: [String!]!
             }
-            """)
+            """
+        )
 
         assert cycle_introspection(sdl) == sdl
 
     def builds_a_schema_with_field_arguments():
-        sdl = dedent('''
+        sdl = dedent(
+            '''
             type Query {
               """A field with a single arg"""
               one(
@@ -304,25 +332,28 @@ def describe_type_system_build_schema_from_introspection():
 
               """A field with a two args"""
               two(
-                """This is an list of int arg"""
+                """This is a list of int arg"""
                 listArg: [Int]
 
                 """This is a required arg"""
                 requiredArg: Boolean!
               ): String
             }
-            ''')
+            '''
+        )
 
         assert cycle_introspection(sdl) == sdl
 
     def builds_a_schema_with_default_value_on_custom_scalar_field():
-        sdl = dedent("""
+        sdl = dedent(
+            """
             scalar CustomScalar
 
             type Query {
               testField(testArg: CustomScalar = "default"): String
             }
-            """)
+            """
+        )
 
         assert cycle_introspection(sdl) == sdl
 
@@ -395,7 +426,8 @@ def describe_type_system_build_schema_from_introspection():
         }
 
     def builds_a_schema_with_an_input_object():
-        sdl = dedent('''
+        sdl = dedent(
+            '''
             """An input address"""
             input Address {
               """What street is this address?"""
@@ -415,37 +447,43 @@ def describe_type_system_build_schema_from_introspection():
                 address: Address
               ): String
             }
-            ''')
+            '''
+        )
 
         assert cycle_introspection(sdl) == sdl
 
     def builds_a_schema_with_field_arguments_with_default_values():
-        sdl = dedent("""
+        sdl = dedent(
+            """
             input Geo {
               lat: Float
               lon: Float
             }
 
             type Query {
+              defaultID(intArg: ID = "123"): String
               defaultInt(intArg: Int = 30): String
               defaultList(listArg: [Int] = [1, 2, 3]): String
-              defaultObject(objArg: Geo = {lat: 37.485, lon: -122.148}): String
+              defaultObject(objArg: Geo = { lat: 37.485, lon: -122.148 }): String
               defaultNull(intArg: Int = null): String
               noDefault(intArg: Int): String
             }
-            """)
+            """
+        )
 
         assert cycle_introspection(sdl) == sdl
 
     def builds_a_schema_with_custom_directives():
-        sdl = dedent('''
+        sdl = dedent(
+            '''
             """This is a custom directive"""
             directive @customDirective repeatable on FIELD
 
             type Query {
               string: String
             }
-            ''')
+            '''
+        )
 
         assert cycle_introspection(sdl) == sdl
 
@@ -473,11 +511,13 @@ def describe_type_system_build_schema_from_introspection():
         assert directive.deprecation_reason == "Use another directive"
 
     def builds_a_schema_without_directives():
-        sdl = dedent("""
+        sdl = dedent(
+            """
             type Query {
               foo: String
             }
-            """)
+            """
+        )
 
         schema = build_schema(sdl)
         introspection = introspection_from_schema(schema)
@@ -490,7 +530,8 @@ def describe_type_system_build_schema_from_introspection():
         assert print_schema(client_schema) == sdl
 
     def builds_a_schema_aware_of_deprecation():
-        sdl = dedent('''
+        sdl = dedent(
+            '''
             directive @someDirective(
               """This is a shiny new argument"""
               shinyArg: SomeInputObject
@@ -540,12 +581,14 @@ def describe_type_system_build_schema_from_introspection():
                 oldArg: String @deprecated(reason: "Use shinyArg")
               ): String
             }
-            ''')  # noqa: E501
+            '''  # noqa: E501
+        )
 
         assert cycle_introspection(sdl) == sdl
 
     def builds_a_schema_with_empty_deprecation_reasons():
-        sdl = dedent("""
+        sdl = dedent(
+            """
             directive @someDirective(someArg: SomeInputObject @deprecated(reason: "")) on QUERY
 
             type Query {
@@ -559,23 +602,27 @@ def describe_type_system_build_schema_from_introspection():
             enum SomeEnum {
               SOME_VALUE @deprecated(reason: "")
             }
-            """)  # noqa: E501
+            """  # noqa: E501
+        )
 
         assert cycle_introspection(sdl) == sdl
 
     def builds_a_schema_with_specified_by_url():
-        sdl = dedent("""
+        sdl = dedent(
+            """
             scalar Foo @specifiedBy(url: "https://example.com/foo_spec")
 
             type Query {
               foo: Foo
             }
-            """)
+            """
+        )
 
         assert cycle_introspection(sdl) == sdl
 
     def builds_a_schema_with_one_of_directive():
-        sdl = dedent("""
+        sdl = dedent(
+            """
             type Query {
               someField(someArg: SomeInputObject): String
             }
@@ -584,18 +631,21 @@ def describe_type_system_build_schema_from_introspection():
               someInputField1: String
               someInputField2: String
             }
-            """)
+            """
+        )
 
         assert cycle_introspection(sdl) == sdl
 
     def can_use_client_schema_for_limited_execution():
-        schema = build_schema("""
+        schema = build_schema(
+            """
             scalar CustomScalar
 
             type Query {
               foo(custom1: CustomScalar, custom2: CustomScalar): String
             }
-            """)
+            """
+        )
 
         introspection = introspection_from_schema(schema)
         client_schema = build_client_schema(introspection)
@@ -613,6 +663,29 @@ def describe_type_system_build_schema_from_introspection():
 
         assert result.data == {"foo": "bar"}
 
+    def can_use_client_schema_for_execution_if_resolvers_are_added():
+        schema = build_schema(
+            """
+            type Query {
+              foo(bar: String = "abc"): String
+            }
+            """
+        )
+
+        introspection = introspection_from_schema(schema)
+        client_schema = build_client_schema(introspection)
+
+        query_type = client_schema.query_type
+        assert query_type is not None
+        query_type.fields["foo"].resolve = lambda _value, _info, bar=None: bar
+
+        result = graphql_sync(client_schema, "{ foo }")
+        assert result.data == {"foo": "abc"}
+
+        # Call a second time (the coerced default value is memoized)
+        result = graphql_sync(client_schema, "{ foo }")
+        assert result.data == {"foo": "abc"}
+
     def can_build_invalid_schema():
         schema = build_schema("type Query", assume_valid=True)
 
@@ -622,7 +695,8 @@ def describe_type_system_build_schema_from_introspection():
         assert client_schema.to_kwargs()["assume_valid"] is True
 
     def describe_throws_when_given_invalid_introspection():
-        dummy_schema = build_schema("""
+        dummy_schema = build_schema(
+            """
             type Query {
               foo(bar: String): String
             }
@@ -640,11 +714,11 @@ def describe_type_system_build_schema_from_introspection():
             }
 
             directive @SomeDirective on QUERY
-            """)
+            """
+        )
 
         def throws_when_introspection_is_missing_schema_property():
-            with raises(TypeError) as exc_info:
-                # noinspection PyTypeChecker
+            with pytest.raises(TypeError) as exc_info:
                 build_client_schema(None)  # type: ignore
 
             assert str(exc_info.value) == (
@@ -653,8 +727,7 @@ def describe_type_system_build_schema_from_introspection():
                 " and no 'errors' were returned alongside: None."
             )
 
-            with raises(TypeError) as exc_info:
-                # noinspection PyTypeChecker
+            with pytest.raises(TypeError) as exc_info:
                 build_client_schema({})  # type: ignore
 
             assert str(exc_info.value) == (
@@ -672,7 +745,7 @@ def describe_type_system_build_schema_from_introspection():
                 if type_["name"] != "Query"
             ]
 
-            with raises(TypeError) as exc_info:
+            with pytest.raises(TypeError) as exc_info:
                 build_client_schema(introspection)
 
             assert str(exc_info.value) == (
@@ -682,11 +755,13 @@ def describe_type_system_build_schema_from_introspection():
             )
 
         def throws_when_missing_definition_for_one_of_the_standard_scalars():
-            schema = build_schema("""
+            schema = build_schema(
+                """
                 type Query {
                   foo: Float
                 }
-                """)
+                """
+            )
             introspection = introspection_from_schema(schema)
             introspection["__schema"]["types"] = [
                 type_
@@ -694,7 +769,7 @@ def describe_type_system_build_schema_from_introspection():
                 if type_["name"] != "Float"
             ]
 
-            with raises(TypeError) as exc_info:
+            with pytest.raises(TypeError) as exc_info:
                 build_client_schema(introspection)
 
             assert str(exc_info.value).endswith(
@@ -705,11 +780,13 @@ def describe_type_system_build_schema_from_introspection():
 
         def throws_when_type_reference_is_missing_name():
             introspection = introspection_from_schema(dummy_schema)
-            query_type = cast(IntrospectionType, introspection["__schema"]["queryType"])
+            query_type = cast(
+                "IntrospectionType", introspection["__schema"]["queryType"]
+            )
             assert query_type["name"] == "Query"
             del query_type["name"]  # type: ignore
 
-            with raises(TypeError) as exc_info:
+            with pytest.raises(TypeError) as exc_info:
                 build_client_schema(introspection)
 
             assert str(exc_info.value) == "Unknown type reference: {'kind': 'OBJECT'}."
@@ -722,9 +799,9 @@ def describe_type_system_build_schema_from_introspection():
                 if type_["name"] == "Query"
             )
             assert query_type_introspection["kind"] == "OBJECT"
-            del query_type_introspection["kind"]
+            del query_type_introspection["kind"]  # type: ignore
 
-            with raises(
+            with pytest.raises(
                 TypeError,
                 match=r"^Invalid or incomplete introspection result\."
                 " Ensure that a full introspection query is used"
@@ -735,7 +812,7 @@ def describe_type_system_build_schema_from_introspection():
         def throws_when_missing_interfaces():
             introspection = introspection_from_schema(dummy_schema)
             query_type_introspection = cast(
-                IntrospectionObjectType,
+                "IntrospectionObjectType",
                 next(
                     type_
                     for type_ in introspection["__schema"]["types"]
@@ -746,7 +823,7 @@ def describe_type_system_build_schema_from_introspection():
             assert query_type_introspection["interfaces"] == []
             del query_type_introspection["interfaces"]  # type: ignore
 
-            with raises(
+            with pytest.raises(
                 TypeError,
                 match="^Query interfaces cannot be resolved."
                 " Introspection result missing interfaces:"
@@ -757,7 +834,7 @@ def describe_type_system_build_schema_from_introspection():
         def legacy_support_for_interfaces_with_null_as_interfaces_field():
             introspection = introspection_from_schema(dummy_schema)
             some_interface_introspection = cast(
-                IntrospectionInterfaceType,
+                "IntrospectionInterfaceType",
                 next(
                     type_
                     for type_ in introspection["__schema"]["types"]
@@ -774,7 +851,7 @@ def describe_type_system_build_schema_from_introspection():
         def throws_when_missing_fields():
             introspection = introspection_from_schema(dummy_schema)
             query_type_introspection = cast(
-                IntrospectionObjectType,
+                "IntrospectionObjectType",
                 next(
                     type_
                     for type_ in introspection["__schema"]["types"]
@@ -785,7 +862,7 @@ def describe_type_system_build_schema_from_introspection():
             assert query_type_introspection["fields"]
             del query_type_introspection["fields"]  # type: ignore
 
-            with raises(
+            with pytest.raises(
                 TypeError,
                 match="^Query fields cannot be resolved."
                 " Introspection result missing fields:"
@@ -796,7 +873,7 @@ def describe_type_system_build_schema_from_introspection():
         def throws_when_missing_field_args():
             introspection = introspection_from_schema(dummy_schema)
             query_type_introspection = cast(
-                IntrospectionObjectType,
+                "IntrospectionObjectType",
                 next(
                     type_
                     for type_ in introspection["__schema"]["types"]
@@ -808,7 +885,7 @@ def describe_type_system_build_schema_from_introspection():
             assert field["args"]
             del field["args"]  # type: ignore
 
-            with raises(
+            with pytest.raises(
                 TypeError,
                 match="^Query fields cannot be resolved."
                 r" Introspection result missing field args: {'name': 'foo', .*}\.$",
@@ -818,7 +895,7 @@ def describe_type_system_build_schema_from_introspection():
         def throws_when_output_type_is_used_as_an_arg_type():
             introspection = introspection_from_schema(dummy_schema)
             query_type_introspection = cast(
-                IntrospectionObjectType,
+                "IntrospectionObjectType",
                 next(
                     type_
                     for type_ in introspection["__schema"]["types"]
@@ -830,7 +907,7 @@ def describe_type_system_build_schema_from_introspection():
             assert arg["type"]["name"] == "String"
             arg["type"]["name"] = "SomeUnion"
 
-            with raises(TypeError) as exc_info:
+            with pytest.raises(TypeError) as exc_info:
                 build_client_schema(introspection)
 
             assert str(exc_info.value).startswith(
@@ -842,7 +919,7 @@ def describe_type_system_build_schema_from_introspection():
         def throws_when_output_type_is_used_as_an_input_value_type():
             introspection = introspection_from_schema(dummy_schema)
             input_object_type_introspection = cast(
-                IntrospectionInputObjectType,
+                "IntrospectionInputObjectType",
                 next(
                     type_
                     for type_ in introspection["__schema"]["types"]
@@ -854,7 +931,7 @@ def describe_type_system_build_schema_from_introspection():
             assert input_field["type"]["name"] == "String"
             input_field["type"]["name"] = "SomeUnion"
 
-            with raises(TypeError) as exc_info:
+            with pytest.raises(TypeError) as exc_info:
                 build_client_schema(introspection)
 
             assert str(exc_info.value).startswith(
@@ -866,7 +943,7 @@ def describe_type_system_build_schema_from_introspection():
         def throws_when_input_type_is_used_as_a_field_type():
             introspection = introspection_from_schema(dummy_schema)
             query_type_introspection = cast(
-                IntrospectionObjectType,
+                "IntrospectionObjectType",
                 next(
                     type_
                     for type_ in introspection["__schema"]["types"]
@@ -878,7 +955,7 @@ def describe_type_system_build_schema_from_introspection():
             assert field["type"]["name"] == "String"
             field["type"]["name"] = "SomeInputObject"
 
-            with raises(TypeError) as exc_info:
+            with pytest.raises(TypeError) as exc_info:
                 build_client_schema(introspection)
 
             assert str(exc_info.value).startswith(
@@ -890,7 +967,7 @@ def describe_type_system_build_schema_from_introspection():
         def throws_when_missing_possible_types():
             introspection = introspection_from_schema(dummy_schema)
             some_union_introspection = cast(
-                IntrospectionUnionType,
+                "IntrospectionUnionType",
                 next(
                     type_
                     for type_ in introspection["__schema"]["types"]
@@ -901,7 +978,7 @@ def describe_type_system_build_schema_from_introspection():
             assert some_union_introspection["possibleTypes"]
             del some_union_introspection["possibleTypes"]  # type: ignore
 
-            with raises(
+            with pytest.raises(
                 TypeError,
                 match="^Introspection result missing possibleTypes:"
                 r" {'kind': 'UNION', 'name': 'SomeUnion', .*}\.$",
@@ -911,7 +988,7 @@ def describe_type_system_build_schema_from_introspection():
         def throws_when_missing_enum_values():
             introspection = introspection_from_schema(dummy_schema)
             some_enum_introspection = cast(
-                IntrospectionEnumType,
+                "IntrospectionEnumType",
                 next(
                     type_
                     for type_ in introspection["__schema"]["types"]
@@ -922,7 +999,7 @@ def describe_type_system_build_schema_from_introspection():
             assert some_enum_introspection["enumValues"]
             del some_enum_introspection["enumValues"]  # type: ignore
 
-            with raises(
+            with pytest.raises(
                 TypeError,
                 match="^Introspection result missing enumValues:"
                 r" {'kind': 'ENUM', 'name': 'SomeEnum', .*}\.$",
@@ -932,7 +1009,7 @@ def describe_type_system_build_schema_from_introspection():
         def throws_when_missing_input_fields():
             introspection = introspection_from_schema(dummy_schema)
             some_input_object_introspection = cast(
-                IntrospectionInputObjectType,
+                "IntrospectionInputObjectType",
                 next(
                     type_
                     for type_ in introspection["__schema"]["types"]
@@ -943,7 +1020,7 @@ def describe_type_system_build_schema_from_introspection():
             assert some_input_object_introspection["inputFields"]
             del some_input_object_introspection["inputFields"]  # type: ignore
 
-            with raises(
+            with pytest.raises(
                 TypeError,
                 match="^Introspection result missing inputFields:"
                 r" {'kind': 'INPUT_OBJECT', 'name': 'SomeInputObject', .*}\.$",
@@ -958,7 +1035,7 @@ def describe_type_system_build_schema_from_introspection():
             assert some_directive_introspection["locations"] == ["QUERY"]
             del some_directive_introspection["locations"]  # type: ignore
 
-            with raises(
+            with pytest.raises(
                 TypeError,
                 match="^Introspection result missing directive locations:"
                 r" {'name': 'SomeDirective', .*}\.$",
@@ -973,7 +1050,7 @@ def describe_type_system_build_schema_from_introspection():
             assert some_directive_introspection["args"] == []
             del some_directive_introspection["args"]  # type: ignore
 
-            with raises(
+            with pytest.raises(
                 TypeError,
                 match="^Introspection result missing directive args:"
                 r" {'name': 'SomeDirective', .*}\.$",
@@ -982,15 +1059,17 @@ def describe_type_system_build_schema_from_introspection():
 
     def describe_very_deep_decorators_are_not_supported():
         def fails_on_very_deep_lists_more_than_8_levels():
-            schema = build_schema("""
+            schema = build_schema(
+                """
                 type Query {
                   foo: [[[[[[[[[[String]]]]]]]]]]
                 }
-                """)
+                """
+            )
 
             introspection = introspection_from_schema(schema)
 
-            with raises(TypeError) as exc_info:
+            with pytest.raises(TypeError) as exc_info:
                 build_client_schema(introspection)
 
             assert str(exc_info.value) == (
@@ -998,16 +1077,18 @@ def describe_type_system_build_schema_from_introspection():
                 " Decorated type deeper than introspection query."
             )
 
-        def fails_on_a_very_deep_non_null_more_than_8_levels():
-            schema = build_schema("""
+        def fails_on_a_very_deep_more_than_8_levels_non_null():
+            schema = build_schema(
+                """
                 type Query {
                   foo: [[[[[String!]!]!]!]!]
                 }
-                """)
+                """
+            )
 
             introspection = introspection_from_schema(schema)
 
-            with raises(TypeError) as exc_info:
+            with pytest.raises(TypeError) as exc_info:
                 build_client_schema(introspection)
 
             assert str(exc_info.value) == (
@@ -1015,13 +1096,15 @@ def describe_type_system_build_schema_from_introspection():
                 " Decorated type deeper than introspection query."
             )
 
-        def succeeds_on_deep_types_less_or_equal_8_levels():
+        def succeeds_on_deep_less_or_equal_8_levels_types():
             # e.g., fully non-null 4D matrix
-            sdl = dedent("""
+            sdl = dedent(
+                """
                 type Query {
                   foo: [[[[String!]!]!]!]!
                 }
-                """)
+                """
+            )
 
             assert cycle_introspection(sdl) == sdl
 
@@ -1039,7 +1122,7 @@ def describe_type_system_build_schema_from_introspection():
             schema = build_schema(sdl, assume_valid=True)
             introspection = introspection_from_schema(schema)
             foo_introspection = cast(
-                IntrospectionObjectType,
+                "IntrospectionObjectType",
                 next(
                     type_
                     for type_ in introspection["__schema"]["types"]
@@ -1053,7 +1136,7 @@ def describe_type_system_build_schema_from_introspection():
                 {"kind": "OBJECT", "name": "Foo", "ofType": None}
             ]
 
-            with raises(TypeError) as exc_info:
+            with pytest.raises(TypeError) as exc_info:
                 build_client_schema(introspection)
             assert str(exc_info.value) == (
                 "Foo interfaces cannot be resolved."
@@ -1083,7 +1166,7 @@ def describe_type_system_build_schema_from_introspection():
                 {"kind": "UNION", "name": "Foo", "ofType": None}
             ]
 
-            with raises(TypeError) as exc_info:
+            with pytest.raises(TypeError) as exc_info:
                 build_client_schema(introspection)
             assert str(exc_info.value) == (
                 "Foo types cannot be resolved."

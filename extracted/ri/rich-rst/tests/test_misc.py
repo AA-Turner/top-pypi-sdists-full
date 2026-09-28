@@ -1,17 +1,5 @@
 """Miscellaneous tests."""
-import pytest
-from rich.console import Console
-from rich.console import Console
-from rich.panel import Panel
-from rich.rule import Rule
-from rich.table import Table
-from rich.text import Text
-from rich.text import Text
-import rich_rst
-import rich_rst._vendor.docutils.core
-from rich_rst._vendor import docutils
-from rich_rst import RestructuredText, RSTVisitor
-from rich_rst import RSTVisitor, RestructuredText
+
 
 def test_paragraph_containing_system_message(render_text):
     """Test paragraph that contains a system message."""
@@ -19,7 +7,8 @@ def test_paragraph_containing_system_message(render_text):
 Before error :unknown_role:`content` after error.
 """
     out = render_text(rst, show_errors=True, sphinx_compat=False)
-    assert "System Message" in out
+    assert 'System Message' in out
+
 
 def test_complex_mixed_content(render_text):
     """Test complex document with mixed content types."""
@@ -40,7 +29,7 @@ Definition List
 
 term one
    Definition of term one with ``code``.
-   
+
    * Nested bullet
    * Another bullet
 
@@ -71,9 +60,10 @@ Final Section
 Ending content.
 """
     out = render_text(rst)
-    assert "Main Title" in out
-    assert "Author" in out
-    assert "Hello" in out
+    assert 'Main Title' in out
+    assert 'Author' in out
+    assert 'Hello' in out
+
 
 def test_rst_with_all_inline_markup(render_text):
     """Test RST with all inline markup types combined."""
@@ -90,7 +80,8 @@ Also includes :sub:`subscript`, :sup:`superscript` and references to `some targe
 Line with `emphasis`_, **strong**, and ``code`` in one go.
 """
     out = render_text(rst)
-    assert "Markup" in out
+    assert 'Markup' in out
+
 
 def test_mixed_formatting_and_elements(render_text):
     """Test document with mixed formatting throughout."""
@@ -117,7 +108,8 @@ After code, regular text continues.
 * List item two
 """
     out = render_text(rst)
-    assert "Mixed" in out
+    assert 'Mixed' in out
+
 
 def test_long_document_rendering(render_text):
     """Test rendering of a longer document to ensure it completes."""
@@ -136,9 +128,10 @@ Example::
 
    code_{i}()
 """)
-    rst = "\n\n".join(sections)
+    rst = '\n\n'.join(sections)
     out = render_text(rst)
-    assert "Section" in out
+    assert 'Section' in out
+
 
 def test_entire_document_with_all_element_types(render_text):
     """Test complete document with as many element types as possible."""
@@ -198,7 +191,8 @@ Footer Test
 .. footer:: Footer text
 """
     out = render_text(rst)
-    assert "Complete Document" in out
+    assert 'Complete Document' in out
+
 
 def test_complex_comprehensive_document(render_text):
     """Test very comprehensive document using all major features."""
@@ -232,7 +226,7 @@ Features List
 
   * Sub-feature Alpha
   * Sub-feature Beta
-  
+
 * Feature Three
 
 Numbered Items
@@ -243,7 +237,7 @@ Numbered Items
 
    i. Sub-item 1
    ii. Sub-item 2
-   
+
 3. Third item
 
 Glossary
@@ -251,7 +245,7 @@ Glossary
 
 Python
    A programming language.
-   
+
    * Fast development
    * Easy to learn
 
@@ -280,7 +274,7 @@ Quotation
 ---------
 
    "The best way to predict the future is to invent it."
-   
+
    — Alan Kay
 
 Reference
@@ -293,7 +287,8 @@ See the `Python docs`_ for more.
 .. footer:: Page footer text
 """
     out = render_text(rst)
-    assert "Full Documentation" in out
+    assert 'Full Documentation' in out
+
 
 def test_rendering_with_errors_disabled(render_text):
     """Test rendering with error display disabled."""
@@ -301,7 +296,8 @@ def test_rendering_with_errors_disabled(render_text):
 Some text with :unknown:`unknown role`.
 """
     out = render_text(rst, show_errors=False, sphinx_compat=False)
-    assert "System Message" not in out
+    assert 'System Message' not in out
+
 
 def test_rendering_without_sphinx_compat(render_text):
     """Test rendering without Sphinx compatibility."""
@@ -309,7 +305,8 @@ def test_rendering_without_sphinx_compat(render_text):
 Normal RST content.
 """
     out = render_text(rst, sphinx_compat=False)
-    assert "Normal RST content" in out, "Plain text content must be visible without sphinx_compat"
+    assert 'Normal RST content' in out, 'Plain text content must be visible without sphinx_compat'
+
 
 def test_render_all_rst_roles(render_text):
     """Test rendering with various RST roles."""
@@ -319,9 +316,10 @@ Text with :emphasis:`emphasis`, :strong:`strong`, and :literal:`literal`.
 Also :ref:`reference` and :doc:`document`.
 """
     out = render_text(rst)
-    assert "emphasis" in out, ":emphasis: role content must be visible"
-    assert "strong" in out, ":strong: role content must be visible"
-    assert "literal" in out, ":literal: role content must be visible"
+    assert 'emphasis' in out, ':emphasis: role content must be visible'
+    assert 'strong' in out, ':strong: role content must be visible'
+    assert 'literal' in out, ':literal: role content must be visible'
+
 
 def test_render_with_syntax_error(render_text):
     """Test rendering malformed RST."""
@@ -331,15 +329,17 @@ Unclosed ``literal
 This should still render.
 """
     out = render_text(rst, show_errors=True)
-    assert "still render" in out, "Content after syntax error must still be visible"
+    assert 'still render' in out, 'Content after syntax error must still be visible'
+
 
 def test_very_long_line(render_text):
     """Test rendering with very long line."""
-    long_text = "word " * 100
-    rst = f"This is a very long line:\n\n{long_text}"
+    long_text = 'word ' * 100
+    rst = f'This is a very long line:\n\n{long_text}'
     out = render_text(rst)
-    assert "This is a very long line" in out, "Leading text must be visible"
-    assert "word" in out, "Long-line body words must be visible"
+    assert 'This is a very long line' in out, 'Leading text must be visible'
+    assert 'word' in out, 'Long-line body words must be visible'
+
 
 def test_many_nested_elements(render_text):
     """Test document with many nested elements."""
@@ -355,7 +355,7 @@ Nested lists:
 
    * Alpha
    * Beta
-   
+
      - i
      - ii
 
@@ -365,39 +365,176 @@ Nested lists:
    b. B
 """
     out = render_text(rst)
-    assert "Title" in out, "Section title must be visible"
-    assert "One" in out, "Enumerated list item must be visible"
-    assert "Two" in out, "Second enumerated list item must be visible"
-    assert "Alpha" in out, "Nested bullet item must be visible"
+    assert 'Title' in out, 'Section title must be visible'
+    assert 'One' in out, 'Enumerated list item must be visible'
+    assert 'Two' in out, 'Second enumerated list item must be visible'
+    assert 'Alpha' in out, 'Nested bullet item must be visible'
+
 
 def test_empty_document(render_text):
     """Test rendering completely empty document produces a string without raising."""
-    rst = ""
+    rst = ''
     out = render_text(rst)
-    assert isinstance(out, str), "Rendering an empty document must return a string"
+    assert isinstance(out, str), 'Rendering an empty document must return a string'
+
 
 def test_minimal_valid_document(render_text):
     """Test minimal valid document."""
-    rst = "Simple text."
+    rst = 'Simple text.'
     out = render_text(rst)
-    assert "Simple text" in out
+    assert 'Simple text' in out
+
 
 def test_direct_api_usage(render_text):
     """Test direct API usage through render_text with various options."""
-    rst = "Text"
+    rst = 'Text'
     out = render_text(
         rst,
-        code_theme="vim",
+        code_theme='vim',
         show_line_numbers=False,
         guess_lexer=False,
-        default_lexer="bash",
+        default_lexer='bash',
         sphinx_compat=True,
-        show_errors=True
+        show_errors=True,
     )
-    assert "Text" in out
+    assert 'Text' in out
+
 
 def test_generated_node_handling(render_text):
     """Test generated nodes (typically auto-generated content)."""
-    rst = "Some regular content."
+    rst = 'Some regular content.'
     out = render_text(rst)
-    assert "Some regular content" in out, "Regular paragraph text must be visible"
+    assert 'Some regular content' in out, 'Regular paragraph text must be visible'
+
+
+def test_sphinx_registration_guard():
+    from rich_rst import _sphinx_registration_guard
+
+    called = []
+
+    @_sphinx_registration_guard
+    def dummy(x):
+        called.append(x)
+        return x * 2
+
+    res = dummy(5)
+    assert res == 10
+    assert called == [5]
+
+
+def test_custom_role(render_text):
+    rst = """\
+.. role:: custom
+   :class: my-custom-class
+
+This is a :custom:`custom text` role.
+"""
+    out = render_text(rst)
+    assert 'custom text' in out
+
+
+def test_blockquote_with_bullet_list(render_text):
+    rst = """\
+   This is a blockquote.
+
+   * Item 1
+   * Item 2
+"""
+    out = render_text(rst)
+    assert 'Item 1' in out
+    assert 'Item 2' in out
+
+
+def test_visitor_subclass_registration():
+    from rich_rst import RSTVisitor
+    from rich_rst._vendor import docutils
+
+    class SubVisitor(RSTVisitor):
+        pass
+
+    SubVisitor.register_visitor(docutils.nodes.Node, lambda self, node: None)
+    assert docutils.nodes.Node in SubVisitor._custom_visitors
+
+
+def test_dispatch_cache_concurrency(make_visitor):
+    visitor = make_visitor('')
+    from rich_rst._vendor import docutils
+
+    # Trigger visit cache hit under concurrency simulation by subclassing dict
+    class MockVisitDict(dict):
+        def get(self, key, default=None):
+            # Populate the cache right when get() is called (representing concurrent caching)
+            self[key] = getattr(visitor, 'visit_paragraph')
+            return None
+
+    visitor._visit_dispatch_cache = MockVisitDict()
+    visitor._resolve_visit_handler(docutils.nodes.paragraph)
+
+    # Trigger depart cache hit under concurrency simulation by subclassing dict
+    class MockDepartDict(dict):
+        def get(self, key, default=None):
+            self[key] = getattr(visitor, 'depart_paragraph')
+            return None
+
+    visitor._depart_dispatch_cache = MockDepartDict()
+    visitor._resolve_depart_handler(docutils.nodes.paragraph)
+
+
+def test_translate_with_fallback_none_mapping(make_visitor):
+    visitor = make_visitor('')
+    res = visitor._translate_with_fallback('abc', {ord('a'): None})
+    assert res == 'abc'
+
+
+def test_guess_lexer_name_class_not_found(make_visitor):
+    visitor = make_visitor('')
+    _lexer, ok = visitor._guess_lexer_name('!!!non-code-garbage!!!')
+    assert not ok
+
+
+def test_format_labelled_node_variants(make_visitor):
+    visitor = make_visitor('')
+    from rich_rst._vendor import docutils
+
+    # No body, only label
+    node1 = docutils.nodes.footnote()
+    node1 += docutils.nodes.label('', 'MyLabel')
+    res1 = visitor._format_labelled_node(node1)
+    assert res1 == 'MyLabel:'
+
+    # No label, only body
+    node2 = docutils.nodes.footnote()
+    node2 += docutils.nodes.paragraph('', 'MyBody')
+    res2 = visitor._format_labelled_node(node2)
+    assert res2 == 'MyBody'
+
+
+def test_named_hyperlink_resolution(render_text):
+    rst = """\
+See `My Link`_.
+
+.. _My Link: https://example.com
+"""
+    out = render_text(rst)
+    assert 'My Link' in out
+
+
+def test_paragraph_with_system_message_parent(make_visitor):
+    visitor = make_visitor('')
+    import pytest
+
+    from rich_rst._vendor import docutils
+
+    sys_msg = docutils.nodes.system_message(
+        'Warning message',
+        level=2,
+        type='WARNING',
+        source='test_source',
+        line=1,
+    )
+    p = docutils.nodes.paragraph()
+    sys_msg += p
+    p.parent = sys_msg
+
+    with pytest.raises(docutils.nodes.SkipChildren):
+        visitor.visit_paragraph(p)

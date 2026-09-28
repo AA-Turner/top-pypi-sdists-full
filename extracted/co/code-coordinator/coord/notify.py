@@ -1069,6 +1069,14 @@ class StalledDispatchAction:
       (#602).
     - ``"skipped_human_required"``  — the conflict-fix retry cap was already
       hit; surfacing to a human, not auto-retrying.
+    - ``"skipped_fix_round_ceiling_blocked"`` (#3454) — ``merge_conflict_
+      unresolved`` or ``merge_gate_checks_stale`` on a (repo, issue) whose
+      drive-queue row already gave up on the #2972 fix-round ceiling (see
+      :func:`coord.drive_queue.is_fix_round_ceiling_blocked`) — a block
+      means stop, so this sweep leaves it parked exactly like ``coord.
+      commands.drive_queue``'s stale-rebase auto-revalidation already does,
+      rather than handing it a third independent path to a fresh
+      conflict-fix leg (quadraui#1077).
     - ``"skipped_sealed_conflict"`` (#2537, narrowed by #2555) —
       ``merge_conflict_unresolved`` on a
       :data:`coord.models.SEALED_PATH_AUTHOR_TYPES` row whose conflict was
@@ -1136,6 +1144,35 @@ def _stalled_row_has_live_session(board: "Board", work: "Assignment") -> bool:
         if a.repo_name == work.repo_name and a.issue_number == work.issue_number:
             return True
     return False
+
+
+def _fix_round_ceiling_blocked_for_work(work: "Assignment") -> bool:
+    """#3454 review: true when *work*'s (repo, issue) has a drive-queue row
+    that has already given up on the #2972 fix-round ceiling.
+
+    This module's ``merge_conflict_unresolved`` and ``merge_gate_checks_
+    stale`` arms are a THIRD, independent caller of :func:`coord.
+    conflict_fix.dispatch_conflict_fix` — the review found them unfiltered
+    while ``coord.commands.drive_queue``'s stale-rebase auto-revalidation
+    (the second caller) already skipped a ceiling-blocked candidate,
+    letting quadraui#1077's "giving up" block get a brand-new conflict-fix
+    leg anyway via THIS path 6h07m later. Both callers now ask the exact
+    same question — :func:`coord.drive_queue.is_fix_round_ceiling_blocked`
+    — rather than each re-deriving it (#2096's "one question, one answer").
+
+    A drive-queue row is optional infrastructure (an issue can be worked
+    with no ``coord drive-queue add`` at all), so "no row for this (repo,
+    issue)" reads as "nothing to block on" — ``False`` — same as it always
+    implicitly has for every OTHER stalled-pipeline reason.
+    """
+    from coord.drive_queue import QueueEntry, is_fix_round_ceiling_blocked  # noqa: PLC0415
+    from coord.state import get_drive_queue_entry  # noqa: PLC0415
+
+    row = get_drive_queue_entry(work.repo_name, work.issue_number)
+    if row is None:
+        return False
+    dq_entry = QueueEntry.from_row(row)
+    return is_fix_round_ceiling_blocked(dq_entry.state, dq_entry.last_reason)
 
 
 def _conflict_confined_to_sealed_paths(
@@ -1230,7 +1267,11 @@ def dispatch_stalled_pipeline_action(
       the same bulk gate-checked enqueue the daemon passive tick already
       runs on every interval.
     - ``merge_conflict_unresolved`` → :func:`coord.conflict_fix.dispatch_conflict_fix`,
-      the #1474 ``_dispatch_conflict_fixes`` path — UNLESS (#2537) *work* is a
+      the #1474 ``_dispatch_conflict_fixes`` path — UNLESS (#3454) the
+      (repo, issue)'s drive-queue row already gave up on the #2972
+      fix-round ceiling (:func:`_fix_round_ceiling_blocked_for_work`),
+      which returns ``"skipped_fix_round_ceiling_blocked"`` instead, or
+      (#2537) *work* is a
       :data:`coord.models.SEALED_PATH_AUTHOR_TYPES` row AND the conflict can
       be confirmed (via :func:`_conflict_confined_to_sealed_paths`, a
       compare-API-only check) to be confined to the repo's sealed
@@ -1257,7 +1298,9 @@ def dispatch_stalled_pipeline_action(
       ``merge_conflict_unresolved`` dispatches, briefed for a PURE,
       content-preserving rebase (no conflict expected) rather than the
       ordinary conflict-resolution briefing. Guarded by the same
-      :func:`coord.conflict_fix.has_prior_conflict_fix` retry cap.
+      :func:`coord.conflict_fix.has_prior_conflict_fix` retry cap, and
+      (#3454) the same fix-round-ceiling park as ``merge_conflict_
+      unresolved`` above.
 
     Never re-entrant across ticks: the caller only reaches this after
     :func:`detect_stalled_pipeline` has already filtered out any row whose
@@ -1598,6 +1641,18 @@ def dispatch_stalled_pipeline_action(
             return StalledDispatchAction(
                 kind="no_action", detail="merge queue entry no longer found",
             )
+        # #3454: a #2972 fix-round-ceiling give-up parks the row — no further
+        # auto-dispatched conflict-fix for it from ANY caller, this sweep
+        # included. See `_fix_round_ceiling_blocked_for_work`'s docstring.
+        if _fix_round_ceiling_blocked_for_work(work):
+            return StalledDispatchAction(
+                kind="skipped_fix_round_ceiling_blocked",
+                detail=(
+                    "drive-queue row already gave up on the #2972 fix-round "
+                    "ceiling (#3454) — parked; needs `coord drive-queue "
+                    "remove` + `add`, not another auto-dispatched conflict-fix"
+                ),
+            )
         if has_prior_conflict_fix(
             board, entry.assignment_id, current_error=entry.error,
         ):
@@ -1696,6 +1751,18 @@ def dispatch_stalled_pipeline_action(
         if entry is None:
             return StalledDispatchAction(
                 kind="no_action", detail="merge queue entry no longer found",
+            )
+        # #3454: same park as the `merge_conflict_unresolved` arm above — a
+        # #2972 fix-round-ceiling give-up means stop, including the stale-
+        # rebase conflict-fix this arm dispatches.
+        if _fix_round_ceiling_blocked_for_work(work):
+            return StalledDispatchAction(
+                kind="skipped_fix_round_ceiling_blocked",
+                detail=(
+                    "drive-queue row already gave up on the #2972 fix-round "
+                    "ceiling (#3454) — parked; needs `coord drive-queue "
+                    "remove` + `add`, not another auto-dispatched conflict-fix"
+                ),
             )
         if has_prior_conflict_fix(
             board, entry.assignment_id, current_error=entry.error,
@@ -2291,11 +2358,113 @@ def _run_pass_confirmation(transition: Transition, entry: dict):
             record_inconclusive_confirmation(transition.repo_name, result.kind)
 
 
-def _confirmed_pass_verdict(
+def _native_unverified_capabilities(transition: Transition, entry: dict) -> list[str]:
+    """#3455: which of this smoke leg's required capabilities the machine
+    that ran it declares only the bare/build side of, not the paired
+    native-execution proof — recomputed HERE, independently of whatever the
+    worker's own ``SMOKE:`` marker text says, so a claimed pass can be
+    downgraded even when the worker never prints the caveat
+    `coord.smoke.build_smoke_briefing` asks for (a purely advisory,
+    worker-cooperation-dependent fix would leave that gap wide open — see
+    the #3455 review).
+
+    Best-effort and fail-open, matching every other diagnostic in this
+    module (`_run_pass_confirmation` et al.): a config load failure, an
+    unknown repo/machine, or a PR/diff lookup failure returns ``[]`` — this
+    must never turn "couldn't tell" into a false downgrade, and must never
+    abandon the caller's verdict-recording transition over a network blip.
+    """
+    from coord.config import load as _load_config  # noqa: PLC0415
+    from coord.smoke import (  # noqa: PLC0415
+        _fetch_touched_files,
+        native_unverified_for_verdict,
+    )
+
+    try:
+        config = _load_config()
+    except Exception as exc:  # noqa: BLE001
+        log.debug(
+            "smoke %s: could not load config for the #3455 native-"
+            "verification check (%s) — skipping it.",
+            transition.assignment_id, exc,
+        )
+        return []
+
+    repo = config.repo(transition.repo_name)
+    machine = next(
+        (m for m in config.machines if m.name == transition.machine_name), None
+    )
+    if repo is None or machine is None:
+        return []
+
+    branch = entry.get("branch")
+    if not branch:
+        return []
+
+    try:
+        touched_files = _fetch_touched_files(repo.github, branch)
+    except Exception as exc:  # noqa: BLE001
+        log.debug(
+            "smoke %s: could not fetch touched files for the #3455 native-"
+            "verification check (%s) — skipping it.",
+            transition.assignment_id, exc,
+        )
+        return []
+
+    return native_unverified_for_verdict(
+        repo=repo, machine=machine, smoke_cfg=config.smoke_tests,
+        touched_files=touched_files,
+    )
+
+
+def _downgrade_for_native_unverified(
+    state: str,
+    reason: str,
+    confirmation: str,
+    native_unverified: list[str] | None,
+) -> tuple[str, str, str]:
+    """#3455: a claimed pass on a leg whose machine declares only the bare
+    (build/cross-compile) side of a required capability — never the paired
+    native-execution proof (`coord.smoke.native_unverified_for_verdict`) —
+    must not read as a plain confirmed/unconfirmed pass. This is what
+    actually closes the loop the #3455 review found open: it fires
+    regardless of what the worker's own ``SMOKE:`` marker text says, so a
+    worker that never prints the caveat `coord.smoke.build_smoke_briefing`
+    asks for still gets a genuinely distinct, machine-readable
+    ``test_confirmation`` on the row.
+
+    Only applies to a ``state == "passed"`` result — a real ``failed``,
+    the #2579 ``TEST_STATE_CONTESTED``, or a ``baseline_red`` skip already
+    carry more urgent, more specific information and must never be
+    overwritten by this.
+    """
+    if state != "passed" or not native_unverified:
+        return state, reason, confirmation
+    from coord.confirm_test import (  # noqa: PLC0415
+        TEST_CONFIRMATION_NATIVE_UNVERIFIED,
+    )
+
+    caps = ", ".join(native_unverified)
+    return (
+        state,
+        f"{reason} — NOT NATIVELY VERIFIED for {caps} (#3455): this leg ran "
+        "on a machine that declares the bare capability but not native "
+        "execution for it, so a platform-conditional failure specific to "
+        f"real {caps} hardware would not have shown up here.",
+        TEST_CONFIRMATION_NATIVE_UNVERIFIED,
+    )
+
+
+def _confirmed_pass_verdict_core(
     transition: Transition, entry: dict, parent_id: str, *, claim_reason: str,
 ) -> tuple[str, str, str]:
     """#2464: the ``(test_state, test_reason, test_confirmation)`` to record
     for a *claimed* pass.
+
+    Callers should use the public :func:`_confirmed_pass_verdict` wrapper,
+    not this directly — it additionally applies the #3455 native-
+    verification downgrade (:func:`_downgrade_for_native_unverified`) this
+    core function knows nothing about.
 
     The Test stage's pass claim — whether it arrived as a ``SMOKE: pass``
     marker or as the worker calling ``coord test --passed`` on itself (#2217) —
@@ -2474,6 +2643,38 @@ def _confirmed_pass_verdict(
         "passed",
         f"{claim_reason} — UNCONFIRMED: {result.reason}",
         TEST_CONFIRMATION_UNCONFIRMED,
+    )
+
+
+def _confirmed_pass_verdict(
+    transition: Transition,
+    entry: dict,
+    parent_id: str,
+    *,
+    claim_reason: str,
+    native_unverified: list[str] | None = None,
+) -> tuple[str, str, str]:
+    """#2464/#3455: the ``(test_state, test_reason, test_confirmation)`` to
+    record for a *claimed* pass — :func:`_confirmed_pass_verdict_core`'s
+    out-of-band confirmation, with the #3455 native-verification downgrade
+    (:func:`_downgrade_for_native_unverified`) applied on top.
+
+    *native_unverified* — non-empty means this leg's machine declares only
+    the bare/build side of one or more of its required capabilities, not
+    the paired native-execution proof (`coord.smoke.native_unverified_for_
+    verdict`). This downgrade is unconditional on the worker's own
+    ``SMOKE:`` marker text: it fires purely from the machine/capability
+    facts, so a claimed pass this leg cannot actually back with native
+    hardware never records as a plain ``confirmed``/``unconfirmed`` pass —
+    see the #3455 review that made this the mandatory second half of the
+    fix (the briefing-text caveat alone changes nothing this repo's own
+    gates/merge-queue code ever reads back).
+    """
+    state, reason, confirmation = _confirmed_pass_verdict_core(
+        transition, entry, parent_id, claim_reason=claim_reason,
+    )
+    return _downgrade_for_native_unverified(
+        state, reason, confirmation, native_unverified,
     )
 
 
@@ -2658,6 +2859,7 @@ def _record_smoke_verdict(
             state, reason, confirmation = _confirmed_pass_verdict(
                 transition, entry, parent_id,
                 claim_reason="worker self-recorded via `coord test` (#2217)",
+                native_unverified=_native_unverified_capabilities(transition, entry),
             )
             record_test_verdict(
                 assignment_id=parent_id,
@@ -2747,6 +2949,7 @@ def _record_smoke_verdict(
         state, reason, confirmation = _confirmed_pass_verdict(
             transition, entry, parent_id,
             claim_reason="headless smoke reported SMOKE: pass",
+            native_unverified=_native_unverified_capabilities(transition, entry),
         )
         record_test_verdict(
             assignment_id=parent_id,
@@ -2775,7 +2978,9 @@ def _record_smoke_verdict(
     # away, with no leg spent and no tally incremented.
     mechanical = _mechanical_mute_verdict(transition, entry, parent_id)
     if mechanical is not None:
-        state, reason, confirmation = mechanical
+        state, reason, confirmation = _downgrade_for_native_unverified(
+            *mechanical, _native_unverified_capabilities(transition, entry),
+        )
         record_test_verdict(
             assignment_id=parent_id,
             test_state=state,
@@ -3755,9 +3960,17 @@ def post_transition(transition: Transition, record: dict, entry: dict) -> None:
         # same way, without routing it through the SEMANTIC tier-2
         # escalation path — see `coord.reconcile.on_conflict_fix_done`'s
         # `stale_rebase_mismatch` docstring for why that's a separate arm.
+        # #3462: a patch-id mismatch alone doesn't distinguish a real
+        # overlap from a branch whose content already landed on the target
+        # through another change — check `ALREADY_UPSTREAM_MARKER` first
+        # (mutually exclusive with the plain mismatch marker, so only
+        # checked when semantic is False too) and route it to its own
+        # `already_upstream` arm, which never escalates to the ordinary
+        # conflict-fix path and never says "genuine content conflict".
         parent_id = record.get("review_of_assignment_id")
         if parent_id:
             from coord.conflict_fix import (  # noqa: PLC0415
+                detect_already_upstream,
                 detect_semantic_conflict,
                 detect_stale_rebase_mismatch,
             )
@@ -3774,16 +3987,30 @@ def post_transition(transition: Transition, record: dict, entry: dict) -> None:
             except Exception:  # noqa: BLE001 — best-effort, never break notify
                 semantic = False
 
+            # #3462: check the already-upstream marker BEFORE the plain
+            # mismatch marker — they're mutually exclusive per dispatch, but
+            # an already-upstream verdict must win the framing (superseded,
+            # not "genuine conflict") whenever both would otherwise apply.
+            already_upstream = False
             stale_rebase_mismatch = False
             if not semantic:
                 try:
-                    stale_rebase_mismatch = detect_stale_rebase_mismatch(
+                    already_upstream = detect_already_upstream(
                         log_path=log_path,
                         host=host,
                         assignment_id=transition.assignment_id,
                     )
                 except Exception:  # noqa: BLE001
-                    stale_rebase_mismatch = False
+                    already_upstream = False
+                if not already_upstream:
+                    try:
+                        stale_rebase_mismatch = detect_stale_rebase_mismatch(
+                            log_path=log_path,
+                            host=host,
+                            assignment_id=transition.assignment_id,
+                        )
+                    except Exception:  # noqa: BLE001
+                        stale_rebase_mismatch = False
 
             stuck_summary: str | None = None
             board = None
@@ -3808,6 +4035,19 @@ def post_transition(transition: Transition, record: dict, entry: dict) -> None:
                     config = _load_config()
                 except Exception:  # noqa: BLE001
                     board, config = None, None
+            elif already_upstream:
+                # #3462: no escalation dispatch happens for this verdict
+                # (it's not a conflict), so board/config aren't strictly
+                # needed — but grab the stuck summary the same way so
+                # `on_conflict_fix_done`'s HUMAN_REQUIRED text is specific.
+                progress = entry.get("progress") or {}
+                stuck_summary = progress.get("stuck")
+                if not stuck_summary and log_path:
+                    try:
+                        from coord.progress import parse_progress  # noqa: PLC0415
+                        stuck_summary = parse_progress(log_path).stuck
+                    except Exception:  # noqa: BLE001
+                        stuck_summary = None
             elif stale_rebase_mismatch:
                 # #3444: board/config ARE needed here now — a stale-rebase
                 # mismatch escalates to the ORDINARY conflict-fix path
@@ -3837,8 +4077,11 @@ def post_transition(transition: Transition, record: dict, entry: dict) -> None:
                 parent_assignment_id=parent_id,
                 fix_assignment_id=transition.assignment_id,
                 machine_name=transition.machine_name,
-                succeeded=not semantic and not stale_rebase_mismatch,
+                succeeded=not semantic
+                and not already_upstream
+                and not stale_rebase_mismatch,
                 semantic=semantic,
+                already_upstream=already_upstream,
                 stale_rebase_mismatch=stale_rebase_mismatch,
                 board=board,
                 config=config,

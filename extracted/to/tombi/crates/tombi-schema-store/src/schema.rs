@@ -17,6 +17,7 @@ mod one_of_schema;
 mod referable_schema;
 mod schema_context;
 mod schema_cycle_guard;
+mod schema_document_resources;
 mod schema_view;
 mod semantic_schema;
 mod source_schema;
@@ -44,10 +45,13 @@ pub use offset_date_time_schema::OffsetDateTimeSchema;
 pub use one_of_schema::OneOfSchema;
 pub use referable_schema::{
     CurrentSchema, Referable, ReferenceKind, is_online_url, resolve_and_collect_schemas,
-    resolve_and_collect_schemas_with_errors, resolve_json_pointer, resolve_schema_item,
+    resolve_and_collect_schemas_in_scope, resolve_and_collect_schemas_with_errors,
+    resolve_and_collect_schemas_with_errors_in_scope, resolve_json_pointer, resolve_schema_item,
+    resolve_schema_item_in_scope,
 };
 pub use schema_context::{ResolvedFormatOrder, SchemaContext};
 pub use schema_cycle_guard::{SchemaCycleGuard, SchemaVisits};
+pub(crate) use schema_document_resources::{SchemaDocumentResources, resolve_schema_resource_uri};
 pub use schema_view::*;
 pub use semantic_schema::*;
 pub use source_schema::{
@@ -256,15 +260,41 @@ pub(crate) fn referable_from_schema_value(
     dynamic_anchor_collector: Option<&mut DynamicAnchorCollector>,
 ) -> Option<Referable<SchemaView>> {
     match value {
-        tombi_json::ValueNode::Object(object) => Referable::<SchemaView>::new(
-            object,
-            string_formats,
-            dialect,
-            anchor_collector,
-            dynamic_anchor_collector,
-        ),
+        tombi_json::ValueNode::Object(object) => {
+            // A non-fragment `$id` starts a new schema resource. Match `$defs` handling:
+            // expose it as a `$ref` to that identity so resolve() loads the embedded
+            // DocumentSchema (correct base / anchors / definitions) instead of an
+            // inline Resolved with `schema_base_uri: None` that would inherit the parent.
+            if let Some(id) = object.get("$id").and_then(tombi_json::ValueNode::as_str)
+                && id
+                    .split_once('#')
+                    .is_none_or(|(_, fragment)| fragment.is_empty())
+            {
+                let reference = id
+                    .split_once('#')
+                    .map(|(base, _)| base.to_string())
+                    .unwrap_or_else(|| id.to_string());
+                return Some(Referable::Ref {
+                    reference,
+                    kind: ReferenceKind::Ref,
+                    semantic_schema: None,
+                    title: None,
+                    description: None,
+                    default: None,
+                    examples: None,
+                    deprecation: None,
+                });
+            }
+            Referable::<SchemaView>::new(
+                object,
+                string_formats,
+                dialect,
+                anchor_collector,
+                dynamic_anchor_collector,
+            )
+        }
         tombi_json::ValueNode::Bool(bool) => Some(Referable::Resolved {
-            schema_uri: None,
+            schema_base_uri: None,
             value: Arc::new(bool_schema_view(bool.value, bool.range)),
             semantic_schema: SemanticSchema::from_value_node(value, dialect).map(Arc::new),
         }),
@@ -397,7 +427,7 @@ pub(crate) fn update_named_anchors(
     object: &tombi_json::ObjectNode,
     referable: &Referable<SchemaView>,
     dialect: Option<crate::JsonSchemaDialect>,
-    anchor_collector: Option<&mut AnchorCollector>,
+    mut anchor_collector: Option<&mut AnchorCollector>,
     mut dynamic_anchor_collector: Option<&mut DynamicAnchorCollector>,
 ) {
     if crate::supports_keyword(dialect, "$anchor")
@@ -405,10 +435,21 @@ pub(crate) fn update_named_anchors(
             .get("$anchor")
             .and_then(|value| value.as_str())
             .filter(|anchor| is_plain_name_fragment(anchor))
-        && let Some(anchor_collector) = anchor_collector
+        && let Some(anchor_collector) = anchor_collector.as_deref_mut()
     {
         anchor_collector
             .entry(format!("#{anchor}"))
+            .or_insert_with(|| referable.clone());
+    }
+    // Draft-07 location-independent identifiers: `$id` with a plain-name fragment.
+    if dialect == Some(crate::JsonSchemaDialect::Draft07)
+        && let Some(id) = object.get("$id").and_then(|value| value.as_str())
+        && let Some(fragment) = id.strip_prefix('#')
+        && is_plain_name_fragment(fragment)
+        && let Some(anchor_collector) = anchor_collector
+    {
+        anchor_collector
+            .entry(format!("#{fragment}"))
             .or_insert_with(|| referable.clone());
     }
     if crate::supports_keyword(dialect, "$dynamicAnchor")
@@ -467,7 +508,7 @@ pub trait FindSchemaCandidates {
     fn find_schema_candidates<'a: 'b, 'b>(
         &'a self,
         accessors: &'a [Accessor],
-        schema_uri: &'a SchemaUri,
+        schema_base_uri: &'a SchemaUri,
         definitions: &'a SchemaDefinitions,
         strict: Option<tombi_schema_type::BoolDefaultTrue>,
         schema_store: &'a SchemaStore,

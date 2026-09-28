@@ -1,4 +1,5 @@
 from typing import Optional
+from uuid import UUID
 
 from office365.sharepoint.entity import Entity
 
@@ -69,3 +70,8 @@ class WorkflowDefinition(Entity):
     @property
     def entity_type_name(self):
         return "SP.WorkflowServices.WorkflowDefinition"
+
+    @property
+    def id(self) -> Optional[UUID]:
+        """Gets the Id property"""
+        return self.properties.get("Id", None)

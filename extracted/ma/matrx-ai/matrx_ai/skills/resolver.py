@@ -83,6 +83,7 @@ async def resolve_skills_for_agent(
                 has_resources=False,
                 has_allowed_tools=bool(body.allowed_tools),
                 tier=SkillTier.LISTED,
+                not_runnable=body.not_runnable,
             )
         )
 

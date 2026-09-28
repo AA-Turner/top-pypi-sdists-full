@@ -4,7 +4,7 @@ requires = ["setuptools>=77.0"]
 
 [project]
 name = "pyrainbird"
-version = "6.5.0"
+version = "6.6.0"
 license = "MIT"
 license-files = ["LICENSE"]
 description = "Rain Bird Controller"
@@ -32,7 +32,7 @@ Source = "https://github.com/allenporter/pyrainbird"
 include = ["pyrainbird*"]
 
 [tool.setuptools.package-data]
-"pyrainbird.resources" = ["*.yaml"]
+"pyrainbird.resources" = ["*.yaml", "**/*.yaml"]
 
 [tool.mypy]
 exclude = [

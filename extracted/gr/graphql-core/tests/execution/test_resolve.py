@@ -6,6 +6,7 @@ from graphql.execution import ExecutionResult, execute_sync
 from graphql.language import SourceLocation, parse
 from graphql.type import (
     GraphQLArgument,
+    GraphQLDefaultInput,
     GraphQLField,
     GraphQLID,
     GraphQLInputField,
@@ -56,7 +57,7 @@ def describe_execute_resolve_function():
 
     def default_function_calls_methods():
         class RootValue:
-            _secret = "secretValue"
+            _secret = "secretValue"  # noqa: S105
 
             def test(self, _info):
                 return self._secret
@@ -110,7 +111,7 @@ def describe_execute_resolve_function():
                     "aStr": GraphQLArgument(GraphQLString),
                     "aInt": GraphQLArgument(GraphQLInt),
                 },
-                resolve=lambda source, info, **args: repr([source, args]),
+                resolve=lambda source, _info, **args: repr([source, args]),
             )
         )
 
@@ -148,7 +149,7 @@ def describe_execute_resolve_function():
                     "aStr": GraphQLArgument(GraphQLString, out_name="a_str"),
                     "aInt": GraphQLArgument(GraphQLInt, out_name="a_int"),
                 },
-                resolve=lambda source, info, **args: repr([source, args]),
+                resolve=lambda source, _info, **args: repr([source, args]),
             )
         )
 
@@ -189,7 +190,7 @@ def describe_execute_resolve_function():
             GraphQLField(
                 GraphQLString,
                 args={"aInput": GraphQLArgument(TestInputObject, out_name="a_input")},
-                resolve=lambda source, info, **args: repr([source, args]),
+                resolve=lambda source, _info, **args: repr([source, args]),
             )
         )
 
@@ -236,7 +237,9 @@ def describe_execute_resolve_function():
                     GraphQLList(result_type),
                     {
                         "searchFilters": GraphQLArgument(
-                            filters_type, {"pageSize": 10}, out_name="search_filters"
+                            filters_type,
+                            default=GraphQLDefaultInput(value={"pageSize": 10}),
+                            out_name="search_filters",
                         )
                     },
                     resolve=search_resolver,
@@ -260,11 +263,13 @@ def describe_execute_resolve_function():
         resolver_kwargs = None
         result = execute_sync(
             schema,
-            parse("""
+            parse(
+                """
                     query ($searchFilters: SearchFilters) {
                       search(searchFilters: $searchFilters) { id }
                 }
-                """),
+                """
+            ),
         )
         assert result == ({"search": [{"id": "42"}]}, None)
         assert resolver_kwargs == {"search_filters": {"page_size": 10}}
@@ -272,11 +277,13 @@ def describe_execute_resolve_function():
         resolver_kwargs = None
         result = execute_sync(
             schema,
-            parse("""
+            parse(
+                """
                     query ($searchFilters: SearchFilters) {
                       search(searchFilters: $searchFilters) { id }
                 }
-                """),
+                """
+            ),
             variable_values={"searchFilters": {"pageSize": 25}},
         )
         assert result == ({"search": [{"id": "42"}]}, None)
@@ -285,11 +292,13 @@ def describe_execute_resolve_function():
         resolver_kwargs = None
         result = execute_sync(
             schema,
-            parse("""
+            parse(
+                """
                     query ($searchFilters: SearchFilters = {pageSize: 25}) {
                       search(searchFilters: $searchFilters) { id }
                 }
-                """),
+                """
+            ),
         )
         assert result == ({"search": [{"id": "42"}]}, None)
         assert resolver_kwargs == {"search_filters": {"page_size": 25}}

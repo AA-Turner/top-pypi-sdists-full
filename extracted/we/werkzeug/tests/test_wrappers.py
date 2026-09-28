@@ -527,7 +527,9 @@ def test_etag_response():
 
     assert "date" not in response.headers
     env = create_environ()
-    env.update({"REQUEST_METHOD": "GET", "HTTP_IF_NONE_MATCH": response.get_etag()[0]})
+    env.update(
+        {"REQUEST_METHOD": "GET", "HTTP_IF_NONE_MATCH": response.headers["ETag"]}
+    )
     response.make_conditional(env)
     assert "date" in response.headers
 
@@ -568,9 +570,7 @@ def test_etag_response_412():
 
     assert "date" not in response.headers
     env = create_environ()
-    env.update(
-        {"REQUEST_METHOD": "GET", "HTTP_IF_MATCH": f"{response.get_etag()[0]}xyz"}
-    )
+    env.update({"REQUEST_METHOD": "GET", "HTTP_IF_MATCH": '"xyz"'})
     response.make_conditional(env)
     assert "date" in response.headers
 

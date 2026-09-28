@@ -28,7 +28,7 @@ pub(super) fn logical(hex: char, agent: &str) -> LogicalAgentLocatorWire {
             project_id: "project-1".to_string(),
         },
         agent_id: agent.to_string(),
-        family_id: Some("family-1".to_string()),
+        agent_session_id: Some("family-1".to_string()),
     }
 }
 
@@ -40,7 +40,7 @@ pub(super) fn exact(
     AgentInstanceLocatorWire {
         schema_version: FLEET_CONTRACT_SCHEMA_VERSION,
         logical: logical(hex, agent),
-        shell_id: "shell-1".to_string(),
+        turn_id: "shell-1".to_string(),
         run_id: run.to_string(),
         attempt_id: "attempt-1".to_string(),
     }
@@ -113,7 +113,7 @@ pub(super) fn record_running() -> AgentArtifactRecordWire {
             name: Some("athena.worker".to_string()),
             model: Some("gpt-5".to_string()),
             llm_provider: Some("codex".to_string()),
-            agent_family: Some("family-1".to_string()),
+            agent_session: Some("family-1".to_string()),
             ..AgentMetaWire::default()
         }),
         done: None,
@@ -234,7 +234,7 @@ pub(super) fn projection_request(
             started_at_unix: None,
             run_started_at_unix: None,
             stopped_at_unix: None,
-            family_id: None,
+            agent_session_id: None,
             parent_timestamp: None,
             workspace_num: None,
             project_label: None,
@@ -243,7 +243,7 @@ pub(super) fn projection_request(
             clan_tribe: None,
             tribe: None,
             presentation: Default::default(),
-            row_kind: FleetRowKindWire::AgentShell,
+            row_kind: FleetRowKindWire::AgentTurn,
             current_instance: true,
             dismissable: false,
             needs_attention: false,
@@ -257,7 +257,7 @@ pub(super) fn projection_request(
 
 pub(super) fn singleton(hex: char, agent: &str) -> LogicalAgentLocatorWire {
     LogicalAgentLocatorWire {
-        family_id: None,
+        agent_session_id: None,
         ..logical(hex, agent)
     }
 }

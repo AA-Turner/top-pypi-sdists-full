@@ -93,6 +93,7 @@ intersphinx_mapping = {
 nitpick_ignore = [
     # graphql-core: should be fixed
     ('py:class', 'graphql.execution.execute.ExecutionResult'),
+    ('py:class', 'graphql.execution.incremental_publisher.ExecutionResult'),
     ('py:class', 'Source'),
     ('py:class', 'GraphQLSchema'),
 
@@ -114,10 +115,13 @@ nitpick_ignore = [
     ('py:class', 'websockets.datastructures.SupportsKeysAndGetItem'),
     ('py:class', 'websockets.typing.Subprotocol'),
 
-    # httpx: no sphinx docs yet https://github.com/encode/httpx/discussions/3091
+    # httpx/httpx2: no sphinx docs yet https://github.com/encode/httpx/discussions/3091
     ('py:class', 'httpx.AsyncClient'),
     ('py:class', 'httpx.Client'),
     ('py:class', 'httpx.Headers'),
+    ('py:class', 'httpx2.AsyncClient'),
+    ('py:class', 'httpx2.Client'),
+    ('py:class', 'httpx2.Headers'),
 
     # botocore: no sphinx docs
     ('py:class', 'botocore.auth.BaseSigner'),

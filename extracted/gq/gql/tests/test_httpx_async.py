@@ -436,7 +436,11 @@ async def test_httpx_cannot_execute_if_not_connected(aiohttp_server):
 @pytest.mark.aiohttp
 @pytest.mark.asyncio
 async def test_httpx_extra_args(aiohttp_server):
-    import httpx
+    try:
+        import httpx2 as httpx
+    except ModuleNotFoundError:  # pragma: no cover
+        import httpx  # type: ignore[no-redef]
+
     from aiohttp import web
 
     from gql.transport.httpx import HTTPXAsyncTransport
@@ -1179,19 +1183,24 @@ async def test_httpx_query_https_self_cert_fail(ssl_aiohttp_server, verify_https
 
     query = gql(query1_str)
 
-    expected_error = "certificate verify failed: self-signed certificate"
+    expected_errors = [
+        # Linux / OpenSSL error message
+        "certificate verify failed: self-signed certificate",
+        # Windows error message
+        "not trusted by the trust provider",
+    ]
 
     with pytest.raises(TransportConnectionFailed) as exc_info:
         async with Client(transport=transport) as session:
             await session.execute(query)
 
-    assert expected_error in str(exc_info.value)
+    assert any(err in str(exc_info.value) for err in expected_errors)
 
     with pytest.raises(TransportConnectionFailed) as exc_info:
         async with Client(transport=transport) as session:
             await session.execute_batch([query])
 
-    assert expected_error in str(exc_info.value)
+    assert any(err in str(exc_info.value) for err in expected_errors)
 
 
 @pytest.mark.aiohttp
@@ -1447,3 +1456,62 @@ async def test_httpx_json_deserializer(aiohttp_server):
         pi = result["pi"]
 
         assert pi == Decimal("3.141592653589793238462643383279502884197")
+
+
+@pytest.mark.aiohttp
+@pytest.mark.asyncio
+async def test_httpx_subscribe_not_supported_cli(aiohttp_server):
+    """Test that the CLI falls back to execute when subscribe is not supported."""
+    from aiohttp import web
+
+    from gql.transport.httpx import HTTPXAsyncTransport
+
+    async def handler(request):
+        return web.Response(text=query1_server_answer, content_type="application/json")
+
+    app = web.Application()
+    app.router.add_route("POST", "/", handler)
+    server = await aiohttp_server(app)
+
+    url = str(server.make_url("/"))
+
+    transport = HTTPXAsyncTransport(url=url)
+
+    async with Client(transport=transport) as _:
+
+        # Define arguments for the CLI
+        # We use the query "query getContinents..."
+        import io
+        import sys
+        from io import StringIO
+
+        from gql import cli
+
+        test_args = ["gql-cli", url, "--transport", "httpx"]
+
+        # Mock sys.stdin to provide the query
+        sys.stdin = io.StringIO(query1_str)
+
+        # Capture stdout
+        captured_output = StringIO()
+        original_stdout = sys.stdout
+        sys.stdout = captured_output
+
+        try:
+            # We need to mock sys.argv as well because cli.get_parser() uses
+            # usage from sys.argv[0] sometimes,
+            # but mainly passing args to parse_args is cleaner.
+            parser = cli.get_parser()
+            parsed_args = parser.parse_args(test_args[1:])  # skip prog name
+
+            exit_code = await cli.main(parsed_args)
+            assert exit_code == 0
+
+        except SystemExit:
+            pass
+        finally:
+            sys.stdout = original_stdout
+            sys.stdin = sys.__stdin__  # Restore stdin
+
+        output = captured_output.getvalue()
+        assert "Africa" in output

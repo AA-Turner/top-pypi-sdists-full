@@ -11,6 +11,8 @@ async def test_agent_call_reference_never_stores_incomplete_child(
     monkeypatch: pytest.MonkeyPatch,
     status: str,
 ) -> None:
+    import contextlib
+
     from matrx_connect.context.app_context import AppContext, clear_app_context, set_app_context
 
     import matrx_ai._ext as ext
@@ -21,6 +23,11 @@ async def test_agent_call_reference_never_stores_incomplete_child(
     from matrx_ai.tools.implementations.agent_call import agent_call
     from matrx_ai.tools.models import ToolContext
 
+    @contextlib.asynccontextmanager
+    async def acting_as_caller():
+        yield
+
+    monkeypatch.setitem(ext._registry, "acting_as_caller", acting_as_caller)
     user_id = "11111111-1111-4111-8111-111111111111"
     agent_id = "22222222-2222-4222-8222-222222222222"
     monkeypatch.setattr(

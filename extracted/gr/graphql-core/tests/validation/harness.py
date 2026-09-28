@@ -1,19 +1,24 @@
-from typing import Any, Dict, List, Optional, Type, Union
+from __future__ import annotations
 
-from graphql.error import GraphQLError
+from typing import TYPE_CHECKING, Any
+
 from graphql.language import parse
-from graphql.type import GraphQLSchema
 from graphql.utilities import build_schema
-from graphql.validation import ASTValidationRule
 from graphql.validation.validate import validate, validate_sdl
 
+if TYPE_CHECKING:
+    from graphql.error import GraphQLError
+    from graphql.type import GraphQLSchema
+    from graphql.validation import ASTValidationRule
+
 __all__ = [
-    "test_schema",
-    "assert_validation_errors",
     "assert_sdl_validation_errors",
+    "assert_validation_errors",
+    "test_schema",
 ]
 
-test_schema = build_schema("""
+test_schema = build_schema(
+    """
     interface Mammal {
       mother: Mammal
       father: Mammal
@@ -35,6 +40,8 @@ test_schema = build_schema("""
       DOWN
     }
 
+    scalar GeoPoint
+
     type Dog implements Pet & Mammal & Canine {
       name(surname: Boolean): String
       nickname: String
@@ -43,6 +50,7 @@ test_schema = build_schema("""
       doesKnowCommand(dogCommand: DogCommand): Boolean
       isHouseTrained(atOtherHomes: Boolean = true): Boolean
       isAtLocation(x: Int, y: Int): Boolean
+      distanceFrom(loc: GeoPoint): Float
       mother: Dog
       father: Dog
     }
@@ -60,7 +68,7 @@ test_schema = build_schema("""
     type Human {
       name(surname: Boolean): String
       pets: [Pet]
-      relatives: [Human]
+      relatives: [Human]!
     }
 
     enum FurColor {
@@ -121,27 +129,29 @@ test_schema = build_schema("""
     }
 
     directive @onField on FIELD
-    """)
+    """
+)
 
 
 def assert_validation_errors(
-    rule: Type[ASTValidationRule],
+    rule: type[ASTValidationRule],
     query_str: str,
-    errors: List[Union[GraphQLError, Dict[str, Any]]],
+    errors: list[GraphQLError | dict[str, Any]],
     schema: GraphQLSchema = test_schema,
-) -> List[GraphQLError]:
-    doc = parse(query_str)
-    returned_errors = validate(schema, doc, [rule])
+    hide_suggestions: bool = False,
+) -> list[GraphQLError]:
+    doc = parse(query_str, experimental_fragment_arguments=True)
+    returned_errors = validate(schema, doc, [rule], hide_suggestions=hide_suggestions)
     assert returned_errors == errors
     return returned_errors
 
 
 def assert_sdl_validation_errors(
-    rule: Type[ASTValidationRule],
+    rule: type[ASTValidationRule],
     sdl_str: str,
-    errors: List[Union[GraphQLError, Dict[str, Any]]],
-    schema: Optional[GraphQLSchema] = None,
-) -> List[GraphQLError]:
+    errors: list[GraphQLError | dict[str, Any]],
+    schema: GraphQLSchema | None = None,
+) -> list[GraphQLError]:
     doc = parse(sdl_str)
     returned_errors = validate_sdl(doc, schema, [rule])
     assert returned_errors == errors

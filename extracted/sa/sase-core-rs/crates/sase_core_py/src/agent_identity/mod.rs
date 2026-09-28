@@ -458,15 +458,22 @@ fn py_strip_global_agent_name(
     .map_err(|error| PyValueError::new_err(error.to_string()))
 }
 
-#[pyfunction]
-#[pyo3(name = "parse_agent_family_name")]
-fn py_parse_agent_family_name(
+fn parse_agent_session_name_impl(
     py: Python<'_>,
     name: &str,
 ) -> PyResult<PyObject> {
-    let parsed = core_parse_agent_family_name(name)
+    let parsed = core_parse_agent_session_name(name)
         .map_err(|error| PyValueError::new_err(error.to_string()))?;
     identity_wire_to_py(py, &parsed)
+}
+
+#[pyfunction]
+#[pyo3(name = "parse_agent_session_name")]
+fn py_parse_agent_session_name(
+    py: Python<'_>,
+    name: &str,
+) -> PyResult<PyObject> {
+    parse_agent_session_name_impl(py, name)
 }
 
 #[pyfunction]
@@ -642,26 +649,33 @@ fn py_project_agent_relationship_graph(
     identity_wire_to_py(py, &projection)
 }
 
-#[pyfunction]
-#[pyo3(name = "resolve_agent_family_parent")]
-fn py_resolve_agent_family_parent<'py>(
+fn resolve_agent_session_parent_impl<'py>(
     py: Python<'py>,
     request: &Bound<'py, PyDict>,
 ) -> PyResult<PyObject> {
     let value = py_to_json_value(request.as_any())?;
-    let request: AgentFamilyParentResolutionRequestWire =
+    let request: AgentSessionParentResolutionRequestWire =
         serde_json::from_value(value).map_err(|e| {
             PyValueError::new_err(format!(
-                "request is not a valid AgentFamilyParentResolutionRequestWire dict: {e}"
+                "request is not a valid AgentSessionParentResolutionRequestWire dict: {e}"
             ))
         })?;
     let result = py
-        .allow_threads(|| core_resolve_agent_family_parent(request))
+        .allow_threads(|| core_resolve_agent_session_parent(request))
         .map_err(PyValueError::new_err)?;
     let value = serde_json::to_value(result).map_err(|e| {
         PyValueError::new_err(format!("internal serialize error: {e}"))
     })?;
     json_value_to_py(py, &value)
+}
+
+#[pyfunction]
+#[pyo3(name = "resolve_agent_session_parent")]
+fn py_resolve_agent_session_parent<'py>(
+    py: Python<'py>,
+    request: &Bound<'py, PyDict>,
+) -> PyResult<PyObject> {
+    resolve_agent_session_parent_impl(py, request)
 }
 
 pub(crate) fn register_agent_identity(m: &Bound<'_, PyModule>) -> PyResult<()> {
@@ -716,7 +730,7 @@ pub(crate) fn register_agent_identity(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_globalize_owned_agent_name, m)?)?;
     m.add_function(wrap_pyfunction!(py_foreign_agent_owner_root, m)?)?;
     m.add_function(wrap_pyfunction!(py_strip_global_agent_name, m)?)?;
-    m.add_function(wrap_pyfunction!(py_parse_agent_family_name, m)?)?;
+    m.add_function(wrap_pyfunction!(py_parse_agent_session_name, m)?)?;
     m.add_function(wrap_pyfunction!(py_parse_owned_agent_name, m)?)?;
     m.add_function(wrap_pyfunction!(py_agent_local_hood, m)?)?;
     m.add_function(wrap_pyfunction!(py_agent_name_in_hood, m)?)?;
@@ -726,7 +740,7 @@ pub(crate) fn register_agent_identity(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_validate_agent_relationship_batch, m)?)?;
     m.add_function(wrap_pyfunction!(py_rewrite_agent_relationship_batch, m)?)?;
     m.add_function(wrap_pyfunction!(py_project_agent_relationship_graph, m)?)?;
-    m.add_function(wrap_pyfunction!(py_resolve_agent_family_parent, m)?)?;
+    m.add_function(wrap_pyfunction!(py_resolve_agent_session_parent, m)?)?;
     Ok(())
 }
 

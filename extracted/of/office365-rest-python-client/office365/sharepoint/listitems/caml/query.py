@@ -1,13 +1,21 @@
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any, Iterator, Tuple
 
 from office365.runtime.client_value import ClientValue
+from office365.sharepoint.fields.builtin_field_name import SPBuiltInFieldName
 from office365.sharepoint.listitems.collection_position import (
     ListItemCollectionPosition,
 )
 from office365.sharepoint.types.resource_path import ResourcePath
 from office365.sharepoint.views.scope import ViewScope
+
+if TYPE_CHECKING:
+    from office365.sharepoint.listitems.caml.builder import QueryBuilder
+
+_FIELD_REF_RE = re.compile(r"<FieldRef\s+Name=['\"]([^'\"]+)['\"]", re.IGNORECASE)
 
 
 @dataclass
@@ -31,6 +39,23 @@ class CamlQuery(ClientValue):
     AllowIncrementalResults: bool = True
     FolderServerRelativePath: ResourcePath | None = None
 
+    def __post_init__(self) -> None:
+        # The expression AST (set by QueryBuilder.build()); not serialized.
+        self._expr: "QueryBuilder | None" = None
+
+    @staticmethod
+    def builder() -> "QueryBuilder":
+        """A fluent builder for this query (``ViewFields``/``Where``/``OrderBy``/...)."""
+        from office365.sharepoint.listitems.caml.builder import QueryBuilder
+
+        return QueryBuilder()
+
+    def __iter__(self) -> Iterator[Tuple[str, Any]]:
+        """Yield serializable properties (skips private attrs such as the AST)."""
+        for name, value in vars(self).items():
+            if not name.startswith("_"):
+                yield name, value
+
     @staticmethod
     def parse(query_expr: str, scope: ViewScope = ViewScope.DefaultValue) -> CamlQuery:
         """Creates a CamlQuery object from a query expression
@@ -51,14 +76,58 @@ class CamlQuery(ClientValue):
     @staticmethod
     def create_all_folders_query() -> CamlQuery:
         """Constructs a query to return folder objects"""
-        qry_text = '<Where><Eq><FieldRef Name="FSObjType" /><Value Type="Integer">1</Value></Eq></Where>'
+        qry_text = (
+            f'<Where><Eq><FieldRef Name="{SPBuiltInFieldName.FSObjType}" /><Value Type="Integer">1</Value></Eq></Where>'
+        )
         return CamlQuery.parse(qry_text, ViewScope.DefaultValue)
 
     @staticmethod
     def create_all_files_query() -> CamlQuery:
         """Constructs a query to return file objects"""
-        qry_text = '<Where><Eq><FieldRef Name="FSObjType" /><Value Type="Integer">0</Value></Eq></Where>'
+        qry_text = (
+            f'<Where><Eq><FieldRef Name="{SPBuiltInFieldName.FSObjType}" /><Value Type="Integer">0</Value></Eq></Where>'
+        )
         return CamlQuery.parse(qry_text, ViewScope.DefaultValue)
+
+    @property
+    def is_paged(self) -> bool:
+        """Whether the query uses server-driven paging (``RowLimit Paged='TRUE'``)."""
+        if self._expr is not None:
+            return self._expr.is_paged
+        xml = self.ViewXml or ""
+        return "Paged='TRUE'" in xml or 'Paged="TRUE"' in xml
+
+    @property
+    def order_by_fields(self) -> list[str]:
+        """The field names in ``<OrderBy>``, in order (empty when unsorted).
+
+        Used to build the ``ListItemCollectionPosition`` paging token so a
+        multi-page CAML query continues where the previous page stopped.
+        """
+        if self._expr is not None:
+            return [ref.name for ref in self._expr._order_by]
+        match = re.search(r"<OrderBy>(.*?)</OrderBy>", self.ViewXml or "", re.DOTALL | re.IGNORECASE)
+        return _FIELD_REF_RE.findall(match.group(1)) if match else []
+
+    @property
+    def field_refs(self) -> set[str]:
+        """The field names referenced by the query.
+
+        Uses the expression AST when the query was produced by the builder, else
+        falls back to scanning the raw ``ViewXml``.
+        """
+        if self._expr is not None:
+            return self._expr.field_refs
+        return {match.group(1) for match in _FIELD_REF_RE.finditer(self.ViewXml or "")}
+
+    @property
+    def index_candidates(self) -> list[str]:
+        """Fields the query filters/sorts on that are worth indexing (``ID`` excluded).
+
+        Feed these to :meth:`~office365.sharepoint.lists.list.List.ensure_indexed`
+        so a large-list query on them is not throttled by the list view threshold.
+        """
+        return sorted(self.field_refs - {"ID"})
 
     def __repr__(self):
         return self.ViewXml or ""

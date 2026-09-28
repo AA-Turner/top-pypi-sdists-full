@@ -53,6 +53,7 @@ class ODataBatchV3Request(ODataRequest):
             query: The original batch query
         """
         for sub_qry, sub_resp in self._extract_response(response, query):
+            self._observe_throttle(sub_resp)
             sub_resp.raise_for_status()
             super().process_response(sub_resp, sub_qry)
 
@@ -77,7 +78,7 @@ class ODataBatchV3Request(ODataRequest):
             base_delay: Base delay for exponential backoff (seconds)
             jitter: Whether to randomize the delay (default True)
         """
-        from office365.runtime.retry import TRANSIENT_STATUS_CODES, response_retry_after, retry
+        from office365.runtime.retry import TRANSIENT_STATUS_CODES, response_retry_after, retry, retry_after_delay
 
         state: dict = {"pending": query, "retry_after": None}
 
@@ -94,6 +95,7 @@ class ODataBatchV3Request(ODataRequest):
             failures: list[tuple[ClientQuery, Response]] = []
             retry_after: Optional[int] = None
             for sub_qry, sub_resp in self._extract_response(response, state["pending"]):
+                self._observe_throttle(sub_resp)
                 if sub_resp.status_code in TRANSIENT_STATUS_CODES:
                     failures.append((sub_qry, sub_resp))
                     retry_after = max(retry_after or 0, response_retry_after(sub_resp) or 0)
@@ -113,7 +115,7 @@ class ODataBatchV3Request(ODataRequest):
                 max_retry=max_retry,
                 timeout_secs=base_delay,
                 jitter=jitter,
-                on_failure=lambda _attempt_num, _ex: state["retry_after"],
+                on_failure=lambda _attempt_num, ex: state["retry_after"] or retry_after_delay(ex),
             )
         except WholeBatchRejected as reject:
             self._split_and_retry(query, reject, max_retry, base_delay, jitter)

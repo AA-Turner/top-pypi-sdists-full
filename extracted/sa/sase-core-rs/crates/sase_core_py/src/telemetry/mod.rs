@@ -339,6 +339,58 @@ fn py_tool_run_reconcile<'py>(
 
 #[pyfunction]
 #[pyo3(
+    name = "tool_run_claim",
+    signature = (store_path, request, busy_timeout_ms=250)
+)]
+fn py_tool_run_claim<'py>(
+    py: Python<'py>,
+    store_path: &str,
+    request: &Bound<'py, PyDict>,
+    busy_timeout_ms: u64,
+) -> PyResult<PyObject> {
+    let request: sase_core::tool_run::ToolRunClaimRequestWire =
+        telemetry_request_from_pydict(request, "ToolRunClaimRequestWire")?;
+    let path = PathBuf::from(store_path);
+    let result = py
+        .allow_threads(|| {
+            sase_core::tool_run::claim(
+                &path,
+                request,
+                Duration::from_millis(busy_timeout_ms),
+            )
+        })
+        .map_err(|error| PyRuntimeError::new_err(error.to_string()))?;
+    telemetry_result_to_py(py, &result)
+}
+
+#[pyfunction]
+#[pyo3(
+    name = "tool_run_request_stop",
+    signature = (store_path, request, busy_timeout_ms=250)
+)]
+fn py_tool_run_request_stop<'py>(
+    py: Python<'py>,
+    store_path: &str,
+    request: &Bound<'py, PyDict>,
+    busy_timeout_ms: u64,
+) -> PyResult<PyObject> {
+    let request: sase_core::tool_run::ToolRunStopRequestWire =
+        telemetry_request_from_pydict(request, "ToolRunStopRequestWire")?;
+    let path = PathBuf::from(store_path);
+    let result = py
+        .allow_threads(|| {
+            sase_core::tool_run::request_stop(
+                &path,
+                request,
+                Duration::from_millis(busy_timeout_ms),
+            )
+        })
+        .map_err(|error| PyRuntimeError::new_err(error.to_string()))?;
+    telemetry_result_to_py(py, &result)
+}
+
+#[pyfunction]
+#[pyo3(
     name = "tool_run_list",
     signature = (store_path, request, busy_timeout_ms=250)
 )]
@@ -532,6 +584,285 @@ where
     json_value_to_py(py, &value)
 }
 
+#[pyfunction]
+#[pyo3(name = "tool_run_triage_extract")]
+fn py_tool_run_triage_extract<'py>(
+    py: Python<'py>,
+    request: &Bound<'py, PyDict>,
+) -> PyResult<PyObject> {
+    let request: sase_core::tool_run::ToolRunTriageExtractRequestWire =
+        telemetry_request_from_pydict(
+            request,
+            "ToolRunTriageExtractRequestWire",
+        )?;
+    let result = py
+        .allow_threads(|| sase_core::tool_run::extract_triage_items(request))
+        .map_err(|error| PyRuntimeError::new_err(error.to_string()))?;
+    telemetry_result_to_py(py, &result)
+}
+
+#[pyfunction]
+#[pyo3(
+    name = "tool_run_triage_record",
+    signature = (store_path, request, busy_timeout_ms=250)
+)]
+fn py_tool_run_triage_record<'py>(
+    py: Python<'py>,
+    store_path: &str,
+    request: &Bound<'py, PyDict>,
+    busy_timeout_ms: u64,
+) -> PyResult<PyObject> {
+    let request: sase_core::tool_run::ToolRunTriageRecordRequestWire =
+        telemetry_request_from_pydict(
+            request,
+            "ToolRunTriageRecordRequestWire",
+        )?;
+    let path = PathBuf::from(store_path);
+    let result = py
+        .allow_threads(|| {
+            sase_core::tool_run::triage_record(
+                &path,
+                request,
+                Duration::from_millis(busy_timeout_ms),
+            )
+        })
+        .map_err(|error| PyRuntimeError::new_err(error.to_string()))?;
+    telemetry_result_to_py(py, &result)
+}
+
+#[pyfunction]
+#[pyo3(
+    name = "tool_run_triage_show",
+    signature = (store_path, request, busy_timeout_ms=250)
+)]
+fn py_tool_run_triage_show<'py>(
+    py: Python<'py>,
+    store_path: &str,
+    request: &Bound<'py, PyDict>,
+    busy_timeout_ms: u64,
+) -> PyResult<PyObject> {
+    let request: sase_core::tool_run::ToolRunTriageShowRequestWire =
+        telemetry_request_from_pydict(request, "ToolRunTriageShowRequestWire")?;
+    let path = PathBuf::from(store_path);
+    let result = py
+        .allow_threads(|| {
+            sase_core::tool_run::triage_show(
+                &path,
+                request,
+                Duration::from_millis(busy_timeout_ms),
+            )
+        })
+        .map_err(|error| PyRuntimeError::new_err(error.to_string()))?;
+    telemetry_result_to_py(py, &result)
+}
+
+#[pyfunction]
+#[pyo3(name = "tool_run_triage_classify")]
+fn py_tool_run_triage_classify<'py>(
+    py: Python<'py>,
+    request: &Bound<'py, PyDict>,
+) -> PyResult<PyObject> {
+    let request: sase_core::tool_run::ToolRunTriageClassifyRequestWire =
+        telemetry_request_from_pydict(
+            request,
+            "ToolRunTriageClassifyRequestWire",
+        )?;
+    let result = py
+        .allow_threads(|| {
+            sase_core::tool_run::tool_run_triage_classify(request)
+        })
+        .map_err(|error| PyRuntimeError::new_err(error.to_string()))?;
+    telemetry_result_to_py(py, &result)
+}
+
+#[pyfunction]
+#[pyo3(name = "tool_run_triage_verdict")]
+fn py_tool_run_triage_verdict<'py>(
+    py: Python<'py>,
+    request: &Bound<'py, PyDict>,
+) -> PyResult<PyObject> {
+    let request: sase_core::tool_run::ToolRunTriageVerdictRequestWire =
+        telemetry_request_from_pydict(
+            request,
+            "ToolRunTriageVerdictRequestWire",
+        )?;
+    let result = py
+        .allow_threads(|| sase_core::tool_run::tool_run_triage_verdict(request))
+        .map_err(|error| PyRuntimeError::new_err(error.to_string()))?;
+    telemetry_result_to_py(py, &result)
+}
+
+#[pyfunction]
+#[pyo3(
+    name = "tool_run_triage_stage",
+    signature = (store_path, request, busy_timeout_ms=250)
+)]
+fn py_tool_run_triage_stage<'py>(
+    py: Python<'py>,
+    store_path: &str,
+    request: &Bound<'py, PyDict>,
+    busy_timeout_ms: u64,
+) -> PyResult<PyObject> {
+    let request: sase_core::tool_run::ToolRunTriageStageRequestWire =
+        telemetry_request_from_pydict(
+            request,
+            "ToolRunTriageStageRequestWire",
+        )?;
+    let path = PathBuf::from(store_path);
+    let result = py
+        .allow_threads(|| {
+            sase_core::tool_run::triage_stage(
+                &path,
+                request,
+                Duration::from_millis(busy_timeout_ms),
+            )
+        })
+        .map_err(|error| PyRuntimeError::new_err(error.to_string()))?;
+    telemetry_result_to_py(py, &result)
+}
+
+#[pyfunction]
+#[pyo3(
+    name = "tool_run_triage_settle",
+    signature = (store_path, request, busy_timeout_ms=250)
+)]
+fn py_tool_run_triage_settle<'py>(
+    py: Python<'py>,
+    store_path: &str,
+    request: &Bound<'py, PyDict>,
+    busy_timeout_ms: u64,
+) -> PyResult<PyObject> {
+    let request: sase_core::tool_run::ToolRunTriageSettleRequestWire =
+        telemetry_request_from_pydict(
+            request,
+            "ToolRunTriageSettleRequestWire",
+        )?;
+    let path = PathBuf::from(store_path);
+    let result = py
+        .allow_threads(|| {
+            sase_core::tool_run::triage_settle(
+                &path,
+                request,
+                Duration::from_millis(busy_timeout_ms),
+            )
+        })
+        .map_err(|error| PyRuntimeError::new_err(error.to_string()))?;
+    telemetry_result_to_py(py, &result)
+}
+
+#[pyfunction]
+#[pyo3(
+    name = "tool_run_receipt_settle",
+    signature = (store_path, request, busy_timeout_ms=250)
+)]
+fn py_tool_run_receipt_settle<'py>(
+    py: Python<'py>,
+    store_path: &str,
+    request: &Bound<'py, PyDict>,
+    busy_timeout_ms: u64,
+) -> PyResult<PyObject> {
+    let request: sase_core::tool_run::ToolRunReceiptSettleRequestWire =
+        telemetry_request_from_pydict(
+            request,
+            "ToolRunReceiptSettleRequestWire",
+        )?;
+    let path = PathBuf::from(store_path);
+    let result = py
+        .allow_threads(|| {
+            sase_core::tool_run::receipt_settle(
+                &path,
+                request,
+                Duration::from_millis(busy_timeout_ms),
+            )
+        })
+        .map_err(|error| PyRuntimeError::new_err(error.to_string()))?;
+    telemetry_result_to_py(py, &result)
+}
+
+#[pyfunction]
+#[pyo3(
+    name = "tool_run_receipt_lookup",
+    signature = (store_path, request, busy_timeout_ms=250)
+)]
+fn py_tool_run_receipt_lookup<'py>(
+    py: Python<'py>,
+    store_path: &str,
+    request: &Bound<'py, PyDict>,
+    busy_timeout_ms: u64,
+) -> PyResult<PyObject> {
+    let request: sase_core::tool_run::ToolRunReceiptLookupRequestWire =
+        telemetry_request_from_pydict(
+            request,
+            "ToolRunReceiptLookupRequestWire",
+        )?;
+    let path = PathBuf::from(store_path);
+    let result = py
+        .allow_threads(|| {
+            sase_core::tool_run::receipt_lookup(
+                &path,
+                request,
+                Duration::from_millis(busy_timeout_ms),
+            )
+        })
+        .map_err(|error| PyRuntimeError::new_err(error.to_string()))?;
+    telemetry_result_to_py(py, &result)
+}
+
+#[pyfunction]
+#[pyo3(
+    name = "tool_run_receipts_report",
+    signature = (store_path, request, busy_timeout_ms=250)
+)]
+fn py_tool_run_receipts_report<'py>(
+    py: Python<'py>,
+    store_path: &str,
+    request: &Bound<'py, PyDict>,
+    busy_timeout_ms: u64,
+) -> PyResult<PyObject> {
+    let request: ToolRunReceiptsReportRequestWire =
+        telemetry_request_from_pydict(
+            request,
+            "ToolRunReceiptsReportRequestWire",
+        )?;
+    let path = PathBuf::from(store_path);
+    let result = py
+        .allow_threads(|| {
+            core_tool_run_receipts_report(
+                &path,
+                request,
+                Duration::from_millis(busy_timeout_ms),
+            )
+        })
+        .map_err(|error| PyRuntimeError::new_err(error.to_string()))?;
+    telemetry_result_to_py(py, &result)
+}
+
+#[pyfunction]
+#[pyo3(
+    name = "tool_run_failures",
+    signature = (store_path, request, busy_timeout_ms=250)
+)]
+fn py_tool_run_failures<'py>(
+    py: Python<'py>,
+    store_path: &str,
+    request: &Bound<'py, PyDict>,
+    busy_timeout_ms: u64,
+) -> PyResult<PyObject> {
+    let request: sase_core::tool_run::ToolRunFailuresRequestWire =
+        telemetry_request_from_pydict(request, "ToolRunFailuresRequestWire")?;
+    let path = PathBuf::from(store_path);
+    let result = py
+        .allow_threads(|| {
+            sase_core::tool_run::tool_run_failures(
+                &path,
+                request,
+                Duration::from_millis(busy_timeout_ms),
+            )
+        })
+        .map_err(|error| PyRuntimeError::new_err(error.to_string()))?;
+    telemetry_result_to_py(py, &result)
+}
+
 pub(crate) fn register_telemetry(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_telemetry_cleanup_matching_labels, m)?)?;
     m.add_function(wrap_pyfunction!(py_telemetry_record_batch, m)?)?;
@@ -548,11 +879,24 @@ pub(crate) fn register_telemetry(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_tool_run_finish, m)?)?;
     m.add_function(wrap_pyfunction!(py_tool_run_observe, m)?)?;
     m.add_function(wrap_pyfunction!(py_tool_run_reconcile, m)?)?;
+    m.add_function(wrap_pyfunction!(py_tool_run_claim, m)?)?;
+    m.add_function(wrap_pyfunction!(py_tool_run_request_stop, m)?)?;
     m.add_function(wrap_pyfunction!(py_tool_run_list, m)?)?;
     m.add_function(wrap_pyfunction!(py_tool_run_show, m)?)?;
     m.add_function(wrap_pyfunction!(py_tool_run_summary, m)?)?;
     m.add_function(wrap_pyfunction!(py_tool_run_retention_preview, m)?)?;
     m.add_function(wrap_pyfunction!(py_tool_run_retention_apply, m)?)?;
+    m.add_function(wrap_pyfunction!(py_tool_run_triage_extract, m)?)?;
+    m.add_function(wrap_pyfunction!(py_tool_run_triage_record, m)?)?;
+    m.add_function(wrap_pyfunction!(py_tool_run_triage_show, m)?)?;
+    m.add_function(wrap_pyfunction!(py_tool_run_triage_classify, m)?)?;
+    m.add_function(wrap_pyfunction!(py_tool_run_triage_verdict, m)?)?;
+    m.add_function(wrap_pyfunction!(py_tool_run_triage_stage, m)?)?;
+    m.add_function(wrap_pyfunction!(py_tool_run_triage_settle, m)?)?;
+    m.add_function(wrap_pyfunction!(py_tool_run_receipt_settle, m)?)?;
+    m.add_function(wrap_pyfunction!(py_tool_run_receipt_lookup, m)?)?;
+    m.add_function(wrap_pyfunction!(py_tool_run_receipts_report, m)?)?;
+    m.add_function(wrap_pyfunction!(py_tool_run_failures, m)?)?;
     m.add_function(wrap_pyfunction!(py_tool_run_store_stats, m)?)?;
     m.add_function(wrap_pyfunction!(py_perf_logs_query, m)?)?;
     Ok(())

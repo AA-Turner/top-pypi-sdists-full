@@ -21,7 +21,7 @@ use serde_json::{Map, Value};
 
 /// Schema version mirrored from
 /// `agent_scan_wire.py::AGENT_SCAN_WIRE_SCHEMA_VERSION`.
-pub const AGENT_SCAN_WIRE_SCHEMA_VERSION: u32 = 9;
+pub const AGENT_SCAN_WIRE_SCHEMA_VERSION: u32 = 10;
 
 /// Workflow directory categories the scanner walks.
 ///
@@ -75,6 +75,12 @@ pub struct AgentArtifactScanOptionsWire {
     /// non-done dirs.
     #[serde(default)]
     pub capacity_only: bool,
+    /// Directory holding per-clan JSON records. When set, recorded clan
+    /// attributes are applied over member-derived `clan_context` in
+    /// every scan and index query path. Index rebuilds and upserts
+    /// ignore this option.
+    #[serde(default)]
+    pub clan_records_dir: Option<String>,
 }
 
 impl Default for AgentArtifactScanOptionsWire {
@@ -93,6 +99,7 @@ impl Default for AgentArtifactScanOptionsWire {
             only_projects: Vec::new(),
             include_project_states: Vec::new(),
             capacity_only: false,
+            clan_records_dir: None,
         }
     }
 }
@@ -248,10 +255,15 @@ pub struct DoneMarkerWire {
     pub imported_source_owner: Option<ImportedSourceOwnerWire>,
     #[serde(default)]
     pub status_label: Option<String>,
-    /// Terminal monitor or gate-shell projection, folding the flat
+    /// Terminal monitor or gate-turn projection, folding the flat
     /// `monitor_*` / `gate_*` fields. `None` when the record is neither.
-    #[serde(default)]
-    pub family_shell: Option<FamilyShellWire>,
+    #[serde(
+        default,
+        rename = "agent_session_shell",
+        alias = "agent_session_turn",
+        alias = "family_shell"
+    )]
+    pub agent_session_turn: Option<AgentSessionTurnWire>,
     #[serde(default)]
     pub monitor_diagnostic_manifest_ref: Option<String>,
     #[serde(default)]
@@ -556,12 +568,12 @@ pub struct AgentMetaWire {
     pub clan_tribe: Option<String>,
     #[serde(default)]
     pub clan_summary: Option<String>,
-    #[serde(default)]
-    pub agent_family: Option<String>,
-    #[serde(default)]
-    pub agent_family_role: Option<String>,
-    #[serde(default)]
-    pub agent_family_parallel: bool,
+    #[serde(default, alias = "agent_family")]
+    pub agent_session: Option<String>,
+    #[serde(default, alias = "agent_family_role")]
+    pub agent_session_role: Option<String>,
+    #[serde(default, alias = "agent_family_parallel")]
+    pub agent_session_parallel: bool,
     #[serde(default)]
     pub source_machine: Option<String>,
     #[serde(default)]
@@ -630,6 +642,8 @@ pub struct AgentMetaWire {
     pub queue_capacity: Option<i64>,
     #[serde(default)]
     pub queue_capacity_explicit: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub queue_capacity_multiplier: Option<f64>,
     #[serde(default, skip_serializing)]
     pub(crate) wait_runners: Option<i64>,
     #[serde(default, skip_serializing)]
@@ -672,10 +686,15 @@ pub struct AgentMetaWire {
     pub retry_terminal: bool,
     #[serde(default)]
     pub retry_error_category: Option<String>,
-    /// Terminal monitor or gate-shell projection, folding the flat
+    /// Terminal monitor or gate-turn projection, folding the flat
     /// `monitor_*` / `gate_*` fields. `None` when the record is neither.
-    #[serde(default)]
-    pub family_shell: Option<FamilyShellWire>,
+    #[serde(
+        default,
+        rename = "agent_session_shell",
+        alias = "agent_session_turn",
+        alias = "family_shell"
+    )]
+    pub agent_session_turn: Option<AgentSessionTurnWire>,
     #[serde(default)]
     pub monitor_diagnostic_manifest_ref: Option<String>,
     #[serde(default)]
@@ -692,10 +711,115 @@ pub struct AgentMetaWire {
     pub continuation_budget_decision_path: Option<String>,
     #[serde(default)]
     pub monitor_followup_budget_decision_path: Option<String>,
-    #[serde(default)]
-    pub shell_kind: Option<String>,
+    /// Member kind for this metadata record: stored `proc` (a monitor) or
+    /// `gate`. Emits the legacy `shell_kind` key; accepts `turn_kind` too.
+    /// A `monitor` input value is stored as `proc`.
+    // legacy sase-shell spelling; flips in contract-flip
+    #[serde(
+        default,
+        rename = "shell_kind",
+        alias = "turn_kind",
+        deserialize_with = "deserialize_turn_kind"
+    )]
+    pub turn_kind: Option<String>,
     #[serde(default)]
     pub proc_id: Option<String>,
+    /// Tolerant finalizer-execution row summary from
+    /// `agent_meta.json["finalizer_status"]` (plan §3.3 C5). Skipped when
+    /// absent so existing scan payloads stay byte-stable.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub finalizer_status: Option<FinalizerStatusSummaryWire>,
+}
+
+/// Runner that executed the finalizer phase (plan §3.3 C5).
+///
+/// Strings and numbers only; every field has a default so partial
+/// summaries degrade instead of failing the scan.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub struct FinalizerStatusRunnerWire {
+    #[serde(default)]
+    pub pid: Option<i64>,
+    #[serde(default)]
+    pub identity: Option<String>,
+}
+
+/// One finalizer instance entry of the row summary (plan §3.3 C5).
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub struct FinalizerStatusInstanceWire {
+    #[serde(default)]
+    pub id: String,
+    #[serde(default)]
+    pub status: Option<String>,
+    #[serde(default)]
+    pub attempt: Option<i64>,
+    #[serde(default)]
+    pub max_attempts: Option<i64>,
+    #[serde(default)]
+    pub op: Option<String>,
+    #[serde(default)]
+    pub step: Option<String>,
+    #[serde(default)]
+    pub started_at: Option<f64>,
+    #[serde(default)]
+    pub finished_at: Option<f64>,
+    #[serde(default)]
+    pub headline: Option<String>,
+    #[serde(default)]
+    pub warnings: Option<i64>,
+    #[serde(default)]
+    pub reason: Option<String>,
+}
+
+/// Row summary of finalizer execution (plan §3.3 C5).
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub struct FinalizerStatusSummaryWire {
+    #[serde(default)]
+    pub schema_version: Option<i64>,
+    #[serde(default)]
+    pub phase: Option<String>,
+    #[serde(default)]
+    pub reason: Option<String>,
+    #[serde(default)]
+    pub status: Option<String>,
+    #[serde(default)]
+    pub plan_digest: Option<String>,
+    #[serde(default)]
+    pub run_id: Option<String>,
+    #[serde(default)]
+    pub started_at: Option<f64>,
+    #[serde(default)]
+    pub updated_at: Option<f64>,
+    #[serde(default)]
+    pub runner: Option<FinalizerStatusRunnerWire>,
+    #[serde(default)]
+    pub instances: Vec<FinalizerStatusInstanceWire>,
+    #[serde(default)]
+    pub instance_count: Option<i64>,
+}
+
+/// Deserialize `turn_kind` / `shell_kind`, storing a `monitor` input as the
+/// legacy `proc` value so a round trip still emits `proc`.
+fn deserialize_turn_kind<'de, D>(
+    deserializer: D,
+) -> Result<Option<String>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let value = Option::<String>::deserialize(deserializer)?;
+    Ok(value.map(|kind| {
+        if kind == "monitor" {
+            "proc".to_string()
+        } else {
+            kind
+        }
+    }))
+}
+
+/// Whether a metadata turn kind denotes a monitor member.
+///
+/// Stored values use the legacy `proc`; fresh writers may send `monitor`.
+pub fn turn_kind_is_monitor(kind: Option<&str>) -> bool {
+    matches!(kind, Some("proc") | Some("monitor"))
 }
 
 impl AgentMetaWire {
@@ -713,9 +837,9 @@ impl AgentMetaWire {
     }
 }
 
-/// Monitor-only fields of a `family_shell` record.
+/// Monitor-only fields of a `agent_session_turn` record.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
-pub struct FamilyShellMonitorWire {
+pub struct AgentSessionTurnMonitorWire {
     #[serde(default)]
     pub command: Option<String>,
     #[serde(default)]
@@ -736,12 +860,12 @@ pub struct FamilyShellMonitorWire {
     pub idle_timeout_seconds: Option<f64>,
 }
 
-/// Gate-only fields of a `family_shell` record.
+/// Gate-only fields of a `agent_session_turn` record.
 ///
 /// `kind` here is the gate's own flavor (e.g. `"approval"`), not the
-/// `FamilyShellWire::kind` discriminator.
+/// `AgentSessionTurnWire::kind` discriminator.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
-pub struct FamilyShellGateWire {
+pub struct AgentSessionTurnGateWire {
     #[serde(default)]
     pub kind: Option<String>,
     #[serde(default)]
@@ -762,14 +886,14 @@ pub struct FamilyShellGateWire {
     pub claim_holder_pid: Option<i64>,
 }
 
-/// One durable family-shell member: a monitor or a gate, never both.
+/// One durable agent-session-turn member: a monitor or a gate, never both.
 ///
 /// `kind` discriminates `"monitor"` / `"gate"`. The fields below `kind` are
-/// the ones both shells carry (mirroring the two flat `monitor_*` /
+/// the ones both turns carry (mirroring the two flat `monitor_*` /
 /// `gate_*` prefixes they replace); `monitor` / `gate` hold whichever
 /// kind's own fields, with the other left `None`.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
-pub struct FamilyShellWire {
+pub struct AgentSessionTurnWire {
     #[serde(default)]
     pub kind: String,
     #[serde(default)]
@@ -833,9 +957,9 @@ pub struct FamilyShellWire {
     #[serde(default)]
     pub host_completion_reason: Option<String>,
     #[serde(default)]
-    pub monitor: Option<FamilyShellMonitorWire>,
+    pub monitor: Option<AgentSessionTurnMonitorWire>,
     #[serde(default)]
-    pub gate: Option<FamilyShellGateWire>,
+    pub gate: Option<AgentSessionTurnGateWire>,
 }
 
 /// Compact projection of `running.json`.
@@ -870,6 +994,8 @@ pub struct WaitingMarkerWire {
     pub wait_until: Option<String>,
     #[serde(default)]
     pub queue_capacity: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub queue_capacity_multiplier: Option<f64>,
     #[serde(default)]
     pub wait_priority: Option<i64>,
     #[serde(default)]
@@ -1231,7 +1357,7 @@ mod tests {
     fn agent_meta_wire_round_trips_every_monitor_field() {
         let meta = AgentMetaWire {
             name: Some("acme--mon".to_string()),
-            family_shell: Some(FamilyShellWire {
+            agent_session_turn: Some(AgentSessionTurnWire {
                 kind: "monitor".to_string(),
                 id: Some("m4kq".to_string()),
                 label: Some("just check-full".to_string()),
@@ -1271,7 +1397,7 @@ mod tests {
                 host_completion_reason: Some(
                     "verification succeeded".to_string(),
                 ),
-                monitor: Some(FamilyShellMonitorWire {
+                monitor: Some(AgentSessionTurnMonitorWire {
                     command: Some("just check-full".to_string()),
                     cwd: Some("/home/bryan/workspaces/acme".to_string()),
                     exit_code: Some(1),
@@ -1303,7 +1429,7 @@ mod tests {
             serde_json::from_value(old_record).unwrap();
 
         assert_eq!(decoded.name.as_deref(), Some("pre-monitor-agent"));
-        assert_eq!(decoded.family_shell, None);
+        assert_eq!(decoded.agent_session_turn, None);
         assert!(decoded.model_alias_trail.is_empty());
         assert_eq!(decoded.model_alias_origin, None);
     }
@@ -1312,7 +1438,7 @@ mod tests {
     fn agent_meta_wire_round_trips_every_gate_field() {
         let meta = AgentMetaWire {
             name: Some("acme--gate".to_string()),
-            family_shell: Some(FamilyShellWire {
+            agent_session_turn: Some(AgentSessionTurnWire {
                 kind: "gate".to_string(),
                 id: Some("gate-1".to_string()),
                 state: Some("pending".to_string()),
@@ -1349,7 +1475,7 @@ mod tests {
                 timeout_seconds: Some(600.0),
                 request_fingerprint: Some("sha256:cafe".to_string()),
                 monitor: None,
-                gate: Some(FamilyShellGateWire {
+                gate: Some(AgentSessionTurnGateWire {
                     kind: Some("approval".to_string()),
                     accent: Some("#0BCDEC".to_string()),
                     creator_agent: Some("acme--0".to_string()),
@@ -1361,7 +1487,7 @@ mod tests {
                     claim_holder_pid: None,
                 }),
             }),
-            shell_kind: Some("gate".to_string()),
+            turn_kind: Some("gate".to_string()),
             proc_id: Some("proc-gate".to_string()),
             ..Default::default()
         };
@@ -1382,9 +1508,116 @@ mod tests {
             serde_json::from_value(old_record).unwrap();
 
         assert_eq!(decoded.name.as_deref(), Some("pre-gate-agent"));
-        assert_eq!(decoded.family_shell, None);
-        assert_eq!(decoded.shell_kind, None);
+        assert_eq!(decoded.agent_session_turn, None);
+        assert_eq!(decoded.turn_kind, None);
         assert_eq!(decoded.proc_id, None);
+    }
+
+    #[test]
+    fn agent_meta_wire_accepts_legacy_spellings_but_emits_canonical() {
+        let legacy: AgentMetaWire = serde_json::from_value(serde_json::json!({
+            "agent_family": "fam",
+            "agent_family_role": "monitor",
+            "family_shell": {"kind": "monitor"},
+        }))
+        .unwrap();
+        let new: AgentMetaWire = serde_json::from_value(serde_json::json!({
+            "agent_session": "fam",
+            "agent_session_role": "monitor",
+            "agent_session_shell": {"kind": "monitor"},
+        }))
+        .unwrap();
+        assert_eq!(new, legacy);
+        assert_eq!(new.agent_session.as_deref(), Some("fam"));
+        assert_eq!(new.agent_session_role.as_deref(), Some("monitor"));
+        let encoded = serde_json::to_value(&new).unwrap();
+        assert_eq!(encoded["agent_session"], "fam");
+        assert_eq!(encoded["agent_session_role"], "monitor");
+        assert!(encoded.get("agent_family").is_none());
+        assert!(encoded.get("agent_family_role").is_none());
+        assert_eq!(encoded["agent_session_shell"]["kind"], "monitor");
+        assert!(encoded.get("family_shell").is_none());
+    }
+
+    #[test]
+    fn agent_meta_wire_accepts_all_three_member_keys_but_emits_legacy() {
+        let from_turn: AgentMetaWire =
+            serde_json::from_value(serde_json::json!({
+                "agent_session_turn": {"kind": "gate", "id": "g1"},
+            }))
+            .unwrap();
+        let from_shell: AgentMetaWire =
+            serde_json::from_value(serde_json::json!({
+                "agent_session_shell": {"kind": "gate", "id": "g1"},
+            }))
+            .unwrap();
+        let from_family: AgentMetaWire =
+            serde_json::from_value(serde_json::json!({
+                "family_shell": {"kind": "gate", "id": "g1"},
+            }))
+            .unwrap();
+        assert_eq!(from_turn, from_shell);
+        assert_eq!(from_turn, from_family);
+        let member = from_turn.agent_session_turn.as_ref().unwrap();
+        assert_eq!(member.kind, "gate");
+        assert_eq!(member.id.as_deref(), Some("g1"));
+        let encoded = serde_json::to_value(&from_turn).unwrap();
+        assert_eq!(encoded["agent_session_shell"]["kind"], "gate");
+        assert_eq!(encoded["agent_session_shell"]["id"], "g1");
+        assert!(encoded.get("agent_session_turn").is_none());
+        assert!(encoded.get("family_shell").is_none());
+    }
+
+    #[test]
+    fn done_marker_wire_accepts_all_three_member_keys_but_emits_legacy() {
+        let from_turn: DoneMarkerWire =
+            serde_json::from_value(serde_json::json!({
+                "outcome": "gated",
+                "agent_session_turn": {"kind": "gate", "id": "g1"},
+            }))
+            .unwrap();
+        let from_shell: DoneMarkerWire =
+            serde_json::from_value(serde_json::json!({
+                "outcome": "gated",
+                "agent_session_shell": {"kind": "gate", "id": "g1"},
+            }))
+            .unwrap();
+        assert_eq!(from_turn, from_shell);
+        let encoded = serde_json::to_value(&from_turn).unwrap();
+        assert_eq!(encoded["agent_session_shell"]["kind"], "gate");
+        assert!(encoded.get("agent_session_turn").is_none());
+    }
+
+    #[test]
+    fn agent_meta_wire_maps_monitor_turn_kind_to_proc_but_emits_legacy() {
+        let from_legacy_proc: AgentMetaWire =
+            serde_json::from_value(serde_json::json!({
+                "shell_kind": "proc",
+            }))
+            .unwrap();
+        let from_new_monitor: AgentMetaWire =
+            serde_json::from_value(serde_json::json!({
+                "turn_kind": "monitor",
+            }))
+            .unwrap();
+        let from_gate: AgentMetaWire =
+            serde_json::from_value(serde_json::json!({
+                "shell_kind": "gate",
+            }))
+            .unwrap();
+        assert_eq!(from_legacy_proc.turn_kind.as_deref(), Some("proc"));
+        assert_eq!(from_new_monitor.turn_kind.as_deref(), Some("proc"));
+        assert_eq!(from_new_monitor, from_legacy_proc);
+        assert_eq!(from_gate.turn_kind.as_deref(), Some("gate"));
+        assert!(turn_kind_is_monitor(from_new_monitor.turn_kind.as_deref()));
+        assert!(turn_kind_is_monitor(Some("monitor")));
+        assert!(!turn_kind_is_monitor(from_gate.turn_kind.as_deref()));
+        assert!(!turn_kind_is_monitor(None));
+        let encoded = serde_json::to_value(&from_new_monitor).unwrap();
+        assert_eq!(encoded["shell_kind"], "proc");
+        assert!(encoded.get("turn_kind").is_none());
+        let encoded_gate = serde_json::to_value(&from_gate).unwrap();
+        assert_eq!(encoded_gate["shell_kind"], "gate");
     }
 
     #[test]
@@ -1482,7 +1715,7 @@ mod tests {
             monitor_followup_budget_decision_path: Some(
                 "/tmp/followup-budget.json".to_string(),
             ),
-            family_shell: Some(FamilyShellWire {
+            agent_session_turn: Some(AgentSessionTurnWire {
                 kind: "monitor".to_string(),
                 state: Some("completed".to_string()),
                 elapsed_seconds: Some(17.5),
@@ -1500,7 +1733,7 @@ mod tests {
                 host_completion_status: Some("completed_by_host".to_string()),
                 host_completion_message: Some("done".to_string()),
                 host_completion_reason: Some("eligible".to_string()),
-                monitor: Some(FamilyShellMonitorWire {
+                monitor: Some(AgentSessionTurnMonitorWire {
                     exit_code: Some(0),
                     ..Default::default()
                 }),
@@ -1520,7 +1753,7 @@ mod tests {
         let done = DoneMarkerWire {
             outcome: Some("gated".to_string()),
             status_label: Some("ANSWERED".to_string()),
-            family_shell: Some(FamilyShellWire {
+            agent_session_turn: Some(AgentSessionTurnWire {
                 kind: "gate".to_string(),
                 id: Some("gate-1".to_string()),
                 state: Some("answered".to_string()),
@@ -1536,7 +1769,7 @@ mod tests {
                     "artifacts/gate_followup.md".to_string(),
                 ),
                 monitor: None,
-                gate: Some(FamilyShellGateWire {
+                gate: Some(AgentSessionTurnGateWire {
                     kind: Some("approval".to_string()),
                     bundle_path: Some("gate_bundle.json".to_string()),
                     notification_id: Some("notif-1".to_string()),
@@ -1564,6 +1797,54 @@ mod tests {
 
         assert_eq!(decoded.outcome.as_deref(), Some("completed"));
         assert_eq!(decoded.status_label, None);
-        assert_eq!(decoded.family_shell, None);
+        assert_eq!(decoded.agent_session_turn, None);
+    }
+
+    #[test]
+    fn agent_meta_wire_omits_absent_finalizer_status() {
+        let encoded = serde_json::to_value(AgentMetaWire::default()).unwrap();
+        assert!(encoded.get("finalizer_status").is_none());
+        let decoded: AgentMetaWire = serde_json::from_value(encoded).unwrap();
+        assert_eq!(decoded.finalizer_status, None);
+    }
+
+    #[test]
+    fn agent_meta_wire_round_trips_finalizer_status_summary() {
+        let meta = AgentMetaWire {
+            finalizer_status: Some(FinalizerStatusSummaryWire {
+                schema_version: Some(1),
+                phase: Some("executing".to_string()),
+                reason: None,
+                status: None,
+                plan_digest: Some("84a91c2d".to_string()),
+                run_id: Some("run-1".to_string()),
+                started_at: Some(1_727_440_000.0),
+                updated_at: Some(1_727_440_012.5),
+                runner: Some(FinalizerStatusRunnerWire {
+                    pid: Some(1234),
+                    identity: Some("boot-abc:1234".to_string()),
+                }),
+                instances: vec![FinalizerStatusInstanceWire {
+                    id: "commit".to_string(),
+                    status: Some("running".to_string()),
+                    attempt: Some(1),
+                    max_attempts: Some(1),
+                    op: Some("stitch main".to_string()),
+                    step: None,
+                    started_at: Some(1_727_440_001.0),
+                    finished_at: None,
+                    headline: None,
+                    warnings: Some(0),
+                    reason: None,
+                }],
+                instance_count: Some(1),
+            }),
+            ..Default::default()
+        };
+
+        let encoded = serde_json::to_value(&meta).unwrap();
+        assert_eq!(encoded["finalizer_status"]["phase"], "executing");
+        let decoded: AgentMetaWire = serde_json::from_value(encoded).unwrap();
+        assert_eq!(decoded, meta);
     }
 }

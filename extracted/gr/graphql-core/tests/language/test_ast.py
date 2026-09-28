@@ -1,15 +1,40 @@
-from copy import copy, deepcopy
-import weakref
+from __future__ import annotations
 
-from graphql.language import Location, Node, Source, Token, TokenKind
+import weakref
+from copy import copy, deepcopy
+from typing import ClassVar
+
+from graphql.language import (
+    Location,
+    NameNode,
+    Node,
+    Source,
+    Token,
+    TokenKind,
+)
+from graphql.language.ast import node_class
 from graphql.pyutils import inspect
 
 
+@node_class
 class SampleTestNode(Node):
-    __slots__ = "alpha", "beta"
+    kind: ClassVar[str] = "sample_test"
+    alpha: int | Node = 0  # Union with Node to support copy tests with nested nodes
+    beta: int | Node | None = None
 
-    alpha: int
-    beta: int
+
+@node_class
+class SampleNamedNode(Node):
+    kind: ClassVar[str] = "sample_named"
+    foo: str = ""
+    name: NameNode | None = None
+
+
+def make_loc(start: int = 1, end: int = 3) -> Location:
+    """Create a Location for testing with the given start/end offsets."""
+    source = Source("test source")
+    start_token = Token(TokenKind.NAME, start, end, 1, start, "test")
+    return Location(start_token, start_token, source)
 
 
 def describe_token_class():
@@ -44,7 +69,7 @@ def describe_token_class():
         token1 = Token(TokenKind.NAME, 1, 2, 1, 2, value="test")
         token2 = Token(TokenKind.NAME, 1, 2, 1, 2, value="test")
         assert token2 == token1
-        assert not token2 != token1
+        assert token2 == token1
         token3 = Token(TokenKind.NAME, 1, 2, 1, 2, value="text")
         assert token3 != token1
         token4 = Token(TokenKind.NAME, 1, 4, 1, 2, value="test")
@@ -54,8 +79,8 @@ def describe_token_class():
 
     def can_compare_with_string():
         token = Token(TokenKind.NAME, 1, 2, 1, 2, value="test")
-        assert token == "Name 'test'"
-        assert token != "Name 'foo'"
+        assert token == "Name 'test'"  # noqa: S105
+        assert token != "Name 'foo'"  # noqa: S105
 
     def does_not_equal_incompatible_object():
         token = Token(TokenKind.NAME, 1, 2, 1, 2, value="test")
@@ -113,16 +138,16 @@ def describe_location_class():
         loc = Location(token1, token2, source)
         assert loc == (1, 3)
         assert loc == [1, 3]
-        assert not loc != (1, 3)
-        assert not loc != [1, 3]
+        assert loc == (1, 3)
+        assert loc == [1, 3]
         assert loc != (1, 2)
         assert loc != [2, 3]
 
     def does_not_equal_incompatible_object():
         loc = Location(token1, token2, source)
-        assert not loc == (1, 2, 3)
         assert loc != (1, 2, 3)
-        assert not loc == {1: 2}
+        assert loc != (1, 2, 3)
+        assert loc != {1: 2}
         assert loc != {1: 2}
 
     def can_hash():
@@ -141,34 +166,73 @@ def describe_location_class():
 
 def describe_node_class():
     def initializes_with_keywords():
-        node = SampleTestNode(alpha=1, beta=2, loc=0)
+        node = SampleTestNode(alpha=1, beta=2)
         assert node.alpha == 1
         assert node.beta == 2
-        assert node.loc == 0
-        node = SampleTestNode(alpha=1, loc=None)
         assert node.loc is None
+
+    def initializes_with_location():
+        loc = make_loc()
+        node = SampleTestNode(alpha=1, beta=2, loc=loc)
         assert node.alpha == 1
-        assert node.beta is None
-        node = SampleTestNode(alpha=1, beta=2, gamma=3)
+        assert node.beta == 2
+        assert node.loc is loc
+
+    def initializes_with_none_location():
+        node = SampleTestNode(alpha=1, beta=2, loc=None)
+        assert node.loc is None
         assert node.alpha == 1
         assert node.beta == 2
         assert not hasattr(node, "gamma")
 
+    def does_not_convert_list_to_tuple():
+        """Lists are not auto-converted to tuples - pass tuples directly."""
+        from graphql.language import FieldNode, SelectionSetNode
+
+        field = FieldNode(name=NameNode(value="foo"))
+        # Passing a list stores it as-is (no conversion)
+        node = SelectionSetNode(selections=[field])  # type: ignore[arg-type]
+        assert isinstance(node.selections, list)
+        # Users should pass tuples directly for proper typing
+        node = SelectionSetNode(selections=(field,))
+        assert isinstance(node.selections, tuple)
+
     def has_representation_with_loc():
         node = SampleTestNode(alpha=1, beta=2)
         assert repr(node) == "SampleTestNode"
-        node = SampleTestNode(alpha=1, beta=2, loc=3)
-        assert repr(node) == "SampleTestNode at 3"
+        loc = make_loc(start=3, end=5)
+        node = SampleTestNode(alpha=1, beta=2, loc=loc)
+        assert repr(node) == "SampleTestNode at 3:5"
+
+    def has_representation_when_named():
+        name_node = NameNode(value="baz")
+        node = SampleNamedNode(foo="bar", name=name_node)
+        assert repr(node) == "SampleNamedNode(name='baz')"
+        loc = make_loc(start=3, end=5)
+        node = SampleNamedNode(foo="bar", name=name_node, loc=loc)
+        assert repr(node) == "SampleNamedNode(name='baz') at 3:5"
+
+    def has_representation_when_named_but_name_is_none():
+        node = SampleNamedNode(foo="bar", name=None)
+        assert repr(node) == "SampleNamedNode"
+        loc = make_loc(start=3, end=5)
+        node = SampleNamedNode(foo="bar", name=None, loc=loc)
+        assert repr(node) == "SampleNamedNode at 3:5"
+
+    def has_special_representation_when_it_is_a_name_node():
+        node = NameNode(value="foo")
+        assert repr(node) == "NameNode('foo')"
+        loc = make_loc(start=3, end=5)
+        node = NameNode(value="foo", loc=loc)
+        assert repr(node) == "NameNode('foo') at 3:5"
 
     def can_check_equality():
         node = SampleTestNode(alpha=1, beta=2)
         node2 = SampleTestNode(alpha=1, beta=2)
         assert node2 == node
-        assert not node2 != node
+        assert node2 == node
         node2 = SampleTestNode(alpha=1, beta=1)
         assert node2 != node
-        node3 = Node(alpha=1, beta=2)
-        assert node3 != node
 
     def can_hash():
         node = SampleTestNode(alpha=1, beta=2)
@@ -180,28 +244,17 @@ def describe_node_class():
         assert node3 != node
         assert hash(node3) != hash(node)
 
-    def caches_are_hashed():
-        node = SampleTestNode(alpha=1)
-        assert not hasattr(node, "_hash")
+    def is_hashable():
+        node = SampleTestNode(alpha=1, beta=2)
         hash1 = hash(node)
-        assert hasattr(node, "_hash")
-        assert hash1 == getattr(node, "_hash")
-        node.alpha = 2
-        assert not hasattr(node, "_hash")
+        # Hash should be stable
         hash2 = hash(node)
-        assert hash2 != hash1
-        assert hasattr(node, "_hash")
-        assert hash2 == getattr(node, "_hash")
+        assert hash1 == hash2
 
     def can_create_weak_reference():
         node = SampleTestNode(alpha=1, beta=2)
         ref = weakref.ref(node)
         assert ref() is node
-
-    def can_create_custom_attribute():
-        node = SampleTestNode(alpha=1, beta=2)
-        node.gamma = 3
-        assert node.gamma == 3  # type: ignore
 
     def can_create_shallow_copy():
         node = SampleTestNode(alpha=1, beta=2)

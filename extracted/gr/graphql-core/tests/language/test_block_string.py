@@ -1,10 +1,15 @@
-from typing import cast, Collection, Optional
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, cast
 
 from graphql.language.block_string import (
-    is_printable_as_block_string,
     dedent_block_string_lines,
+    is_printable_as_block_string,
     print_block_string,
 )
+
+if TYPE_CHECKING:
+    from collections.abc import Collection
 
 
 def join_lines(*args: str) -> str:
@@ -146,13 +151,13 @@ def describe_is_printable_as_block_string():
             def __str__(self) -> str:
                 return self.string
 
-        _assert_printable(cast(str, LazyString("")))
-        _assert_non_printable(cast(str, LazyString(" ")))
+        _assert_printable(cast("str", LazyString("")))
+        _assert_non_printable(cast("str", LazyString(" ")))
 
 
 def describe_print_block_string():
     def _assert_block_string(
-        s: str, readable: str, minimize: Optional[str] = None
+        s: str, readable: str, minimize: str | None = None
     ) -> None:
         assert print_block_string(s) == readable
         assert print_block_string(s, minimize=True) == minimize or readable
@@ -210,4 +215,4 @@ def describe_print_block_string():
             def __str__(self) -> str:
                 return "lazy"
 
-        _assert_block_string(cast(str, LazyString()), '"""lazy"""')
+        _assert_block_string(cast("str", LazyString()), '"""lazy"""')

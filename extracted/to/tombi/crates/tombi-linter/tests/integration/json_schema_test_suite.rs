@@ -99,6 +99,393 @@ macro_rules! suite_test {
     };
 }
 
+mod compound_resource_pointer_locations {
+    use super::*;
+
+    fn nested_ids_under_escaped_keys_schema() -> JsonValue {
+        serde_json::json!({
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "$id": "https://example.com/root/",
+            "$ref": "nested/child",
+            "$defs": {
+                "a/b~c": {
+                    "$id": "nested/",
+                    "$defs": {
+                        "child": {
+                            "$id": "child",
+                            "type": "object",
+                            "properties": {"value": {"type": "integer"}},
+                            "required": ["value"]
+                        }
+                    }
+                }
+            }
+        })
+    }
+
+    suite_test!(
+        #[tokio::test] async fn resolves_nested_ids_under_escaped_keys(
+            "value = 1",
+            JsonSchema(nested_ids_under_escaped_keys_schema()),
+        ) -> Ok(_);
+    );
+
+    suite_test!(
+        #[tokio::test] async fn rejects_invalid_value_under_escaped_keys(
+            "value = \"x\"",
+            JsonSchema(nested_ids_under_escaped_keys_schema()),
+        ) -> Err([
+            tombi_validator::Diagnostic::new(
+                tombi_validator::DiagnosticKind::TypeMismatch {
+                    expected: tombi_schema_store::ValueType::Integer,
+                    actual: tombi_document_tree_syntax::ValueType::String,
+                },
+                ((0, 8), (0, 11)),
+            ),
+        ]);
+    );
+}
+
+mod schema_resource_load_context {
+    use super::*;
+
+    fn deeply_nested_anchor_schema() -> JsonValue {
+        let mut schema = serde_json::json!({
+            "$anchor": "target",
+            "type": "object",
+            "properties": {"value": {"type": "integer"}},
+            "required": ["value"]
+        });
+        for _ in 0..50 {
+            schema = serde_json::json!({"$defs": {"child": schema}});
+        }
+        serde_json::json!({
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "$ref": "#target",
+            "$defs": {"child": schema}
+        })
+    }
+
+    suite_test!(
+        #[tokio::test] async fn deep_definition_anchor_accepts_matching_value(
+            "value = 1",
+            JsonSchema(deeply_nested_anchor_schema()),
+        ) -> Ok(_);
+    );
+
+    suite_test!(
+        #[tokio::test] async fn deep_definition_anchor_rejects_wrong_type(
+            "value = \"x\"",
+            JsonSchema(deeply_nested_anchor_schema()),
+        ) -> Err([
+            tombi_validator::Diagnostic::new(
+                tombi_validator::DiagnosticKind::TypeMismatch {
+                    expected: tombi_schema_store::ValueType::Integer,
+                    actual: tombi_document_tree_syntax::ValueType::String,
+                },
+                ((0, 8), (0, 11)),
+            ),
+        ]);
+    );
+
+    suite_test!(
+        #[tokio::test] async fn nested_definition_anchor_remains_available(
+            "value = 1",
+            JsonSchema(serde_json::json!({
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "$ref": "#target",
+                "$defs": {
+                    "container": {
+                        "$defs": {
+                            "target": {
+                                "$anchor": "target",
+                                "type": "object",
+                                "properties": {"value": {"type": "integer"}}
+                            }
+                        }
+                    }
+                }
+            })),
+        ) -> Ok(_);
+    );
+
+    suite_test!(
+        #[tokio::test] async fn nested_resource_inherits_overridden_dialect(
+            "value = 1",
+            JsonSchema(serde_json::json!({
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "$id": "https://example.com/root/",
+                "$ref": "nested/",
+                "$defs": {
+                    "nested": {
+                        "$id": "nested/",
+                        "$schema": "http://json-schema.org/draft-07/schema#",
+                        "$ref": "target",
+                        "type": "string",
+                        "$defs": {
+                            "target": {"$id": "target", "type": "object"}
+                        }
+                    }
+                }
+            })),
+        ) -> Ok(_);
+    );
+}
+
+mod issue_2190_reference_annotations {
+    use super::*;
+
+    fn dynamic_ref_schema() -> JsonValue {
+        serde_json::json!({
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "$id": "https://example.com/unevaluated-properties-with-dynamic-ref/derived",
+            "$ref": "./baseSchema",
+            "$defs": {
+                "derived": {
+                    "$dynamicAnchor": "addons",
+                    "properties": { "bar": { "type": "string" } }
+                },
+                "baseSchema": {
+                    "$id": "./baseSchema",
+                    "unevaluatedProperties": false,
+                    "properties": { "foo": { "type": "string" } },
+                    "$dynamicRef": "#addons",
+                    "$defs": {
+                        "defaultAddons": { "$dynamicAnchor": "addons" }
+                    }
+                }
+            }
+        })
+    }
+
+    suite_test!(
+        #[tokio::test] async fn dynamic_ref_annotations_are_visible_to_unevaluated_properties(
+            r#"
+            foo = "foo"
+            bar = "bar"
+            "#,
+            JsonSchema(dynamic_ref_schema()),
+        ) -> Ok(_);
+    );
+
+    suite_test!(
+        #[tokio::test] async fn dynamic_ref_still_rejects_unannotated_properties(
+            r#"
+            foo = "foo"
+            bar = "bar"
+            baz = "baz"
+            "#,
+            JsonSchema(dynamic_ref_schema()),
+        ) -> Err([
+            tombi_validator::Diagnostic::new(
+                tombi_validator::DiagnosticKind::UnevaluatedPropertyNotAllowed {
+                    key: "baz".to_string(),
+                },
+                ((2, 0), (2, 11)),
+            ),
+        ]);
+    );
+
+    fn dynamic_ref_with_existing_all_of_schema() -> JsonValue {
+        serde_json::json!({
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "$id": "https://example.com/dynamic-ref-with-all-of/derived",
+            "$ref": "./baseSchema",
+            "$defs": {
+                "derived": {
+                    "$dynamicAnchor": "addons",
+                    "properties": { "bar": { "type": "string" } }
+                },
+                "baseSchema": {
+                    "$id": "./baseSchema",
+                    "allOf": [{ "properties": { "foo": { "type": "string" } } }],
+                    "$dynamicRef": "#addons",
+                    "$defs": {
+                        "defaultAddons": { "$dynamicAnchor": "addons" }
+                    }
+                }
+            }
+        })
+    }
+
+    suite_test!(
+        #[tokio::test] async fn dynamic_ref_target_is_validated_with_existing_all_of(
+            r#"
+            foo = "foo"
+            bar = 1
+            "#,
+            JsonSchema(dynamic_ref_with_existing_all_of_schema()),
+        ) -> Err([
+            tombi_validator::Diagnostic::new(
+                tombi_validator::DiagnosticKind::TypeMismatch {
+                    expected: tombi_schema_store::ValueType::String,
+                    actual: tombi_document_tree_syntax::ValueType::Integer,
+                },
+                ((1, 6), (1, 7)),
+            ),
+        ]);
+    );
+
+    fn scalar_dynamic_ref_schema() -> JsonValue {
+        serde_json::json!({
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "$id": "https://example.com/scalar-dynamic-ref/root",
+            "type": "object",
+            "properties": {
+                "value": { "$ref": "#/$defs/derived" }
+            },
+            "$defs": {
+                "derived": {
+                    "$id": "./derived",
+                    "$dynamicAnchor": "kind",
+                    "type": "integer",
+                    "$ref": "./base"
+                },
+                "base": {
+                    "$id": "./base",
+                    "$dynamicRef": "#kind",
+                    "$defs": {
+                        "defaultKind": {
+                            "$dynamicAnchor": "kind",
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        })
+    }
+
+    suite_test!(
+        #[tokio::test] async fn scalar_dynamic_ref_uses_callers_scope(
+            r#"
+            value = 1
+            "#,
+            JsonSchema(scalar_dynamic_ref_schema()),
+        ) -> Ok(_);
+    );
+
+    suite_test!(
+        #[tokio::test] async fn scalar_dynamic_ref_rejects_default_anchor_type(
+            r#"
+            value = "wrong scope"
+            "#,
+            JsonSchema(scalar_dynamic_ref_schema()),
+        ) -> Err([
+            tombi_validator::Diagnostic::new(
+                tombi_validator::DiagnosticKind::Nothing,
+                ((0, 8), (0, 21)),
+            ),
+        ]);
+    );
+
+    fn scalar_recursive_ref_schema() -> JsonValue {
+        serde_json::json!({
+            "$schema": "https://json-schema.org/draft/2019-09/schema",
+            "$id": "https://example.com/scalar-recursive-ref/root",
+            "type": "object",
+            "properties": {
+                "value": { "$ref": "#/$defs/derived" }
+            },
+            "$defs": {
+                "derived": {
+                    "$id": "./derived",
+                    "$recursiveAnchor": true,
+                    "type": "integer",
+                    "$ref": "./base"
+                },
+                "base": {
+                    "$id": "./base",
+                    "$recursiveAnchor": true,
+                    "$recursiveRef": "#"
+                }
+            }
+        })
+    }
+
+    suite_test!(
+        #[tokio::test] async fn scalar_recursive_ref_uses_callers_scope(
+            r#"
+            value = 1
+            "#,
+            JsonSchema(scalar_recursive_ref_schema()),
+        ) -> Ok(_);
+    );
+
+    suite_test!(
+        #[tokio::test] async fn scalar_recursive_ref_rejects_wrong_type(
+            r#"
+            value = "wrong scope"
+            "#,
+            JsonSchema(scalar_recursive_ref_schema()),
+        ) -> Err([
+            tombi_validator::Diagnostic::new(
+                tombi_validator::DiagnosticKind::Nothing,
+                ((0, 8), (0, 21)),
+            ),
+        ]);
+    );
+
+    fn recursive_ref_schema() -> JsonValue {
+        serde_json::json!({
+            "$schema": "https://json-schema.org/draft/2019-09/schema",
+            "$id": "https://example.com/unevaluated-properties-with-recursive-ref/extended-tree",
+            "$recursiveAnchor": true,
+            "$ref": "./tree",
+            "properties": { "name": { "type": "string" } },
+            "$defs": {
+                "tree": {
+                    "$id": "./tree",
+                    "$recursiveAnchor": true,
+                    "type": "object",
+                    "properties": {
+                        "node": true,
+                        "branches": {
+                            "unevaluatedProperties": false,
+                            "$recursiveRef": "#"
+                        }
+                    },
+                    "required": ["node"]
+                }
+            }
+        })
+    }
+
+    suite_test!(
+        #[tokio::test] async fn recursive_ref_annotations_are_visible_to_unevaluated_properties(
+            r#"
+            name = "a"
+            node = 1
+
+            [branches]
+            name = "b"
+            node = 2
+            "#,
+            JsonSchema(recursive_ref_schema()),
+        ) -> Ok(_);
+    );
+
+    suite_test!(
+        #[tokio::test] async fn recursive_ref_still_rejects_unannotated_properties(
+            r#"
+            name = "a"
+            node = 1
+
+            [branches]
+            foo = "b"
+            node = 2
+            "#,
+            JsonSchema(recursive_ref_schema()),
+        ) -> Err([
+            tombi_validator::Diagnostic::new(
+                tombi_validator::DiagnosticKind::UnevaluatedPropertyNotAllowed {
+                    key: "foo".to_string(),
+                },
+                ((4, 0), (4, 9)),
+            ),
+        ]);
+    );
+}
+
 // =============================================================================
 // Draft 7: dependencies
 // =============================================================================

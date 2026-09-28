@@ -1,11 +1,17 @@
-from typing import List, NamedTuple, Optional
+"""GraphQL Lexer"""
+
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, NamedTuple
 
 from ..error import GraphQLSyntaxError
 from .ast import Token
 from .block_string import dedent_block_string_lines
-from .character_classes import is_digit, is_name_start, is_name_continue
-from .source import Source
+from .character_classes import is_digit, is_name_continue, is_name_start
 from .token_kind import TokenKind
+
+if TYPE_CHECKING:
+    from .source import Source
 
 __all__ = ["Lexer", "is_punctuator_token_kind"]
 
@@ -24,22 +30,70 @@ class Lexer:
     the next token in the Source. Assuming the source lexes, the final Token emitted by
     the lexer will be of kind EOF, after which the lexer will repeatedly return the same
     EOF token whenever called.
+
+    Given a Source object, creates a Lexer for that source.
+
+    :param source: Source document used to derive error locations.
+
+    >>> from graphql.language import Lexer, Source, TokenKind
+    >>> lexer = Lexer(Source('{ hello }'))
+    >>> lexer.token.kind
+    <TokenKind.SOF: '<SOF>'>
+    >>> lexer.advance().kind
+    <TokenKind.BRACE_L: '{'>
+    >>> lexer.advance().value
+    'hello'
+    >>> lexer.advance().kind
+    <TokenKind.BRACE_R: '}'>
     """
 
-    def __init__(self, source: Source):
+    source: Source
+    """Source document used to derive error locations."""
+    last_token: Token
+    """Most recent non-ignored token returned by the lexer."""
+    token: Token
+    """Current non-ignored token at the lexer cursor."""
+    line: int
+    """The (1-indexed) line containing the current token."""
+    line_start: int
+    """Character offset where the current line starts."""
+
+    def __init__(self, source: Source) -> None:
         """Given a Source object, initialize a Lexer for that source."""
         self.source = source
         self.token = self.last_token = Token(TokenKind.SOF, 0, 0, 0, 0)
         self.line, self.line_start = 1, 0
 
     def advance(self) -> Token:
-        """Advance the token stream to the next non-ignored token."""
+        """Advance the token stream to the next non-ignored token.
+
+        :returns: The next non-ignored token.
+
+        >>> from graphql.language import Lexer, Source
+        >>> lexer = Lexer(Source('{ hello }'))
+        >>> token = lexer.advance()
+        >>> token.kind.value
+        '{'
+        >>> lexer.token is token
+        True
+        """
         self.last_token = self.token
         token = self.token = self.lookahead()
         return token
 
     def lookahead(self) -> Token:
-        """Look ahead and return the next non-ignored token, but do not change state."""
+        """Look ahead and return the next non-ignored token, but do not change state.
+
+        :returns: The next non-ignored token without advancing the lexer.
+
+        >>> from graphql.language import Lexer, Source
+        >>> lexer = Lexer(Source('{ hello }'))
+        >>> token = lexer.lookahead()
+        >>> token.kind.value
+        '{'
+        >>> lexer.token.kind.value
+        '<SOF>'
+        """
         token = self.token
         if token.kind != TokenKind.EOF:
             while True:
@@ -63,6 +117,8 @@ class Lexer:
 
         Printable ASCII is printed quoted, while other points are printed in Unicode
         code point form (ie. U+1234).
+
+        :meta private:
         """
         body = self.source.body
         if location >= len(body):
@@ -82,9 +138,12 @@ class Lexer:
         return f"U+{point:04X}"
 
     def create_token(
-        self, kind: TokenKind, start: int, end: int, value: Optional[str] = None
+        self, kind: TokenKind, start: int, end: int, value: str | None = None
     ) -> Token:
-        """Create a token with line and column location information."""
+        """Create a token with line and column location information.
+
+        :meta private:
+        """
         line = self.line
         col = 1 + start - self.line_start
         return Token(kind, start, end, line, col, value)
@@ -95,6 +154,8 @@ class Lexer:
         This skips over whitespace until it finds the next lexable token, then lexes
         punctuators immediately or calls the appropriate helper function for more
         complicated tokens.
+
+        :meta private:
         """
         body = self.source.body
         body_length = len(body)
@@ -106,12 +167,12 @@ class Lexer:
             if char in " \t,\ufeff":
                 position += 1
                 continue
-            elif char == "\n":
+            if char == "\n":
                 position += 1
                 self.line += 1
                 self.line_start = position
                 continue
-            elif char == "\r":
+            if char == "\r":
                 if body[position + 1 : position + 2] == "\n":
                     position += 2
                 else:
@@ -139,8 +200,28 @@ class Lexer:
                 return self.read_name(position)
 
             if char == ".":
-                if body[position + 1 : position + 3] == "..":
-                    return self.create_token(TokenKind.SPREAD, position, position + 3)
+                next_char = body[position + 1 : position + 2]
+                if next_char == ".":
+                    if body[position + 2 : position + 3] == ".":
+                        return self.create_token(
+                            TokenKind.SPREAD, position, position + 3
+                        )
+                    raise GraphQLSyntaxError(
+                        self.source,
+                        position,
+                        "Unexpected '..', did you mean '...'?",
+                    )
+                if is_digit(next_char):
+                    end = position + 1
+                    while end < body_length and is_digit(body[end]):
+                        end += 1
+                    digits = body[position + 1 : end]
+                    raise GraphQLSyntaxError(
+                        self.source,
+                        position,
+                        f"Invalid number, expected digit before '.'"
+                        f", did you mean '0.{digits}'?",
+                    )
 
             message = (
                 "Unexpected single quote character ('),"
@@ -159,7 +240,16 @@ class Lexer:
         return self.create_token(TokenKind.EOF, body_length, body_length)
 
     def read_comment(self, start: int) -> Token:
-        """Read a comment token from the source file."""
+        """Read a comment token from the source file.
+
+        ::
+
+            Comment :: # CommentChar* [lookahead != CommentChar]
+
+            CommentChar :: SourceCharacter but not LineTerminator
+
+        :meta private:
+        """
         body = self.source.body
         body_length = len(body)
 
@@ -183,10 +273,38 @@ class Lexer:
         )
 
     def read_number(self, start: int, first_char: str) -> Token:
-        """Reads a number token from the source file.
+        """Read a number token from the source file.
 
         This can be either a FloatValue or an IntValue,
         depending on whether a FractionalPart or ExponentPart is encountered.
+
+        ::
+
+            IntValue :: IntegerPart [lookahead != {Digit, `.`, NameStart}]
+
+            IntegerPart ::
+              - NegativeSign? 0
+              - NegativeSign? NonZeroDigit Digit*
+
+            NegativeSign :: -
+
+            NonZeroDigit :: Digit but not `0`
+
+            FloatValue ::
+              - IntegerPart FractionalPart ExponentPart
+                [lookahead != {Digit, `.`, NameStart}]
+              - IntegerPart FractionalPart [lookahead != {Digit, `.`, NameStart}]
+              - IntegerPart ExponentPart [lookahead != {Digit, `.`, NameStart}]
+
+            FractionalPart :: . Digit+
+
+            ExponentPart :: ExponentIndicator Sign? Digit+
+
+            ExponentIndicator :: one of `e` `E`
+
+            Sign :: one of + -
+
+        :meta private:
         """
         body = self.source.body
         position = start
@@ -242,7 +360,10 @@ class Lexer:
         )
 
     def read_digits(self, start: int, first_char: str) -> int:
-        """Return the new position in the source after reading one or more digits."""
+        """Return the new position in the source after reading one or more digits.
+
+        :meta private:
+        """
         if not is_digit(first_char):
             raise GraphQLSyntaxError(
                 self.source,
@@ -259,12 +380,32 @@ class Lexer:
         return position
 
     def read_string(self, start: int) -> Token:
-        """Read a single-quote string token from the source file."""
+        r"""Read a single-quote string token from the source file.
+
+        ::
+
+            StringValue ::
+              - `""` [lookahead != `"`]
+              - `"` StringCharacter+ `"`
+
+            StringCharacter ::
+              - SourceCharacter but not `"` or `\` or LineTerminator
+              - `\u` EscapedUnicode
+              - `\` EscapedCharacter
+
+            EscapedUnicode ::
+              - `{` HexDigit+ `}`
+              - HexDigit HexDigit HexDigit HexDigit
+
+            EscapedCharacter :: one of `"` `\` `/` `b` `f` `n` `r` `t`
+
+        :meta private:
+        """
         body = self.source.body
         body_length = len(body)
         position = start + 1
         chunk_start = position
-        value: List[str] = []
+        value: list[str] = []
         append = value.append
 
         while position < body_length:
@@ -313,6 +454,10 @@ class Lexer:
         raise GraphQLSyntaxError(self.source, position, "Unterminated string.")
 
     def read_escaped_unicode_variable_width(self, position: int) -> EscapeSequence:
+        r"""Read a variable-width Unicode escape sequence like ``\u{1F600}``.
+
+        :meta private:
+        """
         body = self.source.body
         point = 0
         size = 3
@@ -336,10 +481,16 @@ class Lexer:
         raise GraphQLSyntaxError(
             self.source,
             position,
-            f"Invalid Unicode escape sequence: '{body[position: position + size]}'.",
+            f"Invalid Unicode escape sequence: '{body[position : position + size]}'.",
         )
 
     def read_escaped_unicode_fixed_width(self, position: int) -> EscapeSequence:
+        r"""Read a fixed-width Unicode escape sequence like ``\u00E9``.
+
+        A surrogate pair of two such escape sequences is read as one character.
+
+        :meta private:
+        """
         body = self.source.body
         code = read_16_bit_hex_code(body, position + 2)
 
@@ -348,36 +499,67 @@ class Lexer:
 
         # GraphQL allows JSON-style surrogate pair escape sequences, but only when
         # a valid pair is formed.
-        if 0xD800 <= code <= 0xDBFF:
-            if body[position + 6 : position + 8] == "\\u":
-                trailing_code = read_16_bit_hex_code(body, position + 8)
-                if 0xDC00 <= trailing_code <= 0xDFFF:
-                    return EscapeSequence(
-                        (chr(code) + chr(trailing_code))
-                        .encode("utf-16", "surrogatepass")
-                        .decode("utf-16"),
-                        12,
-                    )
+        if 0xD800 <= code <= 0xDBFF and body[position + 6 : position + 8] == "\\u":
+            trailing_code = read_16_bit_hex_code(body, position + 8)
+            if 0xDC00 <= trailing_code <= 0xDFFF:
+                return EscapeSequence(
+                    (chr(code) + chr(trailing_code))
+                    .encode("utf-16", "surrogatepass")
+                    .decode("utf-16"),
+                    12,
+                )
 
         raise GraphQLSyntaxError(
             self.source,
             position,
-            f"Invalid Unicode escape sequence: '{body[position: position + 6]}'.",
+            f"Invalid Unicode escape sequence: '{body[position : position + 6]}'.",
         )
 
     def read_escaped_character(self, position: int) -> EscapeSequence:
+        r"""Read an escaped character.
+
+        =================  ==========  ============================
+        Escaped Character  Code Point  Character Name
+        =================  ==========  ============================
+        ``"``              U+0022      double quote
+        ``\``              U+005C      reverse solidus (back slash)
+        ``/``              U+002F      solidus (forward slash)
+        ``b``              U+0008      backspace
+        ``f``              U+000C      form feed
+        ``n``              U+000A      line feed (new line)
+        ``r``              U+000D      carriage return
+        ``t``              U+0009      horizontal tab
+        =================  ==========  ============================
+
+        :meta private:
+        """
         body = self.source.body
-        value = _ESCAPED_CHARS.get(body[position + 1])
+        try:
+            value = _ESCAPED_CHARS.get(body[position + 1])
+        except IndexError:  # backslash at the end of the body
+            value = None
         if value:
             return EscapeSequence(value, 2)
         raise GraphQLSyntaxError(
             self.source,
             position,
-            f"Invalid character escape sequence: '{body[position: position + 2]}'.",
+            f"Invalid character escape sequence: '{body[position : position + 2]}'.",
         )
 
     def read_block_string(self, start: int) -> Token:
-        """Read a block string token from the source file."""
+        r'''Read a block string token from the source file.
+
+        ::
+
+            StringValue ::
+              - `"""` BlockStringCharacter* `"""`
+
+            BlockStringCharacter ::
+              - SourceCharacter but not `"""` or `\"""`
+              - `\"""`
+
+        :meta private:
+        '''
         body = self.source.body
         body_length = len(body)
         line_start = self.line_start
@@ -440,7 +622,15 @@ class Lexer:
         raise GraphQLSyntaxError(self.source, position, "Unterminated string.")
 
     def read_name(self, start: int) -> Token:
-        """Read an alphanumeric + underscore name from the source."""
+        """Read an alphanumeric + underscore name from the source.
+
+        ::
+
+            Name ::
+              - NameStart NameContinue* [lookahead != NameContinue]
+
+        :meta private:
+        """
         body = self.source.body
         body_length = len(body)
         position = start + 1
@@ -479,6 +669,8 @@ def is_punctuator_token_kind(kind: TokenKind) -> bool:
     """Check whether the given token kind corresponds to a punctuator.
 
     For internal use only.
+
+    :meta private:
     """
     return kind in _punctuator_token_kinds
 
@@ -522,13 +714,18 @@ def read_16_bit_hex_code(body: str, position: int) -> int:
     Returns a negative number if any char was not a valid hexadecimal digit.
     """
     # read_hex_digit() returns -1 on error. ORing a negative value with any other
-    # value always produces a negative value.
-    return (
-        read_hex_digit(body[position]) << 12
-        | read_hex_digit(body[position + 1]) << 8
-        | read_hex_digit(body[position + 2]) << 4
-        | read_hex_digit(body[position + 3])
-    )
+    # value always produces a negative value. An escape sequence truncated at the end
+    # of the body raises an IndexError in Python (in GraphQL.js it reads NaN); it is
+    # reported with the same negative value, keeping the normal path free of checks.
+    try:
+        return (
+            read_hex_digit(body[position]) << 12
+            | read_hex_digit(body[position + 1]) << 8
+            | read_hex_digit(body[position + 2]) << 4
+            | read_hex_digit(body[position + 3])
+        )
+    except IndexError:
+        return -1
 
 
 def read_hex_digit(char: str) -> int:
@@ -542,9 +739,9 @@ def read_hex_digit(char: str) -> int:
     """
     if "0" <= char <= "9":
         return ord(char) - 48
-    elif "A" <= char <= "F":
+    if "A" <= char <= "F":
         return ord(char) - 55
-    elif "a" <= char <= "f":
+    if "a" <= char <= "f":
         return ord(char) - 87
     return -1
 
@@ -560,8 +757,7 @@ def is_unicode_scalar_value(char: str) -> bool:
 
 
 def is_supplementary_code_point(body: str, location: int) -> bool:
-    """
-    Check whether the current location is a supplementary code point.
+    """Check whether the current location is a supplementary code point.
 
     The GraphQL specification defines source text as a sequence of unicode scalar
     values (which Unicode defines to exclude surrogate code points).

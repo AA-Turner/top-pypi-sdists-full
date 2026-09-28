@@ -17,6 +17,7 @@ from ..opc.relationships import (
     select_main_rootfile,
 )
 from ..opc.security import MAX_ZIP_SMALL_PART_BYTES, guard_zip_file, parse_xml_stdlib, read_member
+from ..oxml.hyperlink_form import hyperlink_target
 from ..oxml.namespaces import DEFAULT_NAMESPACES as OWPML_DEFAULT_NAMESPACES
 
 __all__ = [
@@ -172,6 +173,9 @@ class TextExtractor:
         if namespaces:
             merged_namespaces.update(namespaces)
         self.namespaces: Dict[str, str] = merged_namespaces
+        # While extract_text runs: every paragraph written so far, including the
+        # ones written inside another paragraph's text (notes, controls, objects).
+        self._written: Optional[set[ET.Element]] = None
 
     # ------------------------------------------------------------------
     # Context manager helpers
@@ -275,6 +279,8 @@ class TextExtractor:
     ) -> str:
         """Return a string representation of a paragraph element."""
 
+        if self._written is not None:
+            self._written.add(paragraph)
         fragments: list[str] = []
         for run in _children_by_local(paragraph, "run"):
             for child in run:
@@ -341,7 +347,7 @@ class TextExtractor:
             fragments.append(placeholder.format(type=tag))
             return
         if behavior == "nested":
-            for inner_paragraph in _descendants_by_local(element, "p"):
+            for inner_paragraph in _own_paragraphs(element):
                 text = self.paragraph_text(
                     inner_paragraph,
                     object_behavior=behavior,
@@ -382,7 +388,7 @@ class TextExtractor:
             fragments.append(placeholder.format(type=tag))
         elif behavior == "nested":
             # Attempt to gather nested paragraph text for unknown containers.
-            for inner_paragraph in _descendants_by_local(element, "p"):
+            for inner_paragraph in _own_paragraphs(element):
                 text = self.paragraph_text(
                     inner_paragraph,
                     object_behavior=behavior,
@@ -445,6 +451,10 @@ class TextExtractor:
             elif tag == "fwSpace":
                 # U+3000 IDEOGRAPHIC SPACE (CJK full-width space).
                 fragments.append("　" if preserve_breaks else " ")
+            elif tag == "tab":
+                # A tab Hancom nests inside hp:t (a TOC entry's leader tab
+                # before its page number): the same rule as a run-level tab.
+                fragments.append("\t" if preserve_breaks else " ")
             elif tag == "hyphen":
                 # U+00AD SOFT HYPHEN -- an optional word-break point,
                 # invisible except where a line actually breaks there;
@@ -591,19 +601,32 @@ class TextExtractor:
         preserve_breaks: bool = True,
         annotations: Optional[AnnotationOptions] = None,
     ) -> str:
-        """Return the plain text for all paragraphs in the document."""
+        """Return the plain text for all paragraphs in the document.
+
+        With ``include_nested`` a paragraph inside a note, control or object is
+        listed on its own only when the text of the paragraph that holds it did
+        not already include it (``footnote="inline"``, ``control="nested"``,
+        ``object_behavior="nested"``), so no text is written twice.
+        """
 
         texts: list[str] = []
-        for paragraph in self.iter_document_paragraphs(include_nested=include_nested):
-            text = paragraph.text(
-                object_behavior=object_behavior,
-                object_placeholder=object_placeholder,
-                preserve_breaks=preserve_breaks,
-                annotations=annotations,
-            )
-            if skip_empty and not text.strip():
-                continue
-            texts.append(text)
+        written: set[ET.Element] = set()
+        previous, self._written = self._written, written
+        try:
+            for paragraph in self.iter_document_paragraphs(include_nested=include_nested):
+                if paragraph.element in written:
+                    continue
+                text = paragraph.text(
+                    object_behavior=object_behavior,
+                    object_placeholder=object_placeholder,
+                    preserve_breaks=preserve_breaks,
+                    annotations=annotations,
+                )
+                if skip_empty and not text.strip():
+                    continue
+                texts.append(text)
+        finally:
+            self._written = previous
         return paragraph_separator.join(texts)
 
     # ------------------------------------------------------------------
@@ -713,17 +736,9 @@ def _resolve_hyperlink_target(
     field_begin: ET.Element,
     namespaces: Dict[str, str],
 ) -> Optional[str]:
-    params = _first_child_by_local(field_begin, "parameters")
-    if params is None:
-        return None
-
-    for string_param in _children_by_local(params, "stringParam"):
-        if string_param.get("name") == "Command":
-            value = string_param.text or ""
-            if "|" in value:
-                return value.split("|", 1)[0]
-            return value
-    return None
+    # Path, else the unescaped Command without its ";1;0;0;" kind tail, else
+    # @name -- one reading for every consumer (hwpx.oxml.hyperlink_form).
+    return hyperlink_target(field_begin) or None
 
 
 def strip_namespace(tag: str) -> str:
@@ -744,6 +759,21 @@ def _descendants_by_local(element: ET.Element, local_name: str) -> list[ET.Eleme
         for child in element.iter()
         if child is not element and strip_namespace(child.tag) == local_name
     ]
+
+
+def _own_paragraphs(element: ET.Element) -> list[ET.Element]:
+    """Paragraphs of *element*'s own sub-lists, in document order.
+
+    Paragraphs inside another paragraph below *element* (a table in a cell, a
+    text box in a text box) are left out: that paragraph writes them itself.
+    """
+    found: list[ET.Element] = []
+    for child in element:
+        if strip_namespace(child.tag) == "p":
+            found.append(child)
+        else:
+            found.extend(_own_paragraphs(child))
+    return found
 
 
 def _first_child_by_local(element: ET.Element, local_name: str) -> ET.Element | None:

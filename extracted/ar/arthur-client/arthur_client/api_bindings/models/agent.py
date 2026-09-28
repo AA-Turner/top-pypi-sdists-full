@@ -36,7 +36,7 @@ class Agent(BaseModel):
     Request model for agent upsert - nested entities without IDs.
     """ # noqa: E501
     name: StrictStr = Field(description="Name of the agent.")
-    data_plane_id: StrictStr = Field(description="UUID of the data plane where this agent was detected.")
+    data_plane_id: StrictStr = Field(description="ID of the engine this agent was detected on. Data plane is the legacy API name for an engine.")
     task_id: StrictStr = Field(description="UUID of the associated task.")
     provenance: Optional[ProvenanceInput] = None
     model_id: Optional[StrictStr] = None
@@ -45,7 +45,7 @@ class Agent(BaseModel):
     rules: Optional[List[RuleResponse]] = Field(default=None, description="Rules associated with this agent's task.")
     last_fetched: Optional[datetime] = None
     muted_until: Optional[datetime] = None
-    evidence: Optional[List[Evidence]] = Field(default=None, description="Every sensor's report of this agent, one record each. A list rather than the singular creation_source it replaces: two sensors disagree about how much they can see, when they last looked and whether they are still reporting, and flattening them would make one of those answers win arbitrarily. Merged per sensor on upsert rather than replaced, so a fetch job scoped to one discovery source cannot wipe another source's evidence.")
+    evidence: Optional[List[Evidence]] = Field(default=None, description="Every source's report of this agent, one record each. A list rather than the singular creation_source it replaces: two sources disagree about how much they can see, when they last looked and whether they are still reporting, and flattening them would make one of those answers win arbitrarily. Merged per source on upsert rather than replaced, so a fetch job scoped to one discovery source cannot wipe another source's evidence.")
     creation_source: Optional[AgentCreationSource] = None
     tools: Optional[List[Tool]] = Field(default=None, description="Tools used by this agent.")
     sub_agents: Optional[List[SubAgent]] = Field(default=None, description="Sub-agents used by this agent.")

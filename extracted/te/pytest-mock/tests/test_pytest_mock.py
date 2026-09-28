@@ -3,12 +3,12 @@ import platform
 import re
 import sys
 import warnings
+from collections.abc import Callable
 from collections.abc import Generator
 from collections.abc import Iterable
 from collections.abc import Iterator
 from contextlib import contextmanager
 from typing import Any
-from typing import Callable
 from unittest.mock import AsyncMock
 from unittest.mock import MagicMock
 
@@ -16,6 +16,7 @@ import pytest
 
 from pytest_mock import MockerFixture
 from pytest_mock import PytestMockWarning
+from pytest_mock import SpyType
 
 pytest_plugins = "pytester"
 
@@ -26,6 +27,16 @@ skip_pypy = pytest.mark.skipif(
 
 # Python 3.11.7 changed the output formatting, https://github.com/python/cpython/issues/111019
 NEWEST_FORMATTING = sys.version_info >= (3, 11, 7)
+
+
+def syspath_insert_workaround(request: pytest.FixtureRequest, testdir: Any) -> None:
+    if pytest.__version__.split(".")[0] == "6":
+        # Avoid testdir.syspathinsert() which requires pkg_resources (setuptools) in
+        # pytest 6.2.5; insert directly instead (#169).
+        sys.path.insert(0, str(testdir.tmpdir))
+        request.addfinalizer(lambda: sys.path.remove(str(testdir.tmpdir)))
+    else:
+        testdir.syspathinsert()
 
 
 @pytest.fixture
@@ -39,7 +50,7 @@ def needs_assert_rewrite(pytestconfig):
     if option != "rewrite":
         pytest.skip(
             "this test needs assertion rewrite to work but current option "
-            'is "{}"'.format(option)
+            f'is "{option}"'
         )
 
 
@@ -213,6 +224,19 @@ def test_mocker_resetall(mocker: MockerFixture) -> None:
     assert mocked_object.run.return_value != "mocked"
 
 
+def test_mocker_resetall_non_callable_mock(mocker: MockerFixture) -> None:
+    """``resetall`` must honour its arguments for non-callable mocks too (#389)."""
+    mocked_object = mocker.create_autospec(TestObject, instance=True)
+    assert not isinstance(mocked_object, mocker.Mock)
+    mocked_object.run.return_value = "mocked"
+    mocked_object.run.side_effect = ValueError
+
+    mocker.resetall(return_value=True, side_effect=True)
+
+    assert mocked_object.run.return_value != "mocked"
+    assert mocked_object.run.side_effect is None
+
+
 class TestMockerStub:
     def test_call(self, mocker: MockerFixture) -> None:
         stub = mocker.stub()
@@ -271,6 +295,29 @@ def test_instance_method_spy(mocker: MockerFixture) -> None:
     assert spy.spy_return == 24
     assert spy.spy_return_iter is None
     assert spy.spy_return_list == [20, 22, 24]
+
+
+def assert_spy_has_no_return(spy: SpyType) -> None:
+    assert spy.spy_return is None
+    assert spy.spy_return_iter is None
+    assert spy.spy_return_list == []
+
+
+def test_spy_type(mocker: MockerFixture) -> None:
+    class Foo:
+        def bar(self) -> str:
+            return "ok"
+
+    foo = Foo()
+    spy: SpyType = mocker.spy(foo, "bar")
+
+    assert_spy_has_no_return(spy)
+    assert spy.spy_exception is None
+    spy.assert_not_called()
+
+    assert foo.bar() == "ok"
+    assert spy.spy_return == "ok"
+    assert spy.spy_return_list == ["ok"]
 
 
 # Ref: https://docs.python.org/3/library/exceptions.html#exception-hierarchy
@@ -347,9 +394,7 @@ def test_spy_reset(mocker: MockerFixture) -> None:
             return x * 3
 
     spy = mocker.spy(Foo, "bar")
-    assert spy.spy_return is None
-    assert spy.spy_return_iter is None
-    assert spy.spy_return_list == []
+    assert_spy_has_no_return(spy)
     assert spy.spy_exception is None
 
     Foo().bar(10)
@@ -363,9 +408,7 @@ def test_spy_reset(mocker: MockerFixture) -> None:
 
     with pytest.raises(ValueError):
         Foo().bar(0)
-    assert spy.spy_return is None
-    assert spy.spy_return_iter is None
-    assert spy.spy_return_list == []
+    assert_spy_has_no_return(spy)
     assert str(spy.spy_exception) == "invalid x"
 
     Foo().bar(15)
@@ -517,7 +560,9 @@ def test_static_method_subclass_spy(mocker: MockerFixture) -> None:
     assert spy.spy_return_list == [20]
 
 
-def test_callable_like_spy(testdir: Any, mocker: MockerFixture) -> None:
+def test_callable_like_spy(
+    testdir: Any, mocker: MockerFixture, request: pytest.FixtureRequest
+) -> None:
     testdir.makepyfile(
         uut="""
         class CallLike(object):
@@ -527,7 +572,7 @@ def test_callable_like_spy(testdir: Any, mocker: MockerFixture) -> None:
         call_like = CallLike()
     """
     )
-    testdir.syspathinsert()
+    syspath_insert_workaround(request, testdir)
 
     uut = __import__("uut")
 
@@ -599,7 +644,7 @@ def test_spy_return_iter_ignores_plain_iterable(
 
 def test_spy_return_iter_resets(mocker: MockerFixture) -> None:
     class Foo:
-        iterables: Any = [
+        iterables: Any = [  # noqa:RUF012
             (i for i in range(3)),
             99,
         ]
@@ -612,6 +657,7 @@ def test_spy_return_iter_resets(mocker: MockerFixture) -> None:
     result_iterator = list(foo.bar())
 
     assert result_iterator == [0, 1, 2]
+    assert spy.spy_return_iter is not None
     assert list(spy.spy_return_iter) == result_iterator
 
     assert foo.bar() == 99
@@ -631,6 +677,27 @@ async def test_instance_async_method_spy(mocker: MockerFixture) -> None:
 
     spy.assert_called_once_with(10)
     assert result == 20
+
+
+@pytest.mark.asyncio
+async def test_async_spy_return_iter_duplicates_iterator_when_enabled(
+    mocker: MockerFixture,
+) -> None:
+    class Foo:
+        async def bar(self) -> Iterator[int]:
+            return iter([0, 1, 2])
+
+    foo = Foo()
+    spy = mocker.spy(foo, "bar", duplicate_iterators=True)
+    result = await foo.bar()
+
+    assert list(result) == [0, 1, 2]
+    assert spy.spy_return is not None
+    assert spy.spy_return_iter is not None
+    assert list(spy.spy_return_iter) == [0, 1, 2]
+
+    [return_value] = spy.spy_return_list
+    assert isinstance(return_value, Iterator)
 
 
 @contextmanager
@@ -654,17 +721,23 @@ def assert_argument_introspection(left: Any, right: Any) -> Generator[None, None
     try:
         yield
     except AssertionError as e:
-        # this may be a bit too assuming, but seems nicer then hard-coding
-        import _pytest.assertion.util as util
+        version = tuple(int(x) for x in pytest.__version__.split(".")[:3])
+
+        if version[:2] < (9, 1):
+            from _pytest.assertion.util import _compare_eq_iterable  # type:ignore
+        else:
+            from _pytest.assertion._compare_sequence import (  # type:ignore
+                _compare_eq_iterable,
+            )
 
         # NOTE: we assert with either verbose or not, depending on how our own
         #       test was run by examining sys.argv
         verbose = any(a.startswith("-v") for a in sys.argv)
-        if int(pytest.__version__.split(".")[0]) < 8:
-            expected = "\n  ".join(util._compare_eq_iterable(left, right, verbose))  # type:ignore[arg-type]
+        if version[0] < 8:
+            expected = "\n  ".join(_compare_eq_iterable(left, right, verbose))  # type:ignore
         else:
             expected = "\n  ".join(
-                util._compare_eq_iterable(left, right, lambda t, *_, **__: t, verbose)  # type:ignore[arg-type]
+                _compare_eq_iterable(left, right, lambda t, *_, **__: t, verbose)  # type:ignore
             )
         assert expected in str(e)
     else:
@@ -739,8 +812,8 @@ def test_assert_called_args_with_introspection(mocker: MockerFixture) -> None:
 def test_assert_called_kwargs_with_introspection(mocker: MockerFixture) -> None:
     stub = mocker.stub()
 
-    complex_kwargs = dict(foo={"bar": 1, "baz": "spam"})
-    wrong_kwargs = dict(foo={"goo": 1, "baz": "bran"})
+    complex_kwargs = {"foo": {"bar": 1, "baz": "spam"}}
+    wrong_kwargs = {"foo": {"goo": 1, "baz": "bran"}}
 
     stub(**complex_kwargs)
     stub.assert_called_with(**complex_kwargs)
@@ -766,6 +839,41 @@ def test_assert_has_calls(mocker: MockerFixture) -> None:
     stub.assert_has_calls([mocker.call("foo")])
     with assert_traceback():
         stub.assert_has_calls([mocker.call("bar")])
+
+
+@pytest.mark.usefixtures("needs_assert_rewrite")
+@pytest.mark.parametrize(
+    "assertion", ["assert_awaited_with", "assert_awaited_once_with", "assert_any_await"]
+)
+@pytest.mark.asyncio
+async def test_async_assertion_uses_await_arguments(
+    mocker: MockerFixture, assertion: str
+) -> None:
+    stub = mocker.AsyncMock()
+    await stub("awaited", source="awaited")
+    stub("called", source="called").close()
+
+    getattr(stub, assertion)("awaited", source="awaited")
+    with pytest.raises(AssertionError) as exc_info:
+        getattr(stub, assertion)("wrong", source="wrong")
+    introspection = str(exc_info.value).split("pytest introspection follows:")[1]
+    assert "'awaited'" in introspection
+    assert "'called'" not in introspection
+
+    with pytest.raises(AssertionError) as exc_info:
+        stub.assert_called_with("wrong", source="wrong")
+    introspection = str(exc_info.value).split("pytest introspection follows:")[1]
+    assert "'called'" in introspection
+    assert "'awaited'" not in introspection
+
+
+@pytest.mark.usefixtures("needs_assert_rewrite")
+def test_async_assertion_without_await(mocker: MockerFixture) -> None:
+    stub = mocker.AsyncMock()
+    stub("called").close()
+    with pytest.raises(AssertionError) as exc_info:
+        stub.assert_awaited_with("expected")
+    assert "pytest introspection follows:" not in str(exc_info.value)
 
 
 def test_assert_has_calls_multiple_calls(mocker: MockerFixture) -> None:
@@ -1095,11 +1203,13 @@ def test_warn_patch_object_context_manager(mocker: MockerFixture) -> None:
         "https://pytest-mock.readthedocs.io/en/latest/usage.html#usage-as-context-manager"
     )
 
-    with pytest.warns(
-        PytestMockWarning, match=re.escape(expected_warning_msg)
-    ) as warn_record:
-        with mocker.patch.object(a, "doIt", return_value=True):
-            assert a.doIt() is True
+    with (
+        pytest.warns(
+            PytestMockWarning, match=re.escape(expected_warning_msg)
+        ) as warn_record,
+        mocker.patch.object(a, "doIt", return_value=True),
+    ):
+        assert a.doIt() is True
 
     assert warn_record[0].filename == __file__
 
@@ -1112,11 +1222,13 @@ def test_warn_patch_context_manager(mocker: MockerFixture) -> None:
         "https://pytest-mock.readthedocs.io/en/latest/usage.html#usage-as-context-manager"
     )
 
-    with pytest.warns(
-        PytestMockWarning, match=re.escape(expected_warning_msg)
-    ) as warn_record:
-        with mocker.patch("json.loads"):
-            pass
+    with (
+        pytest.warns(
+            PytestMockWarning, match=re.escape(expected_warning_msg)
+        ) as warn_record,
+        mocker.patch("json.loads"),
+    ):
+        pass
 
     assert warn_record[0].filename == __file__
 
@@ -1151,14 +1263,14 @@ def test_patch_context_manager_with_context_manager(mocker: MockerFixture) -> No
 
     a = A()
 
-    with warnings.catch_warnings(record=True) as warn_record:
+    with warnings.catch_warnings(record=True) as warn_record:  # noqa:SIM117
         with mocker.patch.context_manager(a, "doIt", return_value=True):
             assert a.doIt() is True
 
     assert len(warn_record) == 0
 
 
-def test_abort_patch_context_manager_with_stale_pyc(testdir: Any) -> None:
+def test_abort_patch_context_manager_with_stale_pyc(testdir: Any, request: Any) -> None:
     """Ensure we don't trigger an error in case the frame where mocker.patch is being
     used doesn't have a 'context' (#169)"""
     import compileall
@@ -1173,7 +1285,7 @@ def test_abort_patch_context_manager_with_stale_pyc(testdir: Any) -> None:
             assert C.x == 2
     """
     )
-    testdir.syspathinsert()
+    syspath_insert_workaround(request, testdir)
 
     testdir.makepyfile(
         """

@@ -71,7 +71,7 @@ impl std::fmt::Debug for SourceSchema {
         let root_schema_uri = self
             .root_schema
             .as_ref()
-            .map(|schema| schema.schema_uri.to_string());
+            .map(|schema| schema.schema_document_uri().to_string());
         let sub_schema_link_map = self
             .sub_schema_link_map
             .iter()

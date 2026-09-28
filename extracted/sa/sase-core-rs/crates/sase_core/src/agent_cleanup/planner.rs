@@ -24,9 +24,12 @@ use super::wire::{
     CONFIRMATION_SEVERITY_DISMISS, CONFIRMATION_SEVERITY_NONE, KILL_KIND_CRS,
     KILL_KIND_HOOK, KILL_KIND_MENTOR, KILL_KIND_MONITOR, KILL_KIND_RUNNING,
     KILL_KIND_WORKFLOW, SKIPPED_DUPLICATE, SKIPPED_NOT_DISMISSABLE,
-    SKIPPED_NOT_IN_SCOPE, SKIPPED_NOT_KILLABLE, SKIPPED_UNKNOWN_KILL_KIND,
-    SKIPPED_WORKFLOW_CHILD_CASCADE_ONLY,
+    SKIPPED_NOT_IN_SCOPE, SKIPPED_NOT_KILLABLE, SKIPPED_RUNNER_LIVE_DETAIL,
+    SKIPPED_UNKNOWN_KILL_KIND, SKIPPED_WORKFLOW_CHILD_CASCADE_ONLY,
 };
+
+const PARALLEL_AGENT_SESSION_STILL_ACTIVE_DETAIL: &str =
+    "parallel session still active";
 
 const DISMISSABLE_STATUSES: &[&str] = &[
     "DONE",
@@ -46,8 +49,15 @@ fn is_dismissable_status(status: &str) -> bool {
     DISMISSABLE_STATUSES.contains(&status)
 }
 
-/// True for any child row: workflow steps, sequential family members, and
-/// monitor proc shells. The wire's `is_workflow_child` flag is a historical
+/// A FAILED row with a pid and a live runner (retry backoff) is killable,
+/// not dismissable. Every other dismissable status keeps its semantics even
+/// when live; success-terminal live runners are dismissed, never signalled.
+fn is_failed_live_runner(target: &AgentCleanupTargetWire) -> bool {
+    target.status == "FAILED" && target.pid.is_some() && target.runner_is_live
+}
+
+/// True for any child row: workflow steps, sequential agent session members, and
+/// monitor proc turns. The wire's `is_workflow_child` flag is a historical
 /// alias for this broader predicate.
 fn is_child_row(target: &AgentCleanupTargetWire) -> bool {
     target.is_workflow_child
@@ -56,7 +66,7 @@ fn is_child_row(target: &AgentCleanupTargetWire) -> bool {
 }
 
 /// Mirrors `AgentChildLinkage::WORKFLOW_STEP`: only a workflow step child is
-/// covered by its parent's cascade. Family members and monitor proc shells
+/// covered by its parent's cascade. Agent session members and monitor proc turns
 /// carry a `parent_timestamp` but are independent agent rows with their own
 /// PID, artifacts, and dismissal record.
 fn is_workflow_step_child(target: &AgentCleanupTargetWire) -> bool {
@@ -212,7 +222,7 @@ fn parallel_members_by_parent(
     let mut members: BTreeMap<String, Vec<&AgentCleanupTargetWire>> =
         BTreeMap::new();
     for target in targets {
-        if !target.agent_family_parallel || target.parent_workflow.is_some() {
+        if !target.agent_session_parallel || target.parent_workflow.is_some() {
             continue;
         }
         let Some(parent_timestamp) = &target.parent_timestamp else {
@@ -226,11 +236,11 @@ fn parallel_members_by_parent(
     members
 }
 
-fn parallel_family_members<'a>(
+fn parallel_agent_session_members<'a>(
     root: &AgentCleanupTargetWire,
     members_by_parent: &'a BTreeMap<String, Vec<&'a AgentCleanupTargetWire>>,
 ) -> &'a [&'a AgentCleanupTargetWire] {
-    if !root.agent_family_parallel || is_child_row(root) {
+    if !root.agent_session_parallel || is_child_row(root) {
         return &[];
     }
     let Some(raw_suffix) = &root.raw_suffix else {
@@ -246,6 +256,9 @@ fn target_is_dismissable(
     target: &AgentCleanupTargetWire,
     request: &AgentCleanupRequestWire,
 ) -> bool {
+    if is_failed_live_runner(target) {
+        return false;
+    }
     is_dismissable_status(&target.status)
         || (request.include_pidless_as_dismissable && target.pid.is_none())
 }
@@ -815,22 +828,36 @@ pub fn plan_agent_cleanup(
         let dismissable =
             !target.is_live_monitor && target_is_dismissable(target, request);
         let killable = target.is_live_monitor
+            || is_failed_live_runner(target)
             || (target.pid.is_some() && !is_dismissable_status(&target.status));
 
         if request.mode == CLEANUP_MODE_DISMISS_COMPLETED {
-            if dismissable {
-                let family_still_active = parallel_family_members(
+            if is_failed_live_runner(target) {
+                add_skip(
+                    &mut skipped_items,
                     target,
-                    &parallel_members_by_parent,
-                )
-                .iter()
-                .any(|member| !target_is_dismissable(member, request));
-                if family_still_active {
+                    SKIPPED_NOT_DISMISSABLE,
+                    Some(SKIPPED_RUNNER_LIVE_DETAIL.to_string()),
+                );
+                continue;
+            }
+            if dismissable {
+                let agent_session_still_active =
+                    parallel_agent_session_members(
+                        target,
+                        &parallel_members_by_parent,
+                    )
+                    .iter()
+                    .any(|member| !target_is_dismissable(member, request));
+                if agent_session_still_active {
                     add_skip(
                         &mut skipped_items,
                         target,
                         SKIPPED_NOT_DISMISSABLE,
-                        Some("parallel family still active".to_string()),
+                        Some(
+                            PARALLEL_AGENT_SESSION_STILL_ACTIVE_DETAIL
+                                .to_string(),
+                        ),
                     );
                     continue;
                 }
@@ -921,7 +948,8 @@ pub fn plan_agent_cleanup(
         if !action_identities.contains(&root.identity) {
             continue;
         }
-        for member in parallel_family_members(root, &parallel_members_by_parent)
+        for member in
+            parallel_agent_session_members(root, &parallel_members_by_parent)
         {
             if action_identities.contains(&member.identity) {
                 continue;
@@ -1054,12 +1082,25 @@ mod tests {
             start_time: None,
             stop_time: None,
             is_workflow_child: false,
-            agent_family_parallel: false,
+            agent_session_parallel: false,
             appears_as_agent: false,
             step_type: None,
             monitor_id: None,
             is_live_monitor: false,
+            runner_is_live: false,
         }
+    }
+
+    fn live_target(
+        agent_type: &str,
+        cl_name: &str,
+        raw_suffix: Option<&str>,
+        status: &str,
+        pid: Option<i64>,
+    ) -> AgentCleanupTargetWire {
+        let mut item = target(agent_type, cl_name, raw_suffix, status, pid);
+        item.runner_is_live = true;
+        item
     }
 
     fn req(scope: &str, mode: &str) -> AgentCleanupRequestWire {
@@ -1312,14 +1353,14 @@ mod tests {
     }
 
     #[test]
-    fn clan_scope_keeps_active_parallel_family_root_from_dismissal() {
+    fn clan_scope_keeps_active_parallel_agent_session_root_from_dismissal() {
         let mut root = target("run", "family", Some("root-ts"), "DONE", None);
-        root.agent_family_parallel = true;
+        root.agent_session_parallel = true;
         root.agent_clan = Some("research".to_string());
         root.agent_clan_generation = Some("generation".to_string());
         let mut member =
             target("run", "family.1", Some("member-ts"), "RUNNING", Some(101));
-        member.agent_family_parallel = true;
+        member.agent_session_parallel = true;
         member.parent_timestamp = Some("root-ts".to_string());
         member.agent_clan = Some("research".to_string());
         member.agent_clan_generation = Some("generation".to_string());
@@ -1335,7 +1376,7 @@ mod tests {
             item.identity.cl_name == "family"
                 && item.reason == SKIPPED_NOT_DISMISSABLE
                 && item.detail.as_deref()
-                    == Some("parallel family still active")
+                    == Some("parallel session still active")
         }));
     }
 
@@ -1368,10 +1409,10 @@ mod tests {
     }
 
     #[test]
-    fn parallel_family_root_kill_cascades_to_live_members_only() {
+    fn parallel_agent_session_root_kill_cascades_to_live_members_only() {
         let mut root =
             target("run", "sase-6g", Some("root-ts"), "RUNNING", Some(10));
-        root.agent_family_parallel = true;
+        root.agent_session_parallel = true;
         let mut phase_one = target(
             "run",
             "sase-6g.1",
@@ -1379,7 +1420,7 @@ mod tests {
             "RUNNING",
             Some(11),
         );
-        phase_one.agent_family_parallel = true;
+        phase_one.agent_session_parallel = true;
         phase_one.parent_timestamp = Some("root-ts".to_string());
         let mut phase_two = target(
             "run",
@@ -1388,7 +1429,7 @@ mod tests {
             "RUNNING",
             Some(12),
         );
-        phase_two.agent_family_parallel = true;
+        phase_two.agent_session_parallel = true;
         phase_two.parent_timestamp = Some("root-ts".to_string());
         let mut serial_child = target(
             "run",
@@ -1427,7 +1468,7 @@ mod tests {
     fn killing_one_parallel_member_leaves_root_and_siblings_untouched() {
         let mut root =
             target("run", "sase-6g", Some("root-ts"), "RUNNING", Some(10));
-        root.agent_family_parallel = true;
+        root.agent_session_parallel = true;
         let mut selected = target(
             "run",
             "sase-6g.1",
@@ -1435,7 +1476,7 @@ mod tests {
             "RUNNING",
             Some(11),
         );
-        selected.agent_family_parallel = true;
+        selected.agent_session_parallel = true;
         selected.parent_timestamp = Some("root-ts".to_string());
         let mut sibling = target(
             "run",
@@ -1444,7 +1485,7 @@ mod tests {
             "RUNNING",
             Some(12),
         );
-        sibling.agent_family_parallel = true;
+        sibling.agent_session_parallel = true;
         sibling.parent_timestamp = Some("root-ts".to_string());
         let mut request = req(
             CLEANUP_SCOPE_EXPLICIT_IDENTITIES,
@@ -1462,10 +1503,10 @@ mod tests {
     #[test]
     fn dismissing_parallel_root_cascades_only_after_members_finish() {
         let mut root = target("run", "root", Some("root-ts"), "DONE", None);
-        root.agent_family_parallel = true;
+        root.agent_session_parallel = true;
         let mut member =
             target("run", "member", Some("member-ts"), "RUNNING", Some(11));
-        member.agent_family_parallel = true;
+        member.agent_session_parallel = true;
         member.parent_timestamp = Some("root-ts".to_string());
         let mut request = req(
             CLEANUP_SCOPE_EXPLICIT_IDENTITIES,
@@ -1481,7 +1522,7 @@ mod tests {
             item.identity == root.identity
                 && item.reason == SKIPPED_NOT_DISMISSABLE
                 && item.detail.as_deref()
-                    == Some("parallel family still active")
+                    == Some("parallel session still active")
         }));
 
         member.status = "DONE".to_string();
@@ -1553,7 +1594,7 @@ mod tests {
     }
 
     #[test]
-    fn broad_scopes_act_on_family_member_child_rows_directly() {
+    fn broad_scopes_act_on_agent_session_member_child_rows_directly() {
         let mut child =
             target("run", "child", Some("child"), "RUNNING", Some(11));
         child.parent_timestamp = Some("root".to_string());
@@ -1597,7 +1638,7 @@ mod tests {
         }
     }
 
-    fn clan_sequential_family_chain() -> (
+    fn clan_sequential_agent_session_chain() -> (
         AgentCleanupTargetWire,
         AgentCleanupTargetWire,
         AgentCleanupTargetWire,
@@ -1606,19 +1647,21 @@ mod tests {
             target("run", "sase-ps.plan", Some("20260818102050"), "DONE", None);
         plan_root.agent_clan = Some("sase-ps".to_string());
         plan_root.agent_clan_generation = Some("20260818102050".to_string());
-        plan_root.agent_family_parallel = false;
+        plan_root.agent_session_parallel = false;
 
-        let mut family_root = target(
+        let mut agent_session_root = target(
             "run",
             "sase-ps.plan--1",
             Some("20260818114621"),
             "DONE",
             None,
         );
-        family_root.parent_timestamp = Some("20260818102050".to_string());
-        family_root.agent_clan = Some("sase-ps".to_string());
-        family_root.agent_clan_generation = Some("20260818102050".to_string());
-        family_root.agent_family_parallel = false;
+        agent_session_root.parent_timestamp =
+            Some("20260818102050".to_string());
+        agent_session_root.agent_clan = Some("sase-ps".to_string());
+        agent_session_root.agent_clan_generation =
+            Some("20260818102050".to_string());
+        agent_session_root.agent_session_parallel = false;
 
         let mut monitor = target(
             "run",
@@ -1630,12 +1673,14 @@ mod tests {
         monitor.parent_timestamp = Some("20260818114621".to_string());
         monitor.agent_clan = Some("sase-ps".to_string());
         monitor.agent_clan_generation = Some("20260818102050".to_string());
-        monitor.agent_family_parallel = false;
+        monitor.agent_session_parallel = false;
 
-        (plan_root, family_root, monitor)
+        (plan_root, agent_session_root, monitor)
     }
 
-    fn assert_clan_sequential_family_dismissed(plan: &AgentCleanupPlanWire) {
+    fn assert_clan_sequential_agent_session_dismissed(
+        plan: &AgentCleanupPlanWire,
+    ) {
         assert_eq!(
             plan.dismiss_items
                 .iter()
@@ -1657,36 +1702,42 @@ mod tests {
     }
 
     #[test]
-    fn clan_scope_dismisses_sequential_family_and_monitor_rows() {
-        let (plan_root, family_root, monitor) = clan_sequential_family_chain();
+    fn clan_scope_dismisses_sequential_agent_session_and_monitor_rows() {
+        let (plan_root, agent_session_root, monitor) =
+            clan_sequential_agent_session_chain();
         let mut request =
             req(CLEANUP_SCOPE_CLAN, CLEANUP_MODE_KILL_AND_DISMISS);
         request.clan_name = Some("sase-ps".to_string());
         request.clan_generation = Some("20260818102050".to_string());
 
-        let plan =
-            plan_agent_cleanup(&[plan_root, family_root, monitor], &request)
-                .unwrap();
-        assert_clan_sequential_family_dismissed(&plan);
+        let plan = plan_agent_cleanup(
+            &[plan_root, agent_session_root, monitor],
+            &request,
+        )
+        .unwrap();
+        assert_clan_sequential_agent_session_dismissed(&plan);
     }
 
     #[test]
-    fn explicit_identities_dismiss_sequential_family_and_monitor_rows() {
-        let (plan_root, family_root, monitor) = clan_sequential_family_chain();
+    fn explicit_identities_dismiss_sequential_agent_session_and_monitor_rows() {
+        let (plan_root, agent_session_root, monitor) =
+            clan_sequential_agent_session_chain();
         let mut request = req(
             CLEANUP_SCOPE_EXPLICIT_IDENTITIES,
             CLEANUP_MODE_KILL_AND_DISMISS,
         );
         request.identities = vec![
             plan_root.identity.clone(),
-            family_root.identity.clone(),
+            agent_session_root.identity.clone(),
             monitor.identity.clone(),
         ];
 
-        let plan =
-            plan_agent_cleanup(&[plan_root, family_root, monitor], &request)
-                .unwrap();
-        assert_clan_sequential_family_dismissed(&plan);
+        let plan = plan_agent_cleanup(
+            &[plan_root, agent_session_root, monitor],
+            &request,
+        )
+        .unwrap();
+        assert_clan_sequential_agent_session_dismissed(&plan);
     }
 
     #[test]
@@ -1901,7 +1952,7 @@ mod tests {
         request.schema_version = 3;
         let err = plan_agent_cleanup(&[], &request).unwrap_err();
         assert!(err.contains("schema mismatch"));
-        assert!(err.contains("expected 4"));
+        assert!(err.contains("expected 6"));
     }
 
     #[test]
@@ -1949,9 +2000,9 @@ mod tests {
     fn selected_owner_cascades_to_nested_live_monitor() {
         let plan_root =
             target("run", "sase-ru.6", Some("root-ts"), "DONE", None);
-        let mut family =
+        let mut member =
             target("run", "sase-ru.6--1", Some("family-ts"), "DONE", None);
-        family.parent_timestamp = Some("root-ts".to_string());
+        member.parent_timestamp = Some("root-ts".to_string());
         let monitor = live_monitor(
             "sase-ru.6--mon-1",
             "mon-ts",
@@ -1965,7 +2016,7 @@ mod tests {
         );
         request.identities = vec![plan_root.identity.clone()];
 
-        let plan = plan_agent_cleanup(&[plan_root, family, monitor], &request)
+        let plan = plan_agent_cleanup(&[plan_root, member, monitor], &request)
             .unwrap();
 
         assert_eq!(
@@ -2124,5 +2175,133 @@ mod tests {
             vec!["owner"]
         );
         assert_eq!(plan.side_effects.monitor_stop_requests.len(), 1);
+    }
+
+    #[test]
+    fn cleanup_target_parallel_flag_emits_canonical_wire_spelling() {
+        let mut row = target("run", "alpha", None, "RUNNING", None);
+        row.agent_session_parallel = true;
+        let encoded = serde_json::to_value(&row).unwrap();
+        assert_eq!(encoded["agent_session_parallel"], serde_json::json!(true));
+        assert!(encoded.get("agent_family_parallel").is_none());
+        let decoded: AgentCleanupTargetWire =
+            serde_json::from_value(encoded).unwrap();
+        assert!(decoded.agent_session_parallel);
+    }
+
+    #[test]
+    fn failed_row_with_live_runner_becomes_kill_item() {
+        let row =
+            live_target("run", "retry", Some("retry-ts"), "FAILED", Some(77));
+
+        let plan = plan_agent_cleanup(
+            std::slice::from_ref(&row),
+            &req(CLEANUP_SCOPE_ALL_PANELS, CLEANUP_MODE_KILL_AND_DISMISS),
+        )
+        .unwrap();
+
+        assert!(plan.dismiss_items.is_empty());
+        assert_eq!(plan.kill_items.len(), 1);
+        assert_eq!(plan.kill_items[0].identity.cl_name, "retry");
+        assert_eq!(plan.kill_items[0].kind, KILL_KIND_RUNNING);
+        assert_eq!(plan.kill_items[0].pid, Some(77));
+    }
+
+    #[test]
+    fn failed_row_with_live_runner_is_not_dismissable() {
+        let row =
+            live_target("run", "retry", Some("retry-ts"), "FAILED", Some(77));
+
+        let plan = plan_agent_cleanup(
+            std::slice::from_ref(&row),
+            &req(CLEANUP_SCOPE_ALL_PANELS, CLEANUP_MODE_DISMISS_COMPLETED),
+        )
+        .unwrap();
+
+        assert!(plan.dismiss_items.is_empty());
+        assert!(plan.kill_items.is_empty());
+        assert!(plan.skipped_items.iter().any(|item| {
+            item.identity.cl_name == "retry"
+                && item.reason == SKIPPED_NOT_DISMISSABLE
+                && item.detail.as_deref() == Some(SKIPPED_RUNNER_LIVE_DETAIL)
+        }));
+    }
+
+    #[test]
+    fn failed_row_without_live_runner_stays_dismissable() {
+        let row =
+            target("run", "failed", Some("failed-ts"), "FAILED", Some(77));
+
+        let plan = plan_agent_cleanup(
+            std::slice::from_ref(&row),
+            &req(CLEANUP_SCOPE_ALL_PANELS, CLEANUP_MODE_KILL_AND_DISMISS),
+        )
+        .unwrap();
+
+        assert!(plan.kill_items.is_empty());
+        assert_eq!(plan.dismiss_items.len(), 1);
+        assert_eq!(plan.dismiss_items[0].identity.cl_name, "failed");
+    }
+
+    #[test]
+    fn done_row_with_live_runner_stays_dismissable() {
+        let row = live_target("run", "done", Some("done-ts"), "DONE", Some(78));
+
+        let plan = plan_agent_cleanup(
+            std::slice::from_ref(&row),
+            &req(CLEANUP_SCOPE_ALL_PANELS, CLEANUP_MODE_KILL_AND_DISMISS),
+        )
+        .unwrap();
+
+        assert!(plan.kill_items.is_empty());
+        assert_eq!(plan.dismiss_items.len(), 1);
+        assert_eq!(plan.dismiss_items[0].identity.cl_name, "done");
+    }
+
+    #[test]
+    fn failed_live_runner_cascades_through_parallel_members() {
+        let mut root =
+            target("run", "sase-6g", Some("root-ts"), "RUNNING", Some(10));
+        root.agent_session_parallel = true;
+        let mut live_failed = live_target(
+            "run",
+            "sase-6g.1",
+            Some("phase-one-ts"),
+            "FAILED",
+            Some(11),
+        );
+        live_failed.agent_session_parallel = true;
+        live_failed.parent_timestamp = Some("root-ts".to_string());
+        let mut request = req(
+            CLEANUP_SCOPE_EXPLICIT_IDENTITIES,
+            CLEANUP_MODE_KILL_AND_DISMISS,
+        );
+        request.identities = vec![root.identity.clone()];
+
+        let plan = plan_agent_cleanup(&[root, live_failed], &request).unwrap();
+
+        assert_eq!(
+            plan.kill_items
+                .iter()
+                .map(|item| item.identity.cl_name.as_str())
+                .collect::<Vec<_>>(),
+            vec!["sase-6g", "sase-6g.1"]
+        );
+        assert_eq!(plan.kill_items[1].kind, KILL_KIND_RUNNING);
+        assert!(plan.dismiss_items.is_empty());
+    }
+
+    #[test]
+    fn schema_4_request_is_rejected_after_bump() {
+        let row = target("run", "alpha", Some("alpha-ts"), "DONE", None);
+        let mut request =
+            req(CLEANUP_SCOPE_ALL_PANELS, CLEANUP_MODE_KILL_AND_DISMISS);
+        request.schema_version = 4;
+
+        let err = plan_agent_cleanup(std::slice::from_ref(&row), &request)
+            .unwrap_err();
+
+        assert!(err.contains("schema mismatch"));
+        assert!(err.contains('4'));
     }
 }

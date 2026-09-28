@@ -4,7 +4,7 @@ requires = [ "uv-build>=0.9,<0.10" ]
 
 [project]
 name = "office365-rest-python-client"
-version = "3.1.0"
+version = "3.2.0"
 description = "Microsoft 365 & Microsoft Graph Library for Python"
 readme = "README.md"
 license = { file = "LICENSE" }
@@ -46,6 +46,10 @@ dependencies = [
   # On Python versions >= 3.11, typing_extensions re-exports these names
   # from the standard library typing module.
 ]
+optional-dependencies.azure = [
+  "azure-storage-blob>=12.19",
+  "cryptography>=42",
+]
 optional-dependencies.examples = [
   "faker",
 ]
@@ -58,12 +62,22 @@ optional-dependencies.ntlm = [
 optional-dependencies.pandas = [
   "pandas>=1.5",
 ]
+optional-dependencies.parquet = [
+  "pyarrow>=14",
+]
+optional-dependencies.duckdb = [
+  "duckdb>=1.0",
+]
+optional-dependencies.sql = [
+  "sqlalchemy>=2.0",
+]
 optional-dependencies.notebooks = [
   "pandas>=1.3.0",
   "jupyter",
   "nbformat",
   "jinja2",
 ]
+urls.funding = "https://ko-fi.com/vgrem"
 urls.repository = "https://github.com/vgrem/office365-rest-python-client"
 
 [dependency-groups]

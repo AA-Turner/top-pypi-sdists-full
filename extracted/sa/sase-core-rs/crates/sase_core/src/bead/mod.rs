@@ -96,17 +96,19 @@ pub use schema::{
 pub use search::{search_issues, BEAD_SEARCH_FIELD_NAMES};
 pub use touch_index::{
     bead_touch_index_status, query_bead_touches, reduce_stream_touches,
-    refresh_bead_touch_index, verb_for_operation, BeadStreamSignatureWire,
-    BeadTouchIndexStateWire, BeadTouchIndexStatusWire, BeadTouchIndexWire,
-    BeadTouchQueryWire, BeadTouchRefreshWire, BeadTouchWire,
-    BEAD_TOUCH_INDEX_WIRE_SCHEMA_VERSION,
+    refresh_bead_touch_index, verb_for_operation, BeadNotePreviewWire,
+    BeadStreamSignatureWire, BeadTouchIndexStateWire, BeadTouchIndexStatusWire,
+    BeadTouchIndexWire, BeadTouchQueryWire, BeadTouchRefreshWire,
+    BeadTouchWire, BEAD_TOUCH_INDEX_WIRE_SCHEMA_VERSION,
+    CREATION_REASON_PREVIEW_LIMIT, NOTE_PREVIEW_TEXT_LIMIT,
 };
 pub use wire::{
-    flag_thresholds_due, notes_text, parse_snooze_timestamp,
-    validate_model_value, BeadCloseRecordWire, BeadError, BeadNoteWire,
-    BeadReopenCauseWire, BeadResolutionWire, BeadSearchMatchWire,
-    BeadSnoozeWire, BeadTierWire, DependencyWire, IssueTypeWire, IssueWire,
-    PhaseSizeWire, StatusWire, TaskPlusOneEvidenceWire,
+    flag_thresholds_due, normalize_creation_reason, notes_text,
+    parse_snooze_timestamp, validate_model_value, BeadCloseRecordWire,
+    BeadError, BeadNoteWire, BeadReopenCauseWire, BeadResolutionWire,
+    BeadSearchMatchWire, BeadSnoozeWire, BeadTierWire, DependencyWire,
+    IssueTypeWire, IssueWire, PhaseSizeWire, StatusWire,
+    TaskPlusOneEvidenceWire, CREATION_REASON_MAX_LEN,
 };
 pub use work::{
     build_epic_work_plan, build_epic_work_plan_from_issues, EpicWorkPlanWire,

@@ -89,12 +89,21 @@ def annotate_tool_error(error: Any) -> Any:
 
     Mutates and returns the error so the caller can inline it. A class we do not
     recognise is left exactly as it was — this never invents a diagnosis.
+
+    A tool's OWN ``suggested_action`` is kept and the remedy is APPENDED after
+    it as ``"<tool's own> Also: <remedy>"``: the tool names the next call with
+    its argument names, which this generic ladder cannot know, so overwriting
+    it would hand the model a vaguer instruction than the one it had.
     """
     remedy = error_remedy_for(getattr(error, "message", None))
     if remedy is None:
         return error
     error.message = remedy.prefix(error.message)
-    error.suggested_action = remedy.remedy
+    own = (getattr(error, "suggested_action", None) or "").strip()
+    if not own:
+        error.suggested_action = remedy.remedy
+    elif remedy.remedy not in own:
+        error.suggested_action = f"{own} Also: {remedy.remedy}"
     error.is_retryable = True
     return error
 

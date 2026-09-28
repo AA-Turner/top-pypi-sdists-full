@@ -5,7 +5,9 @@ Rule: cursor-hooks-valid
 from typing import Any, Dict, List, Set
 
 from skillsaw.context import RepositoryContext, RepositoryType
+from skillsaw.blocks.cursor import CursorInlineHooksBlock, CursorPluginHooksBlock
 from skillsaw.diagnostics import safe_display
+from skillsaw.formats import cursor
 from skillsaw.rule import Rule, RuleViolation, Severity
 from skillsaw.rules.builtin.content_analysis import CursorHooksBlock
 from skillsaw.utils import is_finite_number
@@ -61,11 +63,13 @@ _HOOK_TYPES = (_COMMAND_TYPE, _PROMPT_TYPE)
 
 
 class CursorHooksValidRule(Rule):
-    """Validate the structure of .cursor/hooks.json"""
+    """Validate Cursor project and plugin hook configurations"""
 
     since = "0.19.0"
 
-    repo_types = frozenset({RepositoryType.CURSOR})
+    repo_types = frozenset(
+        {RepositoryType.CURSOR, RepositoryType.CURSOR_PLUGIN, RepositoryType.CURSOR_MARKETPLACE}
+    )
 
     config_schema = {
         "extra-events": {
@@ -84,7 +88,9 @@ class CursorHooksValidRule(Rule):
 
     @property
     def description(self) -> str:
-        return ".cursor/hooks.json must declare version 1 and known hook events with commands"
+        return (
+            "Cursor hooks must use known events and valid commands; project hooks require version 1"
+        )
 
     def default_severity(self) -> Severity:
         return Severity.ERROR
@@ -120,13 +126,56 @@ class CursorHooksValidRule(Rule):
                 )
                 continue
 
+            if isinstance(block, CursorPluginHooksBlock) and _is_claude_shaped(data):
+                violations.append(self._claude_shaped(block))
+                continue
+
             violations.extend(self._check_version(data, block))
             violations.extend(self._check_hooks(data, block))
 
         return violations
 
+    def _claude_shaped(self, block: CursorPluginHooksBlock) -> RuleViolation:
+        """One finding for a whole Claude Code hooks file in a Cursor plugin.
+
+        Dual-manifest plugins ship Claude's ``hooks/hooks.json``, which is
+        also Cursor's default plugin hooks path. Cursor documents a Claude
+        event mapping only for ``.claude/settings*.json``, so whether a plugin
+        load accepts this shape is unverified: one finding names the file
+        rather than one per matcher group and per PascalCase event.
+
+        A file the author pointed Cursor at keeps the rule's severity. One
+        picked up only at the default path is most likely the Claude side of
+        a dual plugin, so it warns unless a severity is configured.
+        """
+        severity = None
+        if isinstance(block, CursorInlineHooksBlock):
+            remedy = "rewrite each hook as {command, matcher?} directly under a Cursor event"
+        elif not block.declared:
+            severity = self.scope_severity(Severity.WARNING)
+            remedy = (
+                "Cursor also loads hooks/hooks.json by default — declare 'hooks' in the "
+                "Cursor manifest or marketplace entry pointing at a Cursor-format file "
+                "(e.g. hooks/hooks-cursor.json)"
+            )
+        else:
+            source = block.declared_in
+            if source.parent.name == cursor.MARKER and source.name == "plugin.json":
+                where = f"{cursor.MARKER}/plugin.json 'hooks'"
+            else:
+                where = "the marketplace entry's 'hooks'"
+            remedy = f"point {where} at a Cursor-format hooks file"
+        return self.violation(
+            "Hooks use Claude Code's format (matcher groups nesting a 'hooks' array), "
+            f"not Cursor's; {remedy}",
+            file_path=block.path,
+            severity=severity,
+        )
+
     def _check_version(self, data: dict, block: CursorHooksBlock) -> List[RuleViolation]:
-        """The version field is required and pins the only shape Cursor reads."""
+        """Project hooks require version 1; plugin hooks may omit it."""
+        if "version" not in data and isinstance(block, CursorPluginHooksBlock):
+            return []
         if "version" not in data:
             return [
                 self.violation(
@@ -173,7 +222,7 @@ class CursorHooksValidRule(Rule):
                 self.violation(
                     "'hooks' is empty — the file configures nothing",
                     file_path=block.path,
-                    severity=Severity.WARNING,
+                    severity=self.scope_severity(Severity.WARNING),
                 )
             ]
 
@@ -191,7 +240,7 @@ class CursorHooksValidRule(Rule):
                         "Cursor added it after this skillsaw release, list it under "
                         "cursor-hooks-valid 'extra-events'.",
                         file_path=block.path,
-                        severity=Severity.WARNING,
+                        severity=self.scope_severity(Severity.WARNING),
                     )
                 )
                 # Fall through rather than skipping. The warning already says
@@ -221,7 +270,7 @@ class CursorHooksValidRule(Rule):
                     f"Hook event '{safe_display(event)}' has an empty array — "
                     "it configures no hook",
                     file_path=block.path,
-                    severity=Severity.WARNING,
+                    severity=self.scope_severity(Severity.WARNING),
                 )
             ]
 
@@ -306,3 +355,26 @@ class CursorHooksValidRule(Rule):
                 )
             )
         return violations
+
+
+def _is_claude_shaped(data: dict) -> bool:
+    """Every hook entry is a Claude matcher group: ``{matcher?, hooks: [...]}``.
+
+    A Cursor entry names its own ``command`` or ``prompt`` and never nests a
+    ``hooks`` array, so the shape alone tells the formats apart. A file that
+    mixes both, or has a malformed or empty event group, keeps the per-entry
+    checks, which report the stray groups.
+    """
+    hooks = data.get("hooks")
+    if not isinstance(hooks, dict) or not hooks:
+        return False
+    if not all(isinstance(group, list) and group for group in hooks.values()):
+        return False
+    entries = [e for group in hooks.values() for e in group]
+    return all(
+        isinstance(e, dict)
+        and isinstance(e.get("hooks"), list)
+        and "command" not in e
+        and "prompt" not in e
+        for e in entries
+    )

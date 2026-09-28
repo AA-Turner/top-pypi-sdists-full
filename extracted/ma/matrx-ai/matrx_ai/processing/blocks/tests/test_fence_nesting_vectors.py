@@ -78,3 +78,10 @@ def test_block_detector_ends_every_fence_where_the_rule_does(doc: dict) -> None:
     blocks = split_content_into_blocks(doc["text"])
     bodies = [b.content for b in blocks if b.type == "code"]
     assert bodies == doc["fenceBodies"]
+
+
+@pytest.mark.parametrize("line", ["```` code ````", "``` `x` | b", "```js `x`"])
+def test_backtick_in_info_string_opens_no_fence(line: str) -> None:
+    """GFM / CommonMark 4.5: a backtick fence whose info string holds a backtick is a code span."""
+    assert parse_fence_opener(line) is None
+    assert [b.type for b in split_content_into_blocks(f"Intro\n\n{line}\n\nmore") if b.type == "code"] == []

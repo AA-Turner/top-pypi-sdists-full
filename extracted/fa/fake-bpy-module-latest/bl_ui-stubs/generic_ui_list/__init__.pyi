@@ -114,7 +114,7 @@ class UILIST_OT_entry_remove(GenericUIListOperator, _bpy_types.Operator):
 
 def draw_ui_list(
     layout: bpy.types.UILayout,
-    context: bpy.types.Context,
+    context: _bpy_types.Context,
     class_name: str = "UI_UL_list",
     *,
     unique_id: str,

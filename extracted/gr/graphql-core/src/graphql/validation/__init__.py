@@ -17,6 +17,17 @@ from .rules import ValidationRule, ASTValidationRule, SDLValidationRule
 # All validation rules in the GraphQL Specification.
 from .specified_rules import specified_rules, recommended_rules
 
+# Spec Section: "Defer And Stream Directive Labels Are Unique"
+from .rules.defer_stream_directive_label import DeferStreamDirectiveLabel
+
+# Spec Section: "Defer And Stream Directives Are Used On Valid Root Field"
+from .rules.defer_stream_directive_on_root_field import DeferStreamDirectiveOnRootField
+
+# Spec Section: "Defer And Stream Directives Are Used On Valid Operations"
+from .rules.defer_stream_directive_on_valid_operations_rule import (
+    DeferStreamDirectiveOnValidOperationsRule,
+)
+
 # Spec Section: "Executable Definitions"
 from .rules.executable_definitions import ExecutableDefinitionsRule
 
@@ -34,6 +45,9 @@ from .rules.known_directives import KnownDirectivesRule
 
 # Spec Section: "Fragment spread target defined"
 from .rules.known_fragment_names import KnownFragmentNamesRule
+
+# Spec Section: "Operation Type Existence"
+from .rules.known_operation_types import KnownOperationTypesRule
 
 # Spec Section: "Fragment Spread Type Existence"
 from .rules.known_type_names import KnownTypeNamesRule
@@ -67,6 +81,9 @@ from .rules.scalar_leafs import ScalarLeafsRule
 
 # Spec Section: "Subscriptions with Single Root Field"
 from .rules.single_field_subscriptions import SingleFieldSubscriptionsRule
+
+# Spec Section: "Stream Directives Are Used On List Fields"
+from .rules.stream_directive_on_list_field import StreamDirectiveOnListField
 
 # Spec Section: "Argument Uniqueness"
 from .rules.unique_argument_names import UniqueArgumentNamesRule
@@ -113,50 +130,55 @@ from .rules.custom.no_deprecated import NoDeprecatedCustomRule
 from .rules.custom.no_schema_introspection import NoSchemaIntrospectionCustomRule
 
 __all__ = [
-    "validate",
     "ASTValidationContext",
     "ASTValidationRule",
-    "SDLValidationContext",
-    "SDLValidationRule",
-    "ValidationContext",
-    "ValidationRule",
-    "specified_rules",
-    "recommended_rules",
+    "DeferStreamDirectiveLabel",
+    "DeferStreamDirectiveOnRootField",
+    "DeferStreamDirectiveOnValidOperationsRule",
     "ExecutableDefinitionsRule",
     "FieldsOnCorrectTypeRule",
     "FragmentsOnCompositeTypesRule",
     "KnownArgumentNamesRule",
     "KnownDirectivesRule",
     "KnownFragmentNamesRule",
+    "KnownOperationTypesRule",
     "KnownTypeNamesRule",
     "LoneAnonymousOperationRule",
+    "LoneSchemaDefinitionRule",
     "MaxIntrospectionDepthRule",
+    "NoDeprecatedCustomRule",
     "NoFragmentCyclesRule",
+    "NoSchemaIntrospectionCustomRule",
     "NoUndefinedVariablesRule",
     "NoUnusedFragmentsRule",
     "NoUnusedVariablesRule",
     "OverlappingFieldsCanBeMergedRule",
     "PossibleFragmentSpreadsRule",
+    "PossibleTypeExtensionsRule",
     "ProvidedRequiredArgumentsRule",
+    "SDLValidationContext",
+    "SDLValidationRule",
     "ScalarLeafsRule",
     "SingleFieldSubscriptionsRule",
+    "StreamDirectiveOnListField",
+    "UniqueArgumentDefinitionNamesRule",
     "UniqueArgumentNamesRule",
+    "UniqueDirectiveNamesRule",
     "UniqueDirectivesPerLocationRule",
+    "UniqueEnumValueNamesRule",
+    "UniqueFieldDefinitionNamesRule",
     "UniqueFragmentNamesRule",
     "UniqueInputFieldNamesRule",
     "UniqueOperationNamesRule",
+    "UniqueOperationTypesRule",
+    "UniqueTypeNamesRule",
     "UniqueVariableNamesRule",
+    "ValidationContext",
+    "ValidationRule",
     "ValuesOfCorrectTypeRule",
     "VariablesAreInputTypesRule",
     "VariablesInAllowedPositionRule",
-    "LoneSchemaDefinitionRule",
-    "UniqueOperationTypesRule",
-    "UniqueTypeNamesRule",
-    "UniqueEnumValueNamesRule",
-    "UniqueFieldDefinitionNamesRule",
-    "UniqueArgumentDefinitionNamesRule",
-    "UniqueDirectiveNamesRule",
-    "PossibleTypeExtensionsRule",
-    "NoDeprecatedCustomRule",
-    "NoSchemaIntrospectionCustomRule",
+    "recommended_rules",
+    "specified_rules",
+    "validate",
 ]

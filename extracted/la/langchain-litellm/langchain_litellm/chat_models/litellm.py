@@ -3,27 +3,22 @@
 from __future__ import annotations
 
 import copy
+import hashlib
 import json
 import logging
+import os
+import re
 import warnings
+from collections.abc import AsyncIterator, Callable, Iterator, Mapping, Sequence
 from operator import itemgetter
 from typing import (
     Any,
-    AsyncIterator,
-    Callable,
-    Dict,
-    Iterator,
-    List,
     Literal,
-    Mapping,
-    Optional,
-    Sequence,
-    Tuple,
-    Type,
-    Union,
+    Self,
     cast,
     get_args,
 )
+from urllib.parse import urlsplit
 
 import litellm
 from langchain_core.callbacks import (
@@ -84,7 +79,7 @@ from langchain_core.utils.function_calling import convert_to_openai_tool
 from langchain_core.utils.pydantic import TypeBaseModel, is_basemodel_subclass
 from litellm.types.utils import Delta
 from pydantic import BaseModel, Field, model_validator
-from typing_extensions import Self, is_typeddict
+from typing_extensions import is_typeddict
 
 from langchain_litellm._version import __version__
 
@@ -92,6 +87,10 @@ logger = logging.getLogger(__name__)
 
 # Per-call kwargs that decide WHERE litellm sends the request.
 _DESTINATION_KEYS = ("model", "custom_llm_provider")
+
+# OpenAI's string tool_choice modes, which litellm maps per provider. Any other
+# string names a tool.
+_TOOL_CHOICE_KEYWORDS = ("auto", "none", "required")
 
 # A provider's key lives in the field named `<provider>_api_key`, so the mapping is
 # derived from the declared fields rather than restated. Only litellm provider ids
@@ -103,9 +102,7 @@ _PROVIDER_FIELD_ALIASES = {
 }
 
 
-def _provider_api_key_field(
-    cls: Type[BaseModel], provider: Optional[str]
-) -> Optional[str]:
+def _provider_api_key_field(cls: type[BaseModel], provider: str | None) -> str | None:
     """Name the field holding this provider's key on ``cls``, or None if it has none.
 
     Reading ``model_fields`` off the runtime class keeps this honest and lets a
@@ -128,7 +125,466 @@ def _get_field(source: Any, name: str) -> Any:
     return getattr(source, name, None)
 
 
-def _cost_metadata(response: Any) -> Dict[str, Any]:
+# Hosts that serve Claude through litellm's Anthropic message format. An
+# `anthropic/` route always does, including Anthropic-compatible endpoints like Kimi's.
+_CLAUDE_HOSTS = frozenset({"bedrock", "vertex_ai", "azure_ai"})
+# Where a stored thinking block records the endpoint that signed it.
+_ORIGIN = "origin"
+# Where it records the history it followed, which a replay must send unchanged.
+_PREFIX = "prefix"
+# A prefix no history matches, for a block streamed after its reply's text or tool
+# call: litellm rebuilds a turn thinking first, so it would move the block.
+_AFTER_REPLY = "after-reply"
+# Settings litellm turns into the tools a request carries.
+_TOOL_SETTINGS = ("tools", "web_search_options", "response_format")
+# Settings a replay depends on besides the endpoint.
+_REPLAY_SETTINGS = (*_TOOL_SETTINGS, "thinking", "reasoning_effort")
+# Roles litellm lifts into the system prompt, wherever they sit.
+_SYSTEM_ROLES = frozenset({"system", "developer"})
+# Settings that never move a call elsewhere; deployment_id sends it to Azure. Any
+# other setting with a value turns replay off, so an unknown one fails closed.
+_NON_ROUTING_PARAMS = (
+    frozenset(litellm.OPENAI_CHAT_COMPLETION_PARAMS) - {"deployment_id"}
+) | {
+    # Read by _endpoint_name.
+    "model",
+    "custom_llm_provider",
+    "base_model",
+    # Sampling, parameter filtering, retries and bookkeeping.
+    "top_k",
+    "allowed_openai_params",
+    "drop_params",
+    "additional_drop_params",
+    "num_retries",
+    "metadata",
+    "extra_body",
+    "stream_timeout",
+    "tags",
+    "litellm_session_id",
+    "litellm_trace_id",
+    # Request options of the Anthropic and Bedrock formats themselves.
+    "context_management",
+    "cache_control",
+    "cache_control_injection_points",
+    "speed",
+    "output_config",
+    "guardrailConfig",
+    "performanceConfig",
+    "requestMetadata",
+    # Load balancing between the deployments of one Router group.
+    "rpm",
+    "tpm",
+    "itpm",
+    "otpm",
+    "weight",
+    "order",
+    "max_parallel_requests",
+    # Credentials and regions of the Claude hosts, which never change the signer.
+    "aws_access_key_id",
+    "aws_secret_access_key",
+    "aws_session_token",
+    "aws_region_name",
+    "aws_profile_name",
+    "aws_role_name",
+    "aws_session_name",
+    "aws_web_identity_token",
+    "aws_sts_endpoint",
+    "aws_external_id",
+    "vertex_project",
+    "vertex_location",
+    "vertex_credentials",
+    "vertex_ai_project",
+    "vertex_ai_location",
+    "vertex_ai_credentials",
+    "azure_ad_token",
+    "tenant_id",
+    "client_id",
+    "client_secret",
+}
+# Custom pricing, which only feeds litellm's cost tracking.
+_PRICING_PREFIXES = (
+    "input_cost_per_",
+    "output_cost_per_",
+    "cache_read_input_",
+    "cache_creation_input_",
+)
+
+
+# A bare Bedrock model id, which litellm routes to Bedrock, optionally region-prefixed.
+_BEDROCK_CLAUDE_ID = re.compile(r"^([a-z]+\.)?anthropic\.claude")
+
+
+def _endpoint_name(
+    model: str | None,
+    custom_llm_provider: str | None,
+    api_base: str | None,
+    base_model: str | None = None,
+) -> str | None:
+    """Name where a request's replayed thinking signatures would be checked, if at all.
+
+    Only an Anthropic-format route rebuilds a thinking block from a replayed
+    ``thinking_blocks`` entry and checks its signature, and a signature holds only
+    where it was issued: Kimi's are not Anthropic's, and one gateway URL can serve
+    several models. So the name joins the provider, the base litellm sends to and
+    the model. Anything this cannot place is None, which leaves the request as it
+    was. The provider comes from the model prefix, not ``litellm.get_llm_provider``,
+    which authenticates some providers while it resolves them.
+    """
+    provider = custom_llm_provider or ""
+    # litellm routes a bare model to Anthropic whatever the case of "claude".
+    name = (model or "").lower()
+    if not provider and "/" in name:
+        provider, name = name.split("/", 1)
+    if not provider and name.startswith("claude"):
+        provider = "anthropic"
+    elif not provider and _BEDROCK_CLAUDE_ID.match(name):
+        provider = "bedrock"
+    claude = "claude" in name or "claude" in (base_model or "")
+    if provider != "anthropic" and not (provider in _CLAUDE_HOSTS and claude):
+        return None
+    base = api_base
+    if not base and provider == "anthropic":
+        # Where litellm itself sends an Anthropic request with no base configured.
+        base = (
+            getattr(litellm, "api_base", None)
+            or os.environ.get("ANTHROPIC_API_BASE")
+            or os.environ.get("ANTHROPIC_BASE_URL")
+        )
+    try:
+        url = urlsplit(base or "")
+    except ValueError:
+        return None  # litellm rejects a base it cannot parse, and says why.
+    # Neither credentials nor a query string changes which server signs a block.
+    host = url.netloc.rpartition("@")[2].lower()
+    where = url._replace(netloc=host, query="", fragment="").geturl()
+    return f"{provider}|{where.rstrip('/')}|{name}"
+
+
+def _signing_endpoint(
+    model: str | None,
+    custom_llm_provider: str | None,
+    api_base: str | None,
+    base_model: str | None = None,
+) -> str | None:
+    """A digest of ``_endpoint_name``, so a stored block never carries an api_base.
+
+    Saved histories keep it, so changing what goes into the name strands their blocks.
+    """
+    name = _endpoint_name(model, custom_llm_provider, api_base, base_model)
+    return None if name is None else hashlib.sha256(name.encode()).hexdigest()[:16]
+
+
+def _signed_thinking_blocks(blocks: Any) -> list[dict[str, Any]]:
+    """Keep the thinking blocks a provider can verify, with only the keys it defined.
+
+    A ``thinking`` block counts only with a non-empty ``signature``, which is what
+    Anthropic and Bedrock check, and a ``redacted_thinking`` block with its ``data``.
+    """
+    if not isinstance(blocks, list):
+        return []
+    kept: list[dict[str, Any]] = []
+    for block in blocks:
+        block_type = _get_field(block, "type")
+        if block_type == "thinking":
+            signature = _get_field(block, "signature")
+            thinking = _get_field(block, "thinking")
+            if isinstance(signature, str) and signature:
+                kept.append(
+                    {
+                        "type": "thinking",
+                        "thinking": thinking if isinstance(thinking, str) else "",
+                        "signature": signature,
+                    }
+                )
+        elif block_type == "redacted_thinking":
+            data = _get_field(block, "data")
+            if isinstance(data, str) and data:
+                kept.append({"type": "redacted_thinking", "data": data})
+    return kept
+
+
+def _stored_thinking_blocks(
+    blocks: Any, origin: str, prefix: str
+) -> list[dict[str, Any]]:
+    """The signed blocks of a response, each marked with the endpoint that signed it
+    and the history it followed.
+
+    The marks go on every block, not once on the message: merging stream chunks
+    joins two strings end to end but keeps list items apart.
+    """
+    return [
+        {**block, _ORIGIN: origin, _PREFIX: prefix}
+        for block in _signed_thinking_blocks(blocks)
+    ]
+
+
+class _ThinkingBlockAssembler:
+    """Rebuild whole thinking blocks from the deltas of one stream.
+
+    litellm streams a thinking block as unsigned text fragments and closes it with a
+    signed block, which Anthropic fills with the whole text again and Bedrock
+    converse leaves empty. A delta therefore contributes a block only once it is
+    complete, so the summed chunks equal what a non-streaming call stores. Each call
+    builds its own, so fragments from two streams never meet.
+    """
+
+    def __init__(self, origin: str, prefix: str) -> None:
+        self._origin = origin
+        self._prefix = prefix
+        self._pending: list[str] = []
+        self._replied = False
+
+    def feed(self, blocks: Any, replied: bool = False) -> list[dict[str, Any]]:
+        """Take one delta's blocks; ``replied`` says it also carried text or a tool call."""
+        completed = self._completed(blocks)
+        self._replied = self._replied or replied
+        return completed
+
+    def _completed(self, blocks: Any) -> list[dict[str, Any]]:
+        completed: list[dict[str, Any]] = []
+        if not isinstance(blocks, list):
+            return completed
+        for block in blocks:
+            block_type = _get_field(block, "type")
+            if block_type == "redacted_thinking":
+                completed.extend(self._stored([block]))
+                self._pending = []
+            elif block_type == "thinking":
+                closed = self._stored([block])
+                if closed:
+                    closed[0]["thinking"] = closed[0]["thinking"] or "".join(
+                        self._pending
+                    )
+                    completed.extend(closed)
+                    self._pending = []
+                else:
+                    thinking = _get_field(block, "thinking")
+                    if isinstance(thinking, str):
+                        self._pending.append(thinking)
+        return completed
+
+    def _stored(self, blocks: list[Any]) -> list[dict[str, Any]]:
+        prefix = _AFTER_REPLY if self._replied else self._prefix
+        return _stored_thinking_blocks(blocks, self._origin, prefix)
+
+
+def _keep_thinking_blocks(
+    result: ChatResult,
+    response: Mapping[str, Any],
+    binding: tuple[str, str] | None,
+) -> ChatResult:
+    """Store each choice's signed blocks on its message, marked with ``binding``.
+
+    This runs on whatever ``_create_chat_result`` returns, so a subclass that
+    overrides it keeps its signature.
+    """
+    if binding is None:
+        return result
+    kept = [
+        _stored_thinking_blocks(
+            _get_field(_get_field(choice, "message"), "thinking_blocks"), *binding
+        )
+        for choice in response["choices"]
+    ]
+    if not any(kept):
+        return result
+    if len(result.generations) != len(kept):
+        logger.warning("Not keeping thinking blocks: generations and choices differ.")
+        return result
+    for generation, blocks in zip(result.generations, kept, strict=True):
+        if blocks:
+            generation.message.additional_kwargs["thinking_blocks"] = blocks
+    return result
+
+
+class _UndigestableError(Exception):
+    """A message JSON cannot encode, so no later request could match its history."""
+
+
+def _uncached(value: Any) -> Any:
+    """``value`` without cache_control, which Anthropic lets move between requests."""
+    if isinstance(value, Mapping):
+        return {k: _uncached(v) for k, v in value.items() if k != "cache_control"}
+    if isinstance(value, list | tuple):
+        return [_uncached(v) for v in value]
+    return value
+
+
+def _canonical(value: Any) -> bytes:
+    try:
+        sent = json.dumps(
+            _uncached(value), sort_keys=True, separators=(",", ":"), default=str
+        )
+    except (TypeError, RecursionError) as error:
+        raise _UndigestableError from error
+    return sent.encode()
+
+
+class _HistoryDigest:
+    """Digest what a turn follows as Anthropic checks it: the settings litellm turns
+    into tools, every message litellm lifts into the system prompt, then the rest.
+    """
+
+    def __init__(
+        self, params: Mapping[str, Any], message_dicts: Sequence[Mapping[str, Any]]
+    ) -> None:
+        tools = {k: params[k] for k in _TOOL_SETTINGS if params.get(k) is not None}
+        # litellm adds a placeholder tool when none is bound and a turn holds a tool
+        # call, and a code-execution tool for a file it uploads rather than inlines.
+        if "tools" not in tools and any(
+            d.get("tool_calls") is not None for d in message_dicts
+        ):
+            tools["dummy_tool"] = True
+        if any(
+            isinstance(block, Mapping)
+            and block.get("type") in ("container_upload", "file")
+            for d in message_dicts
+            if isinstance(d.get("content"), list)
+            for block in d["content"]
+        ):
+            tools["code_execution"] = True
+        system = [d for d in message_dicts if d.get("role") in _SYSTEM_ROLES]
+        self._running = hashlib.sha256(_canonical([tools, system]))
+
+    def add(self, message_dict: Mapping[str, Any]) -> None:
+        if message_dict.get("role") not in _SYSTEM_ROLES:
+            self._running.update(_canonical(message_dict))
+
+    def digest(self) -> str:
+        return self._running.hexdigest()[:16]
+
+
+def _with_blocks(
+    message_dict: dict[str, Any], blocks: list[dict[str, Any]]
+) -> dict[str, Any]:
+    """The turn as replayed. An empty tool-call content goes out as ``None``: litellm
+    writes placeholder text into an empty string, which would edit the signed turn."""
+    replayed = {**message_dict, "thinking_blocks": blocks}
+    if replayed.get("tool_calls") and replayed.get("content") == "":
+        replayed["content"] = None
+    return replayed
+
+
+def _replayable_blocks(
+    message: AIMessage, message_dict: Mapping[str, Any], endpoint: str, prefix: str
+) -> list[dict[str, Any]]:
+    """The blocks ``message`` may carry back after the history digested as ``prefix``."""
+    stored = message.additional_kwargs.get("thinking_blocks")
+    if not isinstance(stored, list) or not stored:
+        return []
+    if any(_get_field(block, _ORIGIN) != endpoint for block in stored):
+        logger.debug(
+            "Not replaying a turn's thinking blocks: another endpoint signed them."
+        )
+        return []
+    blocks = _signed_thinking_blocks(stored)
+    # litellm rebuilds a turn as its thinking, then its text, then its tool calls. A
+    # reply stops at its one tool call, so blocks before it alone keep their order.
+    if any(_get_field(block, _PREFIX) == _AFTER_REPLY for block in stored) or (
+        len(blocks) > 1
+        and (
+            message_dict.get("content") or len(message_dict.get("tool_calls") or []) > 1
+        )
+    ):
+        logger.debug(
+            "Not replaying a turn's thinking blocks: litellm would reorder them."
+        )
+        return []
+    if any(_get_field(block, _PREFIX) != prefix for block in stored):
+        logger.debug(
+            "Not replaying a turn's thinking blocks: the history before them changed."
+        )
+        return []
+    return blocks
+
+
+def _replayable_turns(
+    messages: Sequence[BaseMessage],
+    message_dicts: list[dict[str, Any]],
+    endpoint: str,
+    params: Mapping[str, Any],
+) -> dict[int, list[dict[str, Any]]]:
+    """The blocks each turn may carry back, by index.
+
+    A turn is checked against the history before it as it would be sent, since an
+    earlier turn's replayed blocks are part of it. Under modify_params, litellm drops
+    requested thinking for a loop whose last tool call has none, but only when no
+    turn carries any; there alone, nothing goes back unless that turn does.
+    """
+    litellm_may_drop_thinking = litellm.modify_params and bool(
+        params.get("thinking") or params.get("reasoning_effort")
+    )
+    history = _HistoryDigest(params, message_dicts)
+    replayable: dict[int, list[dict[str, Any]]] = {}
+    last_tool_call_replays = True
+    for index, message in enumerate(messages):
+        message_dict = message_dicts[index]
+        if isinstance(message, AIMessage):
+            blocks = _replayable_blocks(
+                message, message_dict, endpoint, history.digest()
+            )
+            if blocks:
+                replayable[index] = blocks
+                message_dict = _with_blocks(message_dict, blocks)
+            if message_dict.get("tool_calls"):
+                last_tool_call_replays = bool(blocks)
+        history.add(message_dict)
+    if litellm_may_drop_thinking and not last_tool_call_replays:
+        return {}
+    return replayable
+
+
+def _attach_thinking_blocks(
+    messages: Sequence[BaseMessage],
+    message_dicts: list[dict[str, Any]],
+    endpoint: str | None,
+    params: Mapping[str, Any],
+) -> tuple[str, str] | None:
+    """Put back each turn's thinking blocks where Anthropic will accept them, and say
+    what the reply's own blocks must be stored with.
+
+    A turn's blocks go back only when ``endpoint``, the one endpoint this request
+    reaches, signed them after exactly the history that precedes the turn now. Such
+    turns replace their entries in ``message_dicts``. The return value is the
+    endpoint and the digest of this request as sent, or None when there is no
+    single endpoint or the history cannot be digested.
+    """
+    holds_blocks = any(
+        isinstance(message, AIMessage)
+        and message.additional_kwargs.get("thinking_blocks")
+        for message in messages
+    )
+    if endpoint is None:
+        if holds_blocks:
+            logger.debug("Not replaying thinking blocks: no single signing endpoint.")
+        return None
+    try:
+        replayable: dict[int, list[dict[str, Any]]] = {}
+        if holds_blocks and len(messages) != len(message_dicts):
+            logger.warning("Not replaying thinking blocks: messages and dicts differ.")
+        elif holds_blocks:
+            replayable = _replayable_turns(messages, message_dicts, endpoint, params)
+        sent = [
+            _with_blocks(message_dict, replayable[index])
+            if index in replayable
+            else message_dict
+            for index, message_dict in enumerate(message_dicts)
+        ]
+        history = _HistoryDigest(params, sent)
+        for message_dict in sent:
+            history.add(message_dict)
+    except _UndigestableError:
+        # Such content still goes out; it just cannot be matched on a later request.
+        logger.log(
+            logging.WARNING if holds_blocks else logging.DEBUG,
+            "Not keeping or replaying thinking blocks: the history cannot be digested.",
+        )
+        return None
+    message_dicts[:] = sent
+    return endpoint, history.digest()
+
+
+def _cost_metadata(response: Any) -> dict[str, Any]:
     """Name what a call cost, from whichever field litellm recorded it in.
 
     A complete response carries the figure in `_hidden_params`; a stream leaves it
@@ -140,11 +596,64 @@ def _cost_metadata(response: Any) -> Dict[str, Any]:
     return {"response_cost": cost} if cost is not None else {}
 
 
+def _rejoin_split_reply(choices: Sequence[Any], n: int | None) -> Sequence[Any]:
+    """Rejoin one reply that litellm split across choices, unless ``n`` asked for several.
+
+    litellm's Responses API bridge gives each text part, and the tool calls, a choice
+    of their own. They are joined here as a stream joins them.
+    """
+    if len(choices) < 2 or (n or 1) > 1:
+        return choices
+    messages = [choice["message"] for choice in choices]
+    message = {
+        "role": messages[0]["role"],
+        "content": "".join(m.get("content") or "" for m in messages),
+        "tool_calls": [call for m in messages for call in m.get("tool_calls") or []],
+        "reasoning_content": "".join(
+            m.get("reasoning_content") or "" for m in messages
+        ),
+    }
+    return [{"message": message, "finish_reason": choices[-1].get("finish_reason")}]
+
+
+def _sends_manual_thinking(
+    model: str,
+    custom_llm_provider: str | None,
+    api_base: str | None,
+    params: Mapping[str, Any],
+) -> bool:
+    """Ask litellm whether ``params`` reach the provider as manual thinking.
+
+    Anthropic refuses a forced tool beside ``thinking.type == "enabled"`` but not
+    beside adaptive thinking, and litellm decides per model which one a call sends.
+    """
+    thinking = litellm.utils.validate_and_fix_thinking_param(params.get("thinking"))
+    effort = params.get("reasoning_effort")
+    if thinking is None and effort is None:
+        return False
+    try:
+        bare_model, provider, _, _ = litellm.get_llm_provider(
+            model=model, custom_llm_provider=custom_llm_provider, api_base=api_base
+        )
+    except litellm.BadRequestError:
+        # An alias or routed name that litellm resolves only when the call is made.
+        return False
+    mapped = litellm.get_optional_params(
+        model=bare_model,
+        custom_llm_provider=provider,
+        drop_params=True,
+        thinking=thinking,
+        reasoning_effort=effort,
+        max_tokens=params.get("max_tokens"),
+    ).get("thinking")
+    return isinstance(mapped, dict) and mapped.get("type") == "enabled"
+
+
 class ChatLiteLLMException(Exception):
     """Exception raised for errors in the LiteLLM integration."""
 
 
-def _copy_containers(value: Any, memo: Optional[Dict[int, Any]] = None) -> Any:
+def _copy_containers(value: Any, memo: dict[int, Any] | None = None) -> Any:
     """Copy dicts and lists recursively, leaving anything else shared.
 
     Deep enough that a caller cannot mutate this model's configuration through the
@@ -172,9 +681,7 @@ def _copy_containers(value: Any, memo: Optional[Dict[int, Any]] = None) -> Any:
 
 def _create_retry_decorator(
     llm: ChatLiteLLM,
-    run_manager: Optional[
-        Union[AsyncCallbackManagerForLLMRun, CallbackManagerForLLMRun]
-    ] = None,
+    run_manager: AsyncCallbackManagerForLLMRun | CallbackManagerForLLMRun | None = None,
 ) -> Callable[[Any], Any]:
     """Return a tenacity retry decorator preconfigured for LiteLLM transient errors."""
 
@@ -198,7 +705,7 @@ def _convert_dict_to_message(_dict: Mapping[str, Any]) -> BaseMessage:
 
         additional_kwargs = {}
         tool_calls = []
-        invalid_tool_calls: List[InvalidToolCall] = []
+        invalid_tool_calls: list[InvalidToolCall] = []
 
         if _dict.get("function_call"):
             additional_kwargs["function_call"] = dict(_dict["function_call"])
@@ -262,7 +769,7 @@ def _convert_dict_to_message(_dict: Mapping[str, Any]) -> BaseMessage:
                                 name=func_name or "", args=func_args, id=tc_id or ""
                             )
                         )
-                except Exception:
+                except Exception:  # noqa: BLE001, S110
                     # Prevent crash on malformed tool call
                     pass
 
@@ -295,7 +802,9 @@ def _convert_dict_to_message(_dict: Mapping[str, Any]) -> BaseMessage:
 
 
 def _convert_delta_to_message_chunk(
-    delta: Union[Delta, Dict[str, Any]], default_class: Type[BaseMessageChunk]
+    delta: Delta | dict[str, Any],
+    default_class: type[BaseMessageChunk],
+    thinking: _ThinkingBlockAssembler | None = None,
 ) -> BaseMessageChunk:
     # Handle both Delta objects and dicts
     if isinstance(delta, dict):
@@ -323,11 +832,18 @@ def _convert_delta_to_message_chunk(
                 delta, "vertex_ai_grounding_metadata", None
             )
 
-    additional_kwargs = {}
+    additional_kwargs: dict[str, Any] = {}
     if function_call:
         additional_kwargs["function_call"] = dict(function_call)
     if reasoning_content:
         additional_kwargs["reasoning_content"] = reasoning_content
+    if thinking is not None:
+        thinking_blocks = thinking.feed(
+            _get_field(delta, "thinking_blocks"),
+            replied=bool(content or raw_tool_calls),
+        )
+        if thinking_blocks:
+            additional_kwargs["thinking_blocks"] = thinking_blocks
 
     if provider_specific_fields is not None:
         additional_kwargs["provider_specific_fields"] = provider_specific_fields
@@ -376,7 +892,7 @@ def _convert_delta_to_message_chunk(
         return default_class(content=content)  # type: ignore[call-arg]
 
 
-def _lc_tool_call_to_openai_tool_call(tool_call: ToolCall) -> Dict[str, Any]:
+def _lc_tool_call_to_openai_tool_call(tool_call: ToolCall) -> dict[str, Any]:
     return {
         "type": "function",
         "id": tool_call["id"],
@@ -387,13 +903,27 @@ def _lc_tool_call_to_openai_tool_call(tool_call: ToolCall) -> Dict[str, Any]:
     }
 
 
-def _convert_message_to_dict(message: BaseMessage) -> Dict[str, Any]:
+# "reasoning" is the standard block langchain-core's content_blocks builds from
+# provider thinking; blocks it doesn't recognize it wraps as non_standard.
+_SKIPPED_CONTENT_BLOCK_TYPES = frozenset(
+    {"tool_use", "tool_call", "thinking", "redacted_thinking", "reasoning"}
+)
+
+
+def _is_skipped_content_block(block: dict[str, Any]) -> bool:
+    if block.get("type") == "non_standard":
+        value = block.get("value")
+        return isinstance(value, dict) and _is_skipped_content_block(value)
+    return block.get("type") in _SKIPPED_CONTENT_BLOCK_TYPES
+
+
+def _convert_message_to_dict(message: BaseMessage) -> dict[str, Any]:
     # Capture the original content from the message
     content = message.content
 
     # Handle multimodal content conversion if the content is a list
     if isinstance(content, list):
-        new_content: List[Any] = []
+        new_content: list[Any] = []
         for item in content:
             if isinstance(item, dict):
                 # Check for LiteLLM's native format which expects a 'file' key
@@ -418,15 +948,11 @@ def _convert_message_to_dict(message: BaseMessage) -> Dict[str, Any]:
                         )
                     new_content.append(converted)
 
-                # Skip tool_use / tool_call blocks — these are handled via
-                # message.tool_calls and must not leak into content sent to
-                # providers that don't understand them (e.g. OpenAI).
-                elif item.get("type") in (
-                    "tool_use",
-                    "tool_call",
-                    "thinking",
-                    "redacted_thinking",
-                ):
+                # Skip tool calls and reasoning: tool calls go out via
+                # message.tool_calls, reasoning via reasoning_content, and signed
+                # thinking only via thinking_blocks, where replay checks its signer.
+                # DeepSeek, for one, rejects a reasoning block sent as content.
+                elif _is_skipped_content_block(item):
                     continue
 
                 # Pass through standard text blocks or other unrecognized dict formats unchanged
@@ -442,7 +968,7 @@ def _convert_message_to_dict(message: BaseMessage) -> Dict[str, Any]:
         content = new_content or ""
 
     # Initialize the message dictionary with the processed content
-    message_dict: Dict[str, Any] = {"content": content}
+    message_dict: dict[str, Any] = {"content": content}
 
     # Determine the role and specific attributes based on the message type
     if isinstance(message, ChatMessage):
@@ -464,8 +990,8 @@ def _convert_message_to_dict(message: BaseMessage) -> Dict[str, Any]:
             "tool_calls" in message.additional_kwargs and not message.invalid_tool_calls
         ):
             message_dict["tool_calls"] = message.additional_kwargs["tool_calls"]
-        # Forward reasoning_content so LiteLLM can inject thinking blocks for
-        # Anthropic while leaving OpenAI-bound messages clean.
+        # Read by OpenAI-compatible reasoning providers and Gemini. litellm never
+        # builds an Anthropic or Bedrock thinking block from it: see thinking_blocks.
         if "reasoning_content" in message.additional_kwargs:
             message_dict["reasoning_content"] = message.additional_kwargs[
                 "reasoning_content"
@@ -479,7 +1005,8 @@ def _convert_message_to_dict(message: BaseMessage) -> Dict[str, Any]:
         message_dict["role"] = "tool"
         message_dict["tool_call_id"] = message.tool_call_id
     else:
-        raise ValueError(f"Got unknown type {message}")
+        # ValueError, not TypeError: callers already catch this one.
+        raise ValueError(f"Got unknown type {message}")  # noqa: TRY004
 
     # Attach the name field if it exists in additional arguments
     if "name" in message.additional_kwargs:
@@ -493,20 +1020,20 @@ class ChatLiteLLM(BaseChatModel):
 
     client: Any = None  #: :meta private:
     model: str = "gpt-3.5-turbo"
-    model_name: Optional[str] = None
-    stream_options: Optional[Dict[str, Any]] = None
+    model_name: str | None = None
+    stream_options: dict[str, Any] | None = None
     """Model name to use."""
-    openai_api_key: Optional[str] = Field(default=None, repr=False)
-    azure_api_key: Optional[str] = Field(default=None, repr=False)
-    anthropic_api_key: Optional[str] = Field(default=None, repr=False)
-    replicate_api_key: Optional[str] = Field(default=None, repr=False)
-    cohere_api_key: Optional[str] = Field(default=None, repr=False)
-    openrouter_api_key: Optional[str] = Field(default=None, repr=False)
-    huggingface_api_key: Optional[str] = Field(default=None, repr=False)
-    together_ai_api_key: Optional[str] = Field(default=None, repr=False)
-    api_key: Optional[str] = Field(default=None, repr=False)
+    openai_api_key: str | None = Field(default=None, repr=False)
+    azure_api_key: str | None = Field(default=None, repr=False)
+    anthropic_api_key: str | None = Field(default=None, repr=False)
+    replicate_api_key: str | None = Field(default=None, repr=False)
+    cohere_api_key: str | None = Field(default=None, repr=False)
+    openrouter_api_key: str | None = Field(default=None, repr=False)
+    huggingface_api_key: str | None = Field(default=None, repr=False)
+    together_ai_api_key: str | None = Field(default=None, repr=False)
+    api_key: str | None = Field(default=None, repr=False)
     streaming: bool = False
-    api_base: Optional[str] = None
+    api_base: str | None = None
     """Endpoint override for the upstream provider.
 
     Also accepts ``base_url`` as an alias (normalized in ``validate_environment``)
@@ -514,46 +1041,70 @@ class ChatLiteLLM(BaseChatModel):
     ``ChatAnthropic``) and with ``init_chat_model(..., base_url=...)``. A non-None
     ``api_base`` wins; ``base_url`` fills in when ``api_base`` is unset or None,
     so a config built from ``os.getenv`` still reaches the endpoint."""
-    organization: Optional[str] = None
-    custom_llm_provider: Optional[str] = None
-    base_model: Optional[str] = None
-    extra_headers: Optional[Dict[str, str]] = Field(default=None, repr=False)
-    request_timeout: Optional[Union[float, Tuple[float, float]]] = None
-    temperature: Optional[float] = None
+    organization: str | None = None
+    custom_llm_provider: str | None = None
+    use_responses_api: bool | None = None
+    """Send calls to the provider's Responses API instead of Chat Completions.
+
+    litellm translates each request and reply, so calls are written as usual, but
+    it drops Chat Completions-only params such as ``stop`` and ``n``. A model
+    litellm cannot bridge raises ``ValueError``. ``None`` and ``False`` leave the
+    route to litellm, which sends some models, such as ``gpt-5-pro``, there anyway."""
+    base_model: str | None = None
+    extra_headers: dict[str, str] | None = Field(default=None, repr=False)
+    request_timeout: float | tuple[float, float] | None = None
+    temperature: float | None = None
     """Run inference with this temperature. Must be in the closed
        interval [0.0, 2.0]."""
-    model_kwargs: Dict[str, Any] = Field(default_factory=dict)
+    model_kwargs: dict[str, Any] = Field(default_factory=dict)
     """Holds any model parameters valid for API call not explicitly specified."""
-    top_p: Optional[float] = None
+    top_p: float | None = None
     """Decode using nucleus sampling: consider the smallest set of tokens whose
        probability sum is at least top_p. Must be in the closed interval [0.0, 1.0]."""
-    top_k: Optional[int] = None
+    top_k: int | None = None
     """Decode using top-k sampling: consider the set of top_k most probable tokens.
        Must be positive."""
-    n: Optional[int] = None
+    n: int | None = None
     """Number of chat completions to generate for each prompt. Note that the API may
        not return the full n completions if duplicates are generated."""
-    max_tokens: Optional[int] = None
+    max_tokens: int | None = None
     """The maximum number of tokens to generate in the reply."""
-    num_ctx: Optional[int] = None
+    num_ctx: int | None = None
     """Context window size (e.g. for Ollama models)."""
 
     max_retries: int = 1
 
-    def _thinking_config(self) -> Dict[str, Any]:
-        thinking_config = self.model_kwargs.get("thinking")
-        return thinking_config if isinstance(thinking_config, dict) else {}
+    def _thinking_refuses_forced_tools(self, overrides: Mapping[str, Any]) -> bool:
+        """Answer whether the call carries manual thinking, which refuses a forced tool.
+
+        Manual thinking in ``model_kwargs`` counts outright, which keeps models that
+        refuse any forced tool working. Every other source counts as litellm sends it,
+        and kwargs passed at invoke time are not known when binding.
+        """
+        configured = self.model_kwargs.get("thinking")
+        if isinstance(configured, dict) and configured.get("type") == "enabled":
+            return True
+        return self._litellm_sends_manual_thinking(overrides)
+
+    def _litellm_sends_manual_thinking(self, overrides: Mapping[str, Any]) -> bool:
+        model, provider = self._constructor_destination()
+        return _sends_manual_thinking(
+            overrides.get("model") or model or self.model,
+            overrides.get("custom_llm_provider") or provider,
+            overrides.get("api_base") or self.api_base,
+            {"max_tokens": self.max_tokens, **self.model_kwargs, **overrides},
+        )
 
     def _is_claude_model(self) -> bool:
         return "claude" in (self.model_name or self.model).lower()
 
     @property
-    def _default_params(self) -> Dict[str, Any]:
+    def _default_params(self) -> dict[str, Any]:
         """Get the default parameters for the LiteLLM completion call."""
         set_model_value = self.model
         if self.model_name is not None:
             set_model_value = self.model_name
-        params: Dict[str, Any] = {
+        params: dict[str, Any] = {
             "model": set_model_value,
             "timeout": self.request_timeout,
             "max_tokens": self.max_tokens,
@@ -578,7 +1129,7 @@ class ChatLiteLLM(BaseChatModel):
             },
         }
 
-    def _constructor_destination(self) -> Tuple[Optional[str], Optional[str]]:
+    def _constructor_destination(self) -> tuple[str | None, str | None]:
         """The model and provider this instance sends to when a call overrides neither.
 
         ``model_kwargs`` is merged last into ``_default_params``, so an entry there
@@ -594,9 +1145,9 @@ class ChatLiteLLM(BaseChatModel):
 
     def _resolve_api_key(
         self,
-        model: Optional[str] = None,
-        custom_llm_provider: Optional[str] = None,
-    ) -> Optional[str]:
+        model: str | None = None,
+        custom_llm_provider: str | None = None,
+    ) -> str | None:
         """Resolve the key to send to litellm for this call.
 
         ``api_key`` wins when set. Otherwise fall back to the provider-specific
@@ -649,9 +1200,35 @@ class ChatLiteLLM(BaseChatModel):
             return None
         return getattr(self, field, None) or None
 
+    def _route_to_responses_api(
+        self, model: str, custom_llm_provider: str | None, api_base: str | None
+    ) -> str:
+        """Name ``model`` so litellm's own bridge carries the call to a Responses API.
+
+        Whether litellm bridges a name hangs on its model map, and a provider without
+        a Responses API is answered over its chat API instead, so litellm is asked both.
+        """
+        named, provider, _, _ = litellm.get_llm_provider(
+            model=model, custom_llm_provider=custom_llm_provider, api_base=api_base
+        )
+        bare_model = named.removeprefix("responses/")
+        routed = f"responses/{bare_model}"
+        bridge, _ = litellm.main.responses_api_bridge_check(
+            model=routed, custom_llm_provider=provider
+        )
+        config = litellm.utils.ProviderConfigManager.get_provider_responses_api_config(
+            provider=provider, model=bare_model
+        )
+        if bridge.get("mode") != "responses" or config is None:
+            raise ValueError(
+                f"use_responses_api=True, but litellm cannot send {model!r} to a "
+                "Responses API."
+            )
+        return f"{provider}/{routed}"
+
     def _merge_call_params(
-        self, params: Dict[str, Any], kwargs: Dict[str, Any]
-    ) -> Dict[str, Any]:
+        self, params: dict[str, Any], kwargs: dict[str, Any]
+    ) -> dict[str, Any]:
         """Merge per-call kwargs over the client params, rescoping the destination.
 
         ``_client_params`` is built from constructor state, so every value in it
@@ -667,13 +1244,27 @@ class ChatLiteLLM(BaseChatModel):
         choosing an endpoint and a key together is choosing them for each other.
 
         A ``None`` override means "not supplied", matching how litellm reads params.
+
+        ``use_responses_api`` routes the destination once it is settled, so a
+        redirected call reaches the Responses API too. It is read like the
+        destination, from the call, ``model_kwargs`` or the field, and never sent.
         """
         merged = {**params, **kwargs}
 
         # None means omitted: fall back rather than sending a null destination.
-        for key in _DESTINATION_KEYS:
+        for key in (*_DESTINATION_KEYS, "use_responses_api"):
             if key in kwargs and kwargs[key] is None:
                 merged[key] = params.get(key)
+
+        use_responses_api = merged.pop("use_responses_api", None)
+        if use_responses_api is None:
+            use_responses_api = self.use_responses_api
+        if use_responses_api:
+            merged["model"] = self._route_to_responses_api(
+                merged["model"],
+                merged.get("custom_llm_provider"),
+                merged.get("api_base"),
+            )
 
         redirected = {
             key: kwargs[key] for key in _DESTINATION_KEYS if kwargs.get(key) is not None
@@ -690,10 +1281,66 @@ class ChatLiteLLM(BaseChatModel):
             )
         return merged
 
+    def _thinking_endpoint(self, params: dict[str, Any]) -> str | None:
+        """The one endpoint this request reaches, when it checks replayed thinking.
+
+        ``params`` must be the merged per-call params, since a call may redirect.
+        A setting outside ``_NON_ROUTING_PARAMS``, or a litellm-wide fallback,
+        response cache or proxy switch, can answer from another endpoint, so it
+        replays nothing. An alias is named by the model it maps to, as litellm does.
+        """
+        model = params.get("model")
+        aliases = litellm.model_alias_map
+        if aliases and model in aliases:
+            model = aliases[model]
+        endpoint = _signing_endpoint(
+            model,
+            params.get("custom_llm_provider"),
+            # litellm sends to base_url over api_base when a caller sets both.
+            params.get("base_url") or params.get("api_base"),
+            params.get("base_model"),
+        )
+        unknown = sorted(
+            key
+            for key, value in params.items()
+            if value
+            and key not in _NON_ROUTING_PARAMS
+            and not key.startswith(_PRICING_PREFIXES)
+        )
+        if unknown and endpoint is not None:
+            logger.debug(
+                "Not replaying thinking blocks: litellm may route on %s.",
+                ", ".join(unknown),
+            )
+        if (
+            unknown
+            or litellm.model_fallbacks
+            or litellm.cache is not None
+            or litellm.use_litellm_proxy is True
+            or litellm.get_secret_bool("USE_LITELLM_PROXY") is True
+        ):
+            return None
+        return endpoint
+
+    def _replay_params(self, params: dict[str, Any]) -> Mapping[str, Any]:
+        """The settings this request is sent with, where replay depends on them."""
+        return params
+
+    def _bind_thinking(
+        self,
+        messages: Sequence[BaseMessage],
+        message_dicts: list[dict[str, Any]],
+        params: dict[str, Any],
+    ) -> tuple[str, str] | None:
+        """Replay what this request may carry back; say how to store its reply's."""
+        endpoint = self._thinking_endpoint(params)
+        sent_with = params if endpoint is None else self._replay_params(params)
+        return _attach_thinking_blocks(messages, message_dicts, endpoint, sent_with)
+
     @property
-    def _client_params(self) -> Dict[str, Any]:
+    def _client_params(self) -> dict[str, Any]:
         """Get the per-call parameters passed to litellm.completion."""
-        creds: Dict[str, Any] = {
+        creds: dict[str, Any] = {
             "api_base": self.api_base,
             "api_key": self._resolve_api_key(),
             "organization": self.organization,
@@ -708,7 +1355,7 @@ class ChatLiteLLM(BaseChatModel):
         }
 
     def completion_with_retry(
-        self, run_manager: Optional[CallbackManagerForLLMRun] = None, **kwargs: Any
+        self, run_manager: CallbackManagerForLLMRun | None = None, **kwargs: Any
     ) -> Any:
         """Use tenacity to retry the completion call."""
         retry_decorator = _create_retry_decorator(self, run_manager=run_manager)
@@ -720,7 +1367,7 @@ class ChatLiteLLM(BaseChatModel):
         return _completion_with_retry(**kwargs)
 
     async def acompletion_with_retry(
-        self, run_manager: Optional[AsyncCallbackManagerForLLMRun] = None, **kwargs: Any
+        self, run_manager: AsyncCallbackManagerForLLMRun | None = None, **kwargs: Any
     ) -> Any:
         """Use tenacity to retry the async completion call."""
         retry_decorator = _create_retry_decorator(self, run_manager=run_manager)
@@ -784,10 +1431,10 @@ class ChatLiteLLM(BaseChatModel):
 
     def _generate(
         self,
-        messages: List[BaseMessage],
-        stop: Optional[List[str]] = None,
-        run_manager: Optional[CallbackManagerForLLMRun] = None,
-        stream: Optional[bool] = None,
+        messages: list[BaseMessage],
+        stop: list[str] | None = None,
+        run_manager: CallbackManagerForLLMRun | None = None,
+        stream: bool | None = None,
         **kwargs: Any,
     ) -> ChatResult:
         should_stream = stream if stream is not None else self.streaming
@@ -802,16 +1449,21 @@ class ChatLiteLLM(BaseChatModel):
         # This branch parses a mapping, so it must not inherit stream=True from a
         # streaming=True instance that the caller overrode with stream=False.
         params["stream"] = False
+        binding = self._bind_thinking(messages, message_dicts, params)
         response = self.completion_with_retry(
             messages=message_dicts, run_manager=run_manager, **params
         )
-        return self._create_chat_result(response)
+        return _keep_thinking_blocks(
+            self._create_chat_result(response, **params), response, binding
+        )
 
-    def _create_chat_result(self, response: Mapping[str, Any]) -> ChatResult:
+    def _create_chat_result(
+        self, response: Mapping[str, Any], **params: Any
+    ) -> ChatResult:
         generations = []
         token_usage = response.get("usage", {})
         usage_metadata = _create_usage_metadata(token_usage)
-        for res in response["choices"]:
+        for res in _rejoin_split_reply(response["choices"], params.get("n")):
             message = _convert_dict_to_message(res["message"])
             if isinstance(message, AIMessage):
                 message.response_metadata = {
@@ -822,9 +1474,10 @@ class ChatLiteLLM(BaseChatModel):
                 message.usage_metadata = usage_metadata
             gen = ChatGeneration(
                 message=message,
-                generation_info=dict(
-                    finish_reason=res.get("finish_reason"), logprobs=res.get("logprobs")
-                ),
+                generation_info={
+                    "finish_reason": res.get("finish_reason"),
+                    "logprobs": res.get("logprobs"),
+                },
             )
             generations.append(gen)
         set_model_value = self.model
@@ -842,8 +1495,8 @@ class ChatLiteLLM(BaseChatModel):
         return ChatResult(generations=generations, llm_output=llm_output)
 
     def _create_message_dicts(
-        self, messages: List[BaseMessage], stop: Optional[List[str]]
-    ) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
+        self, messages: list[BaseMessage], stop: list[str] | None
+    ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
         params = self._client_params
         if stop is not None:
             if "stop" in params:
@@ -854,9 +1507,9 @@ class ChatLiteLLM(BaseChatModel):
 
     def _stream(
         self,
-        messages: List[BaseMessage],
-        stop: Optional[List[str]] = None,
-        run_manager: Optional[CallbackManagerForLLMRun] = None,
+        messages: list[BaseMessage],
+        stop: list[str] | None = None,
+        run_manager: CallbackManagerForLLMRun | None = None,
         **kwargs: Any,
     ) -> Iterator[ChatGenerationChunk]:
         message_dicts, params = self._create_message_dicts(messages, stop)
@@ -867,6 +1520,8 @@ class ChatLiteLLM(BaseChatModel):
                 if self.stream_options is not None
                 else {"include_usage": True}
             )
+        binding = self._bind_thinking(messages, message_dicts, params)
+        thinking = _ThinkingBlockAssembler(*binding) if binding else None
         default_chunk_class = AIMessageChunk
         first_chunk_yielded = False
         cost_named = False
@@ -880,7 +1535,7 @@ class ChatLiteLLM(BaseChatModel):
 
             # Extract usage metadata first
             usage_metadata = None
-            if "usage" in chunk and chunk["usage"]:
+            if chunk.get("usage"):
                 usage_metadata = _create_usage_metadata(chunk["usage"])
 
             # Read while `chunk` is still the raw response: both the usage-only
@@ -916,7 +1571,9 @@ class ChatLiteLLM(BaseChatModel):
             if root_metadata:
                 delta["provider_specific_fields"] = root_metadata
 
-            chunk = _convert_delta_to_message_chunk(delta, default_chunk_class)
+            chunk = _convert_delta_to_message_chunk(
+                delta, default_chunk_class, thinking
+            )
 
             if usage_metadata and isinstance(chunk, AIMessageChunk):
                 chunk.usage_metadata = usage_metadata
@@ -945,9 +1602,9 @@ class ChatLiteLLM(BaseChatModel):
 
     async def _astream(
         self,
-        messages: List[BaseMessage],
-        stop: Optional[List[str]] = None,
-        run_manager: Optional[AsyncCallbackManagerForLLMRun] = None,
+        messages: list[BaseMessage],
+        stop: list[str] | None = None,
+        run_manager: AsyncCallbackManagerForLLMRun | None = None,
         **kwargs: Any,
     ) -> AsyncIterator[ChatGenerationChunk]:
         message_dicts, params = self._create_message_dicts(messages, stop)
@@ -958,6 +1615,8 @@ class ChatLiteLLM(BaseChatModel):
                 if self.stream_options is not None
                 else {"include_usage": True}
             )
+        binding = self._bind_thinking(messages, message_dicts, params)
+        thinking = _ThinkingBlockAssembler(*binding) if binding else None
         default_chunk_class = AIMessageChunk
         first_chunk_yielded = False
         cost_named = False
@@ -971,7 +1630,7 @@ class ChatLiteLLM(BaseChatModel):
 
             # Extract usage metadata first
             usage_metadata = None
-            if "usage" in chunk and chunk["usage"]:
+            if chunk.get("usage"):
                 usage_metadata = _create_usage_metadata(chunk["usage"])
 
             # Read while `chunk` is still the raw response: both the usage-only
@@ -1006,7 +1665,9 @@ class ChatLiteLLM(BaseChatModel):
             if root_metadata:
                 delta["provider_specific_fields"] = root_metadata
 
-            chunk = _convert_delta_to_message_chunk(delta, default_chunk_class)
+            chunk = _convert_delta_to_message_chunk(
+                delta, default_chunk_class, thinking
+            )
 
             if usage_metadata and isinstance(chunk, AIMessageChunk):
                 chunk.usage_metadata = usage_metadata
@@ -1035,10 +1696,10 @@ class ChatLiteLLM(BaseChatModel):
 
     async def _agenerate(
         self,
-        messages: List[BaseMessage],
-        stop: Optional[List[str]] = None,
-        run_manager: Optional[AsyncCallbackManagerForLLMRun] = None,
-        stream: Optional[bool] = None,
+        messages: list[BaseMessage],
+        stop: list[str] | None = None,
+        run_manager: AsyncCallbackManagerForLLMRun | None = None,
+        stream: bool | None = None,
         **kwargs: Any,
     ) -> ChatResult:
         should_stream = stream if stream is not None else self.streaming
@@ -1053,17 +1714,22 @@ class ChatLiteLLM(BaseChatModel):
         # This branch parses a mapping, so it must not inherit stream=True from a
         # streaming=True instance that the caller overrode with stream=False.
         params["stream"] = False
+        binding = self._bind_thinking(messages, message_dicts, params)
         response = await self.acompletion_with_retry(
             messages=message_dicts, run_manager=run_manager, **params
         )
-        return self._create_chat_result(response)
+        return _keep_thinking_blocks(
+            self._create_chat_result(response, **params), response, binding
+        )
 
     def bind_tools(
         self,
-        tools: Sequence[Union[Dict[str, Any], Type[BaseModel], Callable, BaseTool]],
-        tool_choice: Optional[
-            Union[dict, str, Literal["auto", "none", "required", "any"], bool]
-        ] = None,
+        tools: Sequence[dict[str, Any] | type[BaseModel] | Callable | BaseTool],
+        tool_choice: dict
+        | str
+        | Literal["auto", "none", "required", "any"]
+        | bool
+        | None = None,
         **kwargs: Any,
     ) -> Runnable[LanguageModelInput, AIMessage]:
         """Bind tool-like objects to this chat model.
@@ -1076,7 +1742,9 @@ class ChatLiteLLM(BaseChatModel):
                 models, callables, and BaseTools will be automatically converted to
                 their schema dictionary representation.
             tool_choice: Controls tool-calling behavior. Options are:
-                - str of the form ``"<<tool_name>>"``: calls <<tool_name>> tool.
+                - str of the form ``"<<tool_name>>"``: calls <<tool_name>>, which
+                must be a bound function tool. The keywords below win over a tool
+                of the same name.
                 - ``"auto"``:
                     automatically selects a tool (including no tool).
                 - ``"none"``:
@@ -1084,7 +1752,9 @@ class ChatLiteLLM(BaseChatModel):
                 - ``"any"`` or ``"required"`` or ``True``:
                     forces at least one tool to be called.
                 - dict of the form:
-                ``{"type": "function", "function": {"name": <<tool_name>>}}``
+                ``{"type": "function", "function": {"name": <<tool_name>>}}``,
+                which must name a bound function tool; any other dict goes to litellm
+                as is.
                 - ``False`` or ``None``: no effect
             **kwargs: Any additional parameters to pass to the
                 :class:`~langchain_core.runnables.Runnable` constructor.
@@ -1095,40 +1765,52 @@ class ChatLiteLLM(BaseChatModel):
         # Robustly handle tool_choice='any' or True for ALL providers.
         # Many providers (Gemini, Vertex, etc.) via LiteLLM reject "any" but accept "required".
         # We map "any" (or True) to "required" globally to prevent crashes.
-        if tool_choice == "any" or isinstance(tool_choice, bool):
-            if tool_choice is True or tool_choice == "any":
-                tool_choice = "required"
-            # if tool_choice is False, we leave it (it behaves like None/auto depending on provider)
+        # A False tool_choice is left alone; it behaves like None or auto per provider.
+        if tool_choice is True or tool_choice == "any":
+            tool_choice = "required"
+        elif isinstance(tool_choice, str) and tool_choice not in _TOOL_CHOICE_KEYWORDS:
+            # A tool name, sent in the form litellm translates per provider and
+            # checked below like any function choice.
+            tool_choice = {"type": "function", "function": {"name": tool_choice}}
 
-        # Handle dict tool_choice logic — validate before any downgrade so
-        # typos in tool names always raise, even when thinking is enabled.
-        if isinstance(tool_choice, dict):
+        # Only a function choice names a tool to check, and before any downgrade so a
+        # typo always raises; litellm accepts or refuses every other dict itself.
+        function_choice = (
+            tool_choice
+            if isinstance(tool_choice, dict) and "function" in tool_choice
+            else None
+        )
+        if function_choice is not None:
+            # Only a function tool can be named, nested or in the flat Responses shape.
             tool_names = [
-                formatted_tool["function"]["name"] for formatted_tool in formatted_tools
+                tool["function"]["name"] if "function" in tool else tool["name"]
+                for tool in formatted_tools
+                if "function" in tool
+                or (tool.get("type") == "function" and "name" in tool)
             ]
             if not any(
-                tool_name == tool_choice["function"]["name"] for tool_name in tool_names
+                tool_name == function_choice["function"]["name"]
+                for tool_name in tool_names
             ):
                 raise ValueError(
-                    f"Tool choice {tool_choice} was specified, but the only "
-                    f"provided tools were {tool_names}."
+                    f"tool_choice names {function_choice['function']['name']!r}, "
+                    f"but the bound function tools are {tool_names}."
                 )
 
-        # When thinking/extended thinking is enabled, tool_choice="required"
-        # (or a forced specific tool) suppresses chain-of-thought on Claude
-        # models. Downgrade to "auto" only for Claude so other providers keep
-        # their original forced tool-calling behavior.
+        # Claude refuses a forced tool beside manual thinking, so downgrade to "auto"
+        # there; other providers and adaptive thinking keep the forced choice.
         # Prior art: langchain-ai/langchain#35544, langchain-ai/langchain-aws#927.
-        thinking_config = self._thinking_config()
-        is_claude_model = self._is_claude_model()
-        # "any" is already mapped to "required" above, so only check "required"
-        tool_choice_is_forced = tool_choice == "required" or isinstance(
-            tool_choice, dict
+        # "any" is already mapped to "required" above, and litellm reads
+        # {"type": "required"} as that same string.
+        tool_choice_is_forced = (
+            tool_choice == "required"
+            or function_choice is not None
+            or (isinstance(tool_choice, dict) and tool_choice.get("type") == "required")
         )
         if (
-            thinking_config.get("type") == "enabled"
-            and is_claude_model
-            and tool_choice_is_forced
+            tool_choice_is_forced
+            and self._is_claude_model()
+            and self._thinking_refuses_forced_tools(kwargs)
         ):
             logger.warning(
                 "tool_choice=%r is incompatible with thinking/extended "
@@ -1143,15 +1825,14 @@ class ChatLiteLLM(BaseChatModel):
 
     def with_structured_output(
         self,
-        schema: Union[Dict[str, Any], type, BaseModel],
+        schema: dict[str, Any] | type | BaseModel,
         *,
-        method: Optional[
-            Literal["json_schema", "function_calling", "json_mode"]
-        ] = "json_schema",
+        method: Literal["json_schema", "function_calling", "json_mode"]
+        | None = "json_schema",
         include_raw: bool = False,
-        strict: Optional[bool] = None,
+        strict: bool | None = None,
         **kwargs: Any,
-    ) -> Runnable[LanguageModelInput, Union[Dict, BaseModel]]:
+    ) -> Runnable[LanguageModelInput, dict | BaseModel]:
         # Remove unsupported parameters
         _ = kwargs.pop("tools", None)
         if kwargs:
@@ -1166,10 +1847,7 @@ class ChatLiteLLM(BaseChatModel):
             tool_choice_value = "required"
             bind_kwargs = {"tool_choice": tool_choice_value}
 
-            if (
-                self._is_claude_model()
-                and self._thinking_config().get("type") == "enabled"
-            ):
+            if self._is_claude_model() and self._thinking_refuses_forced_tools({}):
                 warning_message = (
                     "Structured output via function calling is not guaranteed on "
                     "Claude models when `thinking` is enabled. Tool calls may be "
@@ -1267,7 +1945,7 @@ class ChatLiteLLM(BaseChatModel):
         return llm | parse_chain
 
     @property
-    def _identifying_params(self) -> Dict[str, Any]:
+    def _identifying_params(self) -> dict[str, Any]:
         """Get the identifying parameters."""
         set_model_value = self.model
         if self.model_name is not None:
@@ -1279,11 +1957,12 @@ class ChatLiteLLM(BaseChatModel):
             "top_k": self.top_k,
             "n": self.n,
             "num_ctx": self.num_ctx,
+            "use_responses_api": self.use_responses_api,
         }
 
     def _get_ls_params(
         self,
-        stop: Optional[List[str]] = None,
+        stop: list[str] | None = None,
         **kwargs: Any,
     ) -> LangSmithParams:
         """Return LangSmith tracing parameters for this model.
@@ -1374,7 +2053,7 @@ def _create_usage_metadata(token_usage: Any) -> UsageMetadata:
     return usage_metadata
 
 
-def _ensure_additional_properties_false(schema_dict: Dict[str, Any]) -> Dict[str, Any]:
+def _ensure_additional_properties_false(schema_dict: dict[str, Any]) -> dict[str, Any]:
     """Recursively ensure additionalProperties is set to false for all objects."""
     if isinstance(schema_dict, dict):
         result = schema_dict.copy()

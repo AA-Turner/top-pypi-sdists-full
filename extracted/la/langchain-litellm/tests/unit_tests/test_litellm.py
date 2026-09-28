@@ -1,21 +1,27 @@
 """Test chat model integration."""
 
 # stdlib
+import json
 import logging
+import re
 import subprocess
 import sys
+import warnings
 from collections import OrderedDict, defaultdict
 from pathlib import Path
-from typing import Any, Dict, Optional, Union
+from typing import Any
 from unittest.mock import AsyncMock, patch
 
 # third-party
+import httpx
 import litellm
 import pytest
 from langchain.chat_models import init_chat_model
+from langchain_core.caches import InMemoryCache
 from langchain_core.exceptions import OutputParserException
-from langchain_core.messages import AIMessage, AIMessageChunk, ToolMessage
+from langchain_core.messages import AIMessage, AIMessageChunk, HumanMessage, ToolMessage
 from langchain_core.runnables import RunnableLambda
+from langchain_core.tools import Tool
 from litellm.types.utils import ChatCompletionDeltaToolCall, Delta, Function
 from pydantic import BaseModel, ValidationError
 
@@ -29,6 +35,15 @@ from langchain_litellm.chat_models.litellm import (
     _cost_metadata,
     _create_usage_metadata,
     _provider_api_key_field,
+)
+from tests.utils import (
+    OPUS_4_7_THINKS_ADAPTIVELY,
+    chat_completion_reply,
+    function_call_item,
+    message_item,
+    reasoning_item,
+    responses_api_reply,
+    serve_http,
 )
 
 
@@ -306,7 +321,7 @@ def test_late_declared_provider_keys_reach_litellm(
     _no_provider_env: None, provider: str, field: str
 ) -> None:
     """These two had no field, so pydantic discarded whatever the caller passed."""
-    kwargs: Dict[str, Any] = {"model": f"{provider}/some-model", field: "sk-late"}
+    kwargs: dict[str, Any] = {"model": f"{provider}/some-model", field: "sk-late"}
     llm = ChatLiteLLM(**kwargs)  # type: ignore[arg-type]
 
     with patch.object(
@@ -384,7 +399,7 @@ def test_a_subclass_provider_key_field_is_forwarded(_no_provider_env: None) -> N
     """
 
     class _DeepSeekChat(ChatLiteLLM):
-        deepseek_api_key: Optional[str] = None
+        deepseek_api_key: str | None = None
 
     llm = _DeepSeekChat(model="deepseek/deepseek-chat", deepseek_api_key="sk-deepseek")
 
@@ -404,11 +419,13 @@ def test_an_unexpected_provider_lookup_error_surfaces(_no_provider_env: None) ->
     """
     llm = ChatLiteLLM(model="gpt-4o", openai_api_key="sk-openai")
 
-    with patch.object(
-        litellm, "get_llm_provider", side_effect=TypeError("signature changed")
+    with (
+        patch.object(
+            litellm, "get_llm_provider", side_effect=TypeError("signature changed")
+        ),
+        pytest.raises(TypeError),
     ):
-        with pytest.raises(TypeError):
-            llm._client_params
+        _ = llm._client_params
 
 
 def test_model_kwargs_decides_the_timeout(_no_provider_env: None) -> None:
@@ -726,6 +743,114 @@ def test_provider_specific_fields_in_chat_result() -> None:
     )
 
 
+# ── replies litellm splits across choices ──────────────────────────────────────
+
+# `<provider>/responses/<model>` makes litellm answer through its Responses API bridge.
+_BRIDGED_MODEL = "openai/responses/gpt-4o-mini"
+
+
+@pytest.mark.parametrize("method", ["invoke", "ainvoke"])
+@pytest.mark.asyncio
+async def test_a_split_reply_keeps_its_tool_calls(
+    monkeypatch: pytest.MonkeyPatch, method: str
+) -> None:
+    """litellm's Responses API bridge gives text and tool calls a choice each.
+
+    They are one reply, and a caller acting on it needs the calls.
+    """
+    requests = serve_http(
+        monkeypatch,
+        responses_api_reply(
+            message_item("Let me check."),
+            function_call_item("call_1", '{"city": "Paris"}'),
+        ),
+    )
+    llm = ChatLiteLLM(model=_BRIDGED_MODEL, api_key="k")
+
+    if method == "invoke":
+        message = llm.invoke("weather?")
+    else:
+        message = await llm.ainvoke("weather?")
+
+    assert requests[0].url.path.endswith("/responses")
+    assert message.content == "Let me check."
+    assert [
+        (call["name"], call["args"], call["id"]) for call in message.tool_calls
+    ] == [("get_weather", {"city": "Paris"}, "call_1")]
+    assert message.response_metadata["finish_reason"] == "tool_calls"
+
+
+def test_a_split_reply_keeps_every_text_part(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The bridge also gives each text part of one message a choice of its own."""
+    serve_http(
+        monkeypatch, responses_api_reply(message_item("Part one. ", "Part two."))
+    )
+
+    message = ChatLiteLLM(model=_BRIDGED_MODEL, api_key="k").invoke("hi")
+
+    assert message.content == "Part one. Part two."
+
+
+def test_a_split_reply_keeps_the_reasoning_before_each_part(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Each choice carries the reasoning that preceded its part; a stream joins both."""
+    serve_http(
+        monkeypatch,
+        responses_api_reply(
+            reasoning_item("rs_1", "Think A."),
+            message_item("Checking."),
+            reasoning_item("rs_2", "Think B."),
+            function_call_item("call_1", '{"city": "Paris"}'),
+        ),
+    )
+
+    message = ChatLiteLLM(model=_BRIDGED_MODEL, api_key="k").invoke("weather?")
+
+    assert message.additional_kwargs["reasoning_content"] == "Think A.Think B."
+
+
+@pytest.mark.parametrize("method", ["generate", "agenerate"])
+@pytest.mark.asyncio
+async def test_n_above_one_keeps_each_completion(
+    monkeypatch: pytest.MonkeyPatch, method: str
+) -> None:
+    """With `n` above one, each choice is a separate completion."""
+    serve_http(monkeypatch, chat_completion_reply("A", "B"))
+    llm = ChatLiteLLM(model="openai/gpt-4o-mini", api_key="k")
+
+    if method == "generate":
+        result = llm.generate([[HumanMessage("hi")]], n=2)
+    else:
+        result = await llm.agenerate([[HumanMessage("hi")]], n=2)
+
+    assert [generation.text for generation in result.generations[0]] == ["A", "B"]
+
+
+def test_a_single_choice_reply_keeps_what_a_rejoin_would_drop() -> None:
+    """Only a split reply is rebuilt; one choice arrives with every field it carries."""
+    grounding = {"grounding_metadata": {"search_queries": ["Earth orbit"]}}
+    response = {
+        "choices": [
+            {
+                "message": {
+                    "role": "assistant",
+                    "content": "The Earth orbits the Sun",
+                    "provider_specific_fields": grounding,
+                },
+                "finish_reason": "stop",
+            }
+        ],
+        "usage": {"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2},
+    }
+    llm = ChatLiteLLM(model="gpt-4o-mini", api_key="k")
+
+    with patch.object(llm.client, "completion", return_value=response):
+        message = llm.invoke("hi")
+
+    assert message.additional_kwargs["provider_specific_fields"] == grounding
+
+
 # ── usage metadata ─────────────────────────────────────────────────────────────
 
 
@@ -937,18 +1062,20 @@ def test_bind_tools_any_becomes_required_without_thinking() -> None:
         "required",
         True,
         {"type": "function", "function": {"name": "_dummy_tool"}},
+        {"type": "required"},
+        "_dummy_tool",
     ],
-    ids=["any", "required", "True", "dict"],
+    ids=["any", "required", "True", "dict", "dict-required", "name"],
 )
 def test_bind_tools_downgraded_with_thinking(
-    tool_choice: Union[str, bool, Dict[str, Any]],
+    tool_choice: str | bool | dict[str, Any],
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     """Forced tool_choice values should be downgraded to 'auto' when thinking
     is enabled, so the model can produce CoT text before tool calls.
     """
     llm = ChatLiteLLM(
-        model="anthropic/claude-sonnet-4-20250514",
+        model="anthropic/claude-sonnet-4-5",
         api_key="fake",
         model_kwargs=_THINKING_KWARGS,
     )
@@ -960,6 +1087,127 @@ def test_bind_tools_downgraded_with_thinking(
     assert "incompatible with thinking" in caplog.text
 
 
+# Newer litellm reads a bool thinking as manual thinking.
+_BOOL_THINKING_IS_MANUAL = isinstance(
+    litellm.utils.validate_and_fix_thinking_param(True), dict
+)
+
+# Downgraded on every supported version: manual thinking set in model_kwargs, or
+# thinking litellm sends as manual.
+_MANUAL_THINKING = [
+    ("anthropic/claude-sonnet-4-5", {}, _THINKING_KWARGS),
+    ("anthropic/claude-sonnet-4-5", {"reasoning_effort": "high"}, {}),
+    ("anthropic/claude-sonnet-4-5", {}, {"reasoning_effort": "high"}),
+    ("anthropic/claude-fable-5-1", _THINKING_KWARGS, {}),
+    (
+        "anthropic/claude-sonnet-4-6",
+        {"model": "anthropic/claude-sonnet-4-5", "reasoning_effort": "high"},
+        {},
+    ),
+    pytest.param(
+        "anthropic/claude-sonnet-4-5",
+        {},
+        {"thinking": True},
+        marks=pytest.mark.skipif(
+            not _BOOL_THINKING_IS_MANUAL, reason="this litellm leaves a bool unmapped"
+        ),
+    ),
+]
+_MANUAL_THINKING_IDS = [
+    "thinking-bound",
+    "effort-in-model-kwargs",
+    "effort-bound",
+    "manual-in-model-kwargs",
+    "effort-for-the-model-kwargs-destination",
+    "bool-thinking-bound",
+]
+
+# ...and adaptive thinking for these, beside which Anthropic accepts a forced tool.
+_ADAPTIVE_THINKING = [
+    ("anthropic/claude-sonnet-4-6", {"thinking": {"type": "adaptive"}}),
+    ("anthropic/claude-sonnet-4-6", {"reasoning_effort": "high"}),
+]
+_ADAPTIVE_THINKING_IDS = ["adaptive", "effort"]
+
+
+@pytest.mark.parametrize(
+    ("model", "model_kwargs", "bind_kwargs"),
+    _MANUAL_THINKING,
+    ids=_MANUAL_THINKING_IDS,
+)
+def test_bind_tools_downgraded_wherever_thinking_is_set(
+    model: str,
+    model_kwargs: dict[str, Any],
+    bind_kwargs: dict[str, Any],
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Each of these turns manual thinking on for the call, so each needs the downgrade."""
+    llm = ChatLiteLLM(model=model, api_key="fake", model_kwargs=model_kwargs)
+    with caplog.at_level(
+        logging.WARNING, logger="langchain_litellm.chat_models.litellm"
+    ):
+        bound = llm.bind_tools([_dummy_tool], tool_choice="required", **bind_kwargs)
+    assert bound.kwargs["tool_choice"] == "auto"  # type: ignore[attr-defined]
+    assert "incompatible with thinking" in caplog.text
+
+
+@pytest.mark.skipif(
+    not OPUS_4_7_THINKS_ADAPTIVELY, reason="this litellm sends it manual thinking"
+)
+def test_bind_tools_keeps_a_forced_choice_litellm_sends_beside_adaptive_thinking() -> (
+    None
+):
+    """Thinking passed at bind time counts only as litellm sends it."""
+    llm = ChatLiteLLM(model="anthropic/claude-opus-4-7", api_key="fake")
+
+    bound = llm.bind_tools([_dummy_tool], tool_choice="required", **_THINKING_KWARGS)
+
+    assert bound.kwargs["tool_choice"] == "required"  # type: ignore[attr-defined]
+
+
+def test_bind_tools_keeps_a_forced_choice_when_max_tokens_leaves_no_thinking() -> None:
+    """litellm sends no thinking that max_tokens cannot hold."""
+    llm = ChatLiteLLM(
+        model="anthropic/claude-sonnet-4-5",
+        api_key="fake",
+        max_tokens=1000,
+        model_kwargs={"thinking": {"type": "adaptive"}},
+    )
+
+    bound = llm.bind_tools([_dummy_tool], tool_choice="required")
+
+    assert bound.kwargs["tool_choice"] == "required"  # type: ignore[attr-defined]
+
+
+def test_bind_tools_leaves_a_name_litellm_resolves_later_to_the_call() -> None:
+    """litellm resolves an alias only when the call is made, so it cannot answer here."""
+    llm = ChatLiteLLM(
+        model="my-claude-alias",
+        api_key="fake",
+        model_kwargs={"reasoning_effort": "high"},
+    )
+
+    bound = llm.bind_tools([_dummy_tool], tool_choice="required")
+
+    assert bound.kwargs["tool_choice"] == "required"  # type: ignore[attr-defined]
+
+
+@pytest.mark.parametrize(
+    ("model", "model_kwargs"), _ADAPTIVE_THINKING, ids=_ADAPTIVE_THINKING_IDS
+)
+def test_bind_tools_keeps_a_forced_choice_beside_adaptive_thinking(
+    model: str, model_kwargs: dict[str, Any], caplog: pytest.LogCaptureFixture
+) -> None:
+    """Anthropic refuses a forced tool only beside manual thinking."""
+    llm = ChatLiteLLM(model=model, api_key="fake", model_kwargs=model_kwargs)
+    with caplog.at_level(
+        logging.WARNING, logger="langchain_litellm.chat_models.litellm"
+    ):
+        bound = llm.bind_tools([_dummy_tool], tool_choice="required")
+    assert bound.kwargs["tool_choice"] == "required"  # type: ignore[attr-defined]
+    assert "incompatible with thinking" not in caplog.text
+
+
 @pytest.mark.parametrize(
     "tool_choice",
     [
@@ -967,11 +1215,12 @@ def test_bind_tools_downgraded_with_thinking(
         "required",
         True,
         {"type": "function", "function": {"name": "_dummy_tool"}},
+        {"type": "required"},
     ],
-    ids=["any", "required", "True", "dict"],
+    ids=["any", "required", "True", "dict", "dict-required"],
 )
 def test_bind_tools_not_downgraded_with_thinking_on_non_claude_models(
-    tool_choice: Union[str, bool, Dict[str, Any]],
+    tool_choice: str | bool | dict[str, Any],
 ) -> None:
     """Forced tool choices should be preserved for non-Claude models."""
     llm = ChatLiteLLM(
@@ -986,11 +1235,11 @@ def test_bind_tools_not_downgraded_with_thinking_on_non_claude_models(
 
 @pytest.mark.parametrize(
     "tool_choice",
-    ["auto", "none", None, False],
-    ids=["auto", "none", "None", "False"],
+    ["auto", "none", None, False, {"type": "none"}, {"type": "web_search"}],
+    ids=["auto", "none", "None", "False", "dict-none", "dict-built-in"],
 )
 def test_bind_tools_non_forced_unchanged_with_thinking(
-    tool_choice: Optional[Union[str, bool]],
+    tool_choice: str | bool | dict[str, Any] | None,
 ) -> None:
     """Non-forced tool_choice values should pass through untouched."""
     llm = ChatLiteLLM(
@@ -1008,7 +1257,7 @@ def test_bind_tools_non_forced_unchanged_with_thinking(
     ids=["None", "empty", "disabled"],
 )
 def test_bind_tools_no_downgrade_without_thinking_enabled(
-    thinking_config: Optional[Dict[str, Any]],
+    thinking_config: dict[str, Any] | None,
 ) -> None:
     """tool_choice='any' should stay 'required' when thinking is not enabled."""
     kwargs: dict = {}
@@ -1037,9 +1286,142 @@ def test_bind_tools_dict_validation_with_thinking() -> None:
         )
 
 
-def test_with_structured_output_function_calling_warns_and_raises_for_claude_thinking() -> (
-    None
-):
+_FLAT_FUNCTION_TOOL = {
+    "type": "function",
+    "name": "lookup",
+    "parameters": {"type": "object", "properties": {}},
+    "strict": False,
+}
+
+
+@pytest.mark.parametrize("by_name", [False, True], ids=["dict", "name"])
+@pytest.mark.parametrize(
+    ("tools", "name"),
+    [
+        ([_dummy_tool], "_dummy_tool"),
+        ([_dummy_tool, {"type": "web_search"}], "_dummy_tool"),
+        ([_FLAT_FUNCTION_TOOL], "lookup"),
+    ],
+    ids=["function", "beside-built-in", "flat-function"],
+)
+def test_bind_tools_forces_a_function_bound_in_any_shape(
+    tools: list[Any], name: str, by_name: bool
+) -> None:
+    """Built-in and Responses-style tools carry no ``function`` key to read a name from.
+
+    A bare tool name is no choice litellm understands, so it becomes the function choice.
+    """
+    llm = ChatLiteLLM(model="gpt-4o-mini", api_key="fake")
+    choice = {"type": "function", "function": {"name": name}}
+
+    bound = llm.bind_tools(tools, tool_choice=name if by_name else choice)
+
+    assert bound.kwargs["tool_choice"] == choice  # type: ignore[attr-defined]
+
+
+@pytest.mark.parametrize(
+    ("tools", "tool_choice"),
+    [
+        ([_dummy_tool, {"type": "web_search"}], {"type": "web_search"}),
+        ([_dummy_tool], {"type": "auto"}),
+        ([_FLAT_FUNCTION_TOOL], {"type": "function", "name": "lookup"}),
+    ],
+    ids=["built-in", "auto", "flat-function-choice"],
+)
+def test_bind_tools_leaves_other_dict_choices_to_litellm(
+    tools: list[Any], tool_choice: dict[str, Any]
+) -> None:
+    """Only a function choice names a tool to check; litellm accepts or refuses the rest."""
+    llm = ChatLiteLLM(model="gpt-4o-mini", api_key="fake")
+
+    bound = llm.bind_tools(tools, tool_choice=tool_choice)
+
+    assert bound.kwargs["tool_choice"] == tool_choice  # type: ignore[attr-defined]
+
+
+@pytest.mark.parametrize(
+    ("keyword", "sent"),
+    [("auto", "auto"), ("none", "none"), ("required", "required"), ("any", "required")],
+)
+def test_bind_tools_keeps_a_keyword_that_a_tool_is_named_after(
+    keyword: str, sent: str
+) -> None:
+    """A keyword means the same whichever tools are bound and wherever the call goes."""
+    llm = ChatLiteLLM(model="gpt-4o-mini", api_key="fake")
+    tool = {
+        "type": "function",
+        "function": {"name": keyword, "parameters": {"type": "object"}},
+    }
+
+    bound = llm.bind_tools([tool], tool_choice=keyword)
+
+    assert bound.kwargs["tool_choice"] == sent  # type: ignore[attr-defined]
+
+
+@pytest.mark.parametrize(
+    ("tools", "tool_choice"),
+    [
+        ([_dummy_tool], "nonexistent"),
+        ([_dummy_tool, {"type": "web_search"}], "web_search"),
+    ],
+    ids=["typo", "built-in"],
+)
+def test_bind_tools_rejects_a_string_naming_no_bound_function(
+    tools: list[Any], tool_choice: str
+) -> None:
+    """Providers read such a string differently, from an error to a silent drop."""
+    llm = ChatLiteLLM(model="gpt-4o-mini", api_key="fake")
+
+    with pytest.raises(
+        ValueError, match=re.escape(f"tool_choice names {tool_choice!r}")
+    ):
+        llm.bind_tools(tools, tool_choice=tool_choice)
+
+
+_CUSTOM_TOOL = Tool(
+    name="grep",
+    func=lambda pattern: pattern,
+    description="Search text for a pattern.",
+    metadata={"type": "custom_tool"},
+)
+
+
+@pytest.mark.parametrize(
+    ("tools", "name", "function_names"),
+    [
+        ([_dummy_tool, {"type": "web_search"}], "web_search", ["_dummy_tool"]),
+        ([_dummy_tool, _CUSTOM_TOOL], "grep", ["_dummy_tool"]),
+        ([{"type": "web_search"}], "_dummy_tool", []),
+    ],
+    ids=["built-in", "custom", "only-built-ins"],
+)
+def test_bind_tools_rejects_a_function_choice_naming_no_bound_function(
+    tools: list[Any], name: str, function_names: list[str]
+) -> None:
+    """Only a bound function tool can be forced by a function choice."""
+    llm = ChatLiteLLM(model="gpt-4o-mini", api_key="fake")
+
+    message = (
+        f"tool_choice names {name!r}, but the bound function tools are "
+        f"{function_names}."
+    )
+    with pytest.raises(ValueError, match=re.escape(message)):
+        llm.bind_tools(
+            tools, tool_choice={"type": "function", "function": {"name": name}}
+        )
+
+
+@pytest.mark.parametrize(
+    ("model", "model_kwargs"),
+    [
+        ("anthropic/claude-sonnet-4-5", _THINKING_KWARGS),
+        ("anthropic/claude-sonnet-4-5", {"reasoning_effort": "high"}),
+    ],
+    ids=["thinking", "effort"],
+)
+def test_with_structured_output_function_calling_warns_and_raises_for_claude_thinking(
+    model: str, model_kwargs: dict[str, Any]
+) -> None:
     """Claude thinking should not silently fall back to plain-text structured output."""
     bind_kwargs: dict[str, Any] = {}
 
@@ -1048,11 +1430,7 @@ def test_with_structured_output_function_calling_warns_and_raises_for_claude_thi
             bind_kwargs.update(kwargs)
             return RunnableLambda(lambda _: AIMessage(content="plain text"))
 
-    llm = _FakeChatLiteLLM(
-        model="anthropic/claude-sonnet-4-20250514",
-        api_key="fake",
-        model_kwargs=_THINKING_KWARGS,
-    )
+    llm = _FakeChatLiteLLM(model=model, api_key="fake", model_kwargs=model_kwargs)
 
     with pytest.warns(UserWarning, match="Structured output via function calling"):
         structured = llm.with_structured_output(
@@ -1064,6 +1442,26 @@ def test_with_structured_output_function_calling_warns_and_raises_for_claude_thi
         structured.invoke("Return structured output.")
 
 
+@pytest.mark.parametrize(
+    ("model", "model_kwargs"), _ADAPTIVE_THINKING, ids=_ADAPTIVE_THINKING_IDS
+)
+def test_with_structured_output_forces_its_tool_beside_adaptive_thinking(
+    model: str, model_kwargs: dict[str, Any]
+) -> None:
+    """Adaptive thinking accepts a forced tool, so function calling keeps forcing it."""
+    llm = ChatLiteLLM(model=model, api_key="fake", model_kwargs=model_kwargs)
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        structured = llm.with_structured_output(
+            _StructuredResponse, method="function_calling"
+        )
+
+    assert not [w for w in caught if "Structured output" in str(w.message)]
+    bound = structured.first  # type: ignore[attr-defined]
+    assert bound.kwargs["tool_choice"] == "required"
+
+
 def test_with_structured_output_include_raw_preserves_raw_for_claude_thinking() -> None:
     """`include_raw` should surface the parsing error without dropping the raw message."""
 
@@ -1072,7 +1470,7 @@ def test_with_structured_output_include_raw_preserves_raw_for_claude_thinking() 
             return RunnableLambda(lambda _: AIMessage(content="plain text"))
 
     llm = _FakeChatLiteLLM(
-        model="anthropic/claude-sonnet-4-20250514",
+        model="anthropic/claude-sonnet-4-5",
         api_key="fake",
         model_kwargs=_THINKING_KWARGS,
     )
@@ -1218,6 +1616,64 @@ def test_convert_message_to_dict_strips_thinking_blocks() -> None:
     assert "redacted_thinking" not in types
     assert {"type": "text", "text": "hello"} in d["content"]
     assert d["reasoning_content"] == "internal reasoning"
+
+
+def test_convert_message_to_dict_strips_normalized_reasoning_blocks() -> None:
+    """Reasoning in langchain-core's standard shapes must not reach providers."""
+    msg = AIMessage(
+        content=[
+            {"type": "reasoning", "reasoning": "internal reasoning"},
+            {
+                "type": "non_standard",
+                "value": {"type": "redacted_thinking", "data": "encrypted"},
+            },
+            {"type": "non_standard", "value": {"type": "thinking", "thinking": "t"}},
+            {"type": "non_standard", "value": {"type": "citation", "id": "c"}},
+            {"type": "text", "text": "hello"},
+        ],
+    )
+    d = _convert_message_to_dict(msg)
+
+    assert d["content"] == [
+        {"type": "non_standard", "value": {"type": "citation", "id": "c"}},
+        {"type": "text", "text": "hello"},
+    ]
+
+
+def test_reasoning_round_trip_through_content_blocks() -> None:
+    """A reply stored as its standard content_blocks replays without reasoning content.
+
+    LangGraph and output_version="v1" consumers persist content_blocks, which
+    surface reasoning_content as a reasoning block; DeepSeek rejects that block
+    with "unknown variant `reasoning`, expected `text`".
+    """
+    reply = _convert_dict_to_message(
+        {
+            "role": "assistant",
+            "content": "",
+            "reasoning_content": "internal reasoning",
+            "tool_calls": [
+                {
+                    "id": "call_1",
+                    "type": "function",
+                    "function": {"name": "read_file", "arguments": "{}"},
+                }
+            ],
+        }
+    )
+    assert isinstance(reply, AIMessage)
+    stored = AIMessage(
+        content=reply.content_blocks,  # type: ignore[arg-type]
+        additional_kwargs=reply.additional_kwargs,
+        tool_calls=reply.tool_calls,
+    )
+    assert {"type": "reasoning", "reasoning": "internal reasoning"} in stored.content
+
+    d = _convert_message_to_dict(stored)
+
+    assert d["content"] == ""
+    assert d["reasoning_content"] == "internal reasoning"
+    assert [tc["id"] for tc in d["tool_calls"]] == ["call_1"]
 
 
 def test_client_params_does_not_mutate_litellm_globals() -> None:
@@ -1446,7 +1902,7 @@ def test_an_explicit_none_falls_back_to_the_default(field: str) -> None:
     Dropping it leaves the default in place and, unlike backfilling the default,
     keeps the field out of `model_fields_set` where langchain-core reads it.
     """
-    kwargs: Dict[str, Any] = {"model": "anthropic/claude-3-5-sonnet-20241022"}
+    kwargs: dict[str, Any] = {"model": "anthropic/claude-3-5-sonnet-20241022"}
     kwargs[field] = None
     llm = ChatLiteLLM(**kwargs)  # type: ignore[arg-type]
 
@@ -1821,7 +2277,7 @@ def test_copying_model_kwargs_preserves_the_container_type() -> None:
 
 def test_a_self_referential_model_kwarg_does_not_recurse_forever() -> None:
     """Copying has to terminate on a value that contains itself."""
-    cyclic: Dict[str, Any] = {}
+    cyclic: dict[str, Any] = {}
     cyclic["self"] = cyclic
     llm = ChatLiteLLM(model="gpt-4o", api_key="k", model_kwargs={"c": cyclic})
 
@@ -1872,6 +2328,7 @@ def test_constructor_signature_is_not_erased(tmp_path: Path) -> None:
         [sys.executable, "-m", "mypy", "--no-incremental", str(probe)],
         capture_output=True,
         text=True,
+        check=False,
     )
 
     assert "call-arg" in result.stdout, result.stdout
@@ -1939,3 +2396,275 @@ async def test_astream_sets_finish_reason_in_response_metadata() -> None:
 
     assert chunks[0].message.response_metadata.get("finish_reason") is None
     assert chunks[1].message.response_metadata.get("finish_reason") == "stop"
+
+
+# ── Responses API routing ──────────────────────────────────────────────────────
+
+# A minimal Responses API reply, shaped by the openai SDK's `Response` type.
+_RESPONSES_API_REPLY = {
+    "id": "resp_1",
+    "object": "response",
+    "created_at": 0,
+    "status": "completed",
+    "model": "gpt-4o-mini",
+    "output": [
+        {
+            "type": "message",
+            "id": "msg_1",
+            "role": "assistant",
+            "status": "completed",
+            "content": [{"type": "output_text", "text": "ok", "annotations": []}],
+        }
+    ],
+    "parallel_tool_calls": True,
+    "tool_choice": "auto",
+    "tools": [],
+    "usage": {"input_tokens": 1, "output_tokens": 1, "total_tokens": 2},
+}
+
+
+# Only newer litellm releases serve Bedrock Mantle over the Responses API.
+_MANTLE_SERVES_RESPONSES = (
+    litellm.utils.ProviderConfigManager.get_provider_responses_api_config(
+        provider="bedrock_mantle", model="openai.gpt-oss-120b"
+    )
+    is not None
+)
+
+
+@pytest.fixture
+def _responses_endpoint(monkeypatch: pytest.MonkeyPatch) -> list[httpx.Request]:
+    """Answer each synchronous request litellm sends, in-process, as Responses would.
+
+    Endpoint overrides in the developer's environment would redirect the requests.
+    """
+    for name in ("OPENAI_BASE_URL", "OPENAI_API_BASE", "OPENROUTER_API_BASE"):
+        monkeypatch.delenv(name, raising=False)
+    requests: list[httpx.Request] = []
+
+    def _reply(_: httpx.HTTPTransport, request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return httpx.Response(200, json=_RESPONSES_API_REPLY)
+
+    monkeypatch.setattr(httpx.HTTPTransport, "handle_request", _reply)
+    return requests
+
+
+@pytest.mark.parametrize(
+    ("model", "config", "endpoint", "provider_model"),
+    [
+        ("gpt-4o-mini", {}, "https://api.openai.com/v1/responses", "gpt-4o-mini"),
+        (
+            "openai/gpt-4o-mini",
+            {},
+            "https://api.openai.com/v1/responses",
+            "gpt-4o-mini",
+        ),
+        (
+            "fake-model",
+            {"custom_llm_provider": "openai"},
+            "https://api.openai.com/v1/responses",
+            "fake-model",
+        ),
+        (
+            "fake-model",
+            {"api_base": "https://api.perplexity.ai"},
+            "https://api.perplexity.ai/v1/responses",
+            "fake-model",
+        ),
+        (
+            "openrouter/openai/gpt-4o-mini",
+            {},
+            "https://openrouter.ai/api/v1/responses",
+            "openai/gpt-4o-mini",
+        ),
+        (
+            "fake-deployment",
+            {
+                "custom_llm_provider": "azure",
+                "api_base": "https://fake.openai.azure.com",
+                "model_kwargs": {"api_version": "preview"},
+            },
+            "https://fake.openai.azure.com/openai/v1/responses?api-version=preview",
+            "fake-deployment",
+        ),
+        pytest.param(
+            "bedrock_mantle/openai.gpt-oss-120b",
+            {"model_kwargs": {"aws_region_name": "us-east-1"}},
+            "https://bedrock-mantle.us-east-1.api.aws/v1/responses",
+            "openai.gpt-oss-120b",
+            marks=pytest.mark.skipif(
+                not _MANTLE_SERVES_RESPONSES,
+                reason="this litellm serves no Responses API for Bedrock Mantle",
+            ),
+        ),
+    ],
+)
+def test_use_responses_api_sends_the_call_to_the_responses_endpoint(
+    _responses_endpoint: list[httpx.Request],
+    model: str,
+    config: dict[str, Any],
+    endpoint: str,
+    provider_model: str,
+) -> None:
+    """litellm's own bridge decides the route, so the wire is where to look.
+
+    The routing name stays out of the reply, which tracing reads.
+    """
+    llm = ChatLiteLLM(model=model, api_key="k", use_responses_api=True, **config)
+
+    message = llm.invoke("hi")
+
+    assert [str(request.url) for request in _responses_endpoint] == [endpoint]
+    assert json.loads(_responses_endpoint[0].content)["model"] == provider_model
+    assert message.content == "ok"
+    assert message.response_metadata["model_name"] == model
+
+
+class _Sent(Exception):
+    """Stops a call once litellm has received it."""
+
+
+async def test_use_responses_api_routes_every_entry_point() -> None:
+    """A route applied in one entry point leaves the others on Chat Completions."""
+    llm = ChatLiteLLM(model="gpt-4o-mini", api_key="k", use_responses_api=True)
+
+    with (
+        patch.object(llm.client, "completion", side_effect=_Sent) as completion,
+        patch.object(llm.client, "acompletion", side_effect=_Sent) as acompletion,
+    ):
+        with pytest.raises(_Sent):
+            llm.invoke("hi")
+        with pytest.raises(_Sent):
+            list(llm.stream("hi"))
+        with pytest.raises(_Sent):
+            await llm.ainvoke("hi")
+        with pytest.raises(_Sent):
+            [chunk async for chunk in llm.astream("hi")]
+
+    calls = completion.call_args_list + acompletion.call_args_list
+    assert [call.kwargs["model"] for call in calls] == [
+        "openai/responses/gpt-4o-mini"
+    ] * 4
+
+
+@pytest.mark.parametrize(
+    ("override", "routed"),
+    [
+        (
+            {"model": "openrouter/openai/gpt-4o-mini"},
+            "openrouter/responses/openai/gpt-4o-mini",
+        ),
+        (
+            {"model": "fake-deployment", "custom_llm_provider": "azure"},
+            "azure/responses/fake-deployment",
+        ),
+        ({"model": None}, "openai/responses/gpt-4o-mini"),
+        ({"model": "openai/responses/gpt-4o-mini"}, "openai/responses/gpt-4o-mini"),
+    ],
+)
+def test_use_responses_api_routes_the_destination_a_call_settles_on(
+    override: dict[str, Any], routed: str
+) -> None:
+    """A per-call destination is routed, and a None override keeps the configured one."""
+    llm = ChatLiteLLM(model="gpt-4o-mini", api_key="k", use_responses_api=True)
+
+    with patch.object(llm.client, "completion", return_value=_MOCK_OK) as completion:
+        llm.invoke("hi", **override)
+
+    assert completion.call_args.kwargs["model"] == routed
+
+
+@pytest.mark.parametrize(
+    ("config", "call", "sent"),
+    [
+        ({}, {"use_responses_api": True}, "openai/responses/gpt-4o-mini"),
+        ({"use_responses_api": True}, {"use_responses_api": False}, "gpt-4o-mini"),
+        (
+            {"use_responses_api": True},
+            {"use_responses_api": None},
+            "openai/responses/gpt-4o-mini",
+        ),
+        (
+            {"model_kwargs": {"use_responses_api": True}},
+            {},
+            "openai/responses/gpt-4o-mini",
+        ),
+        (
+            {"model_kwargs": {"use_responses_api": True}},
+            {"use_responses_api": None},
+            "openai/responses/gpt-4o-mini",
+        ),
+    ],
+)
+def test_use_responses_api_is_read_like_a_destination_and_never_sent(
+    config: dict[str, Any], call: dict[str, Any], sent: str
+) -> None:
+    """The flag picks the route the way ``model`` does, so it is no litellm param."""
+    llm = ChatLiteLLM(model="gpt-4o-mini", api_key="k", **config)
+
+    with patch.object(llm.client, "completion", return_value=_MOCK_OK) as completion:
+        llm.invoke("hi", **call)
+
+    assert completion.call_args.kwargs["model"] == sent
+    assert "use_responses_api" not in completion.call_args.kwargs
+
+
+def test_use_responses_api_keeps_its_own_cache_entries() -> None:
+    """A cached Chat Completions reply must not answer a call meant for Responses."""
+    cache = InMemoryCache()
+    plain = ChatLiteLLM(model="gpt-4o-mini", api_key="k", cache=cache)
+    routed = ChatLiteLLM(
+        model="gpt-4o-mini", api_key="k", cache=cache, use_responses_api=True
+    )
+
+    with patch.object(plain.client, "completion", return_value=_MOCK_OK) as completion:
+        plain.invoke("hi")
+        routed.invoke("hi")
+
+    assert [call.kwargs["model"] for call in completion.call_args_list] == [
+        "gpt-4o-mini",
+        "openai/responses/gpt-4o-mini",
+    ]
+
+
+def test_use_responses_api_refuses_a_provider_without_one() -> None:
+    """litellm would answer over Anthropic's chat API, never reaching a Responses API."""
+    llm = ChatLiteLLM(
+        model="anthropic/claude-3-5-sonnet-20241022",
+        api_key="k",
+        use_responses_api=True,
+    )
+
+    with (
+        patch.object(llm.client, "completion") as completion,
+        pytest.raises(ValueError, match="cannot send"),
+    ):
+        llm.invoke("hi")
+
+    completion.assert_not_called()
+
+
+def test_use_responses_api_refuses_a_name_litellm_would_not_bridge(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """litellm bridges only a routed name its model map leaves unresolved.
+
+    Resolved to a chat model, the name would go to Chat Completions as the model id.
+    """
+    monkeypatch.setitem(
+        litellm.model_cost,
+        "openrouter/responses/fake-model",
+        {"mode": "chat", "litellm_provider": "openrouter"},
+    )
+    llm = ChatLiteLLM(
+        model="openrouter/fake-model", api_key="k", use_responses_api=True
+    )
+
+    with (
+        patch.object(llm.client, "completion") as completion,
+        pytest.raises(ValueError, match="cannot send"),
+    ):
+        llm.invoke("hi")
+
+    completion.assert_not_called()

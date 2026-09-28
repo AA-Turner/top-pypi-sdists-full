@@ -231,10 +231,31 @@ impl FindSchemaCandidates for ArraySchema {
     fn find_schema_candidates<'a: 'b, 'b>(
         &'a self,
         accessors: &'a [Accessor],
-        schema_uri: &'a SchemaUri,
+        schema_base_uri: &'a SchemaUri,
         definitions: &'a SchemaDefinitions,
         strict: Option<BoolDefaultTrue>,
         schema_store: &'a SchemaStore,
+    ) -> BoxFuture<'b, (Vec<SchemaView>, Vec<crate::Error>)> {
+        self.find_schema_candidates_in_scope(
+            accessors,
+            schema_base_uri,
+            definitions,
+            strict,
+            schema_store,
+            None,
+        )
+    }
+}
+
+impl ArraySchema {
+    pub(crate) fn find_schema_candidates_in_scope<'a: 'b, 'b>(
+        &'a self,
+        accessors: &'a [Accessor],
+        schema_base_uri: &'a SchemaUri,
+        definitions: &'a SchemaDefinitions,
+        strict: Option<BoolDefaultTrue>,
+        schema_store: &'a SchemaStore,
+        parent_dynamic_scope: Option<&'a [SchemaUri]>,
     ) -> BoxFuture<'b, (Vec<SchemaView>, Vec<crate::Error>)> {
         async move {
             let mut errors = Vec::new();
@@ -245,28 +266,31 @@ impl FindSchemaCandidates for ArraySchema {
             };
 
             if let Ok(Some(CurrentSchema {
-                schema_uri,
+                schema_base_uri,
                 schema_view,
                 definitions,
                 strict,
+                dynamic_scope,
                 ..
-            })) = crate::resolve_schema_item(
+            })) = crate::resolve_schema_item_in_scope(
                 items,
-                Cow::Borrowed(schema_uri),
+                Cow::Borrowed(schema_base_uri),
                 Cow::Borrowed(definitions),
                 strict,
                 schema_store,
+                parent_dynamic_scope,
             )
             .await
             .inspect_err(|err| log::warn!("{err}"))
             {
                 let (mut item_candidates, mut item_errors) = schema_view
-                    .find_schema_candidates(
+                    .find_schema_candidates_in_scope(
                         &accessors[1..],
-                        &schema_uri,
+                        &schema_base_uri,
                         &definitions,
                         strict,
                         schema_store,
+                        Some(&dynamic_scope),
                     )
                     .await;
                 candidates.append(&mut item_candidates);

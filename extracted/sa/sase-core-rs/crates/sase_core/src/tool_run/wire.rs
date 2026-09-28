@@ -331,6 +331,15 @@ pub struct ToolFingerprintSpecWire {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+pub struct ToolReceiptPolicyWire {
+    #[serde(default = "schema_version")]
+    pub schema_version: u32,
+    pub accept: Vec<String>,
+    pub ttl: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ToolDefinitionWire {
     #[serde(default = "schema_version")]
     pub schema_version: u32,
@@ -348,6 +357,8 @@ pub struct ToolDefinitionWire {
     pub args: ToolArgsPolicyWire,
     #[serde(default)]
     pub fingerprint: ToolFingerprintSpecWire,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub receipt: Option<ToolReceiptPolicyWire>,
     #[serde(default = "empty_diagnostics")]
     pub diagnostics: Vec<String>,
 }
@@ -604,6 +615,8 @@ pub struct ToolRunLogMetadataWire {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub events_path: Option<String>,
     pub has_private_argv: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub owner_log_path: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -675,6 +688,16 @@ pub struct ToolRunWire {
     pub evidence_completeness: ToolEvidenceCompletenessWire,
     #[serde(default = "empty_diagnostics")]
     pub diagnostics: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub launch_mode: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub terminal_cause: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub settled_by: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stop_request: Option<super::handoff_wire::ToolRunStopRecordWire>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub launcher: Option<super::handoff_wire::ToolRunProcessIdentityWire>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -726,6 +749,12 @@ pub struct ToolRunBeginRequestWire {
     pub now_ts: Option<i64>,
     #[serde(default = "default_commit_running")]
     pub commit_running: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub launch_mode: Option<super::handoff_wire::ToolRunLaunchModeWire>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub launch: Option<super::handoff_wire::ToolRunLaunchEnvelopeWire>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub owner_log_path: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -792,6 +821,8 @@ pub struct ToolRunFinishRequestWire {
     pub mutated_input: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub now_ts: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub terminal_cause: Option<super::handoff_wire::ToolRunTerminalCauseWire>,
     #[serde(default = "empty_diagnostics")]
     pub diagnostics: Vec<String>,
 }
@@ -819,6 +850,8 @@ pub struct ToolRunLivenessFactWire {
     pub observation: ToolLivenessObservationWire,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub owner: Option<super::handoff_wire::ToolRunOwnerFactWire>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -848,11 +881,13 @@ pub struct ToolRunReconcileResultWire {
     pub persisted: bool,
     #[serde(default)]
     pub reap_candidates: Vec<ToolRunReapCandidateWire>,
+    #[serde(default)]
+    pub settled: Vec<super::handoff_wire::ToolRunReconcileSettlementWire>,
     #[serde(default = "empty_diagnostics")]
     pub diagnostics: Vec<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ToolRunObserveRequestWire {
     #[serde(default = "schema_version")]
@@ -864,6 +899,8 @@ pub struct ToolRunObserveRequestWire {
     pub child_pgid: Option<i64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub child_process_start_identity: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fingerprint_before: Option<ToolFingerprintWire>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -1056,6 +1093,253 @@ pub struct ToolRunStoreStatsWire {
     pub unsettled_count: u64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub last_write_ts: Option<i64>,
+    #[serde(default)]
+    pub receipt_count: u64,
+    #[serde(default = "empty_diagnostics")]
+    pub diagnostics: Vec<String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ToolRunReceiptOutcomeWire {
+    Covered,
+    Refused,
+}
+
+impl ToolRunReceiptOutcomeWire {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Covered => "covered",
+            Self::Refused => "refused",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ToolRunReceiptRefusalWire {
+    IncompleteFingerprint,
+    DefinitionChanged,
+    FingerprintChanged,
+    NoReceipt,
+    InvalidatedByLaterRun,
+    Expired,
+    VerdictInsufficient,
+}
+
+impl ToolRunReceiptRefusalWire {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::IncompleteFingerprint => "incomplete_fingerprint",
+            Self::DefinitionChanged => "definition_changed",
+            Self::FingerprintChanged => "fingerprint_changed",
+            Self::NoReceipt => "no_receipt",
+            Self::InvalidatedByLaterRun => "invalidated_by_later_run",
+            Self::Expired => "expired",
+            Self::VerdictInsufficient => "verdict_insufficient",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ToolRunReceiptSignatureRefWire {
+    pub extractor: String,
+    pub extractor_version: u32,
+    pub signature: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ToolRunReceiptWire {
+    #[serde(default = "schema_version")]
+    pub schema_version: u32,
+    pub receipt_id: String,
+    pub source_run_id: String,
+    pub project: String,
+    pub tool_name: String,
+    pub definition_digest: String,
+    pub extra_args_digest: String,
+    pub fingerprint_digest: String,
+    pub verdict: String,
+    #[serde(default)]
+    pub signature_refs: Vec<ToolRunReceiptSignatureRefWire>,
+    pub issue_ts: i64,
+    pub mint_ts: i64,
+    pub expiry_ts: i64,
+    pub policy_version: u32,
+    pub ttl_seconds: i64,
+    #[serde(default)]
+    pub accept: Vec<String>,
+    pub status: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ToolRunReceiptSettleRequestWire {
+    #[serde(default = "schema_version")]
+    pub schema_version: u32,
+    pub run_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub policy: Option<ToolReceiptPolicyWire>,
+    #[serde(default)]
+    pub bypassed: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub now_ts: Option<i64>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ToolRunReceiptSettleResultWire {
+    #[serde(default = "schema_version")]
+    pub schema_version: u32,
+    pub run_id: String,
+    pub minted: bool,
+    pub superseded: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub receipt: Option<ToolRunReceiptWire>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reason: Option<String>,
+    #[serde(default = "empty_diagnostics")]
+    pub diagnostics: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ToolRunReceiptLookupRequestWire {
+    #[serde(default = "schema_version")]
+    pub schema_version: u32,
+    pub project: String,
+    pub tool_name: String,
+    pub definition_digest: String,
+    pub extra_args_digest: String,
+    pub fingerprint: ToolFingerprintWire,
+    pub accept: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub now_ts: Option<i64>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ToolRunReceiptLookupResultWire {
+    #[serde(default = "schema_version")]
+    pub schema_version: u32,
+    pub outcome: ToolRunReceiptOutcomeWire,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub refusal: Option<ToolRunReceiptRefusalWire>,
+    #[serde(default)]
+    pub changed_paths: Vec<String>,
+    #[serde(default)]
+    pub paths_truncated: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub receipt: Option<ToolRunReceiptWire>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub age_seconds: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reason: Option<String>,
+    #[serde(default = "empty_diagnostics")]
+    pub diagnostics: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ToolRunReceiptsReportRequestWire {
+    #[serde(default = "schema_version")]
+    pub schema_version: u32,
+    pub project: String,
+    pub days: i64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub now_ts: Option<i64>,
+    pub project_root: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ToolRunReceiptsReportWindowWire {
+    pub days: i64,
+    pub since_ts: i64,
+    pub now_ts: i64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ToolRunReceiptsReportItemWire {
+    pub receipt_id: String,
+    pub run_id: String,
+    pub tool: String,
+    pub verdict: String,
+    pub age_seconds: i64,
+    pub expired: bool,
+    pub status: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ToolRunReceiptsReportReceiptsWire {
+    pub count: usize,
+    pub active: usize,
+    pub expired: usize,
+    pub superseded: usize,
+    #[serde(default)]
+    pub items: Vec<ToolRunReceiptsReportItemWire>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ToolRunReceiptsReportGroupWire {
+    pub group_id: usize,
+    pub tool: String,
+    pub run_ids: Vec<String>,
+    pub first_ts: i64,
+    pub last_ts: i64,
+    pub runs: usize,
+    pub repeat_runs: usize,
+    pub repeat_duration_ms: i64,
+    pub spans_commits: bool,
+    #[serde(default)]
+    pub repos: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ToolRunReceiptsReportTopToolWire {
+    pub tool: String,
+    pub groups: usize,
+    pub repeat_runs: usize,
+    pub repeat_duration_ms: i64,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ToolRunReceiptsReportOpportunitiesWire {
+    pub group_count: usize,
+    pub repeat_runs: usize,
+    pub repeat_duration_ms: i64,
+    pub repeat_hours: f64,
+    #[serde(default)]
+    pub groups: Vec<ToolRunReceiptsReportGroupWire>,
+    #[serde(default)]
+    pub top_tools: Vec<ToolRunReceiptsReportTopToolWire>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ToolRunReceiptsReportUncomparableRunWire {
+    pub run_id: String,
+    pub tool: String,
+    pub reason: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ToolRunReceiptsReportUncomparableWire {
+    pub count: usize,
+    pub truncated: bool,
+    #[serde(default)]
+    pub runs: Vec<ToolRunReceiptsReportUncomparableRunWire>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ToolRunReceiptsReportResultWire {
+    #[serde(default = "schema_version")]
+    pub schema_version: u32,
+    pub project: String,
+    pub window: ToolRunReceiptsReportWindowWire,
+    pub receipts: ToolRunReceiptsReportReceiptsWire,
+    pub opportunities: ToolRunReceiptsReportOpportunitiesWire,
+    pub uncomparable: ToolRunReceiptsReportUncomparableWire,
+    pub runs_scanned: usize,
+    pub runs_truncated: bool,
+    pub note: String,
     #[serde(default = "empty_diagnostics")]
     pub diagnostics: Vec<String>,
 }

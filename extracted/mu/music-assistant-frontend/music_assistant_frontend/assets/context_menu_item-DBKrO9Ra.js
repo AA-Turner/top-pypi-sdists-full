@@ -1,1 +1,0 @@
-import{t as e}from"./i18n-DPQbX7VI.js";var t=t=>Array.isArray(t.labelArgs)?e(t.label,t.labelArgs):e(t.label,t.labelArgs??{});export{t};

@@ -39,7 +39,10 @@ def _history(*positions: int) -> list[SimpleNamespace]:
 @pytest.fixture
 def harness(monkeypatch: pytest.MonkeyPatch):
     """Wire every seam agent_call touches; return the mutable capture bag."""
+    import contextlib
+
     import matrx_ai.db as db_pkg
+    from matrx_ai import _ext
     from matrx_ai.agents import executor as executor_mod
     from matrx_ai.agents import resolver as resolver_mod
     from matrx_ai.agents.definition import Agent
@@ -47,6 +50,7 @@ def harness(monkeypatch: pytest.MonkeyPatch):
     from matrx_ai.db.agx_manager import AgxDefinition
 
     bag: dict[str, Any] = {
+        "in_person_session": False,
         "agent": _FakeAgent(),
         "owned_rows": [SimpleNamespace(id=SOURCE_CONV)],
         "history": _history(0, 1, 2),
@@ -62,17 +66,22 @@ def harness(monkeypatch: pytest.MonkeyPatch):
         "enqueue_error": None,
     }
 
-    monkeypatch.setattr(
-        AgxDefinition,
-        "load_by_id_or_none",
-        classmethod(
-            lambda _cls, _agent_id: _async_value(
-                SimpleNamespace(
-                    id=AGENT_ID, created_by=USER_ID, is_active=True, is_archived=False
-                )
-            )
-        ),
-    )
+    @contextlib.asynccontextmanager
+    async def acting_as_caller():
+        # The host's seam: RLS decides inside it. Reads outside it are defects.
+        bag["in_person_session"] = True
+        try:
+            yield
+        finally:
+            bag["in_person_session"] = False
+
+    monkeypatch.setitem(_ext._registry, "acting_as_caller", acting_as_caller)
+
+    async def load_agent(_cls, _agent_id):
+        assert bag["in_person_session"], "agent row read outside the person's session"
+        return SimpleNamespace(id=AGENT_ID, created_by=USER_ID, is_active=True, is_archived=False)
+
+    monkeypatch.setattr(AgxDefinition, "load_by_id_or_none", classmethod(load_agent))
     monkeypatch.setattr(
         Agent, "from_agent", classmethod(lambda _cls, *_a, **_k: _async_value(bag["agent"]))
     )
@@ -84,6 +93,7 @@ def harness(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(executor_mod, "run_agent", fake_run_agent)
 
     async def fake_filter_items(**kwargs):
+        assert bag["in_person_session"], "conversation read outside the person's session"
         bag["ownership_queries"].append(kwargs)
         return bag["owned_rows"]
 
@@ -170,8 +180,9 @@ async def test_plain_call_untouched_by_collab_paths(harness) -> None:
 async def test_snapshot_seeds_history_before_authored_messages(harness) -> None:
     result = await _call({"history_mode": "snapshot"})
     assert result.success is True
-    # Ownership was checked on the DEFAULT source — the caller's conversation.
-    assert harness["ownership_queries"] == [{"id": CALLER_CONV, "created_by": USER_ID}]
+    # Visibility was asked of the DEFAULT source — the caller's conversation —
+    # by id only, inside the person's session: RLS decides, never created_by.
+    assert harness["ownership_queries"] == [{"id": CALLER_CONV}]
     assert harness["history_loads"] == [CALLER_CONV]
     seeded = harness["agent"].config.messages
     assert [getattr(m, "authored", None) for m in seeded] == [False, False, False, True]

@@ -774,6 +774,7 @@ class TestPresto(Validator):
         self.validate_identity("SELECT a FROM test TABLESAMPLE SYSTEM (75)")
         self.validate_identity("string_agg(x, ',')", "ARRAY_JOIN(ARRAY_AGG(x), ',')")
         self.validate_identity("SELECT * FROM x OFFSET 1 LIMIT 1")
+        self.validate_identity("SELECT * FROM x OFFSET 1 ROW", "SELECT * FROM x OFFSET 1")
         self.validate_identity("SELECT * FROM x OFFSET 1 FETCH FIRST 1 ROWS ONLY")
         self.validate_identity("SELECT BOOL_OR(a > 10) FROM asd AS T(a)")
 
@@ -851,7 +852,7 @@ class TestPresto(Validator):
         self.validate_all(
             """JSON '"foo"'""",
             write={
-                "bigquery": """PARSE_JSON('"foo"')""",
+                "bigquery": """JSON '"foo"'""",
                 "postgres": """CAST('"foo"' AS JSON)""",
                 "presto": """JSON_PARSE('"foo"')""",
                 "snowflake": """PARSE_JSON('"foo"')""",
@@ -1136,7 +1137,7 @@ class TestPresto(Validator):
         self.validate_all(
             """JSON_FORMAT(JSON '"x"')""",
             write={
-                "bigquery": """TO_JSON_STRING(PARSE_JSON('"x"'))""",
+                "bigquery": """TO_JSON_STRING(JSON '"x"')""",
                 "duckdb": """CAST(TO_JSON(JSON('"x"')) AS TEXT)""",
                 "presto": """JSON_FORMAT(JSON_PARSE('"x"'))""",
                 "spark": """REGEXP_EXTRACT(TO_JSON(FROM_JSON('["x"]', SCHEMA_OF_JSON('["x"]'))), '^.(.*).$', 1)""",

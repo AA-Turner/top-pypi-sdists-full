@@ -8,6 +8,7 @@ import warnings
 from pathlib import Path
 
 from ..context import RepositoryContext, RepositoryType, merge_plugin_dirs
+from skillsaw.diagnostics import terminal_safe
 from skillsaw.paths import safe_resolve
 
 # ---------------------------------------------------------------------------
@@ -100,11 +101,14 @@ class _MergedContext:
         agent_plugins=(),
         grok_plugins=(),
         antigravity_plugins=(),
+        skill_paths=None,
     ):
         self.root_path = root_path
         self.repo_types = repo_types
         self.plugins = plugins
         self.skills = skills
+        self.skill_paths = list(skills if skill_paths is None else skill_paths)
+        self.skill_count = len(self.skill_paths)
         self.plugin_repo_types = set(plugin_repo_types)
         self.codex_plugins = list(codex_plugins)
         self.agent_plugins = list(agent_plugins)
@@ -156,7 +160,7 @@ def _build_merged_context(contexts):
     for ctx in contexts:
         repo_types |= ctx.repo_types
         plugin_repo_types |= ctx.plugin_repo_types
-        plugins.extend(ctx.plugins)
+        plugins.extend(ctx.distinct_plugin_dirs())
         skills.extend(ctx.skills)
         codex_plugins.extend(ctx.codex_plugins)
         agent_plugins.extend(ctx.agent_plugins)
@@ -178,6 +182,7 @@ def _build_merged_context(contexts):
         agent_plugins,
         grok_plugins,
         antigravity_plugins,
+        [path for ctx in contexts for path in ctx.skill_paths],
     )
 
 
@@ -282,7 +287,7 @@ def install_warning_display() -> None:
             c = _ansi_colors(color_enabled(out))
             print(
                 f"{c['yellow']}⚠ Loading custom rule file:{c['reset']} "
-                f"{c['bold']}{message.path}{c['reset']} "
+                f"{c['bold']}{terminal_safe(message.path)}{c['reset']} "
                 f"{c['dim']}(use --no-custom-rules to skip){c['reset']}",
                 file=out,
             )
@@ -295,3 +300,14 @@ def install_warning_display() -> None:
     # look like the exact Skillsaw handler whose marker it copied.
     setattr(_showwarning, "_skillsaw_warning_display", _showwarning)
     warnings.showwarning = _showwarning
+
+
+def warn_removed_skip_rules(skip_rule_ids) -> None:
+    """Warn for retired skips absent from the loaded rules in every input path."""
+    from ..linter import REMOVED_RULES, removed_rule_note
+
+    for rule_id in sorted(set(skip_rule_ids or ()) & REMOVED_RULES.keys()):
+        print(
+            f"Warning: --skip-rule {rule_id} has no effect. {removed_rule_note(rule_id)}.",
+            file=sys.stderr,
+        )

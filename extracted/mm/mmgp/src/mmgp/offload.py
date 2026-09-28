@@ -1,4 +1,4 @@
-# ------------------ Memory Management 3.8.1 for the GPU Poor by DeepBeepMeep (mmgp)------------------
+# ------------------ Memory Management 3.8.2 for the GPU Poor by DeepBeepMeep (mmgp)------------------
 #
 # This module contains multiples optimisations so that models such as Flux (and derived), Mochi, CogView, HunyuanVideo, ...  can run smoothly on a 24 GB GPU limited card. 
 # This a replacement for the accelerate library that should in theory manage offloading, but doesn't work properly with models that are loaded / unloaded several
@@ -743,11 +743,23 @@ def _pin_to_memory(model, model_id, partialPinning = False, pinnedPEFTLora = Tru
 
     big_tensors_sizes.append(current_big_tensor_size)
 
+    if total_tensor_bytes == 0:
+        return
+
+    pinning_total = 0
+    planned_bytes = total_pinned_bytes
+    for size in big_tensors_sizes:
+        planned_bytes += max(size, BIG_TENSOR_MIN_SIZE)
+        if max_reservable_memory > 0 and planned_bytes >= max_reservable_memory:
+            break
+        pinning_total += 1
+
     big_tensors = []
     total = 0
     
 
     failed_planned_allocation = False
+    if loading_callback is not None: loading_callback.check_abort()
     gc.collect()
     try:
         dummy_pinned_tensor = torch.empty( RESERVED_RAM_MIN_AVAILABLE, dtype= torch.uint8, pin_memory=True, device="cpu")
@@ -756,6 +768,9 @@ def _pin_to_memory(model, model_id, partialPinning = False, pinnedPEFTLora = Tru
         flush_torch_caches()
         print("There isn't any Reserved RAM left, you may need to choose a profile with a higher number that requires less Reserved RAM or set OS env 'perc_reserved_mem_max' to a value less than{perc_reserved_mem_max}")
         return
+
+    if loading_callback is not None and pinning_total:
+        loading_callback.report("Pinning", 0, pinning_total, model_id)
 
     last_allocated_big_tensor = -1        
     tensor_no = 0
@@ -820,6 +835,8 @@ def _pin_to_memory(model, model_id, partialPinning = False, pinnedPEFTLora = Tru
                 p.data = _move_to_pinned_tensor(p.data, current_big_tensor, offset, length)
 
             tensor_no += 1
+            if loading_callback is not None and (tensor_no == len(tensor_map_indexes) or tensor_map_indexes[tensor_no][0] != big_tensor_no):
+                loading_callback.report("Pinning", big_tensor_no + 1, pinning_total, model_id)
         del p
     del dummy_pinned_tensor,tied_weights, ref_cache
     model._pinned_bytes = total
@@ -844,7 +861,7 @@ def _welcome():
     if welcome_displayed:
          return 
     welcome_displayed = True
-    print(f"{BOLD}{HEADER}************ Memory Management for the GPU Poor (mmgp 3.8.1) by DeepBeepMeep ************{ENDC}{UNBOLD}")
+    print(f"{BOLD}{HEADER}************ Memory Management for the GPU Poor (mmgp 3.8.2) by DeepBeepMeep ************{ENDC}{UNBOLD}")
 
 def change_dtype(model, new_dtype, exclude_buffers = False):
     for submodule_name, submodule in model.named_modules():  
@@ -1832,7 +1849,7 @@ def move_loras_to_device(model, device="cpu" ):
         if ".lora_" in k:
             m.to(device)
 
-def fast_load_transformers_model(model_path: str,  do_quantize = False, quantizationType =  qint8, pinToMemory = False, partialPinning = False, forcedConfigPath = None, defaultConfigPath = None, modelClass=None, modelPrefix = None, writable_tensors = True, verboseLevel = -1, preprocess_sd  = None, fused_split_map = None, modules = None,  return_shared_modules = None, default_dtype = torch.bfloat16, ignore_unused_weights = False, configKwargs ={}, quantize_exclude = None, pre_load_callback = None):
+def fast_load_transformers_model(model_path: str,  do_quantize = False, quantizationType =  qint8, pinToMemory = False, partialPinning = False, forcedConfigPath = None, defaultConfigPath = None, modelClass=None, modelPrefix = None, writable_tensors = True, verboseLevel = -1, preprocess_sd  = None, fused_split_map = None, modules = None,  return_shared_modules = None, default_dtype = torch.bfloat16, ignore_unused_weights = False, configKwargs ={}, quantize_exclude = None, pre_load_callback = None, fp32_dtype = None):
     """
     quick version of .LoadfromPretrained of  the transformers library
     used to build a model and load the corresponding weights (quantized or not)
@@ -1921,7 +1938,7 @@ def fast_load_transformers_model(model_path: str,  do_quantize = False, quantiza
 
     model._config = transformer_config
 
-    load_model_data(model,model_path, do_quantize = do_quantize, quantizationType = quantizationType, quantize_exclude = quantize_exclude, pinToMemory= pinToMemory, partialPinning= partialPinning, modelPrefix = modelPrefix, writable_tensors =writable_tensors, preprocess_sd = preprocess_sd, fused_split_map = fused_split_map, modules = modules, return_shared_modules =  return_shared_modules, default_dtype = default_dtype, ignore_unused_weights = ignore_unused_weights, verboseLevel=verboseLevel, pre_load_callback=pre_load_callback )
+    load_model_data(model,model_path, do_quantize = do_quantize, quantizationType = quantizationType, quantize_exclude = quantize_exclude, pinToMemory= pinToMemory, partialPinning= partialPinning, modelPrefix = modelPrefix, writable_tensors =writable_tensors, preprocess_sd = preprocess_sd, fused_split_map = fused_split_map, modules = modules, return_shared_modules =  return_shared_modules, default_dtype = default_dtype, ignore_unused_weights = ignore_unused_weights, verboseLevel=verboseLevel, pre_load_callback=pre_load_callback, fp32_dtype = fp32_dtype )
     model.eval().requires_grad_(False)
 
     return model
@@ -2057,10 +2074,13 @@ def load_sd(file_path, filters = None, keep_prefixes = False, writable_tensors =
 
 
 @cudacontext("cpu")
-def load_model_data(model, file_path, do_quantize = False, quantizationType = qint8, pinToMemory = False, partialPinning = False, modelPrefix = None, writable_tensors = True,  preprocess_sd = None, postprocess_sd = None, fused_split_map = None, modules = None, return_shared_modules = None, default_dtype = torch.bfloat16, ignore_unused_weights = False, verboseLevel = -1, ignore_missing_keys = False, quantize_exclude = None, pre_load_callback = None):
+def load_model_data(model, file_path, do_quantize = False, quantizationType = qint8, pinToMemory = False, partialPinning = False, modelPrefix = None, writable_tensors = True,  preprocess_sd = None, postprocess_sd = None, fused_split_map = None, modules = None, return_shared_modules = None, default_dtype = torch.bfloat16, ignore_unused_weights = False, verboseLevel = -1, ignore_missing_keys = False, quantize_exclude = None, pre_load_callback = None, fp32_dtype = None):
     """
     Load a model, detect if it has been previously quantized using quanto and do the extra setup if necessary
+    fp32_dtype: only with default_dtype=None (checkpoint-native dtypes). FP32 parameters are converted to this dtype,
+    which is also the compute dtype of quantized layers. None (default) keeps the previous behavior.
     """
+    quant_dtype = fp32_dtype if default_dtype is None and fp32_dtype is not None else default_dtype
     _report_loading("Reading Weights", 0, 3, file_path)
     if isinstance(preprocess_sd, dict):
         preprocess_fn = lambda sd, qm, twm: map_state_dict([sd, qm, twm], rules=preprocess_sd)
@@ -2123,7 +2143,7 @@ def load_model_data(model, file_path, do_quantize = False, quantizationType = qi
             if not callable(load_fn):
                 ext = os.path.splitext(file)[1].lower().lstrip(".")
                 raise Exception(f"Missing load_state_dict for *.{ext} handler")
-            result = load_fn( file, writable_tensors=writable_tensors, verboseLevel=verboseLevel, default_dtype=default_dtype, pin_to_memory=pinToMemory, )
+            result = load_fn( file, writable_tensors=writable_tensors, verboseLevel=verboseLevel, default_dtype=quant_dtype, pin_to_memory=pinToMemory, )
             if isinstance(result, tuple):
                 if len(result) == 2:
                     state_dict, quantization_map = result
@@ -2191,7 +2211,7 @@ def load_model_data(model, file_path, do_quantize = False, quantizationType = qi
 
 
         if quantization_map is None or hybrid_quantization_map :
-            conv_result = detect_and_convert(state_dict, default_dtype=default_dtype, verboseLevel=verboseLevel, metadata=metadata)
+            conv_result = detect_and_convert(state_dict, default_dtype=quant_dtype, verboseLevel=verboseLevel, metadata=metadata)
             detected_kind = conv_result.get("kind")
             if conv_result.get("kind") not in ("none", "quanto"):
                 state_dict = conv_result["state_dict"]
@@ -2248,7 +2268,7 @@ def load_model_data(model, file_path, do_quantize = False, quantizationType = qi
             state_dict,
             quantization_map,
             fused_split_map,
-            default_dtype=default_dtype,
+            default_dtype=quant_dtype,
             verboseLevel=verboseLevel,
         )
 
@@ -2259,7 +2279,7 @@ def load_model_data(model, file_path, do_quantize = False, quantizationType = qi
             model,
             state_dict,
             quantization_map,
-            default_dtype=default_dtype,
+            default_dtype=quant_dtype,
             verboseLevel=verboseLevel,
         )
     if pre_load_callback is not None:
@@ -2274,6 +2294,8 @@ def load_model_data(model, file_path, do_quantize = False, quantizationType = qi
     for key in parameter_dtypes.keys() & state_dict.keys():
         tensor = state_dict[key]
         target_dtype = parameter_dtypes[key]
+        if target_dtype is None and tensor.dtype == torch.float32:
+            target_dtype = fp32_dtype
         if target_dtype is None or key in quantized_weights or isinstance(tensor, QTensor) or tensor.dtype not in (torch.float16, torch.bfloat16, torch.float32) or tensor.dtype == target_dtype:
             continue
         ref = id(tensor)
@@ -2286,7 +2308,7 @@ def load_model_data(model, file_path, do_quantize = False, quantizationType = qi
         if any(isinstance(file, str) and "quanto" in file for file in file_path) and not do_quantize:
             print("Model seems to be quantized by quanto but no quantization map was found whether inside the model or in a separate '{file_path[:json]}_map.json' file")
     else:
-        _requantize(model, state_dict, quantization_map, default_dtype=default_dtype)    
+        _requantize(model, state_dict, quantization_map, default_dtype=quant_dtype)    
 
     missing_keys , unexpected_keys = model.load_state_dict(state_dict, False,  assign = True )
     if len(missing_keys) > 0  :
@@ -2369,9 +2391,9 @@ def load_model_data(model, file_path, do_quantize = False, quantizationType = qi
                 quantization_map = model._quanto_map  
 
     if pinToMemory:
-        _report_loading("Pinning", 2, 3, file_path)
         context = _loading_context.get()
-        _pin_to_memory(model, file_path, partialPinning = partialPinning, verboseLevel = verboseLevel, loading_callback=None if context is None else context[0])
+        pinning_callback = None if context is None else LoadingCallback(context[0].abort_requested, lambda phase, completed, total, _: _report_loading(phase, completed, total, file_path))
+        _pin_to_memory(model, file_path, partialPinning = partialPinning, verboseLevel = verboseLevel, loading_callback=pinning_callback)
 
     _report_loading("Weights Loaded", 3, 3, file_path)
     return
@@ -2555,6 +2577,7 @@ def _mm_lora_generic_forward(module, *args, **kwargs):
 
 last_offload_obj = None
 class offload:
+    supports_cotenant_wildcards = True
     def __init__(self):
         self.active_models = []
         self.active_models_ids = []
@@ -2642,12 +2665,12 @@ class offload:
 
 
     def can_model_be_cotenant(self, model_id):
-        potential_cotenants= self.cotenants_map.get(model_id, None)
-        if potential_cotenants is None: 
-            return False
-        for existing_cotenant in self.active_models_ids:
-            if existing_cotenant not in potential_cotenants: 
-                return False    
+        potential_cotenants = self.cotenants_map.get(model_id) or ()
+        if potential_cotenants == "*":
+            return True
+        for existing in self.active_models_ids:
+            if existing not in potential_cotenants and self.cotenants_map.get(existing) != "*":
+                return False
         return True
 
     def _move_loras(self, loras_active_adapters, loras_modules, to_GPU, model=None):
@@ -2840,8 +2863,10 @@ class offload:
         for block_name in self.preloaded_blocks_per_model[model_id]:
             self.gpu_load_blocks(model_id, block_name, True)
 
-    def unload_all(self):
+    def unload_all(self, *, keep=()):
         for model_id in self.active_models_ids:
+            if model_id in keep:
+                continue
             self.gpu_unload_blocks(model_id, None)      
             for block_name in self.preloaded_blocks_per_model[model_id]:
                 self.gpu_unload_blocks(model_id, block_name)
@@ -2857,8 +2882,8 @@ class offload:
                     self.gpu_unload_blocks(model_id, next_blocks_entry[pos+1:])      
                 self.loaded_blocks[model_id] = None  
  
-        self.active_models = []
-        self.active_models_ids = []
+        self.active_models_ids = [model_id for model_id in self.active_models_ids if model_id in keep]
+        self.active_models = [self.models[model_id] for model_id in self.active_models_ids]
         torch.cuda.empty_cache()
         gc.collect()
         self.last_reserved_mem_check = time.time()
@@ -3238,8 +3263,8 @@ class offload:
         # new_model_id = getattr(module, "_mm_id") 
         # do not always unload existing models if it is more efficient to keep in them in the GPU 
         # (e.g: small modules whose calls are text encoders) 
-        if not self.can_model_be_cotenant(model_id) :
-            self.unload_all()
+        if not self.can_model_be_cotenant(model_id):
+            self.unload_all(keep=[name for name in self.active_models_ids if self.cotenants_map.get(name) == "*"])
         self.gpu_load(model_id)
 
     def hook_preload_blocks_for_compilation(self, target_module, model_id,blocks_name, context):
@@ -3668,7 +3693,7 @@ def _configure(self, pipe_or_dict_of_modules, pinnedMemory = False, pinnedPEFTLo
     max_reservable_memory = _get_max_reservable_memory(perc_reserved_mem_max) 
 
     phase_no = 0
-    phase_total = 4 * len(models) + sum(model_id in models_to_quantize for model_id in models) + sum((pinAllModels or model_id in modelsToPin) and not hasattr(model, "_already_pinned") for model_id, model in models.items())
+    phase_total = 4 * len(models) + sum(model_id in models_to_quantize for model_id in models)
 
     def loading_phase(phase, model_id):
         nonlocal phase_no
@@ -3779,7 +3804,6 @@ def _configure(self, pipe_or_dict_of_modules, pinnedMemory = False, pinnedPEFTLo
                 if self.verboseLevel >=1:
                     print(f"Model '{model_id}' already pinned to reserved memory")
             else:
-                loading_phase("Pinning", model_id)
                 _pin_to_memory(current_model, model_id, partialPinning= partialPinning, pinnedPEFTLora = pinnedPEFTLora, perc_reserved_mem_max = perc_reserved_mem_max, verboseLevel=verboseLevel, loading_callback=loading_callback)            
 
         loading_phase("Hooks and LoRA Slots", model_id)

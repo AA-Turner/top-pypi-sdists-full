@@ -279,6 +279,218 @@ mod diagnostic {
             ]);
         );
     }
+
+    mod issue_2164_compound_schema {
+        use tombi_test_lib::project_root_path;
+
+        use super::*;
+
+        fn fixture_path() -> std::path::PathBuf {
+            project_root_path().join("crates/tombi-lsp/tests/fixtures/issue-2164-compound-schema")
+        }
+
+        test_diagnostic_file!(
+            #[tokio::test]
+            async fn resolves_versionless_alias_to_embedded_resource_offline(
+                SourcePath(fixture_path().join("input.toml")),
+                ConfigPath(fixture_path().join("tombi.toml")),
+                tombi_lsp::backend::Options {
+                    offline: Some(true),
+                    no_cache: Some(true),
+                },
+            ) -> Ok([
+                Diagnostic {
+                    message: "expected a value of type Boolean, but found Integer",
+                    range: ((1, 9), (1, 11)),
+                }
+            ]);
+        );
+
+        test_diagnostic_file!(
+            #[tokio::test]
+            async fn resolves_relative_ids_nested_resources_and_anchor(
+                r#"
+                #:schema ./relative-schema.json
+
+                [tool]
+                strict = "invalid"
+                "#,
+                SourcePath(fixture_path().join("input.toml")),
+                tombi_lsp::backend::Options {
+                    offline: Some(true),
+                    no_cache: Some(true),
+                },
+            ) -> Ok([
+                Diagnostic {
+                    message: "expected a value of type Boolean, but found String",
+                    range: ((3, 9), (3, 18)),
+                }
+            ]);
+        );
+
+        test_diagnostic_file!(
+            #[tokio::test]
+            async fn schema_document_uri_and_root_id_resolve_to_the_same_resource(
+                r#"
+                #:schema ./root-identity-schema.json
+
+                value = "invalid"
+                "#,
+                SourcePath(fixture_path().join("input.toml")),
+                tombi_lsp::backend::Options {
+                    offline: Some(true),
+                    no_cache: Some(true),
+                },
+            ) -> Ok([
+                Diagnostic {
+                    message: "expected a value of type Boolean, but found String",
+                    range: ((2, 8), (2, 17)),
+                }
+            ]);
+        );
+
+        test_diagnostic_file!(
+            #[tokio::test]
+            async fn rejects_duplicate_canonical_resource_ids(
+                r#"
+                #:schema ./duplicate-schema.json
+
+                [tool.tombi]
+                strict = true
+                "#,
+                SourcePath(fixture_path().join("input.toml")),
+                tombi_lsp::backend::Options {
+                    offline: Some(true),
+                    no_cache: Some(true),
+                },
+            ) -> Ok([
+                Diagnostic {
+                    message: "duplicate $id `https://example.com/duplicate` in duplicate-schema.json: first at `#/$defs/first`, again at `#/$defs/second`",
+                    range: ((0, 9), (0, 32)),
+                }
+            ]);
+        );
+
+        test_diagnostic_file!(
+            #[tokio::test]
+            async fn rejects_canonical_resource_id_owned_by_another_source(
+                r#"
+                #:schema ./cross-source-duplicate-schema.json
+
+                value = true
+                "#,
+                SourcePath(fixture_path().join("input.toml")),
+                tombi_lsp::backend::Options {
+                    offline: Some(true),
+                    no_cache: Some(true),
+                },
+            ) -> Ok([
+                Diagnostic {
+                    message: "duplicate $id `https://example.com/cross-source-duplicate`: already defined in cross-source-duplicate-schema.json at `#/$defs/local`, also claimed by cross-source-duplicate-target.json at `#`",
+                    range: ((2, 0), (2, 12)),
+                }
+            ]);
+        );
+
+        test_diagnostic_file!(
+            #[tokio::test]
+            async fn falls_back_to_external_file_resource(
+                r#"
+                #:schema ./external-schema.json
+
+                value = 42
+                "#,
+                SourcePath(fixture_path().join("input.toml")),
+                tombi_lsp::backend::Options {
+                    offline: Some(true),
+                    no_cache: Some(true),
+                },
+            ) -> Ok([
+                Diagnostic {
+                    message: "expected a value of type Boolean, but found Table",
+                    range: ((0, 0), (2, 10)),
+                }
+            ]);
+        );
+
+        test_diagnostic_file!(
+            #[tokio::test]
+            async fn resolves_dynamic_anchor_in_embedded_resource_scope(
+                r#"
+                #:schema ./dynamic-schema.json
+
+                strict = "invalid"
+                "#,
+                SourcePath(fixture_path().join("input.toml")),
+                tombi_lsp::backend::Options {
+                    offline: Some(true),
+                    no_cache: Some(true),
+                },
+            ) -> Ok([
+                Diagnostic {
+                    message: "expected a value of type Boolean, but found String",
+                    range: ((2, 9), (2, 18)),
+                }
+            ]);
+        );
+
+        test_diagnostic_file!(
+            #[tokio::test]
+            async fn keeps_anchor_names_scoped_to_each_embedded_resource(
+                r#"
+                #:schema ./anchor-scope-schema.json
+
+                outer = true
+
+                [nested]
+                value = "valid"
+                "#,
+                SourcePath(fixture_path().join("input.toml")),
+                tombi_lsp::backend::Options {
+                    offline: Some(true),
+                    no_cache: Some(true),
+                },
+            ) -> Ok([]);
+        );
+
+        test_diagnostic_file!(
+            #[tokio::test]
+            async fn json_pointer_into_embedded_resource_uses_resource_schema_base_uri(
+                r#"
+                #:schema ./pointer-resource-schema.json
+
+                [tool]
+                strict = "invalid"
+                "#,
+                SourcePath(fixture_path().join("input.toml")),
+                tombi_lsp::backend::Options {
+                    offline: Some(true),
+                    no_cache: Some(true),
+                },
+            ) -> Ok([
+                Diagnostic {
+                    message: "expected a value of type Boolean, but found String",
+                    range: ((3, 9), (3, 18)),
+                }
+            ]);
+        );
+
+        test_diagnostic_file!(
+            #[tokio::test]
+            async fn embedded_resource_uses_its_explicit_dialect(
+                r#"
+                #:schema ./mixed-dialect-schema.json
+
+                value = "valid under draft 7 ref semantics"
+                "#,
+                SourcePath(fixture_path().join("input.toml")),
+                tombi_lsp::backend::Options {
+                    offline: Some(true),
+                    no_cache: Some(true),
+                },
+            ) -> Ok([]);
+        );
+    }
 }
 
 // Unified test macro

@@ -208,7 +208,7 @@ sample_html_beta: _sample_cog_html	#- Generate sample HTML report for a beta rel
 
 ### Kitting: making releases
 
-.PHONY: release_version edit_for_release cheats relbranch relcommit1
+.PHONY: release_version edit_for_release cheats relbranch relcommit
 .PHONY: kit pypi_upload test_upload build_kits update_rtd
 .PHONY: _check_github_auth download_kits
 .PHONY: tag bump_version
@@ -228,7 +228,7 @@ cheats:					#- Create some useful snippets for releasing.
 relbranch:				# Create the branch for releasing (see howto.txt).
 	git switch -c nedbat/release-$$(date +%Y%m%d-%H%M%S)
 
-relcommit1:				# Commit the first release changes (see howto.txt).
+relcommit:				# Commit the release changes (see howto.txt).
 	git commit -am "docs: prep for $$(python setup.py --version)"
 
 kit:					#- Make a source distribution and some wheels.

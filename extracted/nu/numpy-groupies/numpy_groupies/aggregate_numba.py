@@ -9,6 +9,7 @@ from .utils import (
     DEFAULT_FILL_VALUE,
     aggregate_common_doc,
     aliasing,
+    build_dispatch,
     check_dtype,
     check_fill_value,
     check_nton_shape,
@@ -16,6 +17,7 @@ from .utils import (
     get_func,
     input_validation,
     resolve_fill_value,
+    resolve_output_dtype,
 )
 
 
@@ -113,6 +115,10 @@ class AggregateOp:
         # Cache the compiled functions, so they don't have to be recompiled on every call
         self._jit_scalar = self.callable(self.nans, self.reverse, scalar=True)
         self._jit_non_scalar = self.callable(self.nans, self.reverse, scalar=False)
+        self._jit_entry = self.entry()
+        # fixed mean dtype as a proper np.dtype instance - the jitted entry
+        # must never see a dtype *class* (numba types it as a slow type-ref)
+        self._mean_dtype = np.dtype(self.mean_dtype) if self.mean_dtype is not None else None
 
     def __call__(
         self,
@@ -125,6 +131,47 @@ class AggregateOp:
         axis=None,
         ddof=0,
     ):
+        # fast path: plain 1d-in/1d-out without custom fill handling - the
+        # jitted entry does the bounds check, size detection, allocation and
+        # the kernel in one compiled call, everything else falls through to
+        # the full validation machinery below
+        if (
+            axis is None
+            and not self.outer
+            and (size is None or type(size) is int)
+            and type(group_idx) is np.ndarray
+            and group_idx.ndim == 1
+            and group_idx.dtype.kind in "iu"
+            and group_idx.size > 0
+            and type(a) is np.ndarray
+            and a.ndim == 1
+            and a.shape[0] == group_idx.size
+        ):
+            a_key = a.dtype
+            n_key = len(group_idx) if (self.func == "sum" and a_key in _N_DEPENDENT_ADTYPES) else 0
+            try:
+                plan_dtype, plan_fill = _dtype_fill_plan(self, a_key, dtype, fill_value, n_key)
+            except TypeError:
+                # unhashable dtype/fill_value - resolve on the slow path
+                plan_dtype = None
+            if plan_dtype is not None and (
+                self.forced_fill_value is None
+                or plan_fill == self.forced_fill_value
+                or isinstance(self, Aggregate2pass)
+            ):
+                # 2pass kernels copy the fill_value to empty groups in their
+                # second pass, so they never need _finalize
+                mean_dtype = self._mean_dtype if self._mean_dtype is not None else a_key
+                return self._jit_entry(
+                    group_idx,
+                    a,
+                    -1 if size is None else size,
+                    plan_dtype,
+                    mean_dtype,
+                    plan_fill,
+                    ddof,
+                )
+
         iv = input_validation(
             group_idx,
             a,
@@ -137,18 +184,32 @@ class AggregateOp:
         group_idx, a, flat_size, ndim_idx, size, unravel_shape = iv
 
         # TODO: The typecheck should be done by the class itself, not by check_dtype
-        dtype = check_dtype(dtype, self.func, a, len(group_idx))
-        fill_value = resolve_fill_value(self.func, fill_value, dtype)
-        check_fill_value(fill_value, dtype, func=self.func)
-        input_dtype = type(a) if np.isscalar(a) else a.dtype
+        a_shape = getattr(a, "shape", None)
+        if a_shape is None or not a_shape:
+            # scalar input: the type stands in for the dtype, and only the
+            # bool 'sum' dtype guess depends on the input length
+            a_key = type(a)
+            n_key = len(group_idx) if (self.func == "sum" and a_key in _SCALAR_BOOL_TYPES) else 0
+        else:
+            a_key = a.dtype
+            n_key = len(group_idx) if (self.func == "sum" and a_key in _N_DEPENDENT_ADTYPES) else 0
+        try:
+            dtype, fill_value = _dtype_fill_plan(self, a_key, dtype, fill_value, n_key)
+        except TypeError:
+            # unhashable dtype/fill_value (or a genuine TypeError from the
+            # checks, e.g. 0-d array input) - resolve without the cache
+            dtype = check_dtype(dtype, self.func, a, len(group_idx))
+            fill_value = resolve_fill_value(self.func, fill_value, dtype)
+            check_fill_value(fill_value, dtype, func=self.func)
+        input_dtype = a_key
         ret, counter, mean, outer = self._initialize(flat_size, fill_value, dtype, input_dtype, group_idx.size)
         group_idx = np.ascontiguousarray(group_idx)
 
-        if not np.isscalar(a):
+        if isinstance(a, np.generic) or a_shape is None:
+            jitfunc = self._jit_scalar
+        else:
             a = np.ascontiguousarray(a)
             jitfunc = self._jit_non_scalar
-        else:
-            jitfunc = self._jit_scalar
         jitfunc(group_idx, a, ret, counter, mean, outer, fill_value, ddof)
         self._finalize(ret, counter, fill_value)
 
@@ -227,6 +288,60 @@ class AggregateOp:
                 outersetter(outer, i, ret[ri])
 
         return loop
+
+    def entry(self):
+        """Compile the jitted fast-path entry used by ``__call__``.
+
+        Detects the output size with a bounds check in the same pass,
+        allocates the working arrays and runs the compiled kernel loop, all
+        inside one call - skipping the python-level validation and
+        allocation machinery for the plain 1d case.  Arrays the operation
+        does not use get a one-element placeholder, mirroring how
+        ``_initialize`` leaves them as None: the kernels only ever touch the
+        arrays their operation needs (``mean`` is accessed exactly when
+        ``mean_fill_value`` is set, ``counter`` when ``counter_fill_value``
+        is set).
+        """
+        loop = self.callable(self.nans, self.reverse, scalar=False)
+        forced = self.forced_fill_value
+        counter_fill = self.counter_fill_value
+        counter_dtype = np.dtype(self.counter_dtype)
+        mean_fill = self.mean_fill_value
+
+        @njit_stable
+        def fast_entry(group_idx, a, size_arg, ret_dtype, mean_dtype, fill_value, ddof):
+            # numba's np.max reduction is several times faster than a scalar
+            # loop here; negative indices slip through and are caught by the
+            # bounds check inside the kernel loop below
+            size = np.max(group_idx) + 1
+            if size_arg >= 0:
+                # an explicit output size may be larger than the largest
+                # index, but never smaller
+                if size > size_arg:
+                    raise ValueError("one or more indices in group_idx are too large")
+                size = size_arg
+            if forced is None:
+                ret = np.full(size, fill_value, ret_dtype)
+            elif forced == 0:
+                ret = np.zeros(size, ret_dtype)
+            else:
+                ret = np.full(size, forced, ret_dtype)
+            if counter_fill is None:
+                counter = np.zeros(1, counter_dtype)
+            elif counter_fill == 0:
+                counter = np.zeros(size, counter_dtype)
+            else:
+                counter = np.ones(size, counter_dtype)
+            if mean_fill is None:
+                mean = np.zeros(1, mean_dtype)
+            elif mean_fill == 0:
+                mean = np.zeros(size, mean_dtype)
+            else:
+                mean = np.full(size, mean_fill, mean_dtype)
+            loop(group_idx, a, ret, counter, mean, None, fill_value, ddof)
+            return ret
+
+        return fast_entry
 
     @staticmethod
     def _valgetter(a, i):
@@ -798,6 +913,41 @@ def get_funcs():
 
 _impl_dict = get_funcs()
 
+# alias (string or callable) -> compiled op instance, so that the common call
+# path resolves with a single dict lookup instead of the two-step aliasing +
+# implementation resolution in get_func
+_dispatch = build_dispatch(_impl_dict, aliasing)
+
+# input dtypes for which the 'sum' output dtype depends on the input length
+# (the overflow guesses in resolve_output_dtype)
+_N_DEPENDENT_ADTYPES = frozenset(
+    np.dtype(t) for t in ("bool", "int8", "uint8", "int16", "uint16", "int32", "uint32", "uint64")
+)
+_SCALAR_BOOL_TYPES = frozenset((bool, np.bool_))
+
+
+@functools.lru_cache(maxsize=256)
+def _dtype_fill_plan(op, a_key, dtype, fill_value, n):
+    """Memoized output-dtype and fill-value resolution.
+
+    ``a_key`` is ``type(a)`` for scalar inputs and ``a.dtype`` otherwise.
+    ``n`` carries ``len(group_idx)`` only for the length-dependent ``sum``
+    dtype guesses and is 0 otherwise.  Unhashable arguments fail the cache
+    lookup with a TypeError, which the caller answers with the uncached
+    resolution.
+    """
+    func = op.func
+    if isinstance(a_key, type):
+        if func not in ("sum", "prod", "len"):
+            raise ValueError("scalar inputs are supported only for 'sum', 'prod' and 'len'")
+        a_dtype = np.dtype(a_key)
+    else:
+        a_dtype = a_key
+    out_dtype = resolve_output_dtype(dtype, func, a_dtype, n)
+    fill_value = resolve_fill_value(func, fill_value, out_dtype)
+    check_fill_value(fill_value, out_dtype, func=func)
+    return out_dtype, fill_value
+
 
 def aggregate(
     group_idx,
@@ -808,9 +958,41 @@ def aggregate(
     order="C",
     dtype=None,
     axis=None,
+    out=None,
     cache=True,
     **kwargs,
 ):
+    try:
+        aggregate_op = _dispatch[func][1]
+    except (KeyError, TypeError):
+        # a custom callable, or an unknown name that get_func complains about
+        if out is not None:
+            raise NotImplementedError("out= is only supported for named functions") from None
+        return _aggregate_custom(group_idx, a, func, size, fill_value, order, dtype, axis, cache, **kwargs)
+    ret = aggregate_op(group_idx, a, size, fill_value, order, dtype, axis, **kwargs)
+    if out is not None:
+        if out.shape != ret.shape or out.dtype != ret.dtype:
+            raise TypeError(
+                f"out must have shape {ret.shape} and dtype {ret.dtype}, got shape {out.shape} and dtype {out.dtype}"
+            )
+        out[...] = ret
+        return out
+    return ret
+
+
+def _aggregate_custom(
+    group_idx,
+    a,
+    func,
+    size,
+    fill_value,
+    order,
+    dtype,
+    axis,
+    cache,
+    **kwargs,
+):
+    """Slow dispatch path for custom callables and unknown function names."""
     func = get_func(func, aliasing, _impl_dict)
     if not isinstance(func, str):
         if cache in (None, False):
@@ -839,8 +1021,11 @@ aggregate.__doc__ = (
     """
     This is the numba implementation of aggregate.
 
-    This implementation accepts one additional keyword argument:
+    This implementation accepts two additional keyword arguments:
 
+    out: default=None
+        an array the packed result is copied into (matching shape and dtype
+        are required).  The array is returned, so calls can be chained.
     cache: default=True
         when aggregating with a custom callable ``func``, the compiled
         implementation is cached so that subsequent calls with the same
@@ -882,3 +1067,30 @@ def step_indices(group_idx):
             indices[ri] = i
             ri += 1
     return indices
+
+
+@njit_stable
+def _gather_1d(ret, group_idx, out):
+    for i in range(group_idx.size):
+        out[i] = ret[group_idx[i]]
+    return out
+
+
+def unpack_into(group_idx, ret, out):
+    """Like ``unpack``, but gathers into a caller-provided array.
+
+    ``out`` must match the shape of ``ret[group_idx]`` and the dtype of
+    ``ret``.  Contiguous 1d inputs are gathered by a jitted loop (noticeably
+    faster than fancy indexing at large sizes), anything else falls back to
+    fancy indexing assignment.
+    """
+    group_idx = np.asanyarray(group_idx)
+    shape = group_idx.shape + ret.shape[1:]
+    if out.shape != shape:
+        raise ValueError(f"out with shape {out.shape} does not match the expected shape {shape}")
+    if out.dtype != ret.dtype:
+        raise TypeError(f"out dtype {out.dtype} does not match the result dtype {ret.dtype}")
+    if group_idx.ndim == 1 and ret.ndim == 1 and group_idx.flags.c_contiguous and out.flags.c_contiguous:
+        return _gather_1d(ret, group_idx, out)
+    out[...] = ret[group_idx]
+    return out

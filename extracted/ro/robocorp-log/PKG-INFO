@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: robocorp-log
-Version: 3.1.4
+Version: 3.1.5
 Summary: Automatic trace logging for Python
 License: Apache-2.0
 License-File: LICENSE
@@ -15,6 +15,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: System :: Logging
 Requires-Dist: psutil (>=5.0,<8.0)

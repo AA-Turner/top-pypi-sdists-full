@@ -23,7 +23,7 @@ from typing import Any
 import httpx
 
 from matrx_scraper.seo_audit import audit_html, build_page_check_report, evidence_from_audit
-from matrx_scraper.url_utils import normalize_url
+from matrx_scraper.url_utils import accept_url_input
 from matrx_scraper.utils.url import validate_public_http_url
 from matrx_scraper.utils.proxy import redact_url_secrets
 
@@ -200,7 +200,7 @@ async def _take_homepage_screenshot(url: str) -> dict[str, Any] | None:
 async def quick_preview(raw_url: str) -> dict[str, Any]:
     """Normalize, fetch robots + homepage, audit, screenshot. Returns JSON."""
     try:
-        url = normalize_url(raw_url)
+        url = accept_url_input(raw_url)
     except ValueError as exc:
         return {"ok": False, "error": str(exc), "input": raw_url}
 

@@ -751,6 +751,105 @@ async def db_insert(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         )
 
 
+# ── The before → after receipt of an update / upsert (the shared diff card) ────
+#
+# Both writes are TARGETED — a table plus match filters, or a table plus rows and
+# their conflict key — so the rows they overwrite are read first, exactly, and the
+# receipt is honest. Out of band (``ToolResult.surface_write``): the model never
+# reads it. A prior read that fails, or a write too wide to read cheaply, skips
+# the receipt (logged) and never fails the write.
+
+#: Rows beyond this are not read for a receipt — a receipt is a view of an edit,
+#: not a table dump, and a write this wide says so in its own output.
+_RECEIPT_MAX_ROWS = 200
+
+
+def _row_key(row: dict[str, Any], key_fields: list[str]) -> str | None:
+    if not key_fields or any(row.get(k) is None for k in key_fields):
+        return None
+    return "|".join(str(row.get(k)) for k in key_fields)
+
+
+async def _prior_rows(Model: Any, lookups: dict[str, Any]) -> list[dict[str, Any]] | None:
+    try:
+        found = await Model.filter(**lookups).limit(_RECEIPT_MAX_ROWS + 1).all()
+    except Exception:  # noqa: BLE001 — the receipt is a view, never a precondition
+        logger.warning("sql: prior read for the update receipt failed; no diff receipt", exc_info=True)
+        return None
+    if len(found) > _RECEIPT_MAX_ROWS:
+        logger.info("sql: update touches more than %s rows; no diff receipt", _RECEIPT_MAX_ROWS)
+        return None
+    return [_instance_to_dict(r) for r in found]
+
+
+async def _prior_conflicting_rows(
+    Model: Any, rows: list[Any], conflict_fields: list[str]
+) -> list[dict[str, Any]] | None:
+    """The stored rows an upsert will OVERWRITE — matched on its conflict key."""
+    if not conflict_fields or len(rows) > _RECEIPT_MAX_ROWS:
+        return None
+    try:
+        if len(conflict_fields) == 1:
+            field = conflict_fields[0]
+            values = [r.get(field) for r in rows if isinstance(r, dict) and r.get(field) is not None]
+            if not values:
+                return []
+            found = await Model.filter(**{f"{field}__in": values}).all()
+        else:
+            found = []
+            for r in rows:
+                if not isinstance(r, dict) or any(r.get(f) is None for f in conflict_fields):
+                    continue
+                hit = await Model.filter(**{f: r[f] for f in conflict_fields}).all()
+                found.extend(hit)
+    except Exception:  # noqa: BLE001
+        logger.warning("sql: prior read for the upsert receipt failed; no diff receipt", exc_info=True)
+        return None
+    return [_instance_to_dict(r) for r in found]
+
+
+def _attach_rows_receipt(
+    result: ToolResult,
+    *,
+    prior: list[dict[str, Any]] | None,
+    after: list[dict[str, Any]],
+    key_fields: list[str],
+    columns: list[str],
+    table: str,
+) -> ToolResult:
+    """Before → after of the columns the write named, per row, keyed by the row's
+    primary (update) or conflict (upsert) key. A row with no prior is an insert and
+    shows ``null`` before; a write that overwrote nothing carries no receipt."""
+    if prior is None or not prior:
+        return result
+    try:
+        from matrx_ai.tools.surface_write import attach_structured_write
+
+        before_by = {k: r for r in prior if (k := _row_key(r, key_fields)) is not None}
+        after_by = {k: r for r in after if (k := _row_key(r, key_fields)) is not None}
+        cols = [c for c in columns if c not in key_fields] or list(columns)
+        before_view: dict[str, Any] = {}
+        after_view: dict[str, Any] = {}
+        for key in sorted(set(before_by) | set(after_by)):
+            b, a = before_by.get(key), after_by.get(key)
+            before_view[key] = {c: b.get(c) for c in cols} if b is not None else None
+            after_view[key] = {c: a.get(c) for c in cols} if a is not None else None
+        if not before_view:
+            return result
+        only = next(iter(before_view)) if len(before_view) == 1 else None
+        return attach_structured_write(
+            result,
+            before=before_view[only] if only else before_view,
+            after=after_view[only] if only else after_view,
+            target_type=table,
+            target_id=only,
+            target_label=f"{table} ({len(before_view)} row{'s' if len(before_view) != 1 else ''})",
+        )
+    except Exception:  # noqa: BLE001
+        logger.warning("sql: receipt render failed; no diff receipt", exc_info=True)
+        return result
+
+
 async def db_update(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     started_at = time.time()
     parsed = DbUpdateArgs(**args)
@@ -795,23 +894,31 @@ async def db_update(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         # atomically; this is a fetch-after-write, same as the rest of this
         # file's dynamic write paths — see the ORM-gap note in the final report).
         lookups = _orm_lookups(parsed.match)
+        prior_rows = await _prior_rows(Model, lookups)
         await Model.update_where(lookups, **update_data)
         updated_rows = await Model.filter(**lookups).all()
         _after_catalog_write(schema, name, "update")
 
-        return ToolResult(
-            success=True,
-            output=_announce_corrections(
-                "db_update",
-                corrections,
-                _write_output(
-                    "updated", [_instance_to_dict(r) for r in updated_rows], parsed.returning
+        return _attach_rows_receipt(
+            ToolResult(
+                success=True,
+                output=_announce_corrections(
+                    "db_update",
+                    corrections,
+                    _write_output(
+                        "updated", [_instance_to_dict(r) for r in updated_rows], parsed.returning
+                    ),
                 ),
+                started_at=started_at,
+                completed_at=time.time(),
+                tool_name="db_update",
+                call_id=ctx.call_id,
             ),
-            started_at=started_at,
-            completed_at=time.time(),
-            tool_name="db_update",
-            call_id=ctx.call_id,
+            prior=prior_rows,
+            after=[_instance_to_dict(r) for r in updated_rows],
+            key_fields=list(Model._meta.primary_keys),
+            columns=list(update_data),
+            table=f"{schema}.{name}",
         )
     except Exception as exc:
         message, suggested = await _agent_db_error(exc)
@@ -1055,13 +1162,29 @@ async def _sql_delete(args: dict[str, Any], ctx: ToolContext, started_at: float)
         # statements is the same admin-bypass-RLS risk this whole tool already
         # carries by design.
         lookups = _orm_lookups(match)
-        rows_to_delete = await Model.filter(**lookups).all()
-        deleted_data = [_instance_to_dict(r) for r in rows_to_delete]
-        deleted_count = await Model.delete_where(**lookups)
+        # Arman's law: soft-delete everything important. A table with a soft-delete
+        # column is ARCHIVED through it (recoverable); only a table without one is
+        # removed outright. Census + guard: matrx_ai.tools.delete_census.
+        from matrx_ai.tools.soft_delete import archive_where, live_filter, soft_delete_column
+
+        soft_col = soft_delete_column(Model)
+        if soft_col is not None:
+            live = {**lookups, **live_filter(soft_col)}
+            rows_to_delete = await Model.filter(**live).all()
+            deleted_data = [_instance_to_dict(r) for r in rows_to_delete]
+            deleted_count = await archive_where(Model, lookups)
+        else:
+            rows_to_delete = await Model.filter(**lookups).all()
+            deleted_data = [_instance_to_dict(r) for r in rows_to_delete]
+            deleted_count = await Model.delete_where(**lookups)
         _after_catalog_write(schema, name, "delete")
         return ToolResult(
             success=True,
-            output={"deleted": deleted_count, "data": deleted_data},
+            output={
+                "deleted": deleted_count,
+                "data": deleted_data,
+                "archived_via": soft_col,  # None = the table has no soft-delete column; rows were removed
+            },
             started_at=started_at,
             completed_at=time.time(),
             tool_name="sql",
@@ -1122,19 +1245,29 @@ async def _sql_upsert(args: dict[str, Any], ctx: ToolContext, started_at: float)
             if on_conflict
             else list(Model._meta.primary_keys)
         )
+        prior_rows = await _prior_conflicting_rows(Model, rows, conflict_fields)
         upserted_rows = await Model.bulk_upsert(rows, conflict_fields=conflict_fields)
         _after_catalog_write(schema, name, "upsert")
-        return ToolResult(
-            success=True,
-            output=_announce_corrections(
-                "sql",
-                corrections,
-                _write_output("upserted", [_instance_to_dict(r) for r in upserted_rows], returning),
+        return _attach_rows_receipt(
+            ToolResult(
+                success=True,
+                output=_announce_corrections(
+                    "sql",
+                    corrections,
+                    _write_output(
+                        "upserted", [_instance_to_dict(r) for r in upserted_rows], returning
+                    ),
+                ),
+                started_at=started_at,
+                completed_at=time.time(),
+                tool_name="sql",
+                call_id=ctx.call_id,
             ),
-            started_at=started_at,
-            completed_at=time.time(),
-            tool_name="sql",
-            call_id=ctx.call_id,
+            prior=prior_rows,
+            after=[_instance_to_dict(r) for r in upserted_rows],
+            key_fields=conflict_fields,
+            columns=sorted({k for r in rows if isinstance(r, dict) for k in r}),
+            table=f"{schema}.{name}",
         )
     except Exception as exc:
         message, suggested = await _agent_db_error(exc)

@@ -4,7 +4,7 @@ use crate::agent_hold::AgentHoldRecordWire;
 
 use crate::queue_directive::resolve_queue_capacity;
 
-pub const RUNNER_CAPACITY_POLICY_SCHEMA_VERSION: u32 = 5;
+pub const RUNNER_CAPACITY_POLICY_SCHEMA_VERSION: u32 = 6;
 pub const DEFAULT_WAIT_PRIORITY: i32 = 10;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -66,19 +66,34 @@ pub struct RunnerCapacityRecordWire {
     #[serde(default)]
     pub parent_timestamp: Option<String>,
     #[serde(default)]
-    pub agent_family: Option<String>,
+    pub agent_session: Option<String>,
     #[serde(default)]
-    pub agent_family_role: Option<String>,
-    #[serde(default)]
-    pub agent_family_parallel: bool,
+    pub agent_session_role: Option<String>,
+    #[serde(default, alias = "agent_family_parallel")]
+    pub agent_session_parallel: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub runner_claim_owner_key: Option<String>,
-    #[serde(default)]
-    pub family_shell_kind: Option<String>,
-    #[serde(default)]
-    pub family_shell_id: Option<String>,
-    #[serde(default)]
-    pub family_shell_state: Option<String>,
+    // legacy sase-shell spelling; flips in contract-flip
+    #[serde(
+        default,
+        rename = "agent_session_shell_kind",
+        alias = "agent_session_turn_kind"
+    )]
+    pub agent_session_turn_kind: Option<String>,
+    // legacy sase-shell spelling; flips in contract-flip
+    #[serde(
+        default,
+        rename = "agent_session_shell_id",
+        alias = "agent_session_turn_id"
+    )]
+    pub agent_session_turn_id: Option<String>,
+    // legacy sase-shell spelling; flips in contract-flip
+    #[serde(
+        default,
+        rename = "agent_session_shell_state",
+        alias = "agent_session_turn_state"
+    )]
+    pub agent_session_turn_state: Option<String>,
     #[serde(default)]
     pub queue_weight: Option<f64>,
     #[serde(default)]
@@ -91,6 +106,8 @@ pub struct RunnerCapacityRecordWire {
     pub queue_capacity: Option<i64>,
     #[serde(default)]
     pub queue_capacity_explicit: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub queue_capacity_multiplier: Option<f64>,
     #[serde(default, skip_serializing)]
     pub(super) wait_runners: Option<i64>,
     #[serde(default, skip_serializing)]
@@ -163,6 +180,8 @@ pub struct RunnerCapacityWaiterWire {
         skip_serializing_if = "Option::is_none"
     )]
     pub queue_capacity: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub queue_capacity_multiplier: Option<f64>,
     pub admission_limit: f64,
     pub eligible: bool,
     #[serde(default)]

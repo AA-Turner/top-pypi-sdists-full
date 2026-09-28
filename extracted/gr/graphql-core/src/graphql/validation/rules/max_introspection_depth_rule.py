@@ -1,6 +1,6 @@
 """Max introspection depth rule"""
 
-from typing import Dict, Any
+from typing import Any
 
 from ...error import GraphQLError
 from ...language import SKIP, FieldNode, FragmentSpreadNode, Node, VisitorAction
@@ -12,11 +12,28 @@ MAX_LIST_DEPTH = 3
 
 
 class MaxIntrospectionDepthRule(ASTValidationRule):
-    """Checks maximum introspection depth"""
+    """Checks maximum introspection depth
+
+    :param context: The validation context used while checking the document.
+
+    >>> from graphql import build_schema, parse, validate
+    >>> from graphql.validation import MaxIntrospectionDepthRule
+    >>> schema = build_schema('type Query { name: String }')
+    >>> document = parse(
+    ...     '{ __schema { types { fields { type { fields {'
+    ...     ' type { fields { name } } } } } } } }'
+    ... )
+    >>> errors = validate(schema, document, [MaxIntrospectionDepthRule])
+    >>> print(errors[0].message)
+    Maximum introspection depth exceeded
+    >>> document = parse('{ __schema { queryType { name } } }')
+    >>> validate(schema, document, [MaxIntrospectionDepthRule])
+    []
+    """
 
     def __init__(self, context: ValidationContext) -> None:
         super().__init__(context)
-        self._visited_fragments: Dict[str, None] = {}
+        self._visited_fragments: dict[str, None] = {}
         self._get_fragment = context.get_fragment
 
     def _check_depth(self, node: Node, depth: int = 0) -> bool:
@@ -70,6 +87,10 @@ class MaxIntrospectionDepthRule(ASTValidationRule):
         return False
 
     def enter_field(self, node: FieldNode, *_args: Any) -> VisitorAction:
+        """Called when entering a field node.
+
+        :meta private:
+        """
         if node.name.value in ("__schema", "__type") and self._check_depth(node):
             self.report_error(
                 GraphQLError(

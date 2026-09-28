@@ -1,0 +1,252 @@
+# Outside skill pack manifest — reviewed, owner-ordered import (Arman, 2026-09-27:
+# "take their skills and put them into our skills library").
+# Driven by: uv run python scripts/ingest_skills.py --pack <this file> <clone root>
+# Loader + rules: matrx_ai/skills/packs.py. The source's product name is theirs, never ours:
+# no skill id or label may contain it (source.product_name makes the loader refuse one).
+# Provenance (the repo URL, the banner) still names the source — that is attribution.
+#
+# When AI Matrx ships a tool that covers one of the source's tools, change its line under
+# tool_equivalents and re-run: every affected banner is rebuilt. Never hand-edit a body.
+
+pack_id: every-app-seo-skills
+title: "SEO skills and strategy playbooks"
+imported_on: "2026-09-27"
+visibility: public          # platform-provided library entries every organization can use
+skill_type: reference
+
+source:
+  repo_url: https://github.com/every-app/open-seo
+  commit: 0ffff93
+  license: MIT
+  authors: ["Ben Senescu"]
+  skills_dir: .agents/skills
+  product_name: OpenSEO
+
+category:
+  slug: seo-imported
+  name: "SEO (imported)"
+  icon: Search
+  position: 71
+  description: >-
+    Imported outside skills and strategy playbooks for search engine optimization — site
+    audits, keyword research and clustering, competitor and market analysis, link
+    prospecting, local SEO, project setup, reporting and coaching — written by Ben Senescu
+    for his open-source SEO product (MIT). Bodies are verbatim; each carries a provenance
+    banner that names which of its tools AI Matrx has today.
+
+# Ids stay the upstream folder names; only the displayed name changes (their H1s carry
+# the product name).
+renames:
+  seo-audit: {label: SEO Audit}
+  keyword-research: {label: Keyword Research}
+  keyword-clustering: {label: Keyword Clustering}
+  competitor-analysis: {label: Competitor Analysis}
+  competitive-landscape: {label: Competitive Landscape}
+  link-prospecting: {label: Link Prospecting}
+  local-seo: {label: Local SEO}
+  seo-coach: {label: SEO Coach}
+  seo-project-setup: {label: SEO Project Setup}
+  seo-report: {label: SEO Report}
+
+skip_skills:
+  create-repo-skill: "source repo developer tooling (marked internal upstream), not an end-user SEO skill"
+  deslop: "source repo developer tooling (marked internal upstream), not an end-user SEO skill"
+  evaluate-skill: "source repo developer tooling (marked internal upstream), not an end-user SEO skill"
+  maintain-greptile-rules: "source repo developer tooling (marked internal upstream), not an end-user SEO skill"
+  merge-ready: "source repo developer tooling (marked internal upstream), not an end-user SEO skill"
+  observability-triage: "source repo developer tooling (marked internal upstream), not an end-user SEO skill"
+  openseo-release-notes: "source repo developer tooling (marked internal upstream), not an end-user SEO skill"
+  openseo-review-web-content: "source repo developer tooling (marked internal upstream), not an end-user SEO skill"
+  papercuts: "source repo developer tooling (marked internal upstream), not an end-user SEO skill"
+  review-brief: "source repo developer tooling (marked internal upstream), not an end-user SEO skill"
+  setup-openseo: "installs the source product into an outside agent (marked internal upstream), not an end-user SEO skill"
+  simple-issue-description: "a contributor tool for the source repo's issue tracker, not an end-user SEO skill"
+  verify-local-mcp: "source repo developer tooling (marked internal upstream), not an end-user SEO skill"
+
+# The strategy library of the source's website. 23 are imported as reference documents;
+# descriptions come from each file's own frontmatter.
+document_dirs:
+  - dir: web/content/marketing/library
+    skip:
+      intent-beyond-google.mdx: "mostly positioning with a thin rule; left out by the reviewed adoption plan"
+      long-tail-question-mining.mdx: "mostly positioning with a thin rule; left out by the reviewed adoption plan"
+      search-intent-mapping.mdx: "mostly positioning with a thin rule; left out by the reviewed adoption plan"
+
+documents:
+  - repo_path: web/content/marketing/library/backlink-audit.mdx
+    skill_id: seo-playbook-backlink-audit
+    label: "SEO Playbook: Backlink Audit"
+  - repo_path: web/content/marketing/library/backlink-gap-analysis.mdx
+    skill_id: seo-playbook-backlink-gap-analysis
+    label: "SEO Playbook: Backlink Gap Analysis"
+  - repo_path: web/content/marketing/library/cluster-topical-hubs.mdx
+    skill_id: seo-playbook-cluster-topical-hubs
+    label: "SEO Playbook: Topical Hubs and Keyword Clusters"
+    note: "It overlaps the **Keyword Clustering** skill (`keyword-clustering`) in this set; read the two together."
+  - repo_path: web/content/marketing/library/competitor-traffic-estimates.mdx
+    skill_id: seo-playbook-competitor-traffic-estimates
+    label: "SEO Playbook: Competitor Traffic Estimates"
+  - repo_path: web/content/marketing/library/find-your-real-competitors.mdx
+    skill_id: seo-playbook-find-your-real-competitors
+    label: "SEO Playbook: Finding Your Real Search Competitors"
+  - repo_path: web/content/marketing/library/gsc-programmatic-discovery.mdx
+    skill_id: seo-playbook-gsc-programmatic-discovery
+    label: "SEO Playbook: Mining Search Console for Keywords"
+  - repo_path: web/content/marketing/library/how-to-get-backlinks.mdx
+    skill_id: seo-playbook-how-to-get-backlinks
+    label: "SEO Playbook: How to Get Backlinks"
+    note: "It overlaps the **Link Prospecting** skill (`link-prospecting`) in this set; read the two together."
+  - repo_path: web/content/marketing/library/human-in-the-loop-content.mdx
+    skill_id: seo-playbook-human-in-the-loop-content
+    label: "SEO Playbook: Human-in-the-Loop Content"
+  - repo_path: web/content/marketing/library/index-bloat.mdx
+    skill_id: seo-playbook-index-bloat
+    label: "SEO Playbook: Index Bloat"
+  - repo_path: web/content/marketing/library/keyword-gap-analysis.mdx
+    skill_id: seo-playbook-keyword-gap-analysis
+    label: "SEO Playbook: Keyword Gap Analysis"
+  - repo_path: web/content/marketing/library/keyword-ranking-report.mdx
+    skill_id: seo-playbook-keyword-ranking-report
+    label: "SEO Playbook: Keyword Ranking Report"
+  - repo_path: web/content/marketing/library/local-rank-tracking.mdx
+    skill_id: seo-playbook-local-rank-tracking
+    label: "SEO Playbook: Local Rank Tracking"
+  - repo_path: web/content/marketing/library/opportunity-sizing-forecasting.mdx
+    skill_id: seo-playbook-opportunity-sizing-forecasting
+    label: "SEO Playbook: Opportunity Sizing and Forecasting"
+  - repo_path: web/content/marketing/library/positioning-to-demand.mdx
+    skill_id: seo-playbook-positioning-to-demand
+    label: "SEO Playbook: Positioning to Search Demand"
+  - repo_path: web/content/marketing/library/referring-domains.mdx
+    skill_id: seo-playbook-referring-domains
+    label: "SEO Playbook: Referring Domains"
+  - repo_path: web/content/marketing/library/run-seo-from-your-ai-assistant.mdx
+    skill_id: seo-playbook-run-seo-from-your-ai-assistant
+    label: "SEO Playbook: Running SEO from an AI Assistant"
+    note: "It overlaps the **SEO Coach** (`seo-coach`) and **SEO Project Setup** (`seo-project-setup`) skills in this set; read them together."
+  - repo_path: web/content/marketing/library/search-console-vs-rank-tracker.mdx
+    skill_id: seo-playbook-search-console-vs-rank-tracker
+    label: "SEO Playbook: Search Console vs. a Rank Tracker"
+  - repo_path: web/content/marketing/library/seed-from-conversation.mdx
+    skill_id: seo-playbook-seed-from-conversation
+    label: "SEO Playbook: Seeding Keywords from Conversation"
+    note: "It overlaps the **Keyword Research** (`keyword-research`) and **SEO Project Setup** (`seo-project-setup`) skills in this set; read them together."
+  - repo_path: web/content/marketing/library/seo-audit-report-template.mdx
+    skill_id: seo-playbook-seo-audit-report-template
+    label: "SEO Playbook: SEO Audit Report Template"
+  - repo_path: web/content/marketing/library/skills-memory-and-the-trace.mdx
+    skill_id: seo-playbook-skills-memory-and-the-trace
+    label: "SEO Playbook: Skills, Memory and the Trace"
+  - repo_path: web/content/marketing/library/technical-seo-audit-checklist.mdx
+    skill_id: seo-playbook-technical-seo-audit-checklist
+    label: "SEO Playbook: Technical SEO Audit Checklist"
+    note: "It overlaps the **SEO Audit** skill (`seo-audit`) in this set; read the two together."
+  - repo_path: web/content/marketing/library/what-to-automate.mdx
+    skill_id: seo-playbook-what-to-automate
+    label: "SEO Playbook: What to Automate in SEO"
+  - repo_path: web/content/marketing/library/which-keywords-to-track.mdx
+    skill_id: seo-playbook-which-keywords-to-track
+    label: "SEO Playbook: Which Keywords to Track"
+
+# Site-relative links in the playbooks (images and cross-links) point at the source's website.
+path_rewrites:
+  "](/": "](https://openseo.so/"
+edits_note: >-
+  Links that were relative to the source's website now point to that website
+  (https://openseo.so), so its images and cross-links still resolve.
+
+ignore_files: []
+
+# Every agent tool the source product exposes, and what an AI Matrx agent has for it today
+# (verified against tool.definition and mandate.definition, 2026-09-27). null = nothing yet.
+tool_equivalents:
+  whoami: "not needed — an AI Matrx agent already works as the signed-in person"
+  list_projects: "not needed — an AI Matrx agent already works inside the person's organization and sites"
+  create_project: "not needed — an AI Matrx agent already works inside the person's organization and sites"
+  get_project_context: "`context` (get or batch; partial — no typed SEO sections yet)"
+  update_project_context: "`context` (create) and `context_patch` (partial — no typed SEO sections yet)"
+  research_keywords: "`mandate_call` with `seo.keyword_researcher` (partial — no provider keyword-idea expansion)"
+  get_keyword_metrics: "`seo` action `keyword_data` (volume, cost per click, competition, trend; partial — no keyword difficulty)"
+  get_domain_keyword_suggestions: null
+  get_ranked_keywords: null
+  get_domain_overview: null
+  find_serp_competitors: null
+  get_serp_results: "`seo` action `collect_rank` (where a domain ranks for one query; partial — not the full results page) and `web` action `search`"
+  search_serp_locations: null
+  get_local_serp_results: "`seo` action `collect_rank` with `search_type: local_pack` (partial — the local-pack position only)"
+  get_backlinks_overview: "`mandate_call` with `seo.backlink_analysis` (partial — a written analysis, not a data read)"
+  get_backlinks_profile: "`mandate_call` with `seo.backlink_analysis` (partial — a written analysis, not a data read)"
+  run_site_audit: "`mandate_call` with `seo.page_analyzer` (partial — one page at a time, no whole-site crawl)"
+  get_audit_status: null
+  get_audit_issues: null
+  get_audit_pages: null
+  list_site_audits: null
+  delete_site_audit: null
+  get_search_console_performance: "`google_marketing` action `read_search_console` (partial — no position or impression filters)"
+  inspect_urls: null
+  get_search_opportunities: null
+  get_google_analytics_organic_landing_pages: "`google_marketing` action `read_google_analytics`"
+  get_google_analytics_measurement_health: "`google_marketing` action `tracking_health` (partial — grades the Tag Manager setup)"
+  get_google_analytics_organic_overview: null
+  get_google_analytics_page_performance: null
+  get_google_analytics_traffic_acquisition: null
+  get_google_analytics_audience_breakdown: null
+  get_google_analytics_key_events: null
+  get_google_analytics_ecommerce_performance: null
+  get_google_analytics_site_search: null
+  search_local_businesses: null
+  get_business_profile: null
+  get_business_reviews: null
+  get_business_updates: null
+  get_google_business_questions: null
+  get_local_rank_grid: null
+  list_business_categories: null
+  create_rank_tracker: null
+  add_rank_tracking_keywords: null
+  remove_rank_tracking_keywords: null
+  get_rank_tracker: null
+  run_rank_tracker: "`seo` action `collect_rank` (partial — one keyword at a time, no saved tracker)"
+  estimate_rank_tracker_cost: null
+  save_keywords: null
+  list_saved_keywords: null
+  remove_saved_keywords: null
+  save_report: "`html_page` action `create` (partial — no report record or templates)"
+  get_report: "`html_page` action `get`"
+  list_reports: "`html_page` action `list`"
+  delete_report: "`html_page` action `delete`"
+  list_report_templates: null
+  save_report_template: null
+  delete_report_template: null
+tool_equivalents_note: >-
+  They do not exist in AI Matrx under these names. Use the AI Matrx tool listed where there
+  is one (other tools that fit this work: `topical_map`, `keyword_meaning_suggest`,
+  `records`, `workflow_run`).
+
+tooling_notices:
+  - label: "the source product's own connection and credit balance (its MCP connection, credits)"
+    pattern: '\bMCP\b|\bcredits\b'
+  - label: "the source product's own app screens and assistant (its Reports and Context pages, SAM)"
+    pattern: '\bSAM\b|Reports page|Context page'
+  - label: "a fixed credit line linking the source product's skill docs"
+    pattern: '`https://openseo\.so/docs/skills/|Generated by the <a href="https://openseo\.so'
+  - label: "the source product's plugin commands (`/openseo:…`)"
+    pattern: '/openseo:'
+  - label: "local folders on the person's own computer"
+    pattern: '~/SEO|\blocal folder\b'
+  - label: "quirks of one outside coding agent (Codex)"
+    pattern: '\bCodex\b'
+  - label: "helper agents the harness spawns (sub-agents)"
+    pattern: '(?i)\bsub-?agents?\b'
+
+# A playbook mostly narrates; only its how-to-run sections and ready-made prompts instruct
+# the agent. Tooling mentioned elsewhere in it (in passing) does not mark it not-runnable.
+# Skills are instructions end to end and are always scanned whole.
+document_instruction_scope:
+  headings: '^(?:Run this|Do it with|How to run)\b'
+  fenced_blocks: true
+
+tooling_note: >-
+  Those belong to the source product and do not exist in AI Matrx. Treat those steps as the
+  specification for our native version, not as actions you can take here: when a step
+  depends on one, say plainly that it is not available yet, and do the judgment work the
+  text describes with the tools you actually have.

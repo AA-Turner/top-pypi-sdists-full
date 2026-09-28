@@ -1,0 +1,42 @@
+# AI Matrx's own SEO skills — one per imported outside SEO skill (Arman, 2026-09-27:
+# "for any actual skill that they have, in addition to using it to build agents, we also
+# need to take the text of the skill and create our own skill as well for our skills
+# library"). Each keeps the expert's method whole and is rewritten for how AI Matrx works:
+# our tools by their real names, the brand and site context that arrives with the
+# conversation, our reports, and our doctrine (offers, never blocks; cost approved as a
+# number; no schedules). Each is linked to the imported original as its parent.
+# Loader + rules: matrx_ai/skills/library.py.
+# Run: uv run python scripts/ingest_skills.py --library packages/matrx-ai/matrx_ai/skills/library/seo [--dry-run]
+#
+# The tool names follow the Wave 1 SEO tool contract (common-docs
+# projects/outside-skill-packs/OPENSEO-TOOLS-SPEC.md §3, frozen at common-docs c0a7a002d). When those tools ship, re-read
+# each skill's opening note and remove the "arriving with" lines that are now live.
+
+set_id: ai-matrx-seo
+title: "SEO skills (AI Matrx)"
+visibility: public
+skill_type: workflow
+parent_pack: every-app-seo-skills
+
+category:
+  slug: seo
+  name: "SEO"
+  icon: Search
+  position: 65
+  description: >-
+    AI Matrx's own search engine optimization skills — site audits, keyword research and
+    clustering, competitor and market analysis, link prospecting, local SEO, site setup,
+    reports and coaching — each following an expert's proven method with AI Matrx's own
+    tools, your brand and site context, and your reports.
+
+skills:
+  matrx-seo-audit: {parent: seo-audit}
+  matrx-keyword-research: {parent: keyword-research}
+  matrx-keyword-clustering: {parent: keyword-clustering}
+  matrx-competitor-analysis: {parent: competitor-analysis}
+  matrx-competitive-landscape: {parent: competitive-landscape}
+  matrx-link-prospecting: {parent: link-prospecting}
+  matrx-local-seo: {parent: local-seo}
+  matrx-seo-coach: {parent: seo-coach}
+  matrx-seo-site-setup: {parent: seo-project-setup}
+  matrx-seo-report: {parent: seo-report}

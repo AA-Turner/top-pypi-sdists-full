@@ -1,3 +1,14 @@
+"""The `note` tool — list/get/create/update/patch/delete on workbench.notes.
+
+EVERY ACTION RUNS AS THE PERSON. Each action opens the caller's RLS session
+(``matrx_ai.tools.person_session.acts_as_the_person``) around its ORM work, so
+Postgres row-level security decides which notes exist for them and which they
+may change. This module never re-implements access — no owner comparison, no
+``iam.has_access_for`` call. A note the caller may not see answers
+``not_found`` naming its id; one they can see but may not change answers
+``no_access``.
+"""
+
 from __future__ import annotations
 
 import logging
@@ -11,67 +22,22 @@ from matrx_ai.config.read_only_resources import READ_ONLY_TOOL_MESSAGE, is_resou
 from matrx_ai.tools._dispatch_util import format_args_error
 from matrx_ai.tools.arg_models import NoteArgs
 from matrx_ai.tools.models import ToolContext, ToolError, ToolResult
+from matrx_ai.tools.person_session import acts_as_the_person
+from matrx_ai.tools.surface_write import attach_surface_write
 
 logger = logging.getLogger(__name__)
 
 
-async def _note_access_allowed(note_id: str, user_id: str, level: str) -> bool:
-    """Canonical access check — ``iam.has_access_for(user, 'note', id, level)``.
-
-    ACCESS, not ownership. The agent acts AS the user, so it must reach exactly
-    what the user can reach in the UI — notes shared directly, via org, or
-    conveyed through scope tagging all resolve inside the one SECURITY DEFINER
-    body (see common-docs/systems/platform/access/STATE.md). Never re-implement
-    any of that here. Fail-closed: any error reads as no access.
-
-    The DB name is borrowed from the injection registry the same way
-    ``database.py`` does — never hardcoded (package boundary).
-    """
-    try:
-        from matrx_orm import call_function
-
-        from matrx_ai.db._registry import get_model as get_db_model
-
-        database = get_db_model("Notes")._database
-        result = await call_function(
-            database, "iam", "has_access_for",
-            user_id, "note", note_id, level, mode="scalar",
-        )
-        return bool(result)
-    except Exception:  # noqa: BLE001 — fail closed, never raise into the tool
-        logger.warning("note access check failed for %s (level=%s)", note_id, level, exc_info=True)
-        return False
+_ACCESS_ERROR_TYPES = frozenset({"not_found", "no_access"})
 
 
-async def _authorized_note(note_id: str, ctx: ToolContext, level: str) -> dict[str, Any] | None:
-    """Fetch the note the caller may act on at ``level``, or None.
-
-    Owner passes immediately (created_by); everyone else resolves through
-    ``iam.has_access_for``. Levels mirror the canonical RLS policies: read =
-    viewer, write = editor, delete = admin. Returns None for missing AND
-    unauthorized alike — callers surface both as the same content-free
-    not-found, so unauthorized probes learn nothing.
-    """
-    from matrx_ai.db.content_types.notes import notes_manager_instance
-
-    result = await notes_manager_instance.get_note(note_id)
-    if not result.get("success"):
-        return None
-    n = result["note"]
-    if str(n.get("created_by") or "") == str(ctx.user_id):
-        return n
-    if await _note_access_allowed(note_id, str(ctx.user_id), level):
-        return n
-    return None
-
-
-def _note_not_found(tool_name: str, started_at: float, ctx: ToolContext) -> ToolResult:
-    """The ONE content-free not-found shape — identical for missing and unauthorized."""
-    return ToolResult(
-        success=False,
-        error=ToolError(error_type="not_found", message="Note not found."),
-        started_at=started_at, completed_at=time.time(),
-        tool_name=tool_name, call_id=ctx.call_id,
+def _manager_error(result: dict[str, Any], default: str, fallback: str) -> ToolError:
+    """Carry the manager's access answer (not_found / no_access, naming the id)
+    through unchanged; anything else keeps the caller's default type."""
+    error_type = result.get("error_type")
+    return ToolError(
+        error_type=error_type if error_type in _ACCESS_ERROR_TYPES else default,
+        message=result.get("error") or fallback,
     )
 
 
@@ -86,6 +52,7 @@ def _read_only_result(tool_name: str, started_at: float, ctx: ToolContext) -> To
     )
 
 
+@acts_as_the_person("note_get", subject="your notes")
 async def note_get(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     started_at = time.time()
     note_id = args.get("note_id", "").strip()
@@ -97,11 +64,17 @@ async def note_get(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
             tool_name="note_get", call_id=ctx.call_id,
         )
     try:
-        # Owner OR shared-with-user at viewer level; missing and unauthorized
-        # return the same content-free not-found.
-        n = await _authorized_note(note_id, ctx, "viewer")
-        if n is None:
-            return _note_not_found("note_get", started_at, ctx)
+        from matrx_ai.db.content_types.notes import notes_manager_instance
+
+        result = await notes_manager_instance.get_note(note_id)
+        if not result.get("success"):
+            return ToolResult(
+                success=False,
+                error=_manager_error(result, "execution", f"Note {note_id} could not be read."),
+                started_at=started_at, completed_at=time.time(),
+                tool_name="note_get", call_id=ctx.call_id,
+            )
+        n = result["note"]
         return ToolResult(
             success=True,
             output={
@@ -127,6 +100,7 @@ async def note_get(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         )
 
 
+@acts_as_the_person("note_list", subject="your notes")
 async def note_list(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     started_at = time.time()
     try:
@@ -172,6 +146,7 @@ async def note_list(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         )
 
 
+@acts_as_the_person("note_create", subject="your notes")
 async def note_create(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     started_at = time.time()
     label = args.get("label", "").strip()
@@ -217,6 +192,15 @@ async def note_create(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
 
 
 async def note_update(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
+    """A locked id is refused at the tool boundary before any session opens."""
+    note_id = str(args.get("note_id") or "").strip()
+    if note_id and is_resource_read_only(note_id):
+        return _read_only_result("note_update", time.time(), ctx)
+    return await _note_update_as_the_person(args, ctx)
+
+
+@acts_as_the_person("note_update", subject="your notes")
+async def _note_update_as_the_person(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     started_at = time.time()
     note_id = args.get("note_id", "").strip()
     if not note_id:
@@ -238,13 +222,20 @@ async def note_update(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         )
     try:
         from matrx_ai.db.content_types.notes import notes_manager_instance
-        if await _authorized_note(note_id, ctx, "editor") is None:
-            return _note_not_found("note_update", started_at, ctx)
+        before = await notes_manager_instance.get_note(note_id)
+        if not before.get("success"):
+            return ToolResult(
+                success=False,
+                error=_manager_error(before, "execution", f"Note {note_id} could not be read."),
+                started_at=started_at, completed_at=time.time(),
+                tool_name="note_update", call_id=ctx.call_id,
+            )
+        prior = before["note"]
         result = await notes_manager_instance.update_note(note_id, **updates)
         if not result.get("success"):
             return ToolResult(
                 success=False,
-                error=ToolError(error_type="execution", message=result.get("error", "Update failed.")),
+                error=_manager_error(result, "execution", "Update failed."),
                 started_at=started_at, completed_at=time.time(),
                 tool_name="note_update", call_id=ctx.call_id,
             )
@@ -252,11 +243,24 @@ async def note_update(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         out: dict[str, Any] = {"id": n.get("id"), "label": n.get("label"), "updated_at": n.get("updated_at")}
         if result.get("warning_stripped_immutable"):
             out["warning"] = f"Ignored immutable fields: {result['warning_stripped_immutable']}"
-        return ToolResult(
+        done = ToolResult(
             success=True, output=out,
             started_at=started_at, completed_at=time.time(),
             tool_name="note_update", call_id=ctx.call_id,
         )
+        if "content" in updates:
+            # A full-content update OVERWRITES the note: the card shows what it replaced.
+            attach_surface_write(
+                done,
+                before=str(prior.get("content") or ""),
+                after=str(n.get("content") if n.get("content") is not None else updates.get("content") or ""),
+                target_type="note",
+                target_id=note_id,
+                target_label=str(n.get("label") or prior.get("label") or ""),
+                mode="overwrite",
+                content_format="markdown",
+            )
+        return done
     except Exception as e:
         return ToolResult(
             success=False,
@@ -267,6 +271,15 @@ async def note_update(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
 
 
 async def note_patch(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
+    """A locked id is refused at the tool boundary before any session opens."""
+    note_id = str(args.get("note_id") or "").strip()
+    if note_id and is_resource_read_only(note_id):
+        return _read_only_result("note_patch", time.time(), ctx)
+    return await _note_patch_as_the_person(args, ctx)
+
+
+@acts_as_the_person("note_patch", subject="your notes")
+async def _note_patch_as_the_person(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     started_at = time.time()
     note_id = args.get("note_id", "").strip()
     search_text = args.get("search_text", "")
@@ -289,30 +302,60 @@ async def note_patch(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         )
     try:
         from matrx_ai.db.content_types.notes import notes_manager_instance
-        if await _authorized_note(note_id, ctx, "editor") is None:
-            return _note_not_found("note_patch", started_at, ctx)
+        before = await notes_manager_instance.get_note(note_id)
+        if not before.get("success"):
+            return ToolResult(
+                success=False,
+                error=_manager_error(before, "execution", f"Note {note_id} could not be read."),
+                started_at=started_at, completed_at=time.time(),
+                tool_name="note_patch", call_id=ctx.call_id,
+            )
+        prior = before["note"]
         result = await notes_manager_instance.patch_note_content(note_id, search_text, replacement_text)
+        if not result.get("success") and result.get("error_type") in _ACCESS_ERROR_TYPES:
+            return ToolResult(
+                success=False,
+                error=_manager_error(result, "execution", "Patch failed."),
+                started_at=started_at, completed_at=time.time(),
+                tool_name="note_patch", call_id=ctx.call_id,
+            )
         if not result.get("success"):
+            error_type = str(result.get("error") or "patch_no_match")
             return ToolResult(
                 success=False,
                 error=ToolError(
-                    error_type="not_found",
+                    error_type=error_type,
                     message=result.get("message", "No match found for the search text."),
-                    suggested_action="Use note_get to read the current content and provide an exact excerpt.",
+                    suggested_action=(
+                        "Widen search_text with the surrounding lines so it matches exactly one place."
+                        if error_type == "patch_ambiguous"
+                        else "Call note with action='get' to read the current content and provide an exact excerpt."
+                    ),
+                    is_retryable=True,
                 ),
                 started_at=started_at, completed_at=time.time(),
                 tool_name="note_patch", call_id=ctx.call_id,
             )
         n = result["note"]
-        return ToolResult(
-            success=True,
-            output={
-                "id": n.get("id"),
-                "matched_at_pass": result.get("matched_at_pass"),
-                "updated_at": n.get("updated_at"),
-            },
-            started_at=started_at, completed_at=time.time(),
-            tool_name="note_patch", call_id=ctx.call_id,
+        return attach_surface_write(
+            ToolResult(
+                success=True,
+                output={
+                    "id": n.get("id"),
+                    "matched_at_pass": result.get("matched_at_pass"),
+                    "updated_at": n.get("updated_at"),
+                },
+                started_at=started_at, completed_at=time.time(),
+                tool_name="note_patch", call_id=ctx.call_id,
+            ),
+            before=str(prior.get("content") or ""),
+            after=str(n.get("content") or ""),
+            target_type="note",
+            target_id=note_id,
+            target_label=str(n.get("label") or prior.get("label") or ""),
+            mode="patch",
+            content_format="markdown",
+            edits=1,
         )
     except Exception as e:
         return ToolResult(
@@ -324,6 +367,15 @@ async def note_patch(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
 
 
 async def note_delete(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
+    """A locked id is refused at the tool boundary before any session opens."""
+    note_id = str(args.get("note_id") or "").strip()
+    if note_id and is_resource_read_only(note_id):
+        return _read_only_result("note_delete", time.time(), ctx)
+    return await _note_delete_as_the_person(args, ctx)
+
+
+@acts_as_the_person("note_delete", subject="your notes")
+async def _note_delete_as_the_person(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     started_at = time.time()
     note_id = args.get("note_id", "").strip()
     if not note_id:
@@ -337,19 +389,22 @@ async def note_delete(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         return _read_only_result("note_delete", started_at, ctx)
     try:
         from matrx_ai.db.content_types.notes import notes_manager_instance
-        if await _authorized_note(note_id, ctx, "admin") is None:
-            return _note_not_found("note_delete", started_at, ctx)
         result = await notes_manager_instance.delete_note(note_id)
         if not result.get("success"):
             return ToolResult(
                 success=False,
-                error=ToolError(error_type="execution", message=result.get("error", "Delete failed.")),
+                error=_manager_error(result, "execution", "Delete failed."),
                 started_at=started_at, completed_at=time.time(),
                 tool_name="note_delete", call_id=ctx.call_id,
             )
         return ToolResult(
             success=True,
-            output={"deleted": True, "note_id": note_id},
+            output={
+                "deleted": True,
+                "archived": True,
+                "note_id": note_id,
+                "message": "Note archived (recoverable) — it no longer appears in note lists.",
+            },
             started_at=started_at, completed_at=time.time(),
             tool_name="note_delete", call_id=ctx.call_id,
         )

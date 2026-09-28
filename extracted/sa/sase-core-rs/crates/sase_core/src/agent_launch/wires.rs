@@ -9,8 +9,8 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::fmt;
 
-pub const AGENT_LAUNCH_WIRE_SCHEMA_VERSION: u32 = 1;
-pub const LAUNCH_PLAN_WIRE_SCHEMA_VERSION: u32 = 1;
+pub const AGENT_LAUNCH_WIRE_SCHEMA_VERSION: u32 = 2;
+pub const LAUNCH_PLAN_WIRE_SCHEMA_VERSION: u32 = 2;
 pub const BATCH_PREDECESSOR_CONTEXT_SCHEMA_VERSION: u32 = 1;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -257,10 +257,18 @@ pub struct AgentUnitWire {
     pub clan_summary: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub clan_summary_script: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub family_attach_parent: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub family_attach_suffix: Option<String>,
+    #[serde(
+        default,
+        alias = "family_attach_parent",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub agent_session_attach_parent: Option<String>,
+    #[serde(
+        default,
+        alias = "family_attach_suffix",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub agent_session_attach_suffix: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tribe: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -279,6 +287,8 @@ pub struct AgentUnitWire {
     pub finalizers: Vec<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub queue_capacity: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub queue_capacity_multiplier: Option<f64>,
     #[serde(default, skip_serializing)]
     pub(crate) wait_runners: Option<u32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -321,13 +331,14 @@ impl AgentUnitWire {
 
     /// Return the launch identity used for waits and collision checks.
     ///
-    /// Clan joiners compose `<clan>.<member>`; family attachments compose
-    /// `<parent>--<suffix>` when the suffix is already concrete. Auto-named
-    /// units, including `%id(@, family=...)`, have no durable name yet.
+    /// Clan joiners compose `<clan>.<member>`; agent-session attachments
+    /// compose `<parent>--<suffix>` when the suffix is already concrete.
+    /// Auto-named units, including `%id(@, family=...)`, have no durable
+    /// name yet.
     pub fn effective_identity(&self) -> Option<String> {
         if let (Some(parent), Some(suffix)) = (
-            self.family_attach_parent.as_deref(),
-            self.family_attach_suffix.as_deref(),
+            self.agent_session_attach_parent.as_deref(),
+            self.agent_session_attach_suffix.as_deref(),
         ) {
             if suffix == "@" {
                 return None;
@@ -370,11 +381,11 @@ impl AgentUnitWire {
             None => String::new(),
         };
         if let (Some(parent), Some(suffix)) = (
-            self.family_attach_parent.as_deref(),
-            self.family_attach_suffix.as_deref(),
+            self.agent_session_attach_parent.as_deref(),
+            self.agent_session_attach_suffix.as_deref(),
         ) {
             return Some(format!(
-                "%id({}, family={parent}{})",
+                "%id({}, session={parent}{})",
                 bang(suffix),
                 bead_suffix(true)
             ));
@@ -443,8 +454,14 @@ impl AgentUnitWire {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ProcUnitWire {
     pub code: CodeValueWire,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub shell_name: Option<String>,
+    // legacy sase-shell spelling; flips in contract-flip
+    #[serde(
+        default,
+        rename = "shell_name",
+        alias = "proc_name",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub proc_name: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub label: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -461,6 +478,8 @@ pub struct ProcUnitWire {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub queue_capacity: Option<u32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub queue_capacity_multiplier: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub wait_priority: Option<i32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub queue_weight: Option<f64>,
@@ -473,6 +492,7 @@ pub struct ProcUnitWire {
 impl ProcUnitWire {
     pub fn has_authored_queue_fields(&self) -> bool {
         self.queue_capacity.is_some()
+            || self.queue_capacity_multiplier.is_some()
             || self.wait_priority.is_some()
             || self.queue_weight.is_some()
             || self.queue_weight_explicit

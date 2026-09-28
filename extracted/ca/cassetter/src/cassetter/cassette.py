@@ -60,7 +60,7 @@ class NoMatchError(Exception):
 
 
 class SkipRecording(Exception):
-    """Raised from a before_record_request or before_record_response hook to skip recording."""
+    """Raised from a before_record_request, before_record_response, or before_record_ws_frame hook to skip recording."""
 
 
 @dataclass(slots=True)
@@ -84,6 +84,7 @@ class RawResponse:
 
 BeforeRecordRequest = Callable[[RawRequest], RawRequest]
 BeforeRecordResponse = Callable[[RawResponse], RawResponse]
+BeforeRecordWsFrame = Callable[[WsFrame], WsFrame]
 UriNormalizer = Callable[[str], str]
 
 
@@ -117,6 +118,7 @@ class Cassette:
         before_record_request: BeforeRecordRequest | None = None,
         before_record_response: BeforeRecordResponse | None = None,
         uri_normalizer: UriNormalizer | None = None,
+        before_record_ws_frame: BeforeRecordWsFrame | None = None,
     ) -> None:
         self._path = os.fspath(path)
         self._record_mode = record_mode
@@ -130,6 +132,7 @@ class Cassette:
         self._ignore_hosts = ignore_hosts or []
         self._before_record_request = before_record_request
         self._before_record_response = before_record_response
+        self._before_record_ws_frame = before_record_ws_frame
         self._uri_normalizer = uri_normalizer
         # Mirror of the inner cassette holding copies with normalized URIs, so
         # matching stays on the Rust path. None when no normalizer.
@@ -153,6 +156,10 @@ class Cassette:
     @property
     def record_mode(self) -> RecordMode:
         return self._record_mode
+
+    @property
+    def match_config(self) -> MatchConfig:
+        return self._match_config
 
     @property
     def ignore_localhost(self) -> bool:
@@ -205,9 +212,18 @@ class Cassette:
         return Counter(self._play_counter)
 
     @property
+    def grpc_played_indices(self) -> list[bool]:
+        return [] if self._inner is None else self._inner.grpc_played
+
+    @property
+    def ws_played_indices(self) -> list[bool]:
+        """Which WebSocket interactions a connection has replayed, by index."""
+        return [] if self._inner is None else self._inner.ws_played
+
+    @property
     def all_played(self) -> bool:
-        """Whether every recorded interaction has been replayed."""
-        return all(self.played_indices)
+        """Whether every recorded interaction has been replayed, across every protocol."""
+        return all(self.played_indices) and all(self.grpc_played_indices) and all(self.ws_played_indices)
 
     def __len__(self) -> int:
         """How many interactions the cassette holds, across every protocol."""
@@ -480,12 +496,24 @@ class Cassette:
 
     # --- gRPC ---
 
-    def play_grpc(self, method: str) -> GrpcResponse:
-        """Find a matching gRPC response for the given method, or raise NoMatchError."""
+    def play_grpc(self, method: str, request_body: Body | None = None) -> GrpcResponse:
+        """Find a matching gRPC response, or raise NoMatchError.
+
+        Args:
+            method: Full RPC method name, e.g. `/pkg.Service/Method`.
+            request_body: Serialized request. Required, and compared byte for byte, when `match_on` includes `"body"`.
+        """
         if self._inner is None:
             raise NoMatchError("cassette not loaded")
 
-        result = self._inner.take_grpc_match(method)
+        if "body" in self._match_config.match_on:
+            if request_body is None:
+                raise ValueError("match_on includes 'body', so play_grpc() needs the request_body to compare")
+            result = self._inner.take_grpc_request_match(GrpcRequest(method, {}, request_body))
+            if result is None:
+                raise NoMatchError(f"no matching gRPC interaction for {method} with this request body")
+        else:
+            result = self._inner.take_grpc_match(method)
         if result is None:
             raise NoMatchError(f"no matching gRPC interaction for {method}")
 
@@ -528,12 +556,37 @@ class Cassette:
 
         probe = WsInteraction(uri, {}, [], "")
         scrubbed = scrub_ws_interaction(probe, self._security_config)
-        result = self._inner.take_ws_match(scrubbed.uri)
+        with self._record_lock:
+            played = self._inner.ws_played
+            result = self._inner.take_ws_match(scrubbed.uri)
         if result is None:
             raise NoMatchError(f"no matching WebSocket interaction for {uri}")
+        if "body" in self._match_config.match_on and played[result[0]]:
+            raise NoMatchError(f"every recorded WebSocket connection to {uri} was already replayed")
 
         _, interaction = result
         return interaction
+
+    def _as_recorded(self, frame: WsFrame) -> WsFrame | None:
+        """The frame as it would be written, so a live frame compares equal to its recording.
+
+        Returns None when the `before_record_ws_frame` hook skips it.
+        """
+        frames = self._recorded_frames([frame])
+        if not frames:
+            return None
+        return scrub_ws_interaction(WsInteraction("", {}, frames, ""), self._security_config).frames[0]
+
+    def _recorded_frames(self, frames: list[WsFrame]) -> list[WsFrame]:
+        if self._before_record_ws_frame is None:
+            return frames
+        kept: list[WsFrame] = []
+        for frame in frames:
+            try:
+                kept.append(self._before_record_ws_frame(frame))
+            except SkipRecording:
+                pass
+        return kept
 
     def record_ws(
         self,
@@ -543,7 +596,7 @@ class Cassette:
     ) -> None:
         """Record a WebSocket interaction."""
         recorded_at = datetime.now(timezone.utc).isoformat()
-        interaction = WsInteraction(uri, headers, frames, recorded_at)
+        interaction = WsInteraction(uri, headers, self._recorded_frames(frames), recorded_at)
 
         # Apply security filtering
         interaction = scrub_ws_interaction(interaction, self._security_config)

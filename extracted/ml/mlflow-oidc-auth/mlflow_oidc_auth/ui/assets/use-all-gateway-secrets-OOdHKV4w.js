@@ -1,0 +1,1 @@
+import{t as e}from"./use-api-D9LSyZZj.js";import{r as t}from"./gateway-service-S8qIPAWf.js";function n(){let{data:n,isLoading:r,error:i,refetch:a}=e(t);return{allGatewaySecrets:n,isLoading:r,error:i,refresh:a}}export{n as t};

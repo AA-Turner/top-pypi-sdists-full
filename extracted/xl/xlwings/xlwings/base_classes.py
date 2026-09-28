@@ -1,3 +1,4 @@
+import math
 from typing import Any, Literal, get_args
 
 
@@ -47,6 +48,230 @@ BorderLineStyle = Literal[
 ]
 BorderWeight = Literal["hairline", "thin", "medium", "thick"]
 
+DataValidationType = Literal[
+    "none",
+    "whole_number",
+    "decimal",
+    "list",
+    "date",
+    "time",
+    "text_length",
+    "custom",
+    "inconsistent",
+    "mixed_criteria",
+    "unknown",
+]
+DATA_VALIDATION_TYPES: tuple[str, ...] = get_args(DataValidationType)
+DataValidationOperator = Literal[
+    "between",
+    "not_between",
+    "equal_to",
+    "not_equal_to",
+    "greater_than",
+    "less_than",
+    "greater_than_or_equal",
+    "less_than_or_equal",
+]
+DATA_VALIDATION_OPERATORS: tuple[str, ...] = get_args(DataValidationOperator)
+DataValidationAlertStyle = Literal["stop", "warning", "information"]
+
+AutoFilterComparisonOperator = Literal[
+    "between",
+    "not_between",
+    "equal_to",
+    "not_equal_to",
+    "greater_than",
+    "less_than",
+    "greater_than_or_equal",
+    "less_than_or_equal",
+]
+AUTOFILTER_COMPARISON_OPERATORS: tuple[str, ...] = get_args(
+    AutoFilterComparisonOperator
+)
+AutoFilterCriteriaType = Literal[
+    "none",
+    "values",
+    "comparison",
+    "top_items",
+    "bottom_items",
+    "top_percent",
+    "bottom_percent",
+    "unknown",
+]
+AUTOFILTER_CRITERIA_TYPES: tuple[str, ...] = get_args(AutoFilterCriteriaType)
+
+
+def empty_autofilter_criteria(field: int, type_: str = "none") -> dict[str, Any]:
+    return {
+        "field": field,
+        "type": type_,
+        "values": None,
+        "operator": None,
+        "value1": None,
+        "value2": None,
+        "count": None,
+        "percent": None,
+    }
+
+
+def _unescape_autofilter_value(value: str) -> str:
+    result = []
+    index = 0
+    while index < len(value):
+        if value[index] == "~" and index + 1 < len(value) and value[index + 1] in "~*?":
+            index += 1
+        result.append(value[index])
+        index += 1
+    return "".join(result)
+
+
+def _split_autofilter_comparison(value: Any) -> tuple[str | None, str | None]:
+    if not isinstance(value, str):
+        return None, None
+    for prefix in (">=", "<=", "<>", ">", "<", "="):
+        if value.startswith(prefix):
+            operand = value[len(prefix) :]
+            return prefix, _unescape_autofilter_value(operand) if operand else None
+    return "=", _unescape_autofilter_value(value)
+
+
+def autofilter_criteria_snapshot(
+    field: int,
+    type_: str,
+    criteria1: Any = None,
+    criteria2: Any = None,
+    join_operator: str | None = None,
+) -> dict[str, Any]:
+    snapshot = empty_autofilter_criteria(field, type_)
+    if type_ == "values":
+        values = criteria1 if isinstance(criteria1, (list, tuple)) else [criteria1]
+        if any(not isinstance(value, str) for value in values):
+            return empty_autofilter_criteria(field, "unknown")
+        snapshot["values"] = [
+            value[1:] if value.startswith("=") else value for value in values
+        ]
+        return snapshot
+    if type_ in ("top_items", "bottom_items"):
+        value = str(criteria1).removeprefix("=")
+        if value.startswith((">", "<")):
+            return snapshot
+        try:
+            snapshot["count"] = int(value)
+        except (TypeError, ValueError):
+            return empty_autofilter_criteria(field, "unknown")
+        return snapshot
+    if type_ in ("top_percent", "bottom_percent"):
+        value = str(criteria1).removeprefix("=")
+        if value.startswith((">", "<")):
+            return snapshot
+        try:
+            snapshot["percent"] = float(value)
+        except (TypeError, ValueError):
+            return empty_autofilter_criteria(field, "unknown")
+        if not math.isfinite(snapshot["percent"]):
+            return empty_autofilter_criteria(field, "unknown")
+        return snapshot
+    if type_ != "comparison":
+        return snapshot
+
+    prefix1, value1 = _split_autofilter_comparison(criteria1)
+    prefix2, value2 = _split_autofilter_comparison(criteria2)
+    if prefix1 is None:
+        return empty_autofilter_criteria(field, "unknown")
+    if criteria2 is not None:
+        if (
+            join_operator == "or"
+            and (prefix1, prefix2) == ("=", "=")
+            and value1 is not None
+            and value2 is not None
+        ):
+            snapshot["type"] = "values"
+            snapshot["values"] = [value1, value2]
+            return snapshot
+        if join_operator == "and" and (prefix1, prefix2) == (">=", "<="):
+            operator = "between"
+        elif join_operator == "or" and (prefix1, prefix2) == ("<", ">"):
+            operator = "not_between"
+        else:
+            return empty_autofilter_criteria(field, "unknown")
+    else:
+        operator = {
+            "=": "equal_to",
+            "<>": "not_equal_to",
+            ">": "greater_than",
+            "<": "less_than",
+            ">=": "greater_than_or_equal",
+            "<=": "less_than_or_equal",
+        }.get(prefix1)
+        if operator is None:
+            return empty_autofilter_criteria(field, "unknown")
+    snapshot["operator"] = operator
+    snapshot["value1"] = value1
+    snapshot["value2"] = value2
+    return snapshot
+
+
+# Conditional-format types supported by the first public rule model. Other
+# native rule types remain visible as `unknown` so callers can inspect and
+# delete them without the engines silently dropping them from the collection.
+ConditionalFormatType = Literal[
+    "cell_value",
+    "custom",
+    "color_scale",
+    "data_bar",
+    "icon_set",
+    "unknown",
+]
+CONDITIONAL_FORMAT_TYPES: tuple[str, ...] = get_args(ConditionalFormatType)
+ConditionalFormatOperator = Literal[
+    "between",
+    "not_between",
+    "equal_to",
+    "not_equal_to",
+    "greater_than",
+    "less_than",
+    "greater_than_or_equal",
+    "less_than_or_equal",
+]
+CONDITIONAL_FORMAT_OPERATORS: tuple[str, ...] = get_args(ConditionalFormatOperator)
+ConditionalFormatThresholdType = Literal["number", "percent", "percentile"]
+CONDITIONAL_FORMAT_THRESHOLD_TYPES: tuple[str, ...] = get_args(
+    ConditionalFormatThresholdType
+)
+ConditionalFormatCriterionType = Literal[
+    "automatic",
+    "lowest_value",
+    "highest_value",
+    "number",
+    "percent",
+    "percentile",
+    "formula",
+    "unknown",
+]
+ConditionalFormatIconSet = Literal[
+    "3_arrows",
+    "3_arrows_gray",
+    "3_flags",
+    "3_traffic_lights_1",
+    "3_traffic_lights_2",
+    "3_signs",
+    "3_symbols",
+    "3_symbols_2",
+    "4_arrows",
+    "4_arrows_gray",
+    "4_red_to_black",
+    "4_rating",
+    "4_traffic_lights",
+    "5_arrows",
+    "5_arrows_gray",
+    "5_rating",
+    "5_quarters",
+    "3_stars",
+    "3_triangles",
+    "5_boxes",
+]
+CONDITIONAL_FORMAT_ICON_SETS: tuple[str, ...] = get_args(ConditionalFormatIconSet)
+
 # Border side names in canonical order. main.Borders validates and expands the
 # user-facing selectors into these before calling an engine, so engines only
 # ever see the canonical names. The first six are the grid sides that the
@@ -59,8 +284,22 @@ BORDER_GRID_SIDES = BORDER_SIDES[:6]
 # main.Chart validates them so engines only ever see the canonical names.
 ChartLegendPosition = Literal["top", "bottom", "left", "right", "corner"]
 ChartPlotBy = Literal["rows", "columns"]
+ChartMarkerStyle = Literal[
+    "automatic",
+    "none",
+    "square",
+    "diamond",
+    "triangle",
+    "x",
+    "star",
+    "dot",
+    "dash",
+    "circle",
+    "plus",
+]
 CHART_LEGEND_POSITIONS: tuple[str, ...] = get_args(ChartLegendPosition)
 CHART_PLOT_BY: tuple[str, ...] = get_args(ChartPlotBy)
+CHART_MARKER_STYLES: tuple[str, ...] = get_args(ChartMarkerStyle)
 
 # The pivot table vocabulary. PivotFunction lists Excel's "Summarize Values By"
 # options, named after the worksheet functions: note that "count" counts
@@ -387,6 +626,9 @@ class Books:
 
 
 class Book:
+    async def get_comments(self):
+        raise NotImplementedError("get_comments() is only supported in xlwings Lite")
+
     @property
     def api(self):
         raise NotImplementedError()
@@ -486,6 +728,17 @@ class Sheet:
         raise NotImplementedError()
 
     @property
+    def notes(self):
+        raise NotImplementedError()
+
+    @property
+    def comments(self):
+        raise NotImplementedError()
+
+    async def get_comments(self):
+        raise NotImplementedError("get_comments() is only supported in xlwings Lite")
+
+    @property
     def index(self):
         raise NotImplementedError()
 
@@ -520,6 +773,9 @@ class Sheet:
     def copy(self, before, after):
         raise NotImplementedError()
 
+    def move(self, before, after):
+        raise NotImplementedError()
+
     @property
     def charts(self):
         raise NotImplementedError()
@@ -539,6 +795,11 @@ class Sheet:
     @property
     def used_range(self):
         raise NotImplementedError()
+
+    async def get_used_range(self, values_only=False):
+        raise NotImplementedError(
+            "Sheet.get_used_range() is only supported in xlwings Lite"
+        )
 
     @property
     def visible(self):
@@ -568,6 +829,47 @@ class Sheet:
 
 
 class Range:
+    @property
+    def row_hidden(self):
+        raise NotImplementedError()
+
+    @row_hidden.setter
+    def row_hidden(self, value):
+        raise NotImplementedError()
+
+    @property
+    def column_hidden(self):
+        raise NotImplementedError()
+
+    @column_hidden.setter
+    def column_hidden(self, value):
+        raise NotImplementedError()
+
+    async def get_row_hidden(self):
+        raise NotImplementedError("get_hidden() is only supported in xlwings Lite")
+
+    async def get_column_hidden(self):
+        raise NotImplementedError("get_hidden() is only supported in xlwings Lite")
+
+    def sort(self, keys, ascending, has_headers):
+        raise NotImplementedError()
+
+    def remove_duplicates(self, columns, has_headers):
+        raise NotImplementedError()
+
+    def get_special_cells(self, cell_type, value_type):
+        raise NotImplementedError()
+
+    def find(self, text, whole, direction, order, match_case):
+        raise NotImplementedError()
+
+    def replace_all(self, old, new, whole, match_case):
+        raise NotImplementedError()
+
+    @property
+    def autofilter(self):
+        raise NotImplementedError()
+
     def get_async_pipeline_overrides(self, options):
         raise NotImplementedError("get_value() is only supported in xlwings Lite")
 
@@ -634,8 +936,26 @@ class Range:
     async def get_table(self):
         raise NotImplementedError("get_table() is only supported in xlwings Lite")
 
+    async def get_data_validation(self):
+        raise NotImplementedError(
+            "get_data_validation() is only supported in xlwings Lite"
+        )
+
     async def get_color(self):
         raise NotImplementedError("Range.get_color() is only supported in xlwings Lite")
+
+    async def get_colors(self):
+        raise NotImplementedError(
+            "Range.get_colors() is only supported in xlwings Lite"
+        )
+
+    def set_colors(self, colors):
+        raise NotImplementedError("Range.set_colors() is not supported by this engine")
+
+    async def get_conditional_formats(self):
+        raise NotImplementedError(
+            "get_conditional_formats() is only supported in xlwings Lite"
+        )
 
     def adjust_indent(self, amount):
         raise NotImplementedError()
@@ -736,6 +1056,10 @@ class Range:
         raise NotImplementedError()
 
     @property
+    def data_validation(self):
+        raise NotImplementedError()
+
+    @property
     def column_width(self):
         raise NotImplementedError()
 
@@ -826,6 +1150,10 @@ class Range:
         raise NotImplementedError()
 
     @property
+    def conditional_formats(self):
+        raise NotImplementedError()
+
+    @property
     def name(self):
         raise NotImplementedError()
 
@@ -897,6 +1225,19 @@ class Range:
     def note(self):
         raise NotImplementedError()
 
+    def add_note(self, text):
+        raise NotImplementedError()
+
+    @property
+    def comment(self):
+        raise NotImplementedError()
+
+    async def get_comment(self):
+        raise NotImplementedError("get_comment() is only supported in xlwings Lite")
+
+    def add_comment(self, text):
+        raise NotImplementedError()
+
     def copy_picture(self, appearance, format):
         raise NotImplementedError()
 
@@ -907,6 +1248,51 @@ class Range:
         raise NotImplementedError()
 
     def autofill(self, destination, type_):
+        raise NotImplementedError()
+
+
+class DataValidation:
+    @property
+    def api(self):
+        raise NotImplementedError()
+
+    def set_list(self, source, in_cell_dropdown):
+        raise NotImplementedError()
+
+    def set_rule(self, rule_type, operator, formula1, formula2):
+        raise NotImplementedError()
+
+    def delete(self):
+        raise NotImplementedError()
+
+
+class AutoFilter:
+    @property
+    def criteria(self):
+        raise NotImplementedError()
+
+    async def get_criteria(self):
+        raise NotImplementedError("get_criteria() is only supported in xlwings Lite")
+
+    def apply_values(self, field, values):
+        raise NotImplementedError()
+
+    def apply_comparison(self, field, operator, value1, value2):
+        raise NotImplementedError()
+
+    def apply_top_items(self, field, count):
+        raise NotImplementedError()
+
+    def apply_bottom_items(self, field, count):
+        raise NotImplementedError()
+
+    def apply_top_percent(self, field, percent):
+        raise NotImplementedError()
+
+    def apply_bottom_percent(self, field, percent):
+        raise NotImplementedError()
+
+    def clear(self, field):
         raise NotImplementedError()
 
 
@@ -1373,11 +1759,207 @@ class Note:
     async def get_text(self):
         raise NotImplementedError("Note.get_text() is only supported in xlwings Lite")
 
+    @property
+    def author(self):
+        raise NotImplementedError()
+
+    async def get_author(self):
+        raise NotImplementedError("Note.get_author() is only supported in xlwings Lite")
+
+    @property
+    def location(self):
+        raise NotImplementedError()
+
+    async def get_location(self):
+        raise NotImplementedError(
+            "Note.get_location() is only supported in xlwings Lite"
+        )
+
     def delete(self):
         raise NotImplementedError()
 
 
+class Comment:
+    @property
+    def api(self):
+        raise NotImplementedError()
+
+    @property
+    def text(self):
+        raise NotImplementedError()
+
+    @text.setter
+    def text(self, value):
+        raise NotImplementedError()
+
+    async def get_text(self):
+        raise NotImplementedError("get_text() is only supported in xlwings Lite")
+
+    @property
+    def author(self):
+        raise NotImplementedError()
+
+    async def get_author(self):
+        raise NotImplementedError("get_author() is only supported in xlwings Lite")
+
+    @property
+    def creation_date(self):
+        raise NotImplementedError()
+
+    async def get_creation_date(self):
+        raise NotImplementedError(
+            "get_creation_date() is only supported in xlwings Lite"
+        )
+
+    @property
+    def resolved(self):
+        raise NotImplementedError()
+
+    async def get_resolved(self):
+        raise NotImplementedError("get_resolved() is only supported in xlwings Lite")
+
+    def set_resolved(self, value):
+        raise NotImplementedError()
+
+    @property
+    def location(self):
+        raise NotImplementedError()
+
+    async def get_location(self):
+        raise NotImplementedError("get_location() is only supported in xlwings Lite")
+
+    @property
+    def replies(self):
+        raise NotImplementedError()
+
+    async def get_replies(self):
+        raise NotImplementedError("get_replies() is only supported in xlwings Lite")
+
+    def add_reply(self, text):
+        raise NotImplementedError()
+
+    def delete(self):
+        raise NotImplementedError()
+
+
+class CommentReply:
+    @property
+    def text(self):
+        raise NotImplementedError()
+
+    async def get_text(self):
+        raise NotImplementedError("get_text() is only supported in xlwings Lite")
+
+
+class ConditionalFormat:
+    @property
+    def api(self):
+        raise NotImplementedError()
+
+    @property
+    def type(self):
+        raise NotImplementedError()
+
+    @property
+    def stop_if_true(self):
+        raise NotImplementedError()
+
+    @property
+    def operator(self):
+        raise NotImplementedError()
+
+    @property
+    def formula1(self):
+        raise NotImplementedError()
+
+    @property
+    def formula2(self):
+        raise NotImplementedError()
+
+    @property
+    def formula(self):
+        raise NotImplementedError()
+
+    @property
+    def fill_color(self):
+        raise NotImplementedError()
+
+    @property
+    def font_color(self):
+        raise NotImplementedError()
+
+    @property
+    def font_bold(self):
+        raise NotImplementedError()
+
+    @property
+    def font_italic(self):
+        raise NotImplementedError()
+
+    @property
+    def colors(self):
+        raise NotImplementedError()
+
+    @property
+    def bar_color(self):
+        raise NotImplementedError()
+
+    @property
+    def gradient(self):
+        raise NotImplementedError()
+
+    @property
+    def show_value(self):
+        raise NotImplementedError()
+
+    @property
+    def icon_set(self):
+        raise NotImplementedError()
+
+    @property
+    def reverse_order(self):
+        raise NotImplementedError()
+
+    @property
+    def threshold_types(self):
+        raise NotImplementedError()
+
+    @property
+    def thresholds(self):
+        raise NotImplementedError()
+
+    def set(self, changes):
+        raise NotImplementedError()
+
+    def delete(self):
+        raise NotImplementedError()
+
+
+class ConditionalFormats(Collection):
+    def add_cell_value(self, spec):
+        raise NotImplementedError()
+
+    def add_custom(self, spec):
+        raise NotImplementedError()
+
+    def add_color_scale(self, spec):
+        raise NotImplementedError()
+
+    def add_data_bar(self, spec):
+        raise NotImplementedError()
+
+    def add_icon_set(self, spec):
+        raise NotImplementedError()
+
+    def clear(self):
+        raise NotImplementedError()
+
+
 class Table:
+    @property
+    def columns(self):
+        raise NotImplementedError()
+
     @property
     def api(self):
         raise NotImplementedError()
@@ -1417,6 +1999,10 @@ class Table:
 
     @property
     def range(self):
+        raise NotImplementedError()
+
+    @property
+    def autofilter(self):
         raise NotImplementedError()
 
     @property
@@ -1490,6 +2076,69 @@ class Table:
     def resize(self, range):
         raise NotImplementedError()
 
+    @property
+    def rows(self):
+        raise NotImplementedError()
+
+
+class TableRow:
+    @property
+    def index(self):
+        raise NotImplementedError()
+
+    @property
+    def range(self):
+        raise NotImplementedError()
+
+    async def get_range(self):
+        raise NotImplementedError()
+
+    def delete(self):
+        raise NotImplementedError()
+
+
+class TableRows(Collection):
+    def add(self, values, index):
+        raise NotImplementedError()
+
+    async def get_count(self):
+        raise NotImplementedError()
+
+
+class TableColumn:
+    @property
+    def name(self):
+        raise NotImplementedError()
+
+    @property
+    def index(self):
+        raise NotImplementedError()
+
+    @property
+    def range(self):
+        raise NotImplementedError()
+
+    async def get_range(self):
+        raise NotImplementedError()
+
+    @property
+    def data_body_range(self):
+        raise NotImplementedError()
+
+    async def get_data_body_range(self):
+        raise NotImplementedError()
+
+    def delete(self):
+        raise NotImplementedError()
+
+
+class TableColumns:
+    def add(self, name, index):
+        raise NotImplementedError()
+
+    async def get_count(self):
+        raise NotImplementedError()
+
 
 class Tables:
     def add(
@@ -1546,6 +2195,21 @@ class Chart:
     @property
     def legend(self):
         raise NotImplementedError()
+
+    @property
+    def category_axis(self):
+        raise NotImplementedError()
+
+    @property
+    def value_axis(self):
+        raise NotImplementedError()
+
+    @property
+    def series(self):
+        raise NotImplementedError()
+
+    async def get_series(self):
+        raise NotImplementedError("get_series() is only supported in xlwings Lite")
 
     @property
     def plot_by(self):
@@ -1606,6 +2270,202 @@ class Chart:
 
     async def get_png(self):
         raise NotImplementedError("get_png() is only supported in xlwings Lite")
+
+
+class ChartAxis:
+    @property
+    def api(self):
+        raise NotImplementedError()
+
+    @property
+    def title(self):
+        raise NotImplementedError()
+
+    @title.setter
+    def title(self, value):
+        raise NotImplementedError()
+
+    @property
+    def minimum_scale(self):
+        raise NotImplementedError()
+
+    @minimum_scale.setter
+    def minimum_scale(self, value):
+        raise NotImplementedError()
+
+    @property
+    def maximum_scale(self):
+        raise NotImplementedError()
+
+    @maximum_scale.setter
+    def maximum_scale(self, value):
+        raise NotImplementedError()
+
+    @property
+    def major_unit(self):
+        raise NotImplementedError()
+
+    @major_unit.setter
+    def major_unit(self, value):
+        raise NotImplementedError()
+
+    @property
+    def number_format(self):
+        raise NotImplementedError()
+
+    @number_format.setter
+    def number_format(self, value):
+        raise NotImplementedError()
+
+    @property
+    def visible(self):
+        raise NotImplementedError()
+
+    @visible.setter
+    def visible(self, value):
+        raise NotImplementedError()
+
+    def set(
+        self,
+        *,
+        title=_UNSET,
+        minimum_scale=_UNSET,
+        maximum_scale=_UNSET,
+        major_unit=_UNSET,
+        number_format=_UNSET,
+        visible=_UNSET,
+    ):
+        raise NotImplementedError()
+
+    async def get_title(self):
+        raise NotImplementedError("get_title() is only supported in xlwings Lite")
+
+    async def get_minimum_scale(self):
+        raise NotImplementedError(
+            "get_minimum_scale() is only supported in xlwings Lite"
+        )
+
+    async def get_maximum_scale(self):
+        raise NotImplementedError(
+            "get_maximum_scale() is only supported in xlwings Lite"
+        )
+
+    async def get_major_unit(self):
+        raise NotImplementedError("get_major_unit() is only supported in xlwings Lite")
+
+    async def get_number_format(self):
+        raise NotImplementedError(
+            "get_number_format() is only supported in xlwings Lite"
+        )
+
+    async def get_visible(self):
+        raise NotImplementedError("get_visible() is only supported in xlwings Lite")
+
+
+class ChartSeries:
+    @property
+    def api(self):
+        raise NotImplementedError()
+
+    @property
+    def name(self):
+        raise NotImplementedError()
+
+    @name.setter
+    def name(self, value):
+        raise NotImplementedError()
+
+    @property
+    def marker_style(self):
+        raise NotImplementedError()
+
+    @marker_style.setter
+    def marker_style(self, value):
+        raise NotImplementedError()
+
+    @property
+    def marker_size(self):
+        raise NotImplementedError()
+
+    @marker_size.setter
+    def marker_size(self, value):
+        raise NotImplementedError()
+
+    @property
+    def marker_foreground_color(self):
+        raise NotImplementedError()
+
+    @marker_foreground_color.setter
+    def marker_foreground_color(self, value):
+        raise NotImplementedError()
+
+    @property
+    def marker_background_color(self):
+        raise NotImplementedError()
+
+    @marker_background_color.setter
+    def marker_background_color(self, value):
+        raise NotImplementedError()
+
+    @property
+    def line_color(self):
+        raise NotImplementedError()
+
+    @line_color.setter
+    def line_color(self, value):
+        raise NotImplementedError()
+
+    @property
+    def fill_color(self):
+        raise NotImplementedError()
+
+    @fill_color.setter
+    def fill_color(self, value):
+        raise NotImplementedError()
+
+    def set(
+        self,
+        *,
+        name=_UNSET,
+        marker_style=_UNSET,
+        marker_size=_UNSET,
+        marker_foreground_color=_UNSET,
+        marker_background_color=_UNSET,
+        line_color=_UNSET,
+        fill_color=_UNSET,
+    ):
+        raise NotImplementedError()
+
+    async def get_name(self):
+        raise NotImplementedError("get_name() is only supported in xlwings Lite")
+
+    async def get_marker_style(self):
+        raise NotImplementedError(
+            "get_marker_style() is only supported in xlwings Lite"
+        )
+
+    async def get_marker_size(self):
+        raise NotImplementedError("get_marker_size() is only supported in xlwings Lite")
+
+    async def get_marker_foreground_color(self):
+        raise NotImplementedError(
+            "get_marker_foreground_color() is only supported in xlwings Lite"
+        )
+
+    async def get_marker_background_color(self):
+        raise NotImplementedError(
+            "get_marker_background_color() is only supported in xlwings Lite"
+        )
+
+    async def get_line_color(self):
+        raise NotImplementedError("get_line_color() is only supported in xlwings Lite")
+
+    async def get_fill_color(self):
+        raise NotImplementedError("get_fill_color() is only supported in xlwings Lite")
+
+
+class ChartSeriesCollection(Collection):
+    pass
 
 
 class ChartLegend:
@@ -1715,8 +2575,14 @@ class PivotTable:
     def range(self):
         raise NotImplementedError()
 
+    async def get_range(self):
+        raise NotImplementedError()
+
     @property
     def data_body_range(self):
+        raise NotImplementedError()
+
+    async def get_data_body_range(self):
         raise NotImplementedError()
 
     def refresh(self):

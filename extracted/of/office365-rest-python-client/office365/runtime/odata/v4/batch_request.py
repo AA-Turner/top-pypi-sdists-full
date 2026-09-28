@@ -51,6 +51,7 @@ class ODataV4BatchRequest(ODataRequest):
             HTTPError: If any sub-request in the batch fails
         """
         for sub_qry, sub_resp in self._extract_response(response, query):
+            self._observe_throttle(sub_resp)
             sub_resp.raise_for_status()
             super().process_response(sub_resp, sub_qry)
 
@@ -76,7 +77,7 @@ class ODataV4BatchRequest(ODataRequest):
             base_delay: Base delay for exponential backoff (seconds)
             jitter: Whether to randomize the delay (default True)
         """
-        from office365.runtime.retry import TRANSIENT_STATUS_CODES, response_retry_after, retry
+        from office365.runtime.retry import TRANSIENT_STATUS_CODES, response_retry_after, retry, retry_after_delay
 
         state: dict = {"pending": query, "retry_after": None}
 
@@ -93,6 +94,7 @@ class ODataV4BatchRequest(ODataRequest):
             failures: list[tuple[ClientQuery, Response]] = []
             retry_after: Optional[int] = None
             for sub_qry, sub_resp in self._extract_response(response, state["pending"]):
+                self._observe_throttle(sub_resp)
                 if sub_resp.status_code in TRANSIENT_STATUS_CODES:
                     failures.append((sub_qry, sub_resp))
                     retry_after = max(retry_after or 0, response_retry_after(sub_resp) or 0)
@@ -103,7 +105,7 @@ class ODataV4BatchRequest(ODataRequest):
                 self.afterExecute(response)
                 return
             state["retry_after"] = retry_after or None
-            state["pending"] = BatchQuery(query.context, [qry for qry, _ in failures])
+            state["pending"] = BatchQuery(query.context, [qry for qry, _ in failures], sequential=query.sequential)
             raise ClientRequestException.from_response(failures[0][1])
 
         try:
@@ -112,7 +114,7 @@ class ODataV4BatchRequest(ODataRequest):
                 max_retry=max_retry,
                 timeout_secs=base_delay,
                 jitter=jitter,
-                on_failure=lambda _attempt_num, _ex: state["retry_after"],
+                on_failure=lambda _attempt_num, ex: state["retry_after"] or retry_after_delay(ex),
             )
         except WholeBatchRejected as reject:
             self._split_and_retry(query, reject, max_retry, base_delay, jitter)
@@ -134,7 +136,9 @@ class ODataV4BatchRequest(ODataRequest):
             raise ClientRequestException(message, response=reject.response) from reject
         mid = len(queries) // 2  # noqa: PLR2004
         for half in (queries[:mid], queries[mid:]):
-            self.execute_query_with_retry(BatchQuery(query.context, half), max_retry, base_delay, jitter)
+            self.execute_query_with_retry(
+                BatchQuery(query.context, half, sequential=query.sequential), max_retry, base_delay, jitter
+            )
 
     @staticmethod
     def _extract_response(response: Response, query: BatchQuery) -> Iterator[Tuple[ClientQuery, Response]]:
@@ -154,11 +158,19 @@ class ODataV4BatchRequest(ODataRequest):
             resp.headers = CaseInsensitiveDict(json_resp["headers"])
             resp._content = json.dumps(json_resp["body"]).encode("utf-8")
             qry_id = int(json_resp["id"])
-            qry = query.ordered_queries[qry_id]
+            # Ids are assigned in submission order (see ``_prepare_payload``), so
+            # map back with the same list — ``ordered_queries`` re-groups (non-GET
+            # first) and would attribute mixed batches to the wrong queries.
+            qry = query.queries[qry_id]
             yield qry, resp
 
     def _prepare_payload(self, query: BatchQuery) -> Dict[str, Any]:
         """Prepares the batch request payload.
+
+        With ``query.sequential`` the sub-requests are chained with ``dependsOn``
+        so Graph runs them in order (a failed dependency yields ``424``). Ids are
+        assigned in submission order — the same order :meth:`_extract_response`
+        maps responses back with.
 
         Args:
             query: The BatchQuery containing individual queries
@@ -166,10 +178,13 @@ class ODataV4BatchRequest(ODataRequest):
         Returns:
             Dictionary containing the JSON batch request structure
         """
-        requests_json = []
+        requests_json: list[dict] = []
+        previous_id: Optional[str] = None
         for qry in query.queries:
             qry_id = str(len(requests_json))
-            requests_json.append(self._normalize_request(qry, qry_id))
+            depends_on = [previous_id] if (query.sequential and previous_id is not None) else None
+            requests_json.append(self._normalize_request(qry, qry_id, depends_on))
+            previous_id = qry_id
 
         return {"requests": requests_json}
 

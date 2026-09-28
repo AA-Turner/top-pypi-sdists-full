@@ -1,9 +1,10 @@
+from __future__ import annotations
+
 from math import isfinite
-from typing import Any, Dict, NamedTuple
+from typing import TYPE_CHECKING, Any, NamedTuple
 
 from graphql import graphql_sync
 from graphql.error import GraphQLError
-from graphql.language import ValueNode
 from graphql.pyutils import inspect
 from graphql.type import (
     GraphQLArgument,
@@ -14,6 +15,9 @@ from graphql.type import (
     GraphQLSchema,
 )
 from graphql.utilities import value_from_ast_untyped
+
+if TYPE_CHECKING:
+    from graphql.language import ConstValueNode
 
 # this test is not (yet) part of GraphQL.js, see
 # https://github.com/graphql/graphql-js/issues/2657
@@ -31,7 +35,7 @@ def is_finite(value: Any) -> bool:
     )
 
 
-def serialize_money(output_value: Any) -> Dict[str, float]:
+def serialize_money(output_value: Any) -> dict[str, float]:
     if not isinstance(output_value, Money):
         raise GraphQLError("Cannot serialize money value: " + inspect(output_value))
     return output_value._asdict()
@@ -43,23 +47,25 @@ def parse_money_value(input_value: Any) -> Money:
     return input_value
 
 
-def parse_money_literal(value_node: ValueNode, variables=None) -> Money:
-    money = value_from_ast_untyped(value_node, variables)
-    if variables is not None and (
-        # variables are not set when checked with ValuesOfCorrectTypeRule
-        not money
-        or not is_finite(money.get("amount"))
-        or not isinstance(money.get("currency"), str)
-    ):
+def coerce_money_input_literal(value_node: ConstValueNode) -> Money:
+    money = value_from_ast_untyped(value_node)
+    amount: Any = money.get("amount") if isinstance(money, dict) else None
+    currency: Any = money.get("currency") if isinstance(money, dict) else None
+    # Note: when validating with the ValuesOfCorrectTypeRule, embedded variables
+    # are removed from the literal, so the fields may be missing here; only the
+    # values that are actually present are checked.
+    valid_amount = amount is None or is_finite(amount)
+    valid_currency = currency is None or isinstance(currency, str)
+    if not valid_amount or not valid_currency:
         raise GraphQLError("Cannot parse literal money value: " + inspect(money))
-    return Money(**money)
+    return Money(amount, currency)
 
 
 MoneyScalar = GraphQLScalarType(
     name="Money",
-    serialize=serialize_money,
-    parse_value=parse_money_value,
-    parse_literal=parse_money_literal,
+    coerce_output_value=serialize_money,
+    coerce_input_value=parse_money_value,
+    coerce_input_literal=coerce_money_input_literal,
 )
 
 
@@ -93,7 +99,7 @@ schema = GraphQLSchema(
 
 
 def describe_custom_scalar():
-    def serialize():
+    def coerce_output_value():
         source = """
             {
               balance
@@ -103,7 +109,7 @@ def describe_custom_scalar():
         result = graphql_sync(schema, source, root_value=Money(42, "DM"))
         assert result == ({"balance": {"amount": 42, "currency": "DM"}}, None)
 
-    def serialize_with_error():
+    def coerce_output_value_with_error():
         source = """
             {
               balance
@@ -122,7 +128,7 @@ def describe_custom_scalar():
             ],
         )
 
-    def parse_value():
+    def coerce_input_value():
         source = """
             query Money($money: Money!) {
               toEuros(money: $money)
@@ -139,7 +145,7 @@ def describe_custom_scalar():
         )
         assert result == ({"toEuros": 21}, None)
 
-    def parse_value_with_error():
+    def coerce_input_value_with_error():
         source = """
             query Money($money: Money!) {
               toEuros(money: $money)
@@ -164,7 +170,7 @@ def describe_custom_scalar():
             None,
             [
                 {
-                    "message": "Variable '$money' got invalid value 21;"
+                    "message": "Variable '$money' has invalid value:"
                     " Cannot parse money value: 21",
                     "locations": [(2, 25)],
                 }
@@ -185,7 +191,7 @@ def describe_custom_scalar():
     def parse_literal_with_errors():
         source = """
             query Money($amount: String!, $currency: Float!) {
-              toEuros(money: {amount: $amount, currency: $currency})
+              toEuros(money: { amount: $amount, currency: $currency })
             }
             """
 
@@ -195,9 +201,10 @@ def describe_custom_scalar():
             {"toEuros": None},
             [
                 {
-                    "message": "Argument 'money' has invalid value"
-                    " {amount: $amount, currency: $currency}.",
-                    "locations": [(3, 30)],
+                    "message": "Argument 'money' has invalid value:"
+                    " Cannot parse literal money value:"
+                    " {'amount': 'DM', 'currency': 42}",
+                    "locations": [(3, 15)],
                 },
             ],
         )

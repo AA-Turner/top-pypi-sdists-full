@@ -1,4 +1,8 @@
-from typing import Any, Tuple, Type, Union
+"""Human-readable descriptions"""
+
+from __future__ import annotations
+
+from typing import Any
 
 __all__ = [
     "Description",
@@ -9,7 +13,7 @@ __all__ = [
 
 
 class Description:
-    """Type checker for human readable descriptions.
+    """Type checker for human-readable descriptions.
 
     By default, only ordinary strings are accepted as descriptions,
     but you can register() other classes that will also be allowed,
@@ -17,17 +21,19 @@ class Description:
     If you register(object), any object will be allowed as description.
     """
 
-    bases: Union[Type[Any], Tuple[Type[Any], ...]] = str
+    bases: type | tuple[type, ...] = str
 
     @classmethod
     def isinstance(cls, obj: Any) -> bool:
+        """Check whether this is an instance of a description."""
         return isinstance(obj, cls.bases)
 
     @classmethod
-    def register(cls, base: Type[Any]) -> None:
+    def register(cls, base: type) -> None:
         """Register a class that shall be accepted as a description."""
         if not isinstance(base, type):
-            raise TypeError("Only types can be registered.")
+            msg = "Only types can be registered."
+            raise TypeError(msg)
         if base is object:
             cls.bases = object
         elif cls.bases is object:
@@ -39,10 +45,11 @@ class Description:
             cls.bases += (base,)
 
     @classmethod
-    def unregister(cls, base: Type[Any]) -> None:
+    def unregister(cls, base: type) -> None:
         """Unregister a class that shall no more be accepted as a description."""
         if not isinstance(base, type):
-            raise TypeError("Only types can be unregistered.")
+            msg = "Only types can be unregistered."
+            raise TypeError(msg)
         if isinstance(cls.bases, tuple):
             if base in cls.bases:  # pragma: no branch
                 cls.bases = tuple(b for b in cls.bases if b is not base)

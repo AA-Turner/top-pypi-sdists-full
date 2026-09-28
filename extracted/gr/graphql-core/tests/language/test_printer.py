@@ -1,6 +1,6 @@
 from copy import deepcopy
 
-from pytest import raises
+import pytest
 
 from graphql.error import GraphQLSyntaxError
 from graphql.language import (
@@ -22,12 +22,11 @@ def describe_printer_query_document():
 
     def produces_helpful_error_messages():
         bad_ast = {"random": "Data"}
-        with raises(TypeError) as exc_info:
-            # noinspection PyTypeChecker
+        with pytest.raises(TypeError) as exc_info:
             print_ast(bad_ast)  # type: ignore
         assert str(exc_info.value) == "Not an AST Node: {'random': 'Data'}."
-        corrupt_ast = FieldNode(name="random data")
-        with raises(TypeError) as exc_info:
+        corrupt_ast = FieldNode(name="random data")  # type: ignore[arg-type]
+        with pytest.raises(TypeError) as exc_info:
             print_ast(corrupt_ast)
         assert str(exc_info.value) == "Invalid AST Node: 'random data'."
 
@@ -43,44 +42,52 @@ def describe_printer_query_document():
         query_ast_with_artifacts = parse(
             "query ($foo: TestType) @testDirective { id, name }"
         )
-        assert print_ast(query_ast_with_artifacts) == dedent("""
+        assert print_ast(query_ast_with_artifacts) == dedent(
+            """
             query ($foo: TestType) @testDirective {
               id
               name
             }
-            """)
+            """
+        )
 
     def correctly_prints_mutation_operation_with_artifacts():
         mutation_ast_with_artifacts = parse(
             "mutation ($foo: TestType) @testDirective { id, name }"
         )
-        assert print_ast(mutation_ast_with_artifacts) == dedent("""
+        assert print_ast(mutation_ast_with_artifacts) == dedent(
+            """
             mutation ($foo: TestType) @testDirective {
               id
               name
             }
-            """)
+            """
+        )
 
     def prints_query_with_variable_directives():
         query_ast_with_variable_directive = parse(
-            "query ($foo: TestType = {a: 123}" " @testDirective(if: true) @test) { id }"
+            "query ($foo: TestType = { a: 123 } @testDirective(if: true) @test) { id }"
         )
-        assert print_ast(query_ast_with_variable_directive) == dedent("""
-            query ($foo: TestType = {a: 123} @testDirective(if: true) @test) {
+        assert print_ast(query_ast_with_variable_directive) == dedent(
+            """
+            query ($foo: TestType = { a: 123 } @testDirective(if: true) @test) {
               id
             }
-            """)
+            """
+        )
 
     def keeps_arguments_on_one_line_if_line_has_80_chars_or_less():
         printed = print_ast(parse("{trip(wheelchair:false arriveBy:false){dateTime}}"))
 
-        assert printed == dedent("""
+        assert printed == dedent(
+            """
             {
               trip(wheelchair: false, arriveBy: false) {
                 dateTime
               }
             }
-            """)
+            """
+        )
 
     def puts_arguments_on_multiple_lines_if_line_has_more_than_80_chars():
         printed = print_ast(
@@ -90,7 +97,8 @@ def describe_printer_query_document():
             )
         )
 
-        assert printed == dedent("""
+        assert printed == dedent(
+            """
             {
               trip(
                 wheelchair: false
@@ -101,50 +109,143 @@ def describe_printer_query_document():
                 dateTime
               }
             }
-            """)
-
-    def legacy_prints_fragment_with_variable_directives():
-        query_ast_with_variable_directive = parse(
-            "fragment Foo($foo: TestType @test) on TestType @testDirective { id }",
-            allow_legacy_fragment_variables=True,
+            """
         )
-        assert print_ast(query_ast_with_variable_directive) == dedent("""
+
+    def puts_large_object_values_on_multiple_lines_if_line_has_more_than_80_chars():
+        printed = print_ast(
+            parse(
+                "{trip(obj:{wheelchair:false,smallObj:{a: 1},largeObj:"
+                "{wheelchair:false,smallObj:{a: 1},arriveBy:false,"
+                "includePlannedCancellations:true,transitDistanceReluctance:2000,"
+                'anotherLongFieldName:"Lots and lots and lots and lots of text"},'
+                "arriveBy:false,includePlannedCancellations:true,"
+                "transitDistanceReluctance:2000,anotherLongFieldName:"
+                '"Lots and lots and lots and lots of text"}){dateTime}}'
+            )
+        )
+
+        assert printed == dedent(
+            """
+            {
+              trip(
+                obj: {
+                  wheelchair: false
+                  smallObj: { a: 1 }
+                  largeObj: {
+                    wheelchair: false
+                    smallObj: { a: 1 }
+                    arriveBy: false
+                    includePlannedCancellations: true
+                    transitDistanceReluctance: 2000
+                    anotherLongFieldName: "Lots and lots and lots and lots of text"
+                  }
+                  arriveBy: false
+                  includePlannedCancellations: true
+                  transitDistanceReluctance: 2000
+                  anotherLongFieldName: "Lots and lots and lots and lots of text"
+                }
+              ) {
+                dateTime
+              }
+            }
+            """
+        )
+
+    def puts_large_list_values_on_multiple_lines_if_line_has_more_than_80_chars():
+        printed = print_ast(
+            parse(
+                '{trip(list:[["small array", "small", "small"],'
+                ' ["Lots and lots and lots and lots of text",'
+                ' "Lots and lots and lots and lots of text",'
+                ' "Lots and lots and lots and lots of text"]]){dateTime}}'
+            )
+        )
+
+        assert printed == dedent(
+            """
+            {
+              trip(
+                list: [
+                  ["small array", "small", "small"]
+                  [
+                    "Lots and lots and lots and lots of text"
+                    "Lots and lots and lots and lots of text"
+                    "Lots and lots and lots and lots of text"
+                  ]
+                ]
+              ) {
+                dateTime
+              }
+            }
+            """
+        )
+
+    def prints_fragment_with_argument_definition_directives():
+        fragment_with_argument_definition_directive = parse(
+            "fragment Foo($foo: TestType @test) on TestType @testDirective { id }",
+            experimental_fragment_arguments=True,
+        )
+        assert print_ast(fragment_with_argument_definition_directive) == dedent(
+            """
             fragment Foo($foo: TestType @test) on TestType @testDirective {
               id
             }
-            """)
-
-    def experimental_prints_directives_on_directives():
-        query_ast_with_variable_directive = parse(
             """
-            directive @foo @bar on FIELD_DEFINITION
-            extend directive @foo @baz
-            """,
-            experimental_directives_on_directive_definitions=True,
         )
-        assert print_ast(query_ast_with_variable_directive) == dedent("""
-            directive @foo @bar on FIELD_DEFINITION
 
-            extend directive @foo @baz
-            """)
-
-    def legacy_correctly_prints_fragment_defined_variables():
+    def correctly_prints_fragment_defined_arguments():
         source = """
             fragment Foo($a: ComplexType, $b: Boolean = false) on TestType {
               id
             }
             """
-        fragment_with_variable = parse(source, allow_legacy_fragment_variables=True)
-        assert print_ast(fragment_with_variable) == dedent(source)
+        fragment_with_argument_definition = parse(
+            source, experimental_fragment_arguments=True
+        )
+        assert print_ast(fragment_with_argument_definition) == dedent(source)
+
+    def prints_fragment_spread_with_arguments():
+        fragment_spread_with_arguments = parse(
+            "fragment Foo on TestType { ...Bar(a: {x: $x}, b: true) }",
+            experimental_fragment_arguments=True,
+        )
+        assert print_ast(fragment_spread_with_arguments) == dedent(
+            """
+            fragment Foo on TestType {
+              ...Bar(a: { x: $x }, b: true)
+            }
+            """
+        )
+
+    def prints_fragment_spread_with_multi_line_arguments():
+        fragment_spread_with_arguments = parse(
+            "fragment Foo on TestType { ...Bar(a: {x: $x, y: $y, z: $z, xy: $xy},"
+            ' b: true, c: "a long string extending arguments over max length") }',
+            experimental_fragment_arguments=True,
+        )
+        assert print_ast(fragment_spread_with_arguments) == dedent(
+            """
+            fragment Foo on TestType {
+              ...Bar(
+                a: { x: $x, y: $y, z: $z, xy: $xy }
+                b: true
+                c: "a long string extending arguments over max length"
+              )
+            }
+            """
+        )
 
     def prints_fragment():
         printed = print_ast(parse('"Fragment description" fragment Foo on Bar { baz }'))
-        assert printed == dedent("""
+        assert printed == dedent(
+            """
             "Fragment description"
             fragment Foo on Bar {
               baz
             }
-            """)
+            """
+        )
 
     def prints_schema_coordinates():
         assert print_ast(parse_schema_coordinate("Name")) == "Name"
@@ -164,13 +265,13 @@ def describe_printer_query_document():
         )
 
     def throws_syntax_error_for_ignored_tokens_in_schema_coordinates():
-        with raises(GraphQLSyntaxError) as exc_info:
+        with pytest.raises(GraphQLSyntaxError) as exc_info:
             print_ast(parse_schema_coordinate("# foo\nName"))
         assert "Syntax Error: Invalid character: '#'" in str(exc_info.value)
-        with raises(GraphQLSyntaxError) as exc_info:
+        with pytest.raises(GraphQLSyntaxError) as exc_info:
             print_ast(parse_schema_coordinate("\nName"))
         assert "Syntax Error: Invalid character: U+000A." in str(exc_info.value)
-        with raises(GraphQLSyntaxError) as exc_info:
+        with pytest.raises(GraphQLSyntaxError) as exc_info:
             print_ast(parse_schema_coordinate("Name .field"))
         assert "Syntax Error: Invalid character: ' '" in str(exc_info.value)
 
@@ -183,7 +284,8 @@ def describe_printer_query_document():
         assert printed_ast == ast
         assert deepcopy(ast) == ast_before_print_call
 
-        assert printed == dedent(r'''
+        assert printed == dedent(
+            r'''
             "Query description"
             query queryName(
             "Very complex variable"
@@ -236,9 +338,9 @@ def describe_printer_query_document():
               foo(
                 size: $size
                 bar: $b
-                obj: {key: "value", block: """
+                obj: { key: "value", block: """
                 block string uses \"""
-                """}
+                """ }
               )
             }
 
@@ -250,4 +352,5 @@ def describe_printer_query_document():
             {
               __typename
             }
-            ''')  # noqa: E501
+            '''  # noqa: E501
+        )

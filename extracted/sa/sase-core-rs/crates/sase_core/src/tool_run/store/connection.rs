@@ -59,6 +59,13 @@ CREATE TABLE IF NOT EXISTS runs (
     child_pid INTEGER,
     child_pgid INTEGER,
     child_process_start_identity TEXT,
+    launch_mode TEXT,
+    launch_envelope_json TEXT,
+    launcher_json TEXT,
+    terminal_cause TEXT,
+    settled_by TEXT,
+    stop_request_json TEXT,
+    owner_log_path TEXT,
     mutated_input INTEGER,
     fingerprint_before_json TEXT,
     fingerprint_after_json TEXT,
@@ -126,6 +133,65 @@ CREATE INDEX IF NOT EXISTS idx_tool_stages_run
     ON stages(run_id, started_ts);
 CREATE INDEX IF NOT EXISTS idx_tool_samples_run
     ON samples(run_id, observed_ts);
+CREATE TABLE IF NOT EXISTS tool_triage_items (
+    item_id TEXT PRIMARY KEY,
+    run_id TEXT NOT NULL REFERENCES runs(run_id) ON DELETE CASCADE,
+    stage_id TEXT, stage_key TEXT NOT NULL,
+    extractor TEXT NOT NULL, extractor_version INTEGER NOT NULL,
+    signature TEXT NOT NULL, display TEXT NOT NULL,
+    locator_paths_json TEXT NOT NULL, occurrences INTEGER NOT NULL,
+    created_ts INTEGER NOT NULL,
+    class TEXT, touched INTEGER, rule_version INTEGER, knobs_json TEXT,
+    evidence_json TEXT, possible_owners_json TEXT, classified_ts INTEGER);
+CREATE TABLE IF NOT EXISTS tool_triage_stages (
+    run_id TEXT NOT NULL REFERENCES runs(run_id) ON DELETE CASCADE,
+    stage_key TEXT NOT NULL, stage_id TEXT,
+    extraction_status TEXT NOT NULL, output_path TEXT, created_ts INTEGER NOT NULL,
+    mode TEXT, decision TEXT, reason TEXT, elapsed_ms INTEGER, decided_ts INTEGER,
+    PRIMARY KEY (run_id, stage_key));
+CREATE TABLE IF NOT EXISTS tool_triage_runs (
+    run_id TEXT PRIMARY KEY REFERENCES runs(run_id) ON DELETE CASCADE,
+    continuation_mode TEXT, recipe_finished_ts INTEGER,
+    first_continued_exit_code INTEGER, continuation_extra_ms INTEGER,
+    repeat_of_run_id TEXT, triaged_ts INTEGER, created_ts INTEGER NOT NULL,
+    diagnostics_json TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS idx_tool_triage_items_run
+    ON tool_triage_items(run_id, stage_key);
+CREATE INDEX IF NOT EXISTS idx_tool_triage_items_signature
+    ON tool_triage_items(signature, extractor_version);
+CREATE TABLE IF NOT EXISTS tool_receipts (
+    receipt_id TEXT PRIMARY KEY,
+    source_run_id TEXT NOT NULL UNIQUE,
+    project TEXT NOT NULL,
+    tool_name TEXT NOT NULL,
+    definition_digest TEXT NOT NULL,
+    extra_args_digest TEXT NOT NULL,
+    fingerprint_digest TEXT NOT NULL,
+    verdict TEXT NOT NULL,
+    signature_refs_json TEXT NOT NULL,
+    proof_json TEXT NOT NULL,
+    issue_ts INTEGER NOT NULL,
+    mint_ts INTEGER NOT NULL,
+    expiry_ts INTEGER NOT NULL,
+    policy_version INTEGER NOT NULL,
+    ttl_seconds INTEGER NOT NULL,
+    accept_json TEXT NOT NULL,
+    status TEXT NOT NULL,
+    superseded_by_run_id TEXT,
+    superseded_ts INTEGER,
+    explanation TEXT
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_tool_receipts_one_active
+    ON tool_receipts(
+        project, tool_name, definition_digest,
+        extra_args_digest, fingerprint_digest
+    )
+    WHERE status = 'active';
+CREATE INDEX IF NOT EXISTS idx_tool_receipts_lookup
+    ON tool_receipts(
+        project, tool_name, definition_digest,
+        extra_args_digest, fingerprint_digest, mint_ts
+    );
 "#;
 
 pub(super) fn validate_schema(version: u32) -> Result<(), ToolRunError> {
@@ -146,35 +212,37 @@ pub(super) fn validate_schema(version: u32) -> Result<(), ToolRunError> {
 pub(super) fn ensure_child_observation_columns(
     conn: &Connection,
 ) -> Result<(), ToolRunError> {
-    let mut names = Vec::new();
-    let mut stmt = conn.prepare("PRAGMA table_info(runs)")?;
-    let rows = stmt.query_map([], |row| row.get::<_, String>(1))?;
-    for name in rows {
-        names.push(name?);
-    }
-    if !names
-        .iter()
-        .any(|name| name == "child_process_start_identity")
-    {
-        conn.execute(
-            "ALTER TABLE runs ADD COLUMN child_process_start_identity TEXT",
-            [],
-        )?;
+    let existing = runs_column_set(conn)?;
+    for (column, ddl) in [
+        ("child_process_start_identity", "TEXT"),
+        ("launch_mode", "TEXT"),
+        ("launch_envelope_json", "TEXT"),
+        ("launcher_json", "TEXT"),
+        ("terminal_cause", "TEXT"),
+        ("settled_by", "TEXT"),
+        ("stop_request_json", "TEXT"),
+        ("owner_log_path", "TEXT"),
+    ] {
+        if !existing.contains(column) {
+            conn.execute(
+                &format!("ALTER TABLE runs ADD COLUMN {column} {ddl}"),
+                [],
+            )?;
+        }
     }
     Ok(())
 }
 
-pub(super) fn runs_has_child_observation_column(
+pub(super) fn runs_column_set(
     conn: &Connection,
-) -> Result<bool, ToolRunError> {
+) -> Result<std::collections::HashSet<String>, ToolRunError> {
     let mut stmt = conn.prepare("PRAGMA table_info(runs)")?;
     let rows = stmt.query_map([], |row| row.get::<_, String>(1))?;
+    let mut set = std::collections::HashSet::new();
     for name in rows {
-        if name? == "child_process_start_identity" {
-            return Ok(true);
-        }
+        set.insert(name?);
     }
-    Ok(false)
+    Ok(set)
 }
 
 pub(super) fn unix_now() -> i64 {

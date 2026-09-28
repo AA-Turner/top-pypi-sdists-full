@@ -1,4 +1,4 @@
-# Copyright 2022 Collabora Ltd.
+# Copyright 2022-2026 Collabora Ltd.
 # SPDX-License-Identifier: MIT
 
 project(
@@ -8,7 +8,7 @@ project(
         'warning_level=2',
     ],
     meson_version: '>=0.60',
-    version: '1.4.0',
+    version: '1.5.0',
 )
 
 pc_mod = import('pkgconfig')
@@ -176,9 +176,6 @@ dbus_bindings = py.extension_module(
     ],
     include_directories: project_include_directories,
     install: true,
-    # Workaround for https://github.com/mesonbuild/meson/issues/6331
-    # TODO: Remove this when we depend on Meson 0.60
-    subdir: '',
 )
 
 dbus_glib_bindings = py.extension_module(
@@ -193,9 +190,6 @@ dbus_glib_bindings = py.extension_module(
     ],
     include_directories: project_include_directories,
     install: true,
-    # Workaround for https://github.com/mesonbuild/meson/issues/6331
-    # TODO: Remove this when we depend on Meson 0.60
-    subdir: '',
 )
 
 install_headers(
@@ -238,9 +232,3 @@ gi_dep = py_mod.find_installation(
 if dbus_run_session.found()
     subdir('test')
 endif
-
-meson.add_dist_script(
-    'tools/dist.sh',
-    meson.project_version(),
-    py.full_path(),
-)

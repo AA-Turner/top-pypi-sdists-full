@@ -348,6 +348,30 @@ class WithTest(CoverageTest):
         expected = "line 3 didn't jump to the function exit"
         assert self.get_missing_arc_description(cov, 3, -2) == expected
 
+    def test_bug_2289(self) -> None:
+        # https://github.com/coveragepy/coveragepy/issues/2289
+        self.check_coverage(
+            """\
+            import contextlib
+
+            def main():
+                raise SystemExit()
+
+            def example():
+                try:
+                    with contextlib.ExitStack():
+                        main()
+                except SystemExit:
+                    return 1
+                else:
+                    raise RuntimeError("!!!")
+
+            example()
+            """,
+            lines=[1, 3, 4, 6, 7, 8, 9, 10, 11, 13, 15],
+            missing="13",
+        )
+
     def test_untaken_if_through_with(self) -> None:
         cov = self.check_coverage(
             """\
@@ -502,6 +526,23 @@ class LoopArcTest(CoverageTest):
             assert a == 4
             """,
             branchz="12 14 23 21",
+            branchz_missing="",
+        )
+
+    def test_bug_2168_loop_completion_before_return(self) -> None:
+        self.check_coverage(
+            """\
+            def foo(*x):
+                for i in x:
+                    if i:
+                        break
+                pass
+
+            foo()
+            foo(0)
+            foo(1)
+            """,
+            branchz="23 25 32 34",
             branchz_missing="",
         )
 

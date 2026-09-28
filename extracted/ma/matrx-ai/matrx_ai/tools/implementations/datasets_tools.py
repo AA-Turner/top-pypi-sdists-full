@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import time
 import traceback
 from typing import Any
@@ -34,6 +35,12 @@ from pydantic import ValidationError
 from matrx_ai.tools._dispatch_util import format_args_error
 from matrx_ai.tools.arg_models import DatasetArgs
 from matrx_ai.tools.models import ToolContext, ToolError, ToolResult
+from matrx_ai.tools.organization_hold import (
+    carried_organization_id,
+    organization_required_result,
+)
+
+logger = logging.getLogger(__name__)
 
 _DATASET_RESULT_BUDGET_CHARS = 40_000
 _DATASET_CELL_BUDGET_CHARS = 8_000
@@ -116,13 +123,69 @@ class _ArmFailed(Exception):
         super().__init__(result.error.message if result.error else "the record store failed")
 
 
+#: What the agent is told to do with a held write. It is not an error, so it must not retry
+#: (a retry files a SECOND wait for the same change) and must not apologise for a failure
+#: that did not happen: the change is in the organization's approval queue and a person
+#: decides it from the card in the chat or from the table's own page.
+HELD_FOR_APPROVAL_GUIDANCE = (
+    "HELD FOR APPROVAL — not an error. Nothing was written yet: the change is in this "
+    "organization's approval queue and lands the moment a person approves it. Do NOT call "
+    "the tool again for this change (that would queue it twice) and do not apologise. Tell "
+    "the person, in one sentence, that it is waiting for their approval (name who can "
+    "approve it if `approvers` names anyone), and that they can Approve or Refuse it on the "
+    "card in this chat or on the table's page."
+)
+
+
+def held_for_approval_output(answer: dict[str, Any], message: str) -> dict[str, Any]:
+    """THE output of a held write, for every tool that reports one.
+
+    The store's own wait, plus the three keys that tell a model and a screen it is held
+    (not an error) and what to do. Shared so the ``data`` tool's "save as a table" answers
+    exactly what this tool answers (lane HELD-WRITE-TAILS, 2026-09-26) — one shape, one
+    card (`readRecordChangeWait` in the frontend).
+    """
+    return {
+        **answer,
+        "status": "held_for_approval",
+        "held_for_approval": True,
+        "applied": False,
+        "not_done": str(answer.get("not_done") or message),
+        "what_to_do": HELD_FOR_APPROVAL_GUIDANCE,
+    }
+
+
+def _held_for_approval(answer: dict[str, Any], message: str) -> ToolResult:
+    """A write the store HELD for a person — a success of its own kind, never an error.
+
+    VERIFIER-26 item 5 (2026-09-26): this used to be ``success=False`` with
+    ``error_type="approval_required"``. The chat drew it as "The agent sent invalid
+    arguments" (the word *required* matched the argument-error pattern), the card that
+    lets a person approve never mounted because an error carries no result, and the agent
+    read a failure and retried or apologised. The store's own wait — ``approval_id``,
+    ``approvers``, the rows, ``not_done`` — is the output, exactly the shape the
+    ``records`` tool answers, so one card serves both.
+    """
+    return ToolResult(success=True, output=held_for_approval_output(answer, message))
+
+
 def _arm_error(exc: Exception) -> ToolResult:
-    """A record-store refusal or wait, as the tool's own error — never a success."""
+    """A record-store refusal, as the tool's own error; a held write, as a held write."""
     name = type(exc).__name__
     if name == "ChangeWaits":
+        answer = getattr(exc, "answer", None)
+        if isinstance(answer, dict) and answer.get("awaiting_approval") is True:
+            return _held_for_approval(answer, str(exc))
+        # Refused AND not queued (the queue itself refused, or nothing could be filed): the
+        # change did not happen and nothing is waiting — that IS a refusal, said in the
+        # store's own words, and never dressed as a wait nobody filed.
         return ToolResult(
             success=False,
-            error=ToolError(error_type="approval_required", message=str(exc)),
+            error=ToolError(error_type="not_written", message=str(exc)),
+        )
+    if name == "UnknownFieldKeys":
+        return ToolResult(
+            success=False, error=ToolError(error_type="validation", message=str(exc))
         )
     if name == "NoOperatingPerson":
         return ToolResult(
@@ -727,10 +790,13 @@ async def usertable_delete_row(args: dict[str, Any], ctx: ToolContext) -> ToolRe
 
     try:
         from matrx_ai.db._registry import get_model as get_db_model
+        from matrx_ai.tools.soft_delete import archive_where
 
+        # Soft-delete law: the row is archived through deleted_at (restorable from /trash),
+        # never removed. The server readers already skip archived rows.
         UdtDatasetRows = get_db_model("UdtDatasetRows")
-        deleted_count = await UdtDatasetRows.delete_where(
-            id=row_id, table_id=table_id, user_id=ctx.user_id
+        deleted_count = await archive_where(
+            UdtDatasetRows, {"id": row_id, "table_id": table_id, "user_id": ctx.user_id}
         )
         if not deleted_count:
             return ToolResult(
@@ -740,7 +806,7 @@ async def usertable_delete_row(args: dict[str, Any], ctx: ToolContext) -> ToolRe
                     message=f"Row '{row_id}' not found or you do not own it.",
                 ),
             )
-        return ToolResult(success=True, output={"deleted_row_id": row_id})
+        return ToolResult(success=True, output={"deleted_row_id": row_id, "archived": True})
     except Exception as e:
         return ToolResult(
             success=False,
@@ -779,7 +845,9 @@ async def usertable_create_advanced(args: dict[str, Any], ctx: ToolContext) -> T
         )
 
     try:
-        creator = DatasetCreator(user_id=ctx.user_id)
+        creator = DatasetCreator(
+            user_id=ctx.user_id, organization_id=carried_organization_id(ctx)
+        )
         result = await asyncio.to_thread(
             creator.create_table_from_data,
             data,
@@ -843,7 +911,9 @@ async def usertable_create(args: dict[str, Any], ctx: ToolContext) -> ToolResult
         )
 
     try:
-        creator = DatasetCreator(user_id=ctx.user_id)
+        creator = DatasetCreator(
+            user_id=ctx.user_id, organization_id=carried_organization_id(ctx)
+        )
         result = await asyncio.to_thread(
             creator.create_table_from_data,
             data,
@@ -878,6 +948,63 @@ async def usertable_create(args: dict[str, Any], ctx: ToolContext) -> ToolResult
 
 # Valid `dataset` actions are enforced by the DatasetArgs discriminated union
 # (arg_models/dispatcher_args.py) + tool_def.parameters."$variants" — the source of truth.
+
+
+async def _read_row_data(table_id: str, row_id: str) -> dict[str, Any]:
+    """One row's ``data`` from an OLDER table (``datasets_get_row_by_id``)."""
+    rows = await asyncio.to_thread(
+        _run_query, "datasets_get_row_by_id", {"table_id": table_id, "row_id": row_id}
+    )
+    if not rows:
+        raise LookupError(f"row {row_id} of table {table_id} not found")
+    data = rows[0].get("data")
+    if isinstance(data, str):
+        data = json.loads(data)
+    return json.loads(json.dumps(dict(data or {}), default=str))
+
+
+async def _prior_row_data(table_id: str, row_id: str) -> dict[str, Any] | None:
+    """The row's data before ``update_row``, or ``None`` (no receipt).
+
+    A table that moved to the record store has no single-row read on the arm yet;
+    reading its archived older copy would show a stale "before", so the receipt
+    is skipped there and the skip is logged by name."""
+    from matrx_ai.tools.structured_surface_write import read_prior
+
+    async def read() -> dict[str, Any] | None:
+        if await _moved(table_id) is not None:
+            logger.warning(
+                "[dataset] update_row %s/%s: table lives in the record store, which has no "
+                "single-row read yet; no before/after receipt",
+                table_id,
+                row_id,
+            )
+            return None
+        return await _read_row_data(table_id, row_id)
+
+    return await read_prior(read, what=f"dataset row {table_id}/{row_id}")
+
+
+async def _row_surface_write(
+    result: ToolResult, table_id: str, row_id: str, prior: dict[str, Any] | None
+) -> ToolResult:
+    """Before → after of the row's fields that ``update_row`` (a REPLACE) moved."""
+    from matrx_ai.tools.structured_surface_write import read_prior, structured_surface_write
+
+    if not result.success or prior is None:
+        return result
+    after = await read_prior(
+        lambda: _read_row_data(table_id, row_id), what=f"dataset row {table_id}/{row_id} (after)"
+    )
+    return structured_surface_write(
+        result,
+        before=prior,
+        after=after,
+        target_type="dataset_row",
+        target_id=row_id,
+        target_label=f"row {row_id}",
+        ignore=(),
+    )
 
 
 def _stamp(result: ToolResult, started_at: float, ctx: ToolContext) -> ToolResult:
@@ -1077,6 +1204,14 @@ async def dataset(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         )
 
     if action == "create":
+        # A dataset belongs to the organization this conversation CARRIES
+        # (workbench.udt_datasets.organization_id is NOT NULL). No organization →
+        # the one organization hold, before either store is touched. Never
+        # defaulted, never the personal organization.
+        if not carried_organization_id(ctx):
+            return organization_required_result(
+                what="create a dataset", tool_name="dataset", ctx=ctx, started_at=started_at
+            )
         # BIRTHS (CUTOVER-PLAN Step 2). Once this organization's tables have moved, a new
         # table is born in the record store — otherwise it would be made in a store nobody
         # reads any more. Until then it is made beside the organization's other tables.
@@ -1128,15 +1263,15 @@ async def dataset(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         )
 
     if action == "update_row":
+        table_id = (args.get("dataset_id") or "").strip()
+        row_id = (args.get("row_id") or "").strip()
+        prior = await _prior_row_data(table_id, row_id) if table_id and row_id else None
+        result = await usertable_update_row(
+            {"table_id": table_id, "row_id": row_id, "data": args.get("data")},
+            ctx,
+        )
         return _stamp(
-            await usertable_update_row(
-                {
-                    "table_id": args.get("dataset_id", ""),
-                    "row_id": args.get("row_id", ""),
-                    "data": args.get("data"),
-                },
-                ctx,
-            ),
+            await _row_surface_write(result, table_id, row_id, prior),
             started_at,
             ctx,
         )

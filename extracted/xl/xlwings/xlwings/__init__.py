@@ -5,7 +5,7 @@ import os
 import sys
 from typing import TYPE_CHECKING, Annotated, Any, Callable, TypeVar, overload
 
-__version__ = "0.37.4"
+__version__ = "0.37.5"
 
 # TypeVar for the CachedObject[T] type alias (defined after the ObjectHandle class).
 _CachedT = TypeVar("_CachedT")
@@ -201,11 +201,22 @@ else:
 # API
 from .main import (
     App,
+    AutoFilter,
+    AutoFilterCriteria,
     Book,
     BookAsync,
     Chart,
+    ChartSeries,
+    ChartSeriesCollection,
+    Comment,
+    CommentReply,
+    Comments,
+    ConditionalFormat,
+    ConditionalFormats,
     Engine,
     Name,
+    Note,
+    Notes,
     Picture,
     PivotField,
     PivotFields,
@@ -229,11 +240,22 @@ from .utils import xlserial_to_datetime as to_datetime
 
 __all__ = (
     "App",
+    "AutoFilter",
+    "AutoFilterCriteria",
     "Book",
     "BookAsync",
     "Chart",
+    "ChartSeries",
+    "ChartSeriesCollection",
+    "Comment",
+    "CommentReply",
+    "Comments",
+    "ConditionalFormat",
+    "ConditionalFormats",
     "Engine",
     "Name",
+    "Note",
+    "Notes",
     "CachedObject",
     "CustomFunctionResult",
     "ObjectCacheMissError",

@@ -347,6 +347,7 @@ mod tests {
             changespec_name: String::new(),
             changespec_bug_id: String::new(),
             external_ref: String::new(),
+            creation_reason: String::new(),
             dependencies: Vec::new(),
         }
     }
@@ -723,6 +724,7 @@ mod tests {
                         close_reason: Some("done".to_string()),
                         resolution: None,
                         forced_descendant_ids: Vec::new(),
+                        closed_by: None,
                     },
                 ),
                 event(
@@ -741,6 +743,7 @@ mod tests {
                         close_reason: None,
                         resolution: None,
                         forced_descendant_ids: Vec::new(),
+                        closed_by: None,
                     },
                 ),
             ],

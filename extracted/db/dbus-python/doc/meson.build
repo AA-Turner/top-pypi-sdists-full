@@ -42,6 +42,7 @@ sphinx = custom_target(
     build_by_default: true,
     install: true,
     install_dir: get_option('datadir') / 'doc' / meson.project_name(),
+    install_tag: 'doc',
 )
 
 custom_target(

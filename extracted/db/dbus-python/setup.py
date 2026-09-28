@@ -32,21 +32,8 @@ import subprocess
 import sys
 
 
-if (
-    os.environ.get('DBUS_PYTHON_USE_AUTOTOOLS', '')
-    or sys.version_info < (3, 7)
-):
-    use_autotools = True
-    setup_requires = ['setuptools', 'wheel']
-else:
-    use_autotools = False
-    setup_requires = ['meson>=0.60.0', 'ninja', 'setuptools', 'wheel']
-
 if os.path.exists('.version'):
     version = open('.version').read().strip()
-elif use_autotools:
-    version = subprocess.check_output(['autoconf', '--trace', 'AC_INIT:$2',
-        'configure.ac']).decode('utf-8').strip()
 else:
     with open('meson.build') as reader:
         for line in reader:
@@ -69,45 +56,24 @@ class Build(Distribution().get_command_class('build')):
         builddir = os.path.join(srcdir, self.build_temp)
         os.makedirs(builddir, exist_ok=True)
 
-        if use_autotools:
-            configure = os.path.join(srcdir, 'configure')
-
-            if not os.path.exists(configure):
-                configure = os.path.join(srcdir, 'autogen.sh')
-
-            subprocess.check_call([
-                    configure,
-                    '--disable-maintainer-mode',
-                    'PYTHON=' + sys.executable,
-                    # Put the documentation, etc. out of the way: we only want
-                    # the Python code and extensions
-                    '--prefix=' + os.path.join(builddir, 'prefix'),
-                ],
-                cwd=builddir)
-            make_args = [
-                'pythondir=' + os.path.join(srcdir, self.build_lib),
-                'pyexecdir=' + os.path.join(srcdir, self.build_lib),
+        subprocess.check_call(
+            [
+                sys.executable,
+                '-m', 'mesonbuild.mesonmain',
+                'setup',
+                '--prefix=' + os.path.join(builddir, 'prefix'),
+                '-Ddoc=disabled',
+                '-Dinstalled_tests=false',
+                '-Dpython=' + sys.executable,
+                '-Dpython.platlibdir=' + os.path.join(srcdir, self.build_lib),
+                '-Dpython.purelibdir=' + os.path.join(srcdir, self.build_lib),
+                '-Dtests=disabled',
+                srcdir,
+                builddir,
             ]
-            subprocess.check_call(['make', '-C', builddir] + make_args)
-            subprocess.check_call(['make', '-C', builddir, 'install'] + make_args)
-        else:
-            subprocess.check_call(
-                [
-                    sys.executable,
-                    '-m', 'mesonbuild.mesonmain',
-                    '--prefix=' + os.path.join(builddir, 'prefix'),
-                    '-Ddoc=disabled',
-                    '-Dinstalled_tests=false',
-                    '-Dpython=' + sys.executable,
-                    '-Dpython.platlibdir=' + os.path.join(srcdir, self.build_lib),
-                    '-Dpython.purelibdir=' + os.path.join(srcdir, self.build_lib),
-                    '-Dtests=disabled',
-                    srcdir,
-                    builddir,
-                ]
-            )
-            subprocess.check_call(['meson', 'compile', '-C', builddir])
-            subprocess.check_call(['meson', 'install', '-C', builddir])
+        )
+        subprocess.check_call(['meson', 'compile', '-C', builddir])
+        subprocess.check_call(['meson', 'install', '-C', builddir])
 
 class BuildExt(Distribution().get_command_class('build_ext')):
     def run(self):
@@ -132,6 +98,6 @@ setup(
         'build_py': BuildPy,
         'build_ext': BuildExt,
     },
-    setup_requires=setup_requires,
+    setup_requires=['meson>=0.60.0', 'ninja', 'setuptools', 'wheel'],
     tests_require=['tap.py'],
 )

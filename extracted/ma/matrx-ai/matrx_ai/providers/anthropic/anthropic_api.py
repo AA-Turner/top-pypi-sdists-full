@@ -220,7 +220,12 @@ class AnthropicChat:
 
             if is_grammar_too_large(e):
                 recovered = await self._retry_over_grammar_budget(
-                    config_data, _send, emitter, matrx_model_name, e
+                    config_data,
+                    _send,
+                    emitter,
+                    matrx_model_name,
+                    e,
+                    response_format=unified_config.response_format,
                 )
                 if recovered is not None:
                     return recovered
@@ -239,82 +244,155 @@ class AnthropicChat:
         emitter: Emitter,
         matrx_model_name: str,
         original: Exception,
+        response_format: Any = None,
     ) -> UnifiedResponse | None:
-        """Shed capability, in priority order, until the grammar compiles.
+        """Keep the request's contract ENFORCED if at all possible; shed only what
+        the budget forces, and record every rung that was needed.
 
-        Anthropic compiles the bound output schema and every tool schema into
-        ONE grammar under a shared budget (see
-        ``matrx_ai.schema.grammar_budget`` for the live measurements). When it
-        overflows, SOMETHING has to go, and the platform — not the provider's
-        400 — decides what:
+        Anthropic compiles the bound output schema together with the request's
+        tools under one budget (measured 2026-09-27: roughly 70 properties, 16
+        union parameters; a single tool spends part of it). The translator already
+        sends the most faithful schema that fits the documented limits. When the
+        provider still refuses, the rungs are, in order:
 
-        1. **The tools go first.** On a turn bound to a kind, the answer IS the
-           deliverable; the tools are optional reach. Measured live: of 200
-           Anthropic turns carrying both tools and a bound format, 4 called a
-           tool.
-        2. **The binding goes last, and only to save the turn.** Dropping
-           ``output_config.format`` costs provider-side enforcement — the
-           answer is then prompt-guided and validated after the fact, which is
-           what the rest of the platform already does on the
-           ``_portable_fallback`` path. The SCHEMA is never mutilated to fit,
-           so ``__kind`` stays the first key and the streaming pre-recognizer
-           keeps working.
+        1. **Narrow the schema** — every nullable union collapsed to its
+           non-null branch. Answers remain valid under the declared contract and
+           the provider still ENFORCES it; tools are untouched. This alone brought
+           the Study Pack flashcards node (with its tool) and the agent factory's
+           envelope under the budget.
+        2. **Shed the tools, keep the (narrowed) schema.** On a turn bound to a
+           kind the answer IS the deliverable; measured, 4 of 200 such turns
+           called a tool. The shed is visible to the user and recorded.
+        3. **Drop provider enforcement, RESTORE the tools.** The schema is above
+           what Anthropic can compile at all (the resale report: 115 properties).
+           The schema is appended to the request's system channel as a JSON text
+           contract and the answer is CHECKED against the declared schema when the
+           call ends — both halves of that sentence were false until 2026-09-27:
+           this rung sent `with_format(config_data, None)` with no schema text
+           anywhere, and the package contained no answer validation at all. The
+           tools come back — until 2026-09-27 this rung ran on the tool-less
+           payload of rung 2, so an 18-tool agent silently lost every tool AND its
+           contract.
 
-        Every rung is loud: a warning to the user's stream and a captured issue.
+        Every rung that SERVES the turn records a finding naming the agent, the
+        schema and what was given up (``structured_output_findings``) — the
+        retry is kept (a user still gets an answer) and it is no longer quiet.
         Returns ``None`` when nothing could be shed, so the caller raises the
         provider's original error rather than inventing a success.
         """
-        from matrx_ai.ops.issue_capture import capture_issue
+        from matrx_ai.providers.structured_output_findings import (
+            ENFORCEMENT_DROPPED,
+            NARROWED,
+            TOOLS_SHED,
+            record_structured_output_finding,
+            response_format_identity,
+        )
         from matrx_ai.schema.grammar_budget import is_grammar_too_large
+        from matrx_ai.schema.rules import (
+            collapse_nullable_unions,
+            count_union_params,
+            dedupe_identical_subtrees,
+            structured_output_size,
+        )
 
-        had_tools = bool(config_data.get("tools"))
-        had_format = bool((config_data.get("output_config") or {}).get("format"))
-        if not had_tools and not had_format:
+        tools = config_data.get("tools") or []
+        output_config = config_data.get("output_config") or {}
+        fmt = output_config.get("format") if isinstance(output_config, dict) else None
+        schema = fmt.get("schema") if isinstance(fmt, dict) else None
+        if not tools and not fmt:
             return None  # nothing to shed — let the provider's error stand
 
-        rungs: list[tuple[str, dict[str, Any], str]] = []
-        if had_tools:
-            without_tools = {k: v for k, v in config_data.items() if k != "tools"}
+        def with_format(base: dict[str, Any], new_format: dict[str, Any] | None) -> dict[str, Any]:
+            out = dict(base)
+            oc = dict(out.get("output_config") or {})
+            if new_format is None:
+                oc.pop("format", None)
+            else:
+                oc["format"] = new_format
+            if oc:
+                out["output_config"] = oc
+            else:
+                out.pop("output_config", None)
+            return out
+
+        rungs: list[tuple[str, str, dict[str, Any], list[str]]] = []
+        if isinstance(schema, dict) and count_union_params(schema):
+            narrowed_notes: list[str] = []
+            narrowed_schema = dedupe_identical_subtrees(
+                collapse_nullable_unions(
+                    schema, keep=0, notes=narrowed_notes, reason="compiled grammar over budget"
+                )
+            )
+            fmt = {**fmt, "schema": narrowed_schema}
+            rungs.append(
+                (
+                    NARROWED,
+                    "every nullable field narrowed to non-null (schema still enforced)",
+                    with_format(config_data, fmt),
+                    narrowed_notes,
+                )
+            )
+        if tools and fmt:
+            without_tools = {k: v for k, v in with_format(config_data, fmt).items() if k != "tools"}
             without_tools.pop("tool_choice", None)
             rungs.append(
                 (
-                    "tools_dropped",
+                    TOOLS_SHED,
+                    f"dropped all {len(tools)} tool schemas (schema still enforced)",
                     without_tools,
-                    f"dropped all {len(config_data.get('tools') or [])} tool schemas",
+                    [str(t.get("name")) for t in tools if isinstance(t, dict)],
                 )
             )
-        if had_format:
-            base = rungs[-1][1] if rungs else config_data
-            without_format = {k: v for k, v in base.items() if k != "output_config"}
+        if fmt:
+            # THE PROMPT-GUIDED HALF, which until 2026-09-27 did not exist: this
+            # rung removed `output_config.format` and sent NOTHING in its place,
+            # while the finding it wrote said the answer was "prompt-guided and
+            # validated after the fact". Google does the opposite for the same
+            # situation, and this now uses the same words
+            # (`schema.answer_contract.json_text_contract`). The CHECK is the
+            # other half, in `UnifiedAIClient._dispatch_with_billing_net`.
+            from matrx_ai.schema.answer_contract import (
+                append_json_text_contract_to_system,
+                mark_enforcement_dropped,
+            )
+
+            prompt_guided = with_format(config_data, None)
+            guided = isinstance(schema, dict)
+            if guided:
+                append_json_text_contract_to_system(prompt_guided, schema)
+                mark_enforcement_dropped(
+                    "Anthropic refused the compiled grammar at every smaller shape; "
+                    "output_config.format dropped and the schema sent as a prompt contract"
+                )
             rungs.append(
                 (
-                    "structured_output_dropped",
-                    without_format,
-                    "dropped output_config.format — the answer is now prompt-guided "
-                    "and validated after the fact, NOT provider-enforced",
+                    ENFORCEMENT_DROPPED,
+                    "dropped output_config.format — the schema now travels as a JSON text "
+                    "contract in the prompt and the answer is checked against the declared "
+                    f"contract afterwards, NOT provider-enforced{f'; all {len(tools)} tools kept' if tools else ''}"
+                    if guided
+                    else "dropped output_config.format — no schema was available to guide "
+                    "the answer with",
+                    prompt_guided,
+                    [],
                 )
             )
 
+        identity = {
+            **response_format_identity(response_format),
+            "tool_count": len(tools),
+            "tool_names": [t.get("name") for t in tools if isinstance(t, dict)][:30],
+            "provider_error": str(original)[:300],
+            # How far over the line the shape is — the measured ceiling is ~70
+            # properties and 16 union parameters per request.
+            "schema_size": structured_output_size(schema) if isinstance(schema, dict) else None,
+        }
         last_error: Exception = original
-        for action, payload, detail in rungs:
+        for key, detail, payload, gave_up in rungs:
             vcprint(
                 f"⚠️  ANTHROPIC ADJUSTMENT: compiled grammar over budget — retrying with "
                 f"{detail}. The request was NOT sent as configured.",
                 color="yellow",
-            )
-            await capture_issue(
-                "anthropic.grammar_too_large",
-                error_type="grammar_too_large",
-                provider="anthropic",
-                model=matrx_model_name,
-                is_retryable=True,
-                was_recovered=False,
-                detail={
-                    "action": action,
-                    "detail": detail,
-                    "tool_count": len(config_data.get("tools") or []),
-                    "had_structured_output": had_format,
-                },
             )
             try:
                 response = await send(payload)
@@ -323,30 +401,38 @@ class AnthropicChat:
                 if is_grammar_too_large(exc):
                     continue
                 raise
-            await emitter.send_warning(
-                WarningPayload(
-                    code="anthropic_grammar_over_budget",
-                    system_message=(
-                        "Anthropic rejected the request because the compiled grammar "
-                        f"(bound output schema + {len(config_data.get('tools') or [])} tool "
-                        f"schemas) exceeded its budget. Recovered by: {detail}. "
-                        "Fix the root cause — this kind's bound schema is too large to "
-                        "share a request with tools (scripts/check_kind_grammar_budget.py)."
-                    ),
-                    user_message=(
-                        "This step needed a simpler setup to run, so some optional "
-                        "abilities were switched off for it. Your result is here."
-                    ),
-                    level="high",
-                    recoverable=True,
-                    metadata={"action": action, "model": matrx_model_name},
-                )
+            await record_structured_output_finding(
+                key,
+                provider="anthropic",
+                model=matrx_model_name,
+                detail={**identity, "action": detail, "gave_up": gave_up[:40]},
+                was_recovered=True,
             )
+            if key != NARROWED:
+                await emitter.send_warning(
+                    WarningPayload(
+                        code="anthropic_grammar_over_budget",
+                        system_message=(
+                            "Anthropic rejected the request because the compiled grammar "
+                            f"(bound output schema + {len(tools)} tool schemas) exceeded its "
+                            f"budget. Recovered by: {detail}. Recorded as a "
+                            f"'{key}' finding naming this agent and schema — fix the schema "
+                            "(fewer properties / union fields) so it fits."
+                        ),
+                        user_message=(
+                            "This step needed a simpler setup to run, so some optional "
+                            "abilities were switched off for it. Your result is here."
+                        ),
+                        level="high",
+                        recoverable=True,
+                        metadata={"action": key, "model": matrx_model_name},
+                    )
+                )
             return response
 
         vcprint(
-            "❌ ANTHROPIC: compiled grammar still over budget after shedding every "
-            "tool and the structured-output binding — nothing left to give up.",
+            "❌ ANTHROPIC: compiled grammar still over budget after narrowing the schema, "
+            "shedding every tool and dropping the structured-output binding.",
             color="red",
         )
         if last_error is not original:

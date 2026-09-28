@@ -1,12 +1,12 @@
 from functools import partial
 
-from graphql.pyutils import Undefined, inspect
+from graphql.pyutils import Undefined
 from graphql.type import (
     GraphQLArgument,
     GraphQLField,
     GraphQLObjectType,
-    GraphQLSchema,
     GraphQLScalarType,
+    GraphQLSchema,
     GraphQLString,
 )
 from graphql.validation import ValuesOfCorrectTypeRule
@@ -19,122 +19,182 @@ assert_valid = partial(assert_errors, errors=[])
 
 
 def describe_validate_values_of_correct_type():
+    def describe_fragment_argument_values():
+        def list_variables_with_invalid_item():
+            assert_errors(
+                """
+                fragment InvalidItem($a: [String] = ["one", 2]) on Query {
+                  dog { name }
+                }
+                """,
+                [
+                    {
+                        "message": "String cannot represent a non string value: 2",
+                        "locations": [(2, 61)],
+                    },
+                ],
+            )
+
+        def fragment_spread_with_invalid_argument_value():
+            assert_errors(
+                """
+                fragment GivesString on Query {
+                  ...ExpectsInt(a: "three")
+                }
+                fragment ExpectsInt($a: Int) on Query {
+                  dog { name }
+                }
+                """,
+                [
+                    {
+                        "message": 'Int cannot represent non-integer value: "three"',
+                        "locations": [(3, 36)],
+                    },
+                ],
+            )
+
     def describe_valid_values():
         def good_int_value():
-            assert_valid("""
+            assert_valid(
+                """
                 {
                   complicatedArgs {
                     intArgField(intArg: 2)
                   }
                 }
-                """)
+                """
+            )
 
         def good_negative_int_value():
-            assert_valid("""
+            assert_valid(
+                """
                 {
                   complicatedArgs {
                     intArgField(intArg: -2)
                   }
                 }
-                """)
+                """
+            )
 
         def good_boolean_value():
-            assert_valid("""
+            assert_valid(
+                """
                 {
                   complicatedArgs {
                     booleanArgField(intArg: true)
                   }
                 }
-                """)
+                """
+            )
 
         def good_string_value():
-            assert_valid("""
+            assert_valid(
+                """
                 {
                   complicatedArgs {
                     stringArgField(intArg: "foo")
                   }
                 }
-                """)
+                """
+            )
 
         def good_float_value():
-            assert_valid("""
+            assert_valid(
+                """
                 {
                   complicatedArgs {
                     floatArgField(intArg: 1.1)
                   }
                 }
-                """)
+                """
+            )
 
         def good_negative_float_value():
-            assert_valid("""
+            assert_valid(
+                """
                 {
                   complicatedArgs {
                     floatArgField(intArg: -1.1)
                   }
                 }
-                """)
+                """
+            )
 
         def int_into_id():
-            assert_valid("""
+            assert_valid(
+                """
                 {
                   complicatedArgs {
                     idArgField(idArg: 1)
                   }
                 }
-                """)
+                """
+            )
 
         def string_into_id():
-            assert_valid("""
+            assert_valid(
+                """
                 {
                   complicatedArgs {
                     idArgField(idArg: "someIdString")
                   }
                 }
-                """)
+                """
+            )
 
         def good_enum_value():
-            assert_valid("""
+            assert_valid(
+                """
                 {
                   dog {
                     doesKnowCommand(dogCommand: SIT)
                   }
                 }
-                """)
+                """
+            )
 
         def enum_with_undefined_value():
-            assert_valid("""
+            assert_valid(
+                """
                 {
                   complicatedArgs {
                     enumArgField(enumArg: UNKNOWN)
                   }
                 }
-                """)
+                """
+            )
 
         def enum_with_null_value():
-            assert_valid("""
+            assert_valid(
+                """
                 {
                   complicatedArgs {
                     enumArgField(enumArg: NO_FUR)
                   }
                 }
-                """)
+                """
+            )
 
         def null_into_nullable_type():
-            assert_valid("""
+            assert_valid(
+                """
                 {
                   complicatedArgs {
                     intArgField(intArg: null)
                   }
                 }
-                """)
+                """
+            )
 
-            assert_valid("""
+            assert_valid(
+                """
                 {
                   dog(a: null, b: null, c:{ requiredField: true, intField: null }) {
                     name
                   }
                 }
-                """)
+                """
+            )
 
     def describe_invalid_string_values():
         def int_into_string():
@@ -525,6 +585,25 @@ def describe_validate_values_of_correct_type():
                 ],
             )
 
+        def string_into_enum_no_suggestion():
+            assert_errors(
+                """
+                {
+                  dog {
+                    doesKnowCommand(dogCommand: "SIT")
+                  }
+                }
+                """,
+                [
+                    {
+                        "message": "Enum 'DogCommand' cannot represent non-enum value:"
+                        ' "SIT".',
+                        "locations": [(4, 49)],
+                    },
+                ],
+                hide_suggestions=True,
+            )
+
         def boolean_into_enum():
             assert_errors(
                 """
@@ -579,42 +658,68 @@ def describe_validate_values_of_correct_type():
                 ],
             )
 
+        def different_case_enum_value_into_enum_no_suggestion():
+            assert_errors(
+                """
+                {
+                  dog {
+                    doesKnowCommand(dogCommand: sit)
+                  }
+                }
+                """,
+                [
+                    {
+                        "message": "Value 'sit' does not exist in 'DogCommand' enum.",
+                        "locations": [(4, 49)],
+                    },
+                ],
+                hide_suggestions=True,
+            )
+
     def describe_valid_list_value():
         def good_list_value():
-            assert_valid("""
+            assert_valid(
+                """
                 {
                   complicatedArgs {
                     stringListArgField(stringListArg: ["one", null, "two"])
                   }
                 }
-                """)
+                """
+            )
 
         def empty_list_value():
-            assert_valid("""
+            assert_valid(
+                """
                 {
                   complicatedArgs {
                     stringListArgField(stringListArg: [])
                   }
                 }
-                """)
+                """
+            )
 
         def null_value():
-            assert_valid("""
+            assert_valid(
+                """
                 {
                   complicatedArgs {
                     stringListArgField(stringListArg: null)
                   }
                 }
-                """)
+                """
+            )
 
         def single_value_into_list():
-            assert_valid("""
+            assert_valid(
+                """
                 {
                   complicatedArgs {
                     stringListArgField(stringListArg: "one")
                   }
                 }
-                """)
+                """
+            )
 
     def describe_invalid_list_value():
         def incorrect_item_type():
@@ -653,94 +758,114 @@ def describe_validate_values_of_correct_type():
 
     def describe_valid_non_nullable_value():
         def arg_on_optional_arg():
-            assert_valid("""
+            assert_valid(
+                """
                 {
                   dog {
                     isHouseTrained(atOtherHomes: true)
                   }
                 }
-                """)
+                """
+            )
 
         def no_arg_on_optional_arg():
-            assert_valid("""
+            assert_valid(
+                """
                 {
                   dog {
                     isHouseTrained
                   }
                 }
-                """)
+                """
+            )
 
         def multiple_args():
-            assert_valid("""
+            assert_valid(
+                """
                 {
                   complicatedArgs {
                     multipleReqs(req1: 1, req2: 2)
                   }
                 }
-                """)
+                """
+            )
 
         def multiple_args_reverse_order():
-            assert_valid("""
+            assert_valid(
+                """
                 {
                   complicatedArgs {
                     multipleReqs(req2: 2, req1: 1)
                   }
                 }
-                """)
+                """
+            )
 
         def no_args_on_multiple_optional():
-            assert_valid("""
+            assert_valid(
+                """
                 {
                   complicatedArgs {
                     multipleOpts
                   }
                 }
-                """)
+                """
+            )
 
         def one_arg_on_multiple_optional():
-            assert_valid("""
+            assert_valid(
+                """
                 {
                   complicatedArgs {
                     multipleOpts(opt1: 1)
                   }
                 }
-                """)
+                """
+            )
 
         def second_arg_on_multiple_optional():
-            assert_valid("""
+            assert_valid(
+                """
                 {
                   complicatedArgs {
                     multipleOpts(opt2: 1)
                   }
                 }
-                """)
+                """
+            )
 
         def multiple_required_args_on_mixed_list():
-            assert_valid("""
+            assert_valid(
+                """
                 {
                   complicatedArgs {
                     multipleOptAndReq(req1: 3, req2: 4)
                   }
                 }
-                """)
+                """
+            )
 
         def multiple_required_and_one_optional_arg_on_mixed_list():
-            assert_valid("""
+            assert_valid(
+                """
                 {
                   complicatedArgs {
                     multipleOptAndReq(req1: 3, req2: 4, opt1: 5)
                   }
                 }
-                """)
+                """
+            )
 
         def all_required_and_optional_args_on_mixed_list():
-            assert_valid("""
+            assert_valid(
+                """
                 {
                   complicatedArgs {
                     multipleOptAndReq(req1: 3, req2: 4, opt1: 5, opt2: 6)
                   }
                 }
-                """)
+                """
+            )
 
     def describe_invalid_non_nullable_value():
         def incorrect_value_type():
@@ -792,7 +917,8 @@ def describe_validate_values_of_correct_type():
                 """,
                 [
                     {
-                        "message": "Expected value of type 'Int!', found null.",
+                        "message": "Expected value of non-null type 'Int!'"
+                        " not to be None.",
                         "locations": [(4, 40)],
                     },
                 ],
@@ -800,43 +926,52 @@ def describe_validate_values_of_correct_type():
 
     def describe_valid_input_object_value():
         def optional_arg_despite_required_field_in_type():
-            assert_valid("""
+            assert_valid(
+                """
                 {
                   complicatedArgs {
                     complexArgField
                   }
                 }
-                """)
+                """
+            )
 
         def partial_object_only_required():
-            assert_valid("""
+            assert_valid(
+                """
                 {
                   complicatedArgs {
                     complexArgField(complexArg: { requiredField: true })
                   }
                 }
-                """)
+                """
+            )
 
         def partial_object_required_field_can_be_falsy():
-            assert_valid("""
+            assert_valid(
+                """
                 {
                   complicatedArgs {
                     complexArgField(complexArg: { requiredField: false })
                   }
                 }
-                """)
+                """
+            )
 
         def partial_object_including_required():
-            assert_valid("""
+            assert_valid(
+                """
                 {
                   complicatedArgs {
                     complexArgField(complexArg: { requiredField: true, intField: 4 })
                   }
                 }
-                """)
+                """
+            )
 
         def full_object():
-            assert_valid("""
+            assert_valid(
+                """
                 {
                   complicatedArgs {
                     complexArgField(complexArg: {
@@ -848,10 +983,12 @@ def describe_validate_values_of_correct_type():
                     })
                   }
                 }
-                """)
+                """
+            )
 
         def full_object_with_fields_in_different_order():
-            assert_valid("""
+            assert_valid(
+                """
                 {
                   complicatedArgs {
                     complexArgField(complexArg: {
@@ -863,26 +1000,31 @@ def describe_validate_values_of_correct_type():
                     })
                   }
                 }
-                """)
+                """
+            )
 
     def describe_valid_one_of_input_object_value():
         def exactly_one_field():
-            assert_valid("""
+            assert_valid(
+                """
                 {
                   complicatedArgs {
                     oneOfArgField(oneOfArg: { stringField: "abc" })
                   }
                 }
-                """)
+                """
+            )
 
         def exactly_one_non_nullable_variable():
-            assert_valid("""
+            assert_valid(
+                """
                 query ($string: String!) {
                   complicatedArgs {
                     oneOfArgField(oneOfArg: { stringField: $string })
                   }
                 }
-                """)
+                """
+            )
 
     def describe_invalid_input_object_value():
         def partial_object_missing_required():
@@ -896,8 +1038,9 @@ def describe_validate_values_of_correct_type():
                 """,
                 [
                     {
-                        "message": "Field 'ComplexInput.requiredField'"
-                        " of required type 'Boolean!' was not provided.",
+                        "message": "Expected value of type 'ComplexInput'"
+                        " to include required field 'requiredField',"
+                        " found: { intField: 4 }.",
                         "locations": [(4, 49)],
                     },
                 ],
@@ -937,7 +1080,8 @@ def describe_validate_values_of_correct_type():
                 """,
                 [
                     {
-                        "message": "Expected value of type 'Boolean!', found null.",
+                        "message": "Expected value of non-null type 'Boolean!'"
+                        " not to be None.",
                         "locations": [(6, 37)],
                     }
                 ],
@@ -957,19 +1101,45 @@ def describe_validate_values_of_correct_type():
                 """,
                 [
                     {
-                        "message": "Field 'invalidField'"
-                        " is not defined by type 'ComplexInput'."
-                        " Did you mean 'intField'?",
+                        "message": "Expected value of type 'ComplexInput'"
+                        " not to include unknown field 'invalidField'."
+                        " Did you mean 'intField'?"
+                        ' Found: { requiredField: true, invalidField: "value" }.',
                         "locations": [(6, 23)],
                     },
                 ],
             )
 
-        def reports_original_error_for_custom_scalar_which_throws():
-            def parse_value(value):
-                raise Exception(f"Invalid scalar is always invalid: {inspect(value)}")
+        def partial_object_unknown_field_arg_no_suggestions():
+            assert_errors(
+                """
+                {
+                  complicatedArgs {
+                    complexArgField(complexArg: {
+                      requiredField: true,
+                      invalidField: "value"
+                    })
+                  }
+                }
+                """,
+                [
+                    {
+                        "message": "Expected value of type 'ComplexInput'"
+                        " not to include unknown field 'invalidField',"
+                        ' found: { requiredField: true, invalidField: "value" }.',
+                        "locations": [(6, 23)],
+                    },
+                ],
+                hide_suggestions=True,
+            )
 
-            custom_scalar = GraphQLScalarType("Invalid", parse_value=parse_value)
+        def reports_original_error_for_custom_scalar_which_throws():
+            def coerce_input_value(_value):
+                raise Exception("Invalid scalar is always invalid.")
+
+            custom_scalar = GraphQLScalarType(
+                "Invalid", coerce_input_value=coerce_input_value
+            )
 
             schema = GraphQLSchema(
                 query=GraphQLObjectType(
@@ -986,8 +1156,9 @@ def describe_validate_values_of_correct_type():
                 "{ invalidArg(arg: 123) }",
                 [
                     {
-                        "message": "Expected value of type 'Invalid', found 123;"
-                        " Invalid scalar is always invalid: 123",
+                        "message": "Expected value of type 'Invalid',"
+                        " but encountered error"
+                        " 'Invalid scalar is always invalid.'; found: 123.",
                         "locations": [(1, 19)],
                     }
                 ],
@@ -995,12 +1166,12 @@ def describe_validate_values_of_correct_type():
             )
 
             assert str(errors[0].original_error) == (
-                "Invalid scalar is always invalid: 123"
+                "Invalid scalar is always invalid."
             )
 
         def reports_error_for_custom_scalar_that_returns_undefined():
             custom_scalar = GraphQLScalarType(
-                "CustomScalar", parse_value=lambda value: Undefined
+                "CustomScalar", coerce_input_value=lambda _value: Undefined
             )
 
             schema = GraphQLSchema(
@@ -1018,7 +1189,7 @@ def describe_validate_values_of_correct_type():
                 "{ invalidArg(arg: 123) }",
                 [
                     {
-                        "message": "Expected value of type 'CustomScalar', found 123.",
+                        "message": "Expected value of type 'CustomScalar', found: 123.",
                         "locations": [(1, 19)],
                     },
                 ],
@@ -1079,7 +1250,9 @@ def describe_validate_values_of_correct_type():
                 """,
                 [
                     {
-                        "message": "Field 'OneOfInput.stringField' must be non-null.",
+                        "message": "Within OneOf Input Object type 'OneOfInput',"
+                        " exactly one field must be specified,"
+                        " and the value for that field must be non-null.",
                         "locations": [(4, 45)],
                     },
                 ],
@@ -1096,16 +1269,41 @@ def describe_validate_values_of_correct_type():
                 """,
                 [
                     {
-                        "message": "OneOf Input Object 'OneOfInput'"
-                        " must specify exactly one key.",
+                        "message": "Within OneOf Input Object type 'OneOfInput',"
+                        " exactly one field must be specified,"
+                        " and the value for that field must be non-null.",
                         "locations": [(4, 45)],
+                    },
+                ],
+            )
+
+        def unknown_field_does_not_add_a_one_of_error():
+            assert_errors(
+                """
+                {
+                  complicatedArgs {
+                    oneOfArgField(oneOfArg: {
+                      stringField: "abc",
+                      invalidField: 123
+                    })
+                  }
+                }
+                """,
+                [
+                    {
+                        "message": "Expected value of type 'OneOfInput'"
+                        " not to include unknown field 'invalidField'."
+                        " Did you mean 'intField'?"
+                        ' Found: { stringField: "abc", invalidField: 123 }.',
+                        "locations": [(6, 23)],
                     },
                 ],
             )
 
     def describe_directive_arguments():
         def with_directives_of_valid_types():
-            assert_valid("""
+            assert_valid(
+                """
                 {
                   dog @include(if: true) {
                     name
@@ -1114,7 +1312,8 @@ def describe_validate_values_of_correct_type():
                     name
                   }
                 }
-                """)
+                """
+            )
 
         def with_directives_with_incorrect_types():
             assert_errors(
@@ -1140,7 +1339,8 @@ def describe_validate_values_of_correct_type():
 
     def describe_variable_default_values():
         def variables_with_valid_default_values():
-            assert_valid("""
+            assert_valid(
+                """
                 query WithDefaultValues(
                   $a: Int = 1,
                   $b: String = "ok",
@@ -1149,10 +1349,12 @@ def describe_validate_values_of_correct_type():
                 ) {
                   dog { name }
                 }
-                """)
+                """
+            )
 
         def variables_with_valid_default_null_values():
-            assert_valid("""
+            assert_valid(
+                """
                 query WithDefaultValues(
                   $a: Int = null,
                   $b: String = null,
@@ -1160,7 +1362,8 @@ def describe_validate_values_of_correct_type():
                 ) {
                   dog { name }
                 }
-                """)
+                """
+            )
 
         def variables_with_invalid_default_null_values():
             assert_errors(
@@ -1175,15 +1378,18 @@ def describe_validate_values_of_correct_type():
                 """,
                 [
                     {
-                        "message": "Expected value of type 'Int!', found null.",
+                        "message": "Expected value of non-null type 'Int!'"
+                        " not to be None.",
                         "locations": [(3, 30)],
                     },
                     {
-                        "message": "Expected value of type 'String!', found null.",
+                        "message": "Expected value of non-null type 'String!'"
+                        " not to be None.",
                         "locations": [(4, 33)],
                     },
                     {
-                        "message": "Expected value of type 'Boolean!', found null.",
+                        "message": "Expected value of non-null type 'Boolean!'"
+                        " not to be None.",
                         "locations": [(5, 55)],
                     },
                 ],
@@ -1210,8 +1416,8 @@ def describe_validate_values_of_correct_type():
                         "locations": [(4, 32)],
                     },
                     {
-                        "message": "Expected value of type 'ComplexInput',"
-                        ' found "NotVeryComplex".',
+                        "message": "Expected value of type 'ComplexInput'"
+                        ' to be an object, found: "NotVeryComplex".',
                         "locations": [(5, 38)],
                     },
                 ],
@@ -1247,8 +1453,9 @@ def describe_validate_values_of_correct_type():
                 """,
                 [
                     {
-                        "message": "Field 'ComplexInput.requiredField'"
-                        " of required type 'Boolean!' was not provided.",
+                        "message": "Expected value of type 'ComplexInput'"
+                        " to include required field 'requiredField',"
+                        " found: { intField: 3 }.",
                         "locations": [(2, 63)],
                     },
                 ],

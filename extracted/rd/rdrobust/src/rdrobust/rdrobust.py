@@ -20,7 +20,7 @@ def rdrobust(y, x, c = None, fuzzy = None, deriv = None,
              vce = "nn", cluster = None, nnmatch = 3, level = 95,
              scalepar = 1, scaleregul = 1, sharpbw = False,
              all = None, subset = None, masspoints = "adjust",
-             bwcheck = None, bwrestrict = True, stdvars = False,
+             bwcheck = None, bwrestrict = True, stdvars = True,
              data = None):
     
     '''
@@ -175,7 +175,7 @@ def rdrobust(y, x, c = None, fuzzy = None, deriv = None,
     if TRUE, computed bandwidths are restricted to lie within the range of x; default is bwrestrict = TRUE.
     
     stdvars
-    if TRUE, x and y are standardized before computing the bandwidths; default is stdvars = FALSE.
+    if TRUE, x and y are standardized before computing the bandwidths. Standardization avoids numerical instability in bandwidth selection when the running variable has very large or very small magnitude; default is stdvars = TRUE.
 
     data
     optional pandas DataFrame. When supplied, `y`, `x`, `covs`, `cluster`,
@@ -366,6 +366,22 @@ def rdrobust(y, x, c = None, fuzzy = None, deriv = None,
             and masspoints not in ("check", "adjust", "off", "")):
         raise Exception("masspoints must be one of 'check', 'adjust', 'off', or False")
 
+    def _normalize_bandwidth(value, name):
+        if value is None:
+            return None
+        arr = np.asarray(value)
+        if (arr.ndim > 1 or arr.size not in (1, 2)
+                or not (np.issubdtype(arr.dtype, np.integer)
+                        or np.issubdtype(arr.dtype, np.floating))):
+            raise ValueError(f"{name} must contain one or two positive finite numbers")
+        arr = arr.astype(float).reshape(-1)
+        if not np.all(np.isfinite(arr)) or np.any(arr <= 0):
+            raise ValueError(f"{name} must contain one or two positive finite numbers")
+        return float(arr[0]) if arr.size == 1 else arr
+
+    h = _normalize_bandwidth(h, "h")
+    b = _normalize_bandwidth(b, "b")
+
     #=========================================================================
     # Tidy the Input and remove NAN
 
@@ -391,14 +407,18 @@ def rdrobust(y, x, c = None, fuzzy = None, deriv = None,
         raise Exception(f"'cluster' must have length equal to length(x) (got {len(np.asarray(cluster).reshape(-1))}, expected {n_orig}).")
     if subset is not None:
         _subset_arr = np.asarray(subset)
+        if _subset_arr.ndim != 1:
+            raise ValueError("'subset' must be one-dimensional.")
         if _subset_arr.dtype == bool:
             if len(_subset_arr) != n_orig:
                 raise Exception(f"Boolean 'subset' must have length equal to length(x) (got {len(_subset_arr)}, expected {n_orig}).")
+            subset = _subset_arr
         elif np.issubdtype(_subset_arr.dtype, np.integer) or np.issubdtype(_subset_arr.dtype, np.floating):
             if (not np.all(np.isfinite(_subset_arr)) or np.any(_subset_arr < 0)
                     or np.any(_subset_arr >= n_orig)
                     or not np.all(_subset_arr == _subset_arr.astype(int))):
                 raise Exception(f"Numeric 'subset' must contain integer indices in 0..{n_orig - 1}.")
+            subset = _subset_arr.astype(np.intp)
         else:
             raise Exception("'subset' must be boolean or integer.")
 
@@ -470,8 +490,8 @@ def rdrobust(y, x, c = None, fuzzy = None, deriv = None,
     x_max = np.max(x)
     if c<=x_min or c>=x_max:
         raise Exception("c should be set within the range of x")
-    range_l = np.abs(np.max(X_l)-np.min(X_l))
-    range_r = np.abs(np.max(X_r)-np.min(X_r))
+    range_l = np.abs(c-x_min)
+    range_r = np.abs(x_max-c)
     N_l = len(X_l)
     N_r = len(X_r)
     N = N_r + N_l
@@ -524,9 +544,13 @@ def rdrobust(y, x, c = None, fuzzy = None, deriv = None,
         else:
             b = h/rho
             
-    if N<20:
-        print("Not enough observations to perform bandwidth calculations. Estimates computed using entire sample")
-        h = b = np.max(range_l,range_r)
+    if N < 20 and h is None:
+        print("Not enough observations to perform bandwidth calculations. Using the maximum distance from the cutoff for h.")
+        h = max(range_l, range_r)
+        if rho is not None:
+            b = h/rho
+        elif b is None:
+            b = h
         bwselect = "Manual"
   
     if kernel=="epanechnikov" or kernel=="epa":
@@ -644,6 +668,16 @@ def rdrobust(y, x, c = None, fuzzy = None, deriv = None,
         elif vce_bw == "cr2": vce_bw = "crv2"
         elif vce_bw == "cr3": vce_bw = "crv3"
 
+        # X_uniq_l/r must be standardized when stdvars=True so the bwcheck floor
+        # inside _rdbwselect_compute matches the standardized c/X/range. Without
+        # this, bw_min binds in raw scale and h blows up at extreme |scale|.
+        if stdvars and X_uniq_l is not None:
+            X_uniq_l_bw = X_uniq_l / x_sd_bw
+            X_uniq_r_bw = X_uniq_r / x_sd_bw
+        else:
+            X_uniq_l_bw = X_uniq_l
+            X_uniq_r_bw = X_uniq_r
+
         bws_df, _ = _rdbwselect_compute(
             Y_l=Y_l_bw, Y_r=Y_r_bw, X_l=X_l_bw, X_r=X_r_bw,
             T_l=T_l_bw, T_r=T_r_bw, Z_l=Z_l_bw, Z_r=Z_r_bw,
@@ -652,7 +686,7 @@ def rdrobust(y, x, c = None, fuzzy = None, deriv = None,
             dupsid_l=dupsid_l_bw, dupsid_r=dupsid_r_bw,
             N_l=N_l, N_r=N_r, N=N, M_l=M_l, M_r=M_r,
             M=(M_l + M_r) if masspoints in ("check", "adjust") else N,
-            X_uniq_l=X_uniq_l, X_uniq_r=X_uniq_r,
+            X_uniq_l=X_uniq_l_bw, X_uniq_r=X_uniq_r_bw,
             x_min=x_min_bw, x_max=x_max_bw,
             range_l=range_l_bw, range_r=range_r_bw, x_sd=x_sd_bw,
             c=c_bw_arg, p=p, q=q, deriv=deriv, kernel=kernel,
@@ -697,6 +731,13 @@ def rdrobust(y, x, c = None, fuzzy = None, deriv = None,
     N_b_l = np.sum(ind_b_l)
     N_h_r = np.sum(ind_h_r)
     N_b_r = np.sum(ind_b_r)
+
+    if (np.unique(X_l[ind_h_l]).size < p + 1
+            or np.unique(X_r[ind_h_r]).size < p + 1
+            or np.unique(X_l[ind_b_l]).size < q + 1
+            or np.unique(X_r[ind_b_r]).size < q + 1):
+        raise ValueError("Not enough distinct running-variable values with positive weight "
+                         "to fit the requested polynomials on each side of the cutoff.")
     
     ind_l = ind_b_l 
     ind_r = ind_b_r

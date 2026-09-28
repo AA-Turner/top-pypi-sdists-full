@@ -23,7 +23,9 @@ from ._events import (
     ToolCallEvent,
     TranscriptDeltaEvent,
 )
+from ._gemini import GeminiRealtimeModel
 from ._model_card import RealtimeModelCard
+from ._openai import OpenAIRealtimeModel
 from ._playout import PlayoutPosition
 from ._transport import (
     AudioFrame,
@@ -34,12 +36,16 @@ from ._transport import (
     TransportFrame,
 )
 from ._vad import SpeechTransition, VADBase
+from ._xai import XAIRealtimeModel
 
 __all__ = [
     # Model
     "RealtimeModelBase",
     "DashScopeRealtimeModel",
     "DashScopeAudioRealtimeModel",
+    "GeminiRealtimeModel",
+    "OpenAIRealtimeModel",
+    "XAIRealtimeModel",
     "RealtimeModelCard",
     "TruncationSupport",
     "ModelDisconnectedError",

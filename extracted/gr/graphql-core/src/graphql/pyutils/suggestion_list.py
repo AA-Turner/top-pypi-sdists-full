@@ -1,11 +1,18 @@
-from typing import Collection, Optional, List
+"""List with suggestions"""
+
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
 
 from .natural_compare import natural_comparison_key
+
+if TYPE_CHECKING:
+    from collections.abc import Collection
 
 __all__ = ["suggestion_list"]
 
 
-def suggestion_list(input_: str, options: Collection[str]) -> List[str]:
+def suggestion_list(input_: str, options: Collection[str]) -> list[str]:
     """Get list with suggestions for a given input.
 
     Given an invalid input string and list of valid options, returns a filtered list
@@ -20,7 +27,6 @@ def suggestion_list(input_: str, options: Collection[str]) -> List[str]:
         if distance is not None:
             options_by_distance[option] = distance
 
-    # noinspection PyShadowingNames
     return sorted(
         options_by_distance,
         key=lambda option: (
@@ -42,10 +48,10 @@ class LexicalDistance:
 
     _input: str
     _input_lower_case: str
-    _input_list: List[int]
-    _rows: List[List[int]]
+    _input_list: list[int]
+    _rows: list[list[int]]
 
-    def __init__(self, input_: str):
+    def __init__(self, input_: str) -> None:
         self._input = input_
         self._input_lower_case = input_.lower()
         row_size = len(input_) + 1
@@ -53,7 +59,7 @@ class LexicalDistance:
 
         self._rows = [[0] * row_size, [0] * row_size, [0] * row_size]
 
-    def measure(self, option: str, threshold: int) -> Optional[int]:
+    def measure(self, option: str, threshold: int) -> int | None:
         if self._input == option:
             return 0
 
@@ -95,8 +101,7 @@ class LexicalDistance:
                     double_diagonal_cell = rows[(i - 2) % 3][j - 2]
                     current_cell = min(current_cell, double_diagonal_cell + 1)
 
-                if current_cell < smallest_cell:
-                    smallest_cell = current_cell
+                smallest_cell = min(current_cell, smallest_cell)
 
                 current_row[j] = current_cell
 

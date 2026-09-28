@@ -1,30 +1,32 @@
-from copy import copy
+"""AST Visitor"""
+
+from __future__ import annotations
+
 from enum import Enum
 from typing import (
+    TYPE_CHECKING,
     Any,
-    Callable,
-    Collection,
-    Dict,
-    List,
     NamedTuple,
-    Optional,
-    Tuple,
-    Union,
+    TypeAlias,
 )
 
 from ..pyutils import inspect, snake_to_camel
 from . import ast
 from .ast import QUERY_DOCUMENT_KEYS, Node
 
+if TYPE_CHECKING:
+    from collections.abc import Callable, Collection
+
 __all__ = [
-    "Visitor",
-    "ParallelVisitor",
-    "VisitorAction",
-    "visit",
     "BREAK",
-    "SKIP",
-    "REMOVE",
     "IDLE",
+    "REMOVE",
+    "SKIP",
+    "ParallelVisitor",
+    "Visitor",
+    "VisitorAction",
+    "VisitorKeyMap",
+    "visit",
 ]
 
 
@@ -39,9 +41,9 @@ class VisitorActionEnum(Enum):
     REMOVE = Ellipsis
 
 
-VisitorAction = Optional[VisitorActionEnum]
+VisitorAction: TypeAlias = VisitorActionEnum | None
 
-# Note that in GraphQL.js these are defined differently:
+# Note that in GraphQL.js these are defined *differently*:
 # BREAK = {}, SKIP = false, REMOVE = null, IDLE = undefined
 
 BREAK = VisitorActionEnum.BREAK
@@ -49,14 +51,14 @@ SKIP = VisitorActionEnum.SKIP
 REMOVE = VisitorActionEnum.REMOVE
 IDLE = None
 
-VisitorKeyMap = Dict[str, Tuple[str, ...]]
+VisitorKeyMap: TypeAlias = dict[str, tuple[str, ...]]
 
 
 class EnterLeaveVisitor(NamedTuple):
     """Visitor with functions for entering and leaving."""
 
-    enter: Optional[Callable[..., Optional[VisitorAction]]]
-    leave: Optional[Callable[..., Optional[VisitorAction]]]
+    enter: Callable[..., VisitorAction | None] | None
+    leave: Callable[..., VisitorAction | None] | None
 
 
 class Visitor:
@@ -85,37 +87,53 @@ class Visitor:
 
     The parameters have the following meaning:
 
-    :arg node: The current node being visiting.
-    :arg key: The index or key to this node from the parent node or Array.
-    :arg parent: the parent immediately above this node, which may be an Array.
-    :arg path: The key path to get to this node from the root node.
-    :arg ancestors: All nodes and Arrays visited before reaching parent
-        of this node. These correspond to array indices in ``path``.
-        Note: ancestors includes arrays which contain the parent of visited node.
+    :arg node: Current node being visited.
+    :arg key: Index or key for this node within the parent node or array.
+    :arg parent: Parent immediately above this node, which may be an array.
+    :arg path: Key path from the root node to this node.
+    :arg ancestors: All nodes and arrays visited before reaching this node's parent.
+        These correspond to array indices in ``path``.
+        Note: ancestors includes arrays that contain the visited node's parent.
 
     You can also define node kind specific methods by suffixing them with an underscore
     followed by the kind of the node to be visited. For instance, to visit ``field``
-    nodes, you would defined the methods ``enter_field()`` and/or ``leave_field()``,
+    nodes, you would define the methods ``enter_field()`` and/or ``leave_field()``,
     with the same signature as above. If no kind specific method has been defined
     for a given node, the generic method is called.
+
+    A visitor can provide separate enter and leave methods for nodes of a kind:
+
+    >>> from graphql import parse, visit, Visitor
+    >>> document = parse('{ hero { name } }')
+    >>> events = []
+    >>> class FieldVisitor(Visitor):
+    ...     def enter_field(self, node, *_args):
+    ...         events.append(f'enter:{node.name.value}')
+    ...     def leave_field(self, node, *_args):
+    ...         events.append(f'leave:{node.name.value}')
+    >>> visit(document, FieldVisitor()) is document
+    True
+    >>> events
+    ['enter:hero', 'enter:name', 'leave:name', 'leave:hero']
     """
 
     # Provide special return values as attributes
     BREAK, SKIP, REMOVE, IDLE = BREAK, SKIP, REMOVE, IDLE
 
-    enter_leave_map: Dict[str, EnterLeaveVisitor]
+    enter_leave_map: dict[str, EnterLeaveVisitor]
+    """Cache of the enter and leave methods of this visitor per node kind."""
 
     def __init_subclass__(cls) -> None:
         """Verify that all defined handlers are valid."""
         super().__init_subclass__()
-        for attr, val in cls.__dict__.items():
+        for attr in cls.__dict__:
             if attr.startswith("_"):
                 continue
             attr_kind = attr.split("_", 1)
             if len(attr_kind) < 2:
-                kind: Optional[str] = None
+                kind: str | None = None
             else:
-                attr, kind = attr_kind
+                attr, kind = attr_kind  # noqa: PLW2901
             if attr in ("enter", "leave") and kind:
                 name = snake_to_camel(kind) + "Node"
                 node_cls = getattr(ast, name, None)
@@ -124,13 +142,28 @@ class Visitor:
                     or not isinstance(node_cls, type)
                     or not issubclass(node_cls, Node)
                 ):
-                    raise TypeError(f"Invalid AST node kind: {kind}.")
+                    msg = f"Invalid AST node kind: {kind}."
+                    raise TypeError(msg)
 
     def __init__(self) -> None:
         self.enter_leave_map = {}
 
     def get_enter_leave_for_kind(self, kind: str) -> EnterLeaveVisitor:
-        """Given a node kind, return the EnterLeaveVisitor for that kind."""
+        """Given a node kind, return the EnterLeaveVisitor for that kind.
+
+        :param kind: The AST node kind to resolve methods for.
+        :returns: The enter and leave methods that apply for the given node kind.
+
+        >>> from graphql import Visitor
+        >>> class FieldVisitor(Visitor):
+        ...     def enter_field(self, node, *_args):
+        ...         pass
+        >>> enter, leave = FieldVisitor().get_enter_leave_for_kind('field')
+        >>> callable(enter)
+        True
+        >>> leave is None
+        True
+        """
         try:
             return self.enter_leave_map[kind]
         except KeyError:
@@ -144,36 +177,21 @@ class Visitor:
             self.enter_leave_map[kind] = enter_leave
             return enter_leave
 
-    def get_visit_fn(
-        self, kind: str, is_leaving: bool = False
-    ) -> Optional[Callable[..., Optional[VisitorAction]]]:
-        """Get the visit function for the given node kind and direction.
-
-        This deprecated compatibility helper delegates to
-        ``get_enter_leave_for_kind``; call ``get_enter_leave_for_kind`` directly
-        because ``get_visit_fn`` will be removed in v3.3.
-
-        .. deprecated:: 3.2
-           Please use ``get_enter_leave_for_kind`` instead. Will be removed in v3.3.
-        """
-        enter_leave = self.get_enter_leave_for_kind(kind)
-        return enter_leave.leave if is_leaving else enter_leave.enter
-
 
 class Stack(NamedTuple):
     """A stack for the visit function."""
 
     in_array: bool
     idx: int
-    keys: Tuple[Node, ...]
-    edits: List[Tuple[Union[int, str], Node]]
-    prev: Any  # 'Stack' (python/mypy/issues/731)
+    keys: tuple[Node, ...]
+    edits: list[tuple[int | str, Node]]
+    prev: Stack
 
 
 def visit(
-    root: Node, visitor: Visitor, visitor_keys: Optional[VisitorKeyMap] = None
+    root: Node, visitor: Visitor, visitor_keys: VisitorKeyMap | None = None
 ) -> Any:
-    """Visit each node in an AST.
+    r"""Visit each node in an AST.
 
     :func:`~.visit` will walk through an AST using a depth-first traversal, calling the
     visitor's enter methods at each node in the traversal, and calling the leave methods
@@ -190,26 +208,95 @@ def visit(
 
     To customize the node attributes to be used for traversal, you can provide a
     dictionary visitor_keys mapping node kinds to node attributes.
+
+    :param root: The AST node at which to start traversal.
+    :param visitor: The visitor whose methods are called while traversing.
+    :param visitor_keys: Optional map of child keys to visit for each AST node kind.
+    :returns: The original AST, an edited AST, or a reduced value depending on the
+        visitor.
+
+    Return values control traversal: ``None`` makes no change, ``SKIP`` or ``False``
+    skips a subtree, ``BREAK`` or ``True`` stops traversal, ``REMOVE`` or ``...``
+    removes a node, and any other value replaces the current node:
+
+    >>> from dataclasses import replace
+    >>> from graphql import NameNode, parse, print_ast, visit, Visitor
+    >>> document = parse('{ hero { name } }')
+    >>> class RenameVisitor(Visitor):
+    ...     def enter_field(self, node, *_args):
+    ...         if node.name.value == 'hero':
+    ...             return replace(node, name=NameNode(value='human'))
+    >>> edited_ast = visit(document, RenameVisitor())
+    >>> print_ast(edited_ast)
+    '{\n  human {\n    name\n  }\n}'
+
+    A kind specific visitor method runs when entering nodes of that kind:
+
+    >>> field_names = []
+    >>> class FieldVisitor(Visitor):
+    ...     def enter_field(self, node, *_args):
+    ...         field_names.append(node.name.value)
+    >>> visit(document, FieldVisitor()) is document
+    True
+    >>> field_names
+    ['hero', 'name']
+
+    Generic enter and leave methods run for every node:
+
+    >>> class CountingVisitor(Visitor):
+    ...     entered = left = 0
+    ...     def enter(self, *_args):
+    ...         self.entered += 1
+    ...     def leave(self, *_args):
+    ...         self.left += 1
+    >>> visitor = CountingVisitor()
+    >>> visit(document, visitor) is document
+    True
+    >>> visitor.entered == visitor.left
+    True
+    >>> visitor.entered > 0
+    True
+
+    A visitor can return values from its leave methods to build a reduced result
+    instead of returning an edited AST:
+
+    >>> class ReducingVisitor(Visitor):
+    ...     def leave_name(self, node, *_args):
+    ...         return node.value
+    ...     def leave_field(self, node, *_args):
+    ...         if node.selection_set is None:
+    ...             return node.name
+    ...         return f'{node.name} {{ {node.selection_set} }}'
+    ...     def leave_selection_set(self, node, *_args):
+    ...         return ' '.join(node.selections)
+    ...     def leave_operation_definition(self, node, *_args):
+    ...         return node.selection_set
+    ...     def leave_document(self, node, *_args):
+    ...         return '\n'.join(node.definitions)
+    >>> visit(document, ReducingVisitor())
+    'hero { name }'
     """
     if not isinstance(root, Node):
-        raise TypeError(f"Not an AST Node: {inspect(root)}.")
+        msg = f"Not an AST Node: {inspect(root)}."
+        raise TypeError(msg)
     if not isinstance(visitor, Visitor):
-        raise TypeError(f"Not an AST Visitor: {inspect(visitor)}.")
+        msg = f"Not an AST Visitor: {inspect(visitor)}."
+        raise TypeError(msg)
     if visitor_keys is None:
         visitor_keys = QUERY_DOCUMENT_KEYS
 
     stack: Any = None
     in_array = False
-    keys: Tuple[Node, ...] = (root,)
+    keys: tuple[Node, ...] = (root,)
     idx = -1
-    edits: List[Any] = []
+    edits: list[Any] = []
     node: Any = root
     key: Any = None
     parent: Any = None
-    path: List[Any] = []
+    path: list[Any] = []
     path_append = path.append
     path_pop = path.pop
-    ancestors: List[Any] = []
+    ancestors: list[Any] = []
     ancestors_append = ancestors.append
     ancestors_pop = ancestors.pop
 
@@ -234,9 +321,9 @@ def visit(
                             node[array_key] = edit_value
                     node = tuple(node)
                 else:
-                    node = copy(node)
-                    for edit_key, edit_value in edits:
-                        setattr(node, edit_key, edit_value)
+                    # Create new node with edited values (immutable-friendly)
+                    values = {k: getattr(node, k) for k in node.keys} | dict(edits)
+                    node = node.__class__(**values)
             idx = stack.idx
             keys = stack.keys
             edits = stack.edits
@@ -257,7 +344,8 @@ def visit(
             result = None
         else:
             if not isinstance(node, Node):
-                raise TypeError(f"Invalid AST Node: {inspect(node)}.")
+                msg = f"Invalid AST Node: {inspect(node)}."
+                raise TypeError(msg)
             enter_leave = visitor.get_enter_leave_for_kind(node.kind)
             visit_fn = enter_leave.leave if is_leaving else enter_leave.enter
             if visit_fn:
@@ -313,22 +401,59 @@ class ParallelVisitor(Visitor):
     Each visitor will be visited for each node before moving on.
 
     If a prior visitor edits a node, no following visitors will see that node.
+
+    :param visitors: The visitors to merge into one parallel visitor.
+
+    >>> from graphql import parse, visit, ParallelVisitor, Visitor
+    >>> document = parse('{ hero { name } }')
+    >>> events = []
+    >>> class FieldVisitor(Visitor):
+    ...     def enter_field(self, node, *_args):
+    ...         events.append(f'field:{node.name.value}')
+    >>> class NameVisitor(Visitor):
+    ...     def enter_name(self, node, *_args):
+    ...         events.append(f'name:{node.value}')
+    >>> parallel_visitor = ParallelVisitor([FieldVisitor(), NameVisitor()])
+    >>> visit(document, parallel_visitor) is document
+    True
+    >>> events
+    ['field:hero', 'name:hero', 'field:name', 'name:name']
     """
 
-    def __init__(self, visitors: Collection[Visitor]):
+    def __init__(self, visitors: Collection[Visitor]) -> None:
         """Create a new visitor from the given list of parallel visitors."""
         super().__init__()
         self.visitors = visitors
-        self.skipping: List[Any] = [None] * len(visitors)
+        self.skipping: list[Any] = [None] * len(visitors)
 
     def get_enter_leave_for_kind(self, kind: str) -> EnterLeaveVisitor:
-        """Given a node kind, return the EnterLeaveVisitor for that kind."""
+        """Given a node kind, return the EnterLeaveVisitor for that kind.
+
+        The returned methods delegate to the corresponding methods of all visitors.
+
+        :param kind: The AST node kind to resolve methods for.
+        :returns: The merged enter and leave methods for the given node kind.
+
+        >>> from graphql import ParallelVisitor, Visitor
+        >>> class FieldVisitor(Visitor):
+        ...     def enter_field(self, node, *_args):
+        ...         pass
+        >>> class NameVisitor(Visitor):
+        ...     def leave_name(self, node, *_args):
+        ...         pass
+        >>> visitor = ParallelVisitor([FieldVisitor(), NameVisitor()])
+        >>> enter, leave = visitor.get_enter_leave_for_kind('field')
+        >>> callable(enter) and callable(leave)
+        True
+        >>> visitor.get_enter_leave_for_kind('document')
+        EnterLeaveVisitor(enter=None, leave=None)
+        """
         try:
             return self.enter_leave_map[kind]
         except KeyError:
             has_visitor = False
-            enter_list: List[Optional[Callable[..., Optional[VisitorAction]]]] = []
-            leave_list: List[Optional[Callable[..., Optional[VisitorAction]]]] = []
+            enter_list: list[Callable[..., VisitorAction | None] | None] = []
+            leave_list: list[Callable[..., VisitorAction | None] | None] = []
             for visitor in self.visitors:
                 enter, leave = visitor.get_enter_leave_for_kind(kind)
                 if not has_visitor and (enter or leave):
@@ -338,21 +463,20 @@ class ParallelVisitor(Visitor):
 
             if has_visitor:
 
-                def enter(node: Node, *args: Any) -> Optional[VisitorAction]:
+                def enter(node: Node, *args: Any) -> VisitorAction | None:
                     skipping = self.skipping
                     for i, fn in enumerate(enter_list):
-                        if not skipping[i]:
-                            if fn:
-                                result = fn(node, *args)
-                                if result is SKIP or result is False:
-                                    skipping[i] = node
-                                elif result is BREAK or result is True:
-                                    skipping[i] = BREAK
-                                elif result is not None:
-                                    return result
+                        if not skipping[i] and fn:
+                            result = fn(node, *args)
+                            if result is SKIP or result is False:
+                                skipping[i] = node
+                            elif result is BREAK or result is True:
+                                skipping[i] = BREAK
+                            elif result is not None:
+                                return result
                     return None
 
-                def leave(node: Node, *args: Any) -> Optional[VisitorAction]:
+                def leave(node: Node, *args: Any) -> VisitorAction | None:
                     skipping = self.skipping
                     for i, fn in enumerate(leave_list):
                         if not skipping[i]:
@@ -371,7 +495,6 @@ class ParallelVisitor(Visitor):
                     return None
 
             else:
-
                 enter = leave = None
 
             enter_leave = EnterLeaveVisitor(enter, leave)

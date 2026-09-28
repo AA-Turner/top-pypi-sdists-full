@@ -66,21 +66,34 @@ if [ -n "${dbus_ci_system_python-}" ]; then
     fi
 fi
 
+case "$ci_distro:$ci_suite" in
+    (debian:bullseye)
+        # Workaround for https://bugs.debian.org/1147093
+        # Ideally we'd use archive.debian.org,
+        # but we can't do that until https://bugs.debian.org/1147150
+        # is solved
+        sed -i -e '/bullseye-security/d' /etc/apt/sources.list
+        echo "deb" \
+            "[" \
+            "signed-by=/usr/share/keyrings/debian-archive-keyring.gpg" \
+            "check-valid-until=no" \
+            "]" \
+            "http://snapshot.debian.org/archive/debian-security/20260903T220410Z" \
+            "bullseye-security main" \
+            >> /etc/apt/sources.list.d/bullseye-security.list
+        ;;
+esac
+
 case "$ci_distro" in
     (debian|ubuntu)
         # Don't ask questions, just do it
         sudo="$sudo env DEBIAN_FRONTEND=noninteractive"
 
-        $sudo apt-get -qq -y update
+        $sudo apt-get -y update
 
-        $sudo apt-get -qq -y install --no-install-recommends \
-            autoconf \
-            autoconf-archive \
-            automake \
-            autotools-dev \
+        $sudo apt-get -y install --no-install-recommends \
             ccache \
             debhelper \
-            dh-autoreconf \
             docbook-xml \
             docbook-xsl \
             gcc \
@@ -88,7 +101,6 @@ case "$ci_distro" in
             gnome-desktop-testing \
             libdbus-1-dev \
             libglib2.0-dev \
-            libtool \
             make \
             ninja-build \
             sudo \
@@ -98,7 +110,7 @@ case "$ci_distro" in
             ${NULL}
 
         if [ -n "${dbus_ci_system_python-}" ]; then
-              $sudo apt-get -qq -y install \
+              $sudo apt-get -y install \
                 ${dbus_ci_system_python} \
                 ${dbus_ci_system_python%-dbg}-dev \
                 python3-docutils \
@@ -113,11 +125,11 @@ case "$ci_distro" in
 
         case "$ci_suite" in
             (buster|focal|bullseye)
-                $sudo apt-get -qq -y install dbus
+                $sudo apt-get -y install dbus
                 ;;
 
             (*)
-                $sudo apt-get -qq -y install dbus-daemon
+                $sudo apt-get -y install dbus-daemon
                 ;;
         esac
 
@@ -127,7 +139,7 @@ case "$ci_distro" in
                 ;;
 
             (*)
-                $sudo apt-get -qq -y install meson
+                $sudo apt-get -y install meson
                 ninja=ninja
                 have_system_meson=true
                 ;;
@@ -143,7 +155,7 @@ case "$ci_distro" in
                 ;;
 
             (*)
-                $sudo apt-get -qq -y install \
+                $sudo apt-get -y install \
                     python3-pyproject-metadata \
                     ${NULL}
                 ;;

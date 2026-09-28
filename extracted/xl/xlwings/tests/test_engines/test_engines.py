@@ -23,7 +23,7 @@ except ImportError:
 
 import xlwings as xw
 from xlwings import base_classes
-from xlwings.main import Note
+from xlwings.main import ChartSeries, ChartSeriesCollection, Note
 
 this_dir = Path(__file__).resolve().parent
 
@@ -1107,6 +1107,264 @@ def test_chart_legend_api_not_available():
 
 
 @pytest.mark.skipif(engine != "remote", reason="requires remote engine")
+def test_chart_axis_bulk_set_queues_one_action_and_writes_through():
+    book = _fresh_book()
+    chart = book.sheets[0].charts[0]
+
+    chart.value_axis.set(
+        title="Revenue",
+        minimum_scale=0,
+        maximum_scale=100,
+        major_unit=20,
+        number_format="$#,##0",
+        visible=True,
+    )
+
+    assert [(action["func"], action["args"]) for action in _actions(book)] == [
+        (
+            "setChartAxis",
+            [
+                0,
+                "value",
+                {
+                    "title": "Revenue",
+                    "minimum_scale": 0.0,
+                    "maximum_scale": 100.0,
+                    "major_unit": 20.0,
+                    "number_format": "$#,##0",
+                    "visible": True,
+                },
+            ],
+        )
+    ]
+    assert _actions(book)[0]["sheet_position"] == 0
+    assert chart.value_axis.title == "Revenue"
+    assert chart.value_axis.minimum_scale == 0
+    assert chart.value_axis.maximum_scale == 100
+    assert chart.value_axis.major_unit == 20
+    assert chart.value_axis.number_format == "$#,##0"
+    assert chart.value_axis.visible is True
+
+
+@pytest.mark.skipif(engine != "remote", reason="requires remote engine")
+def test_chart_axis_individual_setters_and_automatic_scale():
+    book = _fresh_book()
+    axis = book.sheets[0].charts[0].category_axis
+
+    axis.title = None
+    axis.minimum_scale = None
+
+    assert [(action["func"], action["args"]) for action in _actions(book)] == [
+        ("setChartAxis", [0, "category", {"title": None}]),
+        ("setChartAxis", [0, "category", {"minimum_scale": None}]),
+    ]
+    assert axis.title is None
+    with pytest.raises(NotImplementedError, match="get_minimum_scale"):
+        axis.minimum_scale
+
+
+@pytest.mark.skipif(engine != "remote", reason="requires remote engine")
+def test_chart_axis_bulk_hide_uses_false_as_the_final_state():
+    book = _fresh_book()
+    axis = book.sheets[0].charts[0].value_axis
+
+    axis.set(title="Revenue", visible=False)
+
+    assert _actions(book)[-1]["args"] == [
+        0,
+        "value",
+        {"title": "Revenue", "visible": False},
+    ]
+    assert axis.visible is False
+    assert axis.title is None
+
+
+@pytest.mark.skipif(engine != "remote", reason="requires remote engine")
+def test_chart_axis_getters_and_api_raise_before_write():
+    book = _fresh_book()
+    axis = book.sheets[0].charts[0].value_axis
+
+    for attribute, getter in [
+        ("title", "get_title"),
+        ("minimum_scale", "get_minimum_scale"),
+        ("maximum_scale", "get_maximum_scale"),
+        ("major_unit", "get_major_unit"),
+        ("number_format", "get_number_format"),
+        ("visible", "get_visible"),
+    ]:
+        with pytest.raises(NotImplementedError, match=getter):
+            getattr(axis, attribute)
+    with pytest.raises(NotImplementedError, match="ChartAxis.api"):
+        axis.api
+    with pytest.raises(NotImplementedError, match="only supported in xlwings Lite"):
+        asyncio.run(axis.get_visible())
+    assert _actions(book) == []
+
+
+@pytest.mark.skipif(engine != "remote", reason="requires remote engine")
+@pytest.mark.parametrize(
+    "kwargs,match",
+    [
+        ({"title": 1}, "Invalid title"),
+        ({"minimum_scale": float("nan")}, "Invalid minimum_scale"),
+        ({"maximum_scale": float("inf")}, "Invalid maximum_scale"),
+        ({"major_unit": 0}, "Invalid major_unit"),
+        ({"major_unit": True}, "Invalid major_unit"),
+        ({"number_format": None}, "Invalid number_format"),
+        ({"visible": 1}, "Invalid visible"),
+    ],
+)
+def test_chart_axis_set_validates_before_queueing(kwargs, match):
+    book = _fresh_book()
+    with pytest.raises(ValueError, match=match):
+        book.sheets[0].charts[0].value_axis.set(**kwargs)
+    assert _actions(book) == []
+
+
+@pytest.mark.skipif(engine != "remote", reason="requires remote engine")
+def test_chart_series_bulk_set_queues_one_action_and_writes_through():
+    from xlwings.pro._xlremote import ChartSeries as RemoteChartSeries
+
+    book = _fresh_book()
+    chart = book.sheets[0].charts[0]
+    series = ChartSeries(impl=RemoteChartSeries(chart.impl, 1))
+
+    series.set(
+        name="Revenue",
+        marker_style="circle",
+        marker_size=8,
+        marker_foreground_color=(17, 34, 51),
+        marker_background_color="#445566",
+        line_color=0x776655,
+        fill_color=(136, 153, 170),
+    )
+
+    assert [(action["func"], action["args"]) for action in _actions(book)] == [
+        (
+            "setChartSeries",
+            [
+                0,
+                0,
+                {
+                    "name": "Revenue",
+                    "marker_style": "Circle",
+                    "marker_size": 8,
+                    "marker_foreground_color": "#112233",
+                    "marker_background_color": "#445566",
+                    "line_color": "#556677",
+                    "fill_color": "#8899aa",
+                },
+            ],
+        )
+    ]
+    assert series.name == "Revenue"
+    assert series.marker_style == "circle"
+    assert series.marker_size == 8
+    assert series.marker_foreground_color == (17, 34, 51)
+    assert series.marker_background_color == (68, 85, 102)
+    assert series.line_color == (85, 102, 119)
+    assert series.fill_color == (136, 153, 170)
+
+
+@pytest.mark.skipif(engine != "remote", reason="requires remote engine")
+@pytest.mark.parametrize(
+    "kwargs,match",
+    [
+        ({"name": 1}, "Invalid series name"),
+        ({"name": "x" * 256}, "at most 255"),
+        ({"marker_style": "picture"}, "Invalid marker_style"),
+        ({"marker_size": 1}, "Invalid marker_size"),
+        ({"marker_size": 2.0}, "Invalid marker_size"),
+        ({"line_color": "red"}, "Invalid line_color"),
+        ({"fill_color": (0, 1, 256)}, "Invalid fill_color"),
+    ],
+)
+def test_chart_series_set_validates_before_queueing(kwargs, match):
+    from xlwings.pro._xlremote import ChartSeries as RemoteChartSeries
+
+    book = _fresh_book()
+    chart = book.sheets[0].charts[0]
+    series = ChartSeries(impl=RemoteChartSeries(chart.impl, 1))
+    with pytest.raises(ValueError, match=match):
+        series.set(**kwargs)
+    assert _actions(book) == []
+
+
+@pytest.mark.skipif(engine != "remote", reason="requires remote engine")
+def test_chart_series_collection_requires_async_load_and_is_integer_indexed():
+    from xlwings.pro._xlremote import ChartSeriesCollection as RemoteCollection
+
+    book = _fresh_book()
+    chart = book.sheets[0].charts[0]
+    with pytest.raises(NotImplementedError, match="get_series"):
+        len(chart.series)
+
+    series = ChartSeriesCollection(impl=RemoteCollection(chart.impl, count=2))
+    assert len(series) == 2
+    assert [item.impl.index for item in series] == [1, 2]
+    assert series[0].impl.index == 1
+    assert series[-1].impl.index == 2
+    with pytest.raises(KeyError):
+        series("Revenue")
+    with pytest.raises(NotImplementedError, match="only supported in xlwings Lite"):
+        asyncio.run(chart.get_series())
+
+
+@pytest.mark.skipif(engine != "remote", reason="requires remote engine")
+def test_pending_chart_series_requires_source_data():
+    book = _fresh_book()
+    chart = book.sheets[0].charts.add()
+
+    with pytest.raises(xw.XlwingsError, match="set_source_data"):
+        chart.series
+
+
+@pytest.mark.skipif(engine != "remote", reason="requires remote engine")
+def test_chart_series_sync_getters_and_api_raise_before_write():
+    from xlwings.pro._xlremote import ChartSeries as RemoteChartSeries
+
+    book = _fresh_book()
+    chart = book.sheets[0].charts[0]
+    series = ChartSeries(impl=RemoteChartSeries(chart.impl, 1))
+    for attribute in [
+        "name",
+        "marker_style",
+        "marker_size",
+        "marker_foreground_color",
+        "marker_background_color",
+        "line_color",
+        "fill_color",
+    ]:
+        with pytest.raises(NotImplementedError, match=f"get_{attribute}"):
+            getattr(series, attribute)
+    with pytest.raises(NotImplementedError, match="ChartSeries.api"):
+        series.api
+    with pytest.raises(NotImplementedError, match="only supported in xlwings Lite"):
+        asyncio.run(series.get_name())
+
+
+@pytest.mark.skipif(engine != "remote", reason="requires remote engine")
+def test_pending_chart_replays_axis_formatting_after_creation():
+    book = _fresh_book()
+    sheet = book.sheets[0]
+    chart = sheet.charts.add()
+    chart.value_axis.set(title="Revenue", minimum_scale=0)
+    assert _actions(book) == []
+
+    chart.set_source_data(sheet["A1:B2"])
+
+    assert [action["func"] for action in _actions(book)] == [
+        "addChart",
+        "setChartAxis",
+    ]
+    assert _actions(book)[1]["args"] == [
+        len(sheet.charts) - 1,
+        "value",
+        {"title": "Revenue", "minimum_scale": 0.0},
+    ]
+
+
+@pytest.mark.skipif(engine != "remote", reason="requires remote engine")
 def test_charts_add_with_source_creates_immediately():
     book = _fresh_book()
     sheet = book.sheets[0]
@@ -1363,6 +1621,10 @@ def test_range_note(book):
 def test_note_text_sync_points_at_async(book):
     with pytest.raises(NotImplementedError, match=r"get_text\(\)"):
         book.sheets[0]["A1"].note.text
+    with pytest.raises(NotImplementedError, match=r"get_author\(\)"):
+        book.sheets[0]["A1"].note.author
+    with pytest.raises(NotImplementedError, match=r"get_location\(\)"):
+        book.sheets[0]["A1"].note.location
 
 
 @pytest.mark.skipif(engine != "remote", reason="requires remote engine")
@@ -1395,6 +1657,59 @@ def test_note_delete():
     assert action["args"] == ["$A$1"]
     # gone locally too, so Range.note reports None right away
     assert book.sheets[0]["A1"].note is None
+
+
+@pytest.mark.skipif(engine != "remote", reason="requires remote engine")
+def test_note_creation_and_collections():
+    payload = json.loads(json.dumps(data))
+    payload["client"] = "Office.js"
+    payload["sheets"][0]["notes_supported"] = True
+    payload["sheets"][1]["notes"] = [{"address": "C3"}]
+    payload["sheets"][1]["notes_supported"] = True
+    book = xw.Book(json=payload)
+    sheet = book.sheets[0]
+    assert sheet.notes.count == 1
+    assert sheet.notes["A1"] is not None
+    assert book.notes[sheet["A1"]] is not None
+    assert len(book.notes) == 2
+    assert book.notes[book.sheets[1]["C3"]] is not None
+    with pytest.raises(KeyError):
+        sheet.notes["B2"]
+    note = sheet["B2"].add_note("Review")
+    assert note is not None
+    assert sheet["B2"].note is not None
+    assert len(sheet.notes) == 2
+    assert len(book.notes) == 3
+    assert book.notes[sheet["B2"]] is not None
+    action = book.json()["actions"][-1]
+    assert (action["func"], action["args"], action["sheet_position"]) == (
+        "addNote",
+        ["$B$2", "Review"],
+        0,
+    )
+    with pytest.raises(ValueError, match="already"):
+        sheet["B2"].add_note("again")
+    with pytest.raises(ValueError, match="single cell"):
+        sheet["B2:C3"].add_note("x")
+    with pytest.raises(TypeError, match="string"):
+        sheet["C3"].add_note(42)
+    with pytest.raises(ValueError, match="empty"):
+        sheet["C3"].add_note("")
+    note.delete()
+    assert len(sheet.notes) == 1
+    assert len(book.notes) == 2
+
+
+@pytest.mark.skipif(engine != "remote", reason="requires remote engine")
+def test_notes_reject_unsupported_office_host():
+    payload = json.loads(json.dumps(data))
+    payload["client"] = "Office.js"
+    payload["sheets"][0]["notes_supported"] = False
+    book = xw.Book(json=payload)
+    with pytest.raises(NotImplementedError, match="1.18"):
+        list(book.notes)
+    with pytest.raises(NotImplementedError, match="1.18"):
+        book.sheets[0]["B2"].add_note("x")
 
 
 @pytest.mark.skipif(engine != "remote", reason="requires remote engine")
@@ -2708,6 +3023,69 @@ def test_sheet_copy_to_other_book_not_supported():
 
 
 @pytest.mark.skipif(engine != "remote", reason="requires remote engine")
+def test_sheet_move_before_updates_local_snapshot_and_metadata():
+    book = xw.Book(json=json.loads(json.dumps(data)))
+    moved = book.sheets[2]
+    name_positions_before = [
+        (name.get("sheet_index"), name.get("scope_sheet_index"))
+        for name in book.impl.api["names"]
+    ]
+
+    moved.move(before=book.sheets[0])
+
+    assert [sheet.name for sheet in book.sheets] == ["Sheet3", "Sheet 1", "Sheet2"]
+    assert moved.index == 1
+    assert book.sheets.active.name == "Sheet 1"
+    remapped = {0: 1, 1: 2, 2: 0}
+    assert [
+        (name.get("sheet_index"), name.get("scope_sheet_index"))
+        for name in book.impl.api["names"]
+    ] == [
+        (
+            remapped.get(sheet_index, sheet_index),
+            remapped.get(scope_sheet_index, scope_sheet_index),
+        )
+        for sheet_index, scope_sheet_index in name_positions_before
+    ]
+    action = book.json()["actions"][-1]
+    assert action["func"] == "setSheetPosition"
+    assert action["sheet_position"] == 2
+    assert action["args"] == [0]
+
+
+@pytest.mark.skipif(engine != "remote", reason="requires remote engine")
+def test_sheet_move_after_uses_final_zero_based_position():
+    book = xw.Book(json=json.loads(json.dumps(data)))
+    moved = book.sheets[0]
+
+    moved.move(after=book.sheets[2])
+
+    assert [sheet.name for sheet in book.sheets] == ["Sheet2", "Sheet3", "Sheet 1"]
+    assert moved.index == 3
+    action = book.json()["actions"][-1]
+    assert action["sheet_position"] == 0
+    assert action["args"] == [2]
+
+
+@pytest.mark.skipif(engine != "remote", reason="requires remote engine")
+def test_sheet_move_rejects_invalid_targets():
+    book = xw.Book(json=json.loads(json.dumps(data)))
+    other_data = json.loads(json.dumps(data))
+    other_data["book"]["name"] = "other.xlsm"
+    other = xw.Book(json=other_data)
+    sheet = book.sheets[0]
+
+    with pytest.raises(ValueError, match="exactly one"):
+        sheet.move()
+    with pytest.raises(ValueError, match="exactly one"):
+        sheet.move(before=book.sheets[1], after=book.sheets[2])
+    with pytest.raises(ValueError, match="relative to itself"):
+        sheet.move(after=sheet)
+    with pytest.raises(ValueError, match="same book"):
+        sheet.move(after=other.sheets[0])
+
+
+@pytest.mark.skipif(engine != "remote", reason="requires remote engine")
 def test_book_save():
     book = xw.Book(json=json.loads(json.dumps(data)))
     book.save()
@@ -3008,6 +3386,29 @@ def test_range_group_a_getters_pass_through(book, getter, reported):
 
     with mock.patch.object(type(rng.impl), "_get_range_data", fake):
         assert asyncio.run(getattr(rng, getter)()) == reported
+
+
+@pytest.mark.skipif(engine != "remote", reason="requires remote engine")
+@pytest.mark.parametrize(
+    "axis,key", [("rows", "row_hidden"), ("columns", "column_hidden")]
+)
+@pytest.mark.parametrize("reported", [True, False, None])
+def test_range_visibility_getters_pass_through(book, axis, key, reported):
+    selection = book.sheets[0]["A1:B2"]
+
+    async def fake(self, requested_key, method=None):
+        assert requested_key == key
+        return reported
+
+    with mock.patch.object(type(selection.impl), "_get_range_data", fake):
+        assert asyncio.run(getattr(selection, axis).get_hidden()) is reported
+
+
+@pytest.mark.skipif(engine != "remote", reason="requires remote engine")
+@pytest.mark.parametrize("axis", ["rows", "columns"])
+def test_range_visibility_getters_require_xlwings_lite(book, axis):
+    with pytest.raises(NotImplementedError, match="xlwings Lite"):
+        asyncio.run(getattr(book.sheets[0]["A1"], axis).get_hidden())
 
 
 @pytest.mark.skipif(engine == "calamine", reason="unsupported by calamine")
@@ -3838,6 +4239,182 @@ def _officejs_book():
 
 
 @pytest.mark.skipif(engine != "remote", reason="requires remote engine")
+def test_range_autofilter_actions():
+    book = _officejs_book()
+    autofilter = book.sheets[0].range("A1:C8").autofilter
+    autofilter.apply_values(2, ["East", 3, True])
+    autofilter.apply_comparison(3, "between", 10, 20)
+    autofilter.apply_comparison(
+        2, "between", dt.date(2026, 1, 2), dt.datetime(2026, 3, 4, 5, 6, 7)
+    )
+    autofilter.apply_top_items(3, 10)
+    autofilter.apply_bottom_percent(2, 12.5)
+    autofilter.apply_comparison(1, "equal_to", None)
+    autofilter.clear(2)
+    autofilter.clear()
+
+    actions = book.json()["actions"]
+    assert [(action["func"], action["args"]) for action in actions] == [
+        (
+            "applyAutoFilterRange",
+            [2, {"type": "values", "values": ["East", "3", "TRUE"]}],
+        ),
+        (
+            "applyAutoFilterRange",
+            [
+                3,
+                {
+                    "type": "comparison",
+                    "operator": "between",
+                    "value1": "10",
+                    "value2": "20",
+                },
+            ],
+        ),
+        (
+            "applyAutoFilterRange",
+            [
+                2,
+                {
+                    "type": "comparison",
+                    "operator": "between",
+                    "value1": {"type": "date", "value": "2026-01-02"},
+                    "value2": {
+                        "type": "datetime",
+                        "value": "2026-03-04T05:06:07",
+                    },
+                },
+            ],
+        ),
+        (
+            "applyAutoFilterRange",
+            [3, {"type": "top_items", "value": 10}],
+        ),
+        (
+            "applyAutoFilterRange",
+            [2, {"type": "bottom_percent", "value": 12.5}],
+        ),
+        (
+            "applyAutoFilterRange",
+            [
+                1,
+                {
+                    "type": "comparison",
+                    "operator": "equal_to",
+                    "value1": None,
+                },
+            ],
+        ),
+        ("clearAutoFilterRange", [2]),
+        ("clearAutoFilterRange", [None]),
+    ]
+    assert all(action["start_row"] == 0 for action in actions)
+    assert all(action["start_column"] == 0 for action in actions)
+    assert all(action["row_count"] == 8 for action in actions)
+    assert all(action["column_count"] == 3 for action in actions)
+
+
+@pytest.mark.skipif(engine != "remote", reason="requires remote engine")
+def test_table_autofilter_actions_include_table_and_range_targets():
+    book = _officejs_book()
+    autofilter = book.sheets[0].tables[0].autofilter
+    autofilter.apply_comparison(2, "not_equal_to", None)
+    autofilter.apply_bottom_items(1, 5)
+    autofilter.apply_top_percent(2, 25)
+    autofilter.clear()
+
+    actions = book.json()["actions"]
+    assert [(action["func"], action["args"]) for action in actions] == [
+        (
+            "applyAutoFilterTable",
+            [
+                0,
+                2,
+                {
+                    "type": "comparison",
+                    "operator": "not_equal_to",
+                    "value1": None,
+                },
+            ],
+        ),
+        (
+            "applyAutoFilterTable",
+            [0, 1, {"type": "bottom_items", "value": 5}],
+        ),
+        (
+            "applyAutoFilterTable",
+            [0, 2, {"type": "top_percent", "value": 25.0}],
+        ),
+        ("clearAutoFilterTable", [0, None]),
+    ]
+    assert all(action["start_row"] == 9 for action in actions)
+    assert all(action["start_column"] == 0 for action in actions)
+    assert all(action["row_count"] == 2 for action in actions)
+    assert all(action["column_count"] == 2 for action in actions)
+
+
+@pytest.mark.skipif(engine != "remote", reason="requires remote engine")
+@pytest.mark.parametrize(
+    "call,error",
+    [
+        (lambda af: af.apply_values(0, ["East"]), (ValueError, "between 1")),
+        (lambda af: af.apply_values(1, []), (ValueError, "must not be empty")),
+        (lambda af: af.apply_values(1, "East"), (TypeError, "sequence")),
+        (lambda af: af.apply_values(1, [float("nan")]), (ValueError, "finite")),
+        (
+            lambda af: af.apply_comparison(1, "between", 1),
+            (ValueError, "requires value1 and value2"),
+        ),
+        (
+            lambda af: af.apply_comparison(1, "equal_to", 1, 2),
+            (ValueError, "does not accept value2"),
+        ),
+        (
+            lambda af: af.apply_comparison(1, "greater_than", None),
+            (ValueError, "None is only supported"),
+        ),
+        (
+            lambda af: af.apply_comparison(1, "approximately", 1),
+            (ValueError, "operator must be one of"),
+        ),
+        (
+            lambda af: af.apply_comparison(
+                1,
+                "equal_to",
+                dt.datetime(2026, 1, 1, tzinfo=dt.timezone.utc),
+            ),
+            (ValueError, "timezone-naive"),
+        ),
+        (lambda af: af.apply_top_items(1, True), (TypeError, "integer")),
+        (lambda af: af.apply_bottom_items(1, 256), (ValueError, "1 and 255")),
+        (lambda af: af.apply_top_percent(1, True), (TypeError, "number")),
+        (lambda af: af.apply_bottom_percent(1, 101), (ValueError, "0 and 100")),
+    ],
+)
+def test_autofilter_validation_does_not_queue_actions(call, error):
+    book = _officejs_book()
+    autofilter = book.sheets[0].range("A1:C8").autofilter
+    with pytest.raises(error[0], match=error[1]):
+        call(autofilter)
+    assert book.json()["actions"] == []
+
+
+@pytest.mark.skipif(engine != "remote", reason="requires remote engine")
+def test_autofilter_rejects_non_officejs_clients():
+    book = xw.Book(json=json.loads(json.dumps(data)))
+    with pytest.raises(NotImplementedError, match="Office.js"):
+        book.sheets[0].range("A1:C8").autofilter.clear()
+    assert book.json()["actions"] == []
+
+
+@pytest.mark.skipif(engine != "remote", reason="requires remote engine")
+def test_autofilter_sync_criteria_points_at_async():
+    book = _officejs_book()
+    with pytest.raises(NotImplementedError, match=r"await autofilter\.get_criteria"):
+        book.sheets[0].range("A1:C8").autofilter.criteria
+
+
+@pytest.mark.skipif(engine != "remote", reason="requires remote engine")
 @pytest.mark.parametrize("value,expected", _HORIZONTAL_ALIGNMENTS)
 def test_horizontal_alignment_setter(value, expected):
     book = _officejs_book()
@@ -4167,6 +4744,23 @@ def test_pivot_table_setters(pivot_book):
         ("setPivotLayout", [0, "show_column_grand_totals", False], 0),
         ("refreshPivotTable", [0], 0),
     ]
+    assert [(a["pivot_id"], a["pivot_name"]) for a in actions] == [
+        (None, "PivotTable1"),
+        (None, "Sales"),
+        (None, "Sales"),
+        (None, "Sales"),
+        (None, "Sales"),
+    ]
+
+
+@pytest.mark.skipif(engine != "remote", reason="requires remote engine")
+def test_pivot_action_keeps_loaded_id(pivot_book):
+    pt = pivot_book.sheets[0].pivot_tables[0]
+    pt.api["id"] = "stable-pivot-id"
+    pt.refresh()
+    action = _actions(pivot_book)[0]
+    assert action["pivot_id"] == "stable-pivot-id"
+    assert action["pivot_name"] == "PivotTable1"
 
 
 @pytest.mark.skipif(engine != "remote", reason="requires remote engine")

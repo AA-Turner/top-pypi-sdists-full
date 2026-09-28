@@ -1,5 +1,5 @@
 //! Typed-plan resolution: wait binding, hold-cycle validation, proc
-//! shell/workspace/project policy, dispatch validation, and the approval
+//! name/workspace/project policy, dispatch validation, and the approval
 //! preview plus content digest rendered from the resolved plan.
 use super::directive_scan::{
     directive_occurrences, disabled_region_ranges,
@@ -14,7 +14,9 @@ use super::wires::{
 use crate::agent_identity::agent_name_in_hood;
 use crate::fenced_code::fenced_block_ranges;
 use crate::hold_directive::{format_hold_directive, HoldFieldsWire};
-use crate::queue_directive::format_queue_weight;
+use crate::queue_directive::{
+    format_queue_capacity_multiplier, format_queue_weight,
+};
 use regex::Regex;
 use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
@@ -38,11 +40,9 @@ pub(crate) fn resolve_typed_waits(
                 }
             }
             LaunchUnitPayloadWire::Proc(proc_unit) => {
-                if let Some(shell_name) = proc_unit.shell_name.as_ref() {
-                    proc_names.insert(
-                        shell_name.clone(),
-                        raw.unit.logical_id.clone(),
-                    );
+                if let Some(proc_name) = proc_unit.proc_name.as_ref() {
+                    proc_names
+                        .insert(proc_name.clone(), raw.unit.logical_id.clone());
                 }
             }
         }
@@ -177,7 +177,7 @@ pub(crate) fn validate_typed_wait_cycles(
 #[derive(Debug)]
 struct UnitHoldFacts {
     identity: Option<String>,
-    family: Option<String>,
+    agent_session: Option<String>,
     clan: Option<String>,
     tribe: Option<String>,
     workflow: Option<String>,
@@ -225,22 +225,22 @@ fn unit_hold_facts(raw: &RawLaunchUnit) -> UnitHoldFacts {
         LaunchUnitPayloadWire::Agent(agent) => {
             let identity = agent.effective_identity();
             let identity_ref = identity.as_deref();
-            let family = identity_ref
+            let agent_session = identity_ref
                 .and_then(|name| {
-                    crate::agent_identity::parse_agent_family_name(name).ok()
+                    crate::agent_identity::parse_agent_session_name(name).ok()
                 })
-                .map(|parsed| parsed.family_name);
+                .map(|parsed| parsed.agent_session_name);
             UnitHoldFacts {
                 identity,
-                family,
+                agent_session,
                 clan: agent.clan.clone(),
                 tribe: agent.tribe.clone().or_else(|| agent.clan_tribe.clone()),
                 workflow: agent.workspace_reference.clone(),
             }
         }
         LaunchUnitPayloadWire::Proc(proc_unit) => UnitHoldFacts {
-            identity: proc_unit.shell_name.clone(),
-            family: None,
+            identity: proc_unit.proc_name.clone(),
+            agent_session: None,
             clan: None,
             tribe: None,
             workflow: proc_unit.selected_project.clone(),
@@ -254,7 +254,7 @@ fn hold_matches_unit(hold: &HoldFieldsWire, target: &UnitHoldFacts) -> bool {
     }
     hold.names.iter().any(|name| {
         target.identity.as_deref() == Some(name.as_str())
-            || target.family.as_deref() == Some(name.as_str())
+            || target.agent_session.as_deref() == Some(name.as_str())
             || target.clan.as_deref() == Some(name.as_str())
             || target.workflow.as_deref() == Some(name.as_str())
     }) || hold
@@ -275,11 +275,14 @@ fn hold_kin_excluded(holder: &UnitHoldFacts, target: &UnitHoldFacts) -> bool {
     if holder.clan.is_some() && holder.clan == target.clan {
         return true;
     }
-    match (holder.family.as_deref(), target.family.as_deref()) {
-        (Some(holder_family), Some(target_family)) => {
-            target_family == holder_family
-                || target_family
-                    .strip_prefix(holder_family)
+    match (
+        holder.agent_session.as_deref(),
+        target.agent_session.as_deref(),
+    ) {
+        (Some(holder_agent_session), Some(target_agent_session)) => {
+            target_agent_session == holder_agent_session
+                || target_agent_session
+                    .strip_prefix(holder_agent_session)
                     .is_some_and(|rest| rest.starts_with('.'))
         }
         _ => false,
@@ -306,23 +309,23 @@ fn wait_cycle_visit(
     None
 }
 
-pub(crate) fn validate_proc_shell_name(
-    shell_name: Option<&str>,
+pub(crate) fn validate_named_proc_name(
+    proc_name: Option<&str>,
     logical_id: &str,
     diagnostics: &mut Vec<LaunchPlanDiagnosticWire>,
 ) {
-    let Some(shell_name) = shell_name else {
+    let Some(proc_name) = proc_name else {
         return;
     };
-    if shell_name.contains("--") {
+    if proc_name.contains("--") {
         diagnostics.push(typed_unit_diagnostic(
             "invalid-proc-shell-name",
-            "Proc %id names cannot use the agent-family `--` convention.",
+            "Proc %id names cannot use the agent-session `--` convention.",
             logical_id,
             None,
         ));
     }
-    if !is_valid_proc_shell_name(shell_name) {
+    if !is_valid_named_proc_name(proc_name) {
         diagnostics.push(typed_unit_diagnostic(
             "invalid-proc-shell-name",
             "Proc %id names must be bare identifiers containing only letters, digits, `_`, `.`, or `-`.",
@@ -332,7 +335,7 @@ pub(crate) fn validate_proc_shell_name(
     }
 }
 
-fn is_valid_proc_shell_name(value: &str) -> bool {
+fn is_valid_named_proc_name(value: &str) -> bool {
     let mut chars = value.chars();
     let Some(first) = chars.next() else {
         return false;
@@ -527,7 +530,7 @@ pub(crate) struct DispatchCombinationFacts {
     pub(crate) has_queue: bool,
     pub(crate) has_hold: bool,
     pub(crate) has_clan: bool,
-    pub(crate) has_family: bool,
+    pub(crate) has_agent_session: bool,
 }
 
 pub(crate) fn validate_dispatch_combinations(
@@ -551,8 +554,8 @@ pub(crate) fn validate_dispatch_combinations(
     if facts.has_clan {
         forbidden.push("%clan");
     }
-    if facts.has_family {
-        forbidden.push("%id(..., family=...)");
+    if facts.has_agent_session {
+        forbidden.push("%id(..., session=...)");
     }
     if forbidden.is_empty() {
         return;
@@ -659,9 +662,9 @@ pub(crate) fn render_launch_approval_preview(
                 agent.prompt
             )),
             LaunchUnitPayloadWire::Proc(proc_unit) => lines.push(format!(
-                "{} proc shell={} project={} workspace={}{} waits={}{}{} code={}:{} preview={:?}",
+                "{} proc name={} project={} workspace={}{} waits={}{}{} code={}:{} preview={:?}",
                 unit.logical_id,
-                proc_unit.shell_name.as_deref().unwrap_or("auto"),
+                proc_unit.proc_name.as_deref().unwrap_or("auto"),
                 proc_unit.selected_project.as_deref().unwrap_or("none"),
                 proc_unit.workspace,
                 proc_queue_preview(proc_unit)
@@ -692,6 +695,11 @@ fn proc_queue_preview(proc_unit: &ProcUnitWire) -> Option<String> {
     let mut parts = Vec::new();
     if let Some(capacity) = proc_unit.queue_capacity {
         parts.push(format!("capacity={capacity}"));
+    } else if let Some(formatted) = proc_unit
+        .queue_capacity_multiplier
+        .and_then(format_queue_capacity_multiplier)
+    {
+        parts.push(format!("capacity={formatted}"));
     }
     if let Some(priority) = proc_unit.wait_priority {
         parts.push(format!("priority={priority}"));

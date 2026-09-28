@@ -9,6 +9,7 @@ from peewee import Node
 from peewee import NodeList
 from peewee import Psycopg2Adapter
 from peewee import Psycopg3Adapter
+from peewee import SelectBase
 from peewee import __exception_wrapper__
 from playhouse.pool import _PooledPostgresqlDatabase
 
@@ -355,8 +356,7 @@ class _JsonLookupBase(_LookupNode):
 
     def append(self, value):
         # Append to the array at this path. '-1' is the index of the last
-        # element; with insert_after=true, jsonb_insert places `value` after
-        # it.
+        # element, and insert_after=true places `value` after it.
         field, parts = self._resolve_root()
         path = _path_array(list(parts) + ['-1'])
         return fn.jsonb_insert(field, path, field._wrap_value(value), True)
@@ -370,7 +370,7 @@ class _JsonLookupBase(_LookupNode):
         return fn.jsonb_set(field, _path_array(parts), merged, True)
 
     # SQL/JSON path expression operators applied to the value at this lookup.
-    # These produce jsonb-typed expressions; usable on lookups off jsonb
+    # These produce jsonb-typed expressions, usable on lookups off jsonb
     # columns. Requires PostgreSQL 12+.
 
     def path_exists(self, expr):
@@ -428,7 +428,7 @@ class JSONField(FieldDatabaseHook, Field):
         super(JSONField, self).__init__(**kwargs)
 
     def ddl_datatype(self, ctx):
-        # The core postgres backend maps the JSON field-type to JSONB; these
+        # The core postgres backend maps the JSON field-type to JSONB. These
         # fields declare their column type explicitly.
         return SQL(self.field_type)
 
@@ -716,8 +716,8 @@ class PostgresqlExtDatabase(PostgresqlDatabase):
                 **context_options):
         ctx = self.get_sql_context(**context_options)
         sql, params = ctx.sql(query).query()
-        named_cursor = named_cursor or (self._server_side_cursors and
-                                        sql[:6].lower() == 'select')
+        named_cursor = named_cursor or (self._server_side_cursors and (
+            isinstance(query, SelectBase) or sql[:6].lower() == 'select'))
         cursor = self.execute_sql(sql, params, named_cursor=named_cursor)
         if named_cursor:
             cursor = FetchManyCursor(cursor, array_size)

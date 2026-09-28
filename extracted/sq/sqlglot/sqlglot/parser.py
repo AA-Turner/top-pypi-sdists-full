@@ -1633,7 +1633,9 @@ class Parser:
     SHOW_PARSERS: t.ClassVar[dict[str, t.Callable]] = {}
 
     TYPE_LITERAL_PARSERS: t.ClassVar = {
-        exp.DType.JSON: lambda self, this, _: self.expression(exp.ParseJSON(this=this)),
+        exp.DType.JSON: lambda self, this, _: self.expression(
+            exp.ParseJSON(this=this, is_literal=True)
+        ),
     }
 
     TYPE_CONVERTERS: t.ClassVar[dict[exp.DType, t.Callable[[exp.DataType], exp.DataType]]] = {}
@@ -3738,7 +3740,7 @@ class Parser:
         action = self._parse_var_from_options(self.CONFLICT_ACTIONS)
         if self._prev.token_type == TokenType.UPDATE:
             self._match(TokenType.SET)
-            expressions = self._parse_csv(self._parse_equality)
+            expressions = self._parse_csv(self._parse_update_assignment)
         else:
             expressions = None
 
@@ -3867,6 +3869,15 @@ class Parser:
             )
         )
 
+    def _parse_update_assignment(self) -> exp.Expr | None:
+        this = self._parse_comparison()
+        if self._match(TokenType.EQ):
+            comments = self._prev_comments
+            this = self.expression(
+                exp.EQ(this=this, expression=self._parse_disjunction()), comments=comments
+            )
+        return this
+
     def _parse_update(self) -> exp.Update:
         hint = self._parse_hint()
         kwargs: dict[str, object] = {
@@ -3875,7 +3886,7 @@ class Parser:
         }
         while self._curr:
             if self._match(TokenType.SET):
-                kwargs["expressions"] = self._parse_csv(self._parse_equality)
+                kwargs["expressions"] = self._parse_csv(self._parse_update_assignment)
             elif self._match(TokenType.RETURNING, advance=False):
                 kwargs["returning"] = self._parse_returning()
             elif self._match(TokenType.FROM, advance=False):
@@ -5766,7 +5777,7 @@ class Parser:
 
     def _parse_limit_options(self) -> exp.LimitOptions | None:
         percent = self._match_set((TokenType.PERCENT, TokenType.MOD))
-        rows = self._match_set((TokenType.ROW, TokenType.ROWS))
+        rows = self._match_texts(("ROW", "ROWS"))
         self._match_text_seq("ONLY")
         with_ties = self._match_text_seq("WITH", "TIES")
 
@@ -5830,7 +5841,11 @@ class Parser:
                 else "FIRST"
             )
 
-            count = self._parse_field(tokens=self.FETCH_TOKENS)
+            count = (
+                None
+                if self._match_texts(("ROW", "ROWS"), advance=False)
+                else self._parse_field(tokens=self.FETCH_TOKENS)
+            )
 
             return self.expression(
                 exp.Fetch(
@@ -5845,7 +5860,7 @@ class Parser:
             return this
 
         count = self._parse_term()
-        self._match_set((TokenType.ROW, TokenType.ROWS))
+        self._match_texts(("ROW", "ROWS"))
 
         return self.expression(
             exp.Offset(this=this, expression=count, expressions=self._parse_limit_by())
@@ -9577,7 +9592,7 @@ class Parser:
                     then = self.expression(
                         exp.Update(
                             expressions=self._match(TokenType.SET)
-                            and self._parse_csv(self._parse_equality),
+                            and self._parse_csv(self._parse_update_assignment),
                             where=self._parse_where(),
                         )
                     )

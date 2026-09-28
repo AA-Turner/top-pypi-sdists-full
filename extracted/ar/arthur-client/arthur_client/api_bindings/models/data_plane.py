@@ -31,7 +31,7 @@ class DataPlane(BaseModel):
     """ # noqa: E501
     created_at: datetime = Field(description="Time of record creation.")
     updated_at: datetime = Field(description="Time of last record update.")
-    id: StrictStr = Field(description="ID of the data plane.")
+    id: StrictStr = Field(description="ID of the engine. Data plane is the legacy API name for an engine.")
     name: StrictStr = Field(description="Name of data plane.")
     workspace_id: StrictStr = Field(description="ID of the parent workspace.")
     description: StrictStr = Field(description="Description of data plane.")

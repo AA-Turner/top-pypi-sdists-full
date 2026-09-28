@@ -537,10 +537,11 @@ impl FindCompletionContents for ArraySchema {
             match completion_hint {
                 Some(CompletionHint::InTableHeader) => Vec::new(),
                 _ => {
-                    let schema_uri = current_schema.map(|schema| schema.schema_uri.as_ref());
+                    let schema_base_uri =
+                        current_schema.map(|schema| schema.schema_base_uri.as_ref());
 
                     let mut completion_items =
-                        type_hint_array(position, schema_uri, completion_hint);
+                        type_hint_array(position, schema_base_uri, completion_hint);
 
                     if let Some(default) = &self.default {
                         let label = default.to_string();
@@ -550,7 +551,7 @@ impl FindCompletionContents for ArraySchema {
                             self.title.clone(),
                             self.description.clone(),
                             edit,
-                            schema_uri,
+                            schema_base_uri,
                             self.deprecated(),
                         ));
                     }
@@ -568,7 +569,7 @@ impl FindCompletionContents for ArraySchema {
                                 self.title.clone(),
                                 self.description.clone(),
                                 edit,
-                                schema_uri,
+                                schema_base_uri,
                                 self.deprecated(),
                             ));
                         }
@@ -596,7 +597,7 @@ impl FindCompletionContents for ArraySchema {
 
 pub fn type_hint_array(
     position: tombi_text::Position,
-    schema_uri: Option<&SchemaUri>,
+    schema_base_uri: Option<&SchemaUri>,
     completion_hint: Option<CompletionHint>,
 ) -> Vec<CompletionContent> {
     let edit = CompletionEdit::new_array_literal(position, completion_hint);
@@ -606,6 +607,6 @@ pub fn type_hint_array(
         "[]",
         "Array",
         edit,
-        schema_uri,
+        schema_base_uri,
     )]
 }

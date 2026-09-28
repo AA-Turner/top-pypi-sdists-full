@@ -65,7 +65,6 @@ class TypeSafePassthroughLoggingHandler:
         end_time: datetime,
         cache_hit: bool,
         request_body: Mapping[str, object],
-        custom_llm_provider: str,
         **kwargs: object,
     ) -> PassThroughEndpointLoggingTypedDict:
         response: Final = _parse_typesafe_response(response_body)
@@ -73,12 +72,12 @@ class TypeSafePassthroughLoggingHandler:
         request_model_value: Final = request_body.get("model")
         request_model: Final = request_model_value if isinstance(request_model_value, str) else None
         logged_model: Final = response_model or request_model or "unknown"
-        model_name: Final = f"{custom_llm_provider}/{logged_model}"
+        model_name: Final = f"typesafe/{logged_model}"
         usage: Final = response.usage or _TypeSafeUsage()
         input_tokens: Final = usage.input_tokens
         output_tokens: Final = usage.output_tokens
         candidate_model_keys: Final = tuple(
-            f"{custom_llm_provider}/{model}" for model in (response_model, request_model) if model is not None
+            f"typesafe/{model}" for model in (response_model, request_model) if model is not None
         )
         pricing: Final = _pricing_for(candidate_model_keys)
         response_cost: Final = (
@@ -92,13 +91,13 @@ class TypeSafePassthroughLoggingHandler:
         updated_kwargs: Final = {  # mutable-ok: pass-through logging contract requires mutable kwargs
             **kwargs,
             "model": model_name,
-            "custom_llm_provider": custom_llm_provider,
+            "custom_llm_provider": "typesafe",
             "response_cost": response_cost,
             "combined_usage_object": usage_object,
         }
         logging_obj.model_call_details.update(
             model=model_name,
-            custom_llm_provider=custom_llm_provider,
+            custom_llm_provider="typesafe",
             response_cost=response_cost,
         )
         standard_logging_object: Final = get_standard_logging_object_payload(

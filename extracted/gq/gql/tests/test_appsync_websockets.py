@@ -277,7 +277,6 @@ def realtime_appsync_server_factory(
             async def receiving_coro():
                 print("            Server: receiving task started")
                 try:
-                    nonlocal send_message_task
                     while True:
 
                         try:
@@ -503,16 +502,14 @@ async def test_appsync_execute_method_not_allowed(server):
     client = Client(transport=transport)
 
     async with client as session:
-        query = gql(
-            """
+        query = gql("""
 mutation createMessage($message: String!) {
   createMessage(input: {message: $message}) {
     id
     message
     createdAt
   }
-}"""
-        )
+}""")
 
         query.variable_values = {"message": "Hello world!"}
 

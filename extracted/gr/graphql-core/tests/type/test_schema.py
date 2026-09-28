@@ -1,13 +1,11 @@
 from copy import deepcopy
 
-from pytest import raises
+import pytest
 
 from graphql.language import (
     DirectiveLocation,
     SchemaDefinitionNode,
     SchemaExtensionNode,
-    TypeDefinitionNode,
-    TypeExtensionNode,
 )
 from graphql.type import (
     GraphQLArgument,
@@ -15,8 +13,8 @@ from graphql.type import (
     GraphQLDirective,
     GraphQLField,
     GraphQLFieldMap,
-    GraphQLInputObjectType,
     GraphQLInputField,
+    GraphQLInputObjectType,
     GraphQLInt,
     GraphQLInterfaceType,
     GraphQLList,
@@ -26,7 +24,12 @@ from graphql.type import (
     GraphQLSchema,
     GraphQLString,
     GraphQLType,
+    GraphQLUnionType,
+    SchemaMetaFieldDef,
+    TypeMetaFieldDef,
+    TypeNameMetaFieldDef,
     specified_directives,
+    validate_schema,
 )
 from graphql.utilities import build_schema, lexicographic_sort_schema, print_schema
 
@@ -118,7 +121,8 @@ def describe_type_system_schema():
             "assume_valid": False,
         }
 
-        assert print_schema(schema) == dedent('''
+        assert print_schema(schema) == dedent(
+            '''
             """Sample schema"""
             schema {
               query: Query
@@ -159,7 +163,8 @@ def describe_type_system_schema():
             type Subscription {
               articleSubscribe(id: String): Article
             }
-            ''')
+            '''
+        )
 
     def freezes_the_specified_directives():
         directives_list = [GraphQLDirective("SomeDirective", [])]
@@ -169,12 +174,6 @@ def describe_type_system_schema():
         directives_tuple = schema.directives
         schema = GraphQLSchema(directives=directives_tuple)
         assert schema.directives is directives_tuple
-
-    def rejects_a_schema_with_incorrectly_typed_description():
-        with raises(TypeError) as exc_info:
-            # noinspection PyTypeChecker
-            GraphQLSchema(description=[])  # type: ignore
-        assert str(exc_info.value) == "Schema description must be a string."
 
     def describe_type_map():
         def includes_interface_possible_types_in_the_type_map():
@@ -291,42 +290,73 @@ def describe_type_system_schema():
         copy_schema = GraphQLSchema(**schema.to_kwargs())
         assert list(copy_schema.type_map) == type_names
 
+    def describe_get_field():
+        pet_type = GraphQLInterfaceType("Pet", {"name": GraphQLField(GraphQLString)})
+        cat_type = GraphQLObjectType(
+            "Cat", {"name": GraphQLField(GraphQLString)}, [pet_type]
+        )
+        dog_type = GraphQLObjectType(
+            "Dog", {"name": GraphQLField(GraphQLString)}, [pet_type]
+        )
+        cat_or_dog = GraphQLUnionType("CatOrDog", [cat_type, dog_type])
+        query_type = GraphQLObjectType("Query", {"catOrDog": GraphQLField(cat_or_dog)})
+        mutation_type = GraphQLObjectType("Mutation", {})
+        subscription_type = GraphQLObjectType("Subscription", {})
+        schema = GraphQLSchema(query_type, mutation_type, subscription_type)
+
+        _get_field = schema.get_field
+
+        def returns_known_field():
+            assert _get_field(pet_type, "name") == pet_type.fields["name"]
+            assert _get_field(cat_type, "name") == cat_type.fields["name"]
+
+            assert _get_field(query_type, "catOrDog") == query_type.fields["catOrDog"]
+
+        def returns_none_for_unknown_fields():
+            assert _get_field(cat_or_dog, "name") is None
+
+            assert _get_field(query_type, "unknown") is None
+            assert _get_field(pet_type, "unknown") is None
+            assert _get_field(cat_type, "unknown") is None
+            assert _get_field(cat_or_dog, "unknown") is None
+
+        def handles_introspection_fields():
+            assert _get_field(query_type, "__typename") == TypeNameMetaFieldDef
+            assert _get_field(mutation_type, "__typename") == TypeNameMetaFieldDef
+            assert _get_field(subscription_type, "__typename") == TypeNameMetaFieldDef
+
+            assert _get_field(pet_type, "__typename") is TypeNameMetaFieldDef
+            assert _get_field(cat_type, "__typename") is TypeNameMetaFieldDef
+            assert _get_field(dog_type, "__typename") is TypeNameMetaFieldDef
+            assert _get_field(cat_or_dog, "__typename") is TypeNameMetaFieldDef
+
+            assert _get_field(query_type, "__type") is TypeMetaFieldDef
+            assert _get_field(query_type, "__schema") is SchemaMetaFieldDef
+
+        def returns_non_for_introspection_fields_in_wrong_location():
+            assert _get_field(pet_type, "__type") is None
+            assert _get_field(dog_type, "__type") is None
+            assert _get_field(mutation_type, "__type") is None
+            assert _get_field(subscription_type, "__type") is None
+
+            assert _get_field(pet_type, "__schema") is None
+            assert _get_field(dog_type, "__schema") is None
+            assert _get_field(mutation_type, "__schema") is None
+            assert _get_field(subscription_type, "__schema") is None
+
     def describe_validity():
         def describe_when_not_assumed_valid():
             def configures_the_schema_to_still_needing_validation():
-                # noinspection PyProtectedMember
-                assert GraphQLSchema(assume_valid=False).validation_errors is None
+                schema = GraphQLSchema(assume_valid=False)
+                assert schema.assume_valid is False
+                assert schema.validation_errors is None
 
-            def checks_the_configuration_for_mistakes():
-                def query():
-                    pass
-
-                with raises(Exception):
-                    # noinspection PyTypeChecker
-                    GraphQLSchema(query)  # type: ignore
-                with raises(Exception):
-                    GraphQLSchema(types={})
-                with raises(Exception):
-                    GraphQLSchema(directives={})
-
-            def check_that_query_mutation_and_subscription_are_graphql_types():
-                directive = GraphQLDirective("foo", [])
-                with raises(TypeError) as exc_info:
-                    # noinspection PyTypeChecker
-                    GraphQLSchema(query=directive)  # type: ignore
-                assert str(exc_info.value) == "Expected query to be a GraphQL type."
-                with raises(TypeError) as exc_info:
-                    # noinspection PyTypeChecker
-                    GraphQLSchema(mutation=directive)  # type: ignore
-                assert str(exc_info.value) == (
-                    "Expected mutation to be a GraphQL type."
-                )
-                with raises(TypeError) as exc_info:
-                    # noinspection PyTypeChecker
-                    GraphQLSchema(subscription=directive)  # type: ignore
-                assert str(exc_info.value) == (
-                    "Expected subscription to be a GraphQL type."
-                )
+            def configures_the_schema_to_have_required_validation_even_once_validated():
+                schema = GraphQLSchema(assume_valid=False)
+                validation_errors = validate_schema(schema)
+                assert len(validation_errors) > 0
+                assert validation_errors == schema.validation_errors
+                assert schema.assume_valid is False
 
     def describe_a_schema_must_contain_uniquely_named_types():
         def rejects_a_schema_which_redefines_a_built_in_type():
@@ -348,7 +378,7 @@ def describe_type_system_schema():
                 },
             )
 
-            with raises(TypeError) as exc_info:
+            with pytest.raises(TypeError) as exc_info:
                 GraphQLSchema(QueryType)
             msg = str(exc_info.value)
             assert msg == (
@@ -360,7 +390,7 @@ def describe_type_system_schema():
             query = GraphQLObjectType("Query", {"foo": GraphQLField(GraphQLString)})
             types = [GraphQLType(), query, GraphQLType()]
 
-            with raises(TypeError) as exc_info:
+            with pytest.raises(TypeError) as exc_info:
                 GraphQLSchema(query, types=types)  # type: ignore
             msg = str(exc_info.value)
             assert msg == (
@@ -373,7 +403,7 @@ def describe_type_system_schema():
                 GraphQLObjectType("SameName", {}),
             ]
 
-            with raises(TypeError) as exc_info:
+            with pytest.raises(TypeError) as exc_info:
                 GraphQLSchema(types=types)
             msg = str(exc_info.value)
             assert msg == (
@@ -391,7 +421,7 @@ def describe_type_system_schema():
                 },
             )
 
-            with raises(TypeError) as exc_info:
+            with pytest.raises(TypeError) as exc_info:
                 GraphQLSchema(QueryType)
             msg = str(exc_info.value)
             assert msg == (
@@ -401,12 +431,13 @@ def describe_type_system_schema():
 
         def describe_when_assumed_valid():
             def configures_the_schema_to_have_no_errors():
-                # noinspection PyProtectedMember
-                assert GraphQLSchema(assume_valid=True).validation_errors == []
+                schema = GraphQLSchema(assume_valid=True)
+                assert schema.assume_valid is True
+                assert schema.validation_errors == []
 
     def describe_ast_nodes():
         def accepts_a_scalar_type_with_ast_node_and_extension_ast_nodes():
-            ast_node = SchemaDefinitionNode()
+            ast_node = SchemaDefinitionNode(operation_types=())
             extension_ast_nodes = [SchemaExtensionNode()]
             schema = GraphQLSchema(
                 GraphQLObjectType("Query", {}),
@@ -415,28 +446,6 @@ def describe_type_system_schema():
             )
             assert schema.ast_node is ast_node
             assert schema.extension_ast_nodes == tuple(extension_ast_nodes)
-
-        def rejects_a_schema_with_an_incorrect_ast_node():
-            with raises(TypeError) as exc_info:
-                # noinspection PyTypeChecker
-                GraphQLSchema(
-                    GraphQLObjectType("Query", {}),
-                    ast_node=TypeDefinitionNode(),  # type: ignore
-                )
-            msg = str(exc_info.value)
-            assert msg == "Schema AST node must be a SchemaDefinitionNode."
-
-        def rejects_a_scalar_type_with_incorrect_extension_ast_nodes():
-            with raises(TypeError) as exc_info:
-                # noinspection PyTypeChecker
-                GraphQLSchema(
-                    GraphQLObjectType("Query", {}),
-                    extension_ast_nodes=[TypeExtensionNode()],  # type: ignore
-                )
-            assert str(exc_info.value) == (
-                "Schema extension AST nodes must be specified"
-                " as a collection of SchemaExtensionNode instances."
-            )
 
     def can_deep_copy_a_schema():
         source = """

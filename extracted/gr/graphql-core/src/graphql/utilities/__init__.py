@@ -10,9 +10,6 @@ from .get_introspection_query import get_introspection_query, IntrospectionQuery
 # Get the target Operation from a Document.
 from .get_operation_ast import get_operation_ast
 
-# Get the Type for the target Operation AST.
-from .get_operation_root_type import get_operation_root_type
-
 # Convert a GraphQLSchema to an IntrospectionQuery.
 from .introspection_from_schema import introspection_from_schema
 
@@ -30,9 +27,10 @@ from .lexicographic_sort_schema import lexicographic_sort_schema
 
 # Print a GraphQLSchema to GraphQL Schema language.
 from .print_schema import (
-    print_introspection_schema,
     print_schema,
     print_type,
+    print_directive,
+    print_introspection_schema,
     print_value,  # deprecated
 )
 
@@ -51,12 +49,24 @@ from .value_from_ast_untyped import value_from_ast_untyped
 # Create a GraphQL language AST from a Python value.
 from .ast_from_value import ast_from_value
 
+# Create a GraphQL literal (AST) from a Python value.
+from .value_to_literal import value_to_literal
+
+# Get the AST of the default value of an argument or input field.
+from .get_default_value_ast import get_default_value_ast
+
+# Replace any variables in an AST value with their literal values.
+from .replace_variables import replace_variables
+
 # A helper to use within recursive-descent visitors which need to be aware of
 # the GraphQL type system
 from .type_info import TypeInfo, TypeInfoVisitor
 
-# Coerce a Python value to a GraphQL type, or produce errors.
-from .coerce_input_value import coerce_input_value
+# Coerce a Python value to a GraphQL type, or return Undefined.
+from .coerce_input_value import coerce_input_literal, coerce_input_value
+
+# Validate a Python value or a GraphQL literal with a GraphQL type.
+from .validate_input_value import validate_input_literal, validate_input_value
 
 # Concatenate multiple ASTs together.
 from .concat_ast import concat_ast
@@ -71,17 +81,18 @@ from .strip_ignored_characters import strip_ignored_characters
 # Comparators for types
 from .type_comparators import is_equal_type, is_type_sub_type_of, do_types_overlap
 
-# Assert that a string is a valid GraphQL name.
-from .assert_valid_name import assert_valid_name, is_valid_name_error
-
-# Compare two GraphQLSchemas and detect breaking changes.
-from .find_breaking_changes import (
+# Compare two GraphQLSchemas and detect changes.
+from .find_schema_changes import (
     BreakingChange,
     BreakingChangeType,
     DangerousChange,
     DangerousChangeType,
+    SafeChange,
+    SafeChangeType,
+    SchemaChange,
     find_breaking_changes,
     find_dangerous_changes,
+    find_schema_changes,
 )
 
 # Resolve a schema coordinate to a schema element.
@@ -104,45 +115,53 @@ __all__ = [
     "DangerousChange",
     "DangerousChangeType",
     "IntrospectionQuery",
-    "ResolvedNamedType",
-    "ResolvedField",
-    "ResolvedInputField",
-    "ResolvedEnumValue",
-    "ResolvedFieldArgument",
     "ResolvedDirective",
     "ResolvedDirectiveArgument",
+    "ResolvedEnumValue",
+    "ResolvedField",
+    "ResolvedFieldArgument",
+    "ResolvedInputField",
+    "ResolvedNamedType",
     "ResolvedSchemaElement",
-    "resolve_schema_coordinate",
-    "resolve_ast_schema_coordinate",
+    "SafeChange",
+    "SafeChangeType",
+    "SchemaChange",
     "TypeInfo",
     "TypeInfoVisitor",
-    "assert_valid_name",
     "ast_from_value",
     "ast_to_dict",
     "build_ast_schema",
     "build_client_schema",
     "build_schema",
+    "coerce_input_literal",
     "coerce_input_value",
     "concat_ast",
     "do_types_overlap",
     "extend_schema",
     "find_breaking_changes",
     "find_dangerous_changes",
+    "find_schema_changes",
+    "get_default_value_ast",
     "get_introspection_query",
     "get_operation_ast",
-    "get_operation_root_type",
+    "introspection_from_schema",
     "is_equal_type",
     "is_type_sub_type_of",
-    "is_valid_name_error",
-    "introspection_from_schema",
     "lexicographic_sort_schema",
+    "print_directive",
     "print_introspection_schema",
     "print_schema",
     "print_type",
     "print_value",
+    "replace_variables",
+    "resolve_ast_schema_coordinate",
+    "resolve_schema_coordinate",
     "separate_operations",
     "strip_ignored_characters",
     "type_from_ast",
+    "validate_input_literal",
+    "validate_input_value",
     "value_from_ast",
     "value_from_ast_untyped",
+    "value_to_literal",
 ]

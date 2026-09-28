@@ -44,6 +44,7 @@ import logging
 import math
 import traceback
 from datetime import UTC, datetime
+from types import SimpleNamespace
 from typing import Any
 
 from matrx_ai.db._registry import get_model as get_db_model
@@ -79,6 +80,103 @@ INSTANCE_ENTITY_TOKEN = "content_ir_kind_instance"
 _TITLE_KEYS = ("title", "name", "label", "heading", "subject", "customer")
 
 _MAX_LIST_LIMIT = 200
+
+
+# ---------------------------------------------------------------------------
+# THE RECORD-STORE ARM (lane FINAL-SWITCH-KINDS, 2026-09-27)
+# ---------------------------------------------------------------------------
+#
+# `content_ir.kind_instance` is declared superseded by `custom.record` (W1-REG). An
+# organization that has adopted the record store for that source keeps its kind records
+# THERE, and a tool that wrote the old table for it would be writing where nobody reads.
+# The per-organization answer lives in the host (aidream `services/kind_records/routed.py`,
+# the ONE door every server kind-record path asks). This package may never import the
+# host, so the door is handed in: `matrx_ai.configure(kind_record_arm=...)`.
+#
+# Every verb asks `_store_arm(ctx)` once. `None` means today's table, and the legacy body
+# below runs exactly as it always has.
+
+#: The ``_ext`` key the host's kind-record arm is registered under.
+KIND_RECORD_ARM_EXT_KEY = "kind_record_arm"
+
+#: The actor a store-arm write declares — the same system word the legacy create declares.
+_STORE_SYSTEM = {
+    "create": "tool:instance_create",
+    "update": "tool:instance_update",
+    "delete": "tool:instance_delete",
+}
+
+_kind_arm_announced: set[str] = set()
+
+
+def _kind_record_arm() -> Any | None:
+    """The host's kind-record arm, or ``None`` on a host with no record store.
+
+    Unwired is ANNOUNCED once, by name: without it every organization's kind records are
+    read and written on today's table, including an organization that has moved them.
+    """
+    from matrx_ai._ext import get_ext, has_ext
+
+    if has_ext(KIND_RECORD_ARM_EXT_KEY):
+        return get_ext(KIND_RECORD_ARM_EXT_KEY)
+    if "unwired" not in _kind_arm_announced:
+        _kind_arm_announced.add("unwired")
+        logger.warning(
+            "matrx-ai has no '%s' configured, so the kind_instance tool reads and writes ONLY "
+            "content_ir.kind_instance — an organization that keeps its kind records in the "
+            "record store would not see what this tool saves. REMEDY: "
+            "aidream/package_integration.py, matrx_ai.configure(kind_record_arm=KindRecordToolArm()).",
+            KIND_RECORD_ARM_EXT_KEY,
+        )
+    return None
+
+
+async def _store_arm(ctx: ToolContext) -> Any | None:
+    """The arm, when THIS organization keeps its kind records in the record store; else None."""
+    arm = _kind_record_arm()
+    if arm is None:
+        return None
+    user_id = ctx_user_id(ctx)
+    org_id = ctx_org_id(ctx)
+    if not user_id or not org_id:
+        # Nobody to act as: the host's door answers legacy for this too (AGT-N-4).
+        return None
+    if await arm.through_the_store(user_id=user_id, organization_id=org_id):
+        return arm
+    return None
+
+
+def _store_row(row: dict[str, Any], arm: Any) -> Any:
+    """A store record as the attribute row every body below already reads.
+
+    The document carries the legacy relation's own columns key for key; the header carries
+    the timestamps. `visibility` is not a column of a record — a record is seen through its
+    Table's ladder — so the row says that instead of printing a legacy word it never had.
+    """
+    base: dict[str, Any] = {
+        "id": row.get("id"),
+        "kind_definition_id": row.get("kind_definition_id"),
+        "kind_version": row.get("kind_version"),
+        "title": row.get("title"),
+        "data": row.get("data"),
+        "validation_status": row.get("validation_status") or "pending",
+        "validated_at": row.get("validated_at"),
+        "created_by": row.get("created_by"),
+        "organization_id": row.get("organization_id"),
+        "metadata": row.get("metadata") or {},
+        "visibility": row.get("visibility") or "table",
+        "created_at": row.get("created_at"),
+        "updated_at": row.get("updated_at"),
+        "deleted_at": row.get("deleted_at"),
+    }
+    row_ns = SimpleNamespace(**base)
+    row_ns._store_arm = arm  # noqa: SLF001 — marks which arm this row came from
+    return row_ns
+
+
+def _from_store(row: Any) -> Any | None:
+    """The arm a resolved row came from, or ``None`` for a legacy row."""
+    return getattr(row, "_store_arm", None)
 
 
 def _exec_error(e: Exception) -> ToolResult:
@@ -138,40 +236,23 @@ def instance_summary(row: Any, kind_slug: str | None = None) -> dict[str, Any]:
     return out
 
 
-async def _instance_access_allowed(instance_id: str, user_id: str, level: str) -> bool:
-    """Canonical access check on the INSTANCE token —
-    ``iam.has_access_for(user, 'content_ir_kind_instance', id, level)``.
-    ONE source of truth (never re-implement visibility/org/grant semantics);
-    fail-closed: any error reads as no access."""
-    try:
-        from matrx_orm import call_function
-
-        database = get_db_model("KindInstance")._database
-        result = await call_function(
-            database,
-            "iam",
-            "has_access_for",
-            user_id,
-            INSTANCE_ENTITY_TOKEN,
-            instance_id,
-            level,
-            mode="scalar",
-        )
-        return bool(result)
-    except Exception:  # noqa: BLE001 — fail closed, never raise into the tool
-        logger.warning(
-            "instance access check failed for %s (level=%s)", instance_id, level, exc_info=True
-        )
-        return False
-
-
 async def _can_access_instance(row: Any, ctx: ToolContext, level: str) -> bool:
-    user_id = ctx_user_id(ctx)
-    if not user_id:
+    """RLS's answer, in the CALLER's session, for this instance at ``level``.
+
+    ``viewer`` — ``content_ir.kind_instance`` returns the row to them.
+    ``editor`` — ``SELECT ... FOR UPDATE`` returns it (the UPDATE policy answers).
+    No owner fast path and no ``iam.has_access_for`` call: the database decides.
+    """
+    from matrx_ai.tools.person_session import as_the_person, person_may_change
+
+    if not ctx_user_id(ctx):
         return False
-    if str(row.created_by or "") == user_id:
-        return True
-    return await _instance_access_allowed(str(row.id), user_id, level)
+    KindInstance = get_db_model("KindInstance")
+    if level == "viewer":
+        async with as_the_person():
+            seen = await KindInstance.get_or_none(use_cache=False, id=str(row.id))
+        return seen is not None
+    return await person_may_change(KindInstance, {"id": str(row.id)})
 
 
 async def _resolve_instance(
@@ -183,12 +264,31 @@ async def _resolve_instance(
     instance_id = (instance_id or "").strip()
     if not instance_id or not is_uuid(instance_id):
         return None, err("validation", "instance_id must be a kind_instance UUID.")
+    arm = await _store_arm(ctx)
+    if arm is not None:
+        # THE STORE ARM. The read door is the viewer gate and the write door is the editor
+        # gate, so there is no second access check here to drift from them.
+        found = await arm.get(
+            user_id=ctx_user_id(ctx), organization_id=ctx_org_id(ctx), record_id=instance_id
+        )
+        if found is None or found.get("deleted_at") is not None:
+            return None, err(
+                "not_found",
+                f"Instance {instance_id} was not found, or you do not have access to it.",
+                "Check the id, or ask the owner to share the instance with you.",
+            )
+        return _store_row(found, arm), None
+    from matrx_ai.tools.person_session import as_the_person
+
     KindInstance = get_db_model("KindInstance")
-    row = await KindInstance.get_or_none(use_cache=False, id=instance_id)
-    if row is None or row.deleted_at is not None or not await _can_access_instance(row, ctx, level):
+    async with as_the_person():  # the read itself is RLS's: a hidden row never loads
+        row = await KindInstance.get_or_none(use_cache=False, id=instance_id)
+    if row is None or row.deleted_at is not None or (
+        level != "viewer" and not await _can_access_instance(row, ctx, level)
+    ):
         return None, err(
             "not_found",
-            "No accessible instance found for the given id.",
+            f"Instance {instance_id} was not found, or you do not have access to it.",
             "Check the id, or ask the owner to share the instance with you.",
         )
     return row, None
@@ -268,6 +368,9 @@ async def instance_create(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
                 "boundary admitted — fix the caller; the database never guesses one."
             )
         payload["organization_id"] = org_id
+        arm = await _store_arm(ctx)
+        if arm is not None:
+            return await _store_create(arm, kd, payload, ctx)
         # A tool invocation is an agent-authored persistence door.  The host
         # emits this ContextVar declaration as transaction-local GUCs when the
         # injected ORM opens the create transaction; without it an admitted
@@ -309,6 +412,41 @@ async def instance_create(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         return _exec_error(e)
 
 
+async def _store_create(
+    arm: Any, kd: Any, payload: dict[str, Any], ctx: ToolContext
+) -> ToolResult:
+    """``instance_create`` on the record-store arm: the same payload, the same receipt.
+
+    The store has no derived-on-write validation trigger, so the verdict is the one this
+    call just established: ``passed`` when the kind carries a schema and the payload was
+    checked against it above (a failing payload never gets here), ``pending`` when the kind
+    has no schema to check against — said, never promoted to ``passed``.
+    """
+    verdict = "passed" if isinstance(kd.emitted_json_schema, dict) else "pending"
+    values = {**payload, "validation_status": verdict}
+    record_id = await arm.create(
+        user_id=ctx_user_id(ctx),
+        organization_id=ctx_org_id(ctx),
+        values=values,
+        system=_STORE_SYSTEM["create"],
+    )
+    title = payload.get("title")
+    return ToolResult(
+        success=True,
+        output=KindInstanceWriteResult(
+            instance_id=str(record_id),
+            kind=kd.kind,
+            kind_definition_id=str(kd.id),
+            kind_version=kd.version,
+            title=title,
+            validation_status=verdict,
+            message=(f"Instance saved as '{title}'" if title else "Instance saved")
+            + f" (kind '{kd.kind}' v{kd.version}, verdict: {verdict}) in this organization's "
+            "record store.",
+        ),
+    )
+
+
 async def instance_list(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     """List YOUR saved instances (rows you created), newest-updated first.
 
@@ -346,8 +484,18 @@ async def instance_list(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
                 return err("validation", "status must be one of: pending, passed, failed.")
             filters["validation_status"] = status
 
-        KindInstance = get_db_model("KindInstance")
-        rows = [r for r in await KindInstance.filter(**filters).all() if r.deleted_at is None]
+        arm = await _store_arm(ctx)
+        if arm is not None:
+            rows = [
+                _store_row(found, arm)
+                for found in await arm.list(
+                    user_id=user_id, organization_id=ctx_org_id(ctx), match=filters
+                )
+                if found.get("deleted_at") is None
+            ]
+        else:
+            KindInstance = get_db_model("KindInstance")
+            rows = [r for r in await KindInstance.filter(**filters).all() if r.deleted_at is None]
         rows.sort(key=lambda r: str(r.updated_at or ""), reverse=True)
         total = len(rows)
         page = rows[offset : offset + limit]
@@ -413,6 +561,30 @@ async def instance_get(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         return _exec_error(e)
 
 
+def _instance_surface_write(row: Any, fresh: Any, kind: str, result: ToolResult) -> ToolResult:
+    """Before → after of the instance (title + data, pretty JSON) for the diff card."""
+    import json as _json
+
+    from matrx_ai.tools.surface_write import attach_surface_write
+
+    def _render(r: Any) -> str:
+        if r is None:
+            return ""
+        body = _json.dumps(getattr(r, "data", None), ensure_ascii=False, indent=2, sort_keys=True, default=str)
+        return f"title: {getattr(r, 'title', None) or ''}\n{body}"
+
+    return attach_surface_write(
+        result,
+        before=_render(row),
+        after=_render(fresh),
+        target_type="kind_instance",
+        target_id=str(row.id),
+        target_label=str(getattr(fresh, "title", None) or getattr(row, "title", None) or kind),
+        mode="structured",
+        content_format="json",
+    )
+
+
 async def instance_update(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     """Update an instance's ``data`` and/or ``title``. Editor access required.
 
@@ -466,11 +638,33 @@ async def instance_update(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         if repin:
             updates["kind_version"] = kd.version
 
-        KindInstance = get_db_model("KindInstance")
-        await KindInstance.update_where({"id": str(row.id)}, **updates)
-        fresh = await KindInstance.get_or_none(use_cache=False, id=str(row.id))
+        arm = _from_store(row)
+        if arm is not None:
+            # THE STORE ARM. The store stamps who wrote it on every value itself, so
+            # `updated_by` is not a field of the record. With no trigger to derive the
+            # verdict, a data change says what this call established: `passed` against the
+            # current schema, `pending` when the instance stays pinned behind it.
+            store_updates = {k: v for k, v in updates.items() if k != "updated_by"}
+            if "data" in store_updates:
+                checked = target_version == kd.version and isinstance(kd.emitted_json_schema, dict)
+                store_updates["validation_status"] = "passed" if checked else "pending"
+            await arm.update(
+                user_id=ctx_user_id(ctx),
+                organization_id=ctx_org_id(ctx),
+                record_id=str(row.id),
+                values=store_updates,
+                system=_STORE_SYSTEM["update"],
+            )
+            found = await arm.get(
+                user_id=ctx_user_id(ctx), organization_id=ctx_org_id(ctx), record_id=str(row.id)
+            )
+            fresh = _store_row(found, arm) if found is not None else None
+        else:
+            KindInstance = get_db_model("KindInstance")
+            await KindInstance.update_where({"id": str(row.id)}, **updates)
+            fresh = await KindInstance.get_or_none(use_cache=False, id=str(row.id))
         verdict = fresh.validation_status if fresh else "unknown"
-        return ToolResult(
+        return _instance_surface_write(row, fresh, kd.kind, ToolResult(
             success=True,
             output=KindInstanceWriteResult(
                 instance_id=str(row.id),
@@ -489,7 +683,7 @@ async def instance_update(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
                     )
                 ),
             ),
-        )
+        ))
     except Exception as e:
         return _exec_error(e)
 
@@ -505,6 +699,38 @@ async def instance_delete(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         row, failure = await _resolve_instance(args.get("instance_id") or "", ctx, "editor")
         if failure:
             return failure
+        arm = _from_store(row)
+        if arm is not None:
+            answer = await arm.delete(
+                user_id=ctx_user_id(ctx),
+                organization_id=ctx_org_id(ctx),
+                record_id=str(row.id),
+                system=_STORE_SYSTEM["delete"],
+            )
+            if answer.get("applied") is False:
+                # HELD, NOT DONE — and not an error to retry. The organization asks a person
+                # before an agent removes a record from a table that predates this chat.
+                return ToolResult(
+                    success=True,
+                    output=KindInstanceWriteResult(
+                        instance_id=str(row.id),
+                        deleted=False,
+                        message=(
+                            "HELD FOR APPROVAL — nothing was deleted yet. The delete is in this "
+                            "organization's approval queue and happens when a person approves "
+                            "it. Do NOT call the tool again for it; tell the person it is "
+                            "waiting for their approval."
+                        ),
+                    ),
+                )
+            return ToolResult(
+                success=True,
+                output=KindInstanceWriteResult(
+                    instance_id=str(row.id),
+                    deleted=True,
+                    message="Instance archived in this organization's record store (recoverable).",
+                ),
+            )
         KindInstance = get_db_model("KindInstance")
         await KindInstance.update_where(
             {"id": str(row.id)},

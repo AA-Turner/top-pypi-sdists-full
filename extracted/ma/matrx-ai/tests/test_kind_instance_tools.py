@@ -1,8 +1,9 @@
 """Unit tests for the ``instance_*`` toolset (saved kind instances).
 
-Pure-logic coverage: the in-code authorization mirror on the INSTANCE token
-(owner fast-path, verbatim delegation to ``iam.has_access_for``, fail-closed,
-content-free denials), title derivation, and arg-contract enforcement. The
+Pure-logic coverage: authorization is RLS's answer in the CALLER's session
+(no owner fast path, no ``iam.has_access_for`` call from app code; viewer = the
+row is returned, editor = ``SELECT ... FOR UPDATE`` returns it), content-free
+denials, title derivation, and arg-contract enforcement. The
 live DB lifecycle (create -> verdict -> list -> update -> repin -> soft-delete
 -> revalidate-after-schema-change) is exercised by
 ``tests_trials/run_kind_tools_e2e.py`` (repo root) against the real database.
@@ -10,6 +11,8 @@ live DB lifecycle (create -> verdict -> list -> update -> repin -> soft-delete
 
 from __future__ import annotations
 
+import contextlib
+from contextvars import ContextVar
 from types import SimpleNamespace
 from typing import Any
 from uuid import uuid4
@@ -46,26 +49,64 @@ def _instance_row(created_by: str | None, **overrides: Any) -> Any:
     return SimpleNamespace(**base)
 
 
-class _AccessRecorder:
-    """Stand-in for _instance_access_allowed recording delegations and
-    answering from a scripted (instance_id, user_id, level) -> bool table."""
+_acting: ContextVar[str | None] = ContextVar("fake_acting_user_instances", default=None)
 
-    def __init__(self, table: dict[tuple[str, str, str], bool] | None = None):
-        self.table = table or {}
-        self.calls: list[tuple[str, str, str]] = []
 
-    async def __call__(self, instance_id: str, user_id: str, level: str) -> bool:
-        self.calls.append((instance_id, user_id, level))
-        return self.table.get((instance_id, user_id, level), False)
+@pytest.fixture
+def person_session(monkeypatch: pytest.MonkeyPatch) -> dict[str, str]:
+    """The host's act-as-the-caller seam: RLS answers for whoever ``current`` names."""
+    from matrx_ai import _ext
+
+    current: dict[str, str] = {}
+
+    @contextlib.asynccontextmanager
+    async def acting_as_caller():
+        token = _acting.set(current.get("user"))
+        try:
+            yield
+        finally:
+            _acting.reset(token)
+
+    monkeypatch.setitem(_ext._registry, "acting_as_caller", acting_as_caller)
+    return current
+
+
+class _Locking:
+    def __init__(self, model: _FakeModel, pk: dict[str, Any]):
+        self._model, self._pk = model, pk
+
+    def select_for_update(self) -> _Locking:
+        return self
+
+    async def values(self, *_fields: str) -> list[dict[str, Any]]:
+        self._model.probes.append(("editor", _acting.get()))
+        row = self._model._row
+        who = _acting.get()
+        if row is None or who is None or who not in self._model.writers:
+            return []
+        return [{"id": str(row.id)}]
 
 
 class _FakeModel:
-    def __init__(self, row: Any):
+    """content_ir.kind_instance as RLS shows it: readers see the row, writers may lock it."""
+
+    def __init__(self, row: Any, *, readers: set[str] | None = None, writers: set[str] | None = None):
         self._row = row
+        self.readers = readers if readers is not None else set()
+        self.writers = writers if writers is not None else set()
         self.updates: list[tuple[dict[str, Any], dict[str, Any]]] = []
+        self.probes: list[tuple[str, str | None]] = []
+        self.privileged_reads = 0
 
     async def get_or_none(self, **kwargs: Any) -> Any:
-        return self._row
+        who = _acting.get()
+        if who is None:
+            self.privileged_reads += 1
+            return self._row
+        return self._row if who in self.readers else None
+
+    def filter(self, **pk: Any) -> _Locking:
+        return _Locking(self, pk)
 
     async def update_where(self, where: dict[str, Any], **updates: Any) -> None:
         self.updates.append((where, updates))
@@ -186,61 +227,67 @@ def test_instance_summary_projection_is_light() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Authorization matrix — owner fast-path / verbatim delegation / fail-closed
+# Authorization matrix — RLS answers in the caller's session, never app code
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.asyncio
-async def test_owner_passes_without_db_call(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_the_owner_is_decided_by_rls_too(
+    monkeypatch: pytest.MonkeyPatch, person_session: dict[str, str]
+) -> None:
+    """No owner fast path: even the creator's access is the database's answer."""
     user = str(uuid4())
+    person_session["user"] = user
     monkeypatch.setattr(ki, "ctx_user_id", lambda _ctx: user)
-    recorder = _AccessRecorder()
-    monkeypatch.setattr(ki, "_instance_access_allowed", recorder)
     row = _instance_row(user)
+    fake = _FakeModel(row, readers={user}, writers={user})
+    monkeypatch.setattr(ki, "get_db_model", lambda _name: fake)
     assert await ki._can_access_instance(row, make_ctx(), "viewer") is True
     assert await ki._can_access_instance(row, make_ctx(), "editor") is True
-    assert recorder.calls == []  # owner never round-trips
+    assert fake.probes == [("editor", user)]  # the edit question went to the database
+    assert fake.privileged_reads == 0
 
 
 @pytest.mark.asyncio
-async def test_non_owner_delegates_verbatim_per_level(
-    monkeypatch: pytest.MonkeyPatch,
+async def test_a_view_only_share_reads_but_cannot_edit(
+    monkeypatch: pytest.MonkeyPatch, person_session: dict[str, str]
 ) -> None:
-    """A non-owner gets EXACTLY what iam.has_access_for says, per level —
-    the code contributes no org/visibility logic of its own."""
     user = str(uuid4())
+    person_session["user"] = user
     monkeypatch.setattr(ki, "ctx_user_id", lambda _ctx: user)
     shared_view_only = _instance_row(str(uuid4()))
-    stranger_row = _instance_row(str(uuid4()))
-    recorder = _AccessRecorder({(str(shared_view_only.id), user, "viewer"): True})
-    monkeypatch.setattr(ki, "_instance_access_allowed", recorder)
-
+    fake = _FakeModel(shared_view_only, readers={user}, writers=set())
+    monkeypatch.setattr(ki, "get_db_model", lambda _name: fake)
     ctx = make_ctx()
     assert await ki._can_access_instance(shared_view_only, ctx, "viewer") is True
     assert await ki._can_access_instance(shared_view_only, ctx, "editor") is False
-    assert await ki._can_access_instance(stranger_row, ctx, "viewer") is False
-    assert await ki._can_access_instance(stranger_row, ctx, "editor") is False
-    assert (str(shared_view_only.id), user, "viewer") in recorder.calls
-    assert (str(shared_view_only.id), user, "editor") in recorder.calls
-    assert (str(stranger_row.id), user, "viewer") in recorder.calls
+
+    stranger = _FakeModel(_instance_row(str(uuid4())))
+    monkeypatch.setattr(ki, "get_db_model", lambda _name: stranger)
+    assert await ki._can_access_instance(stranger._row, ctx, "viewer") is False
+    assert await ki._can_access_instance(stranger._row, ctx, "editor") is False
+    assert fake.privileged_reads == 0 and stranger.privileged_reads == 0
 
 
 @pytest.mark.asyncio
-async def test_no_user_or_checker_error_fails_closed(
+async def test_no_user_or_no_person_session_never_grants(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    from matrx_ai import _ext
+    from matrx_ai.tools.person_session import PersonSessionUnavailable
+
     monkeypatch.setattr(ki, "ctx_user_id", lambda _ctx: None)
     assert await ki._can_access_instance(_instance_row(str(uuid4())), make_ctx(), "viewer") is False
 
-    # checker raising -> _instance_access_allowed itself fails closed
+    # No person session configured: the question is refused loudly, never answered privileged.
+    monkeypatch.delitem(_ext._registry, "acting_as_caller", raising=False)
     user = str(uuid4())
-
-    async def _boom(*_args: Any, **_kwargs: Any):  # noqa: ANN202
-        raise RuntimeError("db down")
-
     monkeypatch.setattr(ki, "ctx_user_id", lambda _ctx: user)
-    monkeypatch.setattr("matrx_orm.call_function", _boom, raising=False)
-    assert await ki._instance_access_allowed(str(uuid4()), user, "viewer") is False
+    fake = _FakeModel(_instance_row(user))
+    monkeypatch.setattr(ki, "get_db_model", lambda _name: fake)
+    with pytest.raises(PersonSessionUnavailable):
+        await ki._can_access_instance(fake._row, make_ctx(), "viewer")
+    assert fake.privileged_reads == 0
 
 
 # ---------------------------------------------------------------------------
@@ -248,18 +295,26 @@ async def test_no_user_or_checker_error_fails_closed(
 # ---------------------------------------------------------------------------
 
 
-def _patch_instance_model(monkeypatch: pytest.MonkeyPatch, row: Any) -> _FakeModel:
-    fake = _FakeModel(row)
+def _patch_instance_model(
+    monkeypatch: pytest.MonkeyPatch,
+    row: Any,
+    *,
+    readers: set[str] | None = None,
+    writers: set[str] | None = None,
+) -> _FakeModel:
+    fake = _FakeModel(row, readers=readers, writers=writers)
     monkeypatch.setattr(ki, "get_db_model", lambda _name: fake)
     return fake
 
 
 @pytest.mark.asyncio
-async def test_unauthorized_get_is_content_free(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_unauthorized_get_is_content_free(
+    monkeypatch: pytest.MonkeyPatch, person_session: dict[str, str]
+) -> None:
     user = str(uuid4())
+    person_session["user"] = user
     monkeypatch.setattr(ki, "ctx_user_id", lambda _ctx: user)
-    monkeypatch.setattr(ki, "_instance_access_allowed", _AccessRecorder())
-    row = _instance_row(str(uuid4()))  # someone else's
+    row = _instance_row(str(uuid4()))  # someone else's — RLS returns nothing to this user
     _patch_instance_model(monkeypatch, row)
 
     result = await ki.instance_get({"instance_id": str(row.id)}, make_ctx())
@@ -273,19 +328,19 @@ async def test_unauthorized_get_is_content_free(monkeypatch: pytest.MonkeyPatch)
 
 @pytest.mark.asyncio
 async def test_missing_deleted_and_unauthorized_shapes_match(
-    monkeypatch: pytest.MonkeyPatch,
+    monkeypatch: pytest.MonkeyPatch, person_session: dict[str, str]
 ) -> None:
     user = str(uuid4())
+    person_session["user"] = user
     monkeypatch.setattr(ki, "ctx_user_id", lambda _ctx: user)
-    monkeypatch.setattr(ki, "_instance_access_allowed", _AccessRecorder())
 
     messages: list[str] = []
-    for row in (
-        None,
-        _instance_row(user, deleted_at="2026-07-18T00:00:00Z"),
-        _instance_row(str(uuid4())),
+    for row, readers in (
+        (None, {user}),
+        (_instance_row(user, deleted_at="2026-07-18T00:00:00Z"), {user}),
+        (_instance_row(str(uuid4())), set()),
     ):
-        _patch_instance_model(monkeypatch, row)
+        _patch_instance_model(monkeypatch, row, readers=readers)
         result = await ki.instance_get({"instance_id": str(uuid4())}, make_ctx())
         assert result.success is False
         assert result.error is not None and result.error.error_type == "not_found"
@@ -295,16 +350,15 @@ async def test_missing_deleted_and_unauthorized_shapes_match(
 
 @pytest.mark.asyncio
 async def test_update_and_delete_are_editor_gated(
-    monkeypatch: pytest.MonkeyPatch,
+    monkeypatch: pytest.MonkeyPatch, person_session: dict[str, str]
 ) -> None:
-    """A viewer-only grant must NOT unlock update/delete — both resolve the
-    row at editor level and deny content-free."""
+    """A viewer-only grant must NOT unlock update/delete — both ask the
+    database the edit question (FOR UPDATE) and deny content-free."""
     user = str(uuid4())
+    person_session["user"] = user
     monkeypatch.setattr(ki, "ctx_user_id", lambda _ctx: user)
     row = _instance_row(str(uuid4()))
-    recorder = _AccessRecorder({(str(row.id), user, "viewer"): True})  # viewer only
-    monkeypatch.setattr(ki, "_instance_access_allowed", recorder)
-    fake = _patch_instance_model(monkeypatch, row)
+    fake = _patch_instance_model(monkeypatch, row, readers={user}, writers=set())  # viewer only
 
     upd = await ki.instance_update({"instance_id": str(row.id), "title": "hijack"}, make_ctx())
     assert upd.success is False and upd.error.error_type == "not_found"
@@ -313,7 +367,8 @@ async def test_update_and_delete_are_editor_gated(
     assert dele.success is False and dele.error.error_type == "not_found"
 
     assert fake.updates == []  # nothing written
-    assert (str(row.id), user, "editor") in recorder.calls
+    assert ("editor", user) in fake.probes
+    assert fake.privileged_reads == 0
 
 
 @pytest.mark.asyncio

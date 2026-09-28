@@ -1,183 +1,417 @@
-from typing import Any, Callable, Dict, List, Optional, Union, cast
+"""Input value coercion"""
 
+from __future__ import annotations
 
-from ..error import GraphQLError
+from typing import TYPE_CHECKING, Any
+
+from ..language import (
+    ListValueNode,
+    NullValueNode,
+    ObjectValueNode,
+    ValueNode,
+    VariableNode,
+    print_ast,
+)
 from ..pyutils import (
-    Path,
-    did_you_mean,
+    Undefined,
     inspect,
     is_iterable,
-    print_path_list,
-    suggestion_list,
-    Undefined,
 )
 from ..type import (
-    GraphQLInputObjectType,
     GraphQLInputType,
-    GraphQLList,
-    GraphQLScalarType,
-    is_leaf_type,
+    assert_leaf_type,
     is_input_object_type,
     is_list_type,
     is_non_null_type,
-    GraphQLNonNull,
+    is_required_input_field,
 )
+from .replace_variables import replace_variables
 
-__all__ = ["coerce_input_value"]
+if TYPE_CHECKING:
+    from ..execution.get_variable_signature import GraphQLVariableSignature
+    from ..execution.values import FragmentVariableValues, VariableValues
+    from ..type import GraphQLArgument, GraphQLInputField
 
-
-OnErrorCB = Callable[[List[Union[str, int]], Any, GraphQLError], None]
-
-
-def default_on_error(
-    path: List[Union[str, int]], invalid_value: Any, error: GraphQLError
-) -> None:
-    error_prefix = "Invalid value " + inspect(invalid_value)
-    if path:
-        error_prefix += f" at 'value{print_path_list(path)}'"
-    error.message = error_prefix + ": " + error.message
-    raise error
+__all__ = ["coerce_default_value", "coerce_input_literal", "coerce_input_value"]
 
 
-def coerce_input_value(
-    input_value: Any,
-    type_: GraphQLInputType,
-    on_error: OnErrorCB = default_on_error,
-    path: Optional[Path] = None,
-) -> Any:
-    """Coerce a Python value given a GraphQL Input Type."""
+def coerce_input_value(input_value: Any, type_: GraphQLInputType) -> Any:
+    """Coerce a Python value given a GraphQL Input Type.
+
+    Returns ``Undefined`` when the value could not be validly coerced according
+    to the provided type. Use :func:`~graphql.utilities.validate_input_value` when
+    coercion diagnostics are needed.
+
+    :param input_value: Python value to coerce.
+    :param type_: GraphQL input type to coerce the value against.
+    :returns: Coerced value, or ``Undefined`` if coercion fails.
+
+    Coerce runtime input values, returning ``Undefined`` when coercion fails:
+
+    >>> from graphql import (
+    ...     GraphQLInputField,
+    ...     GraphQLInputObjectType,
+    ...     GraphQLInt,
+    ...     GraphQLList,
+    ...     GraphQLNonNull,
+    ...     GraphQLString,
+    ... )
+    >>> from graphql.utilities import coerce_input_value
+    >>> review_input = GraphQLInputObjectType(
+    ...     'ReviewInput',
+    ...     {
+    ...         'stars': GraphQLInputField(GraphQLNonNull(GraphQLInt)),
+    ...         'tags': GraphQLInputField(GraphQLList(GraphQLString)),
+    ...     },
+    ... )
+    >>> coerce_input_value({'stars': 5, 'tags': ['featured']}, review_input)
+    {'stars': 5, 'tags': ['featured']}
+    >>> coerce_input_value({'stars': 'bad'}, review_input)
+    Undefined
+    """
     if is_non_null_type(type_):
-        if input_value is not None and input_value is not Undefined:
-            type_ = cast(GraphQLNonNull, type_)
-            return coerce_input_value(input_value, type_.of_type, on_error, path)
-        on_error(
-            path.as_list() if path else [],
-            input_value,
-            GraphQLError(
-                f"Expected non-nullable type '{inspect(type_)}' not to be None."
-            ),
-        )
-        return Undefined
+        if input_value is None or input_value is Undefined:
+            return Undefined  # Invalid: intentionally return no value.
+        return coerce_input_value(input_value, type_.of_type)
 
     if input_value is None or input_value is Undefined:
-        # Explicitly return the value null.
-        return None
+        return None  # Explicitly return the value null.
 
     if is_list_type(type_):
-        type_ = cast(GraphQLList, type_)
         item_type = type_.of_type
-        if is_iterable(input_value):
-            coerced_list: List[Any] = []
-            append_item = coerced_list.append
-            for index, item_value in enumerate(input_value):
-                append_item(
-                    coerce_input_value(
-                        item_value, item_type, on_error, Path(path, index, None)
-                    )
-                )
-            return coerced_list
-        # Lists accept a non-list value as a list of one.
-        return [coerce_input_value(input_value, item_type, on_error, path)]
+        if not is_iterable(input_value):
+            # Lists accept a non-list value as a list of one.
+            coerced_item = coerce_input_value(input_value, item_type)
+            if coerced_item is Undefined:
+                return Undefined  # Invalid: intentionally return no value.
+            return [coerced_item]
+        coerced_list: list[Any] = []
+        append_item = coerced_list.append
+        for item_value in input_value:
+            coerced_item = coerce_input_value(item_value, item_type)
+            if coerced_item is Undefined:
+                return Undefined  # Invalid: intentionally return no value.
+            append_item(coerced_item)
+        return coerced_list
 
     if is_input_object_type(type_):
-        type_ = cast(GraphQLInputObjectType, type_)
         if not isinstance(input_value, dict):
-            on_error(
-                path.as_list() if path else [],
-                input_value,
-                GraphQLError(f"Expected type '{type_.name}' to be a mapping."),
-            )
-            return Undefined
+            return Undefined  # Invalid: intentionally return no value.
 
-        coerced_dict: Dict[str, Any] = {}
+        coerced_dict: dict[str, Any] = {}
         fields = type_.fields
-
+        defined_field_count = 0
+        for field_name, field_value in input_value.items():
+            if field_value is Undefined:
+                continue
+            defined_field_count += 1
+            if field_name not in fields:
+                return Undefined  # Invalid: intentionally return no value.
         for field_name, field in fields.items():
             field_value = input_value.get(field_name, Undefined)
-
             if field_value is Undefined:
-                if field.default_value is not Undefined:
+                if is_required_input_field(field):
+                    return Undefined  # Invalid: intentionally return no value.
+                coerced_default_value = coerce_default_value(field)
+                if coerced_default_value is not Undefined:
                     # Use out name as name if it exists (extension of GraphQL.js).
-                    coerced_dict[field.out_name or field_name] = field.default_value
-                elif is_non_null_type(field.type):  # pragma: no cover else
-                    type_str = inspect(field.type)
-                    on_error(
-                        path.as_list() if path else [],
-                        input_value,
-                        GraphQLError(
-                            f"Field '{field_name}' of required type '{type_str}'"
-                            " was not provided."
-                        ),
-                    )
-                continue
-
-            coerced_dict[field.out_name or field_name] = coerce_input_value(
-                field_value, field.type, on_error, Path(path, field_name, type_.name)
-            )
-
-        # Ensure every provided field is defined.
-        for field_name in input_value:
-            if field_name not in fields:
-                suggestions = suggestion_list(field_name, fields)
-                on_error(
-                    path.as_list() if path else [],
-                    input_value,
-                    GraphQLError(
-                        f"Field '{field_name}' is not defined by type '{type_.name}'."
-                        + did_you_mean(suggestions)
-                    ),
-                )
+                    coerced_dict[field.out_name or field_name] = coerced_default_value
+            else:
+                coerced_field = coerce_input_value(field_value, field.type)
+                if coerced_field is Undefined:
+                    return Undefined  # Invalid: intentionally return no value.
+                coerced_dict[field.out_name or field_name] = coerced_field
 
         if type_.is_one_of:
             keys = list(coerced_dict)
-            if len(keys) != 1:
-                on_error(
-                    path.as_list() if path else [],
-                    input_value,
-                    GraphQLError(
-                        "Exactly one key must be specified"
-                        f" for OneOf type '{type_.name}'.",
-                    ),
-                )
-            else:
-                key = keys[0]
-                value = coerced_dict[key]
-                if value is None:
-                    on_error(
-                        (path.as_list() if path else []) + [key],
-                        value,
-                        GraphQLError(
-                            f"Field '{key}' must be non-null.",
-                        ),
-                    )
+            if defined_field_count != 1 or len(keys) != 1:
+                # Invalid: intentionally return no value.
+                return Undefined
+            if coerced_dict[keys[0]] is None:
+                # Invalid: value not non-null, intentionally return no value.
+                return Undefined
 
         return type_.out_type(coerced_dict)
 
-    if is_leaf_type(type_):
-        # Scalars determine if a value is valid via `parse_value()`, which can throw to
-        # indicate failure. If it throws, maintain a reference to the original error.
-        type_ = cast(GraphQLScalarType, type_)
-        try:
-            parse_result = type_.parse_value(input_value)
-        except GraphQLError as error:
-            on_error(path.as_list() if path else [], input_value, error)
-            return Undefined
-        except Exception as error:
-            on_error(
-                path.as_list() if path else [],
-                input_value,
-                GraphQLError(
-                    f"Expected type '{type_.name}'. {error}", original_error=error
-                ),
-            )
-            return Undefined
-        if parse_result is Undefined:
-            on_error(
-                path.as_list() if path else [],
-                input_value,
-                GraphQLError(f"Expected type '{type_.name}'."),
-            )
-        return parse_result
+    leaf_type = assert_leaf_type(type_)
+    try:
+        return leaf_type.coerce_input_value(input_value)
+    except Exception:  # noqa: BLE001
+        # Invalid: ignore error and intentionally return no value.
+        return Undefined
 
-    # Not reachable. All possible input types have been considered.
-    raise TypeError(f"Unexpected input type: {inspect(type_)}.")
+
+def coerce_input_literal(
+    value_node: ValueNode,
+    type_: GraphQLInputType,
+    variable_values: VariableValues | None = None,
+    fragment_variable_values: FragmentVariableValues | None = None,
+) -> Any:
+    """Produce a coerced Python value given a GraphQL Value AST.
+
+    Returns ``Undefined`` when the value could not be validly coerced according
+    to the provided type.
+
+    Unlike :func:`~graphql.utilities.value_from_ast`, this properly supports
+    fragment variables in addition to operation variables.
+
+    :param value_node: GraphQL value AST node to coerce.
+    :param type_: GraphQL input type to coerce the literal against.
+    :param variable_values: Operation variable values returned by
+        :func:`~graphql.execution.get_variable_values`.
+    :param fragment_variable_values: Fragment variable values for the current
+        fragment scope.
+    :returns: Coerced value, or ``Undefined`` if coercion fails.
+
+    Coerce literal input values without variables:
+
+    >>> from graphql import (
+    ...     GraphQLInputField,
+    ...     GraphQLInputObjectType,
+    ...     GraphQLInt,
+    ...     GraphQLNonNull,
+    ...     GraphQLString,
+    ...     parse_value,
+    ... )
+    >>> from graphql.utilities import coerce_input_literal
+    >>> review_input = GraphQLInputObjectType(
+    ...     'ReviewInput',
+    ...     {
+    ...         'stars': GraphQLInputField(GraphQLNonNull(GraphQLInt)),
+    ...         'comment': GraphQLInputField(GraphQLString),
+    ...     },
+    ... )
+    >>> coerce_input_literal(
+    ...     parse_value('{ stars: 5, comment: "Loved it" }'), review_input
+    ... )
+    {'stars': 5, 'comment': 'Loved it'}
+    >>> coerce_input_literal(parse_value('{ comment: "Missing" }'), review_input)
+    Undefined
+
+    This variant resolves variable references using the variable values returned by
+    :func:`~graphql.execution.get_variable_values`:
+
+    >>> from graphql import build_schema, parse
+    >>> from graphql.execution import get_variable_values
+    >>> schema = build_schema('''
+    ...   type Query {
+    ...     review(stars: Int): String
+    ...   }
+    ... ''')
+    >>> document = parse('query ($stars: Int = 5) { review(stars: $stars) }')
+    >>> operation = document.definitions[0]
+    >>> variable_values = get_variable_values(
+    ...     schema, operation.variable_definitions, {'stars': 4}
+    ... )
+    >>> coerce_input_literal(parse_value('$stars'), GraphQLInt, variable_values)
+    4
+    """
+    if isinstance(value_node, VariableNode):
+        variable_value = get_coerced_variable_value(
+            value_node, variable_values, fragment_variable_values
+        )
+        if (variable_value is None or variable_value is Undefined) and is_non_null_type(
+            type_
+        ):
+            return Undefined  # Invalid: intentionally return no value.
+        # Note: This does no further checking that this variable is correct.
+        # This assumes validation has checked this variable is of the correct type.
+        return variable_value
+
+    if is_non_null_type(type_):
+        if isinstance(value_node, NullValueNode):
+            return Undefined  # Invalid: intentionally return no value.
+        return coerce_input_literal(
+            value_node,
+            type_.of_type,
+            variable_values,
+            fragment_variable_values,
+        )
+
+    if isinstance(value_node, NullValueNode):
+        return None  # Explicitly return the value null.
+
+    if is_list_type(type_):
+        item_type = type_.of_type
+        if not isinstance(value_node, ListValueNode):
+            # Lists accept a non-list value as a list of one.
+            item_value = coerce_input_literal(
+                value_node,
+                item_type,
+                variable_values,
+                fragment_variable_values,
+            )
+            if item_value is Undefined:
+                return Undefined  # Invalid: intentionally return no value.
+            return [item_value]
+        coerced_list: list[Any] = []
+        for item_node in value_node.values:
+            item_value = coerce_input_literal(
+                item_node,
+                item_type,
+                variable_values,
+                fragment_variable_values,
+            )
+            if item_value is Undefined:
+                if (
+                    isinstance(item_node, VariableNode)
+                    and not is_non_null_type(item_type)
+                    and _variable_value_is_null(
+                        item_node, variable_values, fragment_variable_values
+                    )
+                ):
+                    # A missing variable within a list is coerced to null.
+                    coerced_list.append(None)
+                    continue
+                return Undefined  # Invalid: intentionally return no value.
+            coerced_list.append(item_value)
+        return coerced_list
+
+    if is_input_object_type(type_):
+        if not isinstance(value_node, ObjectValueNode):
+            return Undefined  # Invalid: intentionally return no value.
+
+        coerced_dict: dict[str, Any] = {}
+        field_defs = type_.fields
+        field_nodes = {field.name.value: field for field in value_node.fields}
+        # Ensure every provided field is defined.
+        if any(field_name not in field_defs for field_name in field_nodes):
+            return Undefined  # Invalid: intentionally return no value.
+        for field_name, field in field_defs.items():
+            field_node = field_nodes.get(field_name)
+            if field_node is None or (
+                isinstance(field_node.value, VariableNode)
+                and _is_missing_variable(
+                    field_node.value, variable_values, fragment_variable_values
+                )
+            ):
+                if is_required_input_field(field):
+                    return Undefined  # Invalid: intentionally return no value.
+                coerced_default_value = coerce_default_value(field)
+                if coerced_default_value is not Undefined:
+                    # Use out name as name if it exists (extension of GraphQL.js).
+                    coerced_dict[field.out_name or field_name] = coerced_default_value
+            else:
+                field_value = coerce_input_literal(
+                    field_node.value,
+                    field.type,
+                    variable_values,
+                    fragment_variable_values,
+                )
+                if field_value is Undefined:
+                    return Undefined  # Invalid: intentionally return no value.
+                coerced_dict[field.out_name or field_name] = field_value
+
+        if type_.is_one_of:
+            if len(field_nodes) != 1 or len(coerced_dict) != 1:
+                # Invalid: not exactly one key, intentionally return no value.
+                return Undefined
+            for field_name, field_node in field_nodes.items():
+                out_name = field_defs[field_name].out_name or field_name
+                if (
+                    isinstance(field_node.value, NullValueNode)
+                    or coerced_dict.get(out_name, Undefined) is None
+                ):
+                    # Invalid: value not non-null, intentionally return no value.
+                    return Undefined
+
+        return type_.out_type(coerced_dict)
+
+    leaf_type = assert_leaf_type(type_)
+    try:
+        if leaf_type.coerce_input_literal is not None:
+            return leaf_type.coerce_input_literal(
+                replace_variables(value_node, variable_values, fragment_variable_values)
+            )
+        return leaf_type.parse_literal(
+            value_node, variable_values.coerced if variable_values else None
+        )
+    except Exception:  # noqa: BLE001
+        # Invalid: ignore error and intentionally return no value.
+        return Undefined
+
+
+def coerce_default_value(
+    input_value: GraphQLArgument | GraphQLInputField | GraphQLVariableSignature,
+) -> Any:
+    """Coerce the default value of an argument or input field to a Python value.
+
+    Returns ``Undefined`` when neither an external ``default`` nor a deprecated
+    internal ``default_value`` is provided.
+
+    If the default value is invalid, this will raise an error. Invalid default
+    values should be caught during validation, however, so this function assumes
+    that the default value is valid.
+
+    :meta private:
+    """
+    # The external default value is coerced; the result is memoized in a hidden
+    # field on the GraphQLDefaultInput object. (Contrary to GraphQL.js, which
+    # memoizes on the input value itself, this also works for the immutable
+    # variable signatures that reuse this function for fragment arguments.)
+    default_input = input_value.default
+    if default_input is not None:
+        coerced_value = default_input._memoized_coerced_value  # noqa: SLF001
+        if coerced_value is Undefined:
+            coerced_value = (
+                coerce_input_literal(default_input.literal, input_value.type)
+                if default_input.literal is not None
+                else coerce_input_value(default_input.value, input_value.type)
+            )
+            if coerced_value is Undefined:
+                found = (
+                    print_ast(default_input.literal)
+                    if default_input.literal is not None
+                    else inspect(default_input.value)
+                )
+                msg = (
+                    f"Expected value of type '{input_value.type}'"
+                    f" to be valid, found: {found}."
+                )
+                raise TypeError(msg)
+            default_input._memoized_coerced_value = coerced_value  # noqa: SLF001
+        return coerced_value
+
+    # The deprecated internal default value is used as is.
+    return input_value.default_value
+
+
+def get_coerced_variable_value(
+    variable_node: VariableNode,
+    variable_values: VariableValues | None,
+    fragment_variable_values: FragmentVariableValues | None,
+) -> Any:
+    """Retrieve the coerced variable value for the given variable node.
+
+    :meta private:
+    """
+    var_name = variable_node.name.value
+    if fragment_variable_values and var_name in fragment_variable_values.sources:
+        return fragment_variable_values.coerced.get(var_name, Undefined)
+    if variable_values:
+        return variable_values.coerced.get(var_name, Undefined)
+    return Undefined
+
+
+def _is_missing_variable(
+    variable_node: VariableNode,
+    variable_values: VariableValues | None,
+    fragment_variable_values: FragmentVariableValues | None,
+) -> bool:
+    """Check whether the given variable node has no runtime value."""
+    variable_value = get_coerced_variable_value(
+        variable_node, variable_values, fragment_variable_values
+    )
+    return variable_value is Undefined
+
+
+def _variable_value_is_null(
+    variable_node: VariableNode,
+    variable_values: VariableValues | None,
+    fragment_variable_values: FragmentVariableValues | None,
+) -> bool:
+    """Check whether the given variable node resolves to null or undefined."""
+    variable_value = get_coerced_variable_value(
+        variable_node, variable_values, fragment_variable_values
+    )
+    return variable_value is None or variable_value is Undefined

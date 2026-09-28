@@ -40,7 +40,7 @@ from matrx_ai.persistence import replay
 
 _TRIGGER_REFUSAL = (
     f"{DISK_SPILL_RECOVERED_MARKER}: asyncpg.exceptions.RaiseError: "
-    "ensure_personal_organization: user e4687a9c-acf7-469f-aa12-860eb4d948d0 "
+    "stamp_actor: user e4687a9c-acf7-469f-aa12-860eb4d948d0 "
     "does not exist [SQLSTATE P0001] "
     "[capture_actor_missing=e4687a9c-acf7-469f-aa12-860eb4d948d0]"
 )
@@ -139,7 +139,7 @@ def _trigger_refusal_exception() -> RuntimeError:
     """The real shape: an ORM QueryError wrapping the asyncpg driver error."""
     import asyncpg.exceptions
 
-    driver = asyncpg.exceptions.RaiseError("ensure_personal_organization: user x does not exist")
+    driver = asyncpg.exceptions.RaiseError("stamp_actor: user x does not exist")
     wrapped = RuntimeError("bulk_insert failed")
     wrapped.__cause__ = driver
     return wrapped

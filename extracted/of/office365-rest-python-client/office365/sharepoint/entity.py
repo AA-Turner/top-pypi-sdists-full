@@ -12,6 +12,7 @@ from office365.runtime.http.url import get_absolute_url
 from office365.runtime.paths.v3.entity import EntityPath
 from office365.runtime.queries.delete_entity import DeleteEntityQuery
 from office365.runtime.queries.update_entity import UpdateEntityQuery
+from office365.sharepoint.thresholds import Limits, limit
 
 if TYPE_CHECKING:
     from office365.sharepoint.client_context import ClientContext
@@ -35,11 +36,13 @@ class Entity(ClientObject):
         self.context.execute_query_with_incremental_retry(max_retry, max_delay=max_delay, jitter=jitter)
         return self
 
+    @limit(Limits.BATCH_ITEMS, arg="items_per_batch")
     def execute_batch(
         self,
-        items_per_batch: int = 100,
+        items_per_batch: int = Limits.BATCH_ITEMS.value,
         success_callback: Optional[Callable[[List[Union[ClientObject, ClientResult]]], None]] = None,
         max_batch_bytes: Optional[int] = None,
+        concurrency: int = 1,
     ) -> Self:
         """
         Construct and submit a batch request to the server
@@ -48,11 +51,17 @@ class Entity(ClientObject):
             items_per_batch: Number of items per batch (default: 100)
             success_callback: Callback function for successful batch execution
             max_batch_bytes: Maximum estimated batch payload size in bytes
+            concurrency: Maximum number of concurrent batch requests (default 1)
 
         Returns:
             self: Supports method chaining
         """
-        self.context.execute_batch(items_per_batch, success_callback, max_batch_bytes=max_batch_bytes)
+        self.context.execute_batch(
+            items_per_batch,
+            success_callback,
+            concurrency=concurrency,
+            max_batch_bytes=max_batch_bytes,
+        )
         return self
 
     def with_credentials(self, credentials: Union[UserCredential, ClientCredential]) -> Self:

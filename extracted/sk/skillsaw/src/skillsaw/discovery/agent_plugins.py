@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
-from typing import List, Optional, Set
+from typing import Iterable, List, Optional, Set
 
 from skillsaw.discovery import exact_name_exists
 from skillsaw.formats.agent_plugins import is_agent_plugin_schema
@@ -67,37 +67,48 @@ def declares_agent_plugin(package_root: Path) -> bool:
     return bool(declared_schema(package_root / PLUGIN_MANIFEST, package_root, "plugin"))
 
 
-def discover_agent_plugins(root: Path, *, forced: bool = False) -> List[Path]:
-    """Discover portable plugin roots at the lint root and ``plugins/*``.
+def discover_agent_plugins(
+    root: Path,
+    *,
+    forced: bool = False,
+    package_roots: Iterable[Path] = (),
+    collection_roots: Iterable[Path] = (),
+) -> List[Path]:
+    """Discover portable roots at the lint root, ``plugins/*`` and explicit sources.
 
     Agent Plugins defines a package, not a marketplace. ``plugins/*`` is the
     conventional collection layout used by public multi-package repositories;
     arbitrary recursive scanning would claim vendored or example manifests the
-    caller did not ask to lint.
+    caller did not ask to lint. ``package_roots`` adds directories explicitly
+    named by a host catalog, with the same containment and schema checks.
+    ``collection_roots`` adds host install directories using those same gates.
     """
     resolved_root = safe_resolve(root)
     if resolved_root is None:
         return []
 
     collection_children: List[Path] = []
-    plugins_dir = root / "plugins"
-    if safe_is_dir(plugins_dir) and contained_resolve(plugins_dir, resolved_root) is not None:
-        try:
-            collection_children = [
-                child
-                for child in sorted(plugins_dir.iterdir())
-                if safe_is_dir(child) and contained_resolve(child, resolved_root) is not None
-            ]
-        except OSError:
-            pass
+    conventional_children: Set[Path] = set()
+    for plugins_dir in (root / "plugins", *collection_roots):
+        if safe_is_dir(plugins_dir) and contained_resolve(plugins_dir, resolved_root) is not None:
+            try:
+                collection_children.extend(
+                    child
+                    for child in sorted(plugins_dir.iterdir())
+                    if safe_is_dir(child) and contained_resolve(child, resolved_root) is not None
+                )
+            except OSError:
+                pass
+            if plugins_dir == root / "plugins":
+                conventional_children.update(collection_children)
 
     found: List[Path] = []
     seen: Set[Path] = set()
-    for candidate in [root, *collection_children]:
+    for candidate in [root, *collection_children, *package_roots]:
         resolved = safe_resolve(candidate)
         if resolved is None or resolved in seen or not resolved.is_relative_to(resolved_root):
             continue
-        if forced:
+        if forced and (candidate == root or candidate in conventional_children):
             # An explicit ``--type agent-plugin`` is the escape hatch for
             # packages whose manifests are missing or too malformed to
             # self-identify, so every collection member is validated. The

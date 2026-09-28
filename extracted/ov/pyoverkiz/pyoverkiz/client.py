@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from http import HTTPStatus
 from pathlib import Path
 from types import TracebackType
-from typing import Any, Self, cast
+from typing import TYPE_CHECKING, Any, Self, cast
 
 import backoff
 from aiohttp import (
@@ -30,6 +30,7 @@ from pyoverkiz.auth import (
     SupportsGatewaySelection,
     build_auth_strategy,
 )
+from pyoverkiz.auth.base import SupportsSessionResume
 from pyoverkiz.const import SUPPORTED_SERVERS, USER_AGENT
 from pyoverkiz.converter import converter
 from pyoverkiz.enums import APIType, ExecutionMode, Protocol, Server
@@ -71,6 +72,11 @@ from pyoverkiz.obfuscate import obfuscate_sensitive_data
 from pyoverkiz.response_handler import check_response
 from pyoverkiz.serializers import prepare_payload
 
+if TYPE_CHECKING:
+    from collections.abc import Awaitable, Callable
+
+    from pyoverkiz.auth.credentials import Credentials
+
 _LOGGER = logging.getLogger(__name__)
 
 DEFAULT_TIMEOUT = ClientTimeout(total=15, sock_connect=10)
@@ -83,7 +89,7 @@ def _get_client_from_invocation(invocation: Details) -> OverkizClient:
 
 async def relogin(invocation: Details) -> None:
     """Re-authenticate using the main `OverkizClient` instance."""
-    await _get_client_from_invocation(invocation).login()
+    await _get_client_from_invocation(invocation).login(register_event_listener=False)
 
 
 async def refresh_listener(invocation: Details) -> None:
@@ -293,6 +299,12 @@ class OverkizClient:
         await self._auth.close()
         await self.session.close()
 
+    @retry_on_connection_failure
+    async def _authenticate(self) -> None:
+        """Retry authentication without repeating listener registration."""
+        await self._auth.login()
+        self._event_listener_id = None
+
     async def login(
         self,
         register_event_listener: bool = True,
@@ -306,14 +318,15 @@ class OverkizClient:
             TooManyAttemptsBannedError: When too many failed login attempts have been made.
             TooManyRequestsError: When the API rate limit has been exceeded.
         """
-        await self._auth.login()
+        await self._authenticate()
 
         if self.server_config.api_type == APIType.LOCAL:
             if register_event_listener:
                 await self.register_event_listener()
             else:
                 # Validate local API token by calling a simple endpoint
-                await self.get_gateways()
+                # Auth recovery must not recurse through get_gateways' auth decorator.
+                await self._get("setup/gateways")
 
             return
 
@@ -461,6 +474,7 @@ class OverkizClient:
         )
 
     @retry_on_concurrent_requests
+    @retry_on_auth_error
     async def register_event_listener(self) -> str:
         """Register a new setup event listener on the current session and return a new.
 
@@ -471,6 +485,8 @@ class OverkizClient:
         timeout : listening sessions are expected to call the /events/{listenerId}/fetch
         API on a regular basis.
         """
+        # Registration may invalidate the old listener even if its response is lost.
+        self._event_listener_id = None
         response = await self._post("events/register")
         listener_id = cast(str, response.get("id"))
         self._event_listener_id = listener_id
@@ -487,6 +503,9 @@ class OverkizClient:
         Per-session rate-limit : 1 calls per 1 SECONDS period for this particular
         operation (polling).
         """
+        if self.event_listener_id is None:
+            await self.register_event_listener()
+
         response = await self._post(f"events/{self.event_listener_id}/fetch")
         return converter.structure(response, list[Event])
 
@@ -932,6 +951,47 @@ class OverkizClient:
                 f"{self.server_config.name} does not support gateway selection."
             )
         self._auth.select_gateway(gateway_id)
+        # The cached setup belongs to the previously selected gateway.
+        self.setup = None
+        self.devices = []
+        self.gateways = []
+
+    @property
+    def selected_gateway(self) -> str | None:
+        """Return the gateway requests are scoped to, or None if none is selected yet.
+
+        ``login()`` auto-selects a sole gateway, so this tells a multi-site
+        caller whether it still has to present a choice.
+
+        Raises:
+            UnsupportedOperationError: When the server does not support gateway selection.
+        """
+        if not isinstance(self._auth, SupportsGatewaySelection):
+            raise UnsupportedOperationError(
+                f"{self.server_config.name} does not support gateway selection."
+            )
+        return self._auth.selected_gateway
+
+    def to_credentials(
+        self,
+        on_token_refresh: Callable[[str], Awaitable[None]] | None = None,
+    ) -> Credentials:
+        """Snapshot the session as resume credentials, to log in later without a password.
+
+        Call after login and gateway selection. Supply ``on_token_refresh`` to
+        persist the rotating refresh token; it also fires for rotations on this
+        client, which would otherwise spend the snapshot. The concrete type depends on the
+        server (`SomfyTokenCredentials` for `Server.SOMFY`); narrow it with
+        `isinstance` to read the fields to persist.
+
+        Raises:
+            UnsupportedOperationError: When the server does not support session resume.
+        """
+        if not isinstance(self._auth, SupportsSessionResume):
+            raise UnsupportedOperationError(
+                f"{self.server_config.name} does not support session resume."
+            )
+        return self._auth.to_credentials(on_token_refresh)
 
     # -----------------------------------------------------------------------
     # Local token management (cloud API)

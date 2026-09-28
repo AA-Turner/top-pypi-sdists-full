@@ -141,16 +141,16 @@ fn projection_carries_owner_presentation_facts_for_remote_rendering() {
 #[test]
 fn projection_applies_owner_resolved_lineage_and_normalizes_locator_schemas() {
     let mut locator = logical('a', "historical");
-    locator.family_id = None;
+    locator.agent_session_id = None;
     let mut resolved_locator = locator.clone();
     resolved_locator.schema_version = 1;
     resolved_locator.project.schema_version = 1;
     resolved_locator.project.origin.schema_version = 1;
-    resolved_locator.family_id = Some("family-resolved".to_string());
+    resolved_locator.agent_session_id = Some("family-resolved".to_string());
     let exact_locator = AgentInstanceLocatorWire {
         schema_version: 1,
         logical: resolved_locator.clone(),
-        shell_id: "shell-1".to_string(),
+        turn_id: "shell-1".to_string(),
         run_id: "run-1".to_string(),
         attempt_id: "attempt-1".to_string(),
     };
@@ -163,14 +163,14 @@ fn projection_applies_owner_resolved_lineage_and_normalizes_locator_schemas() {
     });
     record.has_done_marker = true;
     if let Some(meta) = record.agent_meta.as_mut() {
-        meta.agent_family = None;
+        meta.agent_session = None;
         meta.parent_timestamp = None;
         meta.tribe = None;
         meta.clan_tribe = None;
     }
     let mut request = projection_request(locator, None, 1, record);
     request.owner_facts.exact_locator = Some(exact_locator);
-    request.owner_facts.family_id = Some("family-resolved".to_string());
+    request.owner_facts.agent_session_id = Some("family-resolved".to_string());
     request.owner_facts.parent_timestamp = Some("20260906115900".to_string());
     request.owner_facts.tribe = Some("review".to_string());
     request.owner_facts.clan_tribe = Some("parity".to_string());
@@ -182,7 +182,7 @@ fn projection_applies_owner_resolved_lineage_and_normalizes_locator_schemas() {
             schema_version: FLEET_CONTRACT_SCHEMA_VERSION,
             project: current_project_locator_schema(&resolved_locator.project),
             agent_id: resolved_locator.agent_id.clone(),
-            family_id: Some("family-resolved".to_string()),
+            agent_session_id: Some("family-resolved".to_string()),
         },
         1,
     );
@@ -194,7 +194,7 @@ fn projection_applies_owner_resolved_lineage_and_normalizes_locator_schemas() {
         FLEET_CONTRACT_SCHEMA_VERSION
     );
     assert_eq!(
-        summary.logical_locator.family_id.as_deref(),
+        summary.logical_locator.agent_session_id.as_deref(),
         Some("family-resolved")
     );
     assert_eq!(
@@ -202,7 +202,10 @@ fn projection_applies_owner_resolved_lineage_and_normalizes_locator_schemas() {
         FLEET_CONTRACT_SCHEMA_VERSION
     );
     assert_eq!(summary.parent_timestamp.as_deref(), Some("20260906115900"));
-    assert_eq!(summary.family_role, FleetFamilyRoleWire::HistoricalShell);
+    assert_eq!(
+        summary.agent_session_role,
+        FleetAgentSessionRoleWire::HistoricalTurn
+    );
     assert_eq!(summary.tribe.as_deref(), Some("review"));
     assert_eq!(summary.clan_tribe.as_deref(), Some("parity"));
 }
@@ -230,6 +233,45 @@ fn projection_carries_canonical_queue_capacity_from_metadata() {
     let decoded: ResolvedAgentSummaryWire =
         serde_json::from_value(value).unwrap();
     assert_eq!(validate_resolved_agent_summary(&decoded).unwrap(), summary);
+}
+
+#[test]
+fn projection_preserves_multiplier_with_waiting_precedence() {
+    let locator = logical('a', "capacity-multiplier");
+    let exact_locator = exact('a', "capacity-multiplier", "run-1");
+    let mut record = record_running();
+    if let Some(meta) = record.agent_meta.as_mut() {
+        meta.queue_capacity_multiplier = Some(1.5);
+    }
+    record.waiting = Some(crate::agent_scan::WaitingMarkerWire {
+        queue_capacity_multiplier: Some(0.5),
+        ..crate::agent_scan::WaitingMarkerWire::default()
+    });
+    let request = projection_request(locator, Some(exact_locator), 1, record);
+
+    let summary = project_resolved_agent_summary(&request).unwrap();
+
+    assert_eq!(summary.queue_capacity, None);
+    assert_eq!(summary.queue_capacity_multiplier, Some(0.5));
+    let value = serde_json::to_value(&summary).unwrap();
+    assert_eq!(value["queue_capacity_multiplier"], json!(0.5));
+
+    let mut integer_record = record_running();
+    if let Some(meta) = integer_record.agent_meta.as_mut() {
+        meta.queue_capacity = Some(4);
+        meta.queue_capacity_explicit = true;
+        meta.queue_capacity_multiplier = Some(1.5);
+    }
+    let integer_request = projection_request(
+        logical('a', "integer-wins"),
+        Some(exact('a', "integer-wins", "run-1")),
+        1,
+        integer_record,
+    );
+    let integer_summary =
+        project_resolved_agent_summary(&integer_request).unwrap();
+    assert_eq!(integer_summary.queue_capacity, Some(4));
+    assert_eq!(integer_summary.queue_capacity_multiplier, None);
 }
 #[test]
 fn projection_reads_legacy_queue_capacity_without_emitting_legacy_alias() {
@@ -502,7 +544,7 @@ fn projection_rejects_inconsistent_owner_facts_and_handles() {
     assert!(project_resolved_agent_summary(&wrong_revision).is_err());
 }
 #[test]
-fn family_role_distinguishes_root_member_and_historical_shell() {
+fn agent_session_role_distinguishes_root_member_and_historical_turn() {
     // A live root: no tracked parent.
     let root_request = projection_request(
         logical('a', "root"),
@@ -511,7 +553,7 @@ fn family_role_distinguishes_root_member_and_historical_shell() {
         record_running(),
     );
     let root = project_resolved_agent_summary(&root_request).unwrap();
-    assert_eq!(root.family_role, FleetFamilyRoleWire::Root);
+    assert_eq!(root.agent_session_role, FleetAgentSessionRoleWire::Root);
     assert_eq!(root.parent_timestamp, None);
     assert_eq!(root.status_bucket, FleetStatusBucketWire::Running);
 
@@ -526,10 +568,10 @@ fn family_role_distinguishes_root_member_and_historical_shell() {
         member_record,
     );
     let member = project_resolved_agent_summary(&member_request).unwrap();
-    assert_eq!(member.family_role, FleetFamilyRoleWire::Member);
+    assert_eq!(member.agent_session_role, FleetAgentSessionRoleWire::Member);
     assert_eq!(member.parent_timestamp, Some("20260906110000".to_string()));
 
-    // A live --plan shell with family_id and no parent_timestamp is a
+    // A live --plan turn with agent_session_id and no parent_timestamp is a
     // nested member, never a root.
     let mut plan_record = record_running();
     plan_record.agent_meta.as_mut().unwrap().name =
@@ -542,15 +584,18 @@ fn family_role_distinguishes_root_member_and_historical_shell() {
         plan_record,
     );
     let plan = project_resolved_agent_summary(&plan_request).unwrap();
-    assert_eq!(plan.family_role, FleetFamilyRoleWire::Member);
+    assert_eq!(plan.agent_session_role, FleetAgentSessionRoleWire::Member);
     assert_eq!(plan.parent_timestamp, None);
 
-    // A genuinely completed record is a historical shell.
+    // A genuinely completed record is a historical turn.
     let done = summary_done('a', "done", 1, 1000.0);
-    assert_eq!(done.family_role, FleetFamilyRoleWire::HistoricalShell);
+    assert_eq!(
+        done.agent_session_role,
+        FleetAgentSessionRoleWire::HistoricalTurn
+    );
 
     // A Dead active-tier record (not yet done, not protected) demotes
-    // into a historical shell and a stopped bucket, never running.
+    // into a historical turn and a stopped bucket, never running.
     let mut demoted_request = projection_request(
         logical('a', "demoted"),
         Some(exact('a', "demoted", "run-1")),
@@ -562,7 +607,10 @@ fn family_role_distinguishes_root_member_and_historical_shell() {
     demoted_request.owner_facts.occupied_runner_slot = false;
     demoted_request.owner_facts.capabilities = caps(&[]);
     let demoted = project_resolved_agent_summary(&demoted_request).unwrap();
-    assert_eq!(demoted.family_role, FleetFamilyRoleWire::HistoricalShell);
+    assert_eq!(
+        demoted.agent_session_role,
+        FleetAgentSessionRoleWire::HistoricalTurn
+    );
     assert_eq!(demoted.status_bucket, FleetStatusBucketWire::Stopped);
     assert_eq!(demoted.lifecycle, FleetLifecycleWire::Running);
 
@@ -584,7 +632,10 @@ fn family_role_distinguishes_root_member_and_historical_shell() {
     protected_request.owner_facts.occupied_runner_slot = false;
     protected_request.owner_facts.capabilities = caps(&[]);
     let protected = project_resolved_agent_summary(&protected_request).unwrap();
-    assert_eq!(protected.family_role, FleetFamilyRoleWire::Root);
+    assert_eq!(
+        protected.agent_session_role,
+        FleetAgentSessionRoleWire::Root
+    );
     assert_eq!(protected.status_bucket, FleetStatusBucketWire::Waiting);
 }
 #[test]

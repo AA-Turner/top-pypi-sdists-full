@@ -79,9 +79,9 @@ pub fn query_related_agent_artifact_dirs(
     Ok(dirs)
 }
 
-/// One candidate to resolve dismissed-family ancestry for.
+/// One candidate to resolve dismissed-agent-session ancestry for.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct FamilyDismissalLineageCandidateWire {
+pub struct AgentSessionDismissalLineageCandidateWire {
     /// Caller-chosen opaque identity used only to correlate results back to
     /// candidates.
     pub identity: String,
@@ -106,7 +106,9 @@ pub(super) struct DismissalReconcileCandidate {
     pub(super) record_json: String,
 }
 
-impl From<DismissalReconcileCandidate> for FamilyDismissalLineageCandidateWire {
+impl From<DismissalReconcileCandidate>
+    for AgentSessionDismissalLineageCandidateWire
+{
     fn from(candidate: DismissalReconcileCandidate) -> Self {
         Self {
             identity: candidate.timestamp.clone(),
@@ -118,49 +120,50 @@ impl From<DismissalReconcileCandidate> for FamilyDismissalLineageCandidateWire {
     }
 }
 
-/// Whether one candidate's family root is a dismissed identity.
+/// Whether one candidate's agent session root is a dismissed identity.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct FamilyDismissalLineageResultWire {
+pub struct AgentSessionDismissalLineageResultWire {
     pub identity: String,
-    pub family_root_dismissed: bool,
+    #[serde(alias = "family_root_dismissed")]
+    pub agent_session_root_dismissed: bool,
 }
 
-/// Resolve dismissed-family ancestry for a bounded set of candidates.
+/// Resolve dismissed-agent-session ancestry for a bounded set of candidates.
 ///
 /// For each candidate, follows the same bounded lineage expansion as
 /// [`query_related_agent_artifact_dirs`] (`parent_timestamp`/retry pointers,
 /// capped by `MAX_RELATED_ARTIFACT_QUERY_ITERATIONS` and
-/// `MAX_RELATED_ARTIFACT_LINEAGE_TIMESTAMPS`) to find the candidate's family
-/// root — the related record with no `parent_timestamp` — then checks
+/// `MAX_RELATED_ARTIFACT_LINEAGE_TIMESTAMPS`) to find the candidate's agent
+/// session root — the related record with no `parent_timestamp` — then checks
 /// whether that root's identity is a dismissed identity. A candidate flagged
 /// `seed_definitively_dead` is also dismissed when its own raw suffix is a
 /// dismissed identity, the same suffix match terminal records already get.
 /// When no root is discoverable within the bound, the candidate is reported
 /// as not dismissed: this API never manufactures a dismissal it cannot
 /// support with indexed evidence.
-pub fn resolve_family_dismissal_lineage(
+pub fn resolve_agent_session_dismissal_lineage(
     index_path: &Path,
-    candidates: &[FamilyDismissalLineageCandidateWire],
-) -> Result<Vec<FamilyDismissalLineageResultWire>, String> {
+    candidates: &[AgentSessionDismissalLineageCandidateWire],
+) -> Result<Vec<AgentSessionDismissalLineageResultWire>, String> {
     if candidates.is_empty() {
         return Ok(Vec::new());
     }
     let conn = open_index_read_only(index_path)?;
     let mut results = Vec::with_capacity(candidates.len());
     for candidate in candidates {
-        let family_root_dismissed =
-            family_root_dismissed_for_candidate(&conn, candidate)?;
-        results.push(FamilyDismissalLineageResultWire {
+        let agent_session_root_dismissed =
+            agent_session_root_dismissed_for_candidate(&conn, candidate)?;
+        results.push(AgentSessionDismissalLineageResultWire {
             identity: candidate.identity.clone(),
-            family_root_dismissed,
+            agent_session_root_dismissed,
         });
     }
     Ok(results)
 }
 
-pub(super) fn family_root_dismissed_for_candidate(
+pub(super) fn agent_session_root_dismissed_for_candidate(
     conn: &Connection,
-    candidate: &FamilyDismissalLineageCandidateWire,
+    candidate: &AgentSessionDismissalLineageCandidateWire,
 ) -> Result<bool, String> {
     let Some(seed) = select_lineage_row_by_timestamp(
         conn,
@@ -212,11 +215,11 @@ pub(super) fn family_root_dismissed_for_candidate(
     {
         root
     } else {
-        let Some(root) = family_root_by_agent_family(
+        let Some(root) = agent_session_root_by_agent_session(
             conn,
             &seed.project_name,
             &seed.workflow_dir_name,
-            seed.agent_family.as_deref(),
+            seed.agent_session.as_deref(),
         )?
         else {
             return Ok(false);
@@ -259,7 +262,7 @@ pub(super) fn select_lineage_row_by_timestamp(
     conn.query_row(
         r#"
         SELECT artifact_dir, project_name, workflow_dir_name, timestamp,
-               agent_family, parent_timestamp, retry_of_timestamp,
+               agent_session, parent_timestamp, retry_of_timestamp,
                retried_as_timestamp, retry_chain_root_timestamp
         FROM agent_artifacts
         WHERE project_name = ?1 AND workflow_dir_name = ?2 AND timestamp = ?3
@@ -297,7 +300,7 @@ pub(super) struct IndexedLineageRow {
     pub(super) project_name: String,
     pub(super) workflow_dir_name: String,
     pub(super) timestamp: String,
-    pub(super) agent_family: Option<String>,
+    pub(super) agent_session: Option<String>,
     pub(super) parent_timestamp: Option<String>,
     pub(super) retry_of_timestamp: Option<String>,
     pub(super) retried_as_timestamp: Option<String>,
@@ -344,7 +347,7 @@ pub(super) fn select_lineage_row_by_artifact_dir(
     conn.query_row(
         r#"
         SELECT artifact_dir, project_name, workflow_dir_name, timestamp,
-               agent_family, parent_timestamp, retry_of_timestamp,
+               agent_session, parent_timestamp, retry_of_timestamp,
                retried_as_timestamp, retry_chain_root_timestamp
         FROM agent_artifacts
         WHERE artifact_dir = ?1
@@ -370,7 +373,7 @@ pub(super) fn select_lineage_rows(
     let sql = format!(
         r#"
         SELECT artifact_dir, project_name, workflow_dir_name, timestamp,
-               agent_family, parent_timestamp, retry_of_timestamp,
+               agent_session, parent_timestamp, retry_of_timestamp,
                retried_as_timestamp, retry_chain_root_timestamp
         FROM agent_artifacts
         WHERE project_name = ?
@@ -403,30 +406,30 @@ pub(super) fn select_lineage_rows(
     Ok(result)
 }
 
-pub(super) fn family_root_by_agent_family(
+pub(super) fn agent_session_root_by_agent_session(
     conn: &Connection,
     project_name: &str,
     workflow_dir_name: &str,
-    agent_family: Option<&str>,
+    agent_session: Option<&str>,
 ) -> Result<Option<IndexedLineageRow>, String> {
-    let Some(agent_family) = agent_family.filter(|value| !value.is_empty())
+    let Some(agent_session) = agent_session.filter(|value| !value.is_empty())
     else {
         return Ok(None);
     };
     conn.query_row(
         r#"
         SELECT artifact_dir, project_name, workflow_dir_name, timestamp,
-               agent_family, parent_timestamp, retry_of_timestamp,
+               agent_session, parent_timestamp, retry_of_timestamp,
                retried_as_timestamp, retry_chain_root_timestamp
         FROM agent_artifacts
         WHERE project_name = ?1
           AND workflow_dir_name = ?2
-          AND agent_family = ?3
+          AND agent_session = ?3
           AND parent_timestamp IS NULL
         ORDER BY timestamp ASC, artifact_dir ASC
         LIMIT 1
         "#,
-        params![project_name, workflow_dir_name, agent_family],
+        params![project_name, workflow_dir_name, agent_session],
         lineage_row_from_sql,
     )
     .optional()
@@ -441,7 +444,7 @@ pub(super) fn lineage_row_from_sql(
         project_name: row.get(1)?,
         workflow_dir_name: row.get(2)?,
         timestamp: row.get(3)?,
-        agent_family: row.get(4)?,
+        agent_session: row.get(4)?,
         parent_timestamp: row.get(5)?,
         retry_of_timestamp: row.get(6)?,
         retried_as_timestamp: row.get(7)?,

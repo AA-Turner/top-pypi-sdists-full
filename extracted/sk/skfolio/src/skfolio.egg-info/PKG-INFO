@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: skfolio
-Version: 1.4.1
+Version: 1.4.3
 Summary: Portfolio optimization, factor model construction, and risk management built on top of scikit-learn
 Author-email: Hugo Delatte <hugo.delatte@skfoliolabs.com>
 Maintainer-email: Hugo Delatte <hugo.delatte@skfoliolabs.com>, Matteo Manzi <matteomanzi09@gmail.com>, Carlo Nicolini <c.nicolini@ipazia.com>
@@ -944,23 +944,6 @@ Opinion Pooling
     )
 
     opinion_pooling.fit(X)
-
-Docker
-~~~~~~
-
-You can also spin up a reproducible JupyterLab environment using Docker:
-
-Build the image::
-
-    docker build -t skfolio-jupyterlab .
-
-Run the container::
-
-    docker run -p 8888:8888 -v <path-to-your-folder-containing-data>:/app/data -it skfolio-jupyterlab
-
-Browse:
-
-Open `localhost:8888/lab` and start using `skfolio`
 
 Recognition
 ~~~~~~~~~~~

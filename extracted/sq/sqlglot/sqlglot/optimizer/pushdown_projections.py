@@ -4,6 +4,7 @@ import typing as t
 from collections import defaultdict
 
 from sqlglot import alias, exp
+from sqlglot.optimizer.helpers import projection_has_aggregate
 from sqlglot.optimizer.journal import Journal, record, revert
 from sqlglot.optimizer.qualify_columns import Resolver
 from sqlglot.optimizer.scope import Scope, find_all_in_scope, find_in_scope, traverse_scope
@@ -151,11 +152,13 @@ def pushdown_projections(
         # SELECT DISTINCT, UNION DISTINCT, INTERSECT, and EXCEPT consume the entire row, so we
         # can't remove any columns, otherwise we risk changing the query's semantics. Also, we
         # conservatively skip pruning on recursive CTEs that read their own output for now.
+        order = scope_expression.args.get("order")
         if (
             scope_expression.args.get("distinct")
             or isinstance(scope_expression, (exp.Intersect, exp.Except))
             or _is_self_referencing_cte(scope)
             or unsupported_set_operation
+            or (order and any(ordered.this.is_int for ordered in order.expressions))
         ):
             widened = SELECT_ALL not in parent_selections
             parent_selections = {SELECT_ALL}
@@ -265,6 +268,7 @@ def pushdown_projections(
 
 def _remove_unused_selections(scope, parent_selections, schema, alias_count, journal=None):
     expression = scope.expression
+    windows = expression.args.get("windows")
     output_refs = _output_column_refs(expression, scoped=False)
 
     # Resolve GROUP BY ordinals before pruning
@@ -284,9 +288,9 @@ def _remove_unused_selections(scope, parent_selections, schema, alias_count, jou
     for selection in expression.selects:
         name = selection.alias_or_name
         referenced = name in parent_selections
-        is_agg_selection = (implicit_group_by_all or not is_agg) and find_in_scope(
-            selection, exp.AggFunc
-        ) is not None
+        is_agg_selection = (implicit_group_by_all or not is_agg) and projection_has_aggregate(
+            selection, windows
+        )
 
         if (
             referenced

@@ -229,26 +229,143 @@ class OpenAITranslator(BaseTranslator):
                 color="yellow",
                 verbose=True,
             )
+            from matrx_ai.providers.structured_output_findings import (
+                ENFORCEMENT_DROPPED,
+                record_structured_output_finding_sync,
+                response_format_identity,
+            )
+            from matrx_ai.schema.answer_contract import mark_enforcement_dropped
+
+            mark_enforcement_dropped(downgrade_reason)
+            record_structured_output_finding_sync(
+                ENFORCEMENT_DROPPED,
+                provider="openai",
+                model=None,
+                detail={
+                    **response_format_identity(response_format),
+                    "action": f"json_schema → json_object — {downgrade_reason}",
+                    "remedy": (
+                        "give the contract an OBJECT root (wrap a list as "
+                        '{"items": [...]}); json_object promises well-formed JSON of no '
+                        "particular shape, so nothing enforces this request's shape"
+                    ),
+                },
+                was_recovered=False,
+            )
             return {"type": "json_object"}
 
-        # OpenAI strict structured output rejects advisory bounds it does not
-        # support (minItems/maxItems/pattern/…); reduce to its accepted subset at
-        # the shared seam. The stored schema keeps the rich bounds.
-        schema = OpenAITranslator.sanitize_structured_output_schema(schema, "openai")
+        schema, narrowed, relaxed = OpenAITranslator.translate_output_schema(schema)
+        if narrowed or relaxed:
+            from matrx_ai.providers.structured_output_findings import note_translation
+
+            vcprint(
+                data={"provider": "openai", "narrowed": narrowed, "relaxed": relaxed},
+                title=(
+                    "⚠️  OPENAI ADJUSTMENT: the schema was translated to OpenAI's strict "
+                    "subset. The stored schema is unchanged, and the answer is checked "
+                    "against it when the call ends "
+                    "(schema.answer_contract.verify_answer_and_record)."
+                ),
+                color="yellow",
+                verbose=True,
+            )
+            note_translation(
+                "openai", narrowed=narrowed, relaxed=relaxed, response_format=response_format
+            )
 
         # Flattened directly under format — NOT nested under json_schema.
+        # ``strict`` is ALWAYS on: the schema above is translated to the strict
+        # subset, so strict can no longer 400 it, and without strict OpenAI only
+        # "tries" to follow the schema — the contract would not be enforced.
+        # A caller's explicit ``strict: false`` is honoured.
         text_format: dict[str, Any] = {
             "type": "json_schema",
             "name": name or "response",
             "schema": schema,
+            "strict": True if strict is None else bool(strict),
         }
-        # strict carries hard schema constraints (object root, additionalProperties
-        # false everywhere, restricted JSON Schema subset) — enabling it on an
-        # arbitrary schema can itself 400. Only set it when explicitly opted in.
-        if strict is not None:
-            text_format["strict"] = bool(strict)
-
         return text_format
+
+    @staticmethod
+    def translate_output_schema(
+        schema: dict[str, Any],
+    ) -> tuple[dict[str, Any], list[str], list[str]]:
+        """Translate a declared JSON Schema into OpenAI's STRICT structured-output
+        subset. Returns ``(wire_schema, narrowed, relaxed)`` like the Anthropic
+        translator.
+
+        This translator used to trust that every schema had already been through
+        ``schema/lint.py::_make_portable``. Two live paths never do — the
+        ``ai.extract`` workflow node hands the author's raw ``schema_definition``
+        straight to the provider, and a masterworks ingest sends a raw kind
+        schema — and both 400'd ("'additionalProperties' is required to be
+        supplied and to be false"; "'required' ... Missing '__kind'", 2026-09-11
+        and 09-12). Measured live on gpt-4o-mini 2026-09-27: strict also refuses
+        ``oneOf`` anywhere ("'oneOf' is not permitted"). Recursion IS accepted,
+        so it is left alone.
+        """
+        from matrx_ai.schema.rules import (
+            NORMALIZATION_NOTES_KEY,
+            classify_normalization_notes,
+            concretize_empty_schemas,
+            count_optional_properties,
+            drop_refinement_combinators,
+            enforce_additional_properties_false,
+            enforce_all_required,
+            flatten_allof,
+            hoist_nested_defs,
+            normalize_array_items,
+            normalize_combinator_siblings,
+            prune_unreachable_defs,
+            rewrite_oneof_as_anyof,
+            take_normalization_notes,
+        )
+
+        narrowed: list[str] = []
+        relaxed: list[str] = []
+        # Refinement-only combinators are validation logic, not shape — removed
+        # FIRST, before any rule below can mistake a branch for a structure (the
+        # union rules would distribute the parent into type-less branches and the
+        # provider answers "Schema type is missing").
+        # A nested `$defs` under a parent's `properties` leaves every pointer
+        # inside it unresolvable from the root — "reference to component
+        # '#/$defs/X' which was not found". Lossless lift, first.
+        schema = hoist_nested_defs(schema)
+        schema = drop_refinement_combinators(schema, relaxed)
+        schema = enforce_additional_properties_false(schema, maps="narrow", notes=narrowed)
+        # Advisory bounds (minItems/maxItems/pattern/…) OpenAI strict rejects on
+        # some model classes — stripped at the shared seam; the stored schema keeps them.
+        schema = OpenAITranslator.sanitize_structured_output_schema(schema, "openai")
+        schema = flatten_allof(schema)
+        schema = rewrite_oneof_as_anyof(schema)
+        schema = normalize_combinator_siblings(schema)
+        schema = normalize_array_items(schema)
+        schema = concretize_empty_schemas(schema)
+        schema = prune_unreachable_defs(schema)
+        schema = enforce_additional_properties_false(schema, maps="narrow", notes=narrowed)
+        optional = count_optional_properties(schema)
+        # Strict requires EVERY property in `required` — and OpenAI's own
+        # documentation says how to keep an optional field optional under that
+        # rule: "emulate an optional parameter by using a union type with null".
+        # So a field the author left optional becomes required AND nullable,
+        # which is LOSSLESS (null carries "absent"), instead of required alone,
+        # which forced the model to invent a value on 2,865 live schemas. There
+        # is no union ceiling on OpenAI, so every one of them can be expressed.
+        # A `const` (`__kind`) is forced and not widened — already determined.
+        enforce_all_required(schema, express_optional_as_nullable=True, notes=narrowed)
+        if optional:
+            vcprint(
+                f"[openai] {optional} optional propert{'y' if optional == 1 else 'ies'} made "
+                "required and nullable (OpenAI strict lists every property).",
+                color="yellow",
+                verbose=True,
+            )
+        schema, combinator_notes = take_normalization_notes(schema)
+        more_narrowed, more_relaxed = classify_normalization_notes(combinator_notes)
+        narrowed.extend(more_narrowed)
+        relaxed.extend(more_relaxed)
+        schema.pop(NORMALIZATION_NOTES_KEY, None)
+        return schema, narrowed, relaxed
 
     def from_openai(self, response: OpenAIResponse, matrx_model_name: str) -> UnifiedResponse:
         """

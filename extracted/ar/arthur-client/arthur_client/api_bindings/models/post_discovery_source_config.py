@@ -29,7 +29,7 @@ class PostDiscoverySourceConfig(BaseModel):
     """ # noqa: E501
     discovery_source_id: StrictStr = Field(description="ID of the parent discovery source.")
     name: StrictStr = Field(description="Name of the discovery source config.")
-    query: StrictStr = Field(description="Query or filter text in the source's native language. Arthur stores this verbatim and never parses or validates it - only the columns a run returns are contracted. Each record a run produces carries this text back in its provenance, so a finding can be explained and reproduced.")
+    query: StrictStr = Field(description="Query or filter text in the source's native language. Arthur stores this verbatim and never parses or validates it - only the columns a run returns are contracted. Each record a run produces carries this text back in its provenance, so a record can be explained and reproduced.")
     query_language: DiscoveryQueryLanguage = Field(description="Language the query text is written in. Must match the vendor's language.")
     schedule_cron: StrictStr = Field(description="Cron expression describing how often the config runs. Standard five-field syntax.")
     schedule_timezone: Optional[StrictStr] = Field(default='UTC', description="IANA timezone the cron expression is evaluated in.")

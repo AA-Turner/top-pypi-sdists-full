@@ -7,13 +7,27 @@
 //! owns run queries and loaders; and [`retention`](retention) owns retention
 //! preview, apply, and log reclamation.
 
-mod connection;
+pub(crate) mod connection;
+mod failures;
+mod handoff;
 mod lifecycle;
 mod query;
+mod receipt;
+mod receipts_report;
+mod reconcile;
 mod retention;
 #[cfg(test)]
 mod tests;
+mod triage;
+mod triage_stage;
 
-pub use lifecycle::{append_event, begin, finish, observe, reconcile};
+pub use failures::tool_run_failures;
+pub use handoff::{claim, request_stop};
+pub use lifecycle::{append_event, begin, finish, observe};
 pub use query::{list_runs, show_run, store_stats, summarize};
+pub use receipt::{receipt_lookup, receipt_settle};
+pub use receipts_report::tool_run_receipts_report;
+pub use reconcile::reconcile;
 pub use retention::{retention_apply, retention_preview};
+pub use triage::{triage_record, triage_show};
+pub use triage_stage::{triage_settle, triage_stage};

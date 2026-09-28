@@ -43,7 +43,11 @@ async def capture_issue(
     conversation_id: str | None = None,
     request_id: str | None = None,
     detail: dict[str, Any] | None = None,
+    severity: str = "medium",
 ) -> None:
+    """Record one issue event. ``severity`` applies when this call is the one
+    that auto-registers the class (a class a person already triaged keeps its
+    own severity)."""
     try:
         from matrx_connect import try_get_app_context
 
@@ -74,6 +78,7 @@ async def capture_issue(
             conversation_id=conversation_id,
             request_id=request_id,
             detail=detail or {},
+            severity=severity,
         ),
         name=f"ops_issue_capture:{key}",
     )
@@ -94,6 +99,7 @@ async def _capture_impl(
     conversation_id: str | None,
     request_id: str | None,
     detail: dict[str, Any],
+    severity: str = "medium",
 ) -> None:
     # THE PROVIDER-OUTAGE ALARM hangs off this writer because this is the ONE
     # place every classified provider error is counted: hooking the executor
@@ -135,14 +141,19 @@ async def _capture_impl(
                 category_guess = "network"
             elif "content" in key or "safety" in key:
                 category_guess = "content_policy"
-            elif "streaming" in key or "context_length" in key or "invalid" in key:
+            elif (
+                "streaming" in key
+                or "context_length" in key
+                or "invalid" in key
+                or key.startswith("structured_output.")
+            ):
                 category_guess = "validation"
 
             issue_class = await auto_register_class(
                 key,
                 category=category_guess,
                 provider=provider,
-                severity="medium",
+                severity=severity,
             )
             if issue_class is None:
                 return

@@ -11,24 +11,29 @@ assert_valid = partial(assert_errors, errors=[])
 
 def describe_validate_unique_fragment_names():
     def no_fragments():
-        assert_valid("""
+        assert_valid(
+            """
             {
               field
             }
-            """)
+            """
+        )
 
     def one_fragment():
-        assert_valid("""
+        assert_valid(
+            """
             {
               ...fragA
             }
             fragment fragA on Type {
               field
             }
-            """)
+            """
+        )
 
     def many_fragments():
-        assert_valid("""
+        assert_valid(
+            """
             {
               ...fragA
               ...fragB
@@ -43,10 +48,12 @@ def describe_validate_unique_fragment_names():
             fragment fragC on Type {
               fieldC
             }
-            """)
+            """
+        )
 
     def inline_fragments_are_always_unique():
-        assert_valid("""
+        assert_valid(
+            """
             {
               ...on Type {
                 fieldA
@@ -55,17 +62,20 @@ def describe_validate_unique_fragment_names():
                 fieldB
               }
             }
-            """)
+            """
+        )
 
     def fragment_and_operation_named_the_same():
-        assert_valid("""
+        assert_valid(
+            """
             query Foo {
               ...Foo
             }
             fragment Foo on Type {
               field
             }
-            """)
+            """
+        )
 
     def fragments_named_the_same():
         assert_errors(

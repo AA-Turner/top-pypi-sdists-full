@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: fastly
-Version: 14.1.0
+Version: 14.2.0
 Summary: A Python Fastly API client library
 Project-URL: Homepage, https://github.com/fastly/fastly-py
 Project-URL: Bug Tracker, https://github.com/fastly/fastly-py/issues

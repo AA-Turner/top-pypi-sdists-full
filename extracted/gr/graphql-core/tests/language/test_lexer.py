@@ -1,6 +1,8 @@
-from typing import List, Optional, Tuple
+from __future__ import annotations
 
-from pytest import raises
+from typing import TypeAlias
+
+import pytest
 
 from graphql.error import GraphQLSyntaxError
 from graphql.language import Lexer, Source, SourceLocation, Token, TokenKind
@@ -9,7 +11,7 @@ from graphql.pyutils import inspect
 
 from ..utils import dedent
 
-Location = Optional[Tuple[int, int]]
+Location: TypeAlias = tuple[int, int] | None
 
 
 def lex_one(s: str) -> Token:
@@ -24,7 +26,7 @@ def lex_second(s: str) -> Token:
 
 
 def assert_syntax_error(text: str, message: str, location: Location) -> None:
-    with raises(GraphQLSyntaxError) as exc_info:
+    with pytest.raises(GraphQLSyntaxError) as exc_info:
         lex_second(text)
     error = exc_info.value
     assert error.message == f"Syntax Error: {message}"
@@ -71,11 +73,15 @@ def describe_lexer():
         token = lex_one(",,,foo,,,")
         assert token == Token(TokenKind.NAME, 3, 6, 1, 4, "foo")
 
+    def reports_unexpected_characters():
+        assert_syntax_error(".", "Unexpected character: '.'.", (1, 1))
+
     def errors_respect_whitespace():
-        with raises(GraphQLSyntaxError) as exc_info:
+        with pytest.raises(GraphQLSyntaxError) as exc_info:
             lex_one("\n\n ~\n")
 
-        assert str(exc_info.value) == dedent("""
+        assert str(exc_info.value) == dedent(
+            """
             Syntax Error: Unexpected character: '~'.
 
             GraphQL request:3:2
@@ -83,14 +89,16 @@ def describe_lexer():
             3 |  ~
               |  ^
             4 |
-            """)
+            """
+        )
 
     def updates_line_numbers_in_error_for_file_context():
         s = "\n\n     ~\n\n"
         source = Source(s, "foo.js", SourceLocation(11, 12))
-        with raises(GraphQLSyntaxError) as exc_info:
+        with pytest.raises(GraphQLSyntaxError) as exc_info:
             Lexer(source).advance()
-        assert str(exc_info.value) == dedent("""
+        assert str(exc_info.value) == dedent(
+            """
             Syntax Error: Unexpected character: '~'.
 
             foo.js:13:6
@@ -98,27 +106,28 @@ def describe_lexer():
             13 |      ~
                |      ^
             14 |
-            """)
+            """
+        )
 
     def updates_column_numbers_in_error_for_file_context():
         source = Source("~", "foo.js", SourceLocation(1, 5))
-        with raises(GraphQLSyntaxError) as exc_info:
+        with pytest.raises(GraphQLSyntaxError) as exc_info:
             Lexer(source).advance()
-        assert str(exc_info.value) == dedent("""
+        assert str(exc_info.value) == dedent(
+            """
             Syntax Error: Unexpected character: '~'.
 
             foo.js:1:5
             1 |     ~
               |     ^
-            """)
+            """
+        )
 
-    # noinspection PyArgumentEqualDefault
     def lexes_empty_string():
         token = lex_one('""')
         assert token == Token(TokenKind.STRING, 0, 2, 1, 1, "")
         assert token.value == ""
 
-    # noinspection PyArgumentEqualDefault
     def lexes_strings():
         assert lex_one('""') == Token(TokenKind.STRING, 0, 2, 1, 1, "")
         assert lex_one('"simple"') == Token(TokenKind.STRING, 0, 8, 1, 1, "simple")
@@ -330,8 +339,35 @@ def describe_lexer():
             "Invalid Unicode escape sequence: '\\uD83D'.",
             (1, 6),
         )
+        # escape sequences truncated at the end of the source; these cases are
+        # specific to GraphQL-core, since in GraphQL.js reading beyond the end of
+        # the source yields NaN instead of raising an IndexError
+        assert_syntax_error(
+            '"bad esc \\', "Invalid character escape sequence: '\\'.", (1, 10)
+        )
+        assert_syntax_error(
+            '"bad esc \\u', "Invalid Unicode escape sequence: '\\u'.", (1, 10)
+        )
+        assert_syntax_error(
+            '"bad esc \\u0', "Invalid Unicode escape sequence: '\\u0'.", (1, 10)
+        )
+        assert_syntax_error(
+            '"bad esc \\u00', "Invalid Unicode escape sequence: '\\u00'.", (1, 10)
+        )
+        assert_syntax_error(
+            '"bad esc \\u000', "Invalid Unicode escape sequence: '\\u000'.", (1, 10)
+        )
+        assert_syntax_error(
+            '"bad surrogate pair \\uD83D\\u',
+            "Invalid Unicode escape sequence: '\\uD83D'.",
+            (1, 21),
+        )
+        assert_syntax_error(
+            '"bad surrogate pair \\uD83D\\uDE',
+            "Invalid Unicode escape sequence: '\\uD83D'.",
+            (1, 21),
+        )
 
-    # noinspection PyArgumentEqualDefault
     def lexes_block_strings():
         assert lex_one('""""""') == Token(TokenKind.BLOCK_STRING, 0, 6, 1, 1, "")
         assert lex_one('"""simple"""') == Token(
@@ -380,18 +416,19 @@ def describe_lexer():
             TokenKind.BLOCK_STRING, 0, 19, 1, 1, "slashes \\\\ \\/"
         )
         assert lex_one(
-            '"""\n\n        spans\n          multiple\n'
-            '            lines\n\n        """'
+            '"""\n\n        spans\n          multiple\n            lines\n\n        """'
         ) == Token(TokenKind.BLOCK_STRING, 0, 68, 1, 1, "spans\n  multiple\n    lines")
 
     def advance_line_after_lexing_multiline_block_string():
-        assert lex_second('''"""
+        assert lex_second(
+            '''"""
 
         spans
           multiple
             lines
 
-        \n """ second_token''') == Token(TokenKind.NAME, 71, 83, 8, 6, "second_token")
+        \n """ second_token'''
+        ) == Token(TokenKind.NAME, 71, 83, 8, 6, "second_token")
 
     def lex_reports_useful_block_string_errors():
         assert_syntax_error('"""', "Unterminated string.", (1, 4))
@@ -402,7 +439,6 @@ def describe_lexer():
             (1, 31),
         )
 
-    # noinspection PyArgumentEqualDefault
     def lexes_numbers():
         assert lex_one("0") == Token(TokenKind.INT, 0, 1, 1, 1, "0")
         assert lex_one("1") == Token(TokenKind.INT, 0, 1, 1, 1, "1")
@@ -449,7 +485,11 @@ def describe_lexer():
         assert_syntax_error(
             "1.e1", "Invalid number, expected digit but got: 'e'.", (1, 3)
         )
-        assert_syntax_error(".123", "Unexpected character: '.'.", (1, 1))
+        assert_syntax_error(
+            ".123",
+            "Invalid number, expected digit before '.', did you mean '0.123'?",
+            (1, 1),
+        )
         assert_syntax_error(
             "1.A", "Invalid number, expected digit but got: 'A'.", (1, 3)
         )
@@ -498,7 +538,6 @@ def describe_lexer():
             "1.234_5", "Invalid number, expected digit but got: '_'.", (1, 6)
         )
 
-    # noinspection PyArgumentEqualDefault
     def lexes_punctuation():
         assert lex_one("!") == Token(TokenKind.BANG, 0, 1, 1, 1, None)
         assert lex_one("$") == Token(TokenKind.DOLLAR, 0, 1, 1, 1, None)
@@ -515,7 +554,7 @@ def describe_lexer():
         assert lex_one("|") == Token(TokenKind.PIPE, 0, 1, 1, 1, None)
 
     def lex_reports_useful_unknown_character_error():
-        assert_syntax_error("..", "Unexpected character: '.'.", (1, 1))
+        assert_syntax_error("..", "Unexpected '..', did you mean '...'?", (1, 1))
         assert_syntax_error("~", "Unexpected character: '~'.", (1, 1))
         assert_syntax_error("\x00", "Unexpected character: U+0000.", (1, 1))
         assert_syntax_error("\b", "Unexpected character: U+0008.", (1, 1))
@@ -530,13 +569,12 @@ def describe_lexer():
         assert_syntax_error("\udbff", "Invalid character: U+DBFF.", (1, 1))
         assert_syntax_error("\udead", "Invalid character: U+DEAD.", (1, 1))
 
-    # noinspection PyArgumentEqualDefault
     def lex_reports_useful_information_for_dashes_in_names():
         source = Source("a-b")
         lexer = Lexer(source)
         first_token = lexer.advance()
         assert first_token == Token(TokenKind.NAME, 0, 1, 1, 1, "a")
-        with raises(GraphQLSyntaxError) as exc_info:
+        with pytest.raises(GraphQLSyntaxError) as exc_info:
             lexer.advance()
         error = exc_info.value
         assert error.message == (
@@ -545,12 +583,14 @@ def describe_lexer():
         assert error.locations == [(1, 3)]
 
     def produces_double_linked_list_of_tokens_including_comments():
-        source = Source("""
+        source = Source(
+            """
             {
               #comment
               field
             }
-            """)
+            """
+        )
         lexer = Lexer(source)
         start_token = lexer.token
         while True:
@@ -560,8 +600,8 @@ def describe_lexer():
             assert end_token.kind != TokenKind.COMMENT
         assert start_token.prev is None
         assert end_token.next is None
-        tokens: List[Token] = []
-        tok: Optional[Token] = start_token
+        tokens: list[Token] = []
+        tok: Token | None = start_token
         while tok:
             assert not tokens or tok.prev == tokens[-1]
             tokens.append(tok)

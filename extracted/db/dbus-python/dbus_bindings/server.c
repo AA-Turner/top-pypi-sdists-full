@@ -38,10 +38,8 @@ typedef struct {
     /* The Connection subtype for which this Server is a factory */
     PyObject *conn_class;
 
-#if !DBUSPY_PY_VERSION_AT_LEAST(3, 12, 0, 0)
     /* Weak-references list to make server weakly referenceable */
     PyObject *weaklist;
-#endif
 
     PyObject *mainloop;
 } Server;
@@ -425,9 +423,7 @@ Server_tp_new(PyTypeObject *cls, PyObject *args, PyObject *kwargs)
         return NULL;
     }
 
-#if !DBUSPY_PY_VERSION_AT_LEAST(3, 12, 0, 0)
     ((Server *)self)->weaklist = NULL;
-#endif
     TRACE(self);
 
     return self;
@@ -442,10 +438,7 @@ static void Server_tp_dealloc(Server *self)
     /* avoid clobbering any pending exception */
     PyErr_Fetch(&et, &ev, &etb);
 
-#if !DBUSPY_PY_VERSION_AT_LEAST(3, 12, 0, 0)
-    if (self->weaklist)
-#endif
-    {
+    if (self->weaklist) {
         PyObject_ClearWeakRefs((PyObject *)self);
     }
 
@@ -577,19 +570,12 @@ PyTypeObject DBusPyServer_Type = {
     0,                      /*tp_getattro*/
     0,                      /*tp_setattro*/
     0,                      /*tp_as_buffer*/
-#if DBUSPY_PY_VERSION_AT_LEAST(3, 12, 0, 0)
-    Py_TPFLAGS_MANAGED_WEAKREF |
-#endif
     Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
     Server_tp_doc,          /*tp_doc*/
     0,                      /*tp_traverse*/
     0,                      /*tp_clear*/
     0,                      /*tp_richcompare*/
-#if DBUSPY_PY_VERSION_AT_LEAST(3, 12, 0, 0)
-    0,                      /*tp_weaklistoffset*/
-#else
     offsetof(Server, weaklist),   /*tp_weaklistoffset*/
-#endif
     0,                      /*tp_iter*/
     0,                      /*tp_iternext*/
     DBusPyServer_tp_methods,/*tp_methods*/

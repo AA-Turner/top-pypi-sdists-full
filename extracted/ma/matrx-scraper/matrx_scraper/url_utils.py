@@ -5,8 +5,8 @@
 from __future__ import annotations
 
 
-def normalize_url(value: str) -> str:
-    """Best-effort URL normalisation.
+def accept_url_input(value: str) -> str:
+    """Accept what a person typed as a web address (INPUT ACCEPTANCE, never an identity).
 
     Accepts anything the user can plausibly type and returns an https:// URL.
     Examples:
@@ -28,11 +28,13 @@ def normalize_url(value: str) -> str:
     return f"https://{raw.lstrip('/')}"
 
 
-# NOTE: this module's `normalize_url` is the INPUT-ACCEPTANCE layer ("accept
-# anything the user typed → a valid https URL"), NOT the stored-identity
-# canonicalizer. The ONE canonical stored identity for the crawl system is
+# NOTE: `accept_url_input` is the INPUT-ACCEPTANCE layer ("accept anything the
+# user typed → a valid https URL"), NOT a canonicalizer: it was named
+# `normalize_url` until 2026-09-27, a second function of that name beside the
+# stored-identity one, and renamed so no caller can mistake it for an identity
+# (NEWS-ENGINE-SPEC §2 URL-identity census, Lane F). The ONE canonical stored identity for the crawl system is
 # `matrx_scraper.utils.url.normalize_url` (feeds `url_hash`, used by every
 # ingestion source). A former `canonicalize_url_identity` here was a SECOND,
 # unused identity function — deleted 2026-07-29 (dead competing identity; the
 # Identity Contract forbids a second canonicalizer). Do not reintroduce one here.
-__all__ = ["normalize_url"]
+__all__ = ["accept_url_input"]

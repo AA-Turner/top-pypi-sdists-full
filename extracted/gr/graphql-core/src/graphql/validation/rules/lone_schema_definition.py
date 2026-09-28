@@ -1,8 +1,14 @@
-from typing import Any
+"""Lone Schema definition rule"""
+
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any
 
 from ...error import GraphQLError
-from ...language import SchemaDefinitionNode
-from . import SDLValidationRule, SDLValidationContext
+from . import SDLValidationContext, SDLValidationRule
+
+if TYPE_CHECKING:
+    from ...language import SchemaDefinitionNode
 
 __all__ = ["LoneSchemaDefinitionRule"]
 
@@ -11,9 +17,28 @@ class LoneSchemaDefinitionRule(SDLValidationRule):
     """Lone Schema definition
 
     A GraphQL document is only valid if it contains only one schema definition.
+
+    :param context: The validation context used while checking the document.
+
+    >>> from graphql import build_schema
+    >>> from graphql.validation import LoneSchemaDefinitionRule
+    >>> from graphql.validation.specified_rules import specified_sdl_rules
+    >>> LoneSchemaDefinitionRule in specified_sdl_rules
+    True
+    >>> sdl = (
+    ...     'schema { query: Query } schema { query: Query }'
+    ...     ' type Query { name: String }'
+    ... )
+    >>> build_schema(sdl)
+    Traceback (most recent call last):
+    ...
+    TypeError: Must provide only one schema definition.
+    There can be only one query type in schema.
+    >>> sdl = 'schema { query: Query } type Query { name: String }'
+    >>> schema = build_schema(sdl)
     """
 
-    def __init__(self, context: SDLValidationContext):
+    def __init__(self, context: SDLValidationContext) -> None:
         super().__init__(context)
         old_schema = context.schema
         self.already_defined = old_schema and (
@@ -25,6 +50,10 @@ class LoneSchemaDefinitionRule(SDLValidationRule):
         self.schema_definitions_count = 0
 
     def enter_schema_definition(self, node: SchemaDefinitionNode, *_args: Any) -> None:
+        """Called when entering a schema definition node.
+
+        :meta private:
+        """
         if self.already_defined:
             self.report_error(
                 GraphQLError(

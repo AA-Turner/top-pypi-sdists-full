@@ -18,6 +18,7 @@ _SEVERITY_MAP = {
 # Rule instance (e.g. "invalid-config" emitted by Linter._validate_config).
 _SYNTHETIC_DESCRIPTIONS = {
     "invalid-config": "Invalid configuration",
+    "unknown-rule": "Unknown rule in configuration",
 }
 
 
@@ -109,7 +110,7 @@ def format_sarif(
                         "repo_type": context.repo_type.value,
                         "repo_types": context.repo_type_names(),
                         "plugins": len(context.distinct_plugin_dirs()),
-                        "skills": len(context.skills),
+                        "skills": context.skill_count,
                         "rules_run": len(rules),
                     },
                 },

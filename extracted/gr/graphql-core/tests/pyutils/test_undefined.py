@@ -1,6 +1,6 @@
 import pickle
 
-from pytest import warns
+import pytest
 
 from graphql.pyutils import Undefined, UndefinedType
 
@@ -21,18 +21,24 @@ def describe_Undefined():
     def as_bool_is_false():
         assert bool(Undefined) is False
 
-    def only_equal_to_itself():
-        assert Undefined == Undefined
-        assert not Undefined != Undefined
+    def only_equal_to_itself_and_none():
+        # because we want it to behave similarly to JavaScript
+        assert Undefined == Undefined  # noqa: PLR0124
         none_object = None
-        assert Undefined != none_object
-        assert not Undefined == none_object
+        assert Undefined == none_object
+        assert none_object == Undefined
         false_object = False
         assert Undefined != false_object
-        assert not Undefined == false_object
+        assert false_object != Undefined
+
+    def should_not_be_an_exception():
+        # because we want to create similar code to JavaScript where
+        # undefined return values are different from exceptions
+        # (for instance, this is used in the completeValue function)
+        assert not isinstance(Undefined, Exception)
 
     def cannot_be_redefined():
-        with warns(RuntimeWarning, match="Redefinition of 'Undefined'"):
+        with pytest.warns(RuntimeWarning, match="Redefinition of 'Undefined'"):
             redefined_undefined = UndefinedType()
         assert redefined_undefined is Undefined
 

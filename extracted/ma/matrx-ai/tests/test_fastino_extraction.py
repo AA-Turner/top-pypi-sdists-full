@@ -30,6 +30,12 @@ from matrx_ai.providers.fastino import (
 )
 from matrx_ai.providers.fastino.client import resolve_fastino_api_key
 
+
+@pytest.fixture(autouse=True)
+def _no_carried_permanent_refusal(monkeypatch):
+    """Each test starts with no remembered permanent refusal (a 401 test would otherwise latch)."""
+    monkeypatch.setattr(fastino_api, "_permanent_refusal", None, raising=False)
+
 # ---------------------------------------------------------------------------
 # parse_spans — shape tolerance
 # ---------------------------------------------------------------------------
@@ -127,7 +133,7 @@ async def test_extract_builds_request_and_parses_response(monkeypatch):
         )
 
     # Request shape (Pioneer OpenAI-compatible contract).
-    assert capture["url"] == "https://api.pioneer.ai/v1/chat/completions"
+    assert capture["url"] == "https://api.fastino.ai/v1/chat/completions"
     assert capture["headers"]["authorization"] == "Bearer test-key-123"
     body = capture["body"]
     assert body["model"] == "fastino/gliner2-large-v1"
@@ -303,3 +309,50 @@ def test_top_level_lazy_exports_resolve():
     assert callable(matrx_ai.extract_spans)
     assert matrx_ai.SpanExtractionResult is SpanExtractionResult
     assert matrx_ai.ExtractedSpan is ExtractedSpan
+
+
+# ---------------------------------------------------------------------------
+# A permanent refusal (retired host, refused key) stops the fan-out
+# ---------------------------------------------------------------------------
+
+
+async def test_a_retired_host_is_named_and_the_fan_out_stops_sending(monkeypatch):
+    """2026-09-26: api.pioneer.ai answered 410 host_retired and 9,951 NER calls failed one request
+    at a time while every pass "completed". The first permanent refusal names the cause; the rest
+    fail immediately with the same sentence and send nothing."""
+    monkeypatch.setenv("PIONEER_API_KEY", "k")
+    monkeypatch.setattr(fastino_api, "_permanent_refusal", None, raising=False)
+    sent: list[str] = []
+
+    def _handle(request: httpx.Request) -> httpx.Response:
+        sent.append(str(request.url))
+        return httpx.Response(
+            410,
+            json={"message": "This API host was retired.", "code": "host_retired",
+                  "moved_to": "https://api.fastino.ai/v1/chat/completions"},
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(_handle)) as client:
+        extractor = FastinoExtraction(client=client)
+        with pytest.raises(fastino_api.FastinoError, match="retired") as first:
+            await extractor.extract("chunk one", ["person"])
+        assert getattr(first.value, "permanent", False)
+        for _ in range(5):
+            with pytest.raises(fastino_api.FastinoError, match="Not sent"):
+                await extractor.extract("another chunk", ["person"])
+    assert len(sent) == 1, "a permanent refusal must not be re-sent for every chunk"
+    monkeypatch.setattr(fastino_api, "_permanent_refusal", None, raising=False)
+
+
+async def test_a_transient_failure_never_trips_the_latch(monkeypatch):
+    monkeypatch.setenv("PIONEER_API_KEY", "k")
+    monkeypatch.setattr(fastino_api, "_permanent_refusal", None, raising=False)
+    monkeypatch.setattr(fastino_api, "_backoff_delay", lambda *_a, **_k: 0)
+
+    def _handle(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(503, json={"message": "busy"})
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(_handle)) as client:
+        with pytest.raises(fastino_api.FastinoError):
+            await FastinoExtraction(client=client).extract("x", ["person"])
+    assert fastino_api._permanent_refusal is None

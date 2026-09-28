@@ -132,6 +132,12 @@ class MandateResolution:
     # query and a second chance to disagree. Generic slugs (``text`` / ``json``
     # / …) mean "free-form": see ``matrx_ai.kinds.is_bindable_kind``.
     output_kind: str | None = None
+    #: The host's run-history stamp for THIS resolution (aidream
+    #: ``mandates.service.mandate_run_stamp``: the level whose choice ran, the
+    #: Holder, any output warning). A held code call carries it on the request
+    #: under ``metadata["mandate_resolution"]`` so the run's history can say
+    #: whose choice ran. ``None`` = the host offers none.
+    run_stamp: dict[str, Any] | None = None
 
 
 LegacyMandateResolution = tuple[AgentSource, dict[str, Any] | None]
@@ -450,6 +456,12 @@ async def run_mandated(agent_cls: type[NamedAgent], **kwargs: Any) -> AgentRunRe
                 _capture_user_input(kwargs.get("user_input")),
             )
         except Exception as exc:  # completion cannot invalidate a delivered response
+            if getattr(exc, "fails_the_run", False):
+                # 🚨 ...except an answer missing the keys the job reads, from a
+                # Holder chosen although it does not declare them (the host's
+                # MandateOutputError, aidream 1363). Handing it on would let the
+                # call site save half an answer; it stops the job instead.
+                raise
             from matrx_utils import vcprint
 
             vcprint(
@@ -538,6 +550,26 @@ class HeldCall:
             return explicit
         return self.max_output_tokens if self.max_output_tokens else unset
 
+    def turn_metadata(self, **values: Any) -> dict[str, Any]:
+        """The metadata for ONE turn of a multi-turn call, with that turn's
+        offered values (a research loop's log so far, its remaining budget).
+
+        A WORKFLOW Holder receives them as inputs on top of the call's offered
+        values, so each turn is a distinct run with distinct inputs — without
+        them every turn of a loop would reattach to the first turn's answer.
+        An agent Holder reads the turn from the messages, so for an agent this
+        is ``self.metadata`` unchanged (nothing large lands on the request).
+        """
+        if self.holder_type != "workflow" or not values:
+            return dict(self.metadata)
+        from matrx_ai.orchestrator.mandate_carrier import MANDATE_HOLDER_METADATA_KEY
+
+        carried = dict(self.metadata)
+        stamp = dict(carried.get(MANDATE_HOLDER_METADATA_KEY) or {})
+        stamp["turn_values"] = {k: to_template_value(v) for k, v in values.items()}
+        carried[MANDATE_HOLDER_METADATA_KEY] = stamp
+        return carried
+
     def user_text(self, text: str) -> str:
         """The site's user turn plus whatever the binding spills into it."""
         return f"{text}\n\n{self.spilled_text}" if self.spilled_text else text
@@ -611,7 +643,10 @@ class HeldCall:
         Every held site calls this once its call returns — the same completion
         ``run_mandated`` runs, so a Holder that stops answering in its declared
         shape is caught for code calls too. Never raises: completion cannot
-        invalidate a delivered response, but a failure is said out loud.
+        invalidate a delivered response, but a failure is said out loud — the
+        ONE exception is an error marked ``fails_the_run`` (the host's
+        MandateOutputError for an answer missing required keys from a Holder
+        chosen although it does not declare them), which stops the job.
         """
         if self.complete is None:
             return
@@ -639,6 +674,10 @@ class HeldCall:
         try:
             await self.complete(result, dict(self.variables), self.spilled_text)
         except Exception as exc:  # noqa: BLE001 — see docstring
+            if getattr(exc, "fails_the_run", False):
+                # The one exception (see run_mandated above): an answer missing
+                # the keys the job reads stops the job, never reaches the site.
+                raise
             from matrx_utils import vcprint
 
             vcprint(
@@ -860,6 +899,8 @@ async def hold_code_call(
         turns.append({"role": role, "content": text})
     carried: dict[str, Any] = dict(metadata or {})
     carried[MANDATE_KEY_METADATA_KEY] = mandate_key
+    if resolution.run_stamp:
+        carried["mandate_resolution"] = dict(resolution.run_stamp)
     carried[MANDATE_HOLDER_METADATA_KEY] = {
         "mandate_key": mandate_key,
         "holder_type": "agent",
@@ -931,6 +972,8 @@ async def _hold_by_workflow(
     )
     carried: dict[str, Any] = dict(metadata or {})
     carried[MANDATE_KEY_METADATA_KEY] = mandate_key
+    if resolution.run_stamp:
+        carried["mandate_resolution"] = dict(resolution.run_stamp)
     carried[MANDATE_HOLDER_METADATA_KEY] = {
         "mandate_key": mandate_key,
         "holder_type": "workflow",

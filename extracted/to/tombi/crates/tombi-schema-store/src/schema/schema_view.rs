@@ -101,13 +101,36 @@ impl SchemaView {
         }
     }
 
+    /// Returns true when this runtime view already embeds the target of a
+    /// reference beside the reference object's local keywords.
+    pub fn has_reference_targets(&self) -> bool {
+        match self {
+            Self::Boolean(schema) => schema.all_of.as_deref(),
+            Self::Integer(schema) => schema.all_of.as_deref(),
+            Self::Float(schema) => schema.all_of.as_deref(),
+            Self::String(schema) => schema.all_of.as_deref(),
+            Self::LocalDate(schema) => schema.all_of.as_deref(),
+            Self::LocalDateTime(schema) => schema.all_of.as_deref(),
+            Self::LocalTime(schema) => schema.all_of.as_deref(),
+            Self::OffsetDateTime(schema) => schema.all_of.as_deref(),
+            Self::Array(schema) => schema.all_of.as_deref(),
+            Self::Table(schema) => schema.all_of.as_deref(),
+            Self::AllOf(schema) => Some(schema),
+            Self::OneOf(_) | Self::AnyOf(_) | Self::Null | Self::Anything(_) | Self::Nothing(_) => {
+                None
+            }
+        }
+        .is_some_and(|schema| schema.contains_reference_targets)
+    }
+
     pub fn with_reference_targets(mut self, targets: Vec<Referable<SchemaView>>) -> Self {
         fn attach(slot: &mut Option<Box<AllOfSchema>>, mut targets: Vec<Referable<SchemaView>>) {
+            let had_existing = slot.is_some();
             if let Some(existing) = slot.take() {
                 targets.insert(
                     0,
                     Referable::Resolved {
-                        schema_uri: None,
+                        schema_base_uri: None,
                         value: Arc::new(SchemaView::AllOf(*existing)),
                         semantic_schema: None,
                     },
@@ -115,6 +138,12 @@ impl SchemaView {
             }
             *slot = Some(Box::new(AllOfSchema {
                 schemas: Arc::new(tokio::sync::RwLock::new(targets)),
+                // With only reference targets, the first resolved target is the
+                // projection base used by reference-sibling validation. If a
+                // real `allOf` already exists, every branch is an independent
+                // sibling and must be validated by the ordinary allOf path.
+                reference_siblings: !had_existing,
+                contains_reference_targets: true,
                 ..Default::default()
             }));
         }
@@ -143,13 +172,14 @@ impl SchemaView {
         }
 
         let mut schemas = vec![Referable::Resolved {
-            schema_uri: None,
+            schema_base_uri: None,
             value: Arc::new(self),
             semantic_schema: None,
         }];
         schemas.extend(targets);
         Self::AllOf(AllOfSchema {
             schemas: Arc::new(tokio::sync::RwLock::new(schemas)),
+            contains_reference_targets: true,
             ..Default::default()
         })
     }
@@ -678,34 +708,63 @@ impl SchemaView {
     pub fn match_flattened_schemas<'a: 'b, 'b, T: Fn(&SchemaView) -> bool + Sync + Send>(
         &'a self,
         condition: &'a T,
-        schema_uri: &'a SchemaUri,
+        schema_base_uri: &'a SchemaUri,
         definitions: &'a SchemaDefinitions,
         strict: Option<tombi_schema_type::BoolDefaultTrue>,
         schema_store: &'a SchemaStore,
     ) -> BoxFuture<'b, Vec<SchemaView>> {
+        self.match_flattened_schemas_in_scope(
+            condition,
+            schema_base_uri,
+            definitions,
+            strict,
+            schema_store,
+            None,
+        )
+    }
+
+    pub fn match_flattened_schemas_in_scope<
+        'a: 'b,
+        'b,
+        T: Fn(&SchemaView) -> bool + Sync + Send,
+    >(
+        &'a self,
+        condition: &'a T,
+        schema_base_uri: &'a SchemaUri,
+        definitions: &'a SchemaDefinitions,
+        strict: Option<tombi_schema_type::BoolDefaultTrue>,
+        schema_store: &'a SchemaStore,
+        parent_dynamic_scope: Option<&'a [SchemaUri]>,
+    ) -> BoxFuture<'b, Vec<SchemaView>> {
         async move {
             let schema_visits = crate::SchemaVisits::default();
-            self.match_flattened_schemas_with_visits(
+            self.match_flattened_schemas_with_visits_in_scope(
                 condition,
-                schema_uri,
+                schema_base_uri,
                 definitions,
                 strict,
                 schema_store,
                 &schema_visits,
+                parent_dynamic_scope,
             )
             .await
         }
         .boxed()
     }
 
-    fn match_flattened_schemas_with_visits<'a: 'b, 'b, T: Fn(&SchemaView) -> bool + Sync + Send>(
+    fn match_flattened_schemas_with_visits_in_scope<
+        'a: 'b,
+        'b,
+        T: Fn(&SchemaView) -> bool + Sync + Send,
+    >(
         &'a self,
         condition: &'a T,
-        schema_uri: &'a SchemaUri,
+        schema_base_uri: &'a SchemaUri,
         definitions: &'a SchemaDefinitions,
         strict: Option<tombi_schema_type::BoolDefaultTrue>,
         schema_store: &'a SchemaStore,
         schema_visits: &'a crate::SchemaVisits,
+        parent_dynamic_scope: Option<&'a [SchemaUri]>,
     ) -> BoxFuture<'b, Vec<SchemaView>> {
         async move {
             let mut matched_schemas = Vec::new();
@@ -713,14 +772,15 @@ impl SchemaView {
                 SchemaView::OneOf(OneOfSchema { schemas, .. })
                 | SchemaView::AnyOf(AnyOfSchema { schemas, .. })
                 | SchemaView::AllOf(AllOfSchema { schemas, .. }) => {
-                    let Some(collected) = crate::resolve_and_collect_schemas(
+                    let Some(collected) = crate::resolve_and_collect_schemas_in_scope(
                         schemas,
-                        Cow::Borrowed(schema_uri),
+                        Cow::Borrowed(schema_base_uri),
                         Cow::Borrowed(definitions),
                         strict,
                         schema_store,
                         schema_visits,
                         &[],
+                        parent_dynamic_scope,
                     )
                     .await
                     else {
@@ -731,13 +791,14 @@ impl SchemaView {
                         matched_schemas.extend(
                             current_schema
                                 .schema_view
-                                .match_flattened_schemas_with_visits(
+                                .match_flattened_schemas_with_visits_in_scope(
                                     condition,
-                                    &current_schema.schema_uri,
+                                    &current_schema.schema_base_uri,
                                     &current_schema.definitions,
                                     current_schema.strict,
                                     schema_store,
                                     schema_visits,
+                                    Some(&current_schema.dynamic_scope),
                                 )
                                 .await,
                         );
@@ -758,7 +819,7 @@ impl SchemaView {
     pub fn is_match<'a, 'b, T: Fn(&SchemaView) -> bool + Sync + Send>(
         &'a self,
         condition: &'a T,
-        schema_uri: &'a SchemaUri,
+        schema_base_uri: &'a SchemaUri,
         definitions: &'a SchemaDefinitions,
         strict: Option<tombi_schema_type::BoolDefaultTrue>,
         schema_store: &'a SchemaStore,
@@ -766,29 +827,53 @@ impl SchemaView {
     where
         'a: 'b,
     {
+        self.is_match_in_scope(
+            condition,
+            schema_base_uri,
+            definitions,
+            strict,
+            schema_store,
+            None,
+        )
+    }
+
+    pub fn is_match_in_scope<'a, 'b, T: Fn(&SchemaView) -> bool + Sync + Send>(
+        &'a self,
+        condition: &'a T,
+        schema_base_uri: &'a SchemaUri,
+        definitions: &'a SchemaDefinitions,
+        strict: Option<tombi_schema_type::BoolDefaultTrue>,
+        schema_store: &'a SchemaStore,
+        parent_dynamic_scope: Option<&'a [SchemaUri]>,
+    ) -> BoxFuture<'b, bool>
+    where
+        'a: 'b,
+    {
         async move {
             let schema_visits = crate::SchemaVisits::default();
-            self.is_match_with_visits(
+            self.is_match_with_visits_in_scope(
                 condition,
-                schema_uri,
+                schema_base_uri,
                 definitions,
                 strict,
                 schema_store,
                 &schema_visits,
+                parent_dynamic_scope,
             )
             .await
         }
         .boxed()
     }
 
-    fn is_match_with_visits<'a, 'b, T: Fn(&SchemaView) -> bool + Sync + Send>(
+    fn is_match_with_visits_in_scope<'a, 'b, T: Fn(&SchemaView) -> bool + Sync + Send>(
         &'a self,
         condition: &'a T,
-        schema_uri: &'a SchemaUri,
+        schema_base_uri: &'a SchemaUri,
         definitions: &'a SchemaDefinitions,
         strict: Option<tombi_schema_type::BoolDefaultTrue>,
         schema_store: &'a SchemaStore,
         schema_visits: &'a crate::SchemaVisits,
+        parent_dynamic_scope: Option<&'a [SchemaUri]>,
     ) -> BoxFuture<'b, bool>
     where
         'a: 'b,
@@ -797,14 +882,15 @@ impl SchemaView {
             match self {
                 SchemaView::OneOf(OneOfSchema { schemas, .. })
                 | SchemaView::AnyOf(AnyOfSchema { schemas, .. }) => {
-                    let Some(collected) = crate::resolve_and_collect_schemas(
+                    let Some(collected) = crate::resolve_and_collect_schemas_in_scope(
                         schemas,
-                        Cow::Borrowed(schema_uri),
+                        Cow::Borrowed(schema_base_uri),
                         Cow::Borrowed(definitions),
                         strict,
                         schema_store,
                         schema_visits,
                         &[],
+                        parent_dynamic_scope,
                     )
                     .await
                     else {
@@ -814,13 +900,14 @@ impl SchemaView {
                     join_all(collected.iter().map(|current_schema| async {
                         current_schema
                             .schema_view
-                            .is_match_with_visits(
+                            .is_match_with_visits_in_scope(
                                 condition,
-                                &current_schema.schema_uri,
+                                &current_schema.schema_base_uri,
                                 &current_schema.definitions,
                                 current_schema.strict,
                                 schema_store,
                                 schema_visits,
+                                Some(&current_schema.dynamic_scope),
                             )
                             .await
                     }))
@@ -829,14 +916,15 @@ impl SchemaView {
                     .any(|is_matched| is_matched)
                 }
                 SchemaView::AllOf(AllOfSchema { schemas, .. }) => {
-                    let Some(collected) = crate::resolve_and_collect_schemas(
+                    let Some(collected) = crate::resolve_and_collect_schemas_in_scope(
                         schemas,
-                        Cow::Borrowed(schema_uri),
+                        Cow::Borrowed(schema_base_uri),
                         Cow::Borrowed(definitions),
                         strict,
                         schema_store,
                         schema_visits,
                         &[],
+                        parent_dynamic_scope,
                     )
                     .await
                     else {
@@ -846,13 +934,14 @@ impl SchemaView {
                     join_all(collected.iter().map(|current_schema| async {
                         current_schema
                             .schema_view
-                            .is_match_with_visits(
+                            .is_match_with_visits_in_scope(
                                 condition,
-                                &current_schema.schema_uri,
+                                &current_schema.schema_base_uri,
                                 &current_schema.definitions,
                                 current_schema.strict,
                                 schema_store,
                                 schema_visits,
+                                Some(&current_schema.dynamic_scope),
                             )
                             .await
                     }))
@@ -869,11 +958,57 @@ impl SchemaView {
     fn find_schema_candidates_with_visits<'a: 'b, 'b>(
         &'a self,
         accessors: &'a [Accessor],
-        schema_uri: &'a SchemaUri,
+        schema_base_uri: &'a SchemaUri,
         definitions: &'a SchemaDefinitions,
         strict: Option<tombi_schema_type::BoolDefaultTrue>,
         schema_store: &'a SchemaStore,
         schema_visits: &'a crate::SchemaVisits,
+    ) -> BoxFuture<'b, (Vec<SchemaView>, Vec<crate::Error>)> {
+        self.find_schema_candidates_with_visits_in_scope(
+            accessors,
+            schema_base_uri,
+            definitions,
+            strict,
+            schema_store,
+            schema_visits,
+            None,
+        )
+    }
+
+    pub fn find_schema_candidates_in_scope<'a: 'b, 'b>(
+        &'a self,
+        accessors: &'a [Accessor],
+        schema_base_uri: &'a SchemaUri,
+        definitions: &'a SchemaDefinitions,
+        strict: Option<tombi_schema_type::BoolDefaultTrue>,
+        schema_store: &'a SchemaStore,
+        parent_dynamic_scope: Option<&'a [SchemaUri]>,
+    ) -> BoxFuture<'b, (Vec<SchemaView>, Vec<crate::Error>)> {
+        async move {
+            let schema_visits = crate::SchemaVisits::default();
+            self.find_schema_candidates_with_visits_in_scope(
+                accessors,
+                schema_base_uri,
+                definitions,
+                strict,
+                schema_store,
+                &schema_visits,
+                parent_dynamic_scope,
+            )
+            .await
+        }
+        .boxed()
+    }
+
+    fn find_schema_candidates_with_visits_in_scope<'a: 'b, 'b>(
+        &'a self,
+        accessors: &'a [Accessor],
+        schema_base_uri: &'a SchemaUri,
+        definitions: &'a SchemaDefinitions,
+        strict: Option<tombi_schema_type::BoolDefaultTrue>,
+        schema_store: &'a SchemaStore,
+        schema_visits: &'a crate::SchemaVisits,
+        parent_dynamic_scope: Option<&'a [SchemaUri]>,
     ) -> BoxFuture<'b, (Vec<SchemaView>, Vec<crate::Error>)> {
         async move {
             match self {
@@ -898,14 +1033,15 @@ impl SchemaView {
                     let mut candidates = Vec::new();
                     let mut errors = Vec::new();
 
-                    let Some(collected) = crate::resolve_and_collect_schemas(
+                    let Some(collected) = crate::resolve_and_collect_schemas_in_scope(
                         schemas,
-                        Cow::Borrowed(schema_uri),
+                        Cow::Borrowed(schema_base_uri),
                         Cow::Borrowed(definitions),
                         strict,
                         schema_store,
                         schema_visits,
                         accessors,
+                        parent_dynamic_scope,
                     )
                     .await
                     else {
@@ -915,13 +1051,14 @@ impl SchemaView {
                     for current_schema in &collected {
                         let (mut schema_candidates, schema_errors) = current_schema
                             .schema_view
-                            .find_schema_candidates_with_visits(
+                            .find_schema_candidates_with_visits_in_scope(
                                 accessors,
-                                &current_schema.schema_uri,
+                                &current_schema.schema_base_uri,
                                 &current_schema.definitions,
                                 current_schema.strict,
                                 schema_store,
                                 schema_visits,
+                                Some(&current_schema.dynamic_scope),
                             )
                             .await;
 
@@ -950,7 +1087,7 @@ impl FindSchemaCandidates for SchemaView {
     fn find_schema_candidates<'a: 'b, 'b>(
         &'a self,
         accessors: &'a [Accessor],
-        schema_uri: &'a SchemaUri,
+        schema_base_uri: &'a SchemaUri,
         definitions: &'a SchemaDefinitions,
         strict: Option<tombi_schema_type::BoolDefaultTrue>,
         schema_store: &'a SchemaStore,
@@ -959,7 +1096,7 @@ impl FindSchemaCandidates for SchemaView {
             let schema_visits = crate::SchemaVisits::default();
             self.find_schema_candidates_with_visits(
                 accessors,
-                schema_uri,
+                schema_base_uri,
                 definitions,
                 strict,
                 schema_store,
@@ -979,7 +1116,7 @@ mod tests {
 
     fn string_target() -> Referable<SchemaView> {
         Referable::Resolved {
-            schema_uri: None,
+            schema_base_uri: None,
             value: Arc::new(SchemaView::String(StringSchema::default())),
             semantic_schema: None,
         }
@@ -993,7 +1130,10 @@ mod tests {
         let SchemaView::String(schema) = schema else {
             panic!("expected string schema");
         };
-        assert_eq!(schema.all_of.unwrap().schemas.read().await.len(), 1);
+        let all_of = schema.all_of.unwrap();
+        assert!(all_of.reference_siblings);
+        assert!(all_of.contains_reference_targets);
+        assert_eq!(all_of.schemas.read().await.len(), 1);
     }
 
     #[tokio::test]
@@ -1001,14 +1141,39 @@ mod tests {
         let schema =
             SchemaView::AnyOf(AnyOfSchema::default()).with_reference_targets(vec![string_target()]);
 
-        let SchemaView::AllOf(AllOfSchema { schemas, .. }) = schema else {
+        let SchemaView::AllOf(AllOfSchema {
+            schemas,
+            reference_siblings,
+            contains_reference_targets,
+            ..
+        }) = schema
+        else {
             panic!("expected allOf schema");
         };
+        assert!(!reference_siblings);
+        assert!(contains_reference_targets);
         let schemas = schemas.read().await;
         assert_eq!(schemas.len(), 2);
         assert!(matches!(
             &schemas[0],
             Referable::Resolved { value, .. } if matches!(value.as_ref(), SchemaView::AnyOf(_))
         ));
+    }
+
+    #[tokio::test]
+    async fn reference_targets_preserve_existing_all_of_as_ordinary_sibling() {
+        let string = StringSchema {
+            all_of: Some(Box::new(AllOfSchema::default())),
+            ..Default::default()
+        };
+        let schema = SchemaView::String(string).with_reference_targets(vec![string_target()]);
+
+        let SchemaView::String(schema) = schema else {
+            panic!("expected string schema");
+        };
+        let all_of = schema.all_of.unwrap();
+        assert!(!all_of.reference_siblings);
+        assert!(all_of.contains_reference_targets);
+        assert_eq!(all_of.schemas.read().await.len(), 2);
     }
 }

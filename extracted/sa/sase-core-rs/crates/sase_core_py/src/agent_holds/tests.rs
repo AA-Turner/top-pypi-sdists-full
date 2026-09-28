@@ -10,7 +10,7 @@ fn agent_hold_bindings_round_trip_and_predicate() {
     let home = temp.path().to_string_lossy();
     let now = 1_800_000_000.0;
     Python::with_gil(|py| {
-        assert_eq!(py_agent_hold_wire_schema_version(), 1);
+        assert_eq!(py_agent_hold_wire_schema_version(), 2);
         let armer_obj = json_value_to_py(
             py,
             &json!({
@@ -125,7 +125,7 @@ fn agent_hold_bindings_round_trip_and_predicate() {
             [
                 "artifact_dir",
                 "name",
-                "family",
+                "session",
                 "hood",
                 "clan",
                 "workflow",
@@ -475,5 +475,65 @@ fn agent_hold_bindings_map_validation_and_lock_errors() {
             unsafe { libc::flock(lock.as_raw_fd(), libc::LOCK_UN) };
         assert_eq!(unlock_result, 0);
         assert!(timeout.is_instance_of::<PyTimeoutError>(py));
+    });
+}
+
+#[test]
+fn agent_hold_bindings_accept_legacy_spellings_and_serialize_canonical() {
+    pyo3::prepare_freethreaded_python();
+    let temp = tempfile::tempdir().unwrap();
+    let home = temp.path().to_string_lossy();
+    let now = 1_800_000_000.0;
+    Python::with_gil(|py| {
+        let armer_obj = json_value_to_py(
+            py,
+            &json!({
+                "kind": "agent",
+                "key": "agent:hold-new",
+                "display": "Hold New",
+                "project": "sase",
+                "agent_name": "hold.agent",
+                "agent_session": "hold.agent",
+                "pid": 1234
+            }),
+        )
+        .unwrap();
+        let armer = armer_obj.bind(py).downcast::<PyDict>().unwrap();
+        let scope_obj = json_value_to_py(
+            py,
+            &json!({"kind": "project", "project": "sase"}),
+        )
+        .unwrap();
+        let scope = scope_obj.bind(py).downcast::<PyDict>().unwrap();
+        let selectors_obj = json_value_to_py(
+            py,
+            &json!({
+                "artifact_dirs": ["artifact/a"],
+                "agent_sessions": ["target.agent"],
+                "future": false
+            }),
+        )
+        .unwrap();
+        let selectors = selectors_obj.bind(py).downcast::<PyDict>().unwrap();
+        let record = py_agent_hold_arm_relative(
+            py,
+            &home,
+            armer,
+            scope,
+            selectors,
+            60.0,
+            None,
+            Some(now),
+            None,
+        )
+        .unwrap();
+        let record_value = py_to_json_value(record.bind(py)).unwrap();
+        assert_eq!(record_value["armer"]["agent_session"], json!("hold.agent"));
+        assert!(record_value["armer"].get("family").is_none());
+        assert_eq!(
+            record_value["selectors"]["agent_sessions"],
+            json!(["target.agent"])
+        );
+        assert!(record_value["selectors"].get("families").is_none());
     });
 }

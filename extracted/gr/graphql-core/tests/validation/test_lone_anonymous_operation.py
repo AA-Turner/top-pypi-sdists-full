@@ -11,21 +11,26 @@ assert_valid = partial(assert_errors, errors=[])
 
 def describe_validate_anonymous_operation_must_be_alone():
     def no_operations():
-        assert_valid("""
+        assert_valid(
+            """
             fragment fragA on Type {
               field
             }
-            """)
+            """
+        )
 
     def one_anon_operation():
-        assert_valid("""
+        assert_valid(
+            """
             {
               field
             }
-            """)
+            """
+        )
 
     def multiple_named_operation():
-        assert_valid("""
+        assert_valid(
+            """
             query Foo {
               field
             }
@@ -33,17 +38,20 @@ def describe_validate_anonymous_operation_must_be_alone():
             query Bar {
               field
             }
-            """)
+            """
+        )
 
     def anon_operation_with_fragment():
-        assert_valid("""
+        assert_valid(
+            """
             {
               ...Foo
             }
             fragment Foo on Type {
               field
             }
-            """)
+            """
+        )
 
     def multiple_anon_operations():
         assert_errors(

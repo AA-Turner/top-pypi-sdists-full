@@ -11,7 +11,8 @@ assert_valid = partial(assert_errors, errors=[])
 
 def describe_validate_no_unused_fragments():
     def all_fragment_names_are_used():
-        assert_valid("""
+        assert_valid(
+            """
             {
               human(id: 4) {
                 ...HumanFields1
@@ -30,10 +31,12 @@ def describe_validate_no_unused_fragments():
             fragment HumanFields3 on Human {
               name
             }
-            """)
+            """
+        )
 
     def all_fragment_names_are_used_by_multiple_operations():
-        assert_valid("""
+        assert_valid(
+            """
             query Foo {
               human(id: 4) {
                 ...HumanFields1
@@ -54,7 +57,8 @@ def describe_validate_no_unused_fragments():
             fragment HumanFields3 on Human {
               name
             }
-            """)
+            """
+        )
 
     def contains_unknown_fragments():
         assert_errors(

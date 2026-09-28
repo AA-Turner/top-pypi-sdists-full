@@ -238,9 +238,7 @@ DBusPyConnection_NewConsumingDBusConnection(PyTypeObject *cls,
     self->has_mainloop = (mainloop != Py_None);
     self->conn = NULL;
     self->filters = PyList_New(0);
-#if !DBUSPY_PY_VERSION_AT_LEAST(3, 12, 0, 0)
     self->weaklist = NULL;
-#endif
     if (!self->filters) goto err;
     self->object_paths = PyDict_New();
     if (!self->object_paths) goto err;
@@ -394,10 +392,7 @@ static void Connection_tp_dealloc(Connection *self)
     /* avoid clobbering any pending exception */
     PyErr_Fetch(&et, &ev, &etb);
 
-#if !DBUSPY_PY_VERSION_AT_LEAST(3, 12, 0, 0)
-    if (self->weaklist)
-#endif
-    {
+    if (self->weaklist) {
         PyObject_ClearWeakRefs((PyObject *)self);
     }
 
@@ -460,19 +455,12 @@ PyTypeObject DBusPyConnection_Type = {
     0,                      /*tp_getattro*/
     0,                      /*tp_setattro*/
     0,                      /*tp_as_buffer*/
-#if DBUSPY_PY_VERSION_AT_LEAST(3, 12, 0, 0)
-    Py_TPFLAGS_MANAGED_WEAKREF |
-#endif
     Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
     Connection_tp_doc,      /*tp_doc*/
     0,                      /*tp_traverse*/
     0,                      /*tp_clear*/
     0,                      /*tp_richcompare*/
-#if DBUSPY_PY_VERSION_AT_LEAST(3, 12, 0, 0)
-    0,                      /*tp_weaklistoffset*/
-#else
     offsetof(Connection, weaklist),   /*tp_weaklistoffset*/
-#endif
     0,                      /*tp_iter*/
     0,                      /*tp_iternext*/
     DBusPyConnection_tp_methods,  /*tp_methods*/

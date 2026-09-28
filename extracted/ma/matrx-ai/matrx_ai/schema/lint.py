@@ -29,6 +29,7 @@ from matrx_ai.schema.rules import (
     enforce_additional_properties_false,
     enforce_all_required,
     hoist_discriminator_first,
+    is_map_node,
     is_object_node,
     is_root_object,
 )
@@ -145,8 +146,10 @@ def lint_output_schema(
     # additionalProperties:false is a HARD rule for both OpenAI strict and
     # Anthropic. All-required is hard for OpenAI only — Anthropic accepts a
     # partial `required` list (measured against the live compiler 2026-08-24,
-    # correcting this module's original claim). The platform still enforces it
-    # everywhere so ONE portable schema satisfies every provider; it is NOT a
+    # correcting this module's original claim). The platform sets it everywhere so
+    # ONE portable schema satisfies every provider — required AND NULLABLE, so an
+    # optional field can still be answered absent — and the answer is checked
+    # against the stored schema at the end of the call (schema.answer_contract). It is NOT a
     # lever for the Anthropic compiled-grammar budget (see
     # matrx_ai.schema.grammar_budget for what was measured and rejected).
     if root_object and ({"openai", "anthropic"} & want):
@@ -154,7 +157,28 @@ def lint_output_schema(
             props = node.get("properties")
             prop_keys = list(props.keys()) if isinstance(props, dict) else []
 
-            if node.get("additionalProperties") is not False:
+            if is_map_node(node):
+                # A dynamic-key map is kept as a map in the portable contract
+                # (Gemini expresses it; the answer is validated against it). The
+                # strict providers' translators narrow it to {} and record a
+                # finding — so it is a WARNING about what those providers will
+                # enforce, never a reason to refuse the schema.
+                strict = [p for p in ("openai", "anthropic") if p in want]
+                if strict:
+                    findings.append(
+                        SchemaFinding(
+                            provider=strict[0],
+                            severity="warning",
+                            path=path,
+                            message=(
+                                "Dynamic-key map (additionalProperties is a schema/true): "
+                                f"{' and '.join(strict)} cannot express it and will receive it "
+                                "narrowed to an empty object. Declare the entries as an array "
+                                "of {key, value} objects to keep them enforced everywhere."
+                            ),
+                        )
+                    )
+            elif node.get("additionalProperties") is not False:
                 if "openai" in want:
                     findings.append(
                         SchemaFinding(
@@ -244,8 +268,19 @@ def _make_portable(schema: dict[str, Any]) -> dict[str, Any]:
     keyword that only SOME providers reject (e.g. Cerebras) is stripped at that
     provider's request boundary (see strip_unsupported_keywords + the OpenAI-
     compatible response_format builder), NOT baked out of the stored schema."""
-    out = enforce_additional_properties_false(schema)
-    enforce_all_required(out)
+    # A dynamic-key map stays a map HERE: this portable copy is also the contract
+    # the answer is validated against, and Gemini expresses maps natively. The
+    # strict providers (Anthropic, OpenAI) narrow a map at their own boundary and
+    # say so — narrowing it here silently emptied every map for every provider.
+    out = enforce_additional_properties_false(schema, maps="keep")
+    # required + NULLABLE, never required alone. This copy is what the answer is
+    # VALIDATED against, so forcing an optional field here refused an answer the
+    # author's own schema allows — 2,865 live schemas force a real business field
+    # (`gap_description` exists to be set only when there is a gap). Nullable
+    # carries "absent", so the portable contract admits exactly what the declared
+    # one does; `prune_optional_nulls` turns those nulls back into absence for a
+    # reader that wants the author's shape.
+    enforce_all_required(out, express_optional_as_nullable=True)
     # The discriminator must be the FIRST key the model emits, or a live
     # surface cannot route a streaming payload until the run is over. Schema
     # property order IS wire order for a constrained decoder, and it does not

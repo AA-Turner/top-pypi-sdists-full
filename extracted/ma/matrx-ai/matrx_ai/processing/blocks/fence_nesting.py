@@ -62,12 +62,19 @@ FENCE_OPENER_WHITESPACE = (
 
 
 def parse_fence_opener(line: str) -> tuple[int, str] | None:
-    """Parse a backtick fence OPENER the renderer's way: ``(ticks, lang)`` or None."""
+    """Parse a backtick fence OPENER the renderer's way: ``(ticks, lang)`` or None.
+
+    None also when the info string holds a backtick (GFM / CommonMark 4.5 —
+    "```` code ````" is a code span, never a fence); twin of content-ir
+    ``parseFenceOpener``.
+    """
     trimmed = line.strip(FENCE_OPENER_WHITESPACE)
     ticks = 0
     while ticks < len(trimmed) and trimmed[ticks] == "`":
         ticks += 1
     if ticks < 3:
+        return None
+    if "`" in trimmed[ticks:]:
         return None
     info = trimmed[ticks:].lstrip(FENCE_OPENER_WHITESPACE)
     end = 0

@@ -1,29 +1,19 @@
-import pyarrow as pa
-
-from geoarrow.pyarrow._kernel import Kernel, _geoarrow_c
+from geoarrow.pyarrow._kernel import Kernel
 from geoarrow.pyarrow._type import (
     GeometryExtensionType,
-    wkb,
-    wkt,
     large_wkb,
     large_wkt,
+    wkb,
+    wkt,
 )
+
+import pyarrow as pa
+from pyarrow import types as pa_types
 
 
 class GeometryExtensionArray(pa.ExtensionArray):
     def geobuffers(self):
-        import numpy as np
-
-        lib = _geoarrow_c()
-
-        cschema = lib.SchemaHolder()
-        self.type._export_to_c(cschema._addr())
-        carray = lib.ArrayHolder()
-        self._export_to_c(carray._addr())
-
-        array_view = lib.CArrayView(carray, cschema)
-        buffers = array_view.buffers()
-        return [np.array(b) if b is not None else None for b in buffers]
+        return _geobuffers(self.storage)
 
     def __repr__(self):
         # Pretty WKT printing needs geoarrow-c
@@ -54,11 +44,12 @@ class GeometryExtensionArray(pa.ExtensionArray):
             kernel = Kernel.format_wkt(self.type, max_element_size_bytes=max_width)
             head = kernel.push(head)
             tail = kernel.push(tail)
-        except Exception as e:
-            err = f"* 1 or more display values failed to parse\n* {str(e)}"
+        # Keep repr() usable for any failure in PyArrow or the native formatter.
+        except Exception as exc:  # noqa: BLE001
+            err = f"* 1 or more display values failed to parse\n* {exc}"
             type_name = type(self).__name__
             super_repr = super().__repr__()
-            return f"{type_name}:{repr(self.type)}[{len(self)}]\n{err}\n{super_repr}"
+            return f"{type_name}:{self.type!r}[{len(self)}]\n{err}\n{super_repr}"
 
         head_str = [f"<{item.as_py()}>" for item in head]
         tail_str = [f"<{item.as_py()}>" for item in tail]
@@ -74,14 +65,14 @@ class GeometryExtensionArray(pa.ExtensionArray):
         tail_str = "\n".join(tail_str)
         items_str = f"{head_str}\n{mid}\n{tail_str}"
 
-        return f"{type_name}:{repr(self.type)}[{len(self)}]\n{items_str}".strip()
+        return f"{type_name}:{self.type!r}[{len(self)}]\n{items_str}".strip()
 
 
 class BoxArray(GeometryExtensionArray):
     def __repr__(self):
         type_name = type(self).__name__
         items_str = "\n".join(repr(item.bounds) for item in self)
-        return f"{type_name}:{repr(self.type)}[{len(self)}]\n{items_str}".strip()
+        return f"{type_name}:{self.type!r}[{len(self)}]\n{items_str}".strip()
 
 
 def array_cls_from_name(name):
@@ -124,7 +115,7 @@ def array(obj, type_=None, *args, **kwargs) -> GeometryExtensionArray:
         obj = obj.to_wkb(flavor="iso")
 
     # Convert obj to array if it isn't already one
-    if isinstance(obj, pa.Array) or isinstance(obj, pa.ChunkedArray):
+    if isinstance(obj, (pa.Array, pa.ChunkedArray)):
         arr = obj
     else:
         arr = pa.array(obj, *args, **kwargs)
@@ -160,3 +151,49 @@ def array(obj, type_=None, *args, **kwargs) -> GeometryExtensionArray:
     # Eventually we will be able to handle more types (e.g., parse wkt or wkb
     # into a geoarrow type)
     raise TypeError(f"Can't create geoarrow.array for type {type_}")
+
+
+def _geobuffers(array, include_validity=True):
+    """Collect the physical buffers of ``array`` in depth-first order."""
+    import numpy as np
+
+    # While we may be able to be slightly smarter about not copying for slices
+    # where we can salvage pieces of the original buffer without copying, this
+    # line ensures correctness in the case of a sliced array (where buffers
+    # require taking into account the parent or multiple parents' offsets)
+    if array.offset != 0:
+        array = pa.concat_arrays([array])
+
+    type_ = array.type
+    buffers = array.buffers()
+    out = []
+
+    if include_validity:
+        out.append(_buffer_to_numpy(buffers[0], np.uint8))
+
+    if pa_types.is_struct(type_):
+        for i in range(type_.num_fields):
+            out.extend(_geobuffers(array.field(i), include_validity=False))
+    elif pa_types.is_list(type_) or pa_types.is_large_list(type_):
+        offset_dtype = np.int64 if pa_types.is_large_list(type_) else np.int32
+        out.append(_buffer_to_numpy(buffers[1], offset_dtype))
+        out.extend(_geobuffers(array.values, include_validity=False))
+    elif pa_types.is_fixed_size_list(type_):
+        out.extend(_geobuffers(array.values, include_validity=False))
+    elif pa_types.is_float32(type_):
+        out.append(_buffer_to_numpy(buffers[1], np.float32))
+    elif pa_types.is_float64(type_):
+        out.append(_buffer_to_numpy(buffers[1], np.float64))
+    else:
+        raise TypeError(f"Unsupported GeoArrow storage type for geobuffers(): {type_}")
+
+    return out
+
+
+def _buffer_to_numpy(buffer, dtype):
+    import numpy as np
+
+    if buffer is None:
+        return None
+
+    return np.frombuffer(buffer, dtype=dtype)

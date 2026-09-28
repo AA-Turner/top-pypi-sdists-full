@@ -59,6 +59,12 @@ class Visibility(str, Enum):
     LINK = "link"
     PUBLIC = "public"
 
+class ShownTo(str, Enum):
+    ONLY_ME = "only_me"
+    MY_TEAM = "my_team"
+    EVERYONE = "everyone"
+    EVERYONE_ON_AI_MATRX = "everyone_on_ai_matrx"
+
 class ScrapeParsedPage(MatrxEntity):
     id = UUIDField(primary_key=True, null=False)
     page_name = CharField(null=False)
@@ -95,6 +101,7 @@ class ScrapeParsedPage(MatrxEntity):
     visibility = EnumField(enum_class=Visibility, null=False)
     custom_fields = JSONBField(null=False, default={})
     deleted_at = DateTimeField()
+    shown_to = EnumField(enum_class=ShownTo, )
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
     _database = "matrx_scraper"
     _table_name = "scrape_parsed_page"
@@ -202,6 +209,7 @@ __all__ = [
     "ScrapeRetryQueue",
     "ScrapePathOverride",
     "Visibility",
+    "ShownTo",
 ]
 
 

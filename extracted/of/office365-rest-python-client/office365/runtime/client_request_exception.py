@@ -1,10 +1,67 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Optional
 
 from requests import RequestException, Response
 
+from office365.runtime.converters.scalars import parse_int
+
 _HEADER_REQUEST_IDS = ("request-id", "client-request-id", "SPRequestGuid")
+
+
+@dataclass(frozen=True)
+class ErrorPayload:
+    """Normalized view of an OData error response, parsed once for classification."""
+
+    code: str = ""
+    message: str = ""
+    details: tuple[dict, ...] = ()
+    status: Optional[int] = None
+
+    @property
+    def hresult(self) -> Optional[str]:
+        """The leading HRESULT of a SharePoint ``code`` (e.g. ``-2147018894``).
+
+        SharePoint encodes the error as ``"<hresult>, <dotnet-type>"`` (locale
+        independent), while Graph uses symbolic codes; returns ``None`` when the
+        code has no numeric prefix.
+        """
+        token = self.code.split(",", 1)[0].strip()
+        return token if token.lstrip("-").isdigit() else None
+
+    @property
+    def error_type(self) -> Optional[str]:
+        """The .NET type name embedded in a SharePoint ``code`` after the comma.
+
+        For ``"-2147018894, Microsoft.SharePoint.SPFileLockException"`` this is
+        ``"Microsoft.SharePoint.SPFileLockException"`` — a locale-independent,
+        self-describing discriminator that avoids matching on translated messages.
+        """
+        if "," not in self.code:
+            return None
+        type_name = self.code.split(",", 1)[1].strip()
+        return type_name or None
+
+
+def _parse_error(response: Response) -> dict:
+    try:
+        error = response.json().get("error", {})
+    except Exception:
+        return {}
+    return error if isinstance(error, dict) else {}
+
+
+def _to_payload(error: dict, response: Response) -> ErrorPayload:
+    msg = error.get("message")
+    message = str(msg.get("value", "")) if isinstance(msg, dict) else str(msg or "")
+    details = error.get("details")
+    return ErrorPayload(
+        code=str(error.get("code") or ""),
+        message=message,
+        details=tuple(d for d in details if isinstance(d, dict)) if isinstance(details, list) else (),
+        status=getattr(response, "status_code", None),
+    )
 
 
 class ClientRequestException(RequestException):
@@ -20,38 +77,37 @@ class ClientRequestException(RequestException):
         super().__init__(*args, **kwargs)
         self._error: dict = {}
 
+    #: Specificity of this type when several match a payload; the highest wins
+    #: (ties broken by registration order). Lets catch-alls coexist with the
+    #: concrete types without depending on import order.
+    MATCH_PRIORITY: int = 0
+
+    @classmethod
+    def matches(cls, payload: ErrorPayload) -> bool:
+        """Whether this exception type describes the given error payload."""
+        return False
+
     @classmethod
     def from_response(cls, response: Response) -> ClientRequestException:
         """Factory: parse error response, dispatch to the right exception type.
 
-        Inspects the error payload once and returns a specific subclass
-        (e.g. DuplicatedObjectException), so callers never deal with
-        HTTP status codes or error JSON.
+        Inspects the error payload once and returns the most specific matching
+        subclass (e.g. ``DuplicatedObjectException``), so callers never deal with
+        HTTP status codes or error JSON. ``MATCH_PRIORITY`` decides between
+        overlapping types and registration order breaks ties.
         """
-        try:
-            error = response.json().get("error", {})
-        except Exception:
-            error = {}
+        from office365.runtime import exceptions  # noqa: F401 — registers the built-in error types
 
-        if not isinstance(error, dict):
-            error = {}
-
-        details = error.get("details", [])
-        code = error.get("code") or ""
-        msg = error.get("message")
-        msg_text = str(msg.get("value", "")) if isinstance(msg, dict) else str(msg or "")
-        if (
-            code in {"nameAlreadyExists", "ErrorFolderExists"}
-            or any(d.get("code") == "ConflictingObjects" for d in details)
-            or "183" in code
-            or "-2130575342" in code  # SharePoint: list/survey/document library already exists
-            or "already exists" in msg_text.lower()
-        ):
-            exc: ClientRequestException = DuplicatedObjectException(response=response)
-        elif "-2147024809" in code or code.lower() in {"itemnotfound", "resourcenotfound", "notfound"}:
-            exc: ClientRequestException = ObjectNotFoundException(response=response)
-        else:
-            exc = cls(response=response)
+        error = _parse_error(response)
+        payload = _to_payload(error, response)
+        matches = [
+            (getattr(exc_type, "MATCH_PRIORITY", 0), -index, exc_type)
+            for index, exc_type in enumerate(_ERROR_TYPES)
+            if exc_type.matches(payload)
+        ]
+        exc: ClientRequestException = (
+            max(matches, key=lambda item: item[:2])[2](response=response) if matches else cls(response=response)
+        )
 
         exc._error = error
         if error:
@@ -64,6 +120,24 @@ class ClientRequestException(RequestException):
     @property
     def code(self) -> Optional[str]:
         return self._error.get("code")
+
+    @property
+    def hresult(self) -> Optional[str]:
+        """The leading HRESULT of a SharePoint ``code`` (``None`` for Graph codes)."""
+        code = self.code
+        if not code:
+            return None
+        token = code.split(",", 1)[0].strip()
+        return token if token.lstrip("-").isdigit() else None
+
+    @property
+    def error_type(self) -> Optional[str]:
+        """The .NET type name embedded in a SharePoint ``code`` (after the comma)."""
+        code = self.code
+        if not code or "," not in code:
+            return None
+        type_name = code.split(",", 1)[1].strip()
+        return type_name or None
 
     @property
     def message(self) -> str:
@@ -107,25 +181,39 @@ class ClientRequestException(RequestException):
     @property
     def duration_ms(self) -> Optional[int]:
         """SharePoint server-side processing time (``SPRequestDuration``), ms."""
-        return _to_int((getattr(self.response, "headers", None) or {}).get("SPRequestDuration"))
+        return parse_int((getattr(self.response, "headers", None) or {}).get("SPRequestDuration"))
 
     @property
     def health_score(self) -> Optional[int]:
         """SharePoint server health score (``X-SharePointHealthScore``)."""
-        return _to_int((getattr(self.response, "headers", None) or {}).get("X-SharePointHealthScore"))
+        return parse_int((getattr(self.response, "headers", None) or {}).get("X-SharePointHealthScore"))
 
 
-def _to_int(value: object) -> Optional[int]:
-    """Parse a header value into an int, returning None when absent/invalid."""
-    try:
-        return int(value)  # type: ignore[arg-type]
-    except (TypeError, ValueError):
-        return None
+# Error types consulted by ``from_response``. The generic runtime types live in
+# ``office365.runtime.exceptions`` and product packages (e.g.
+# ``office365.sharepoint.exceptions``) register their own; both call
+# ``register_error_type`` so the dispatcher stays product-agnostic. Specificity is
+# decided by ``MATCH_PRIORITY`` (registration order breaks ties), not import order.
+_ERROR_TYPES: list[type[ClientRequestException]] = []
 
 
-class DuplicatedObjectException(ClientRequestException):
-    """Raised when creating an object that already exists (HTTP 400 + ConflictingObjects)."""
+def register_error_type(exc_type: type[ClientRequestException]) -> None:
+    """Register an error type for ``from_response`` dispatch.
+
+    Modules call this at import time; the dispatcher picks the highest
+    ``MATCH_PRIORITY`` match, breaking ties by registration order (earlier wins).
+    """
+    if exc_type not in _ERROR_TYPES:
+        _ERROR_TYPES.append(exc_type)
 
 
-class ObjectNotFoundException(ClientRequestException):
-    """Raised when a requested object is not found (HTTP 404 or ResourceNotFound code)."""
+_LAZY_EXPORTS = ("DuplicatedObjectException", "ObjectNotFoundException")
+
+
+def __getattr__(name: str):
+    """Backward-compatible re-export of the generic error types (now in ``exceptions``)."""
+    if name in _LAZY_EXPORTS:
+        from office365.runtime import exceptions
+
+        return getattr(exceptions, name)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

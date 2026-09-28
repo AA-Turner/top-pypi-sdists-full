@@ -1,1 +1,0 @@
-import{Li as e,Si as t,ua as n}from"./lucide-DJxHsl0k.js";var r=Symbol(`edited-provider-name`);function i(){let t=n(``);return e(r,t),t}function a(){return t(r,n(``))}export{a as n,i as t};

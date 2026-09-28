@@ -1,21 +1,21 @@
 from math import inf, nan
 
-from pytest import raises
+import pytest
 
 from graphql.error import GraphQLError
 from graphql.language import (
     BooleanValueNode,
+    ConstListValueNode,
+    ConstObjectFieldNode,
+    ConstObjectValueNode,
     EnumValueNode,
     FloatValueNode,
     IntValueNode,
-    ListValueNode,
     NameNode,
     NullValueNode,
-    ObjectFieldNode,
-    ObjectValueNode,
     StringValueNode,
 )
-from graphql.pyutils import Undefined
+from graphql.pyutils import Undefined, inspect
 from graphql.type import (
     GraphQLBoolean,
     GraphQLEnumType,
@@ -33,6 +33,8 @@ from graphql.utilities import ast_from_value
 
 
 def describe_ast_from_value():
+    # deprecated: use value_to_literal() instead with care to operate on external
+    # values - ast_from_value() will be removed in v18
     def converts_boolean_values_to_asts():
         assert ast_from_value(True, GraphQLBoolean) == BooleanValueNode(value=True)
 
@@ -58,18 +60,18 @@ def describe_ast_from_value():
 
         # GraphQL spec does not allow coercing non-integer values to Int to
         # avoid accidental data loss.
-        with raises(GraphQLError) as exc_info:
+        with pytest.raises(GraphQLError) as exc_info:
             assert ast_from_value(123.5, GraphQLInt)
         msg = str(exc_info.value)
         assert msg == "Int cannot represent non-integer value: 123.5"
 
         # Note: outside the bounds of 32bit signed int.
-        with raises(GraphQLError) as exc_info:
+        with pytest.raises(GraphQLError) as exc_info:
             assert ast_from_value(1e40, GraphQLInt)
         msg = str(exc_info.value)
         assert msg == "Int cannot represent non 32-bit signed integer value: 1e+40"
 
-        with raises(GraphQLError) as exc_info:
+        with pytest.raises(GraphQLError) as exc_info:
             ast_from_value(nan, GraphQLInt)
         msg = str(exc_info.value)
         assert msg == "Int cannot represent non-integer value: nan"
@@ -91,6 +93,27 @@ def describe_ast_from_value():
         )
 
         assert ast_from_value(1.1, GraphQLFloat) == FloatValueNode(value="1.1")
+
+        # Python's int is arbitrary-precision (the bigint analog): an integer that
+        # fits exactly is converted, but a larger one raises rather than lose data.
+        assert ast_from_value(9007199254740992, GraphQLFloat) == FloatValueNode(
+            value="9007199254740992"
+        )
+
+        with pytest.raises(GraphQLError) as exc_info:
+            ast_from_value(9007199254740993, GraphQLFloat)
+        assert str(exc_info.value) == (
+            "Float cannot represent non numeric value:"
+            " 9007199254740993 (value would lose precision)"
+        )
+
+        with pytest.raises(GraphQLError) as exc_info:
+            ast_from_value(2**1024, GraphQLFloat)
+        assert str(exc_info.value) == (
+            "Float cannot represent non numeric value: "
+            + inspect(2**1024)
+            + " (value is too large)"
+        )
 
     def converts_string_values_to_string_asts():
         assert ast_from_value("hello", GraphQLString) == StringValueNode(value="hello")
@@ -126,7 +149,7 @@ def describe_ast_from_value():
 
         assert ast_from_value("01", GraphQLID) == StringValueNode(value="01")
 
-        with raises(GraphQLError) as exc_info:
+        with pytest.raises(GraphQLError) as exc_info:
             assert ast_from_value(False, GraphQLID)
         assert str(exc_info.value) == "ID cannot represent value: False"
 
@@ -134,27 +157,27 @@ def describe_ast_from_value():
 
         assert ast_from_value(Undefined, GraphQLString) is None
 
-    def converts_using_serialize_from_a_custom_scalar_type():
+    def converts_using_coerce_output_value_from_a_custom_scalar_type():
         pass_through_scalar = GraphQLScalarType(
             "PassThroughScalar",
-            serialize=lambda value: value,
+            coerce_output_value=lambda value: value,
         )
 
         assert ast_from_value("value", pass_through_scalar) == StringValueNode(
             value="value"
         )
 
-        with raises(TypeError) as exc_info:
+        with pytest.raises(TypeError) as exc_info:
             assert ast_from_value(nan, pass_through_scalar)
         assert str(exc_info.value) == "Cannot convert value to AST: nan."
 
-        with raises(TypeError) as exc_info:
+        with pytest.raises(TypeError) as exc_info:
             ast_from_value(inf, pass_through_scalar)
         assert str(exc_info.value) == "Cannot convert value to AST: inf."
 
         return_null_scalar = GraphQLScalarType(
             "ReturnNullScalar",
-            serialize=lambda value: None,
+            coerce_output_value=lambda value: None,  # noqa: ARG005
         )
 
         assert ast_from_value("value", return_null_scalar) is None
@@ -164,10 +187,10 @@ def describe_ast_from_value():
 
         return_custom_class_scalar = GraphQLScalarType(
             "ReturnCustomClassScalar",
-            serialize=lambda value: SomeClass(),
+            coerce_output_value=lambda value: SomeClass(),  # noqa: ARG005
         )
 
-        with raises(TypeError) as exc_info:
+        with pytest.raises(TypeError) as exc_info:
             ast_from_value("value", return_custom_class_scalar)
         msg = str(exc_info.value)
         assert msg == "Cannot convert value to AST: <SomeClass instance>."
@@ -188,12 +211,12 @@ def describe_ast_from_value():
         assert ast_from_value(complex_value, my_enum) == EnumValueNode(value="COMPLEX")
 
         # Note: case sensitive
-        with raises(GraphQLError) as exc_info:
+        with pytest.raises(GraphQLError) as exc_info:
             ast_from_value("hello", my_enum)
         assert exc_info.value.message == "Enum 'MyEnum' cannot represent value: 'hello'"
 
         # Note: not a valid enum value
-        with raises(GraphQLError) as exc_info:
+        with pytest.raises(GraphQLError) as exc_info:
             ast_from_value("UNKNOWN_VALUE", my_enum)
         assert (
             exc_info.value.message
@@ -203,14 +226,14 @@ def describe_ast_from_value():
     def converts_list_values_to_list_asts():
         assert ast_from_value(
             ["FOO", "BAR"], GraphQLList(GraphQLString)
-        ) == ListValueNode(
-            values=[StringValueNode(value="FOO"), StringValueNode(value="BAR")]
+        ) == ConstListValueNode(
+            values=(StringValueNode(value="FOO"), StringValueNode(value="BAR"))
         )
 
         assert ast_from_value(
             ["HELLO", "GOODBYE"], GraphQLList(my_enum)
-        ) == ListValueNode(
-            values=[EnumValueNode(value="HELLO"), EnumValueNode(value="GOODBYE")]
+        ) == ConstListValueNode(
+            values=(EnumValueNode(value="HELLO"), EnumValueNode(value="GOODBYE"))
         )
 
         def list_generator():
@@ -219,12 +242,12 @@ def describe_ast_from_value():
             yield 3
 
         assert ast_from_value(list_generator(), GraphQLList(GraphQLInt)) == (
-            ListValueNode(
-                values=[
+            ConstListValueNode(
+                values=(
                     IntValueNode(value="1"),
                     IntValueNode(value="2"),
                     IntValueNode(value="3"),
-                ]
+                )
             )
         )
 
@@ -238,8 +261,8 @@ def describe_ast_from_value():
             ["FOO", None, "BAR"], GraphQLList(GraphQLNonNull(GraphQLString))
         )
 
-        assert ast == ListValueNode(
-            values=[StringValueNode(value="FOO"), StringValueNode(value="BAR")]
+        assert ast == ConstListValueNode(
+            values=(StringValueNode(value="FOO"), StringValueNode(value="BAR"))
         )
 
     input_obj = GraphQLInputObjectType(
@@ -248,20 +271,24 @@ def describe_ast_from_value():
     )
 
     def converts_input_objects():
-        assert ast_from_value({"foo": 3, "bar": "HELLO"}, input_obj) == ObjectValueNode(
-            fields=[
-                ObjectFieldNode(
+        assert ast_from_value(
+            {"foo": 3, "bar": "HELLO"}, input_obj
+        ) == ConstObjectValueNode(
+            fields=(
+                ConstObjectFieldNode(
                     name=NameNode(value="foo"), value=FloatValueNode(value="3")
                 ),
-                ObjectFieldNode(
+                ConstObjectFieldNode(
                     name=NameNode(value="bar"), value=EnumValueNode(value="HELLO")
                 ),
-            ]
+            )
         )
 
     def converts_input_objects_with_explicit_nulls():
-        assert ast_from_value({"foo": None}, input_obj) == ObjectValueNode(
-            fields=[ObjectFieldNode(name=NameNode(value="foo"), value=NullValueNode())]
+        assert ast_from_value({"foo": None}, input_obj) == ConstObjectValueNode(
+            fields=(
+                ConstObjectFieldNode(name=NameNode(value="foo"), value=NullValueNode()),
+            )
         )
 
     def does_not_convert_non_object_values_as_input_objects():

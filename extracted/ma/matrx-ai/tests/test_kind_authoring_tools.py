@@ -1,7 +1,7 @@
 """Unit tests for the kind-registry authoring toolsets (kind_* / kindcomp_*).
 
 Pure-logic coverage: schema inference, slug normalization, validation
-plumbing, arg-contract enforcement, and the in-code authorization mirror.
+plumbing, arg-contract enforcement, and that authorization is RLS's answer.
 The live DB lifecycle (create kind -> component -> patch -> version snapshot
 -> incident -> resolve -> soft-delete) is exercised by
 ``tests_trials/run_kind_tools_e2e.py`` (repo root) against the real database.
@@ -507,16 +507,14 @@ def test_fields_round_trip_validates_same_instances() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Authorization — delegation to the live iam.has_access_for
+# Authorization — RLS answers in the CALLER's session, never app code
 #
-# The gate's design guarantee is: OWNER passes without a DB call; EVERYONE
-# ELSE resolves through iam.has_access_for(user, 'content_ir_kind', id, level)
-# — the exact SECURITY DEFINER body behind the RLS policies (public / creator
-# / internal+org-member / explicit grant / reachability). We therefore pin
-# (a) the owner fast-path, (b) verbatim delegation args, (c) that the code
-# NEVER short-circuits on org membership (the historical private-kind
-# over-grant), and (d) fail-closed on checker errors. The visibility/grant
-# matrix itself lives in ONE place — the DB function — by construction.
+# can_access_kind asks Postgres as the person: viewer = content_ir.kind_definition
+# returns the row to them; editor = SELECT ... FOR UPDATE returns it (the UPDATE
+# policy answers). No owner fast path, no iam.has_access_for call, no org logic.
+# The seam is kind_shared.kind_rls_allows(kind_id, level); the real one is
+# exercised live (see the RLS proof in the commit) and against the person
+# session in test_kind_rls_allows_asks_only_inside_the_person_session below.
 # ---------------------------------------------------------------------------
 
 
@@ -530,40 +528,39 @@ def _kind_row(created_by: str | None, organization_id: str) -> Any:
 
 
 class _AccessRecorder:
-    """Monkeypatch stand-in for kind_access_allowed that records delegations
-    and answers from a scripted (kind_id, user_id, level) -> bool table."""
+    """Stand-in for kind_rls_allows: records every question put to the
+    database and answers from a scripted (kind_id, level) -> bool table."""
 
-    def __init__(self, table: dict[tuple[str, str, str], bool]):
+    def __init__(self, table: dict[tuple[str, str], bool]):
         self.table = table
-        self.calls: list[tuple[str, str, str]] = []
+        self.calls: list[tuple[str, str]] = []
 
-    async def __call__(self, kind_id: str, user_id: str, level: str) -> bool:
-        self.calls.append((kind_id, user_id, level))
-        return self.table.get((kind_id, user_id, level), False)
+    async def __call__(self, kind_id: str, level: str) -> bool:
+        self.calls.append((kind_id, level))
+        return self.table.get((kind_id, level), False)
 
 
 @pytest.mark.asyncio
-async def test_owner_passes_without_db_call(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_the_owner_is_decided_by_rls_too(monkeypatch: pytest.MonkeyPatch) -> None:
     from matrx_ai.tools.implementations import kind_shared
 
     user = str(uuid4())
     monkeypatch.setattr(kind_shared, "ctx_user_id", lambda _ctx: user)
-    recorder = _AccessRecorder({})
-    monkeypatch.setattr(kind_shared, "kind_access_allowed", recorder)
     row = _kind_row(user, str(uuid4()))
+    recorder = _AccessRecorder({(str(row.id), "editor"): True, (str(row.id), "viewer"): True})
+    monkeypatch.setattr(kind_shared, "kind_rls_allows", recorder)
     assert await can_access_kind(row, make_ctx(), "editor") is True
     assert await can_access_kind(row, make_ctx(), "viewer") is True
-    assert recorder.calls == []  # owner never round-trips
+    # no owner fast path: even the creator's access was the database's answer
+    assert recorder.calls == [(str(row.id), "editor"), (str(row.id), "viewer")]
 
 
 @pytest.mark.asyncio
-async def test_non_owner_delegates_verbatim_and_org_never_short_circuits(
+async def test_every_answer_is_the_databases_and_org_never_short_circuits(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """A co-member of the kind's org gets EXACTLY what iam.has_access_for
-    says — private kind: denied at editor AND viewer; internal kind (which
-    the live function grants to org members): allowed. The code contributes
-    no org logic of its own."""
+    """A co-member of the kind's org gets EXACTLY what RLS says — private kind:
+    denied; internal kind: allowed; the code contributes no org logic."""
     from matrx_ai.tools.implementations import kind_shared
 
     user = str(uuid4())
@@ -574,51 +571,90 @@ async def test_non_owner_delegates_verbatim_and_org_never_short_circuits(
     internal_kind = _kind_row(str(uuid4()), org)
     cross_org_kind = _kind_row(str(uuid4()), str(uuid4()))
     recorder = _AccessRecorder(
-        {
-            # scripted live-function answers: private denies co-members,
-            # internal grants viewer+editor to org members, cross-org denies.
-            (str(internal_kind.id), user, "viewer"): True,
-            (str(internal_kind.id), user, "editor"): True,
-        }
+        {(str(internal_kind.id), "viewer"): True, (str(internal_kind.id), "editor"): True}
     )
-    monkeypatch.setattr(kind_shared, "kind_access_allowed", recorder)
+    monkeypatch.setattr(kind_shared, "kind_rls_allows", recorder)
 
     ctx = make_ctx()
-    # co-member, private kind: DENIED both levels (the refuted over-grant).
     assert await can_access_kind(private_kind, ctx, "viewer") is False
     assert await can_access_kind(private_kind, ctx, "editor") is False
-    # co-member, internal kind: allowed per the live function.
     assert await can_access_kind(internal_kind, ctx, "viewer") is True
     assert await can_access_kind(internal_kind, ctx, "editor") is True
-    # cross-org stranger: denied both levels.
     assert await can_access_kind(cross_org_kind, ctx, "viewer") is False
     assert await can_access_kind(cross_org_kind, ctx, "editor") is False
-    # every non-owner decision delegated with verbatim args.
-    assert (str(private_kind.id), user, "viewer") in recorder.calls
-    assert (str(private_kind.id), user, "editor") in recorder.calls
-    assert (str(cross_org_kind.id), user, "editor") in recorder.calls
+    assert (str(private_kind.id), "viewer") in recorder.calls
+    assert (str(cross_org_kind.id), "editor") in recorder.calls
 
 
 @pytest.mark.asyncio
-async def test_no_user_or_checker_error_fails_closed(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
+async def test_no_user_never_asks_and_never_grants(monkeypatch: pytest.MonkeyPatch) -> None:
     from matrx_ai.tools.implementations import kind_shared
 
     monkeypatch.setattr(kind_shared, "ctx_user_id", lambda _ctx: None)
+    recorder = _AccessRecorder({})
+    monkeypatch.setattr(kind_shared, "kind_rls_allows", recorder)
     assert (
         await can_access_kind(_kind_row(str(uuid4()), str(uuid4())), make_ctx(), "viewer") is False
     )
+    assert recorder.calls == []
 
-    # checker raising -> kind_access_allowed itself fails closed
-    user = str(uuid4())
 
-    async def _boom(*_args: Any, **_kwargs: Any):  # noqa: ANN202
-        raise RuntimeError("db down")
+@pytest.mark.asyncio
+async def test_kind_rls_allows_asks_only_inside_the_person_session(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """viewer = a SELECT as the person; editor = SELECT ... FOR UPDATE as the
+    person. Without a person session the question is refused, never answered
+    on the privileged connection."""
+    import contextlib
+    from contextvars import ContextVar
 
-    monkeypatch.setattr(kind_shared, "ctx_user_id", lambda _ctx: user)
-    monkeypatch.setattr("matrx_orm.call_function", _boom, raising=False)
-    assert await kind_shared.kind_access_allowed(str(uuid4()), user, "viewer") is False
+    from matrx_ai import _ext
+    from matrx_ai.tools.implementations import kind_shared
+    from matrx_ai.tools.person_session import PersonSessionUnavailable
+
+    acting: ContextVar[bool] = ContextVar("kind_rls_acting", default=False)
+    kind_id = str(uuid4())
+    seen: list[tuple[str, bool]] = []
+
+    class _Kinds:
+        @staticmethod
+        async def get_or_none(use_cache: bool = True, **pk: Any) -> Any:
+            seen.append(("select", acting.get()))
+            assert use_cache is False
+            return SimpleNamespace(id=pk["id"])
+
+        @staticmethod
+        def filter(**_pk: Any) -> Any:
+            class _Q:
+                def select_for_update(self) -> Any:
+                    return self
+
+                async def values(self, *_f: str) -> list[dict[str, Any]]:
+                    seen.append(("for_update", acting.get()))
+                    return []  # the UPDATE policy refuses this person
+
+            return _Q()
+
+    monkeypatch.setattr(kind_shared, "get_db_model", lambda _n: _Kinds)
+
+    @contextlib.asynccontextmanager
+    async def acting_as_caller():
+        token = acting.set(True)
+        try:
+            yield
+        finally:
+            acting.reset(token)
+
+    monkeypatch.setitem(_ext._registry, "acting_as_caller", acting_as_caller)
+    assert await kind_shared.kind_rls_allows(kind_id, "viewer") is True
+    assert await kind_shared.kind_rls_allows(kind_id, "editor") is False
+    assert seen == [("select", True), ("for_update", True)]
+
+    monkeypatch.delitem(_ext._registry, "acting_as_caller")
+    with pytest.raises(PersonSessionUnavailable):
+        await kind_shared.kind_rls_allows(kind_id, "viewer")
+    assert len(seen) == 2  # nothing reached the privileged connection
 
 
 def test_kind_entity_token_is_the_registered_token() -> None:
@@ -645,7 +681,7 @@ async def test_kind_get_denies_non_viewer_content_free(
 
     user = str(uuid4())
     monkeypatch.setattr(kind_shared, "ctx_user_id", lambda _ctx: user)
-    monkeypatch.setattr(kind_shared, "kind_access_allowed", _AccessRecorder({}))
+    monkeypatch.setattr(kind_shared, "kind_rls_allows", _AccessRecorder({}))
     row = _kind_row(str(uuid4()), str(uuid4()))
     _patch_resolve(monkeypatch, kind_authoring, row)
 
@@ -681,8 +717,8 @@ async def test_kindcomp_get_context_viewer_sees_no_incidents(
         metadata={},
         deleted_at=None,
     )
-    recorder = _AccessRecorder({(str(row.id), user, "viewer"): True})  # editor: False
-    monkeypatch.setattr(kind_shared, "kind_access_allowed", recorder)
+    recorder = _AccessRecorder({(str(row.id), "viewer"): True})  # editor: False
+    monkeypatch.setattr(kind_shared, "kind_rls_allows", recorder)
     _patch_resolve(monkeypatch, kind_component, row)
 
     class _EmptyModel:
@@ -707,8 +743,8 @@ async def test_kindcomp_get_context_viewer_sees_no_incidents(
     assert result.output.incidents_visible is False
     assert result.output.open_incidents == []
     assert result.output.summary.open_incident_types is None
-    # the editor probe actually happened (delegated, not assumed)
-    assert (str(row.id), user, "editor") in recorder.calls
+    # the editor question actually went to the database (not assumed)
+    assert (str(row.id), "editor") in recorder.calls
 
 
 # ---------------------------------------------------------------------------
@@ -1010,7 +1046,7 @@ class _FakeQuery:
     def __init__(self, rows: list[Any]):
         self._rows = rows
 
-    def limit(self, _n: int) -> "_FakeQuery":
+    def limit(self, _n: int) -> _FakeQuery:
         return self
 
     async def all(self) -> list[Any]:

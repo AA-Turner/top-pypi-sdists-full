@@ -279,6 +279,23 @@ class Field(Entity):
     def indexed(self):
         return self.properties.get("Indexed", None)
 
+    def ensure_indexed(self) -> Self:
+        """Ensure this field is indexed (idempotent, deferred).
+
+        Indexing a column lets queries filter/sort on it past the 5,000-item list
+        view threshold. Run with ``execute_query()``.
+        """
+
+        def _enable(_=None) -> None:
+            if self.indexed is not True:
+                self.enable_index()
+
+        if self.indexed is None:
+            self.ensure_property("Indexed").after_execute(_enable)
+        else:
+            _enable()
+        return self
+
     @property
     def type_display_name(self) -> Optional[str]:
         """

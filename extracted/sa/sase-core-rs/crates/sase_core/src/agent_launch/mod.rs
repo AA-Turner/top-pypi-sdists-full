@@ -43,7 +43,10 @@ pub use conditional::{
     ConditionalLaunchSegmentWire,
     CONDITIONAL_LAUNCH_SEGMENT_FILTER_SCHEMA_VERSION,
 };
-pub(crate) use directive_scan::launch_literal_zone_ranges;
+pub(crate) use directive_scan::{
+    alt_directive_starts, directive_occurrences, find_matching_delimiter,
+    launch_literal_zone_ranges,
+};
 pub use fanout::{bind_batch_predecessor_waits, plan_agent_launch_fanout};
 pub use launch_hold::{launch_unit_hold_armer, launch_unit_hold_key};
 pub use launch_prep::{prepare_agent_launch, safe_launch_name};
@@ -52,7 +55,7 @@ pub use proc_runtime::{
     cleanup_proc_private_inputs, parse_proc_duration_seconds,
     prepare_proc_script, proc_script_argv, resolve_proc_execution_cwd,
     sanitized_proc_env, validate_proc_workspace_intent,
-    validate_standalone_proc_shell_name, ProcDispatchPreparedWire,
+    validate_standalone_named_proc_name, ProcDispatchPreparedWire,
     ProcDispatchRequestWire, PROC_DISPATCH_WIRE_SCHEMA_VERSION,
     PROC_PHASE_ACQUIRING_WORKSPACE, PROC_PHASE_CHECKING,
     PROC_PHASE_PREPARING_SCRIPT, PROC_PHASE_RUNNING, PROC_PHASE_SETTLING,

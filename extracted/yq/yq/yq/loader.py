@@ -7,6 +7,7 @@ from typing import Any, Pattern, TypedDict
 
 import yaml
 from yaml.constructor import SafeConstructor
+from yaml.reader import Reader
 from yaml.tokens import (
     AliasToken,
     AnchorToken,
@@ -168,6 +169,18 @@ class YAMLExpansionError(ValueError):
     pass
 
 
+class _StreamingReader(Reader):
+    _deferred_read_position: int | None = None
+
+    def update_raw(self, size=4096):
+        # Let PyYAML decode buffered input before reading more. Defer at most
+        # once per stream position so partial characters can request more bytes.
+        if self.raw_buffer and self.stream_pointer != self._deferred_read_position:
+            self._deferred_read_position = self.stream_pointer
+            return
+        super().update_raw(size)
+
+
 class _MergeKeyExpansionGuard(SafeConstructor):
     max_merge_expansion: int | None = None
     merge_expansion = 0
@@ -276,16 +289,24 @@ def get_loader(use_annotations=False, expand_aliases=True, expand_merge_keys=Tru
             comments = consume_comments_for_node(loader, k_node, v_node)
             if not isinstance(key, (str, bytes)):
                 continue
+            tag = None
+            if v_node.tag and v_node.tag.startswith("!") and not v_node.tag.startswith("!!") and len(v_node.tag) > 1:
+                tag = v_node.tag
+            style = None
+            if isinstance(v_node, yaml.nodes.ScalarNode):
+                style = v_node.style
+            elif isinstance(v_node, (yaml.nodes.SequenceNode, yaml.nodes.MappingNode)) and v_node.flow_style is True:
+                style = "flow"
+            if not (tag or style or comments[COMMENT_PLACEMENT_BEFORE] or comments[COMMENT_PLACEMENT_INLINE]):
+                continue
             hashed_key = hash_key(key)
             for placement, values in comments.items():
                 if values:
                     pairs.append((make_mapping_comment_key(placement, hashed_key), values))
-            if v_node.tag and v_node.tag.startswith("!") and not v_node.tag.startswith("!!") and len(v_node.tag) > 1:
-                pairs.append((f"__yq_tag_{hashed_key}__", v_node.tag))
-            if isinstance(v_node, yaml.nodes.ScalarNode) and v_node.style:
-                pairs.append((f"__yq_style_{hashed_key}__", v_node.style))
-            elif isinstance(v_node, (yaml.nodes.SequenceNode, yaml.nodes.MappingNode)) and v_node.flow_style is True:
-                pairs.append((f"__yq_style_{hashed_key}__", "flow"))
+            if tag:
+                pairs.append((f"__yq_tag_{hashed_key}__", tag))
+            if style:
+                pairs.append((f"__yq_style_{hashed_key}__", style))
         return dict(pairs)
 
     def parse_unknown_tags(loader, tag_suffix, node):
@@ -301,7 +322,10 @@ def get_loader(use_annotations=False, expand_aliases=True, expand_merge_keys=Tru
         loader_class = CommentPreservingLoader if expand_aliases else CommentPreservingCustomLoader
     else:
         loader_class = default_loader if expand_aliases else CustomLoader
-    loader_class = type("YqLoader", (_MergeKeyExpansionGuard, loader_class), {})
+    loader_bases: tuple[type, ...] = (_MergeKeyExpansionGuard, loader_class)
+    if issubclass(loader_class, Reader):
+        loader_bases = (_StreamingReader, *loader_bases)
+    loader_class = type("YqLoader", loader_bases, {})
     loader_class.add_constructor(yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG, construct_mapping)
     loader_class.add_constructor(yaml.resolver.BaseResolver.DEFAULT_SEQUENCE_TAG, construct_sequence)
     loader_class.add_constructor("tag:yaml.org,2002:int", construct_yaml_1_2_int)

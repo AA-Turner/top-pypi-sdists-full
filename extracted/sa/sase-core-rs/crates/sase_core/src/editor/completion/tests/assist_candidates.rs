@@ -169,7 +169,7 @@ fn agent_candidates_are_kind_aware_ordered_and_compatible() {
         vec![
             ("tribe", "@reviewers"),
             ("clan", "builders"),
-            ("family", "review"),
+            ("session", "review"),
             ("agent", "legacy"),
         ]
     );
@@ -178,6 +178,24 @@ fn agent_candidates_are_kind_aware_ordered_and_compatible() {
         build_agent_completion_candidates("rev", None, &agent_entries, &[]);
     assert_eq!(bare_tribe.candidates[0].insertion, "@reviewers");
     assert_eq!(bare_tribe.candidates[0].name, "reviewers");
+
+    // Legacy `family` rows and new `session` rows both answer the session
+    // value role.
+    let new_spelling = vec![agent_target("review", "session", 3, "3 members")];
+    let legacy_spelling =
+        vec![agent_target("review", "family", 3, "3 members")];
+    for entries in [&new_spelling, &legacy_spelling] {
+        let filtered =
+            build_identity_target_candidates("", None, entries, "session", &[]);
+        assert_eq!(
+            filtered
+                .candidates
+                .iter()
+                .map(|c| c.insertion.as_str())
+                .collect::<Vec<_>>(),
+            ["review"],
+        );
+    }
     let sigil_tribe =
         build_agent_completion_candidates("@rev", None, &agent_entries, &[]);
     assert_eq!(sigil_tribe.candidates[0].insertion, "@reviewers");

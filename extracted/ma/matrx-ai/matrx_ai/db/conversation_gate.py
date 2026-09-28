@@ -775,7 +775,6 @@ _ADOPTION_BLOCKING_COLUMNS: tuple[str, ...] = (
 _ADOPTION_PRESERVED_USER_CHOICE: tuple[str, ...] = (
     "sandbox_instance_id",
     "app_instance_id",
-    "is_favorite",
     "exclude_from_kg",
 )
 

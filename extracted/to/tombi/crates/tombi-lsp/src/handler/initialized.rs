@@ -28,7 +28,7 @@ pub async fn handle_initialized(backend: &Backend, params: InitializedParams) {
                 startup_backend.refresh_pull_diagnostics().await;
             }
             DiagnosticMode::Push => {
-                let open_document_uris = startup_backend
+                let open_schema_document_uris = startup_backend
                     .document_sources
                     .read()
                     .await
@@ -36,7 +36,7 @@ pub async fn handle_initialized(backend: &Backend, params: InitializedParams) {
                     .filter_map(|(uri, source)| source.version.is_some().then_some(uri.clone()))
                     .collect::<Vec<_>>();
 
-                for text_document_uri in open_document_uris {
+                for text_document_uri in open_schema_document_uris {
                     startup_backend.push_diagnostics(text_document_uri).await;
                 }
 

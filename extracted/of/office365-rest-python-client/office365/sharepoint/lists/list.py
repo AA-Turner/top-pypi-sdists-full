@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 from datetime import datetime
-from typing import IO, TYPE_CHECKING, AnyStr, Callable, Dict, Optional, Union
+from typing import IO, TYPE_CHECKING, Any, AnyStr, Callable, Dict, Optional, Union, cast
 
 from typing_extensions import Self
 
@@ -37,8 +37,10 @@ from office365.sharepoint.flows.connector_result import ConnectorResult
 from office365.sharepoint.flows.synchronization_result import FlowSynchronizationResult
 from office365.sharepoint.folders.folder import Folder
 from office365.sharepoint.forms.collection import FormCollection
+from office365.sharepoint.listitems.caml.guard import warn_if_unpaged
 from office365.sharepoint.listitems.caml.query import CamlQuery
 from office365.sharepoint.listitems.collection import ListItemCollection
+from office365.sharepoint.listitems.collection_position import ListItemCollectionPosition
 from office365.sharepoint.listitems.creation_information import (
     ListItemCreationInformation,
 )
@@ -65,6 +67,7 @@ from office365.sharepoint.permissions.securable_object import SecurableObject
 from office365.sharepoint.principal.users.user import User
 from office365.sharepoint.sharing.object_sharing_settings import ObjectSharingSettings
 from office365.sharepoint.sitescripts.utility import SiteScriptUtility
+from office365.sharepoint.thresholds import LIST_VIEW_THRESHOLD, SAFE_PAGE_SIZE, Limits, limit
 from office365.sharepoint.translation.user_resource import UserResource
 from office365.sharepoint.types.resource_path import ResourcePath as SPResPath
 from office365.sharepoint.usercustomactions.collection import UserCustomActionCollection
@@ -74,7 +77,10 @@ from office365.sharepoint.views.view import View
 from office365.sharepoint.webhooks.subscription_collection import SubscriptionCollection
 
 if TYPE_CHECKING:
+    from office365.runtime.converters.dataframe import DataFrameResult
+    from office365.runtime.imports import CheckpointStore, ImportCheckpoint, ImportResult
     from office365.runtime.operations import ProgressCallback
+    from office365.runtime.record_collection import VerificationResult
     from office365.sharepoint.client_context import ClientContext
     from office365.sharepoint.documentmanagement.document_set import DocumentSet
     from office365.sharepoint.webs.web import Web
@@ -117,10 +123,18 @@ class List(SecurableObject):
         include_content: bool = False,
         item_exported: Optional[Callable[[ExportListProgress], None]] = None,
     ) -> Self:
-        """Exports SharePoint List"""
+        """Export the list as a **package** (``.zip``): per-item JSON + optional content.
+
+        This is the package exporter (``ListExporter``), distinct from the record
+        export on :meth:`export_to`/``list.items.export_to``. Run with
+        ``execute_query()``:
+
+            >>> with open("Orders.zip", "wb") as f:
+            ...     lst.export(f, include_content=True).execute_query()
+        """
         from office365.sharepoint.lists.exporter import ListExporter
 
-        return ListExporter.export(self, local_file, include_content, item_exported)  # type: ignore[override]
+        return cast(Self, ListExporter.export(self, local_file, include_content, item_exported))
 
     def can_customize_forms(self) -> ConnectorResult:
         """"""
@@ -656,81 +670,425 @@ class List(SecurableObject):
     #    """Clears the broken taxonomy values"""
     #    raise NotImplementedError("validate_broken_taxonomy_values")
 
-    def get_items(self, caml_query: Optional[CamlQuery] = None) -> ListItemCollection:
-        """Returns a collection of items from the list based on the specified query."""
+    def index_candidates(self, caml_query: CamlQuery) -> list[str]:
+        """The columns a CAML query filters/sorts on that are worth indexing (``ID`` excluded).
+
+        A starting point for :meth:`ensure_indexed` — indexing is explicit and the
+        build runs in the background. Shorthand for ``caml_query.index_candidates``.
+        """
+        return caml_query.index_candidates
+
+    def check_query(self, caml_query: CamlQuery, *, item_count: Optional[int] = None) -> None:
+        """Pre-flight a CAML query against the SharePoint list view threshold.
+
+        Loads the list's item count (unless ``item_count`` is given) and the
+        ``Indexed`` status of the columns the query filters/sorts on, and raises
+        :class:`~office365.sharepoint.exceptions.SPQueryThrottledException` — with
+        the exact columns to index — when the query would be throttled, instead of
+        letting the server return an opaque 500. Performs 1-2 requests.
+
+        Args:
+            caml_query: The query to check.
+            item_count: The list size, when already known (avoids a request).
+        """
+        from office365.sharepoint.exceptions import SPQueryThrottledException
+
+        if item_count is None:
+            self.ensure_property("ItemCount").execute_query()
+            item_count = self.item_count or 0
+        if item_count <= LIST_VIEW_THRESHOLD:
+            return
+        candidates = set(caml_query.index_candidates)
+        if not candidates:
+            return
+
+        fields = self.fields
+        fields.select(["InternalName", "Title", "Indexed"]).get().execute_query()
+        not_indexed = sorted(
+            str(f.internal_name or f.title or "")
+            for f in fields
+            if (f.internal_name in candidates or f.title in candidates) and f.indexed is not True
+        )
+        if not_indexed:
+            names = ", ".join(repr(name) for name in not_indexed)
+            raise SPQueryThrottledException(
+                f"This CAML query filters/sorts on non-indexed column(s) {names} and the list has "
+                f"{item_count:,} items (over the {LIST_VIEW_THRESHOLD:,}-item list view threshold), so it "
+                f"would be throttled. Index them first, e.g. "
+                f"lst.ensure_indexed({not_indexed[0]!r}).execute_query(), or filter on ID (always indexed)."
+            )
+
+    @limit(Limits.LIST_VIEW, arg="page_size")
+    def get_items(
+        self,
+        caml_query: Optional[CamlQuery] = None,
+        page_size: Optional[int] = None,
+        check: bool = False,
+    ) -> ListItemCollection:
+        """Returns a collection of items from the list based on the specified query.
+
+        Pass ``page_size`` to page the results (continues from the last item via
+        ``ListItemCollectionPosition``), so a query over more than the 5,000-item
+        list view threshold can be read in full:
+
+            >>> for item in list.get_items(query, page_size=2000).execute_query():
+            ...     ...
+
+        Pass ``check=True`` to pre-flight the query with :meth:`check_query` first
+        (raises actionable guidance instead of an opaque server 500). It performs
+        1-2 requests immediately, so it is off by default.
+        """
         if not caml_query:
             caml_query = CamlQuery.create_all_items_query()
+        if check:
+            self.check_query(caml_query)
+        if page_size is None:
+            warn_if_unpaged(caml_query, item_count=self.item_count)
         return_type = ListItemCollection(self.context, self.items.resource_path)
         payload = {"query": caml_query}
         qry = ServiceOperationQuery(self, "GetItems", None, payload, None, return_type)
         self.context.add_query(qry)
+        if page_size:
+            return_type.paged(page_size)
+
+            def _next_page() -> None:
+                # CAML paging: continue from the last item via its collection position,
+                # carrying the sort columns (then ID) so the next page starts where
+                # the previous one stopped.
+                last = return_type[-1]
+                parts = ["Paged=TRUE"]
+                parts.extend(
+                    f"p_{name}={last.properties.get(name)}"
+                    for name in caml_query.order_by_fields
+                    if name.upper() != "ID"
+                )
+                parts.append(f"p_ID={last.id}")
+                caml_query.ListItemCollectionPosition = ListItemCollectionPosition(PagingInfo="&".join(parts))
+                next_qry = ServiceOperationQuery(self, "GetItems", None, {"query": caml_query}, None, return_type)
+                self.context.add_query(next_qry)
+
+            return_type._next_page = _next_page
         return return_type
 
-    def ensure_field(self, name: str, field_type: FieldType = FieldType.Text, description: str | None = None) -> Self:
+    def ensure_field(
+        self,
+        name: str,
+        field_type: FieldType = FieldType.Text,
+        description: str | None = None,
+        *,
+        on_conflict: str = "skip",
+    ) -> Field:
         """Ensure a single column exists on the list, creating it if missing.
 
         The check is deferred — the column is looked up and created when the
         caller executes the query (e.g. ``list.ensure_field("Status").execute_query()``).
+        With ``on_conflict="update"`` an existing column's type/description is
+        reconciled.
 
         Args:
             name: The column title
             field_type: The field type to create it with if missing (Text by default)
             description: The description of the column
-        """
-        self.fields.ensure(FieldCreationInformation(Title=name, FieldTypeKind=field_type, Description=description))
-        return self
+            on_conflict: ``"skip"`` (default) or ``"update"``.
 
-    def ensure_fields(self, columns: "Dict[str, FieldType] | list[str]") -> Self:
+        Returns:
+            Field: The existing or newly created field.
+        """
+        return self.fields.ensure(
+            FieldCreationInformation(Title=name, FieldTypeKind=field_type, Description=description),
+            on_conflict=on_conflict,
+        )
+
+    def ensure_fields(self, columns: "Dict[str, FieldType] | list[str]", *, on_conflict: str = "skip") -> list[Field]:
         """Ensure the specified columns exist on the list, creating missing ones.
 
-        Reconciles the source schema with the target list before data import,
-        like migration tools do: existing fields are kept, missing ones are
-        created with the given type (Text by default).
-
-        The check is deferred — the fields are read and missing ones created
-        when the caller executes the query (e.g.
-        ``list.ensure_fields(...).execute_query()``).
+        Reconciles the source schema with the target list before data import:
+        existing fields are kept (or reconciled with ``on_conflict="update"``),
+        missing ones are created with the given type (Text by default). Deferred —
+        execute the query after.
 
         Args:
             columns: Either a list of field names (created as Text) or a mapping
                 of field name -> FieldType
-        """
-        spec = columns.items() if isinstance(columns, dict) else ((c, FieldType.Text) for c in columns)
-        for name, field_type in spec:
-            self.ensure_field(name, field_type)
-        return self
-
-    def from_dataframe(self, df, progress: "ProgressCallback | None" = None) -> Self:
-        """Import a pandas DataFrame into this list.
-
-        Defines a column per DataFrame column via ``fields.from_dataframe``
-        (type inferred from the dtype, created idempotently), then queues an
-        item create per row — fully deferred, run the whole import with
-        ``execute_query()``:
-
-            >>> lst = ctx.web.lists.ensure_list("My List").execute_query()
-            >>> lst.from_dataframe(df).execute_query()
-            >>> lst.from_dataframe(df, progress=my_callback).execute_query()
-
-        Column names are sanitized into SharePoint field internal names
-        (spaces/punctuation -> ``_``); NaN cells are skipped.
-
-        Args:
-            df: A pandas DataFrame (requires ``pip install
-                office365-rest-python-client[pandas]``).
-            progress: Optional hook invoked per row as its item create completes
-              during ``execute_query()``.
+            on_conflict: ``"skip"`` (default) or ``"update"``.
 
         Returns:
-            Self: The list, for method chaining.
+            list[Field]: The existing or newly created fields.
+        """
+        spec = columns.items() if isinstance(columns, dict) else ((c, FieldType.Text) for c in columns)
+        return [self.ensure_field(name, field_type, on_conflict=on_conflict) for name, field_type in spec]
+
+    def ensure_indexed(self, name: str) -> Field:
+        """Enable the index on an existing column (idempotent, deferred).
+
+        Indexing the columns used in a CAML/``$filter``/``$orderby`` lets queries
+        filter and sort past the 5,000-item list view threshold. The column must
+        already exist. Run with ``execute_query()``:
+
+            >>> lst.ensure_indexed("Status").execute_query()
+        """
+        return self.fields.get_by_internal_name_or_title(name).ensure_indexed()
+
+    def from_records(
+        self,
+        source,
+        *,
+        format: str = "records",  # noqa: A002
+        schema: "Dict[str, FieldType] | None" = None,
+        chunksize: int = SAFE_PAGE_SIZE,
+        progress: "ProgressCallback | None" = None,
+        total: "int | None" = None,
+        checkpoint: "ImportCheckpoint | CheckpointStore | str | None" = None,
+        on_error: str = "raise",
+        key: "str | list[str] | None" = None,
+        key_field: str = "MigrationKey",
+        on_conflict: str = "skip",
+        enforce_unique: bool = False,
+        dry_run: bool = False,
+        on_schema_change: str = "evolve",
+        dead_letter: "str | None" = None,
+        mapping: "Dict[str, str] | None" = None,
+    ) -> "ImportResult":
+        """Stream a source into this list's items, memory-bounded (streaming entry).
+
+        Returns an :class:`~office365.runtime.imports.ImportResult`; run it with
+        ``execute_query()`` (sequential) or ``execute_batch(...)`` (batched):
+
+            >>> lst.from_dataframe(pd.read_csv(url, chunksize=2000)).execute_batch(concurrency=5)
+
+        Fields are provisioned from the first chunk (or ``schema``) for the
+        ``dataframe``/``csv`` formats; columns that first appear in a later chunk
+        are added (``on_schema_change="evolve"``, the default) or rejected
+        (``"fail"``). Column names are sanitized into field internal names; NaN
+        cells are skipped. ``checkpoint`` resumes; ``key`` makes it idempotent.
+
+        Args:
+            source: A DataFrame / chunk iterable / CSV path (``dataframe``/``csv``),
+                record batches (``records``), or a reader source for other formats.
+            format: Source format (default ``"records"``).
+            schema: Optional explicit ``{column: FieldType}``; inferred from dtypes.
+                A ``FieldType`` also drives typed value coercion (multi-choice,
+                lookup, user, URL, geolocation, ...).
+            chunksize: Rows per chunk for a DataFrame/CSV source.
+            progress: Optional hook fired live (initial, per chunk, per batch).
+            total: Total rows when known upfront (drives the progress percentage).
+            checkpoint: Optional resumable-run checkpoint (object or path).
+            on_error: ``"raise"`` (default) or ``"collect"``.
+            key: Natural-key source column(s) for idempotency; ``None`` disables it.
+            key_field: Target column storing the derived key hash.
+            on_conflict: ``"skip"`` (default) or ``"upsert"``.
+            enforce_unique: Mark the key column unique (guards a create race).
+            dry_run: Plan the create/update/skip counts without writing.
+            on_schema_change: ``"evolve"`` (default) or ``"fail"``.
+            mapping: Optional ``{source_column: target_name}`` rename map.
+            dead_letter: Optional JSONL path for collected chunk failures.
+
+        Returns:
+            ImportResult: The deferred streaming import driver.
+        """
+        from functools import partial
+
+        from office365.runtime.converters.dataframe import records_from_dataframe
+        from office365.sharepoint.fields.coercion import coerce_field_value
+        from office365.sharepoint.fields.name import internal_field_name
+
+        if on_schema_change not in ("evolve", "fail"):
+            raise ValueError(f"on_schema_change must be 'evolve' or 'fail', got {on_schema_change!r}")
+        provisioned: set[str] = set()
+        coercions: "Dict[str, Any] | None" = None
+        if isinstance(schema, dict):
+            coercions = {
+                internal_field_name(str(column)): partial(coerce_field_value, field_type)
+                for column, field_type in schema.items()
+            }
+
+        def _mapped(chunk: Any) -> Any:
+            if mapping and hasattr(chunk, "rename"):
+                return chunk.rename(columns=mapping)
+            return chunk
+
+        def _ensure_new_fields(chunk: Any) -> None:
+            chunk = _mapped(chunk)
+            if not hasattr(chunk, "columns"):  # only DataFrame/CSV chunks carry a schema
+                return
+            new = [c for c in chunk.columns if internal_field_name(str(c)) not in provisioned]
+            if not new:
+                return
+            if on_schema_change == "fail" and provisioned:
+                raise ValueError(f"source schema changed: new column(s) {new}")
+            self.fields.ensure_from_dataframe(chunk[new])
+            provisioned.update(internal_field_name(str(c)) for c in new)
+            self.context.execute_query()
+
+        def _prepare(first_chunk: Any) -> None:
+            if schema is not None:
+                self.ensure_fields(schema)
+                names = schema.keys() if isinstance(schema, dict) else schema
+                provisioned.update(internal_field_name(str(k)) for k in names)
+            else:
+                _ensure_new_fields(first_chunk)
+
+        def _to_records(chunk: Any) -> list[dict]:
+            return records_from_dataframe(_mapped(chunk), key_fn=internal_field_name)
+
+        to_records = _to_records if format in ("dataframe", "csv") else None
+
+        return self.items.from_records(
+            source,
+            format=format,
+            chunksize=chunksize,
+            total=total,
+            key=key,
+            key_field=key_field,
+            on_conflict=on_conflict,
+            enforce_unique=enforce_unique,
+            checkpoint=checkpoint,
+            on_error=on_error,
+            progress=progress,
+            prepare=_prepare,
+            before_chunk=_ensure_new_fields,
+            to_records=to_records,
+            dry_run=dry_run,
+            dead_letter=dead_letter,
+            mapping=mapping if to_records is None else None,
+            coerce=coercions,
+        )
+
+    def from_dataframe(self, source, **opts) -> "ImportResult":
+        """Stream a DataFrame / chunked CSV into this list (see :meth:`from_records`)."""
+        return self.from_records(source, format="dataframe", **opts)
+
+    def from_csv(self, source, **opts) -> "ImportResult":
+        """Stream a CSV source into this list (see :meth:`from_records`)."""
+        return self.from_records(source, format="csv", **opts)
+
+    def from_json(self, source, **opts) -> "ImportResult":
+        """Stream a JSON-array file into this list (see :meth:`from_records`)."""
+        return self.from_records(source, format="json", **opts)
+
+    def from_ndjson(self, source, **opts) -> "ImportResult":
+        """Stream an NDJSON source into this list (see :meth:`from_records`)."""
+        return self.from_records(source, format="ndjson", **opts)
+
+    def from_excel(self, source, **opts) -> "ImportResult":
+        """Stream an Excel (.xlsx) worksheet into this list (see :meth:`from_records`)."""
+        return self.from_records(source, format="excel", **opts)
+
+    def from_parquet(self, source, **opts) -> "ImportResult":
+        """Stream a Parquet file into this list (see :meth:`from_records`)."""
+        return self.from_records(source, format="parquet", **opts)
+
+    def from_orc(self, source, **opts) -> "ImportResult":
+        """Stream an ORC file into this list (see :meth:`from_records`)."""
+        return self.from_records(source, format="orc", **opts)
+
+    def from_feather(self, source, **opts) -> "ImportResult":
+        """Stream a Feather file into this list (see :meth:`from_records`)."""
+        return self.from_records(source, format="feather", **opts)
+
+    def from_file(
+        self,
+        server_relative_url: str,
+        *,
+        format: str = "csv",  # noqa: A002
+        chunksize: int = SAFE_PAGE_SIZE,
+        **opts,
+    ) -> "ImportResult":
+        """Stream a SharePoint-hosted file (CSV/XLSX) into this list's items.
+
+        Downloads the file from this site (honoring auth) and streams it through
+        :meth:`from_records` — bounded memory, resumable and idempotent with
+        ``key=...``. ``format`` is ``"csv"`` (default) or ``"xlsx"``/``"excel"``.
+
+            >>> lst.from_file("Shared Documents/stocks.csv", key=["Name", "date"]) \\
+            ...    .execute_batch(concurrency=5)
+        """
+        import io
+
+        file = self.context.web.get_file_by_server_relative_url(server_relative_url)
+        content = file.read()
+        if format in ("xlsx", "excel"):
+            from office365.runtime.converters.dataframe import require_pandas
+
+            df = require_pandas().read_excel(io.BytesIO(content))
+            return self.from_dataframe(df, chunksize=chunksize, **opts)
+        return self.from_csv(io.BytesIO(content), chunksize=chunksize, **opts)
+
+    def queue_dataframe(
+        self,
+        df,
+        schema: "Dict[str, FieldType] | None" = None,
+        progress: "ProgressCallback | None" = None,
+    ) -> Self:
+        """Queue a DataFrame into this list **deferred** (queue-all).
+
+        Provisions the columns (from the dtypes, or ``schema``) and queues an item
+        create per row; run with ``execute_query()``. For large frames use the
+        streaming :meth:`from_dataframe` (bounded memory + idempotency).
+        """
+        if schema is not None:
+            self.ensure_fields(schema)
+        else:
+            self.fields.ensure_from_dataframe(df)
+        self.items.queue_dataframe(df, progress=progress)
+        return self
+
+    def queue_records(self, records, progress: "ProgressCallback | None" = None) -> Self:
+        """Queue record dicts into this list's items (deferred)."""
+        self.items.queue_records(records, progress=progress)
+        return self
+
+    def verify(
+        self,
+        source,
+        *,
+        key: "str | list[str]",
+        format: str = "dataframe",  # noqa: A002
+        key_field: str = "MigrationKey",
+    ) -> "VerificationResult":
+        """Reconcile a source's natural keys against this list (bounded).
+
+        Streams the source, hashes each row's natural key and checks it against the
+        list's existing keys. ``format`` is ``"dataframe"`` (default), ``"csv"`` or
+        any registered format.
         """
         from office365.runtime.converters.dataframe import records_from_dataframe
         from office365.sharepoint.fields.name import internal_field_name
 
-        records = records_from_dataframe(df, key_fn=internal_field_name)
-        self.fields.from_dataframe(df)
-        self.items.from_records(records, progress=progress)
+        def _to_records(chunk):
+            return records_from_dataframe(chunk, key_fn=internal_field_name)
+
+        to_records = _to_records if format in ("dataframe", "csv") else None
+        return self.items.verify(source, key=key, format=format, key_field=key_field, to_records=to_records)
+
+    def export_to(self, target, *, format: str = "csv", page_size=None, **opts) -> Self:  # noqa: A002
+        """Export this list's items to ``target`` in ``format`` (deferred).
+
+        The record exporter (CSV/NDJSON/JSON/Excel); pass ``page_size`` to stream
+        an appendable format page by page (bounded memory). For the ``.zip``
+        package export use :meth:`export`. Run with ``execute_query()``.
+        """
+        if page_size:
+            self.items.export_to(target, format=format, page_size=page_size, **opts)
+        else:
+            self.items.get_all().export_to(target, format=format, **opts)
         return self
+
+    def to_dataframe(self) -> "DataFrameResult":
+        """Export this list's items to a pandas DataFrame (deferred result)."""
+        return self.items.get_all().to_dataframe()
+
+    def to_parquet(self, target) -> Self:
+        """Export this list's items to Parquet (deferred; requires the ``[parquet]`` extra)."""
+        return self.export_to(target, format="parquet")
+
+    def to_orc(self, target) -> Self:
+        """Export this list's items to ORC (deferred; requires the ``[parquet]`` extra)."""
+        return self.export_to(target, format="orc")
+
+    def to_feather(self, target) -> Self:
+        """Export this list's items to Feather (deferred; requires the ``[parquet]`` extra)."""
+        return self.export_to(target, format="feather")
 
     def add_item(self, creation_information: Union[ListItemCreationInformation, Dict]) -> ListItem:
         """The recommended way to add a list item is to send a POST request to the ListItemCollection resource endpoint,
@@ -1247,7 +1605,7 @@ class List(SecurableObject):
         """Get list items"""
         return self.properties.get(
             "Items",
-            ListItemCollection(self.context, ResourcePath("items", self.resource_path)),
+            ListItemCollection(self.context, ResourcePath("items", self.resource_path), parent=self),
         )
 
     @odata(name="RootFolder")

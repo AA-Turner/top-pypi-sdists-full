@@ -30,17 +30,21 @@ use super::wire::{
     is_supported_workflow_dir, AgentArtifactRecordShapeWire,
     AgentArtifactRecordWire, AgentArtifactScanOptionsWire,
     AgentArtifactScanStatsWire, AgentArtifactScanWire, AgentMetaWire,
-    DoneMarkerWire, FamilyShellGateWire, FamilyShellMonitorWire,
-    FamilyShellWire, ImportedSourceOwnerWire, OutputVariableValue,
-    PendingQuestionMarkerWire, PlanPathMarkerWire, PromptStepMarkerWire,
-    RunningMarkerWire, UsedXPromptWire, WaitingMarkerWire, WorkflowStateWire,
+    AgentSessionTurnGateWire, AgentSessionTurnMonitorWire,
+    AgentSessionTurnWire, DoneMarkerWire, FinalizerStatusInstanceWire,
+    FinalizerStatusRunnerWire, FinalizerStatusSummaryWire,
+    ImportedSourceOwnerWire, OutputVariableValue, PendingQuestionMarkerWire,
+    PlanPathMarkerWire, PromptStepMarkerWire, RunningMarkerWire,
+    UsedXPromptWire, WaitingMarkerWire, WorkflowStateWire,
     WorkflowStepStateWire, AGENT_SCAN_WIRE_SCHEMA_VERSION,
 };
 use crate::project_spec::{
     list_project_records, preferred_project_spec_path,
     read_project_lifecycle_from_content, ProjectLifecycleState,
 };
-use crate::queue_directive::queue_weight_is_valid;
+use crate::queue_directive::{
+    authored_queue_weight_is_valid, queue_weight_is_valid,
+};
 
 const RAW_PROMPT_FILE: &str = "raw_xprompt.md";
 const USED_XPROMPTS_FILE: &str = "xprompts.json";
@@ -117,7 +121,8 @@ pub fn scan_agent_artifacts(
     }
 
     sort_records(&mut records, options.newest_first);
-    let clan_context = resolve_clan_context_from_records(&records);
+    let mut clan_context = resolve_clan_context_from_records(&records);
+    apply_clan_records(&options, &mut clan_context);
 
     AgentArtifactScanWire {
         schema_version: AGENT_SCAN_WIRE_SCHEMA_VERSION,
@@ -129,6 +134,30 @@ pub fn scan_agent_artifacts(
         clan_context,
         index_completeness: None,
     }
+}
+
+/// Apply durable clan records over member-derived context when the
+/// caller supplied a records directory.
+///
+/// Scan options echo back verbatim in results; the directory is only
+/// ever read from, and a missing or corrupt record keeps the
+/// member-derived values.
+fn apply_clan_records(
+    options: &AgentArtifactScanOptionsWire,
+    contexts: &mut [crate::agent_scan::wire::AgentClanContextWire],
+) {
+    let Some(dir) = options
+        .clan_records_dir
+        .as_deref()
+        .map(str::trim)
+        .filter(|dir| !dir.is_empty())
+    else {
+        return;
+    };
+    crate::agent_clan_record::apply_clan_records_to_context(
+        Path::new(dir),
+        contexts,
+    );
 }
 
 /// Scan an exact set of artifact timestamp directories under
@@ -201,7 +230,8 @@ pub fn scan_agent_artifact_dirs(
     }
 
     sort_records(&mut records, options.newest_first);
-    let clan_context = resolve_clan_context_from_records(&records);
+    let mut clan_context = resolve_clan_context_from_records(&records);
+    apply_clan_records(&options, &mut clan_context);
 
     AgentArtifactScanWire {
         schema_version: AGENT_SCAN_WIRE_SCHEMA_VERSION,
@@ -885,7 +915,7 @@ fn coerce_queue_weight(
 /// weight contract in `queue_weight_is_valid`.
 fn marker_queue_weight_is_valid(weight: f64, explicit: bool) -> bool {
     if explicit {
-        weight.is_finite() && weight >= 0.0
+        authored_queue_weight_is_valid(weight)
     } else {
         queue_weight_is_valid(weight)
     }
@@ -1076,26 +1106,162 @@ fn coerce_strict_int(value: Option<&Value>) -> Option<i64> {
 // Marker -> wire converters
 // ---------------------------------------------------------------------------
 
+/// Read a hand-scanned marker key under its new `agent_session_*` spelling
+/// first, falling back to the legacy `agent_family_*` spelling.
+fn agent_session_str(
+    data: &Map<String, Value>,
+    new_key: &str,
+    legacy_key: &str,
+) -> Option<String> {
+    coerce_str(data.get(new_key)).or_else(|| coerce_str(data.get(legacy_key)))
+}
+
+/// Maximum characters kept for any `finalizer_status` string (plan §3.3
+/// C5).
+const FINALIZER_STATUS_STR_CAP: usize = 120;
+
+/// Maximum per-run instance entries kept on the scan wire (plan §3.3 C5).
+const FINALIZER_STATUS_MAX_INSTANCES: usize = 16;
+
+/// Truncate `value` to `FINALIZER_STATUS_STR_CAP` characters on char
+/// boundaries.
+fn cap_finalizer_status_str(value: String) -> String {
+    if value.chars().count() <= FINALIZER_STATUS_STR_CAP {
+        return value;
+    }
+    value.chars().take(FINALIZER_STATUS_STR_CAP).collect()
+}
+
+/// Coerce an optional string for the `finalizer_status` summary, capping
+/// it at the C5 string ceiling.
+fn coerce_finalizer_status_str(value: Option<&Value>) -> Option<String> {
+    coerce_str(value).map(cap_finalizer_status_str)
+}
+
+/// Coerce an optional timestamp for the `finalizer_status` summary,
+/// dropping negative, NaN, infinite and non-numeric values.
+fn coerce_finalizer_status_float(value: Option<&Value>) -> Option<f64> {
+    let number = coerce_float(value)?;
+    if !number.is_finite() || number < 0.0 {
+        return None;
+    }
+    Some(number)
+}
+
+/// Coerce an optional count for the `finalizer_status` summary, dropping
+/// negative and non-numeric values.
+fn coerce_finalizer_status_int(value: Option<&Value>) -> Option<i64> {
+    let number = coerce_int(value)?;
+    if number < 0 {
+        return None;
+    }
+    Some(number)
+}
+
+/// Coerce the `runner` object of a `finalizer_status` summary. A
+/// non-object value gives `None`; unknown keys are ignored.
+fn finalizer_status_runner_from_value(
+    value: &Value,
+) -> Option<FinalizerStatusRunnerWire> {
+    let obj = value.as_object()?;
+    Some(FinalizerStatusRunnerWire {
+        pid: coerce_finalizer_status_int(obj.get("pid")),
+        identity: coerce_finalizer_status_str(obj.get("identity")),
+    })
+}
+
+/// Coerce one `finalizer_status` instance entry. Entries without a
+/// (non-empty) string `id` are dropped; unknown keys are ignored.
+fn finalizer_status_instance_from_value(
+    value: &Value,
+) -> Option<FinalizerStatusInstanceWire> {
+    let obj = value.as_object()?;
+    let id = coerce_finalizer_status_str(obj.get("id"))?;
+    if id.is_empty() {
+        return None;
+    }
+    Some(FinalizerStatusInstanceWire {
+        id,
+        status: coerce_finalizer_status_str(obj.get("status")),
+        attempt: coerce_finalizer_status_int(obj.get("attempt")),
+        max_attempts: coerce_finalizer_status_int(obj.get("max_attempts")),
+        op: coerce_finalizer_status_str(obj.get("op")),
+        step: coerce_finalizer_status_str(obj.get("step")),
+        started_at: coerce_finalizer_status_float(obj.get("started_at")),
+        finished_at: coerce_finalizer_status_float(obj.get("finished_at")),
+        headline: coerce_finalizer_status_str(obj.get("headline")),
+        warnings: coerce_finalizer_status_int(obj.get("warnings")),
+        reason: coerce_finalizer_status_str(obj.get("reason")),
+    })
+}
+
+/// Coerce the `finalizer_status` row summary leniently (plan §3.3 C5).
+///
+/// A non-object value, or a missing or empty `phase` string, gives `None`.
+/// Strings are capped at 120 characters on char boundaries, at most 16
+/// instances are kept, negative/NaN/non-numeric numbers are dropped, and
+/// unknown keys are ignored. A malformed summary never fails the whole
+/// meta.
+fn finalizer_status_from_value(
+    value: Option<&Value>,
+) -> Option<FinalizerStatusSummaryWire> {
+    let obj = value?.as_object()?;
+    let phase = coerce_finalizer_status_str(obj.get("phase"))?;
+    if phase.is_empty() {
+        return None;
+    }
+    let instances = match obj.get("instances") {
+        Some(Value::Array(items)) => items
+            .iter()
+            .filter_map(finalizer_status_instance_from_value)
+            .take(FINALIZER_STATUS_MAX_INSTANCES)
+            .collect(),
+        _ => Vec::new(),
+    };
+    Some(FinalizerStatusSummaryWire {
+        schema_version: coerce_finalizer_status_int(obj.get("schema_version")),
+        phase: Some(phase),
+        reason: coerce_finalizer_status_str(obj.get("reason")),
+        status: coerce_finalizer_status_str(obj.get("status")),
+        plan_digest: coerce_finalizer_status_str(obj.get("plan_digest")),
+        run_id: coerce_finalizer_status_str(obj.get("run_id")),
+        started_at: coerce_finalizer_status_float(obj.get("started_at")),
+        updated_at: coerce_finalizer_status_float(obj.get("updated_at")),
+        runner: obj
+            .get("runner")
+            .and_then(finalizer_status_runner_from_value),
+        instances,
+        instance_count: coerce_finalizer_status_int(obj.get("instance_count")),
+    })
+}
+
 fn agent_meta_from_object(data: &Map<String, Value>) -> AgentMetaWire {
     let legacy_parallel = coerce_bool_truthy(data.get("agent_family_parallel"));
-    let raw_family = coerce_str(data.get("agent_family"));
+    let raw_agent_session =
+        agent_session_str(data, "agent_session", "agent_family");
     let agent_clan = coerce_str(data.get("agent_clan")).or_else(|| {
         if legacy_parallel {
-            raw_family.clone()
+            raw_agent_session.clone()
         } else {
             None
         }
     });
-    let agent_family = if legacy_parallel { None } else { raw_family };
-    let agent_family_role = if legacy_parallel {
+    let agent_session = if legacy_parallel {
         None
     } else {
-        coerce_str(data.get("agent_family_role"))
+        raw_agent_session
+    };
+    let agent_session_role = if legacy_parallel {
+        None
+    } else {
+        agent_session_str(data, "agent_session_role", "agent_family_role")
     };
     let (queue_weight, queue_weight_invalid, queue_weight_error) =
         coerce_queue_weight(data);
     let (queue_capacity, queue_capacity_explicit) =
         crate::queue_directive::queue_capacity_from_map(data);
+    let queue_capacity_multiplier =
+        crate::queue_directive::queue_capacity_multiplier_from_map(data);
 
     AgentMetaWire {
         name: coerce_str(data.get("name")),
@@ -1124,9 +1290,9 @@ fn agent_meta_from_object(data: &Map<String, Value>) -> AgentMetaWire {
         agent_clan_generation: coerce_str(data.get("agent_clan_generation")),
         clan_tribe: coerce_str(data.get("clan_tribe")),
         clan_summary: coerce_str(data.get("clan_summary")),
-        agent_family,
-        agent_family_role,
-        agent_family_parallel: legacy_parallel,
+        agent_session,
+        agent_session_role,
+        agent_session_parallel: legacy_parallel,
         source_machine: coerce_str(data.get("source_machine")),
         imported_source_owner: coerce_imported_source_owner(
             data.get("imported_source_owner"),
@@ -1169,6 +1335,7 @@ fn agent_meta_from_object(data: &Map<String, Value>) -> AgentMetaWire {
         wait_priority: coerce_int(data.get("wait_priority")),
         queue_capacity,
         queue_capacity_explicit,
+        queue_capacity_multiplier,
         wait_runners: None,
         wait_runners_explicit: false,
         queue_weight,
@@ -1200,7 +1367,7 @@ fn agent_meta_from_object(data: &Map<String, Value>) -> AgentMetaWire {
         retried_as_timestamp: coerce_str(data.get("retried_as_timestamp")),
         retry_terminal: coerce_bool_truthy(data.get("retry_terminal")),
         retry_error_category: coerce_str(data.get("retry_error_category")),
-        family_shell: family_shell_from_object(data),
+        agent_session_turn: agent_session_turn_from_object(data),
         monitor_diagnostic_manifest_ref: coerce_str(
             data.get("monitor_diagnostic_manifest_ref"),
         ),
@@ -1223,31 +1390,69 @@ fn agent_meta_from_object(data: &Map<String, Value>) -> AgentMetaWire {
         monitor_followup_budget_decision_path: coerce_str(
             data.get("monitor_followup_budget_decision_path"),
         ),
-        shell_kind: coerce_str(data.get("shell_kind")),
+        turn_kind: turn_kind_from_object(data),
         proc_id: coerce_str(data.get("proc_id")),
+        finalizer_status: finalizer_status_from_value(
+            data.get("finalizer_status"),
+        ),
     }
 }
 
 /// Fold the flat `monitor_*` / `gate_*` marker keys into one
-/// [`FamilyShellWire`], the compatibility projection for on-disk
+/// [`AgentSessionTurnWire`], the compatibility projection for on-disk
 /// `agent_meta.json` / `done.json` files, which still carry the flat shape.
 ///
-/// A family shell is either a monitor or a gate, never both -- the two are
-/// independent inheritance chains keyed off different launch mechanisms.
-/// If both prefixes are somehow present, `agent_family_role` disambiguates
-/// rather than silently dropping one side.
-fn family_shell_from_object(
+/// An agent session turn is either a monitor or a gate, never both -- the
+/// two are independent inheritance chains keyed off different launch
+/// mechanisms. If both prefixes are somehow present, `agent_session_role`
+/// disambiguates rather than silently dropping one side.
+///
+/// A nested `agent_session_turn` object (falling back to a legacy nested
+/// `agent_session_shell` object, then to `family_shell`) wins over the flat
+/// keys when present, so newer writers can emit the folded shape directly.
+/// When several keys are present, the newest spelling wins.
+fn nested_turn_object(
     data: &Map<String, Value>,
-) -> Option<FamilyShellWire> {
+) -> Option<&Map<String, Value>> {
+    data.get("agent_session_turn")
+        .or_else(|| data.get("agent_session_shell"))
+        .or_else(|| data.get("family_shell"))
+        .and_then(|value| value.as_object())
+}
+
+/// Read the metadata member kind, preferring `turn_kind` over the legacy
+/// `shell_kind`. A `monitor` input is stored as the legacy `proc` value.
+fn turn_kind_from_object(data: &Map<String, Value>) -> Option<String> {
+    let kind = coerce_str(data.get("turn_kind"))
+        .or_else(|| coerce_str(data.get("shell_kind")))?;
+    if kind == "monitor" {
+        Some("proc".to_string())
+    } else {
+        Some(kind)
+    }
+}
+
+fn agent_session_turn_from_object(
+    data: &Map<String, Value>,
+) -> Option<AgentSessionTurnWire> {
+    if let Some(nested) = nested_turn_object(data) {
+        if let Ok(turn) = serde_json::from_value::<AgentSessionTurnWire>(
+            Value::Object(nested.clone()),
+        ) {
+            return Some(turn);
+        }
+    }
     let mut has_monitor = data.keys().any(|k| k.starts_with("monitor_"));
     let mut has_gate = data.keys().any(|k| k.starts_with("gate_"));
     if has_monitor && has_gate {
-        has_monitor = coerce_str(data.get("agent_family_role")).as_deref()
-            != Some("gate");
+        has_monitor =
+            agent_session_str(data, "agent_session_role", "agent_family_role")
+                .as_deref()
+                != Some("gate");
         has_gate = !has_monitor;
     }
     if has_monitor {
-        return Some(FamilyShellWire {
+        return Some(AgentSessionTurnWire {
             kind: "monitor".to_string(),
             id: coerce_str(data.get("monitor_id")),
             state: coerce_str(data.get("monitor_state")),
@@ -1303,7 +1508,7 @@ fn family_shell_from_object(
             host_completion_reason: coerce_str(
                 data.get("monitor_host_completion_reason"),
             ),
-            monitor: Some(FamilyShellMonitorWire {
+            monitor: Some(AgentSessionTurnMonitorWire {
                 command: coerce_str(data.get("monitor_command")),
                 cwd: coerce_str(data.get("monitor_cwd")),
                 exit_code: coerce_int(data.get("monitor_exit_code")),
@@ -1322,7 +1527,7 @@ fn family_shell_from_object(
         });
     }
     if has_gate {
-        return Some(FamilyShellWire {
+        return Some(AgentSessionTurnWire {
             kind: "gate".to_string(),
             id: coerce_str(data.get("gate_id")),
             state: coerce_str(data.get("gate_state")),
@@ -1373,7 +1578,7 @@ fn family_shell_from_object(
             host_completion_message: None,
             host_completion_reason: None,
             monitor: None,
-            gate: Some(FamilyShellGateWire {
+            gate: Some(AgentSessionTurnGateWire {
                 kind: coerce_str(data.get("gate_kind")),
                 accent: coerce_str(data.get("gate_accent")),
                 creator_agent: coerce_str(data.get("gate_creator_agent")),
@@ -1432,7 +1637,7 @@ fn done_marker_from_object(data: &Map<String, Value>) -> DoneMarkerWire {
             data.get("imported_source_owner"),
         ),
         status_label: coerce_str(data.get("status_label")),
-        family_shell: family_shell_from_object(data),
+        agent_session_turn: agent_session_turn_from_object(data),
         monitor_diagnostic_manifest_ref: coerce_str(
             data.get("monitor_diagnostic_manifest_ref"),
         ),
@@ -1474,6 +1679,8 @@ fn waiting_marker_from_object(data: &Map<String, Value>) -> WaitingMarkerWire {
         coerce_queue_weight(data);
     let (queue_capacity, queue_capacity_explicit) =
         crate::queue_directive::queue_capacity_from_map(data);
+    let queue_capacity_multiplier =
+        crate::queue_directive::queue_capacity_multiplier_from_map(data);
     WaitingMarkerWire {
         waiting_for: coerce_str_list(data.get("waiting_for")),
         wait_for_beads: coerce_str_list(data.get("wait_for_beads")),
@@ -1481,6 +1688,7 @@ fn waiting_marker_from_object(data: &Map<String, Value>) -> WaitingMarkerWire {
         wait_duration: coerce_float(data.get("wait_duration")),
         wait_until: coerce_str(data.get("wait_until")),
         queue_capacity,
+        queue_capacity_multiplier,
         wait_priority: coerce_int(data.get("wait_priority")),
         queue_weight,
         queue_weight_explicit: coerce_bool_truthy(
@@ -1670,27 +1878,27 @@ mod tests {
         );
         assert_eq!(snapshot.records.len(), 1);
         let meta = snapshot.records[0].agent_meta.as_ref().unwrap();
-        let shell = meta.family_shell.as_ref().unwrap();
-        assert_eq!(shell.kind, "monitor");
-        assert_eq!(shell.next_action.as_deref(), Some("Reply to the user."));
-        assert_eq!(shell.next_model.as_deref(), Some("@small"));
-        assert_eq!(shell.next_output.as_deref(), Some("auto"));
-        assert_eq!(shell.completion_ref.as_deref(), Some("cci:test"));
-        assert_eq!(shell.profile.as_deref(), Some("verify"));
-        assert_eq!(shell.policy_digest.as_deref(), Some("sha256:policy"));
-        assert_eq!(shell.followup_agent.as_deref(), Some("acme--next"));
+        let turn = meta.agent_session_turn.as_ref().unwrap();
+        assert_eq!(turn.kind, "monitor");
+        assert_eq!(turn.next_action.as_deref(), Some("Reply to the user."));
+        assert_eq!(turn.next_model.as_deref(), Some("@small"));
+        assert_eq!(turn.next_output.as_deref(), Some("auto"));
+        assert_eq!(turn.completion_ref.as_deref(), Some("cci:test"));
+        assert_eq!(turn.profile.as_deref(), Some("verify"));
+        assert_eq!(turn.policy_digest.as_deref(), Some("sha256:policy"));
+        assert_eq!(turn.followup_agent.as_deref(), Some("acme--next"));
         assert_eq!(
-            shell.followup_degraded_reason.as_deref(),
+            turn.followup_degraded_reason.as_deref(),
             Some("workspace 0 fallback")
         );
-        assert_eq!(shell.followup_prompt_path.as_deref(), Some("followup.md"));
-        assert_eq!(shell.host_completion_status.as_deref(), Some("finalizing"));
+        assert_eq!(turn.followup_prompt_path.as_deref(), Some("followup.md"));
+        assert_eq!(turn.host_completion_status.as_deref(), Some("finalizing"));
         assert_eq!(
-            shell.host_completion_message.as_deref(),
+            turn.host_completion_message.as_deref(),
             Some("running finalizers")
         );
         assert_eq!(
-            shell.host_completion_reason.as_deref(),
+            turn.host_completion_reason.as_deref(),
             Some("verification succeeded")
         );
         assert_eq!(
@@ -1744,9 +1952,79 @@ mod tests {
         );
         assert_eq!(snapshot.records.len(), 1);
         let meta = snapshot.records[0].agent_meta.as_ref().unwrap();
-        let shell = meta.family_shell.as_ref().unwrap();
-        assert_eq!(shell.id.as_deref(), Some("oldmon"));
-        assert_eq!(shell.next_model, None);
+        let turn = meta.agent_session_turn.as_ref().unwrap();
+        assert_eq!(turn.id.as_deref(), Some("oldmon"));
+        assert_eq!(turn.next_model, None);
+    }
+
+    #[test]
+    fn scanner_reads_agent_session_spellings_first() {
+        let tmp = tempdir().unwrap();
+        let projects = tmp.path().join("projects");
+        let artifact = projects
+            .join("proj")
+            .join("artifacts")
+            .join("ace-run")
+            .join("20260822120110");
+        write_json(
+            &artifact.join("agent_meta.json"),
+            json!({
+                "name": "acme--code",
+                "agent_session": "acme",
+                "agent_family": "stale",
+                "agent_session_role": "code",
+                "agent_family_role": "stale-role",
+                "agent_session_shell": {"kind": "monitor", "id": "m9"},
+                "monitor_id": "flat-wins-not",
+            }),
+        );
+
+        let snapshot = scan_agent_artifacts(
+            &projects,
+            AgentArtifactScanOptionsWire::default(),
+        );
+        assert_eq!(snapshot.records.len(), 1);
+        let meta = snapshot.records[0].agent_meta.as_ref().unwrap();
+        assert_eq!(meta.agent_session.as_deref(), Some("acme"));
+        assert_eq!(meta.agent_session_role.as_deref(), Some("code"));
+        let turn = meta.agent_session_turn.as_ref().unwrap();
+        assert_eq!(turn.kind, "monitor");
+        assert_eq!(turn.id.as_deref(), Some("m9"));
+    }
+
+    #[test]
+    fn scanner_prefers_turn_keys_and_stores_monitor_kind_as_proc() {
+        let tmp = tempdir().unwrap();
+        let projects = tmp.path().join("projects");
+        let artifact = projects
+            .join("proj")
+            .join("artifacts")
+            .join("ace-run")
+            .join("20260822120111");
+        write_json(
+            &artifact.join("agent_meta.json"),
+            json!({
+                "name": "acme--mon",
+                "agent_session_turn": {"kind": "monitor", "id": "new"},
+                "agent_session_shell": {"kind": "monitor", "id": "stale"},
+                "family_shell": {"kind": "monitor", "id": "staler"},
+                "turn_kind": "monitor",
+                "shell_kind": "gate",
+            }),
+        );
+
+        let snapshot = scan_agent_artifacts(
+            &projects,
+            AgentArtifactScanOptionsWire::default(),
+        );
+        assert_eq!(snapshot.records.len(), 1);
+        let meta = snapshot.records[0].agent_meta.as_ref().unwrap();
+        let turn = meta.agent_session_turn.as_ref().unwrap();
+        assert_eq!(turn.id.as_deref(), Some("new"));
+        assert_eq!(meta.turn_kind.as_deref(), Some("proc"));
+        let encoded = serde_json::to_value(meta).unwrap();
+        assert_eq!(encoded["agent_session_shell"]["id"], "new");
+        assert_eq!(encoded["shell_kind"], "proc");
     }
 
     #[test]
@@ -1929,7 +2207,7 @@ mod tests {
     }
 
     #[test]
-    fn scanner_round_trips_gate_shell_metadata() {
+    fn scanner_round_trips_gate_turn_metadata() {
         let tmp = tempdir().unwrap();
         let projects = tmp.path().join("projects");
         let artifact = projects
@@ -2006,31 +2284,31 @@ mod tests {
         assert_eq!(snapshot.records.len(), 1);
         let record = &snapshot.records[0];
         let meta = record.agent_meta.as_ref().unwrap();
-        let meta_shell = meta.family_shell.as_ref().unwrap();
-        assert_eq!(meta_shell.kind, "gate");
-        assert_eq!(meta_shell.id.as_deref(), Some("gate-1"));
-        assert_eq!(meta_shell.state.as_deref(), Some("pending"));
-        assert_eq!(meta_shell.next_model.as_deref(), Some("@large"));
-        assert_eq!(meta_shell.followup_attempt_id.as_deref(), Some("att-1"));
+        let meta_turn = meta.agent_session_turn.as_ref().unwrap();
+        assert_eq!(meta_turn.kind, "gate");
+        assert_eq!(meta_turn.id.as_deref(), Some("gate-1"));
+        assert_eq!(meta_turn.state.as_deref(), Some("pending"));
+        assert_eq!(meta_turn.next_model.as_deref(), Some("@large"));
+        assert_eq!(meta_turn.followup_attempt_id.as_deref(), Some("att-1"));
         assert_eq!(
-            meta_shell.followup_attempt_stage.as_deref(),
+            meta_turn.followup_attempt_stage.as_deref(),
             Some("launched")
         );
-        assert_eq!(meta_shell.followup_error_type.as_deref(), Some("OSError"));
-        assert!(meta_shell.output_truncated);
-        let meta_gate = meta_shell.gate.as_ref().unwrap();
+        assert_eq!(meta_turn.followup_error_type.as_deref(), Some("OSError"));
+        assert!(meta_turn.output_truncated);
+        let meta_gate = meta_turn.gate.as_ref().unwrap();
         assert_eq!(
             meta_gate.decision_path.as_deref(),
             Some("gate_decision.md")
         );
-        assert_eq!(meta.shell_kind.as_deref(), Some("gate"));
+        assert_eq!(meta.turn_kind.as_deref(), Some("gate"));
         let done = record.done.as_ref().unwrap();
-        let done_shell = done.family_shell.as_ref().unwrap();
-        assert_eq!(done_shell.state.as_deref(), Some("answered"));
-        assert_eq!(done_shell.elapsed_seconds, Some(2.5));
-        assert!(done_shell.output_truncated);
+        let done_turn = done.agent_session_turn.as_ref().unwrap();
+        assert_eq!(done_turn.state.as_deref(), Some("answered"));
+        assert_eq!(done_turn.elapsed_seconds, Some(2.5));
+        assert!(done_turn.output_truncated);
         assert_eq!(
-            done_shell.followup_prompt_path.as_deref(),
+            done_turn.followup_prompt_path.as_deref(),
             Some("gate_followup.md")
         );
     }
@@ -2349,7 +2627,7 @@ mod tests {
 
     #[test]
     fn capacity_only_keeps_active_dir_without_running_or_waiting_marker() {
-        // A shell can occupy a runner slot via `agent_meta.run_started_at`
+        // A turn can occupy a runner slot via `agent_meta.run_started_at`
         // alone (home-mode runs only write `running.json`); capacity_only
         // must not drop such dirs just because neither marker file exists.
         let tmp = tempdir().unwrap();
@@ -2569,5 +2847,212 @@ mod tests {
         );
         assert_eq!(zero_rec.waiting.as_ref().unwrap().queue_capacity, Some(0));
         assert!(zero_rec.waiting.as_ref().unwrap().queue_capacity_explicit);
+    }
+
+    #[test]
+    fn scanner_reads_valid_queue_capacity_multiplier_from_meta_and_waiting() {
+        let tmp = tempdir().unwrap();
+        let projects = tmp.path().join("projects");
+        let metadata = projects
+            .join("proj")
+            .join("artifacts")
+            .join("ace-run")
+            .join("20260925010000");
+        let waiting = projects
+            .join("proj")
+            .join("artifacts")
+            .join("ace-run")
+            .join("20260925010001");
+        let invalid = projects
+            .join("proj")
+            .join("artifacts")
+            .join("ace-run")
+            .join("20260925010002");
+        write_json(
+            &metadata.join("agent_meta.json"),
+            json!({"name": "metadata", "queue_capacity_multiplier": 1.5}),
+        );
+        write_json(
+            &waiting.join("agent_meta.json"),
+            json!({"name": "waiting", "queue_capacity_multiplier": 1.5}),
+        );
+        write_json(
+            &waiting.join("waiting.json"),
+            json!({"queue_capacity_multiplier": 0.5}),
+        );
+        write_json(
+            &invalid.join("agent_meta.json"),
+            json!({"name": "invalid", "queue_capacity_multiplier": 1.125}),
+        );
+
+        let snapshot = scan_agent_artifacts(
+            &projects,
+            AgentArtifactScanOptionsWire::default(),
+        );
+        let record = |timestamp: &str| {
+            snapshot
+                .records
+                .iter()
+                .find(|record| record.timestamp == timestamp)
+                .unwrap()
+        };
+        assert_eq!(
+            record("20260925010000")
+                .agent_meta
+                .as_ref()
+                .unwrap()
+                .queue_capacity_multiplier,
+            Some(1.5)
+        );
+        let waiting_record = record("20260925010001");
+        assert_eq!(
+            waiting_record
+                .agent_meta
+                .as_ref()
+                .unwrap()
+                .queue_capacity_multiplier,
+            Some(1.5)
+        );
+        assert_eq!(
+            waiting_record
+                .waiting
+                .as_ref()
+                .unwrap()
+                .queue_capacity_multiplier,
+            Some(0.5)
+        );
+        assert_eq!(
+            record("20260925010002")
+                .agent_meta
+                .as_ref()
+                .unwrap()
+                .queue_capacity_multiplier,
+            None
+        );
+    }
+
+    fn meta_with_finalizer_status(value: Value) -> AgentMetaWire {
+        let mut data = Map::new();
+        data.insert("name".to_string(), json!("probe"));
+        data.insert("finalizer_status".to_string(), value);
+        agent_meta_from_object(&data)
+    }
+
+    #[test]
+    fn scanner_coerces_finalizer_status_tolerantly() {
+        // A valid summary survives with every field intact.
+        let valid = meta_with_finalizer_status(json!({
+            "schema_version": 1,
+            "phase": "executing",
+            "plan_digest": "84a91c2d",
+            "run_id": "run-1",
+            "started_at": 1_727_440_000.0,
+            "updated_at": 1_727_440_012.5,
+            "runner": {"pid": 1234, "identity": "boot-abc:1234"},
+            "instances": [{
+                "id": "commit",
+                "status": "running",
+                "attempt": 1,
+                "max_attempts": 1,
+                "op": "stitch main",
+                "started_at": 1_727_440_001.0,
+                "warnings": 0,
+            }],
+            "instance_count": 1,
+        }));
+        let summary = valid.finalizer_status.as_ref().unwrap();
+        assert_eq!(summary.phase.as_deref(), Some("executing"));
+        assert_eq!(summary.plan_digest.as_deref(), Some("84a91c2d"));
+        assert_eq!(summary.runner.as_ref().unwrap().pid, Some(1234));
+        assert_eq!(summary.instances.len(), 1);
+        assert_eq!(summary.instances[0].id, "commit");
+        assert_eq!(summary.instance_count, Some(1));
+
+        // Extra keys are ignored and never fail the meta.
+        let extra = meta_with_finalizer_status(json!({
+            "phase": "settled",
+            "status": "success",
+            "future_field": {"nested": [1, 2, 3]},
+            "instances": [{
+                "id": "check",
+                "status": "success",
+                "brand_new_key": true,
+            }],
+        }));
+        let summary = extra.finalizer_status.as_ref().unwrap();
+        assert_eq!(summary.phase.as_deref(), Some("settled"));
+        assert_eq!(summary.instances.len(), 1);
+        assert_eq!(summary.instances[0].id, "check");
+
+        // Malformed nested values degrade to None instead of failing.
+        let malformed = meta_with_finalizer_status(json!({
+            "phase": "executing",
+            "started_at": -5.0,
+            "updated_at": "not-a-number",
+            "runner": "not-an-object",
+            "attempt": "NaN",
+            "instances": [
+                {"status": "running"},
+                {"id": 42, "status": "running"},
+                {"id": "", "status": "running"},
+                "not-an-object",
+                {"id": "ok", "attempt": -2, "warnings": -1,
+                 "started_at": "NaN"},
+            ],
+            "instance_count": -3,
+        }));
+        assert_eq!(malformed.name.as_deref(), Some("probe"));
+        let summary = malformed.finalizer_status.as_ref().unwrap();
+        assert_eq!(summary.started_at, None);
+        assert_eq!(summary.updated_at, None);
+        assert_eq!(summary.runner, None);
+        assert_eq!(summary.instance_count, None);
+        assert_eq!(summary.instances.len(), 1);
+        assert_eq!(summary.instances[0].id, "ok");
+        assert_eq!(summary.instances[0].attempt, None);
+        assert_eq!(summary.instances[0].warnings, None);
+        assert_eq!(summary.instances[0].started_at, None);
+
+        // Oversize strings are capped at 120 characters on char boundaries.
+        let long = "é".repeat(200);
+        let capped = meta_with_finalizer_status(json!({
+            "phase": "executing",
+            "reason": long,
+            "instances": [{"id": "commit", "headline": long}],
+        }));
+        let summary = capped.finalizer_status.as_ref().unwrap();
+        let reason = summary.reason.as_deref().unwrap();
+        assert_eq!(reason.chars().count(), 120);
+        let headline = summary.instances[0].headline.as_deref().unwrap();
+        assert_eq!(headline.chars().count(), 120);
+
+        // At most 16 instances are kept.
+        let many: Vec<Value> = (0..17)
+            .map(|n| json!({"id": format!("instance-{n}")}))
+            .collect();
+        let crowded = meta_with_finalizer_status(json!({"phase": "planned",
+                                              "instances": many}));
+        let summary = crowded.finalizer_status.as_ref().unwrap();
+        assert_eq!(summary.instances.len(), 16);
+        assert_eq!(summary.instances[15].id, "instance-15");
+
+        // A non-object value, a missing phase and an empty phase all give
+        // None while the rest of the meta still parses.
+        for value in [
+            json!("executing"),
+            json!(42),
+            json!({"status": "success"}),
+            json!({"phase": ""}),
+            json!({"phase": 42}),
+            json!(null),
+        ] {
+            let meta = meta_with_finalizer_status(value);
+            assert_eq!(meta.name.as_deref(), Some("probe"));
+            assert_eq!(meta.finalizer_status, None);
+        }
+
+        // A missing summary is None.
+        let bare = agent_meta_from_object(&Map::new());
+        assert_eq!(bare.finalizer_status, None);
     }
 }

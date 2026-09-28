@@ -24,11 +24,11 @@ use crate::fleet_contract::{
     MAX_LAUNCH_PROMPT_BYTES,
 };
 
-/// Capability advertised for owner-side stop of a live agent-shell instance.
+/// Capability advertised for owner-side stop of a live agent-turn instance.
 pub const FLEET_MUTATION_CAPABILITY_STOP: &str = "lifecycle.stop";
-/// Capability advertised for owner-side retry of an agent-shell row.
+/// Capability advertised for owner-side retry of an agent-turn row.
 pub const FLEET_MUTATION_CAPABILITY_RETRY: &str = "lifecycle.retry";
-/// Capability advertised for owner-side fork of an agent-shell row.
+/// Capability advertised for owner-side fork of an agent-turn row.
 pub const FLEET_MUTATION_CAPABILITY_FORK: &str = "lifecycle.fork";
 
 /// Closed mutation kinds the fleet mutation journal accepts.
@@ -605,7 +605,7 @@ fn mutation_already_terminal(
                 )
         }
         FleetMutationKindWire::Retry | FleetMutationKindWire::Fork => {
-            summary.row_kind != FleetRowKindWire::AgentShell
+            summary.row_kind != FleetRowKindWire::AgentTurn
                 && matches!(
                     summary.lifecycle,
                     FleetLifecycleWire::Terminal | FleetLifecycleWire::Failed
@@ -625,7 +625,7 @@ fn target_sort_key(target: &FleetBulkTargetWire) -> (String, String, String) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::fleet_contract::FleetFamilyRoleWire;
+    use crate::fleet_contract::FleetAgentSessionRoleWire;
     use crate::fleet_contract::{
         ConnectionHealthWire, ContentMetadataWire, FleetStatusBucketWire,
         HumanDisplayLabelsWire, ObservationFreshnessWire, OriginLocatorWire,
@@ -656,7 +656,7 @@ mod tests {
                 project_id: "project-1".to_string(),
             },
             agent_id: agent.to_string(),
-            family_id: Some("family-1".to_string()),
+            agent_session_id: Some("family-1".to_string()),
         }
     }
 
@@ -664,7 +664,7 @@ mod tests {
         AgentInstanceLocatorWire {
             schema_version: FLEET_CONTRACT_SCHEMA_VERSION,
             logical: logical(hex, agent),
-            shell_id: "shell-1".to_string(),
+            turn_id: "shell-1".to_string(),
             run_id: run.to_string(),
             attempt_id: "attempt-1".to_string(),
         }
@@ -732,14 +732,14 @@ mod tests {
             exact_locator: Some(intent.target.clone()),
             logical_key: logical_key_unchecked(&intent.target.logical),
             exact_key: Some("exact-1".to_string()),
-            row_kind: FleetRowKindWire::AgentShell,
-            family_role: FleetFamilyRoleWire::Root,
+            row_kind: FleetRowKindWire::AgentTurn,
+            agent_session_role: FleetAgentSessionRoleWire::Root,
             parent_timestamp: None,
             labels: HumanDisplayLabelsWire {
                 schema_version: FLEET_CONTRACT_SCHEMA_VERSION,
                 project_label: "project-1".to_string(),
                 agent_label: Some("athena.worker".to_string()),
-                family_label: Some("family-1".to_string()),
+                agent_session_label: Some("family-1".to_string()),
                 owner_label: None,
                 alias: Some("apollo".to_string()),
             },
@@ -784,6 +784,7 @@ mod tests {
             },
             queue_capacity: None,
             queue_capacity_explicit: false,
+            queue_capacity_multiplier: None,
             queue_weight: None,
             queue_weight_explicit: false,
             queue_weight_invalid: false,

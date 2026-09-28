@@ -13,6 +13,7 @@
 # limitations under the License.
 """HTML processor."""
 
+import html
 import json
 import os
 import queue
@@ -26,6 +27,23 @@ with open(
   os.path.join(os.path.dirname(__file__), 'skip_nodes.json'), encoding='utf-8'
 ) as f:
   SKIP_NODES: set[str] = set(json.load(f))
+
+# Elements without an end tag, see https://html.spec.whatwg.org/#void-elements
+VOID_ELEMENTS = {
+  'area',
+  'base',
+  'br',
+  'col',
+  'embed',
+  'hr',
+  'img',
+  'input',
+  'link',
+  'meta',
+  'source',
+  'track',
+  'wbr',
+}
 
 
 class ElementState:
@@ -92,18 +110,34 @@ class HTMLChunkResolver(HTMLParser):
       if attr[1] is None:
         attr_pairs.append(' ' + attr[0])
       else:
-        attr_pairs.append(f' {attr[0]}="{attr[1]}"')
+        attr_pairs.append(f' {attr[0]}="{html.escape(attr[1])}"')
     encoded_attrs = ''.join(attr_pairs)
     self.element_stack.put(ElementState(tag, self.to_skip))
     if tag.upper() in SKIP_NODES:
-      if not self.to_skip and self.chunks_joined[self.scan_index] == SEP:
+      if (
+        not self.to_skip
+        and self.scan_index < len(self.chunks_joined)
+        and self.chunks_joined[self.scan_index] == SEP
+      ):
         self.scan_index += 1
         self._output.append(self.separator)
       self.to_skip = True
     self._output.append(f'<{tag}{encoded_attrs}>')
+    if tag in VOID_ELEMENTS:
+      # Void elements like `<input>` have no end tag, so restore the state now.
+      self.to_skip = self.element_stack.get_nowait().to_skip
+
+  def handle_startendtag(self, tag: str, attrs: HTMLAttr) -> None:
+    # Self-closing tags like `<br/>` have no end tag, so don't output one.
+    self.handle_starttag(tag, attrs)
+    self._output[-1] = self._output[-1][:-1] + '/>'
+    if tag not in VOID_ELEMENTS:
+      self.to_skip = self.element_stack.get_nowait().to_skip
 
   def handle_endtag(self, tag: str) -> None:
     self._output.append(f'</{tag}>')
+    if tag in VOID_ELEMENTS:
+      return
     while not self.element_stack.empty():
       state = self.element_stack.get_nowait()
       if state.tag == tag:
@@ -125,7 +159,12 @@ class HTMLChunkResolver(HTMLParser):
         if not self.to_skip and not char.isspace() and not prev_was_whitespace:
           self._output.append(self.separator)
         self.scan_index += 1
-      self._output.append(char)
+      # Re-escape text that `HTMLParser` unescaped, except in raw text elements.
+      self._output.append(
+        html.escape(char, quote=False)
+        if self.cdata_elem not in self.CDATA_CONTENT_ELEMENTS
+        else char
+      )
       self.scan_index += 1
 
 
@@ -140,6 +179,7 @@ def get_text(html: str) -> str:
   """
   text_content_extractor = TextContentExtractor()
   text_content_extractor.feed(html)
+  text_content_extractor.close()
   return text_content_extractor.output
 
 
@@ -156,5 +196,6 @@ def resolve(phrases: list[str], html: str, separator: str = '\u200b') -> str:
   """
   resolver = HTMLChunkResolver(phrases, separator)
   resolver.feed(html)
+  resolver.close()
   result = f'<span style="{PARENT_CSS_STYLE}">{resolver.output}</span>'
   return result

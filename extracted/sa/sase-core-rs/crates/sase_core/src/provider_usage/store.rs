@@ -6,20 +6,25 @@
 //! execution remains outside the core crate.
 
 use super::refresh::{
-    empty_refresh_schedule, evaluate_refresh_due, refresh_attempt_succeeded,
-    refresh_backoff_seconds, validate_refresh_cadence,
+    empty_refresh_schedule, evaluate_adaptive_refresh_due,
+    evaluate_refresh_due, jitter_adaptive_backoff_seconds,
+    refresh_attempt_succeeded, refresh_backoff_seconds, refresh_failure_policy,
+    refresh_jitter_factor, validate_refresh_cadence, HotWindowView,
     ProviderUsageRefreshAdmissionStatus, ProviderUsageRefreshAdmitOutcomeWire,
     ProviderUsageRefreshAdmitRequestWire, ProviderUsageRefreshAttemptWire,
     ProviderUsageRefreshDueOutcomeWire, ProviderUsageRefreshDueRequestWire,
     ProviderUsageRefreshMarkDueOutcomeWire,
     ProviderUsageRefreshMarkDueRequestWire, ProviderUsageRefreshScheduleWire,
-    USAGE_REFRESH_EXPLICIT_COOLDOWN_SECONDS,
+    ADAPTIVE_EXPLICIT_COOLDOWN_SECONDS, HOT_HINT_COALESCE_SECONDS,
+    HOT_HINT_MAX_SECONDS, USAGE_REFRESH_EXPLICIT_COOLDOWN_SECONDS,
 };
 use super::{
     collection_problem_is_attentive, collector_health_from_schedule,
     compatibility::{self, UsageIdentityOrigin, CLAUDE_FABLE_CANONICAL_KEY},
     project_window, sanitize_diagnostic, summarize_filtered_windows,
-    usage_window_applies, validate_ident, validate_now, validate_usage_cadence,
+    usage_window_applies, validate_active_cadence, validate_cli_fingerprint,
+    validate_hot_until, validate_hot_warn_percent, validate_ident,
+    validate_now, validate_probe_floor, validate_usage_cadence,
     validate_usage_observation, validate_usage_thresholds, window_attention,
     ProviderUsageObservationWire, UsageAttentionKind, UsageAttentionWire,
     UsageCollectionHealth, UsageCollectionOutcome, UsageCompleteness,
@@ -137,6 +142,33 @@ pub struct ProviderUsageRefreshReservationOutcomeWire {
     pub reservation: ProviderUsageRefreshReservationWire,
 }
 
+/// Request to record a hot-usage hint for a provider context.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MarkProviderUsageHotRequestWire {
+    pub provider: String,
+    pub context_id: String,
+    pub account_generation: u64,
+    pub until: f64,
+}
+
+/// Outcome of recording a hot-usage hint.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MarkProviderUsageHotOutcomeWire {
+    pub version: u32,
+    pub marked: bool,
+    pub hot_until: f64,
+}
+
+/// Read-only listing of live refresh reservations.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ListProviderUsageRefreshReservationsWire {
+    pub version: u32,
+    pub reservations: Vec<ProviderUsageRefreshReservationWire>,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct ProviderUsageStoredWindowWire {
@@ -208,7 +240,34 @@ pub fn load_provider_usage_store(
     warn_percent: f64,
     critical_percent: f64,
 ) -> Result<ProviderUsageStoreReadWire, ProviderUsageStoreError> {
+    load_provider_usage_store_with_floors(
+        sase_home,
+        now,
+        cadence_seconds,
+        warn_percent,
+        critical_percent,
+        None,
+    )
+}
+
+/// Store read with per-provider polling floors.
+///
+/// Window freshness for a provider uses `max(cadence_seconds, floor)` where
+/// the provider names a floor in `provider_min_intervals`. With `None` the
+/// read behaves exactly as [`load_provider_usage_store`].
+pub fn load_provider_usage_store_with_floors(
+    sase_home: &Path,
+    now: f64,
+    cadence_seconds: f64,
+    warn_percent: f64,
+    critical_percent: f64,
+    provider_min_intervals: Option<BTreeMap<String, f64>>,
+) -> Result<ProviderUsageStoreReadWire, ProviderUsageStoreError> {
     validate_read_inputs(now, cadence_seconds, warn_percent, critical_percent)?;
+    let provider_min_intervals = match provider_min_intervals {
+        Some(intervals) => Some(validate_floor_map(intervals)?),
+        None => None,
+    };
     with_usage_lock(
         sase_home,
         LockMode::Shared,
@@ -221,9 +280,23 @@ pub fn load_provider_usage_store(
                 cadence_seconds,
                 warn_percent,
                 critical_percent,
+                provider_min_intervals.as_ref(),
             ))
         },
     )
+}
+
+pub(super) fn validate_floor_map(
+    intervals: BTreeMap<String, f64>,
+) -> Result<BTreeMap<String, f64>, ProviderUsageStoreError> {
+    let mut validated = BTreeMap::new();
+    for (provider, floor) in intervals {
+        let provider =
+            validate_ident("provider", &provider, super::MAX_PROVIDER_LEN)?;
+        let floor = validate_probe_floor(floor)?;
+        validated.insert(provider, floor);
+    }
+    Ok(validated)
 }
 
 pub fn record_provider_usage_observation(
@@ -476,6 +549,11 @@ pub fn admit_provider_usage_refresh(
                 account_generation: request.account_generation,
                 cadence_seconds: request.cadence_seconds,
                 explicit: request.explicit,
+                adaptive: request.adaptive,
+                min_interval_seconds: request.min_interval_seconds,
+                cli_fingerprint: request.cli_fingerprint.clone(),
+                active_cadence_seconds: request.active_cadence_seconds,
+                warn_percent: request.warn_percent,
             };
             let due = due_outcome_from_state(&state, &due_request, now);
             if !due.due {
@@ -590,6 +668,147 @@ pub fn mark_provider_usage_refresh_due(
     )
 }
 
+/// Record a hot-usage hint for a provider context.
+///
+/// The hint marks the provider hot until `until`, capped at one hour out.
+/// When the stored `hot_until` already reaches `until` minus 60 seconds the
+/// call coalesces: no write happens and `marked` is false.
+pub fn mark_provider_usage_hot(
+    sase_home: &Path,
+    request: MarkProviderUsageHotRequestWire,
+    now: f64,
+) -> Result<MarkProviderUsageHotOutcomeWire, ProviderUsageStoreError> {
+    validate_now(now)?;
+    let request = validate_mark_hot_request(request)?;
+    let until = request.until.min(now + HOT_HINT_MAX_SECONDS);
+    with_usage_lock(
+        sase_home,
+        LockMode::Exclusive,
+        "mark_provider_usage_hot",
+        || {
+            let mut state = read_state_unlocked(sase_home, now)?;
+            let key = reservation_key(
+                &request.provider,
+                &request.context_id,
+                request.account_generation,
+            );
+            let mut schedule = take_schedule(
+                &mut state,
+                &request.provider,
+                &request.context_id,
+                request.account_generation,
+            );
+            if schedule.hot_until.is_some_and(|existing| {
+                existing >= until - HOT_HINT_COALESCE_SECONDS
+            }) {
+                let hot_until = schedule.hot_until.unwrap_or(until);
+                state.schedules.insert(key, schedule);
+                return Ok(MarkProviderUsageHotOutcomeWire {
+                    version: PROVIDER_USAGE_STORE_SCHEMA_VERSION,
+                    marked: false,
+                    hot_until,
+                });
+            }
+            schedule.hot_until = Some(until);
+            state.schedules.insert(key, schedule);
+            write_state_unlocked(sase_home, &state)?;
+            Ok(MarkProviderUsageHotOutcomeWire {
+                version: PROVIDER_USAGE_STORE_SCHEMA_VERSION,
+                marked: true,
+                hot_until: until,
+            })
+        },
+    )
+}
+
+/// List live, unexpired refresh reservations.
+///
+/// Read-only under a shared lock: expired rows are excluded and nothing is
+/// written back.
+pub fn list_provider_usage_refresh_reservations(
+    sase_home: &Path,
+    now: f64,
+) -> Result<ListProviderUsageRefreshReservationsWire, ProviderUsageStoreError> {
+    validate_now(now)?;
+    with_usage_lock(
+        sase_home,
+        LockMode::Shared,
+        "list_provider_usage_refresh_reservations",
+        || {
+            let state = read_state_unlocked(sase_home, now)?;
+            Ok(ListProviderUsageRefreshReservationsWire {
+                version: PROVIDER_USAGE_STORE_SCHEMA_VERSION,
+                reservations: state.reservations.into_values().collect(),
+            })
+        },
+    )
+}
+
+fn validate_mark_hot_request(
+    request: MarkProviderUsageHotRequestWire,
+) -> Result<MarkProviderUsageHotRequestWire, ProviderUsageStoreError> {
+    let provider =
+        validate_ident("provider", &request.provider, super::MAX_PROVIDER_LEN)?;
+    let context_id =
+        validate_ident("context_id", &request.context_id, MAX_CONTEXT_LEN)?;
+    let until = validate_hot_until(request.until)?;
+    Ok(MarkProviderUsageHotRequestWire {
+        provider,
+        context_id,
+        account_generation: request.account_generation,
+        until,
+    })
+}
+
+fn apply_adaptive_attempt(
+    schedule: &mut ProviderUsageRefreshScheduleWire,
+    request: &ProviderUsageRefreshAttemptWire,
+    now: f64,
+) {
+    if request.reason_code.is_none()
+        && refresh_attempt_succeeded(&request.outcome)
+    {
+        schedule.last_success_at = Some(now);
+        schedule.first_failure_at = None;
+        schedule.consecutive_failures = 0;
+        schedule.backoff_until = None;
+        schedule.retry_after_until = None;
+        schedule.last_failure_reason = None;
+        schedule.consecutive_rate_limits = 0;
+        schedule.parked_fingerprint = None;
+        return;
+    }
+    if schedule.consecutive_failures == 0 {
+        schedule.first_failure_at = Some(now);
+    }
+    schedule.consecutive_failures =
+        schedule.consecutive_failures.saturating_add(1);
+    let policy = refresh_failure_policy(
+        now,
+        request.cadence_seconds,
+        request.min_interval_seconds,
+        &request.outcome,
+        request.reason_code,
+        request.retry_after_seconds,
+        request.cli_fingerprint.as_deref(),
+        schedule.consecutive_rate_limits,
+        schedule.consecutive_failures,
+    );
+    schedule.backoff_until = policy.backoff_until.map(|until| {
+        let jitter = refresh_jitter_factor(
+            request.provider.as_str(),
+            request.context_id.as_str(),
+            request.account_generation,
+            now,
+        );
+        now + jitter_adaptive_backoff_seconds(until - now, jitter)
+    });
+    schedule.retry_after_until = policy.retry_after_until;
+    schedule.consecutive_rate_limits = policy.consecutive_rate_limits;
+    schedule.parked_fingerprint = policy.parked_fingerprint;
+    schedule.last_failure_reason = policy.last_failure_reason;
+}
+
 pub fn record_provider_usage_refresh_attempt(
     sase_home: &Path,
     request: ProviderUsageRefreshAttemptWire,
@@ -615,7 +834,9 @@ pub fn record_provider_usage_refresh_attempt(
                 request.account_generation,
             );
             schedule.last_finished_at = Some(now);
-            if refresh_attempt_succeeded(&request.outcome) {
+            if request.adaptive {
+                apply_adaptive_attempt(&mut schedule, &request, now);
+            } else if refresh_attempt_succeeded(&request.outcome) {
                 schedule.last_success_at = Some(now);
                 schedule.first_failure_at = None;
                 schedule.consecutive_failures = 0;
@@ -641,8 +862,13 @@ pub fn record_provider_usage_refresh_attempt(
                 schedule.due_at = None;
                 schedule.due_reason = None;
             }
-            schedule.cooldown_until =
-                Some(now + USAGE_REFRESH_EXPLICIT_COOLDOWN_SECONDS);
+            schedule.cooldown_until = Some(
+                now + if request.adaptive {
+                    ADAPTIVE_EXPLICIT_COOLDOWN_SECONDS
+                } else {
+                    USAGE_REFRESH_EXPLICIT_COOLDOWN_SECONDS
+                },
+            );
             state.schedules.insert(key, schedule.clone());
             write_state_unlocked(sase_home, &state)?;
             Ok(schedule)
@@ -668,6 +894,7 @@ fn read_wire_from_state(
     cadence_seconds: f64,
     warn_percent: f64,
     critical_percent: f64,
+    provider_min_intervals: Option<&BTreeMap<String, f64>>,
 ) -> ProviderUsageStoreReadWire {
     let schedules = decoded.schedules;
     let providers = decoded
@@ -680,11 +907,15 @@ fn read_wire_from_state(
                 record.account_generation,
             );
             let schedule = schedules.get(&key);
+            let effective_cadence = provider_min_intervals
+                .and_then(|floors| floors.get(&record.provider))
+                .map(|floor| cadence_seconds.max(*floor))
+                .unwrap_or(cadence_seconds);
             public_provider_from_record(
                 record,
                 schedule,
                 now,
-                cadence_seconds,
+                effective_cadence,
                 warn_percent,
                 critical_percent,
             )
@@ -727,7 +958,7 @@ fn public_provider_from_record(
     };
     let known_constraints =
         store_constraint_list(&windows, warn_percent, critical_percent);
-    let collector_health = collector_health_from_schedule(schedule);
+    let collector_health = collector_health_from_schedule(schedule, now);
     let attention = store_provider_attention(
         &record.provider,
         record.last_attempt.outcome,
@@ -1113,6 +1344,7 @@ fn account_context_changed_record(
         source: UsageSource::Probe,
         outcome: UsageCollectionOutcome::Error,
         reason_code: Some(UsageReasonCode::AccountContextChanged),
+        retry_after_seconds: None,
         diagnostic,
         completeness: UsageCompleteness::Partial,
         authoritative_empty: false,
@@ -1271,6 +1503,9 @@ fn write_state_unlocked(
         schedules: state
             .schedules
             .iter()
+            .filter(|(_, schedule)| {
+                schedule_is_current_generation(&state.providers, schedule)
+            })
             .map(|(key, schedule)| {
                 serde_json::to_value(schedule)
                     .map(|value| (key.clone(), value))
@@ -1610,6 +1845,23 @@ fn prune_expired_reservations(
     reservations.retain(|_, reservation| now < reservation.expires_at);
 }
 
+/// Whether a schedule row is at the provider record's generation.
+///
+/// A schedule keyed at `(provider, generation, context_id)` is superseded
+/// when the provider record for the same `(provider, context_id)` has moved
+/// to a newer `account_generation`. Superseded rows are dropped on write.
+fn schedule_is_current_generation(
+    providers: &BTreeMap<String, ProviderUsageStoredProviderWire>,
+    schedule: &ProviderUsageRefreshScheduleWire,
+) -> bool {
+    providers
+        .get(&schedule.provider)
+        .filter(|record| record.context_id == schedule.context_id)
+        .is_none_or(|record| {
+            record.account_generation <= schedule.account_generation
+        })
+}
+
 fn reservation_key(
     provider: &str,
     context_id: &str,
@@ -1653,14 +1905,37 @@ fn due_outcome_from_state(
             stored.window.resets_at.is_some_and(|reset| reset <= now)
         })
     });
-    let decision = evaluate_refresh_due(
-        now,
-        request.cadence_seconds,
-        request.explicit,
-        schedule,
-        last_full,
-        reset_passed,
-    );
+    let decision = if request.adaptive {
+        let windows = record
+            .map(|row| {
+                row.windows
+                    .values()
+                    .map(|stored| HotWindowView {
+                        used_percent: stored.window.used_percent,
+                        resets_at: stored.window.resets_at,
+                        received_at: stored.received_at,
+                    })
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_default();
+        evaluate_adaptive_refresh_due(
+            now,
+            request,
+            schedule,
+            last_full,
+            reset_passed,
+            &windows,
+        )
+    } else {
+        evaluate_refresh_due(
+            now,
+            request.cadence_seconds,
+            request.explicit,
+            schedule,
+            last_full,
+            reset_passed,
+        )
+    };
     ProviderUsageRefreshDueOutcomeWire {
         version: PROVIDER_USAGE_STORE_SCHEMA_VERSION,
         due: decision.due,
@@ -1678,13 +1953,62 @@ fn validate_due_request(
         validate_ident("context_id", &request.context_id, MAX_CONTEXT_LEN)?;
     let cadence_seconds = validate_refresh_cadence(request.cadence_seconds)
         .map_err(ProviderUsageStoreError::Validation)?;
+    let adaptive = validate_admission_fields(
+        request.adaptive,
+        request.min_interval_seconds,
+        request.cli_fingerprint,
+        request.active_cadence_seconds,
+        request.warn_percent,
+    )?;
     Ok(ProviderUsageRefreshDueRequestWire {
         provider,
         context_id,
         account_generation: request.account_generation,
         cadence_seconds,
         explicit: request.explicit,
+        adaptive: adaptive.0,
+        min_interval_seconds: adaptive.1,
+        cli_fingerprint: adaptive.2,
+        active_cadence_seconds: adaptive.3,
+        warn_percent: adaptive.4,
     })
+}
+
+/// Validate the opt-in adaptive admission fields shared by due and admit.
+#[allow(clippy::type_complexity)]
+fn validate_admission_fields(
+    adaptive: bool,
+    min_interval_seconds: Option<f64>,
+    cli_fingerprint: Option<String>,
+    active_cadence_seconds: Option<f64>,
+    warn_percent: Option<f64>,
+) -> Result<
+    (bool, Option<f64>, Option<String>, Option<f64>, Option<f64>),
+    ProviderUsageStoreError,
+> {
+    let min_interval_seconds = match min_interval_seconds {
+        Some(value) => Some(validate_probe_floor(value)?),
+        None => None,
+    };
+    let cli_fingerprint = match cli_fingerprint {
+        Some(value) => Some(validate_cli_fingerprint(&value)?),
+        None => None,
+    };
+    let active_cadence_seconds = match active_cadence_seconds {
+        Some(value) => Some(validate_active_cadence(value)?),
+        None => None,
+    };
+    let warn_percent = match warn_percent {
+        Some(value) => Some(validate_hot_warn_percent(value)?),
+        None => None,
+    };
+    Ok((
+        adaptive,
+        min_interval_seconds,
+        cli_fingerprint,
+        active_cadence_seconds,
+        warn_percent,
+    ))
 }
 
 fn validate_admit_request(
@@ -1701,6 +2025,13 @@ fn validate_admit_request(
     )?;
     let cadence_seconds = validate_refresh_cadence(request.cadence_seconds)
         .map_err(ProviderUsageStoreError::Validation)?;
+    let adaptive = validate_admission_fields(
+        request.adaptive,
+        request.min_interval_seconds,
+        request.cli_fingerprint,
+        request.active_cadence_seconds,
+        request.warn_percent,
+    )?;
     Ok(ProviderUsageRefreshAdmitRequestWire {
         provider: reservation.provider,
         context_id: reservation.context_id,
@@ -1709,6 +2040,11 @@ fn validate_admit_request(
         ttl_seconds: reservation.ttl_seconds,
         cadence_seconds,
         explicit: request.explicit,
+        adaptive: adaptive.0,
+        min_interval_seconds: adaptive.1,
+        cli_fingerprint: adaptive.2,
+        active_cadence_seconds: adaptive.3,
+        warn_percent: adaptive.4,
     })
 }
 
@@ -1754,6 +2090,14 @@ fn validate_attempt_request(
             ));
         }
     }
+    let min_interval_seconds = match request.min_interval_seconds {
+        Some(value) => Some(validate_probe_floor(value)?),
+        None => None,
+    };
+    let cli_fingerprint = match request.cli_fingerprint {
+        Some(value) => Some(validate_cli_fingerprint(&value)?),
+        None => None,
+    };
     Ok(ProviderUsageRefreshAttemptWire {
         provider,
         context_id,
@@ -1761,6 +2105,10 @@ fn validate_attempt_request(
         outcome,
         retry_after_seconds: request.retry_after_seconds,
         cadence_seconds,
+        reason_code: request.reason_code,
+        min_interval_seconds,
+        cli_fingerprint,
+        adaptive: request.adaptive,
     })
 }
 

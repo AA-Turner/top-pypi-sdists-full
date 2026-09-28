@@ -2463,6 +2463,35 @@ mod hover_keys_value {
         );
     }
 
+    mod issue_2164_compound_schema {
+        use super::*;
+
+        fn fixture_path() -> std::path::PathBuf {
+            tombi_test_lib::project_root_path()
+                .join("crates/tombi-lsp/tests/fixtures/issue-2164-compound-schema")
+        }
+
+        test_hover_keys_value!(
+            #[tokio::test]
+            async fn hovers_value_from_embedded_resource(
+                r#"
+                [tool.tombi]
+                strict = tr█ue
+                "#,
+                SourcePath(fixture_path().join("input.toml")),
+                SchemaPath(fixture_path().join("schema.json")),
+                tombi_lsp::backend::Options {
+                    offline: Some(true),
+                    no_cache: Some(true),
+                },
+            ) -> Ok({
+                "Keys": "tool.tombi.strict",
+                "Value": "Boolean",
+                "Description": Some("Enable strict validation.")
+            });
+        );
+    }
+
     #[macro_export]
     macro_rules! test_hover_keys_value {
         (#[tokio::test] async fn $name:ident(
@@ -2745,14 +2774,14 @@ mod hover_keys_value {
 
                 if let Some(expected_has_schema) = None::<bool> $(.or(Some($has_schema)))? {
                     assert_eq!(
-                        hover_content.schema_uri.is_some(),
+                        hover_content.schema_document_uri.is_some(),
                         expected_has_schema,
                         "Schema presence is not equal",
                     );
                 } else if args.schema_file_path.is_some() || !args.schema_items.is_empty() {
-                    assert!(hover_content.schema_uri.is_some(), "The hover target is not defined in the schema.");
+                    assert!(hover_content.schema_document_uri.is_some(), "The hover target is not defined in the schema.");
                 } else {
-                    assert!(hover_content.schema_uri.is_none(), "The hover target is defined in the schema.");
+                    assert!(hover_content.schema_document_uri.is_none(), "The hover target is defined in the schema.");
                 }
 
                 pretty_assertions::assert_eq!(hover_content.accessors.to_string(), $keys, "Keys are not equal");

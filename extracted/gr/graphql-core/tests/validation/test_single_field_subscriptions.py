@@ -5,7 +5,8 @@ from graphql.validation import SingleFieldSubscriptionsRule
 
 from .harness import assert_validation_errors
 
-schema = build_schema("""
+schema = build_schema(
+    """
     type Message {
       body: String
       sender: String
@@ -28,7 +29,8 @@ schema = build_schema("""
       query: QueryRoot
       subscription: SubscriptionRoot
     }
-    """)
+    """
+)
 
 assert_errors = partial(
     assert_validation_errors, SingleFieldSubscriptionsRule, schema=schema
@@ -39,14 +41,17 @@ assert_valid = partial(assert_errors, errors=[])
 
 def describe_validate_subscriptions_with_single_field():
     def valid_subscription():
-        assert_valid("""
+        assert_valid(
+            """
             subscription ImportantEmails {
               importantEmails
             }
-            """)
+            """
+        )
 
     def valid_subscription_with_fragment():
-        assert_valid("""
+        assert_valid(
+            """
             subscription sub {
               ...newMessageFields
             }
@@ -57,10 +62,12 @@ def describe_validate_subscriptions_with_single_field():
                 sender
               }
             }
-            """)
+            """
+        )
 
     def valid_subscription_with_fragment_and_field():
-        assert_valid("""
+        assert_valid(
+            """
             subscription sub {
               newMessage {
                 body
@@ -74,7 +81,8 @@ def describe_validate_subscriptions_with_single_field():
                 sender
               }
             }
-            """)
+            """
+        )
 
     def fails_with_more_than_one_root_field():
         assert_errors(
@@ -283,12 +291,56 @@ def describe_validate_subscriptions_with_single_field():
             ],
         )
 
+    def fails_with_skip_or_include_directive():
+        assert_errors(
+            """
+            subscription RequiredRuntimeValidation($bool: Boolean!) {
+              newMessage @include(if: $bool) {
+                body
+                sender
+              }
+              disallowedSecondRootField @skip(if: $bool)
+            }
+            """,
+            [
+                {
+                    "message": "Subscription 'RequiredRuntimeValidation' must not"
+                    " use `@skip` or `@include` directives"
+                    " in the top level selection.",
+                    "locations": [(3, 26), (7, 41)],
+                }
+            ],
+        )
+
+    def fails_with_skip_or_include_directive_in_anonymous_subscription():
+        assert_errors(
+            """
+            subscription ($bool: Boolean!) {
+              newMessage @include(if: $bool) {
+                body
+                sender
+              }
+              disallowedSecondRootField @skip(if: $bool)
+            }
+            """,
+            [
+                {
+                    "message": "Anonymous Subscription must not"
+                    " use `@skip` or `@include` directives"
+                    " in the top level selection.",
+                    "locations": [(3, 26), (7, 41)],
+                }
+            ],
+        )
+
     def skips_if_not_subscription_type():
-        empty_schema = build_schema("""
+        empty_schema = build_schema(
+            """
             type Query {
               dummy: String
             }
-            """)
+            """
+        )
         assert_errors(
             """
             subscription {

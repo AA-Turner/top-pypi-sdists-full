@@ -14,7 +14,13 @@ requires = [
 
 [project]
 name = 'dbus-python'
-license = { text = 'Expat (MIT/X11)' }
+license = 'MIT AND (GPL-2.0-or-later OR AFL-2.1)'
+license-files = [
+    'COPYING',
+    'LICENSES/*.txt',
+    'subprojects/dbus-gmain/COPYING',
+    'subprojects/dbus-gmain/LICENSES/*.txt',
+]
 description = 'Python bindings for libdbus'
 maintainers = [
     { name = 'The D-Bus maintainers', email = 'dbus@lists.freedesktop.org' },
@@ -24,7 +30,6 @@ readme = { file = 'README', content-type = 'text/x-rst' }
 keywords = ['dbus', 'D-Bus']
 classifiers = [
     'Development Status :: 7 - Inactive',
-    'License :: OSI Approved :: MIT License',
     'Programming Language :: C',
     'Programming Language :: Python :: 3',
     'Programming Language :: Python :: Implementation :: CPython',
@@ -47,4 +52,4 @@ test = [
 homepage = 'http://www.freedesktop.org/wiki/Software/DBusBindings/#python'
 download = 'http://dbus.freedesktop.org/releases/dbus-python/'
 source = 'https://gitlab.freedesktop.org/dbus/dbus-python/'
-tracker = 'https://gitlab.freedesktop.org/dbus/dbus-python/-/issues'
+tracker = 'https://gitlab.freedesktop.org/dbus/dbus-python/-/work_items'

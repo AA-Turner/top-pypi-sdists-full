@@ -688,7 +688,7 @@ def _queue_or_drop(
                     "could not supply one, and the carried context has none either. The "
                     "organization is READ off the context the boundary minted or off the "
                     "parent record; it is never left for the database to guess, which "
-                    "files the row in the creator's personal organization where nothing "
+                    "would file the row in an organization nobody chose, where nothing "
                     "looks for it.",
                     table=table,
                     conversation_id=(

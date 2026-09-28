@@ -33,14 +33,18 @@ class CohereReranker:
     client = keyed_provider_client("COHERE_API_KEY", factory=_make_client, required=True)
 
     async def rerank(
-        self, query: str, documents: list[str], *, model: str
+        self, query: str, documents: list[str], *, model: str, max_retries: int | None = None
     ) -> list[float]:
+        """``max_retries`` overrides the SDK's retry policy. A latency-bounded caller passes
+        0: the SDK's default backoff on a 429 took 3.9 s (measured 2026-09-27), so a refused
+        call surfaced as "slow" instead of as the refusal it was."""
         client = await asyncio.to_thread(lambda: self.client)
         response = await client.rerank(
             model=model,
             query=query,
             documents=documents,
             top_n=len(documents),
+            **({"request_options": {"max_retries": max_retries}} if max_retries is not None else {}),
         )
         scores = [0.0] * len(documents)
         for result in response.results:

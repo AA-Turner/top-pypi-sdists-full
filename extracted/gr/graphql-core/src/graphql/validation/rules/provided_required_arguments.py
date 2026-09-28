@@ -1,21 +1,36 @@
-from typing import cast, Any, Dict, List, Union
+"""Provided required arguments on directives rule"""
+
+from __future__ import annotations
+
+from typing import Any, cast
 
 from ...error import GraphQLError
 from ...language import (
+    SKIP,
     DirectiveDefinitionNode,
     DirectiveNode,
     FieldNode,
+    FragmentSpreadNode,
     InputValueDefinitionNode,
     NonNullTypeNode,
     TypeNode,
+    VariableDefinitionNode,
     VisitorAction,
-    SKIP,
     print_ast,
 )
-from ...type import GraphQLArgument, is_required_argument, is_type, specified_directives
+from ...pyutils import inspect
+from ...type import (
+    GraphQLArgument,
+    get_named_type,
+    is_introspection_type,
+    is_required_argument,
+    is_type,
+    specified_directives,
+)
+from ...utilities import type_from_ast
 from . import ASTValidationRule, SDLValidationContext, ValidationContext
 
-__all__ = ["ProvidedRequiredArgumentsRule", "ProvidedRequiredArgumentsOnDirectivesRule"]
+__all__ = ["ProvidedRequiredArgumentsOnDirectivesRule", "ProvidedRequiredArgumentsRule"]
 
 
 class ProvidedRequiredArgumentsOnDirectivesRule(ASTValidationRule):
@@ -27,17 +42,18 @@ class ProvidedRequiredArgumentsOnDirectivesRule(ASTValidationRule):
     For internal use only.
     """
 
-    context: Union[ValidationContext, SDLValidationContext]
+    context: ValidationContext | SDLValidationContext
+    """The validation context used while checking the document."""
 
-    def __init__(self, context: Union[ValidationContext, SDLValidationContext]):
+    def __init__(self, context: ValidationContext | SDLValidationContext) -> None:
         super().__init__(context)
-        required_args_map: Dict[
-            str, Dict[str, Union[GraphQLArgument, InputValueDefinitionNode]]
+        required_args_map: dict[
+            str, dict[str, GraphQLArgument | InputValueDefinitionNode]
         ] = {}
 
         schema = context.schema
         defined_directives = schema.directives if schema else specified_directives
-        for directive in cast(List, defined_directives):
+        for directive in cast("list", defined_directives):
             required_args_map[directive.name] = {
                 name: arg
                 for name, arg in directive.args.items()
@@ -59,7 +75,6 @@ class ProvidedRequiredArgumentsOnDirectivesRule(ASTValidationRule):
         directive_name = directive_node.name.value
         required_args = self.required_args_map.get(directive_name)
         if required_args:
-
             arg_nodes = directive_node.arguments or ()
             arg_node_set = {arg.name.value for arg in arg_nodes}
             for arg_name in required_args:
@@ -68,11 +83,11 @@ class ProvidedRequiredArgumentsOnDirectivesRule(ASTValidationRule):
                     arg_type_str = (
                         str(arg_type)
                         if is_type(arg_type)
-                        else print_ast(cast(TypeNode, arg_type))
+                        else print_ast(cast("TypeNode", arg_type))
                     )
                     self.report_error(
                         GraphQLError(
-                            f"Directive '@{directive_name}' argument '{arg_name}'"
+                            f"Argument '@{directive_name}({arg_name}:)'"
                             f" of type '{arg_type_str}' is required,"
                             " but it was not provided.",
                             directive_node,
@@ -85,15 +100,34 @@ class ProvidedRequiredArgumentsRule(ProvidedRequiredArgumentsOnDirectivesRule):
 
     A field or directive is only valid if all required (non-null without a default
     value) field arguments have been provided.
+
+    :param context: The validation context used while checking the document.
+
+    >>> from graphql import build_schema, parse, validate
+    >>> from graphql.validation import ProvidedRequiredArgumentsRule
+    >>> schema = build_schema('type Query { field(required: String!): String }')
+    >>> document = parse('{ field }')
+    >>> errors = validate(schema, document, [ProvidedRequiredArgumentsRule])
+    >>> print(errors[0].message)
+    Argument 'Query.field(required:)' of type 'String!' is required, but it was not
+    provided.
+    >>> document = parse('{ field(required: "x") }')
+    >>> validate(schema, document, [ProvidedRequiredArgumentsRule])
+    []
     """
 
     context: ValidationContext
+    """The validation context used while checking the document."""
 
-    def __init__(self, context: ValidationContext):
+    def __init__(self, context: ValidationContext) -> None:
         super().__init__(context)
 
     def leave_field(self, field_node: FieldNode, *_args: Any) -> VisitorAction:
         # Validate on leave to allow for deeper errors to appear first.
+        """Called when leaving a field node.
+
+        :meta private:
+        """
         field_def = self.context.get_field_def()
         if not field_def:
             return SKIP
@@ -103,10 +137,16 @@ class ProvidedRequiredArgumentsRule(ProvidedRequiredArgumentsOnDirectivesRule):
         for arg_name, arg_def in field_def.args.items():
             arg_node = arg_node_map.get(arg_name)
             if not arg_node and is_required_argument(arg_def):
+                field_type = get_named_type(self.context.get_type())
+                if field_type and is_introspection_type(field_type):
+                    parent_type_str = "<meta>."
+                else:
+                    parent_type = self.context.get_parent_type()
+                    parent_type_str = f"{parent_type}." if parent_type else ""
                 self.report_error(
                     GraphQLError(
-                        f"Field '{field_node.name.value}' argument '{arg_name}'"
-                        f" of type '{arg_def.type}' is required,"
+                        f"Argument '{parent_type_str}{field_node.name.value}"
+                        f"({arg_name}:)' of type '{arg_def.type}' is required,"
                         " but it was not provided.",
                         field_node,
                     )
@@ -114,6 +154,40 @@ class ProvidedRequiredArgumentsRule(ProvidedRequiredArgumentsOnDirectivesRule):
 
         return None
 
+    def leave_fragment_spread(
+        self, spread_node: FragmentSpreadNode, *_args: Any
+    ) -> VisitorAction:
+        """Called when leaving a fragment spread node.
 
-def is_required_argument_node(arg: InputValueDefinitionNode) -> bool:
+        :meta private:
+        """
+        # Validate on leave to allow for deeper errors to appear first.
+        fragment_signature = self.context.get_fragment_signature()
+        if not fragment_signature:
+            return SKIP
+
+        provided_args = {arg.name.value for arg in spread_node.arguments or ()}
+        for (
+            var_name,
+            variable_definition,
+        ) in fragment_signature.variable_definitions.items():
+            if var_name not in provided_args and is_required_argument_node(
+                variable_definition
+            ):
+                arg_type = type_from_ast(self.context.schema, variable_definition.type)
+                self.report_error(
+                    GraphQLError(
+                        f"Fragment '{spread_node.name.value}' argument"
+                        f" '{var_name}' of type '{inspect(arg_type)}' is required,"
+                        " but it was not provided.",
+                        spread_node,
+                    )
+                )
+
+        return None
+
+
+def is_required_argument_node(
+    arg: InputValueDefinitionNode | VariableDefinitionNode,
+) -> bool:
     return isinstance(arg.type, NonNullTypeNode) and arg.default_value is None

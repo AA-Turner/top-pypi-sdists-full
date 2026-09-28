@@ -34,14 +34,15 @@ where
         let mut evaluated_locations = crate::Valid::new();
 
         let Some((resolved_schemas, resolution_errors)) =
-            tombi_schema_store::resolve_and_collect_schemas_with_errors(
+            tombi_schema_store::resolve_and_collect_schemas_with_errors_in_scope(
                 &all_of_schema.schemas,
-                current_schema.schema_uri.clone(),
+                current_schema.schema_base_uri.clone(),
                 current_schema.definitions.clone(),
                 current_schema.strict,
                 schema_context.store,
                 &schema_context.schema_visits,
                 accessors,
+                Some(&current_schema.dynamic_scope),
             )
             .await
         else {
@@ -177,7 +178,7 @@ where
         let targets = targets
             .iter()
             .map(|target| tombi_schema_store::Referable::Resolved {
-                schema_uri: Some(target.schema_uri.as_ref().clone()),
+                schema_base_uri: Some(target.schema_base_uri.as_ref().clone()),
                 value: target.schema_view.clone(),
                 semantic_schema: target.semantic_schema.clone(),
             })
@@ -192,8 +193,11 @@ where
             ),
             semantic_schema: None,
             schema_uri: local.schema_uri,
+            schema_base_uri: local.schema_base_uri,
+            schema_document_uri: local.schema_document_uri,
             definitions: local.definitions,
             strict: local.strict,
+            dynamic_scope: local.dynamic_scope,
         };
         value
             .validate(accessors, Some(&current_schema), schema_context)

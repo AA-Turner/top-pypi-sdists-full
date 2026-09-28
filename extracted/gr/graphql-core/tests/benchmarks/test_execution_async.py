@@ -1,8 +1,9 @@
 import asyncio
+
 from graphql import (
-    GraphQLSchema,
-    GraphQLObjectType,
     GraphQLField,
+    GraphQLObjectType,
+    GraphQLSchema,
     GraphQLString,
     graphql,
 )
@@ -16,7 +17,7 @@ user = GraphQLObjectType(
 )
 
 
-async def resolve_user(obj, info):
+async def resolve_user(_obj, _info):
     return {
         "id": "1",
         "name": "Sarah",

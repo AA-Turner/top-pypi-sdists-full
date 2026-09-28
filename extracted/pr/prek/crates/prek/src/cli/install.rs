@@ -16,7 +16,7 @@ use crate::cli::run::{SelectorSource, Selectors};
 use crate::cli::{ExitStatus, HookType};
 use crate::config::load_config;
 use crate::fs::{CWD, Simplified};
-use crate::git::{GIT_ROOT, git_cmd};
+use crate::git::git_cmd;
 use crate::printer::Printer;
 use crate::store::Store;
 use crate::workspace::{Error as WorkspaceError, HookInitFilters, Project, Workspace};
@@ -83,14 +83,14 @@ pub(crate) async fn install(
             );
         }
 
-        let hooks_path = git::common_dir().await?.join("hooks");
+        let hooks_path = git::common_dir()?.join("hooks");
         warn_user!(
             "`core.hooksPath` is configured outside this repository. Installing Git shims to `{}` because `--force` was used.",
             hooks_path.user_display().cyan()
         );
         hooks_path
     } else {
-        git::hooks_dir().await?
+        git::hooks_dir().await?.to_path_buf()
     };
 
     let hook_mode = git::shared_repository_file_mode(0o755)
@@ -129,7 +129,8 @@ pub(crate) async fn install(
             allow_missing_config,
             hook_mode,
             printer,
-        )?;
+        )
+        .await?;
     }
 
     if prepare_hooks {
@@ -216,7 +217,7 @@ fn get_hook_types(
 }
 
 #[allow(clippy::fn_params_excessive_bools)]
-fn install_hook_script(
+async fn install_hook_script(
     project: Option<&Project>,
     config: Option<PathBuf>,
     selectors: Option<&Selectors>,
@@ -239,7 +240,7 @@ fn install_hook_script(
             )?;
         } else {
             if !is_our_script(&hook_path)? {
-                fs_err::rename(&hook_path, &legacy_path)?;
+                crate::fs::rename_with_retry(&hook_path, &legacy_path).await?;
                 writeln!(
                     printer.stdout(),
                     "Hook already exists at `{}`, moved it to `{}`",
@@ -308,7 +309,7 @@ fn install_hook_script(
 
         write!(hint, " with specified config `{}`", config.display().cyan())?;
     } else if let Some(project) = project {
-        let git_root = GIT_ROOT.as_ref()?;
+        let git_root = git::root()?;
         let project_path = project.path();
         let relative_path = project_path.strip_prefix(git_root).unwrap_or(project_path);
         if !relative_path.as_os_str().is_empty() {
@@ -430,7 +431,7 @@ pub(crate) async fn uninstall(
     let hooks_path = if let Some(dir) = git_dir {
         dir.join("hooks")
     } else {
-        git::hooks_dir().await?
+        git::hooks_dir().await?.to_path_buf()
     };
 
     let types: Vec<HookType> = if all {
@@ -485,7 +486,7 @@ pub(crate) async fn uninstall(
         )?;
 
         if legacy_path.try_exists()? {
-            fs_err::rename(&legacy_path, &hook_path)?;
+            crate::fs::rename_with_retry(&legacy_path, &hook_path).await?;
             writeln!(
                 printer.stdout(),
                 "Restored `{}` to `{}`",

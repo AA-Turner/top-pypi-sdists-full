@@ -14,7 +14,11 @@ from typing import (
     Union,
 )
 
-import httpx
+try:
+    import httpx2 as httpx
+except ModuleNotFoundError:  # pragma: no cover
+    import httpx  # type: ignore[no-redef]
+
 from graphql import ExecutionResult
 
 from ..graphql_request import GraphQLRequest
@@ -66,7 +70,7 @@ class _HTTPXTransport:
         upload_files: bool = False,
     ) -> Dict[str, Any]:
 
-        payload: Dict | List
+        payload: Union[Dict, List]
         if isinstance(request, GraphQLRequest):
             payload = request.payload
         else:

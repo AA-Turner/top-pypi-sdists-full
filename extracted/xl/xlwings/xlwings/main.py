@@ -11,6 +11,9 @@ License: BSD 3-clause (see LICENSE.txt for details)
 
 from __future__ import annotations
 
+import datetime as dt
+import inspect
+import math
 import numbers
 import os
 import re
@@ -20,13 +23,17 @@ import warnings
 from contextlib import contextmanager
 from os import PathLike
 from pathlib import Path
+from types import EllipsisType
 from typing import (
     Any,
+    Awaitable,
     ClassVar,
     Generator,
     Generic,
     Iterator,
+    Literal,
     Mapping,
+    Sequence,
     TypeVar,
     cast,
     get_args,
@@ -38,21 +45,41 @@ import xlwings
 from . import LicenseError, ShapeAlreadyExists, XlwingsError, utils
 from .base_classes import (
     _UNSET,
+    AUTOFILTER_COMPARISON_OPERATORS,
+    AUTOFILTER_CRITERIA_TYPES,
     BORDER_GRID_SIDES,
     BORDER_SIDES,
     CHART_LEGEND_POSITIONS,
+    CHART_MARKER_STYLES,
     CHART_PLOT_BY,
     CHART_TYPES,
+    CONDITIONAL_FORMAT_ICON_SETS,
+    CONDITIONAL_FORMAT_OPERATORS,
+    CONDITIONAL_FORMAT_THRESHOLD_TYPES,
+    CONDITIONAL_FORMAT_TYPES,
+    DATA_VALIDATION_OPERATORS,
+    DATA_VALIDATION_TYPES,
     HORIZONTAL_ALIGNMENTS,
     PIVOT_FUNCTIONS,
     PIVOT_LAYOUTS,
     VERTICAL_ALIGNMENTS,
+    AutoFilterComparisonOperator,
+    AutoFilterCriteriaType,
     BorderGroup,
     BorderLineStyle,
     BorderSide,
     BorderWeight,
     ChartLegendPosition,
+    ChartMarkerStyle,
     ChartPlotBy,
+    ConditionalFormatCriterionType,
+    ConditionalFormatIconSet,
+    ConditionalFormatOperator,
+    ConditionalFormatThresholdType,
+    ConditionalFormatType,
+    DataValidationAlertStyle,
+    DataValidationOperator,
+    DataValidationType,
     HorizontalAlignment,
     PivotFunction,
     PivotLayout,
@@ -1190,6 +1217,25 @@ class Book:
         return Sheets(impl=self.impl.sheets)
 
     @property
+    def notes(self) -> Notes:
+        """Notes in this workbook. xlwings Lite includes the worksheets loaded for this script."""
+        return Notes(self)
+
+    @property
+    def comments(self) -> Comments:
+        """Threaded comments in this workbook. In xlwings Lite, use `await get_comments()`."""
+        return Comments(self)
+
+    async def get_comments(self) -> Comments:
+        """Fetch the workbook's threaded comments.
+
+        Requires xlwings Lite.
+        """
+        return Comments(
+            self, [Comment(impl=item) for item in await self.impl.get_comments()]
+        )
+
+    @property
     def app(self) -> App:
         """Returns an app object that represents the creator of the book.
 
@@ -1525,6 +1571,25 @@ class Sheet:
         return Book(impl=self.impl.book)
 
     @property
+    def notes(self) -> Notes:
+        """Notes on this worksheet, indexed by cell address or position."""
+        return Notes(self)
+
+    @property
+    def comments(self) -> Comments:
+        """Threaded comments on this worksheet. In xlwings Lite, use `await get_comments()`."""
+        return Comments(self)
+
+    async def get_comments(self) -> Comments:
+        """Fetch this worksheet's threaded comments.
+
+        Requires xlwings Lite.
+        """
+        return Comments(
+            self, [Comment(impl=item) for item in await self.impl.get_comments()]
+        )
+
+    @property
     def index(self) -> int:
         """Returns the index of the Sheet (1-based as in Excel)."""
         return self.impl.index
@@ -1714,9 +1779,6 @@ class Sheet:
 
             name: The sheet name of the copy
 
-        Returns:
-            The copied sheet
-
         Examples:
             ```python
             # Create two books and add a value to the first sheet of the first book
@@ -1759,6 +1821,40 @@ class Sheet:
         if name:
             copied_sheet.name = name
         return copied_sheet
+
+    def move(
+        self,
+        before: Sheet | None = None,
+        after: Sheet | None = None,
+    ) -> None:
+        """Move a sheet within its current Book.
+
+        Provide exactly one of ``before`` or ``after``. Both the sheet being moved
+        and the target sheet must belong to the same Book.
+
+        Args:
+            before: The sheet before which you want to place this sheet.
+            after: The sheet after which you want to place this sheet.
+
+        Examples:
+            ```python
+            book.sheets["Sheet3"].move(after=book.sheets["Sheet1"])
+            ```
+
+        ```{versionadded} 0.37.5
+        ```
+        """
+        if (before is None) == (after is None):
+            raise ValueError("Provide exactly one of 'before' or 'after'.")
+        target = before if before is not None else after
+        if target.book != self.book:
+            raise ValueError("Sheets must belong to the same book.")
+        if target == self:
+            raise ValueError("A sheet can't be moved relative to itself.")
+        self.impl.move(
+            before=before.impl if before is not None else None,
+            after=after.impl if after is not None else None,
+        )
 
     def render_template(self, **data: Any) -> None:
         """This method requires xlwings `PRO`.
@@ -1836,10 +1932,30 @@ class Sheet:
     def used_range(self) -> Range:
         """Used Range of Sheet.
 
+        In xlwings Lite, this is a values-only snapshot and returns `A1` for an empty worksheet. Use {meth}`get_used_range` for a current formatting-aware result that returns `None` when the worksheet is empty.
+
         ```{versionadded} 0.13.0
         ```
         """
         return Range(impl=self.impl.used_range)
+
+    async def get_used_range(self, values_only: bool = False) -> Range | None:
+        """Returns the used range fetched from the current worksheet state, or `None` if the worksheet is empty according to `values_only`.
+
+        Args:
+            values_only: If `True`, only cells with values count as used. If `False`, cells with values or formatting count as used.
+
+        Unlike this method, {attr}`used_range` is a values-only snapshot in xlwings Lite and returns `A1` for an empty worksheet for backward compatibility.
+
+        Requires xlwings Lite.
+
+        ```{versionadded} 0.37.5
+        ```
+        """
+        if not isinstance(values_only, bool):
+            raise TypeError("values_only must be a bool")
+        impl = await self.impl.get_used_range(values_only)
+        return Range(impl=impl) if impl else None
 
     @property
     def visible(self) -> bool:
@@ -2137,6 +2253,255 @@ class Range:
         """Clears the content and the formatting of a Range."""
         return self.impl.clear()
 
+    def sort(
+        self,
+        keys: int | Sequence[int],
+        ascending: bool | Sequence[bool] = True,
+        has_headers: bool = False,
+    ) -> None:
+        """Sort the rows of this rectangular range by one or more columns.
+
+        Args:
+            keys: One-based column positions within this range, in priority order.
+            ascending: One direction for every key, or one boolean per key.
+            has_headers: Whether to keep the first row in place as a header.
+
+        The range is not expanded to adjacent data. Ranges intersecting an Excel table are not supported.
+
+        Examples:
+            ```python
+            sheet["A1:D20"].sort([2, 1], [False, True], has_headers=True)
+            ```
+        """
+        if isinstance(keys, bool):
+            raise TypeError("keys must be one-based column positions")
+        if isinstance(keys, int):
+            normalized_keys = [keys]
+        elif isinstance(keys, Sequence) and not isinstance(keys, (str, bytes)):
+            normalized_keys = list(keys)
+        else:
+            raise TypeError("keys must be an integer or a sequence of integers")
+        if not normalized_keys:
+            raise ValueError("keys must contain at least one column")
+        if any(
+            not isinstance(key, int) or isinstance(key, bool) for key in normalized_keys
+        ):
+            raise TypeError("keys must contain only integers")
+        if any(key < 1 or key > self.shape[1] for key in normalized_keys):
+            raise ValueError("sort keys must be within the range's columns")
+        if len(set(normalized_keys)) != len(normalized_keys):
+            raise ValueError("sort keys must be unique")
+
+        if isinstance(ascending, bool):
+            normalized_ascending = [ascending] * len(normalized_keys)
+        elif isinstance(ascending, Sequence) and not isinstance(
+            ascending, (str, bytes)
+        ):
+            normalized_ascending = list(ascending)
+            if len(normalized_ascending) != len(normalized_keys):
+                raise ValueError("ascending must have one boolean per key")
+            if any(
+                not isinstance(direction, bool) for direction in normalized_ascending
+            ):
+                raise TypeError("ascending must contain only booleans")
+        else:
+            raise TypeError("ascending must be a boolean or a sequence of booleans")
+        if not isinstance(has_headers, bool):
+            raise TypeError("has_headers must be a boolean")
+        if has_headers and self.shape[0] < 2:
+            raise ValueError("a sort with headers needs at least two rows")
+
+        for table in self.sheet.tables:
+            table_range = table.range
+            if table_range is None:
+                continue
+            if (
+                self.row <= table_range.row + table_range.shape[0] - 1
+                and table_range.row <= self.row + self.shape[0] - 1
+                and self.column <= table_range.column + table_range.shape[1] - 1
+                and table_range.column <= self.column + self.shape[1] - 1
+            ):
+                raise ValueError(
+                    "Range.sort() does not support ranges intersecting a table"
+                )
+
+        self.impl.sort(normalized_keys, normalized_ascending, has_headers)
+
+    def remove_duplicates(
+        self, columns: int | Sequence[int], has_headers: bool = False
+    ) -> None:
+        """Remove duplicate rows within this range, keeping the first occurrence.
+
+        Args:
+            columns: One-based column positions within this range used to identify duplicates.
+            has_headers: Keep the first row as a header.
+
+        Only cells inside this range are shifted. Ranges intersecting an Excel table are not supported. On macOS this method isn't supported and raises `NotImplementedError`.
+        """
+        if isinstance(columns, bool):
+            raise TypeError("columns must be one-based column positions")
+        if isinstance(columns, int):
+            normalized = [columns]
+        elif isinstance(columns, Sequence) and not isinstance(columns, (str, bytes)):
+            normalized = list(columns)
+        else:
+            raise TypeError("columns must be an integer or a sequence of integers")
+        if not normalized:
+            raise ValueError("columns must contain at least one column")
+        if any(
+            not isinstance(column, int) or isinstance(column, bool)
+            for column in normalized
+        ):
+            raise TypeError("columns must contain only integers")
+        if any(column < 1 or column > self.shape[1] for column in normalized):
+            raise ValueError("columns must be within the range's columns")
+        if len(set(normalized)) != len(normalized):
+            raise ValueError("columns must be unique")
+        if not isinstance(has_headers, bool):
+            raise TypeError("has_headers must be a boolean")
+        if has_headers and self.shape[0] < 2:
+            raise ValueError("duplicate removal with headers needs at least two rows")
+        for table in self.sheet.tables:
+            table_range = table.range
+            if table_range is None:
+                continue
+            if (
+                self.row < table_range.row + table_range.shape[0]
+                and table_range.row < self.row + self.shape[0]
+                and self.column < table_range.column + table_range.shape[1]
+                and table_range.column < self.column + self.shape[1]
+            ):
+                raise ValueError(
+                    "Range.remove_duplicates() does not support ranges intersecting a table"
+                )
+        self.impl.remove_duplicates(normalized, has_headers)
+
+    def get_special_cells(
+        self,
+        cell_type: Literal["blanks", "constants", "formulas", "visible"],
+        value_type: Literal["numbers", "text", "logical", "errors"] | None = None,
+    ) -> list[Range] | Awaitable[list[Range]]:
+        """Return the rectangular areas of matching cells within this range.
+
+        `cell_type` is `"blanks"`, `"constants"`, `"formulas"`, or `"visible"`. For constants or formulas, `value_type` may be `"numbers"`, `"text"`, `"logical"`, or `"errors"`; omitting it selects all value types. Returns an empty list when no cells match. Desktop Python returns the list directly; in xlwings Lite use `await range.get_special_cells(...)`.
+        """
+        if not isinstance(cell_type, str):
+            raise TypeError("cell_type must be a string")
+        if cell_type not in ("blanks", "constants", "formulas", "visible"):
+            raise ValueError(
+                "cell_type must be 'blanks', 'constants', 'formulas', or 'visible'"
+            )
+        if value_type is not None:
+            if not isinstance(value_type, str):
+                raise TypeError("value_type must be a string or None")
+            if cell_type not in ("constants", "formulas"):
+                raise ValueError(
+                    "value_type is only supported for constants and formulas"
+                )
+            if value_type not in ("numbers", "text", "logical", "errors"):
+                raise ValueError(
+                    "value_type must be 'numbers', 'text', 'logical', or 'errors'"
+                )
+        areas = self.impl.get_special_cells(cell_type, value_type)
+        if inspect.isawaitable(areas):
+
+            async def await_areas() -> list[Range]:
+                return [Range(impl=area) for area in await areas]
+
+            return await_areas()
+        return [Range(impl=area) for area in areas]
+
+    def find(
+        self,
+        text: str,
+        *,
+        whole: bool = False,
+        direction: str = "forward",
+        order: str = "rows",
+        match_case: bool = False,
+    ) -> Range | None | Awaitable[Range | None]:
+        """Find the first matching cell in this range, or return `None`.
+
+        Classic xlwings returns the result directly. In xlwings Lite, await the result because Excel must be queried asynchronously. The search starts at the first cell in the requested traversal direction and is restricted to this range.
+
+        Args:
+            text: Text to find. An empty string is not allowed.
+            whole: Match the entire cell rather than part of it.
+            direction: `"forward"` or `"backward"`.
+            order: Search by `"rows"` or `"columns"`.
+            match_case: Whether matching is case-sensitive.
+
+        Examples:
+            In desktop Python:
+
+            ```python
+            import xlwings as xw
+
+            sheet = xw.Book().sheets[0]
+            sheet["A1:A3"].value = [["North"], ["South"], ["North"]]
+            found = sheet["A1:A3"].find("South", whole=True)
+            print(found.address if found else None)  # $A$2
+            ```
+
+            In xlwings Lite, await the same search:
+
+            ```python
+            found = await sheet["A1:A3"].find("South", whole=True)
+            ```
+        """
+        if not isinstance(text, str):
+            raise TypeError("text must be a string")
+        if not text:
+            raise ValueError("text must not be empty")
+        for name, value in (("whole", whole), ("match_case", match_case)):
+            if not isinstance(value, bool):
+                raise TypeError(f"{name} must be a boolean")
+        if direction not in ("forward", "backward"):
+            raise ValueError("direction must be 'forward' or 'backward'")
+        if order not in ("rows", "columns"):
+            raise ValueError("order must be 'rows' or 'columns'")
+
+        found = self.impl.find(text, whole, direction, order, match_case)
+        if inspect.isawaitable(found):
+
+            async def await_found() -> Range | None:
+                impl = await found
+                return Range(impl=impl) if impl is not None else None
+
+            return await_found()
+        return Range(impl=found) if found is not None else None
+
+    def replace_all(
+        self,
+        old: str,
+        new: str,
+        *,
+        whole: bool = False,
+        match_case: bool = False,
+    ) -> None:
+        """Replace matching text within this range.
+
+        An empty replacement string is allowed; an empty search string is not.
+
+        Examples:
+            ```python
+            import xlwings as xw
+
+            sheet = xw.Book().sheets[0]
+            sheet["A1:A2"].value = [["Draft"], ["Draft report"]]
+            sheet["A1:A2"].replace_all("Draft", "Final")
+            print(sheet["A2"].value)  # Final report
+            ```
+        """
+        if not isinstance(old, str) or not isinstance(new, str):
+            raise TypeError("old and new must be strings")
+        if not old:
+            raise ValueError("old must not be empty")
+        for name, value in (("whole", whole), ("match_case", match_case)):
+            if not isinstance(value, bool):
+                raise TypeError(f"{name} must be a boolean")
+        self.impl.replace_all(old, new, whole, match_case)
+
     @property
     def has_array(self) -> bool:
         """`True` if the range is part of a legacy CSE Array formula
@@ -2223,6 +2588,61 @@ class Range:
         ```
         """
         return Borders(impl=self.impl.borders)
+
+    @property
+    def data_validation(self) -> DataValidation:
+        """Returns the data validation object for the range.
+
+        Use it to create, replace, or remove a validation rule. On xlwings Lite,
+        use {meth}`Range.get_data_validation` instead.
+
+        Examples:
+            ```python
+            sheet["A1:A10"].data_validation.set_list(["Open", "Closed"])
+            sheet["B1:B10"].data_validation.set_list(sheet["D1:D3"])
+            sheet["C1:C10"].data_validation.set_list(book.names["Statuses"])
+            sheet["E1:E10"].data_validation.set_whole_number("between", 1, 10)
+            sheet["F1:F10"].data_validation.set_custom("=F1<>\"\"")
+            sheet["A1:A10"].data_validation.delete()
+            ```
+
+        ```{versionadded} 0.37.5
+        ```
+        """
+        return DataValidation(impl=self.impl.data_validation, parent=self)
+
+    @property
+    def autofilter(self) -> AutoFilter:
+        """Returns the AutoFilter for this range.
+
+        The first row is treated as the header row and `field` arguments are one-based column positions relative to the range.
+
+        Examples:
+            ```python
+            data = sheet["A1:C100"]
+            data.autofilter.apply_values(1, ["East", "West"])
+            data.autofilter.apply_comparison(3, "greater_than_or_equal", 10)
+            data.autofilter.clear(1)
+            data.autofilter.clear()
+            ```
+
+        ```{versionadded} 0.37.5
+        ```
+        """
+        return AutoFilter(impl=self.impl.autofilter, parent=self)
+
+    @property
+    def conditional_formats(self) -> ConditionalFormats:
+        """Returns the conditional-format rules for this range.
+
+        In xlwings Lite, use
+        `await sheet["A1:D10"].get_conditional_formats()` for inspection;
+        `sheet["A1:D10"].conditional_formats.clear()` remains available.
+
+        ```{versionadded} 0.37.5
+        ```
+        """
+        return ConditionalFormats(impl=self.impl.conditional_formats)
 
     @property
     def characters(self) -> Characters:
@@ -2588,6 +3008,127 @@ class Range:
         """
         return await self._impl.get_color()
 
+    async def get_colors(self) -> list[list[tuple[int, int, int] | None]]:
+        """Returns the fill color of every cell as a two-dimensional list.
+
+        Each entry is an RGB tuple, or `None` for no fill color. The result always has the range's row and column dimensions, including `[[color]]` for a single cell; conversion options such as `ndim` and `transpose` do not affect it.
+
+        Reads direct cell fills, excluding colors supplied by conditional formatting or table styles. For patterned fills, returns the background fill color, not the pattern color or rendered appearance.
+
+        A call supports at most 100,000 cells.
+
+        Examples:
+            ```python
+            colors = await sheet["A1:B2"].get_colors()
+            # [[(255, 0, 0), None], [(255, 255, 255), (0, 0, 255)]]
+            ```
+
+        See {meth}`get_color <xlwings.Range.get_color>` for a single range-level fill color.
+
+        Requires xlwings Lite.
+
+        ```{versionadded} 0.37.5
+        ```
+        """
+        return await self._impl.get_colors()
+
+    def set_colors(
+        self,
+        colors: Sequence[
+            Sequence[tuple[int, int, int] | list[int] | int | str | None | EllipsisType]
+        ],
+    ) -> None:
+        """Set direct fill colors cell by cell without changing cell contents.
+
+        `colors` must be a two-dimensional matrix exactly matching the range's shape, including `[[color]]` for one cell. An RGB tuple or list or a `#RRGGBB` hex string. `None` removes the fill; `...` leaves that cell's existing fill unchanged. Conversion options do not change the required matrix shape.
+
+        Examples:
+
+            ```python
+            sheet["A1:C1"].set_colors([[(0, 128, 0), ..., None]])
+            ```
+
+        ```{versionadded} 0.37.5
+        ```
+        """
+        # The remote engine represents a non-cell selection (such as a Shape)
+        # with arg1=None. Other range mutations no-op through append_json_action.
+        if getattr(self._impl, "arg1", ...) is None:
+            return
+        rows, columns = self.shape
+        if rows * columns > 10_000:
+            raise ValueError(
+                "Range.set_colors() supports at most 10,000 cells per call"
+            )
+        if (
+            not isinstance(colors, Sequence)
+            or isinstance(colors, (str, bytes))
+            or len(colors) != rows
+        ):
+            raise ValueError(f"Expected {rows} rows of colors")
+
+        normalized = []
+        has_changes = False
+        for row_index, row in enumerate(colors):
+            if (
+                not isinstance(row, Sequence)
+                or isinstance(row, (str, bytes))
+                or len(row) != columns
+            ):
+                raise ValueError(f"Expected {columns} colors in row {row_index + 1}")
+            normalized_row = []
+            for column_index, color in enumerate(row):
+                if color is ...:
+                    normalized_row.append(...)
+                    continue
+                has_changes = True
+                if color is None:
+                    normalized_row.append(None)
+                    continue
+                if isinstance(color, str):
+                    if re.fullmatch(r"#?[0-9a-fA-F]{6}", color) is None:
+                        raise ValueError(
+                            f"Invalid color at ({row_index + 1}, {column_index + 1})"
+                        )
+                    normalized_row.append(utils.hex_to_rgb(color))
+                elif isinstance(color, int) and not isinstance(color, bool):
+                    if not 0 <= color <= 0xFFFFFF:
+                        raise ValueError(
+                            f"Invalid color at ({row_index + 1}, {column_index + 1})"
+                        )
+                    normalized_row.append(utils.int_to_rgb(color))
+                elif (
+                    isinstance(color, (tuple, list))
+                    and len(color) == 3
+                    and all(
+                        isinstance(component, int)
+                        and not isinstance(component, bool)
+                        and 0 <= component <= 255
+                        for component in color
+                    )
+                ):
+                    normalized_row.append(tuple(color))
+                else:
+                    raise ValueError(
+                        f"Invalid color at ({row_index + 1}, {column_index + 1})"
+                    )
+            normalized.append(normalized_row)
+
+        if not has_changes:
+            return
+        self._impl.set_colors(normalized)
+
+    async def get_conditional_formats(self) -> ConditionalFormats:
+        """Fetch the ordered conditional-format rules on demand.
+
+        Rules are returned from highest to lowest evaluation priority. Requires
+        xlwings Lite.
+
+        ```{versionadded} 0.37.5
+        ```
+        """
+        return ConditionalFormats(impl=await self._impl.get_conditional_formats())
+
     async def get_wrap_text(self) -> bool | None:
         """Fetch the wrap text setting on demand.
 
@@ -2721,6 +3262,20 @@ class Range:
         """
         impl = await self._impl.get_table()
         return Table(impl=impl) if impl else None
+
+    async def get_data_validation(self) -> DataValidation:
+        """Fetch this range's data-validation rule for the range.
+
+        Returns ``"none"`` when the range has no validation,
+        ``"mixed_criteria"`` when only some cells have validation, and
+        ``"inconsistent"`` when cells have different rules.
+
+        Requires xlwings Lite.
+
+        ```{versionadded} 0.37.5
+        ```
+        """
+        return DataValidation(impl=await self._impl.get_data_validation(), parent=self)
 
     def expand(self, mode: str = "table") -> Range:
         """Expands the range according to the mode provided. Ignores empty top-left cells
@@ -3149,6 +3704,49 @@ class Range:
         """
         return Note(impl=self.impl.note) if self.impl.note else None
 
+    def add_note(self, text: str) -> Note:
+        """Add a note to this single cell and return it.
+
+        Raises `TypeError` for non-text content and `ValueError` for empty text, a multi-cell range, or a cell that already has a note.
+        """
+        if not isinstance(text, str):
+            raise TypeError("Note text must be a string")
+        if not text:
+            raise ValueError("Note text must not be empty")
+        if self.shape != (1, 1):
+            raise ValueError("A note can only be added to a single cell")
+        if self.note is not None:
+            raise ValueError("This cell already has a note")
+        return Note(impl=self.impl.add_note(text))
+
+    @property
+    def comment(self) -> Comment | None:
+        """The cell's threaded comment. In xlwings Lite, use `await get_comment()`."""
+        if self.shape != (1, 1):
+            raise ValueError("A comment location must be a single cell")
+        impl = self.impl.comment
+        return Comment(impl=impl) if impl is not None else None
+
+    async def get_comment(self) -> Comment | None:
+        """Fetch the cell's threaded comment, or `None`.
+
+        Requires xlwings Lite.
+        """
+        if self.shape != (1, 1):
+            raise ValueError("A comment location must be a single cell")
+        impl = await self.impl.get_comment()
+        return Comment(impl=impl) if impl is not None else None
+
+    def add_comment(self, text: str) -> Comment:
+        """Add a plain-text threaded comment to one cell and return its handle.
+
+        Raises `TypeError` for non-text content and `ValueError` for empty text or a multi-cell range. Excel rejects a second comment on the same cell.
+        """
+        _validate_comment_text(text)
+        if self.shape != (1, 1):
+            raise ValueError("A comment can only be added to a single cell")
+        return Comment(impl=self.impl.add_comment(text))
+
     def copy_picture(self, appearance: str = "screen", format: str = "picture") -> None:
         """Copies the range to the clipboard as picture.
 
@@ -3241,6 +3839,293 @@ class Range:
         self.impl.autofill(destination=destination, type_=type_)
 
 
+class AutoFilterCriteria:
+    """The applied AutoFilter criterion for one field.
+
+    Instances are read-only entries returned by {attr}`AutoFilter.criteria` and {meth}`AutoFilter.get_criteria`.
+
+    ```{versionadded} 0.37.5
+    ```
+    """
+
+    def __init__(self, impl: Mapping[str, Any]) -> None:
+        self.impl = impl
+
+    @property
+    def field(self) -> int:
+        """The one-based field position relative to the filtered range or table."""
+        return int(self.impl["field"])
+
+    @property
+    def type(self) -> AutoFilterCriteriaType:
+        """The normalized criterion type."""
+        value = self.impl.get("type", "unknown")
+        return cast(
+            AutoFilterCriteriaType,
+            value if value in AUTOFILTER_CRITERIA_TYPES else "unknown",
+        )
+
+    @property
+    def values(self) -> list[str] | None:
+        """The included values for a values filter, otherwise `None`."""
+        values = self.impl.get("values")
+        return list(values) if values is not None else None
+
+    @property
+    def operator(self) -> AutoFilterComparisonOperator | None:
+        """The comparison operator, otherwise `None`."""
+        value = self.impl.get("operator")
+        return cast(
+            AutoFilterComparisonOperator | None,
+            value if value in AUTOFILTER_COMPARISON_OPERATORS else None,
+        )
+
+    @property
+    def value1(self) -> str | None:
+        """The first normalized comparison operand, otherwise `None`."""
+        return self.impl.get("value1")
+
+    @property
+    def value2(self) -> str | None:
+        """The second normalized comparison operand, otherwise `None`."""
+        return self.impl.get("value2")
+
+    @property
+    def count(self) -> int | None:
+        """The number of items for a top/bottom items filter, otherwise `None`.
+
+        This may be `None` when the native desktop engine only exposes the calculated cutoff value rather than the requested item count.
+        """
+        return self.impl.get("count")
+
+    @property
+    def percent(self) -> float | None:
+        """The percentage for a top/bottom percent filter, otherwise `None`.
+
+        This may be `None` when the native desktop engine only exposes the calculated cutoff value rather than the requested percentage.
+        """
+        return self.impl.get("percent")
+
+
+class AutoFilter:
+    """An AutoFilter belonging to a range or table.
+
+    Do not construct this class directly; access it through {attr}`Range.autofilter <xlwings.Range.autofilter>` or {attr}`Table.autofilter <xlwings.main.Table.autofilter>`.
+
+    Fields are one-based column positions relative to the range or table. Value filters accept strings, finite numbers, and booleans. Comparison filters additionally accept Python dates and timezone-naive datetimes. Date and datetime values are not supported by `apply_values()`; to filter for a single exact date or datetime, use `apply_comparison()` with `"equal_to"`. Comparison operators are `"between"`, `"not_between"`, `"equal_to"`, `"not_equal_to"`, `"greater_than"`, `"less_than"`, `"greater_than_or_equal"`, and `"less_than_or_equal"`.
+
+    Examples:
+        ```python
+        from datetime import date
+
+        import xlwings as xw
+
+        sheet = xw.Book().sheets[0]
+        myrange = sheet["A1:C6"]
+        myrange.value = [
+            ["Region", "Order date", "Amount"],
+            ["East", date(2025, 1, 1), 10],
+            ["West", date(2025, 1, 2), 20],
+            ["East", date(2025, 1, 3), 30],
+            ["North", date(2025, 1, 1), 40],
+            ["West", date(2025, 1, 4), 50],
+        ]
+
+        myrange.autofilter.apply_values(1, ["East", "West"])
+        myrange.autofilter.apply_comparison(3, "between", 10, 20)
+        # Use a comparison for an exact date instead of apply_values().
+        myrange.autofilter.apply_comparison(2, "equal_to", date(2025, 1, 1))
+        myrange.autofilter.apply_top_items(3, 2)
+        myrange.autofilter.apply_comparison(2, "equal_to", None)
+        myrange.autofilter.clear(2)
+        myrange.autofilter.clear()
+        ```
+
+    ```{versionadded} 0.37.5
+    ```
+    """
+
+    def __init__(self, impl: Any, parent: Range | Table) -> None:
+        self.impl = impl
+        self.parent = parent
+
+    def _validate_field(self, field: int) -> int:
+        if isinstance(field, bool) or not isinstance(field, int):
+            raise TypeError("field must be an integer")
+        column_count = (
+            self.parent.range.shape[1]
+            if isinstance(self.parent, Table)
+            else self.parent.shape[1]
+        )
+        if not 1 <= field <= column_count:
+            raise ValueError(
+                f"field must be between 1 and {column_count} for this AutoFilter"
+            )
+        return field
+
+    @staticmethod
+    def _normalize_value(value: str | int | float | bool) -> str:
+        if isinstance(value, bool):
+            return "TRUE" if value else "FALSE"
+        if isinstance(value, str):
+            return value
+        if isinstance(value, int):
+            return str(value)
+        if isinstance(value, float):
+            if not math.isfinite(value):
+                raise ValueError("AutoFilter values must be finite")
+            return str(value)
+        raise TypeError("AutoFilter values must be strings, numbers, or booleans")
+
+    @staticmethod
+    def _normalize_comparison_value(
+        value: str | int | float | bool | dt.date | dt.datetime,
+    ) -> str | dict[str, str]:
+        if isinstance(value, dt.datetime):
+            if value.tzinfo is not None:
+                raise ValueError("AutoFilter datetimes must be timezone-naive")
+            return {"type": "datetime", "value": value.isoformat()}
+        if isinstance(value, dt.date):
+            return {"type": "date", "value": value.isoformat()}
+        return AutoFilter._normalize_value(value)
+
+    @property
+    def criteria(self) -> list[AutoFilterCriteria]:
+        """Returns the criteria for all fields.
+
+        The list contains one entry per field, including entries whose type is `"none"`. In xlwings Lite, use {meth}`get_criteria` instead.
+        """
+        return [AutoFilterCriteria(impl=entry) for entry in self.impl.criteria]
+
+    async def get_criteria(self) -> list[AutoFilterCriteria]:
+        """Returns the criteria for all fields from Excel.
+
+        The list contains one entry per field, including entries whose type is `"none"`. Unsupported native criteria are reported as `"unknown"`.
+
+        Requires xlwings Lite.
+
+        ```{versionadded} 0.37.5
+        ```
+        """
+        return [
+            AutoFilterCriteria(impl=entry) for entry in await self.impl.get_criteria()
+        ]
+
+    def apply_values(
+        self, field: int, values: Sequence[str | int | float | bool]
+    ) -> None:
+        """Filters a field to rows matching any of the supplied values.
+
+        Dates and datetimes are not supported. Use `apply_comparison(field, "equal_to", value)` to filter for a single exact date or datetime.
+
+        Args:
+            field: One-based column position relative to the range or table.
+            values: One or more exact values to include.
+
+        Raises:
+            TypeError: If `field` isn't an integer or `values` isn't a sequence of supported scalar values.
+            ValueError: If `field` is outside the target, `values` is empty, or a number isn't finite.
+        """
+        field = self._validate_field(field)
+        if isinstance(values, (str, bytes)) or not isinstance(values, Sequence):
+            raise TypeError("values must be a sequence, not a string")
+        if not values:
+            raise ValueError("values must not be empty")
+        self.impl.apply_values(field, [self._normalize_value(v) for v in values])
+
+    def apply_comparison(
+        self,
+        field: int,
+        operator: AutoFilterComparisonOperator,
+        value1: str | int | float | bool | dt.date | dt.datetime | None,
+        value2: str | int | float | bool | dt.date | dt.datetime | None = None,
+    ) -> None:
+        """Filters a field using a comparison.
+
+        `None` represents blanks with `"equal_to"` and nonblanks with `"not_equal_to"`. `"between"` and `"not_between"` require a second value; all other operators reject one.
+
+        Args:
+            field: One-based column position relative to the range or table.
+            operator: The comparison to apply.
+            value1: A string, finite number, boolean, date, timezone-naive datetime, or `None`.
+            value2: The upper bound for `"between"` and `"not_between"`; omit it for every other operator.
+
+        Raises:
+            TypeError: If a value has an unsupported type.
+            ValueError: If a field, operator, operand combination, or number is invalid.
+        """
+        field = self._validate_field(field)
+        if operator not in AUTOFILTER_COMPARISON_OPERATORS:
+            raise ValueError(
+                "operator must be one of " + ", ".join(AUTOFILTER_COMPARISON_OPERATORS)
+            )
+        if operator in ("between", "not_between"):
+            if value1 is None or value2 is None:
+                raise ValueError(f"{operator} requires value1 and value2")
+        elif value2 is not None:
+            raise ValueError(f"{operator} does not accept value2")
+        if value1 is None and operator not in ("equal_to", "not_equal_to"):
+            raise ValueError("None is only supported with equal_to and not_equal_to")
+        normalized1 = (
+            None if value1 is None else self._normalize_comparison_value(value1)
+        )
+        normalized2 = (
+            None if value2 is None else self._normalize_comparison_value(value2)
+        )
+        self.impl.apply_comparison(field, operator, normalized1, normalized2)
+
+    @staticmethod
+    def _validate_item_count(count: int) -> int:
+        if isinstance(count, bool) or not isinstance(count, int):
+            raise TypeError("count must be an integer")
+        if not 1 <= count <= 255:
+            raise ValueError("count must be between 1 and 255")
+        return count
+
+    @staticmethod
+    def _validate_percent(percent: int | float) -> float:
+        if isinstance(percent, bool) or not isinstance(percent, numbers.Real):
+            raise TypeError("percent must be a number")
+        normalized = float(percent)
+        if not math.isfinite(normalized) or not 0 <= normalized <= 100:
+            raise ValueError("percent must be between 0 and 100")
+        return normalized
+
+    def apply_top_items(self, field: int, count: int) -> None:
+        """Shows the highest-valued items in a field."""
+        self.impl.apply_top_items(
+            self._validate_field(field), self._validate_item_count(count)
+        )
+
+    def apply_bottom_items(self, field: int, count: int) -> None:
+        """Shows the lowest-valued items in a field."""
+        self.impl.apply_bottom_items(
+            self._validate_field(field), self._validate_item_count(count)
+        )
+
+    def apply_top_percent(self, field: int, percent: int | float) -> None:
+        """Shows the highest-valued percentage of items in a field."""
+        self.impl.apply_top_percent(
+            self._validate_field(field), self._validate_percent(percent)
+        )
+
+    def apply_bottom_percent(self, field: int, percent: int | float) -> None:
+        """Shows the lowest-valued percentage of items in a field."""
+        self.impl.apply_bottom_percent(
+            self._validate_field(field), self._validate_percent(percent)
+        )
+
+    def clear(self, field: int | None = None) -> None:
+        """Clears one field's criteria, or all criteria when `field` is omitted.
+
+        Args:
+            field: Optional one-based column position relative to the range or table.
+        """
+        if field is not None:
+            field = self._validate_field(field)
+        self.impl.clear(field)
+
+
 # These have to be after definition of Range to resolve circular reference
 from . import conversion, expansion
 
@@ -3285,6 +4170,24 @@ class RangeRows(Ranges):
         return self.rng.shape[0]
 
     count = property(__len__)
+
+    @property
+    def hidden(self) -> bool | None:
+        """Whether all represented worksheet rows are hidden.
+
+        Setting this property hides or shows the entire worksheet rows represented by the range. Returns `None` when some rows are hidden and others are visible. In xlwings Lite, use `await rng.rows.get_hidden()` to read this state.
+        """
+        return self.rng.impl.row_hidden
+
+    @hidden.setter
+    def hidden(self, value: bool) -> None:
+        if not isinstance(value, bool):
+            raise TypeError("hidden must be a boolean")
+        self.rng.impl.row_hidden = value
+
+    async def get_hidden(self) -> bool | None:
+        """Fetch row visibility in xlwings Lite; return `None` for a mixed selection."""
+        return await self.rng.impl.get_row_hidden()
 
     def autofit(self) -> None:
         """Autofits the height of the rows."""
@@ -3355,6 +4258,24 @@ class RangeColumns(Ranges):
         return self.rng.shape[1]
 
     count = property(__len__)
+
+    @property
+    def hidden(self) -> bool | None:
+        """Whether all represented worksheet columns are hidden.
+
+        Setting this property hides or shows the entire worksheet columns represented by the range. Returns `None` when some columns are hidden and others are visible. In xlwings Lite, use `await rng.columns.get_hidden()` to read this state.
+        """
+        return self.rng.impl.column_hidden
+
+    @hidden.setter
+    def hidden(self, value: bool) -> None:
+        if not isinstance(value, bool):
+            raise TypeError("hidden must be a boolean")
+        self.rng.impl.column_hidden = value
+
+    async def get_hidden(self) -> bool | None:
+        """Fetch column visibility in xlwings Lite; return `None` for a mixed selection."""
+        return await self.rng.impl.get_column_hidden()
 
     def autofit(self) -> None:
         """Autofits the width of the columns."""
@@ -3643,21 +4564,19 @@ class Shapes(Collection[Shape]):
 
 
 class PageSetup:
-    def __init__(self, impl: Any) -> None:
-        """Represents a PageSetup object.
+    """Represents a PageSetup object.
 
-        ```{versionadded} 0.24.2
-        ```
-        """
+    ```{versionadded} 0.24.2
+    ```
+    """
+
+    def __init__(self, impl: Any) -> None:
         self.impl = impl
 
     @property
     def api(self) -> Any:
         """Returns the native object (`pywin32` or `appscript` obj)
         of the engine being used.
-
-        ```{versionadded} 0.24.2
-        ```
         """
         return self.impl.api
 
@@ -3672,9 +4591,6 @@ class PageSetup:
             '$A$1:$B$3'
             >>> mysheet.page_setup.print_area = None  # clear the print_area
             ```
-
-        ```{versionadded} 0.24.2
-        ```
         """
         return self.impl.print_area
 
@@ -3683,14 +4599,708 @@ class PageSetup:
         self.impl.print_area = value
 
 
-class Note:
-    def __init__(self, impl: Any) -> None:
-        """Represents a cell Note.
-        Before the introduction of threaded comments, a Note was called a Comment.
+def _conditional_format_operator(value: Any) -> ConditionalFormatOperator:
+    if isinstance(value, str) and value in CONDITIONAL_FORMAT_OPERATORS:
+        return cast(ConditionalFormatOperator, value)
+    raise ValueError(
+        f"Invalid conditional-format operator {value!r}. Valid values are: "
+        f"{', '.join(repr(v) for v in CONDITIONAL_FORMAT_OPERATORS)}."
+    )
 
-        ```{versionadded} 0.24.2
-        ```
+
+def _conditional_format_value(value: Any, name: str) -> str:
+    if isinstance(value, str):
+        if value:
+            return value
+    elif (
+        isinstance(value, numbers.Real)
+        and not isinstance(value, bool)
+        and math.isfinite(value)
+    ):
+        return str(value)
+    raise ValueError(f"{name} must be a non-empty string or a finite number.")
+
+
+def _conditional_format_formula(value: Any) -> str:
+    if isinstance(value, str) and value.startswith("=") and len(value) > 1:
+        return value
+    raise ValueError("formula must be a non-empty A1 formula starting with '='.")
+
+
+def _conditional_format_bool(value: Any, name: str) -> bool:
+    if isinstance(value, bool):
+        return value
+    raise TypeError(f"{name} must be a boolean.")
+
+
+def _conditional_format_threshold_type(value: Any) -> ConditionalFormatThresholdType:
+    if isinstance(value, str) and value in CONDITIONAL_FORMAT_THRESHOLD_TYPES:
+        return cast(ConditionalFormatThresholdType, value)
+    raise ValueError(
+        f"Invalid conditional-format threshold type {value!r}. Valid values are: "
+        f"{', '.join(repr(v) for v in CONDITIONAL_FORMAT_THRESHOLD_TYPES)}."
+    )
+
+
+def _conditional_format_threshold(
+    value: Any, threshold_type: str, name: str
+) -> int | float:
+    if (
+        not isinstance(value, numbers.Real)
+        or isinstance(value, bool)
+        or not math.isfinite(value)
+    ):
+        raise ValueError(f"{name} must be a finite number.")
+    if threshold_type in {"percent", "percentile"} and not 0 <= value <= 100:
+        raise ValueError(f"{name} must be between 0 and 100 for {threshold_type!r}.")
+    return value
+
+
+def _conditional_format_thresholds(
+    values: Any,
+    *,
+    count: int,
+    threshold_type: ConditionalFormatThresholdType,
+    name: str = "thresholds",
+) -> tuple[int | float, ...]:
+    if isinstance(values, (str, bytes)):
+        raise TypeError(f"{name} must be a sequence of numbers.")
+    try:
+        result = tuple(values)
+    except TypeError:
+        raise TypeError(f"{name} must be a sequence of numbers.") from None
+    if len(result) != count:
+        raise ValueError(f"{name} must contain exactly {count} values.")
+    result = tuple(
+        _conditional_format_threshold(value, threshold_type, f"{name}[{index}]")
+        for index, value in enumerate(result)
+    )
+    if any(left >= right for left, right in zip(result, result[1:])):
+        raise ValueError(f"{name} must be strictly increasing.")
+    return result
+
+
+def _conditional_format_colors(values: Any) -> tuple[tuple[int, int, int], ...]:
+    if isinstance(values, (str, bytes)):
+        raise TypeError("colors must be a sequence containing two or three colors.")
+    try:
+        values = tuple(values)
+    except TypeError:
+        raise TypeError(
+            "colors must be a sequence containing two or three colors."
+        ) from None
+    if len(values) not in {2, 3}:
+        raise ValueError("colors must contain exactly two or three colors.")
+    return tuple(_border_color(value) for value in values)
+
+
+def _conditional_format_icon_set(value: Any) -> ConditionalFormatIconSet:
+    if isinstance(value, str) and value in CONDITIONAL_FORMAT_ICON_SETS:
+        return cast(ConditionalFormatIconSet, value)
+    raise ValueError(
+        f"Invalid conditional-format icon set {value!r}. Valid values are: "
+        f"{', '.join(repr(v) for v in CONDITIONAL_FORMAT_ICON_SETS)}."
+    )
+
+
+def _validate_cell_value_rule(operator: Any, formula1: Any, formula2: Any) -> None:
+    if operator is None or formula1 is None:
+        raise ValueError("Cell-value rules require operator and formula1.")
+    wants_formula2 = operator in {"between", "not_between"}
+    if wants_formula2 and formula2 is None:
+        raise ValueError(f"formula2 is required for operator {operator!r}.")
+    if not wants_formula2 and formula2 is not None:
+        raise ValueError("formula2 is only valid for between/not_between rules.")
+
+
+def _add_conditional_format_changes(
+    changes: dict[str, Any],
+    *,
+    fill_color: Any,
+    font_color: Any,
+    font_bold: Any,
+    font_italic: Any,
+    stop_if_true: Any,
+) -> None:
+    if fill_color is not _UNSET:
+        changes["fill_color"] = _border_color(fill_color)
+    if font_color is not _UNSET:
+        changes["font_color"] = _border_color(font_color)
+    if font_bold is not _UNSET:
+        changes["font_bold"] = _conditional_format_bool(font_bold, "font_bold")
+    if font_italic is not _UNSET:
+        changes["font_italic"] = _conditional_format_bool(font_italic, "font_italic")
+    if stop_if_true is not _UNSET:
+        changes["stop_if_true"] = _conditional_format_bool(stop_if_true, "stop_if_true")
+
+
+def _add_conditional_format_creation_style(
+    spec: dict[str, Any],
+    *,
+    fill_color: Any,
+    font_color: Any,
+    font_bold: Any,
+    font_italic: Any,
+) -> None:
+    values = {
+        "fill_color": fill_color,
+        "font_color": font_color,
+        "font_bold": font_bold,
+        "font_italic": font_italic,
+    }
+    for name, value in values.items():
+        if value is None:
+            continue
+        if name.endswith("_color"):
+            spec[name] = _border_color(value)
+        else:
+            spec[name] = _conditional_format_bool(value, name)
+
+
+class ConditionalFormat:
+    """Represents one conditional-format rule that applies to a range.
+
+    ```{versionadded} 0.37.5
+    ```
+    """
+
+    def __init__(self, impl: Any) -> None:
+        self.impl = impl
+
+    @property
+    def type(self) -> ConditionalFormatType:
+        """The normalized rule type.
+
+        Rule types outside the initially supported cell-value, custom-formula,
+        color-scale, data-bar and icon-set families are reported as
+        `"unknown"` rather than omitted.
         """
+        rule_type = self.impl.type
+        if rule_type not in CONDITIONAL_FORMAT_TYPES:
+            return "unknown"
+        return cast(ConditionalFormatType, rule_type)
+
+    @property
+    def stop_if_true(self) -> bool | None:
+        """Whether lower-priority rules stop when this rule matches.
+
+        `None` is returned for color scales, data bars and icon sets, which
+        don't have stop-if-true behavior.
+        """
+        return self.impl.stop_if_true
+
+    @property
+    def operator(self) -> ConditionalFormatOperator | None:
+        """The comparison operator for a cell-value rule, otherwise `None`."""
+        return self.impl.operator
+
+    @property
+    def formula1(self) -> str | None:
+        """The first operand for a cell-value rule, otherwise `None`."""
+        return self.impl.formula1
+
+    @property
+    def formula2(self) -> str | None:
+        """The second operand for a between/not-between rule, otherwise `None`."""
+        return self.impl.formula2
+
+    @property
+    def formula(self) -> str | None:
+        """The formula for a custom-formula rule, otherwise `None`."""
+        return self.impl.formula
+
+    @property
+    def fill_color(self) -> tuple[int, int, int] | None:
+        """The rule's fill color as an RGB tuple, or `None` if unset."""
+        return self.impl.fill_color
+
+    @property
+    def font_color(self) -> tuple[int, int, int] | None:
+        """The rule's font color as an RGB tuple, or `None` if unset."""
+        return self.impl.font_color
+
+    @property
+    def font_bold(self) -> bool | None:
+        """The rule's bold setting, or `None` if it doesn't set bold."""
+        return self.impl.font_bold
+
+    @property
+    def font_italic(self) -> bool | None:
+        """The rule's italic setting, or `None` if it doesn't set italic."""
+        return self.impl.font_italic
+
+    @property
+    def colors(self) -> tuple[tuple[int, int, int], ...] | None:
+        """The ordered colors of a color-scale rule, otherwise `None`.
+
+        Colors run from the minimum criterion to the maximum criterion.
+        """
+        return self.impl.colors
+
+    @property
+    def bar_color(self) -> tuple[int, int, int] | None:
+        """The positive fill color of a data-bar rule, otherwise `None`."""
+        return self.impl.bar_color
+
+    @property
+    def gradient(self) -> bool | None:
+        """Whether a data bar uses a gradient fill, otherwise `None`."""
+        return self.impl.gradient
+
+    @property
+    def show_value(self) -> bool | None:
+        """Whether cell values remain visible for a data bar or icon set."""
+        return self.impl.show_value
+
+    @property
+    def icon_set(self) -> ConditionalFormatIconSet | None:
+        """The built-in style of an icon-set rule, otherwise `None`."""
+        return self.impl.icon_set
+
+    @property
+    def reverse_order(self) -> bool | None:
+        """Whether an icon set's icon order is reversed, otherwise `None`."""
+        return self.impl.reverse_order
+
+    @property
+    def threshold_types(self) -> tuple[ConditionalFormatCriterionType, ...] | None:
+        """The ordered criterion types for a visual rule, otherwise `None`.
+
+        Color scales include all criteria, data bars include the lower and
+        upper bounds, and icon sets include only the effective thresholds
+        between icons.
+        """
+        return self.impl.threshold_types
+
+    @property
+    def thresholds(self) -> tuple[int | float | str | None, ...] | None:
+        """The values corresponding to
+        {attr}`threshold_types <xlwings.ConditionalFormat.threshold_types>`.
+
+        Criteria such as `"automatic"`, `"lowest_value"` and
+        `"highest_value"` have a value of `None`.
+        """
+        return self.impl.thresholds
+
+    def set(
+        self,
+        *,
+        operator: ConditionalFormatOperator = _UNSET,
+        formula1: str | int | float = _UNSET,
+        formula2: str | int | float | None = _UNSET,
+        formula: str = _UNSET,
+        fill_color: tuple[int, int, int] | str | int = _UNSET,
+        font_color: tuple[int, int, int] | str | int = _UNSET,
+        font_bold: bool = _UNSET,
+        font_italic: bool = _UNSET,
+        stop_if_true: bool = _UNSET,
+    ) -> None:
+        """Change selected attributes of this rule in place.
+
+        Omitted attributes remain unchanged. Cell-value rules accept
+        `operator`, `formula1` and `formula2`; custom-formula rules accept
+        `formula`. Formatting and `stop_if_true` apply to either family.
+        Other rule types can't be edited by this initial API.
+
+        Examples:
+            ```python
+            formats = await sheet["B2:B12"].get_conditional_formats()
+            formats[0].set(formula1=70, stop_if_true=True)
+            ```
+        """
+        changes: dict[str, Any] = {}
+        rule_type = self.type
+        if rule_type not in {"cell_value", "custom"}:
+            raise NotImplementedError(
+                f"Editing {rule_type!r} conditional-format rules isn't supported."
+            )
+        if rule_type == "cell_value":
+            if formula is not _UNSET:
+                raise ValueError("formula is only valid for custom-formula rules.")
+            if operator is not _UNSET:
+                changes["operator"] = _conditional_format_operator(operator)
+            if formula1 is not _UNSET:
+                changes["formula1"] = _conditional_format_value(formula1, "formula1")
+            if formula2 is not _UNSET:
+                changes["formula2"] = (
+                    None
+                    if formula2 is None
+                    else _conditional_format_value(formula2, "formula2")
+                )
+            effective_operator = changes.get("operator", self.operator)
+            effective_formula1 = changes.get("formula1", self.formula1)
+            effective_formula2 = changes.get("formula2", self.formula2)
+            if (
+                operator is not _UNSET
+                and formula2 is _UNSET
+                and effective_operator not in {"between", "not_between"}
+            ):
+                effective_formula2 = None
+            _validate_cell_value_rule(
+                effective_operator, effective_formula1, effective_formula2
+            )
+            if effective_operator not in {"between", "not_between"} and (
+                operator is not _UNSET or formula2 is not _UNSET
+            ):
+                changes["formula2"] = None
+        else:
+            if any(value is not _UNSET for value in (operator, formula1, formula2)):
+                raise ValueError(
+                    "operator, formula1 and formula2 are only valid for cell-value rules."
+                )
+            if formula is not _UNSET:
+                changes["formula"] = _conditional_format_formula(formula)
+        _add_conditional_format_changes(
+            changes,
+            fill_color=fill_color,
+            font_color=font_color,
+            font_bold=font_bold,
+            font_italic=font_italic,
+            stop_if_true=stop_if_true,
+        )
+        if changes:
+            self.impl.set(changes)
+
+    def delete(self) -> None:
+        """Delete this complete rule from all ranges to which it applies."""
+        self.impl.delete()
+
+    def __repr__(self) -> str:
+        return f"<ConditionalFormat type={self.type!r}>"
+
+
+class ConditionalFormats(Collection[ConditionalFormat]):
+    """An ordered collection of conditional-format rules for a range.
+
+    New rules are inserted at the top of Excel's conditional-formatting rule
+    order. Rules are evaluated from highest to lowest priority. If a matching
+    rule has `stop_if_true=True`, Excel skips lower-priority rules.
+
+    In xlwings Lite, use
+    `await sheet["A1:D10"].get_conditional_formats()` instead of
+    `sheet["A1:D10"].conditional_formats`.
+
+    ```{versionadded} 0.37.5
+    ```
+    """
+
+    _wrap = ConditionalFormat
+
+    def add_cell_value(
+        self,
+        operator: ConditionalFormatOperator,
+        formula1: str | int | float,
+        formula2: str | int | float | None = None,
+        *,
+        fill_color: tuple[int, int, int] | str | int | None = None,
+        font_color: tuple[int, int, int] | str | int | None = None,
+        font_bold: bool | None = None,
+        font_italic: bool | None = None,
+        stop_if_true: bool = False,
+    ) -> ConditionalFormat:
+        """Add a cell-value rule.
+
+        `formula2` is required for `"between"` and `"not_between"` and
+        rejected for the other operators. Colors accept the same RGB tuple,
+        hex string, or Excel color integer forms as other xlwings color APIs.
+
+        Examples:
+            ```python
+            sheet["B2:B12"].conditional_formats.add_cell_value(
+                "less_than", 60, fill_color="#ffff00", font_italic=True
+            )
+            ```
+        """
+        operator = _conditional_format_operator(operator)
+        formula1 = _conditional_format_value(formula1, "formula1")
+        formula2 = (
+            None
+            if formula2 is None
+            else _conditional_format_value(formula2, "formula2")
+        )
+        _validate_cell_value_rule(operator, formula1, formula2)
+        spec: dict[str, Any] = {
+            "operator": operator,
+            "formula1": formula1,
+            "formula2": formula2,
+            "stop_if_true": _conditional_format_bool(stop_if_true, "stop_if_true"),
+        }
+        _add_conditional_format_creation_style(
+            spec,
+            fill_color=fill_color,
+            font_color=font_color,
+            font_bold=font_bold,
+            font_italic=font_italic,
+        )
+        return ConditionalFormat(impl=self.impl.add_cell_value(spec))
+
+    def add_custom(
+        self,
+        formula: str,
+        *,
+        fill_color: tuple[int, int, int] | str | int | None = None,
+        font_color: tuple[int, int, int] | str | int | None = None,
+        font_bold: bool | None = None,
+        font_italic: bool | None = None,
+        stop_if_true: bool = False,
+    ) -> ConditionalFormat:
+        """Add a custom-formula rule.
+
+        Examples:
+            ```python
+            sheet["A2:D20"].conditional_formats.add_custom(
+                '=$D2="Late"', fill_color="#ffc7ce"
+            )
+            ```
+        """
+        spec: dict[str, Any] = {
+            "formula": _conditional_format_formula(formula),
+            "stop_if_true": _conditional_format_bool(stop_if_true, "stop_if_true"),
+        }
+        _add_conditional_format_creation_style(
+            spec,
+            fill_color=fill_color,
+            font_color=font_color,
+            font_bold=font_bold,
+            font_italic=font_italic,
+        )
+        return ConditionalFormat(impl=self.impl.add_custom(spec))
+
+    def add_color_scale(
+        self,
+        colors: Sequence[tuple[int, int, int] | str | int],
+        *,
+        thresholds: Sequence[int | float] | None = None,
+        threshold_type: ConditionalFormatThresholdType = "number",
+    ) -> ConditionalFormat:
+        """Add a two- or three-color scale.
+
+        `colors` contains two or three colors ordered from the minimum to
+        the maximum. Without `thresholds`, a two-color scale uses the lowest
+        and highest values, while a three-color scale adds the 50th percentile
+        as its midpoint. Custom thresholds must match the number of colors and
+        be strictly increasing. `threshold_type` can be `"number"`,
+        `"percent"` or `"percentile"`.
+
+        Examples:
+            ```python
+            sheet["B2:B20"].conditional_formats.add_color_scale(
+                ["#f8696b", "#ffeb84", "#63be7b"],
+                thresholds=[0, 50, 100],
+                threshold_type="number",
+            )
+            ```
+        """
+        colors = _conditional_format_colors(colors)
+        threshold_type = _conditional_format_threshold_type(threshold_type)
+        if thresholds is None:
+            if len(colors) == 2:
+                threshold_types = ("lowest_value", "highest_value")
+                threshold_values = (None, None)
+            else:
+                threshold_types = ("lowest_value", "percentile", "highest_value")
+                threshold_values = (None, 50, None)
+        else:
+            threshold_values = _conditional_format_thresholds(
+                thresholds,
+                count=len(colors),
+                threshold_type=threshold_type,
+            )
+            threshold_types = (threshold_type,) * len(colors)
+        spec = {
+            "colors": colors,
+            "threshold_types": threshold_types,
+            "thresholds": threshold_values,
+        }
+        return ConditionalFormat(impl=self.impl.add_color_scale(spec))
+
+    def add_data_bar(
+        self,
+        color: tuple[int, int, int] | str | int,
+        *,
+        minimum: int | float | None = None,
+        maximum: int | float | None = None,
+        threshold_type: ConditionalFormatThresholdType = "number",
+        gradient: bool = True,
+        show_value: bool = True,
+    ) -> ConditionalFormat:
+        """Add a data bar.
+
+        Omitted bounds are automatic. Supplied bounds use `threshold_type`,
+        which can be `"number"`, `"percent"` or `"percentile"`.
+        """
+        threshold_type = _conditional_format_threshold_type(threshold_type)
+        minimum = (
+            None
+            if minimum is None
+            else _conditional_format_threshold(minimum, threshold_type, "minimum")
+        )
+        maximum = (
+            None
+            if maximum is None
+            else _conditional_format_threshold(maximum, threshold_type, "maximum")
+        )
+        if minimum is not None and maximum is not None and minimum >= maximum:
+            raise ValueError("minimum must be less than maximum.")
+        spec = {
+            "bar_color": _border_color(color),
+            "gradient": _conditional_format_bool(gradient, "gradient"),
+            "show_value": _conditional_format_bool(show_value, "show_value"),
+            "threshold_types": (
+                threshold_type if minimum is not None else "automatic",
+                threshold_type if maximum is not None else "automatic",
+            ),
+            "thresholds": (minimum, maximum),
+        }
+        return ConditionalFormat(impl=self.impl.add_data_bar(spec))
+
+    def add_icon_set(
+        self,
+        icon_set: ConditionalFormatIconSet,
+        *,
+        thresholds: Sequence[int | float] | None = None,
+        threshold_type: ConditionalFormatThresholdType = "number",
+        show_value: bool = True,
+        reverse_order: bool = False,
+    ) -> ConditionalFormat:
+        """Add a built-in icon set.
+
+        Custom thresholds contain one fewer value than the number of icons and
+        must be strictly increasing. Without them, the icons use equal percent
+        bands (for example, 33 and 67 for a three-icon set).
+
+        Valid styles are `"3_arrows"`, `"3_arrows_gray"`, `"3_flags"`,
+        `"3_traffic_lights_1"`, `"3_traffic_lights_2"`, `"3_signs"`,
+        `"3_symbols"`, `"3_symbols_2"`, `"4_arrows"`,
+        `"4_arrows_gray"`, `"4_red_to_black"`, `"4_rating"`,
+        `"4_traffic_lights"`, `"5_arrows"`, `"5_arrows_gray"`,
+        `"5_rating"`, `"5_quarters"`, `"3_stars"`,
+        `"3_triangles"` and `"5_boxes"`.
+
+        Examples:
+            ```python
+            sheet["C2:C20"].conditional_formats.add_icon_set(
+                "3_traffic_lights_1", thresholds=[60, 80]
+            )
+            ```
+        """
+        icon_set = _conditional_format_icon_set(icon_set)
+        threshold_type = _conditional_format_threshold_type(threshold_type)
+        count = int(icon_set[0])
+        if thresholds is None:
+            threshold_values = tuple(
+                round(index * 100 / count) for index in range(1, count)
+            )
+            threshold_types = ("percent",) * (count - 1)
+        else:
+            threshold_values = _conditional_format_thresholds(
+                thresholds,
+                count=count - 1,
+                threshold_type=threshold_type,
+            )
+            threshold_types = (threshold_type,) * (count - 1)
+        spec = {
+            "icon_set": icon_set,
+            "show_value": _conditional_format_bool(show_value, "show_value"),
+            "reverse_order": _conditional_format_bool(reverse_order, "reverse_order"),
+            "threshold_types": threshold_types,
+            "thresholds": threshold_values,
+        }
+        return ConditionalFormat(impl=self.impl.add_icon_set(spec))
+
+    def clear(self) -> None:
+        """Clear all conditional formats active on the represented range.
+
+        Rules that also apply outside the range remain active there.
+        """
+        self.impl.clear()
+
+
+class Notes:
+    """A collection of notes on one worksheet (`sheet.notes`) or across all worksheets in a workbook (`book.notes`).
+
+    Iterate over `sheet.notes` to inspect one worksheet, or `book.notes` to inspect every worksheet. If you already know the cell, access its note directly with `sheet["A1"].note`. Collections also support zero-based indexing and lookup by cell address (`sheet.notes`) or a single-cell {class}`Range <xlwings.Range>` (`book.notes`).
+
+    Examples:
+        ```python
+        import xlwings as xw
+
+        book = xw.Book()
+        sheet = book.sheets[0]
+        other_sheet = book.sheets.add(after=sheet)
+        sheet["A1"].add_note("Review")
+        other_sheet["B2"].add_note("Check")
+
+        for note in sheet.notes:
+            print(note.location.address, note.text)
+        for note in book.notes:
+            print(note.location.sheet.name, note.location.address, note.text)
+        ```
+    """
+
+    def __init__(self, parent: Book | Sheet) -> None:
+        self.parent = parent
+
+    def __iter__(self) -> Iterator[Note]:
+        if isinstance(self.parent, Book):
+            for sheet in self.parent.sheets:
+                yield from sheet.notes
+        else:
+            for impl in self.parent.impl.notes:
+                yield Note(impl=impl)
+
+    def __len__(self) -> int:
+        return sum(1 for _ in self)
+
+    @property
+    def count(self) -> int:
+        """Number of notes in this collection."""
+        return len(self)
+
+    def __getitem__(self, key: int | str | Range) -> Note:
+        if isinstance(key, int):
+            notes = list(self)
+            return notes[key]
+        if isinstance(key, Range):
+            cell = key
+            if cell.shape != (1, 1) or cell.sheet.book != (
+                self.parent if isinstance(self.parent, Book) else self.parent.book
+            ):
+                raise ValueError("The cell must belong to this workbook")
+            if isinstance(self.parent, Sheet) and cell.sheet != self.parent:
+                raise ValueError("The cell must belong to this worksheet")
+        elif isinstance(key, str) and isinstance(self.parent, Sheet):
+            cell = self.parent.range(key)
+        else:
+            raise TypeError("Use a cell Range for workbook lookup")
+        if cell.shape != (1, 1):
+            raise ValueError("A note location must be a single cell")
+        note = cell.note
+        if note is None:
+            raise KeyError(key)
+        return note
+
+
+class Note:
+    """Represents a cell Note.
+
+    Before the introduction of threaded comments, a Note was called a Comment.
+
+    Examples:
+        ```python
+        import xlwings as xw
+
+        book = xw.Book()
+        cell = book.sheets[0]["A1"]
+        note = cell.add_note("Review this value")
+        print(note.text)
+        ```
+
+    ```{versionadded} 0.24.2
+    ```
+    """
+
+    def __init__(self, impl: Any) -> None:
         self.impl = impl
 
     @property
@@ -3735,6 +5345,277 @@ class Note:
 
     async def get_text(self) -> str | None:
         """Fetch the note's text on demand.
+
+        Requires xlwings Lite.
+
+        ```{versionadded} 0.37.0
+        ```
+        """
+        return await self.impl.get_text()
+
+    @property
+    def author(self) -> str:
+        """The note's author. In xlwings Lite, use `await get_author()`.
+
+        ```{versionadded} 0.37.5
+        ```
+        """
+        return self.impl.author
+
+    async def get_author(self) -> str | None:
+        """Read the note's author from Excel; return `None` if the note is gone.
+
+        Requires xlwings Lite.
+
+        ```{versionadded} 0.37.5
+        ```
+        """
+        return await self.impl.get_author()
+
+    @property
+    def location(self) -> Range:
+        """The cell containing this note. In xlwings Lite, use `await get_location()`.
+
+        ```{versionadded} 0.37.5
+        ```
+        """
+        return Range(impl=self.impl.location)
+
+    async def get_location(self) -> Range | None:
+        """Read the note's cell from Excel; return `None` if it is gone.
+
+        Requires xlwings Lite.
+
+        ```{versionadded} 0.37.5
+        ```
+        """
+        impl = await self.impl.get_location()
+        return Range(impl=impl) if impl is not None else None
+
+
+def _validate_comment_text(text: str) -> None:
+    if not isinstance(text, str):
+        raise TypeError("Comment text must be a string")
+    if not text:
+        raise ValueError("Comment text must not be empty")
+
+
+class Comments:
+    """Threaded comments on a worksheet or in a workbook.
+
+    In xlwings Lite, obtain the collection with `await sheet.get_comments()` or `await book.get_comments()`.
+
+    Examples:
+        ```python
+        import xlwings as xw
+
+        book = xw.Book()
+        sheet = book.sheets[0]
+        sheet["A1"].add_comment("Review")
+        for comment in book.comments:
+            print(comment.location.address, comment.text)
+        print(sheet.comments["A1"].text)
+        ```
+    """
+
+    def __init__(
+        self, parent: Book | Sheet, items: list[Comment] | None = None
+    ) -> None:
+        self.parent = parent
+        self._items = items
+
+    def __iter__(self) -> Iterator[Comment]:
+        if self._items is not None:
+            yield from self._items
+        elif isinstance(self.parent, Book):
+            for sheet in self.parent.sheets:
+                yield from sheet.comments
+        else:
+            for impl in self.parent.impl.comments:
+                yield Comment(impl=impl)
+
+    def __len__(self) -> int:
+        return sum(1 for _ in self)
+
+    @property
+    def count(self) -> int:
+        """Number of comments in this collection."""
+        return len(self)
+
+    def __getitem__(self, key: int | str | Range) -> Comment:
+        if isinstance(key, int):
+            return list(self)[key]
+        if isinstance(key, str) and isinstance(self.parent, Sheet):
+            cell = self.parent.range(key)
+        elif isinstance(key, Range):
+            cell = key
+        else:
+            raise TypeError("Use a cell Range for workbook lookup")
+        if cell.shape != (1, 1):
+            raise ValueError("A comment location must be a single cell")
+        expected_book = (
+            self.parent if isinstance(self.parent, Book) else self.parent.book
+        )
+        if cell.sheet.book != expected_book or (
+            isinstance(self.parent, Sheet) and cell.sheet != self.parent
+        ):
+            raise ValueError("The cell must belong to this collection")
+        for comment in self:
+            location = getattr(comment.impl, "range", None)
+            if location is None:
+                location = comment.location
+            if (
+                location.sheet.name == cell.sheet.name
+                and location.address == cell.address
+            ):
+                return comment
+        raise KeyError(key)
+
+
+class Comment:
+    """A modern threaded comment attached to one cell, distinct from a [](note.md).
+
+    Examples:
+        ```python
+        import xlwings as xw
+
+        cell = xw.Book().sheets[0]["A1"]
+        comment = cell.add_comment("Review this value")
+        comment.text = "Review the updated value"
+        print(comment.author, comment.text)
+        comment.delete()
+        ```
+    """
+
+    def __init__(self, impl: Any) -> None:
+        self.impl = impl
+
+    @property
+    def api(self) -> Any:
+        """Returns the native object (`pywin32` or `appscript` obj)
+        of the engine being used.
+        """
+        return self.impl.api
+
+    @property
+    def text(self) -> str:
+        """Comment text. In xlwings Lite, use `await get_text()` to read it."""
+        return self.impl.text
+
+    @text.setter
+    def text(self, value: str) -> None:
+        _validate_comment_text(value)
+        self.impl.text = value
+
+    async def get_text(self) -> str | None:
+        """Read the comment text, or `None` if it was deleted.
+
+        Requires xlwings Lite.
+        """
+        return await self.impl.get_text()
+
+    @property
+    def author(self) -> str:
+        """Author name. In xlwings Lite, use `await get_author()`."""
+        return self.impl.author
+
+    async def get_author(self) -> str | None:
+        """Read the author's name.
+
+        Requires xlwings Lite.
+        """
+        return await self.impl.get_author()
+
+    @property
+    def creation_date(self) -> dt.datetime | None:
+        """Creation date, when Excel has one. In xlwings Lite, use `await get_creation_date()`."""
+        return self.impl.creation_date
+
+    async def get_creation_date(self) -> dt.datetime | None:
+        """Read the creation date.
+
+        Requires xlwings Lite.
+        """
+        return await self.impl.get_creation_date()
+
+    @property
+    def resolved(self) -> bool:
+        """Thread resolution state. In xlwings Lite, use `await get_resolved()`."""
+        return self.impl.resolved
+
+    async def get_resolved(self) -> bool | None:
+        """Read the resolution state.
+
+        Requires xlwings Lite.
+        """
+        return await self.impl.get_resolved()
+
+    @property
+    def location(self) -> Range:
+        """The comment's cell. In xlwings Lite, use `await get_location()`."""
+        return Range(impl=self.impl.location)
+
+    async def get_location(self) -> Range | None:
+        """Read the comment's cell.
+
+        Requires xlwings Lite.
+        """
+        impl = await self.impl.get_location()
+        return Range(impl=impl) if impl is not None else None
+
+    @property
+    def replies(self) -> list[CommentReply]:
+        """Replies to this comment. In xlwings Lite, use `await get_replies()`."""
+        return [CommentReply(impl=impl) for impl in self.impl.replies]
+
+    async def get_replies(self) -> list[CommentReply]:
+        """Fetch replies.
+
+        Requires xlwings Lite.
+        """
+        return [CommentReply(impl=impl) for impl in await self.impl.get_replies()]
+
+    def add_reply(self, text: str) -> None:
+        """Add a plain-text reply."""
+        _validate_comment_text(text)
+        self.impl.add_reply(text)
+
+    def resolve(self) -> None:
+        """Resolve this thread."""
+        self.impl.set_resolved(True)
+
+    def reopen(self) -> None:
+        """Reopen this thread."""
+        self.impl.set_resolved(False)
+
+    def delete(self) -> None:
+        """Delete the thread and all its replies."""
+        self.impl.delete()
+
+
+class CommentReply:
+    """A plain-text reply to a threaded comment.
+
+    Examples:
+        ```python
+        import xlwings as xw
+
+        comment = xw.Book().sheets[0]["A1"].add_comment("Review")
+        comment.add_reply("Checked")
+        print(comment.replies[0].text)
+        ```
+    """
+
+    def __init__(self, impl: Any) -> None:
+        self.impl = impl
+
+    @property
+    def text(self) -> str:
+        """Reply text. In xlwings Lite, use `await get_text()`."""
+        return self.impl.text
+
+    async def get_text(self) -> str | None:
+        """Read the reply text, or `None` if it was deleted.
 
         Requires xlwings Lite.
         """
@@ -3830,6 +5711,22 @@ class Table:
         return Range(impl=self.impl.range)
 
     @property
+    def autofilter(self) -> AutoFilter:
+        """Returns the AutoFilter for this table.
+
+        `field` arguments are one-based column positions relative to the table.
+
+        ```{versionadded} 0.37.5
+        ```
+        """
+        return AutoFilter(impl=self.impl.autofilter, parent=self)
+
+    @property
+    def rows(self) -> TableRows:
+        """Data rows of this table, excluding headers and totals."""
+        return TableRows(impl=self.impl.rows)
+
+    @property
     def show_autofilter(self) -> bool:
         """Turn the autofilter on or off by setting it to `True` or `False`
         (read/write boolean)
@@ -3908,6 +5805,11 @@ class Table:
     @table_style.setter
     def table_style(self, value: str) -> None:
         self.impl.table_style = value
+
+    @property
+    def columns(self) -> TableColumns:
+        """The columns belonging to this table. Integer collection lookup is zero-based."""
+        return TableColumns(impl=self.impl.columns)
 
     @property
     def totals_row_range(self) -> Range | None:
@@ -4040,6 +5942,187 @@ class Table:
         return "<Table '{0}' in {1}>".format(self.name, self.parent.name)
 
 
+class TableRow:
+    """A data row in an Excel table. Row objects refer to a position, so obtain them again after sorting or changing the table structure.
+
+    Examples:
+        ```python
+        import xlwings as xw
+
+        table = xw.Book().sheets[0].tables["Table1"]
+        row = table.rows[0]  # First data row; row.index is 1
+        print(row.range.value)
+        row.delete()
+        ```
+    """
+
+    def __init__(self, impl: Any) -> None:
+        self.impl = impl
+
+    @property
+    def index(self) -> int:
+        """One-based position within the table's data rows."""
+        return self.impl.index
+
+    @property
+    def range(self) -> Range:
+        """Cells in this row. In xlwings Lite, use `await get_range()`."""
+        return Range(impl=self.impl.range)
+
+    async def get_range(self) -> Range:
+        """Fetch this row's cells. Use this method for xlwings Lite readback."""
+        return Range(impl=await self.impl.get_range())
+
+    def delete(self) -> None:
+        """Delete this table row. Excel may shift cells below the table upward."""
+        self.impl.delete()
+
+
+class TableRows(Collection[TableRow]):
+    """Collection of data rows in a table. Row indexes are one-based; square-bracket lookup is zero-based. In xlwings Lite, `len(rows)` uses loaded metadata; use `await rows.get_count()` for the current count.
+
+    Examples:
+        ```python
+        import xlwings as xw
+
+        rows = xw.Book().sheets[0].tables["Table1"].rows
+        rows.add(["Pencil", 2])  # Append
+        rows.add(["Pen", 3], index=1)  # Insert before the first data row
+        print(rows[0].range.value)  # ["Pen", 3]
+        ```
+    """
+
+    _wrap = TableRow
+
+    def __getitem__(self, key: int) -> TableRow:
+        if not isinstance(key, int) or isinstance(key, bool):
+            raise TypeError("Table rows use integer indexes")
+        return super().__getitem__(key)
+
+    async def get_count(self) -> int:
+        """Fetch the current row count. Use this method for xlwings Lite readback."""
+        return await self.impl.get_count()
+
+    def add(
+        self,
+        values: list[str | int | float | bool | None]
+        | tuple[str | int | float | bool | None, ...]
+        | None = None,
+        index: int | None = None,
+    ) -> TableRow:
+        """Add one row before one-based `index`, or append when it is `None`.
+
+        `values` must contain exactly one value per table column. Omit it to let Excel create a blank row and fill calculated columns. Excel may shift cells below the table downward.
+        """
+        if index is not None:
+            if not isinstance(index, int) or isinstance(index, bool):
+                raise TypeError("index must be an integer or None")
+            if index < 1 or index > len(self) + 1:
+                raise IndexError("Table row index out of range")
+        if values is not None:
+            if not isinstance(values, (list, tuple)):
+                raise TypeError("values must be a one-dimensional list or tuple")
+            if len(values) != self.impl.column_count:
+                raise ValueError("values must match the table column count")
+            for value in values:
+                if value is not None and not isinstance(value, (str, int, float, bool)):
+                    raise TypeError(
+                        "table row values must be strings, numbers, booleans, or None"
+                    )
+                if isinstance(value, float) and not math.isfinite(value):
+                    raise ValueError("table row numbers must be finite")
+            values = list(values)
+        return TableRow(impl=self.impl.add(values, index))
+
+
+class TableColumn:
+    """A column in an Excel table. Obtain it again after changing table structure.
+
+    Examples:
+        ```python
+        import xlwings as xw
+
+        table = xw.Book().sheets[0].tables["Table1"]
+        column = table.columns["MyColumn"]
+        print(column.index)
+        print(column.data_body_range.value)
+        column.delete()
+        ```
+    """
+
+    def __init__(self, impl: Any) -> None:
+        self.impl = impl
+
+    @property
+    def name(self) -> str:
+        """The column header."""
+        return self.impl.name
+
+    @property
+    def index(self) -> int:
+        """One-based position within the table."""
+        return self.impl.index
+
+    @property
+    def range(self) -> Range:
+        """All cells in this column. In xlwings Lite, use `await get_range()`."""
+        return Range(impl=self.impl.range)
+
+    async def get_range(self) -> Range:
+        """Fetch this column's current range in xlwings Lite."""
+        return Range(impl=await self.impl.get_range())
+
+    @property
+    def data_body_range(self) -> Range | None:
+        """Data cells, excluding header and totals. In xlwings Lite, use `await get_data_body_range()`."""
+        impl = self.impl.data_body_range
+        return Range(impl=impl) if impl else None
+
+    async def get_data_body_range(self) -> Range | None:
+        """Fetch this column's current data cells in xlwings Lite."""
+        impl = await self.impl.get_data_body_range()
+        return Range(impl=impl) if impl else None
+
+    def delete(self) -> None:
+        """Delete the column from its table. Excel may move cells beside the table."""
+        self.impl.delete()
+
+
+class TableColumns(Collection[TableColumn]):
+    """Table columns. Collection lookup is zero-based; column indexes are one-based. For a newly created table in xlwings Lite, call `await book.flush()` and `await sheet.load()` before accessing its columns, then obtain the table again.
+
+    Examples:
+        ```python
+        import xlwings as xw
+
+        columns = xw.Book().sheets[0].tables["Table1"].columns
+        columns.add("Tax", index=2)
+        print(columns[1].name)
+        ```
+    """
+
+    _wrap = TableColumn
+
+    async def get_count(self) -> int:
+        """Fetch the current column count in xlwings Lite."""
+        return await self.impl.get_count()
+
+    def add(self, name: str, index: int | None = None) -> TableColumn:
+        """Insert a named column before one-based `index`, or append when omitted. Excel may move cells beside the table."""
+        if not isinstance(name, str):
+            raise TypeError("name must be a string")
+        if not name.strip():
+            raise ValueError("name must not be empty")
+        if index is not None:
+            if not isinstance(index, int) or isinstance(index, bool):
+                raise TypeError("index must be an integer or None")
+            if not 1 <= index <= len(self) + 1:
+                raise IndexError("Table column index out of range")
+        if name.casefold() in (column.name.casefold() for column in self):
+            raise ValueError(f"Table column named {name!r} already exists")
+        return TableColumn(impl=self.impl.add(name, index))
+
+
 class Tables(Collection[Table]):
     """A collection of all `table` objects on the specified sheet:
 
@@ -4062,7 +6145,7 @@ class Tables(Collection[Table]):
         name: str | None = None,
         source_type: str | None = None,
         link_source: bool | None = None,
-        has_headers: bool | str = True,
+        has_headers: bool = True,
         destination: Range | None = None,
         table_style_name: str = "TableStyleMedium2",
     ) -> Table:
@@ -4076,8 +6159,7 @@ class Tables(Collection[Table]):
                 object. No other options are allowed at the moment.
             link_source: Currently not implemented as this is only in case `source_type` is
                 `xlSrcExternal`.
-            has_headers: Indicates whether the data being imported has column labels. Defaults to
-                `True`. Possible values: `True`, `False`, `'guess'`
+            has_headers: Whether the source range has column labels. Defaults to `True`. When `False`, Excel generates headers above the source data.
             destination: Currently not implemented as this is used in case `source_type` is
                 `xlSrcExternal`.
             table_style_name: Possible strings: `'TableStyleLightN'` (where N is 1-21),
@@ -4094,6 +6176,9 @@ class Tables(Collection[Table]):
             <Table 'MyTable' in Sheet1>
             ```
         """
+
+        if not isinstance(has_headers, bool):
+            raise TypeError("has_headers must be True or False")
 
         impl = self.impl.add(
             source_type=source_type,
@@ -4144,6 +6229,52 @@ def _chart_style(value: Any) -> int:
     raise ValueError(
         f"Invalid style {value!r}. Must be an integer from 1 to 48 or 201 to 248."
     )
+
+
+def _chart_axis_scale(value: Any, name: str, *, positive: bool = False) -> float | None:
+    if value is None:
+        return None
+    if isinstance(value, numbers.Real) and not isinstance(value, bool):
+        value = float(value)
+        if math.isfinite(value) and (not positive or value > 0):
+            return value
+    requirement = "a positive finite number" if positive else "a finite number"
+    raise ValueError(f"Invalid {name} {value!r}. Must be {requirement} or None.")
+
+
+def _chart_marker_style(value: Any) -> ChartMarkerStyle:
+    if isinstance(value, str) and value in CHART_MARKER_STYLES:
+        return cast(ChartMarkerStyle, value)
+    raise ValueError(
+        f"Invalid marker_style {value!r}. Valid values are: "
+        f"{', '.join(repr(v) for v in CHART_MARKER_STYLES)}."
+    )
+
+
+def _chart_marker_size(value: Any) -> int:
+    if isinstance(value, numbers.Integral) and not isinstance(value, bool):
+        value = int(value)
+        if 2 <= value <= 72:
+            return value
+    raise ValueError(f"Invalid marker_size {value!r}. Must be an integer from 2 to 72.")
+
+
+def _chart_series_name(value: Any) -> str:
+    if isinstance(value, str) and len(value) <= 255:
+        return value
+    raise ValueError(
+        f"Invalid series name {value!r}. Must be a string of at most 255 characters."
+    )
+
+
+def _chart_series_color(value: Any, name: str) -> tuple[int, int, int]:
+    try:
+        return _border_color(value)
+    except ValueError:
+        raise ValueError(
+            f"Invalid {name} {value!r}. Must be an RGB tuple, hex string, or "
+            "Excel color integer."
+        ) from None
 
 
 class Chart:
@@ -4327,6 +6458,48 @@ class Chart:
         return ChartLegend(impl=self.impl.legend)
 
     @property
+    def category_axis(self) -> ChartAxis:
+        """Returns the chart's primary category axis.
+
+        ```{versionadded} 0.37.5
+        ```
+        """
+        return ChartAxis(impl=self.impl.category_axis)
+
+    @property
+    def value_axis(self) -> ChartAxis:
+        """Returns the chart's primary value axis.
+
+        ```{versionadded} 0.37.5
+        ```
+        """
+        return ChartAxis(impl=self.impl.value_axis)
+
+    @property
+    def series(self) -> ChartSeriesCollection:
+        """Returns the chart's ordered series collection.
+
+        In xlwings Lite, use {meth}`get_series` before inspecting or indexing
+        the collection.
+
+        ```{versionadded} 0.37.5
+        ```
+        """
+        return ChartSeriesCollection(impl=self.impl.series)
+
+    async def get_series(self) -> ChartSeriesCollection:
+        """Fetches the chart's current ordered series collection.
+
+        A newly created chart must first be dispatched with `await book.flush()` so Excel can create its series from the source data.
+
+        Requires xlwings Lite.
+
+        ```{versionadded} 0.37.5
+        ```
+        """
+        return ChartSeriesCollection(impl=await self.impl.get_series())
+
+    @property
     def plot_by(self) -> str:
         """Returns or sets whether the data series come from the rows or from the
         columns of the source data: either `"rows"` or `"columns"`.
@@ -4503,6 +6676,414 @@ class Chart:
         Requires xlwings Lite.
         """
         return await self.impl.get_png()
+
+
+class ChartAxis:
+    """A primary chart axis, accessed through {attr}`Chart.category_axis <xlwings.Chart.category_axis>` or {attr}`Chart.value_axis <xlwings.Chart.value_axis>`.
+
+    Use {meth}`set` to change several attributes in one operation. On xlwings Lite, use the asynchronous getters to fetch the current values from Excel.
+
+    ```pycon
+    >>> chart = xw.books["Book1"].sheets[0].charts[0]
+    >>> chart.value_axis.set(
+    ...     title="Revenue", minimum_scale=0, major_unit=10_000
+    ... )
+    ```
+
+    ```{versionadded} 0.37.5
+    ```
+    """
+
+    def __init__(self, impl: Any) -> None:
+        self.impl = impl
+
+    @property
+    def api(self) -> Any:
+        """Returns the native `pywin32` object on Windows."""
+        return self.impl.api
+
+    @property
+    def title(self) -> str | None:
+        """Returns or sets the axis title. Setting it to `None` hides the title; setting it to a string shows the axis and its title."""
+        return self.impl.title
+
+    @title.setter
+    def title(self, value: str | None) -> None:
+        self.set(title=value)
+
+    @property
+    def minimum_scale(self) -> float:
+        """Returns or sets the minimum scale. Set to `None` to restore Excel's automatic scale; reads return the resolved numeric value."""
+        return self.impl.minimum_scale
+
+    @minimum_scale.setter
+    def minimum_scale(self, value: float | None) -> None:
+        self.set(minimum_scale=value)
+
+    @property
+    def maximum_scale(self) -> float:
+        """Returns or sets the maximum scale. Set to `None` to restore Excel's automatic scale; reads return the resolved numeric value."""
+        return self.impl.maximum_scale
+
+    @maximum_scale.setter
+    def maximum_scale(self, value: float | None) -> None:
+        self.set(maximum_scale=value)
+
+    @property
+    def major_unit(self) -> float:
+        """Returns or sets the interval between major tick marks. Set to `None` to restore Excel's automatic interval; reads return the resolved value."""
+        return self.impl.major_unit
+
+    @major_unit.setter
+    def major_unit(self, value: float | None) -> None:
+        self.set(major_unit=value)
+
+    @property
+    def number_format(self) -> str:
+        """Returns or sets the format code for the axis tick labels."""
+        return self.impl.number_format
+
+    @number_format.setter
+    def number_format(self, value: str) -> None:
+        self.set(number_format=value)
+
+    @property
+    def visible(self) -> bool:
+        """Returns or sets whether the axis is shown."""
+        return self.impl.visible
+
+    @visible.setter
+    def visible(self, value: bool) -> None:
+        self.set(visible=value)
+
+    def set(
+        self,
+        *,
+        title: str | None = _UNSET,
+        minimum_scale: float | None = _UNSET,
+        maximum_scale: float | None = _UNSET,
+        major_unit: float | None = _UNSET,
+        number_format: str = _UNSET,
+        visible: bool = _UNSET,
+    ) -> None:
+        """Sets one or more axis attributes in one operation.
+
+        Only supplied attributes are changed, and all arguments are validated before anything is written. `visible=True` is applied before the other attributes; `visible=False` is applied last so it describes the final state.
+
+        Args:
+            title: Axis title, or `None` to hide it.
+            minimum_scale: Minimum scale, or `None` for automatic scaling.
+            maximum_scale: Maximum scale, or `None` for automatic scaling.
+            major_unit: Positive major-unit interval, or `None` for automatic.
+            number_format: Format code for the tick labels.
+            visible: Whether the axis is shown.
+        """
+        if title is not _UNSET and title is not None and not isinstance(title, str):
+            raise ValueError(
+                f"Invalid title {title!r}. Must be a string or None to hide it."
+            )
+        if minimum_scale is not _UNSET:
+            minimum_scale = _chart_axis_scale(minimum_scale, "minimum_scale")
+        if maximum_scale is not _UNSET:
+            maximum_scale = _chart_axis_scale(maximum_scale, "maximum_scale")
+        if major_unit is not _UNSET:
+            major_unit = _chart_axis_scale(major_unit, "major_unit", positive=True)
+        if number_format is not _UNSET and not isinstance(number_format, str):
+            raise ValueError(
+                f"Invalid number_format {number_format!r}. Must be a string."
+            )
+        if visible is not _UNSET and not isinstance(visible, bool):
+            raise ValueError(f"Invalid visible {visible!r}. Must be True or False.")
+        if all(
+            value is _UNSET
+            for value in (
+                title,
+                minimum_scale,
+                maximum_scale,
+                major_unit,
+                number_format,
+                visible,
+            )
+        ):
+            return
+        self.impl.set(
+            title=title,
+            minimum_scale=minimum_scale,
+            maximum_scale=maximum_scale,
+            major_unit=major_unit,
+            number_format=number_format,
+            visible=visible,
+        )
+
+    async def get_title(self) -> str | None:
+        """Fetches the axis title. Returns `None` if the axis or title is hidden.
+
+        Requires xlwings Lite.
+        """
+        return await self.impl.get_title()
+
+    async def get_minimum_scale(self) -> float:
+        """Fetches the resolved minimum scale.
+
+        Requires xlwings Lite.
+        """
+        return await self.impl.get_minimum_scale()
+
+    async def get_maximum_scale(self) -> float:
+        """Fetches the resolved maximum scale.
+
+        Requires xlwings Lite.
+        """
+        return await self.impl.get_maximum_scale()
+
+    async def get_major_unit(self) -> float:
+        """Fetches the resolved major-unit interval.
+
+        Requires xlwings Lite.
+        """
+        return await self.impl.get_major_unit()
+
+    async def get_number_format(self) -> str:
+        """Fetches the tick-label number format.
+
+        Requires xlwings Lite.
+        """
+        return await self.impl.get_number_format()
+
+    async def get_visible(self) -> bool:
+        """Fetches whether the axis is shown.
+
+        Requires xlwings Lite.
+        """
+        return await self.impl.get_visible()
+
+    def __repr__(self) -> str:
+        return "<ChartAxis>"
+
+
+class ChartSeries:
+    """A chart data series.
+
+    {attr}`Chart.series <xlwings.Chart.series>` and {meth}`Chart.get_series <xlwings.Chart.get_series>` return a {class}`ChartSeriesCollection <xlwings.main.ChartSeriesCollection>`. Indexing or iterating that collection returns `ChartSeries` objects.
+
+    Use {meth}`set` to change several attributes in one operation. On xlwings Lite, use the asynchronous getters to fetch current values from Excel.
+
+    ```pycon
+    >>> chart = xw.books["Book1"].sheets[0].charts[0]
+    >>> series = chart.series[0]
+    >>> series.set(name="Revenue", marker_style="circle", marker_size=8)
+    ```
+
+    ```{versionadded} 0.37.5
+    ```
+    """
+
+    def __init__(self, impl: Any) -> None:
+        self.impl = impl
+
+    @property
+    def api(self) -> Any:
+        """Returns the native `pywin32` or `appscript` series object."""
+        return self.impl.api
+
+    @property
+    def name(self) -> str:
+        """Returns or sets the displayed series name."""
+        return self.impl.name
+
+    @name.setter
+    def name(self, value: str) -> None:
+        self.set(name=value)
+
+    @property
+    def marker_style(self) -> ChartMarkerStyle:
+        """Returns or sets the marker style."""
+        return self.impl.marker_style
+
+    @marker_style.setter
+    def marker_style(self, value: ChartMarkerStyle) -> None:
+        self.set(marker_style=value)
+
+    @property
+    def marker_size(self) -> int:
+        """Returns or sets the marker size in points, from 2 through 72."""
+        return self.impl.marker_size
+
+    @marker_size.setter
+    def marker_size(self, value: int) -> None:
+        self.set(marker_size=value)
+
+    @property
+    def marker_foreground_color(self) -> tuple[int, int, int] | None:
+        """Returns or sets the marker foreground color."""
+        return self.impl.marker_foreground_color
+
+    @marker_foreground_color.setter
+    def marker_foreground_color(self, value: tuple[int, int, int] | str | int) -> None:
+        self.set(marker_foreground_color=value)
+
+    @property
+    def marker_background_color(self) -> tuple[int, int, int] | None:
+        """Returns or sets the marker background color."""
+        return self.impl.marker_background_color
+
+    @marker_background_color.setter
+    def marker_background_color(self, value: tuple[int, int, int] | str | int) -> None:
+        self.set(marker_background_color=value)
+
+    @property
+    def line_color(self) -> tuple[int, int, int] | None:
+        """Returns or sets the series line color."""
+        return self.impl.line_color
+
+    @line_color.setter
+    def line_color(self, value: tuple[int, int, int] | str | int) -> None:
+        self.set(line_color=value)
+
+    @property
+    def fill_color(self) -> tuple[int, int, int] | None:
+        """Returns or sets the solid series fill color."""
+        return self.impl.fill_color
+
+    @fill_color.setter
+    def fill_color(self, value: tuple[int, int, int] | str | int) -> None:
+        self.set(fill_color=value)
+
+    def set(
+        self,
+        *,
+        name: str = _UNSET,
+        marker_style: ChartMarkerStyle = _UNSET,
+        marker_size: int = _UNSET,
+        marker_foreground_color: tuple[int, int, int] | str | int = _UNSET,
+        marker_background_color: tuple[int, int, int] | str | int = _UNSET,
+        line_color: tuple[int, int, int] | str | int = _UNSET,
+        fill_color: tuple[int, int, int] | str | int = _UNSET,
+    ) -> None:
+        """Sets one or more series attributes in one operation.
+
+        Only supplied attributes are changed, and all arguments are validated
+        before anything is written.
+        """
+        if name is not _UNSET:
+            name = _chart_series_name(name)
+        if marker_style is not _UNSET:
+            marker_style = _chart_marker_style(marker_style)
+        if marker_size is not _UNSET:
+            marker_size = _chart_marker_size(marker_size)
+        for attribute in (
+            "marker_foreground_color",
+            "marker_background_color",
+            "line_color",
+            "fill_color",
+        ):
+            value = locals()[attribute]
+            if value is not _UNSET:
+                normalized = _chart_series_color(value, attribute)
+                if attribute == "marker_foreground_color":
+                    marker_foreground_color = normalized
+                elif attribute == "marker_background_color":
+                    marker_background_color = normalized
+                elif attribute == "line_color":
+                    line_color = normalized
+                else:
+                    fill_color = normalized
+        if all(
+            value is _UNSET
+            for value in (
+                name,
+                marker_style,
+                marker_size,
+                marker_foreground_color,
+                marker_background_color,
+                line_color,
+                fill_color,
+            )
+        ):
+            return
+        self.impl.set(
+            name=name,
+            marker_style=marker_style,
+            marker_size=marker_size,
+            marker_foreground_color=marker_foreground_color,
+            marker_background_color=marker_background_color,
+            line_color=line_color,
+            fill_color=fill_color,
+        )
+
+    async def get_name(self) -> str:
+        """Fetches the displayed series name.
+
+        Requires xlwings Lite.
+        """
+        return await self.impl.get_name()
+
+    async def get_marker_style(self) -> ChartMarkerStyle:
+        """Fetches the marker style.
+
+        Requires xlwings Lite.
+        """
+        return await self.impl.get_marker_style()
+
+    async def get_marker_size(self) -> int:
+        """Fetches the marker size.
+
+        Requires xlwings Lite.
+        """
+        return await self.impl.get_marker_size()
+
+    async def get_marker_foreground_color(self) -> tuple[int, int, int] | None:
+        """Fetches the marker foreground color.
+
+        Requires xlwings Lite.
+        """
+        return await self.impl.get_marker_foreground_color()
+
+    async def get_marker_background_color(self) -> tuple[int, int, int] | None:
+        """Fetches the marker background color.
+
+        Requires xlwings Lite.
+        """
+        return await self.impl.get_marker_background_color()
+
+    async def get_line_color(self) -> tuple[int, int, int] | None:
+        """Fetches the series line color.
+
+        Requires xlwings Lite.
+        """
+        return await self.impl.get_line_color()
+
+    async def get_fill_color(self) -> tuple[int, int, int] | None:
+        """Fetches the solid series fill color.
+
+        Requires xlwings Lite.
+        """
+        return await self.impl.get_fill_color()
+
+    def __repr__(self) -> str:
+        return "<ChartSeries>"
+
+
+class ChartSeriesCollection(Collection[ChartSeries]):
+    """An ordered, integer-indexed collection of chart series.
+
+    Series names aren't unique in Excel, so string lookup isn't supported.
+
+    ```pycon
+    >>> chart = xw.books["Book1"].sheets[0].charts[0]
+    >>> series = chart.series
+    >>> len(series)
+    2
+    >>> series[0].set(name="Revenue", marker_style="circle", marker_size=8)
+    ```
+
+    In xlwings Lite, use `series = await chart.get_series()` instead of `chart.series`.
+
+    ```{versionadded} 0.37.5
+    ```
+    """
+
+    _wrap = ChartSeries
 
 
 class ChartLegend:
@@ -4864,18 +7445,32 @@ class PivotTable:
     def range(self) -> Range:
         """The range of the pivot table report, excluding the filters area.
 
-        Not yet available on xlwings Lite and xlwings Server.
+        In xlwings Lite, use `await get_range()`.
         """
         return Range(impl=self.impl.range)
 
+    async def get_range(self) -> Range:
+        """Fetch the current pivot table report range, excluding the filters area.
+
+        Not available on xlwings Server.
+        """
+        return Range(impl=await self.impl.get_range())
+
     @property
     def data_body_range(self) -> Range | None:
-        """The range of the values area, or `None` if the pivot table has no
-        value fields.
+        """The range of the values area, or `None` if the pivot table has no value fields.
 
-        Not yet available on xlwings Lite and xlwings Server.
+        In xlwings Lite, use `await get_data_body_range()`.
         """
         impl = self.impl.data_body_range
+        return Range(impl=impl) if impl is not None else None
+
+    async def get_data_body_range(self) -> Range | None:
+        """Fetch the current values area, or `None` if the pivot table has no value fields.
+
+        Not available on xlwings Server.
+        """
+        impl = await self.impl.get_data_body_range()
         return Range(impl=impl) if impl is not None else None
 
     def refresh(self) -> None:
@@ -5722,9 +8317,7 @@ class Names:
     def add(self, name: str, refers_to: str) -> Name:
         """Defines a new name for a range, constant, or formula (including a LAMBDA).
 
-        Full support for named constants and formulas requires Excel desktop or xlwings
-        Lite or Server. Google Sheets supports named
-        ranges only; Office Scripts only returns named ranges in its snapshot.
+        Full support for named constants and formulas requires Excel desktop, xlwings Lite, or xlwings Server. Google Sheets supports named ranges only; Office Scripts only returns named ranges in its snapshot.
 
         Args:
             name: Specifies the text to use as the name. Names cannot include spaces and
@@ -5862,6 +8455,357 @@ class Name:
             and other.name == self.name
             and other.refers_to == self.refers_to
         )
+
+
+class DataValidation:
+    """Data validation for a range.
+
+    Do not construct this class directly; access it through
+    {attr}`Range.data_validation <xlwings.Range.data_validation>`.
+
+    Comparison setters accept these operators: ``"between"``, ``"not_between"``,
+    ``"equal_to"``, ``"not_equal_to"``, ``"greater_than"``, ``"less_than"``,
+    ``"greater_than_or_equal"``, and ``"less_than_or_equal"``.
+
+    Examples:
+        Create a dropdown from literal values:
+
+        ```python
+        sheet["A1:A10"].data_validation.set_list(["Open", "Closed"])
+        ```
+
+        Require whole numbers between 1 and 10:
+
+        ```python
+        sheet["B1:B10"].data_validation.set_whole_number("between", 1, 10)
+        ```
+
+    ```{versionadded} 0.37.5
+    ```
+    """
+
+    def __init__(self, impl: Any, parent: Range) -> None:
+        self.impl = impl
+        self.parent = parent
+
+    @property
+    def api(self) -> Any:
+        """Returns the native data validation object of the engine being used."""
+        return self.impl.api
+
+    @property
+    def type(self) -> DataValidationType:
+        """The normalized validation type for this range.
+
+        ``"none"`` means that no cell has validation, ``"mixed_criteria"`` means
+        that only some cells have validation, and ``"inconsistent"`` means that
+        cells have different validation rules. Unsupported native rule types are
+        reported as ``"unknown"``.
+        """
+        value = self.impl.type
+        return cast(
+            DataValidationType,
+            value if value in DATA_VALIDATION_TYPES else "unknown",
+        )
+
+    @property
+    def operator(self) -> DataValidationOperator | None:
+        """The comparison operator, or ``None`` for list and custom rules."""
+        return self.impl.operator
+
+    @property
+    def formula1(self) -> str | None:
+        """The first comparison operand as an Excel formula string."""
+        return self._normalized_formula(self.impl.formula1)
+
+    @property
+    def formula2(self) -> str | None:
+        """The second operand for between/not-between rules."""
+        return self._normalized_formula(self.impl.formula2)
+
+    @property
+    def formula(self) -> str | None:
+        """The formula for a custom validation rule."""
+        return self.impl.formula
+
+    @property
+    def source(self) -> str | None:
+        """The source string for a list validation rule."""
+        return self.impl.source
+
+    @property
+    def in_cell_dropdown(self) -> bool | None:
+        """Whether a list rule displays an in-cell dropdown."""
+        return self.impl.in_cell_dropdown
+
+    @property
+    def ignore_blank(self) -> bool | None:
+        """Whether blank cells are ignored by the validation rule."""
+        return self.impl.ignore_blank
+
+    @property
+    def input_title(self) -> str | None:
+        """The input-prompt title."""
+        return self.impl.input_title
+
+    @property
+    def input_message(self) -> str | None:
+        """The input-prompt message."""
+        return self.impl.input_message
+
+    @property
+    def show_input(self) -> bool | None:
+        """Whether the input prompt is shown."""
+        return self.impl.show_input
+
+    @property
+    def error_title(self) -> str | None:
+        """The validation-error title."""
+        return self.impl.error_title
+
+    @property
+    def error_message(self) -> str | None:
+        """The validation-error message."""
+        return self.impl.error_message
+
+    @property
+    def show_error(self) -> bool | None:
+        """Whether invalid entries display an error alert."""
+        return self.impl.show_error
+
+    @property
+    def alert_style(self) -> DataValidationAlertStyle | None:
+        """The error-alert style.
+
+        One of `"stop"`, `"warning"`, or `"information"`.
+        """
+        return self.impl.alert_style
+
+    @staticmethod
+    def _literal_source(
+        source: Sequence[str | int | float | bool],
+    ) -> list[str]:
+        if isinstance(source, (str, bytes, bytearray)) or not isinstance(
+            source, Sequence
+        ):
+            raise TypeError("source must be a non-empty sequence, Range, or Name")
+        if not source:
+            raise ValueError("source must not be empty")
+
+        values = []
+        for value in source:
+            if isinstance(value, bool):
+                text = "TRUE" if value else "FALSE"
+            elif isinstance(value, str):
+                text = value
+            elif isinstance(value, int):
+                text = str(value)
+            elif isinstance(value, float) and math.isfinite(value):
+                text = str(value)
+            else:
+                raise TypeError(
+                    "literal list values must be strings, numbers, or booleans"
+                )
+            if "," in text or ";" in text:
+                raise ValueError(
+                    "literal list values cannot contain ',' or ';'; use a Range "
+                    "or Name source for values containing separators"
+                )
+            values.append(text)
+
+        if len(",".join(values)) > 255:
+            raise ValueError(
+                "a literal list source cannot exceed 255 characters; use a Range "
+                "or Name source instead"
+            )
+        return values
+
+    def _range_source(self, source: Range) -> Any:
+        if source.sheet.book != self.parent.sheet.book:
+            raise ValueError("source must belong to the same workbook as the target")
+        if source.shape[0] != 1 and source.shape[1] != 1:
+            raise ValueError("a list validation source Range must be one-dimensional")
+        return source.impl
+
+    def set_list(
+        self,
+        source: Sequence[str | int | float | bool] | Range | Name,
+        *,
+        in_cell_dropdown: bool = True,
+    ) -> None:
+        """Creates or updates a list validation on the range.
+
+        Existing input prompts and error alerts are preserved. The source can be a
+        non-empty sequence of strings, numbers, or booleans, a one-dimensional Range,
+        or a Name that refers to a one-dimensional range in the same workbook.
+
+        Args:
+            source: Allowed list values, a worksheet range, or a named range.
+            in_cell_dropdown: Whether Excel shows the list's in-cell dropdown.
+        """
+        if not isinstance(in_cell_dropdown, bool):
+            raise TypeError("in_cell_dropdown must be a bool")
+        if isinstance(source, Range):
+            normalized_source = self._range_source(source)
+        elif isinstance(source, Name):
+            self._range_source(source.refers_to_range)
+            normalized_source = source.impl
+        else:
+            normalized_source = self._literal_source(source)
+        self.impl.set_list(normalized_source, in_cell_dropdown)
+
+    @staticmethod
+    def _operator(value: Any) -> DataValidationOperator:
+        if isinstance(value, str) and value in DATA_VALIDATION_OPERATORS:
+            return cast(DataValidationOperator, value)
+        raise ValueError(
+            f"Invalid data-validation operator {value!r}. Valid values are: "
+            f"{', '.join(repr(v) for v in DATA_VALIDATION_OPERATORS)}."
+        )
+
+    @staticmethod
+    def _normalized_formula(value: Any) -> str | None:
+        if value is None:
+            return None
+        formula = str(value)
+        return formula if formula.startswith("=") else f"={formula}"
+
+    @staticmethod
+    def _operand(value: Any, name: str, kind: str) -> str:
+        if isinstance(value, bool):
+            raise TypeError(f"{name} must not be a bool")
+        if kind == "date" and isinstance(value, (dt.datetime, dt.date)):
+            if isinstance(value, dt.datetime) and value.tzinfo is not None:
+                raise ValueError(f"{name} must be a timezone-naive datetime")
+            date_formula = f"=DATE({value.year},{value.month},{value.day})"
+            if isinstance(value, dt.datetime) and value.time() != dt.time():
+                seconds: int | float = value.second
+                if value.microsecond:
+                    seconds += value.microsecond / 1_000_000
+                date_formula += f"+TIME({value.hour},{value.minute},{seconds})"
+            value = date_formula
+        elif kind == "time" and isinstance(value, dt.time):
+            if value.tzinfo is not None:
+                raise ValueError(f"{name} must be a timezone-naive time")
+            seconds = value.second
+            if value.microsecond:
+                seconds += value.microsecond / 1_000_000
+            value = f"=TIME({value.hour},{value.minute},{seconds})"
+        elif isinstance(value, (dt.datetime, dt.date, dt.time)):
+            raise TypeError(f"{name} isn't valid for {kind} validation")
+
+        if isinstance(value, str):
+            if not value:
+                raise ValueError(f"{name} must not be empty")
+            text = value if value.startswith("=") else f"={value}"
+        elif isinstance(value, numbers.Real) and math.isfinite(value):
+            text = f"={value}"
+        else:
+            raise TypeError(f"{name} must be a formula string or a finite number")
+        if len(text) > 255:
+            raise ValueError(f"{name} cannot exceed 255 characters")
+        return text
+
+    def _set_comparison(
+        self,
+        rule_type: str,
+        operator: DataValidationOperator,
+        formula1: Any,
+        formula2: Any,
+    ) -> None:
+        operator = self._operator(operator)
+        formula1 = self._operand(formula1, "formula1", rule_type)
+        if operator in {"between", "not_between"}:
+            if formula2 is None:
+                raise ValueError(f"formula2 is required for operator {operator!r}")
+            formula2 = self._operand(formula2, "formula2", rule_type)
+        elif formula2 is not None:
+            raise ValueError(f"formula2 isn't valid for operator {operator!r}")
+        self.impl.set_rule(rule_type, operator, formula1, formula2)
+
+    def set_whole_number(
+        self,
+        operator: DataValidationOperator,
+        formula1: int | float | str,
+        formula2: int | float | str | None = None,
+    ) -> None:
+        """Create or update a whole-number validation rule.
+
+        ``formula2`` is required for ``"between"`` and ``"not_between"`` and
+        rejected for every other operator. Existing prompts and error alerts are
+        preserved.
+        """
+        self._set_comparison("whole_number", operator, formula1, formula2)
+
+    def set_decimal(
+        self,
+        operator: DataValidationOperator,
+        formula1: int | float | str,
+        formula2: int | float | str | None = None,
+    ) -> None:
+        """Create or update a decimal validation rule.
+
+        ``formula2`` is required for ``"between"`` and ``"not_between"`` and
+        rejected for every other operator. Existing prompts and error alerts are
+        preserved.
+        """
+        self._set_comparison("decimal", operator, formula1, formula2)
+
+    def set_date(
+        self,
+        operator: DataValidationOperator,
+        formula1: dt.date | dt.datetime | int | float | str,
+        formula2: dt.date | dt.datetime | int | float | str | None = None,
+    ) -> None:
+        """Create or update a date validation rule.
+
+        Operands may be Python dates, naive datetimes, Excel serial numbers, or Excel formula strings. Existing prompts and error alerts are preserved.
+        """
+        self._set_comparison("date", operator, formula1, formula2)
+
+    def set_time(
+        self,
+        operator: DataValidationOperator,
+        formula1: dt.time | int | float | str,
+        formula2: dt.time | int | float | str | None = None,
+    ) -> None:
+        """Create or update a time validation rule.
+
+        Operands may be naive Python times, Excel day fractions, or Excel formula strings. Existing prompts and error alerts are preserved.
+        """
+        self._set_comparison("time", operator, formula1, formula2)
+
+    def set_text_length(
+        self,
+        operator: DataValidationOperator,
+        formula1: int | float | str,
+        formula2: int | float | str | None = None,
+    ) -> None:
+        """Create or update a text-length validation rule.
+
+        ``formula2`` is required for ``"between"`` and ``"not_between"`` and
+        rejected for every other operator. Existing prompts and error alerts are
+        preserved.
+        """
+        self._set_comparison("text_length", operator, formula1, formula2)
+
+    def set_custom(self, formula: str) -> None:
+        """Create or update a custom-formula validation rule.
+
+        The formula must be an A1-style formula starting with ``=``. Existing
+        prompts and error alerts are preserved.
+        """
+        if not isinstance(formula, str):
+            raise TypeError("formula must be a string")
+        if not formula.startswith("=") or len(formula) == 1:
+            raise ValueError("formula must be a non-empty A1 formula starting with '='")
+        if len(formula) > 255:
+            raise ValueError("formula cannot exceed 255 characters")
+        self.impl.set_rule("custom", None, formula, None)
+
+    def delete(self) -> None:
+        """Removes data validation from the range."""
+        self.impl.delete()
 
 
 def view(
@@ -6928,7 +9872,7 @@ class Sheets(Collection[Sheet]):
         before: Sheet | None = None,
         after: Sheet | None = None,
     ) -> Sheet:
-        """Creates a new Sheet and makes it the active sheet.
+        """Creates a new Sheet and makes it the active sheet. Returns the added sheet.
 
         Args:
             name: Name of the new sheet. If None, will default to Excel's default name.
@@ -6936,10 +9880,6 @@ class Sheets(Collection[Sheet]):
                 added.
             after: An object that specifies the sheet after which the new sheet is
                 added.
-
-        Returns:
-            Added sheet object
-
         """
         if name is not None:
             if name.lower() in (s.name.lower() for s in self):

@@ -1398,6 +1398,10 @@ def parse_paragraph_break_setting(node: etree._Element) -> ParagraphBreakSetting
 
 
 def _margin_value(child: etree._Element) -> Optional[str]:
+    # Hancom writes a margin as ``<hc:left value="1000" unit="HWPUNIT"/>``; older files put it in the text.
+    attribute = child.get("value")
+    if attribute is not None:
+        return attribute
     value = text_or_none(child)
     return value if value is not None else child.text.strip() if child.text else None
 
@@ -1546,8 +1550,8 @@ def parse_paragraph_property(node: etree._Element) -> ParagraphProperty:
     # required_namespace로 최신 클라이언트를 가리는 설계이므로 case를
     # 먼저, 없으면 default로 폴백 -- 헤더 편집 경로
     # (_apply_paragraph_margins/_apply_paragraph_line_spacing, DEV-018
-    # 프로브가 확인)가 이미 양쪽을 함께 갱신하므로 두 분기 값이 갈라져
-    # 있는 실제 사례는 없다.
+    # 프로브가 확인)가 양쪽을 함께 갱신한다. 여백은 hp:default에 hp:case의
+    # 두 배가 든다(한컴 표기, 편집 경로도 같게 씀).
     if version_switch is not None:
         preferred = version_switch.case or version_switch.default
         if preferred is not None:

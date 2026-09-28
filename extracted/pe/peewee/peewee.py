@@ -69,7 +69,7 @@ except ImportError:
         mysql = None
 
 
-__version__ = '4.5.1'
+__version__ = '4.5.2'
 __all__ = [
     'AnyField',
     'AsIs',
@@ -440,7 +440,7 @@ SNAKE_CASE_STEP1 = re.compile('(.)_*([A-Z][a-z]+)')
 SNAKE_CASE_STEP2 = re.compile('([a-z0-9])_*([A-Z])')
 
 # Used for making valid Python identifiers.
-IDENTIFIER_RE = re.compile(r'[A-Za-z_][A-Za-z0-9_]*')
+IDENTIFIER_RE = re.compile(r'[^\W\d]\w*')
 
 # Helper functions that are used in various parts of the codebase.
 def merge_dict(source, overrides):
@@ -1157,7 +1157,9 @@ class ValuesList(_HashableSource, BaseTable):
                        .sql(CommaNodeList([
                            EnclosedNodeList(row) for row in self._values])))
 
-            if ctx.scope == SCOPE_SOURCE:
+            # The SELECT list and ON clauses are SCOPE_SOURCE too.
+            is_operand = ctx.state.in_expr or ctx.state.in_projection
+            if ctx.scope == SCOPE_SOURCE and not is_operand:
                 ctx.literal(' AS ').sql(Entity(ctx.alias_manager[self]))
                 if self._columns:
                     entities = [Entity(c) for c in self._columns]
@@ -1710,6 +1712,7 @@ def Default(value):
 
 class Function(ColumnBase):
     no_coerce_functions = set(('sum', 'count', 'avg', 'cast', 'array_agg'))
+    subquery_functions = set(('exists', 'any', 'all', 'some', 'array'))
 
     def __init__(self, name, arguments, coerce=True, python_value=None):
         self.name = name
@@ -1768,7 +1771,9 @@ class Function(ColumnBase):
                 args[-1] = NodeList((args[-1], SQL('ORDER BY'),
                                      CommaNodeList(self._order_by)))
 
-            with ctx(in_function=True, function_arg_count=len(self.arguments)):
+            bare = (len(args) == 1 and isinstance(args[0], SelectBase) and
+                    self.name.lower() in self.subquery_functions)
+            with ctx(in_function=True, bare_subquery=bare):
                 ctx.sql(EnclosedNodeList([
                     (arg if isinstance(arg, Node) else Value(arg, False))
                     for arg in args]))
@@ -1911,7 +1916,7 @@ class _InFunction(Node):
         self.in_function = in_function
 
     def __sql__(self, ctx):
-        with ctx(in_function=self.in_function, function_arg_count=0):
+        with ctx(in_function=self.in_function):
             return ctx.sql(self.node)
 
 
@@ -2401,10 +2406,7 @@ class SelectBase(_HashableSource, Source, SelectQuery):
 
     @database_required
     def exists(self, database):
-        clone = self.columns(SQL('1'))
-        clone._limit = 1
-        clone._offset = None
-        return bool(clone.scalar(database))
+        return bool(Select(columns=[fn.EXISTS(self)]).scalar(database))
 
     @database_required
     def get(self, database):
@@ -2415,8 +2417,8 @@ class SelectBase(_HashableSource, Source, SelectQuery):
             pass
 
     def _subquery_parens(self, ctx):
-        # Parens are unnecessary when the sole argument of a function call.
-        if ctx.state.in_function and ctx.state.function_arg_count == 1:
+        # Set by Function for its subquery_functions.
+        if ctx.state.bare_subquery:
             return False
         return ctx.subquery or (ctx.scope == SCOPE_SOURCE)
 
@@ -2441,11 +2443,6 @@ class CompoundSelectQuery(SelectBase):
     @property
     def _returning(self):
         return self.lhs._returning
-
-    @database_required
-    def exists(self, database):
-        query = Select((self.limit(1),), (SQL('1'),)).bind(database)
-        return bool(query.scalar())
 
     def _self_wraps(self, subq):
         # An inner ORDER BY / LIMIT / OFFSET forces the member to group.
@@ -2542,7 +2539,7 @@ class CompoundSelectQuery(SelectBase):
         # Call parent method to handle any CTEs.
         super(CompoundSelectQuery, self).__sql__(ctx)
 
-        with ctx(parentheses=self._subquery_parens(ctx)):
+        with ctx(parentheses=self._subquery_parens(ctx), bare_subquery=False):
             # Correlated rhs refs must resolve to the enclosing aliases.
             outer_aliases = dict(ctx.alias_manager.mapping)
 
@@ -2709,6 +2706,7 @@ class Select(SelectBase):
             'in_expr': False,
             'in_function': False,
             'in_projection': False,
+            'bare_subquery': False,
             'parentheses': self._subquery_parens(ctx),
             'subquery': True,
         }
@@ -3488,7 +3486,7 @@ class PostgresqlJSONMethods(BaseJSONMethods):
         return fn.jsonb_array_length(field)
 
     def update(self, field, value):
-        # Postgres `||` is a SHALLOW concat.
+        # Postgres `||` is a shallow concat.
         return Expression(field, '||', self._jsonb_wrap(field, value))
 
     def contains(self, field, keys, value):
@@ -3554,7 +3552,7 @@ class MySQLJSONMethods(BaseJSONMethods):
         return Value(value, converter=False)
 
     def compare_value(self, field, value):
-        # Mark the rhs as json so comparison against extract() works - raw
+        # Mark the rhs as json so comparison against extract() works. Raw
         # dumps() text matches neither flavor.
         if value is None or isinstance(value, Node):
             return value
@@ -3666,6 +3664,7 @@ EXCEPTIONS = {
     'OperationalError': OperationalError,
     'PostgresConnectionError': OperationalError,
     'ProgrammingError': ProgrammingError,
+    'QueryCanceledError': OperationalError,
     'SyntaxOrAccessError': ProgrammingError,
     'TransactionRollbackError': OperationalError,
     'UndefinedFunction': ProgrammingError,
@@ -4523,15 +4522,24 @@ class SqliteDatabase(Database):
         schema = qesc(schema or 'main')
         cursor = self.execute_sql('PRAGMA "%s".table_info("%s")' %
                                   (schema, qesc(table)))
-        return [row[1] for row in filter(lambda r: r[-1], cursor.fetchall())]
+        # Order by position in the key, not in the table.
+        pks = sorted((row[5], row[1]) for row in cursor.fetchall() if row[5])
+        return [name for _, name in pks]
 
     def get_foreign_keys(self, table, schema=None):
-        schema = qesc(schema or 'main')
         cursor = self.execute_sql('PRAGMA "%s".foreign_key_list("%s")' %
-                                  (schema, qesc(table)))
-        return [ForeignKeyMetadata(row[3], row[2], row[4], table, None,
-                                   row[6], row[5])
-                for row in cursor.fetchall()]
+                                  (qesc(schema or 'main'), qesc(table)))
+        accum = []
+        for row in cursor.fetchall():
+            dest_column = row[4]
+            if dest_column is None:
+                # A bare "REFERENCES parent" means the parent's primary key.
+                pk = self.get_primary_keys(row[2], schema)
+                if row[1] < len(pk):
+                    dest_column = pk[row[1]]
+            accum.append(ForeignKeyMetadata(row[3], row[2], dest_column, table,
+                                            None, row[6], row[5]))
+        return accum
 
     def get_binary_type(self):
         return sqlite3.Binary
@@ -4904,7 +4912,8 @@ class PostgresqlDatabase(Database):
             WHERE
                 tc.constraint_type = %s AND
                 tc.table_name = %s AND
-                tc.table_schema = COALESCE(%s, current_schema())"""
+                tc.table_schema = COALESCE(%s, current_schema())
+            ORDER BY kc.ordinal_position"""
         ctype = 'PRIMARY KEY'
         cursor = self.execute_sql(query, (ctype, table, schema))
         return [pk for pk, in cursor.fetchall()]
@@ -5477,11 +5486,10 @@ class CursorWrapper(object):
             if valid_identifiers:
                 column = make_identifier(column)
 
-            if column in duplicates:
+            while column in duplicates:
                 duplicates[column] += 1
                 column = '%s_%s' % (column, duplicates[column])
-            else:
-                duplicates[column] = 1
+            duplicates[column] = 1
             identifiers.append(column)
         return identifiers
 
@@ -6311,7 +6319,7 @@ class TimestampField(BigIntegerField):
 
     def get_timestamp(self, value):
         if self.utc or value.tzinfo is not None:
-            # Aware datetimes denote an unambiguous instant; naive datetimes in
+            # Aware datetimes denote an unambiguous instant. Naive datetimes in
             # utc-mode are assumed to already be UTC.
             return calendar.timegm(value.utctimetuple())
         else:
@@ -6431,8 +6439,8 @@ class JSONPath(ColumnBase):
         return self._field._compare(self, OP.NE, OP.IS_NOT, rhs, self._as_text)
 
     def is_null(self, is_null=True):
-        # Default-mode IS NULL on a path needs to catch SQL NULL, missing key,
-        # and stored JSON null - same three cases ``== None`` matches.
+        # Default-mode IS NULL on a path catches SQL NULL, missing key, and
+        # stored JSON null, the same cases `== None` matches.
         is_op = OP.IS if is_null else OP.IS_NOT
         return self._field._compare(self, OP.EQ, is_op, None, self._as_text)
 
@@ -6608,8 +6616,8 @@ class JSONField(FieldDatabaseHook, Field):
         return self._helper.append(self, (), value)
 
     def update(self, value):
-        # RFC-7396 deep merge on SQLite/MySQL/MariaDB; shallow `||` concat on
-        # PostgreSQL. Same call, different semantics - see the docs.
+        # RFC-7396 deep merge on SQLite/MySQL/MariaDB, shallow `||` concat on
+        # PostgreSQL.
         return self._helper.update(self, value)
 
     def contains(self, value):
@@ -8981,11 +8989,10 @@ def safe_python_value(conv_func):
 
 
 def _resolve_model_columns(cursor, model, select):
-    # Resolve cursor columns against a model's selected nodes. Returns a tuple
-    # of ``(columns, fields, converters, no_convert, convert)``:
-    # ``columns`` and ``fields`` are aligned per-column lists,
-    # ``converters`` is a per-column ``python_value`` callable or ``None``,
-    # ``no_convert``/``convert`` are the index partitions of ``converters``.
+    # Resolve cursor columns against a model's selected nodes. Returns
+    # (columns, fields, converters, no_convert, convert). The first three are
+    # per-column lists (a converter is a python_value callable or None), and
+    # no_convert/convert partition the column indexes by converter.
     combined = model._meta.combined
     table = model._meta.table
     description = cursor.description
@@ -9248,6 +9255,16 @@ class ModelCursorWrapper(BaseModelCursorWrapper):
 
             self._dest_reachable[dest] = frozenset(reachable)
 
+        # When a join branch is unselected, don't mark it as missing, or lazy
+        # FK resolution will break.
+        selected = frozenset(self.column_keys)
+        keep = []
+        for src, attr, dest, is_dict, is_outer, is_fk in self.src_to_dest:
+            reachable = self._dest_reachable.get(dest, frozenset())
+            if dest in selected or reachable & selected:
+                keep.append((src, attr, dest, is_dict, is_outer, is_fk))
+        self.src_to_dest = keep
+
     def process_row(self, row):
         objects = {}
         model_list = []
@@ -9341,8 +9358,8 @@ class PrefetchQuery(collections.namedtuple('_PrefetchQuery', (
                 key = (field, identifier)
                 if key in id_map:
                     setattr(instance, field.name, id_map[key])
-                    # setattr marks the fk dirty, but it isn't - it's the value
-                    # we just loaded. Clear it so the row reflects db state.
+                    # setattr marks the fk dirty, but it holds the value just
+                    # loaded. Clear it so the row reflects db state.
                     instance._dirty.discard(field.name)
         else:
             for field, attname in self.field_to_name:
@@ -9551,7 +9568,7 @@ class Load(Node):
             c if isinstance(c, Load) else Load(c) for c in children)
 
     def _base(self, rel_model):
-        # Modifiers (where/order/limit/joins) ride on the supplied query.
+        # Modifiers (where/order/limit/joins) live on the supplied query.
         return self._query if self._query is not None else rel_model.select()
 
     @staticmethod
@@ -9640,7 +9657,7 @@ class Load(Node):
         on = reduce(operator.and_,
                     [pk == getattr(cte.c, pk.column_name) for pk in pks])
         # A custom projection keeps the relation's joins so selected
-        # instances ride along; a row-multiplying projection multiplies.
+        # instances hydrate. A to-many join there multiplies rows.
         if base._is_default:
             outer = rel_model.select()
         else:

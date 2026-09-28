@@ -11,6 +11,8 @@ def get_introspection_query_ast(
     directive_is_repeatable: bool = False,
     schema_description: bool = False,
     input_value_deprecation: bool = True,
+    input_object_one_of: bool = False,
+    *,
     type_recursion_level: int = 7,
 ) -> DocumentNode:
     """Get a query for introspection as a document using the DSL module.
@@ -35,9 +37,9 @@ def get_introspection_query_ast(
         schema.select(ds.__Schema.description)
 
     schema.select(
-        ds.__Schema.queryType.select(ds.__Type.name),
-        ds.__Schema.mutationType.select(ds.__Type.name),
-        ds.__Schema.subscriptionType.select(ds.__Type.name),
+        ds.__Schema.queryType.select(ds.__Type.name, ds.__Type.kind),
+        ds.__Schema.mutationType.select(ds.__Type.name, ds.__Type.kind),
+        ds.__Schema.subscriptionType.select(ds.__Type.name, ds.__Type.kind),
     )
 
     schema.select(ds.__Schema.types.select(fragment_FullType))
@@ -68,6 +70,13 @@ def get_introspection_query_ast(
     )
     if descriptions:
         fragment_FullType.select(ds.__Type.description)
+    if input_object_one_of:
+        try:
+            fragment_FullType.select(ds.__Type.isOneOf)
+        except AttributeError:  # pragma: no cover
+            raise NotImplementedError(
+                "isOneOf is only supported from graphql-core version 3.3.0a7"
+            )
     if specified_by_url:
         fragment_FullType.select(ds.__Type.specifiedByURL)
 
@@ -125,13 +134,14 @@ def get_introspection_query_ast(
     )
 
     if type_recursion_level >= 1:
-        current_field = ds.__Type.ofType.select(ds.__Type.kind, ds.__Type.name)
-        fragment_TypeRef.select(current_field)
+        current_field = ds.__Type.ofType.select(ds.__Type.name, ds.__Type.kind)
 
         for _ in repeat(None, type_recursion_level - 1):
-            new_oftype = ds.__Type.ofType.select(ds.__Type.kind, ds.__Type.name)
-            current_field.select(new_oftype)
-            current_field = new_oftype
+            parent_field = ds.__Type.ofType.select(ds.__Type.name, ds.__Type.kind)
+            parent_field.select(current_field)
+            current_field = parent_field
+
+        fragment_TypeRef.select(current_field)
 
     query = DSLQuery(schema)
 

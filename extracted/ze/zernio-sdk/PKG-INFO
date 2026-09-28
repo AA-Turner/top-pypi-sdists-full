@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: zernio-sdk
-Version: 1.4.935
+Version: 1.4.949
 Summary: The official Python library for the Zernio API
 Project-URL: Homepage, https://zernio.com
 Project-URL: Documentation, https://docs.zernio.com
@@ -470,7 +470,7 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `ad_accounts.list_account_sitelinks()` | List account sitelinks |
 | `ad_accounts.list_account_structured_snippets()` | List account snippets |
 | `ad_accounts.list_ad_accounts()` | List ad accounts |
-| `ad_accounts.list_ad_labels()` | Ad labels |
+| `ad_accounts.list_ad_labels()` | List ad labels |
 | `ad_accounts.list_ad_negative_keyword_lists()` | List negative keyword lists |
 | `ad_accounts.list_ad_studies()` | A/B tests and lift studies |
 | `ad_accounts.list_ads_business_centers()` | List TikTok Business Centers |
@@ -483,11 +483,13 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `ad_accounts.list_tik_tok_ad_pixels()` | List TikTok ad pixels |
 | `ad_accounts.list_value_rule_sets()` | List value rule sets |
 | `ad_accounts.create_ad_account()` | Create Meta ad account |
+| `ad_accounts.create_ad_label()` | Create a Google Ads label |
 | `ad_accounts.create_ad_negative_keyword_list()` | Create a negative keyword list |
 | `ad_accounts.create_custom_conversion()` | Create custom conversion |
 | `ad_accounts.create_high_demand_period()` | Schedule a budget increase |
 | `ad_accounts.create_value_rule_set()` | Create a value rule set |
 | `ad_accounts.get_ad_account_finance()` | Ad account finances |
+| `ad_accounts.get_ad_account_hierarchy()` | Get manager account hierarchy |
 | `ad_accounts.get_ad_comments()` | List comments on an ad |
 | `ad_accounts.get_ad_negative_keyword_list()` | Get a negative keyword list |
 | `ad_accounts.get_ads_activity_log()` | Ad account change / audit log |
@@ -499,6 +501,8 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `ad_accounts.update_account_sitelinks()` | Update account sitelinks |
 | `ad_accounts.update_account_structured_snippets()` | Update account snippets |
 | `ad_accounts.update_ad_account()` | Update ad account settings |
+| `ad_accounts.update_ad_account_manager_link()` | Accept, decline, cancel or end a manager link |
+| `ad_accounts.update_ad_label()` | Update a Google Ads label |
 | `ad_accounts.update_ad_negative_keyword_list()` | Rename a negative keyword list |
 | `ad_accounts.update_value_rule_set()` | Replace a value rule set |
 | `ad_accounts.delete_ad_comment()` | Delete an ad comment |
@@ -507,10 +511,14 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `ad_accounts.add_account_callouts()` | Add account callouts |
 | `ad_accounts.add_account_sitelinks()` | Add account sitelinks |
 | `ad_accounts.add_account_structured_snippets()` | Add account snippets |
+| `ad_accounts.attach_ad_label()` | Attach a Google Ads label |
+| `ad_accounts.detach_ad_label()` | Detach a Google Ads label |
 | `ad_accounts.hide_ad_comment()` | Hide or unhide an ad comment |
+| `ad_accounts.invite_ad_account_to_manager()` | Invite a client account to a manager |
 | `ad_accounts.remove_account_callout()` | Remove account callout |
 | `ad_accounts.remove_account_sitelink()` | Remove account sitelink |
 | `ad_accounts.remove_account_structured_snippet()` | Remove account snippet |
+| `ad_accounts.remove_ad_label()` | Remove a Google Ads label |
 | `ad_accounts.replace_ad_negative_keyword_list_keywords()` | Replace negative list keywords |
 | `ad_accounts.reply_to_ad_comment()` | Reply to an ad comment |
 
@@ -542,6 +550,7 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `ad_campaigns.create_ad_campaign()` | Create a standalone campaign |
 | `ad_campaigns.create_ad_set()` | Create a standalone ad group |
 | `ad_campaigns.create_bid_strategy()` | Create portfolio bid strategy |
+| `ad_campaigns.create_google_asset_group()` | Create a Performance Max asset group |
 | `ad_campaigns.create_standalone_ad()` | Create standalone ad |
 | `ad_campaigns.get_ad()` | Get ad details |
 | `ad_campaigns.get_ad_campaign_details()` | Get live campaign details |
@@ -550,7 +559,9 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `ad_campaigns.get_ads_timeline()` | Get daily account metrics |
 | `ad_campaigns.get_campaign_ad_schedule()` | Read a campaign's ad schedule (dayparting) |
 | `ad_campaigns.get_campaign_bidding()` | Read a campaign's current bidding |
+| `ad_campaigns.get_campaign_conversion_goals()` | Get campaign conversion goals |
 | `ad_campaigns.get_campaign_targeting()` | Read a Google campaign's device, location, and language targeting |
+| `ad_campaigns.get_google_asset_group()` | Get a Performance Max asset group |
 | `ad_campaigns.update_ad()` | Update ad |
 | `ad_campaigns.update_ad_campaign()` | Update a campaign |
 | `ad_campaigns.update_ad_campaign_status()` | Pause or resume a campaign |
@@ -562,7 +573,9 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `ad_campaigns.update_bid_strategy()` | Update portfolio bid strategy |
 | `ad_campaigns.update_campaign_ad_schedule()` | Replace a campaign's ad schedule (dayparting) |
 | `ad_campaigns.update_campaign_assets()` | Update campaign assets |
+| `ad_campaigns.update_campaign_conversion_goals()` | Update campaign conversion goals |
 | `ad_campaigns.update_campaign_targeting()` | Edit a Google campaign's device, location, or language targeting |
+| `ad_campaigns.update_google_asset_group()` | Update a Performance Max asset group |
 | `ad_campaigns.delete_ad()` | Cancel an ad |
 | `ad_campaigns.delete_ad_campaign()` | Delete a campaign |
 | `ad_campaigns.delete_ad_set()` | Delete an ad set |
@@ -573,11 +586,14 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `ad_campaigns.duplicate_ad()` | Duplicate an ad |
 | `ad_campaigns.duplicate_ad_campaign()` | Duplicate a campaign |
 | `ad_campaigns.duplicate_ad_set()` | Duplicate an ad set |
+| `ad_campaigns.edit_google_asset_group_assets()` | Link or unlink asset group assets |
 | `ad_campaigns.remove_ad_group_assets()` | Remove ad-group assets |
 | `ad_campaigns.remove_ad_keyword()` | Remove a Search keyword |
 | `ad_campaigns.remove_campaign_assets()` | Remove campaign assets |
+| `ad_campaigns.remove_google_asset_group()` | Remove a Performance Max asset group |
 | `ad_campaigns.replace_campaign_negative_keyword_lists()` | Replace campaign negative lists |
 | `ad_campaigns.replace_campaign_negative_keywords()` | Replace campaign-level negative keywords |
+| `ad_campaigns.replace_google_listing_group_filters()` | Replace an asset group's listing-group tree |
 
 ### Ad Creatives
 | Method | Description |
@@ -772,19 +788,26 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 ### Conversions
 | Method | Description |
 |--------|-------------|
+| `conversions.list_ad_conversion_goals()` | List account conversion goals |
 | `conversions.list_conversion_actions()` | List conversion actions |
 | `conversions.list_conversion_associations()` | List associated campaigns |
 | `conversions.list_conversion_destinations()` | List conversion destinations |
+| `conversions.list_custom_conversion_goals()` | List custom conversion goals |
 | `conversions.create_conversion_action()` | Create website conversion action |
 | `conversions.create_conversion_destination()` | Create a conversion destination |
+| `conversions.create_custom_conversion_goal()` | Create a custom conversion goal |
 | `conversions.get_conversion_destination()` | Get a conversion destination |
 | `conversions.get_conversion_metrics()` | Get attribution metrics |
 | `conversions.get_conversions_quality()` | Get Event Match Quality |
+| `conversions.update_ad_conversion_goals()` | Update account conversion goals |
+| `conversions.update_conversion_action()` | Set a conversion action primary or secondary |
 | `conversions.update_conversion_destination()` | Update a conversion destination |
+| `conversions.update_custom_conversion_goal()` | Update a custom conversion goal |
 | `conversions.delete_conversion_destination()` | Delete a conversion destination |
 | `conversions.add_conversion_associations()` | Associate campaigns |
 | `conversions.adjust_conversions()` | Adjust uploaded conversions |
 | `conversions.remove_conversion_associations()` | Remove associated campaigns |
+| `conversions.remove_custom_conversion_goal()` | Remove a custom conversion goal |
 | `conversions.send_conversions()` | Send conversion events |
 
 ### Custom Fields

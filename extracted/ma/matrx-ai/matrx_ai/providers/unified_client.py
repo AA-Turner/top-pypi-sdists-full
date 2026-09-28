@@ -150,9 +150,18 @@ def _downgrade_response_format(
 
     json_schema → json_object → text, driven by the model's declared
     ``structured_output_mode``. Mutates ``config.response_format`` in place when a
-    downgrade is needed and logs it loudly — a runtime ADJUSTMENT to keep
-    limited/older models working, never a persisted setting. No-op when the model
-    already supports the requested mode.
+    downgrade is needed — a runtime ADJUSTMENT to keep limited/older models
+    working, never a persisted setting. No-op when the model already supports the
+    requested mode.
+
+    🚨 THIS IS ONE OF THE TWO PLACES THE SCHEMA IS GENUINELY THROWN AWAY, and it
+    sits ABOVE every translator, so no translator finding can ever fire for it:
+    the assignment at the end replaces ``response_format`` outright and the schema
+    goes with it. Until 2026-09-27 the only announcement was a console line whose
+    own text said "the schema is NOT enforced at the provider" — the textbook
+    ``enforcement_dropped`` event, recorded nowhere. It now does both halves of
+    what that class promises: the declared schema goes into the prompt as the JSON
+    text contract, and the event is recorded against the agent and the shape.
     """
     rf = getattr(config, "response_format", None)
     if not isinstance(rf, dict):
@@ -170,6 +179,18 @@ def _downgrade_response_format(
     if target is None:
         return
 
+    from matrx_ai.providers.structured_output_findings import (
+        ENFORCEMENT_DROPPED,
+        record_structured_output_finding_sync,
+        schema_fingerprint,
+    )
+    from matrx_ai.schema.answer_contract import attach_json_text_contract, declared_schema_of
+
+    schema, schema_name = declared_schema_of(rf)
+    # The schema is about to be discarded, so the contract goes where the model
+    # can still see it. This is the "prompt-guided" half the findings promise —
+    # the same words Google has used in production since 2026-08.
+    guided = attach_json_text_contract(config, schema) if isinstance(schema, dict) else False
     vcprint(
         data={
             "model": caps.model_name,
@@ -177,16 +198,43 @@ def _downgrade_response_format(
             "structured_output_mode": mode.value,
             "requested": rf,
             "downgraded_to": target,
+            "schema_sent_as_prompt_guidance": guided,
         },
         title=(
             f"⚠️  CAPABILITY ADJUSTMENT [{caps.model_name}]: response_format "
             f"{rf_type} → {target} — this model does not support {rf_type}. Output "
             "is downgraded to the best supported mode; the schema is NOT enforced "
-            "at the provider. Do NOT persist this as a saved config — pick a model "
-            "whose capabilities declare structured_output."
+            "at the provider"
+            + (
+                " and travels as a JSON text contract in the prompt instead, checked "
+                "against the answer afterwards."
+                if guided
+                else " and there is no schema to guide the answer with."
+            )
+            + " Do NOT persist this as a saved config — pick a model whose "
+            "capabilities declare structured_output."
         ),
         color="yellow",
         verbose=True,
+    )
+    record_structured_output_finding_sync(
+        ENFORCEMENT_DROPPED,
+        provider=str(getattr(caps, "vendor", None) or str(wire_format).split("_")[0]),
+        model=caps.model_name,
+        detail={
+            "schema_name": schema_name,
+            "schema_fingerprint": schema_fingerprint(schema),
+            "action": (
+                f"response_format {rf_type} → {target}: this model's capabilities do not "
+                f"declare {rf_type}, so the schema was discarded before any translator ran"
+            ),
+            "schema_sent_as_prompt_guidance": guided,
+            "remedy": (
+                "bind this run to an offering whose capabilities declare structured_output; "
+                "otherwise the shape is only guided by the prompt and checked afterwards"
+            ),
+        },
+        was_recovered=guided,
     )
     config.response_format = {"type": target}
 
@@ -295,6 +343,15 @@ def _resolve_web_search_json_mode_conflict(
 def _resolve_tool_structured_output_conflict(
     config: Any, caps: ResolvedModelCapabilities, wire_format: str
 ) -> None:
+    """Drop the request's tools so the output contract survives, and RECORD it.
+
+    🚨 The second place a capability is genuinely thrown away above every
+    translator: registered tools, inline tools AND MCP servers all go, to honour a
+    response format the endpoint refuses to combine with them. ``tools_shed`` is
+    the issue class built for exactly this outcome, and until 2026-09-27 this
+    announced itself only to a console — the other reason that class held zero
+    rows while the shed happened on every such request.
+    """
     if wire_format not in _TOOL_STRUCTURED_OUTPUT_CONFLICT_WIRE_FORMATS:
         return
     rf = getattr(config, "response_format", None)
@@ -328,6 +385,32 @@ def _resolve_tool_structured_output_conflict(
         ),
         color="yellow",
         verbose=True,
+    )
+    from matrx_ai.providers.structured_output_findings import (
+        TOOLS_SHED,
+        record_structured_output_finding_sync,
+        response_format_identity,
+    )
+
+    record_structured_output_finding_sync(
+        TOOLS_SHED,
+        provider=str(getattr(caps, "vendor", None) or str(wire_format).split("_")[0]),
+        model=caps.model_name,
+        detail={
+            **response_format_identity(rf),
+            "action": (
+                f"{wire_format} refuses tools combined with {rf['type']}, so the output "
+                "contract was kept and the whole tool surface was dropped"
+            ),
+            "dropped_registered_tools": [str(t) for t in registered][:30],
+            "dropped_inline_tools": [str(getattr(tool, "name", "?")) for tool in inline][:30],
+            "dropped_mcp_servers": [str(m) for m in mcp_servers][:30],
+            "remedy": (
+                "bind this run to an offering that supports tools together with structured "
+                "output, or drop the output contract if the tools are what the run needs"
+            ),
+        },
+        was_recovered=True,
     )
 
 
@@ -484,6 +567,56 @@ def _apply_tts_aliases_for_non_native(
                 new_text = cfg.apply_aliases(text)
                 if new_text != text:
                     c.text = new_text
+
+
+def apply_capability_gates(
+    config: Any, caps: ResolvedModelCapabilities, wire_format: str
+) -> None:
+    """THE capability gates — ONE ordered block, called by every path that turns a
+    ``UnifiedConfig`` into a provider payload.
+
+    Arman, 2026-09-27: *the shape we hold is modified by each provider's
+    translator; a provider rejecting our request is OUR translator's bug.* These
+    gates are that modification for the CROSS-FIELD rules a translator cannot see
+    on its own (what the model declares it can do), so a payload that skips them
+    is a 400 we shipped ourselves.
+
+    Until 2026-09-27 this block existed only inline in ``_execute_dispatch``, so
+    ``translate_request`` — the build-only chokepoint the BATCH lane sends through
+    (``matrx_ai.agents.batch_render.render_agent_provider_request`` →
+    ``aidream.services.mandates.batch_lane`` → ``matrx_batch``) — applied NONE of
+    them. A batch request therefore carried a raw ``json_schema`` to a model whose
+    ``structured_output_mode`` is not ``SCHEMA``, tools to a model with no function
+    calling, and web search beside JSON mode: each a provider refusal of a paid,
+    deferred, un-retryable batch item. Both paths now call this function; NEVER
+    copy the block.
+
+    Order is load-bearing and is the order the live path established:
+
+    1. ``_downgrade_response_format`` — json_schema → json_object → text per the
+       model's declared ``structured_output_mode``.
+    2. ``_warn_and_strip_unsupported_search`` — hosted search flags the model does
+       not host.
+    3. ``_resolve_web_search_json_mode_conflict`` — needs the FINAL response_format
+       from (1).
+    4. ``_resolve_tool_structured_output_conflict`` — Cerebras/Groq reject the pair.
+    5. ``_strip_chat_decorations_if_non_fc`` — no date/tools-list/guidelines system
+       decoration for a non-chat model.
+    6. ``_apply_tts_aliases_for_non_native`` — pronunciation for non-native TTS.
+    7. ``_warn_and_strip_leaked_tools`` — the LAST structural check: tools must
+       never reach a non-function-calling model.
+
+    Every step mutates ``config`` in place and announces itself (Law 4). The caller
+    that wants the declared contract preserved for post-validation must read it
+    BEFORE calling this (``batch_lane.render_mandate_request`` does exactly that).
+    """
+    _downgrade_response_format(config, caps, wire_format)
+    _warn_and_strip_unsupported_search(config, caps, wire_format)
+    _resolve_web_search_json_mode_conflict(config, caps, wire_format)
+    _resolve_tool_structured_output_conflict(config, caps, wire_format)
+    _strip_chat_decorations_if_non_fc(config, caps)
+    _apply_tts_aliases_for_non_native(config, caps, wire_format)
+    _warn_and_strip_leaked_tools(config, caps)
 
 
 # ---------------------------------------------------------------------------
@@ -1048,44 +1181,21 @@ class UnifiedAIClient:
                         color="blue",
                     )
 
-        # Structured-output capability gate — downgrade response_format to the best
-        # mode this model actually declares (json_schema → json_object → text). A
-        # runtime ADJUSTMENT, logged loudly, never persisted. Fixes e.g. small Groq
-        # models that 400 on json_schema.
-        _downgrade_response_format(config, caps, wire_format)
+        # THE capability gates — the ONE ordered block (response-format downgrade,
+        # hosted-search strip, web-search/JSON-mode and tool/structured-output
+        # conflicts, non-FC decoration strip, TTS aliases, leaked-tool guard).
+        # ``translate_request`` — the build-only chokepoint the BATCH lane sends
+        # through — calls the SAME function, so a batch payload can never carry a
+        # contract this model cannot honour. Never inline a copy here.
+        # THE DECLARED CONTRACT, recorded before the gates can overwrite it.
+        # `_downgrade_response_format` replaces `config.response_format` outright,
+        # so this is the last moment the schema the CALLER asked for still exists —
+        # and it is what the answer is checked against when the call ends.
+        from matrx_ai.schema.answer_contract import bind_declared_output_contract
 
-        # Strip provider-native search flags this model can't honour
-        # (internal_x_search / internal_web_search vs the model's hosted-tool set).
-        # Loud, never silent.
-        _warn_and_strip_unsupported_search(config, caps, wire_format)
+        bind_declared_output_contract(getattr(config, "response_format", None))
 
-        # OpenAI rejects hosted web search + legacy JSON mode (json_object).
-        # Runs AFTER the response_format downgrade so it sees the final mode;
-        # keeps the JSON contract and drops web search rather than 400.
-        _resolve_web_search_json_mode_conflict(config, caps, wire_format)
-
-        # Cerebras/Groq each support tools and structured output independently,
-        # but reject the pair in one Chat request. Resolve that cross-field
-        # endpoint constraint here, after output-mode negotiation and before
-        # translator assembly. Keep the machine-consumed output contract.
-        _resolve_tool_structured_output_conflict(config, caps, wire_format)
-
-        # Non-chat model → clean system instruction (no date / tools-list /
-        # guidelines / context block). CANONICAL + silent: decorations render at
-        # dispatch, so this single check covers EVERY path — including the internal
-        # NamedAgent.run / scheduled runners that never hit apply_unified_tools.
-        _strip_chat_decorations_if_non_fc(config, caps)
-
-        # Cross-provider pronunciation: for non-ElevenLabs TTS, rewrite the spoken
-        # text via the dictionary's alias substitution (ElevenLabs uses native
-        # locators instead). Single canonical chokepoint for every dispatch path.
-        _apply_tts_aliases_for_non_native(config, caps, wire_format)
-
-        # FALLBACK guard (not the canonical gate): tools are gated at request-prep
-        # via config.supports_tools. If any reached here on a non-function-calling
-        # model, a canonical gate was bypassed — scream + strip so it can't 400
-        # production and the regression is caught instantly.
-        _warn_and_strip_leaked_tools(config, caps)
+        apply_capability_gates(config, caps, wire_format)
 
         # Resolve server-generated media refs added by tool results mid-loop.
         # Images additionally receive the target model's vision variant;
@@ -1200,9 +1310,36 @@ class UnifiedAIClient:
         if provider_client is not None:
             await prepare_provider_clients(provider_client)
 
+        from matrx_ai.providers.structured_output_findings import (
+            begin_translation_findings,
+            end_translation_findings,
+            flush_translation_findings,
+        )
+
+        # Every schema narrowing/relaxation a translator makes during THIS call is
+        # buffered and recorded when the call ends — the one seam all providers
+        # share, so no translator can compromise a contract silently.
+        findings_token = begin_translation_findings()
         async with admit_provider_call(profile):
             try:
-                return await dispatch()
+                result = await dispatch()
+                # THE OTHER HALF OF "platform-side validation still enforces it".
+                # Eight docstrings in schema/rules.py and the enforcement_dropped
+                # finding itself excused a provider-side loss with a platform check
+                # that did not exist on this path: the only jsonschema uses in the
+                # package were design-time and tool arguments, and `extract_json`
+                # is a candidate SELECTOR (type + required at depth 1), not a
+                # contract check. Now the answer of every call that declared a
+                # contract is judged against THAT contract, here, in the one seam
+                # every provider passes through — never raising into the turn.
+                from matrx_ai.schema.answer_contract import verify_answer_and_record
+
+                await verify_answer_and_record(
+                    result,
+                    provider=str(getattr(profile, "vendor", "unknown")),
+                    model=getattr(profile, "model_name", None),
+                )
+                return result
             except BaseException as exc:  # noqa: BLE001 — re-raised untouched below
                 billing_gap = report_unbilled_provider_failure(
                     exc,
@@ -1228,6 +1365,12 @@ class UnifiedAIClient:
                         # swallow or replace the provider exception.
                         pass
                 raise
+            finally:
+                try:
+                    await flush_translation_findings(model=getattr(profile, "model_name", None))
+                except Exception:  # noqa: BLE001 — a finding sink never replaces the call's outcome
+                    pass
+                end_translation_findings(findings_token)
 
     @staticmethod
     def _stamp_offering_usage(response: Any, profile: Any, config: Any) -> Any:
@@ -1497,7 +1640,6 @@ class UnifiedAIClient:
         profile = await resolve_call_profile(
             config.model, offering_id=getattr(config, "routing_offering_id", None)
         )
-        wire_config = _build_provider_wire_config(config, profile)
 
         # One translator per wire route. Route through build_request (the validated
         # chokepoint) for every provider, so this path gets the same
@@ -1543,10 +1685,43 @@ class UnifiedAIClient:
                 f"No request translator for wire_format {profile.wire_format!r} "
                 f"(model={profile.model_name!r})"
             )
+        # THE capability gates — the SAME function the live dispatch calls, never a
+        # copy of the block. A payload built here is really sent: the batch lane
+        # renders through this method (``batch_render.render_agent_provider_request``
+        # → ``mandates.batch_lane`` → ``matrx_batch``), and until 2026-09-27 it
+        # applied none of them, so a batch item could carry a raw ``json_schema`` to
+        # a model whose ``structured_output_mode`` is not ``SCHEMA`` (a 400 on a
+        # paid, deferred item nobody was watching).
+        apply_capability_gates(config, profile.capabilities, profile.wire_format)
+        wire_config = _build_provider_wire_config(config, profile)
+
         # Every chat translator is DB-driven (B4): build_request takes the
         # resolved profile — params from profile.controls, structural branches
         # from profile.capabilities.
-        return translator_cls().build_request(wire_config, profile)
+        #
+        # A schema the translator has to narrow, relax or shed is recorded exactly
+        # as on a live call: the live path opens this buffer in
+        # ``_dispatch_with_billing_net``, which a build-only translate never
+        # reaches, so it is opened here. Without it a batch payload was translated
+        # silently and no ``structured_output.*`` finding named the agent whose
+        # shape got compromised.
+        from matrx_ai.providers.structured_output_findings import (
+            begin_translation_findings,
+            end_translation_findings,
+            flush_translation_findings,
+        )
+
+        findings_token = begin_translation_findings()
+        try:
+            return translator_cls().build_request(wire_config, profile)
+        finally:
+            try:
+                await flush_translation_findings(
+                    model=getattr(profile, "model_name", None)
+                )
+            except Exception:  # noqa: BLE001 — a finding sink never breaks a build
+                pass
+            end_translation_findings(findings_token)
 
     # ------------------------------------------------------------------
     # Image-ref annotate + resolve pass (runs once per ``execute()``)

@@ -29,6 +29,8 @@ class Downloader:
         fileName=None,
         stall_timeout=None,
         progressInterval=1.0,  # minimum seconds between progress updates
+        output="mp4",  # "mp4" (remux with ffmpeg) or "ts" (raw MPEG-TS as sent by the camera)
+        method="download",  # "download" (fast, what the Tapo app uses) or "playback" (realtime)
     ):
         self.tapo = tapo
         self.startTime = startTime
@@ -53,6 +55,51 @@ class Downloader:
         )
         self.progressInterval = float(progressInterval)
         self._last_progress_time = 0.0
+        if output not in ("mp4", "ts"):
+            raise ValueError("output must be 'mp4' or 'ts'")
+        self.output = output
+        if method not in ("download", "playback"):
+            raise ValueError("method must be 'download' or 'playback'")
+        self.method = method
+
+    @property
+    def _saveMethod(self):
+        return "raw" if self.output == "ts" else "ffmpeg"
+    def _buildRequest(self):
+        """The stream request for [startTime, endTime].
+
+        "download" is what the Tapo app sends when you tap download on a recording:
+        the camera delivers the clip as fast as the link allows (about 10x realtime
+        on Wi-Fi), keeps the full frame rate and the audio, and stops by itself at
+        end_time with a stream_status "finished" notification. "playback" is the
+        player request: paced at 1x realtime and it does not stop at end_time, the
+        length is bounded by measuring the received video instead.
+        """
+        if self.method == "download":
+            params = {
+                "download": {
+                    "client_id": self.tapo.getUserID(),
+                    "channels": [0],
+                    "media_type": 0,
+                    "start_time": str(self.startTime),
+                    "end_time": str(self.endTime),
+                    "player_id": self.tapo.playerID,
+                },
+                "method": "get",
+            }
+        else:
+            params = {
+                "playback": {
+                    "client_id": self.tapo.getUserID(),
+                    "channels": [0, 1],
+                    "scale": "1/1",
+                    "start_time": str(self.startTime),
+                    "end_time": str(self.endTime),
+                    "event_type": [1, 2],
+                },
+                "method": "get",
+            }
+        return {"type": "request", "seq": 1, "params": params}
 
     async def md5(self, fileName):
         if os.path.isfile(fileName):
@@ -105,7 +152,7 @@ class Downloader:
             segmentLength = self.endTime - self.startTime
             if self.fileName is None:
                 fileName = (
-                    self.outputDirectory + str(dateStart) + "-" + dateEnd + ".mp4"
+                    self.outputDirectory + str(dateStart) + "-" + dateEnd + "." + self.output
                 )
             else:
                 fileName = self.outputDirectory + self.fileName
@@ -142,23 +189,8 @@ class Downloader:
                 else:
                     mediaSession.set_window_size(self.window_size)
                 async with mediaSession:
-                    payload = {
-                        "type": "request",
-                        "seq": 1,
-                        "params": {
-                            "playback": {
-                                "client_id": self.tapo.getUserID(),
-                                "channels": [0, 1],
-                                "scale": "1/1",
-                                "start_time": str(self.startTime),
-                                "end_time": str(self.endTime),
-                                "event_type": [1, 2],
-                            },
-                            "method": "get",
-                        },
-                    }
-
-                    payload = json.dumps(payload)
+                    payload = json.dumps(self._buildRequest())
+                    unsupported = False
                     dataChunks = 0
                     if retry:
                         currentAction = "Retrying"
@@ -229,7 +261,7 @@ class Downloader:
                                         "progress": 0,
                                         "total": 0,
                                     }
-                                    await convert.save(fileName, segmentLength)
+                                    await convert.save(fileName, segmentLength, self._saveMethod)
                                     downloading = False
                                     break
                             # in case a finished stream notification is caught, save the chunks as is
@@ -237,6 +269,23 @@ class Downloader:
                                 try:
                                     json_data = json.loads(resp.plaintext.decode())
 
+                                    if (
+                                        self.method == "download"
+                                        and json_data.get("type") == "response"
+                                        and (json_data.get("params") or {}).get(
+                                            "error_code", 0
+                                        )
+                                        not in (0, None)
+                                    ):
+                                        # this firmware does not know the download
+                                        # request: do it the old way
+                                        self.tapo.logger.debugLog(
+                                            "Camera refused the download request "
+                                            f"({json_data['params']['error_code']}), "
+                                            "falling back to playback."
+                                        )
+                                        unsupported = True
+                                        break
                                     if (
                                         "type" in json_data
                                         and json_data["type"] == "notification"
@@ -267,7 +316,7 @@ class Downloader:
                                             "progress": 0,
                                             "total": 0,
                                         }
-                                        await convert.save(fileName, detectedLength)
+                                        await convert.save(fileName, detectedLength, self._saveMethod)
                                         downloading = False
                                         break
                                 except JSONDecodeError:
@@ -280,6 +329,9 @@ class Downloader:
                                 await stream.aclose()
                             except (AttributeError, RuntimeError, StopAsyncIteration):
                                 pass
+                    if unsupported:
+                        self.method = "playback"
+                        continue
                     if downloading:
                         # Handle case where camera randomly stopped respoding
                         if not downloadedFull and not retry:
@@ -306,7 +358,7 @@ class Downloader:
                                     "progress": 0,
                                     "total": 0,
                                 }
-                                await convert.save(fileName, segmentLength)
+                                await convert.save(fileName, segmentLength, self._saveMethod)
                             else:
                                 currentAction = "Giving up"
                                 yield {

@@ -336,7 +336,10 @@ class AnthropicTranslator(BaseTranslator):
         # outputs and tools are compatible on Anthropic, so no tool handling is
         # needed here. Done last so the thinking block has already run.
         if config.response_format:
-            output_format = self._build_anthropic_output_format(config.response_format)
+            output_format = self._build_anthropic_output_format(
+                config.response_format,
+                tool_count=len(anthropic_request.get("tools") or []),
+            )
             if output_format is not None:
                 existing = anthropic_request.get("output_config")
                 if isinstance(existing, dict):
@@ -454,6 +457,8 @@ class AnthropicTranslator(BaseTranslator):
     @staticmethod
     def _build_anthropic_output_format(
         response_format: Any,
+        *,
+        tool_count: int = 0,
     ) -> dict[str, Any] | None:
         """Map the unified ``response_format`` onto Anthropic's ``output_config.format``.
 
@@ -491,6 +496,33 @@ class AnthropicTranslator(BaseTranslator):
                 "output was requested and the model answered free-form. Normalize "
                 "it at the call site (UnifiedConfig._normalize_response_format).",
                 color="red",
+            )
+            from matrx_ai.providers.structured_output_findings import (
+                ENFORCEMENT_DROPPED,
+                record_structured_output_finding_sync,
+            )
+            from matrx_ai.schema.answer_contract import mark_enforcement_dropped
+
+            mark_enforcement_dropped(
+                f"response_format arrived as {type(response_format).__name__}, not a dict"
+            )
+            record_structured_output_finding_sync(
+                ENFORCEMENT_DROPPED,
+                provider="anthropic",
+                model=None,
+                detail={
+                    "action": (
+                        "structured output omitted entirely: response_format is a "
+                        f"{type(response_format).__name__}, not a dict, so no schema could "
+                        "be read from it"
+                    ),
+                    "remedy": (
+                        "normalize response_format at the call site "
+                        "(UnifiedConfig._normalize_response_format) — this is how the "
+                        "decision overlay's binding vanished on 2026-09-20"
+                    ),
+                },
+                was_recovered=False,
             )
             return None
 
@@ -543,33 +575,247 @@ class AnthropicTranslator(BaseTranslator):
                 color="yellow",
                 verbose=True,
             )
+            from matrx_ai.providers.structured_output_findings import (
+                ENFORCEMENT_DROPPED,
+                record_structured_output_finding_sync,
+                response_format_identity,
+            )
+            from matrx_ai.schema.answer_contract import mark_enforcement_dropped
+
+            mark_enforcement_dropped(downgrade_reason)
+            record_structured_output_finding_sync(
+                ENFORCEMENT_DROPPED,
+                provider="anthropic",
+                model=None,
+                detail={
+                    **response_format_identity(response_format),
+                    "action": f"structured output omitted entirely — {downgrade_reason}",
+                    "remedy": (
+                        "give the contract an OBJECT root (wrap a list as "
+                        '{"items": [...]}) — Anthropic has no json_object fallback, so '
+                        "nothing enforces this request's shape at the provider"
+                    ),
+                },
+                was_recovered=False,
+            )
             return None
 
-        # Anthropic validates server-side that EVERY object node carries
-        # ``additionalProperties: false`` and 400s otherwise
-        # (output_config.format.schema: For 'object' type, 'additionalProperties'
-        # must be explicitly set to false). Schemas arrive from many sources
-        # (NER, agent output_schema, saved configs) that don't pre-bake this, so
-        # we enforce it here for ALL Anthropic structured outputs rather than
-        # patching each producer.
-        schema = AnthropicTranslator._enforce_anthropic_strict_schema(schema)
+        schema, narrowed, relaxed = AnthropicTranslator.translate_output_schema(
+            schema, tool_count=tool_count
+        )
+        from matrx_ai.providers.structured_output_findings import note_translation
+        from matrx_ai.schema.rules import structured_output_schema_violations
 
-        # Anthropic rejects advisory array/string/number bounds — e.g.
-        # "For 'array' type, 'minItems' values other than 0 or 1 are not supported
-        # (got: [2, 5])". Reduce to the subset Anthropic accepts at the SAME seam
-        # every other provider uses; the stored schema keeps the rich bounds.
-        schema = AnthropicTranslator.sanitize_structured_output_schema(schema, "anthropic")
+        if narrowed or relaxed:
+            vcprint(
+                data={"provider": "anthropic", "narrowed": narrowed, "relaxed": relaxed},
+                title=(
+                    "⚠️  ANTHROPIC ADJUSTMENT: the schema was translated to the subset "
+                    "Anthropic's decoder compiles. The stored schema is unchanged, and the "
+                    "answer is checked against it when the call ends "
+                    "(schema.answer_contract.verify_answer_and_record)."
+                ),
+                color="yellow",
+                verbose=True,
+            )
+            note_translation(
+                "anthropic",
+                narrowed=narrowed,
+                relaxed=relaxed,
+                response_format=response_format,
+            )
 
-        # Anthropic accepts ``anyOf`` but 400s on ``oneOf`` ("Schema type
-        # 'oneOf' is not supported"). Rewrite at the send boundary — a
-        # relaxation (exactly-one → at-least-one) acceptable for output
-        # guidance; the stored schema keeps ``oneOf``.
-        from matrx_ai.schema.rules import rewrite_oneof_as_anyof
+        # THE FORCING FUNCTION. Anything the subset still forbids is named HERE,
+        # in our own logs, with the node path — instead of arriving as an opaque
+        # provider 400 that a caller has no way to act on.
+        violations = structured_output_schema_violations(schema)
+        if violations:
+            vcprint(
+                data={"provider": "anthropic", "violations": violations},
+                title="🚨 ANTHROPIC SCHEMA STILL OUT OF SUBSET",
+                color="red",
+                verbose=False,
+            )
+            vcprint(
+                "🚨 CAPABILITY LEAK [anthropic]: the structured-output schema carries "
+                f"{len(violations)} shape(s) Anthropic's validator rejects; this request "
+                "will 400. Add the rule to matrx_ai.schema.rules — the normalization "
+                "boundary is the ONE place this is fixed.",
+                color="red",
+            )
+            from matrx_ai.providers.structured_output_findings import (
+                RELAXED,
+                record_structured_output_finding_sync,
+            )
 
-        schema = rewrite_oneof_as_anyof(schema)
+            # The forcing function fired, which means we are about to ship a 400 we
+            # built ourselves. A console line is not where that belongs.
+            record_structured_output_finding_sync(
+                RELAXED,
+                provider="anthropic",
+                model=None,
+                detail={
+                    **response_format_identity(response_format),
+                    "action": (
+                        f"{len(violations)} shape(s) Anthropic's validator rejects survived "
+                        "translation — this request is expected to 400"
+                    ),
+                    "violations": violations[:10],
+                    "remedy": (
+                        "add the rule to matrx_ai.schema.rules — the normalization boundary "
+                        "is the ONE place this class is fixed"
+                    ),
+                },
+                was_recovered=False,
+            )
 
         # schema only — Anthropic's JSONOutputFormatParam has no name/strict.
         return {"type": "json_schema", "schema": schema}
+
+    @staticmethod
+    def translate_output_schema(
+        schema: dict[str, Any], *, tool_count: int = 0
+    ) -> tuple[dict[str, Any], list[str], list[str]]:
+        """Translate a declared JSON Schema into the subset Anthropic compiles.
+
+        Returns ``(wire_schema, narrowed, relaxed)``:
+
+        * ``narrowed`` — what the provider copy gave up while every answer it
+          admits is STILL valid under the declared contract (a map emptied, a
+          nullable made non-null, recursion cut at a depth);
+        * ``relaxed`` — constraints the provider no longer enforces at all (they
+          are enforced only by the platform's validation of the answer).
+
+        Every rule below answers a refusal measured live against Anthropic
+        (``claude-opus-5-5`` / ``claude-sonnet-5``, 2026-09-27; the corpus and the
+        budget probes are in common-docs ``projects/checks-run-in-the-app/
+        SCHEMA-TRANSLATION.md``):
+
+          oneOf                       -> "Schema type 'oneOf' is not supported"
+          allOf with siblings         -> "For 'anyOf', 'additionalProperties,
+                                          properties, required, type' is not supported"
+          discriminator/type by anyOf -> "For 'anyOf', '<key>' is not supported"
+          items: [A, B]               -> "Array types must be specified with a
+                                          single object schema for 'items'"
+          {}                          -> "Empty schema ({}) ... specify a concrete type"
+          additionalProperties {...}  -> "For 'object' type, 'additionalProperties:
+                                          object' is not supported"
+          a self-referencing $def     -> "Circular reference detected in schema
+                                          definitions"
+          > 16 union parameters       -> "Schemas contains too many parameters with
+                                          union types"
+          > 12 optional parameters    -> "Schema is too complex." (after up to 180 s)
+          ~70+ properties             -> "The compiled grammar is too large"
+        """
+        from matrx_ai.schema.rules import (
+            ANTHROPIC_UNION_PARAM_LIMIT,
+            NORMALIZATION_NOTES_KEY,
+            classify_normalization_notes,
+            collapse_nullable_unions,
+            concretize_empty_schemas,
+            count_nullable_union_params,
+            count_optional_properties,
+            count_union_params,
+            dedupe_identical_subtrees,
+            drop_refinement_combinators,
+            enforce_additional_properties_false,
+            enforce_all_required,
+            flatten_allof,
+            hoist_nested_defs,
+            normalize_array_items,
+            normalize_combinator_siblings,
+            prune_unreachable_defs,
+            rewrite_oneof_as_anyof,
+            take_normalization_notes,
+            unroll_recursive_refs,
+        )
+
+        narrowed: list[str] = []
+        relaxed: list[str] = []
+
+        # additionalProperties:false on every object (nullable objects included);
+        # a dynamic-key map is NARROWED to {} and named — the only shape compiled.
+        # Refinement-only combinators are validation logic, not shape — removed
+        # FIRST, before any rule below can mistake a branch for a structure (the
+        # union rules would distribute the parent into type-less branches and the
+        # provider answers "Schema type is missing").
+        # A `$ref` resolves from the document ROOT, so a schema embedded whole
+        # under a parent's `properties` brings its own `$defs` down with it and
+        # every pointer inside it names nothing: "Reference to non-existent
+        # definition". Lift them first — lossless, and it must precede
+        # `prune_unreachable_defs` so the hoisted entries are the ones counted.
+        schema = hoist_nested_defs(schema)
+        schema = drop_refinement_combinators(schema, relaxed)
+        schema = enforce_additional_properties_false(schema, maps="narrow", notes=narrowed)
+        # Advisory bounds (minItems 2+, pattern, minimum…) — stripped at the same
+        # seam every provider uses; the stored schema keeps them.
+        schema = AnthropicTranslator.sanitize_structured_output_schema(schema, "anthropic")
+        # allOf is an intersection, so it MERGES into its parent (exact).
+        schema = flatten_allof(schema)
+        schema = rewrite_oneof_as_anyof(schema)
+        schema = normalize_combinator_siblings(schema)
+        schema = normalize_array_items(schema)
+        schema = concretize_empty_schemas(schema)
+        schema = prune_unreachable_defs(schema)
+        # Recursion is refused outright; a bounded tree is the closest shape.
+        schema = unroll_recursive_refs(schema, depth=4, notes=relaxed)
+        # Nodes that only became objects during the merges above.
+        schema = enforce_additional_properties_false(schema, maps="narrow", notes=narrowed)
+        # EVERY PROPERTY REQUIRED **AND NULLABLE**. Optional parameters are the
+        # most expensive thing in Anthropic's grammar: 13 optional properties
+        # answer "Schema is too complex" after 45-180 s, so `required` must name
+        # every property. But `required` ALONE narrows the contract — the claim
+        # that "a Pydantic optional is anyOf: [X, null], so required still lets
+        # the model answer null" holds only when the property IS nullable, and
+        # 2,865 live schemas force a field that is not: `plan_node_specialist`'s
+        # `gap_description` exists to be set only when there is a gap, and
+        # forcing it made the model invent one on every call. Widening to
+        # `[T, "null"]` spends one of the 16 union slots instead of one of the
+        # ~12 optional slots — a strictly better trade in Anthropic's own
+        # budget — and `collapse_nullable_unions` below takes back exactly the
+        # excess, naming every field it narrows. A `const` (`__kind`) is forced
+        # and not widened: its value is already determined, so nothing is lost.
+        optional_before = count_optional_properties(schema)
+        enforce_all_required(schema, express_optional_as_nullable=True, notes=narrowed)
+        # The documented ceiling of 16 union parameters (one tool spends one).
+        limit = ANTHROPIC_UNION_PARAM_LIMIT - (1 if tool_count else 0)
+        total_unions = count_union_params(schema)
+        if total_unions > limit:
+            # Only the NULLABLE unions can be narrowed; the others (a real choice
+            # between shapes — and a nullable choice between SEVERAL shapes, which
+            # stays a union once its null is gone) keep their slots first.
+            source = schema
+            keep = max(0, limit - (total_unions - count_nullable_union_params(schema)))
+            while True:
+                attempt_notes: list[str] = []
+                schema = collapse_nullable_unions(
+                    source,
+                    keep=keep,
+                    notes=attempt_notes,
+                    reason=f"Anthropic compiles at most {limit} union parameters on this request",
+                )
+                excess = count_union_params(schema) - limit
+                if excess <= 0 or keep == 0:
+                    break
+                keep = max(0, keep - excess)
+            narrowed.extend(attempt_notes)
+        # Identical object subtrees compile once when shared through $defs and
+        # once PER COPY when inline — lossless, and a real budget lever.
+        schema = dedupe_identical_subtrees(schema)
+        schema, combinator_notes = take_normalization_notes(schema)
+        more_narrowed, more_relaxed = classify_normalization_notes(combinator_notes)
+        narrowed.extend(more_narrowed)
+        relaxed.extend(more_relaxed)
+        if optional_before:
+            vcprint(
+                f"[anthropic] {optional_before} optional propert"
+                f"{'y' if optional_before == 1 else 'ies'} made required "
+                "(Anthropic's grammar charges optional parameters exponentially).",
+                color="yellow",
+                verbose=True,
+            )
+        schema.pop(NORMALIZATION_NOTES_KEY, None)
+        return schema, narrowed, relaxed
 
     @staticmethod
     def _enforce_anthropic_strict_schema(node: Any) -> Any:

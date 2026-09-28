@@ -1,6 +1,5 @@
 import asyncio
 import json
-import sys
 import warnings
 from collections.abc import Callable
 from collections.abc import Collection
@@ -11,6 +10,8 @@ from typing import ParamSpec
 from typing import TypeVar
 from typing import Union
 from typing import cast
+from urllib.parse import quote
+from urllib.parse import urlsplit
 
 from pydantic import ValidationError
 from scim2_models import AnyResource
@@ -38,6 +39,7 @@ from scim2_models import get_model_by_payload
 from scim2_client.errors import InvalidServiceDescriptionException
 from scim2_client.errors import ResponsePayloadValidationException
 from scim2_client.errors import SCIMResponseException
+from scim2_client.errors import UnexpectedContentFormatException
 from scim2_client.errors import UnexpectedContentTypeException
 from scim2_client.errors import UnexpectedStatusCodeException
 from scim2_client.errors import request_validation_exception
@@ -54,6 +56,12 @@ BASE_HEADERS = {
     "Content-Type": "application/scim+json",
 }
 CONFIG_RESOURCES = (ResourceType, Schema, ServiceProviderConfig)
+
+# The sub-delims, ':' and '@' that RFC 3986 §3.3 allows in a path segment.
+_PATH_SEGMENT_SAFE = "!$&'()*+,;=:@"
+
+# Discovery cannot build the models from an Error object or a raw payload.
+DISCOVERY_OPTIONS = {"raise_scim_errors": True, "check_response_payload": True}
 
 
 def describe_resource_models(
@@ -99,6 +107,20 @@ def _under_provider(
             return method(self, *args, **kwargs)
 
     return wrapper
+
+
+def _resource_url(endpoint: str, id: str) -> str:
+    """Append an id to an endpoint as a single path segment.
+
+    RFC 7643 §3.1 puts no constraint on the characters of an id, so the
+    characters that would end the segment, such as '/', '?' or '#', are
+    percent-encoded rather than refused. The dot segments are refused, as URL
+    resolution would remove them instead of sending them to the server.
+    """
+    if id in (".", ".."):
+        raise InvalidValueException(detail=f"'{id}' cannot be used as a resource id")
+
+    return f"{endpoint}/{quote(id, safe=_PATH_SEGMENT_SAFE)}"
 
 
 @dataclass
@@ -557,16 +579,50 @@ class SCIMClient:
         provider = self.provider
         for resource_type in provider.resource_types:
             if provider.model_for(resource_type.name) is resource_model:
-                return resource_type.endpoint
+                return self._check_endpoint(resource_type.endpoint)
 
         schema = resource_model.__schema__
         for resource_type in provider.resource_types:
             if schema == resource_type.schema_:
-                return resource_type.endpoint
+                return self._check_endpoint(resource_type.endpoint)
 
         raise InvalidValueException(
             detail=f"No ResourceType is matching the schema: {schema}"
         )
+
+    def _check_endpoint(self, endpoint: str | None) -> str:
+        """Refuse a resource type endpoint that would lead a request away from the server.
+
+        The endpoints come from the description of the server, which could
+        otherwise send the requests, and the credentials they carry, to another
+        host or outside of the base URL. The resource id is appended to the
+        endpoint, so a query or a fragment would swallow it.
+        """
+        if endpoint is None:
+            raise InvalidServiceDescriptionException(
+                message="A resource type has no endpoint"
+            )
+
+        if (
+            "?" in endpoint
+            or "#" in endpoint
+            or not self._stays_under_base_url(endpoint)
+        ):
+            raise InvalidServiceDescriptionException(
+                message=f"The endpoint '{endpoint}' is not under the base URL"
+            )
+
+        return endpoint
+
+    def _stays_under_base_url(self, endpoint: str) -> bool:
+        """Tell whether requests sent to an endpoint stay under the base URL.
+
+        Without knowing the base URL, only the paths relative to it, without
+        dot segments, are known to stay under it.
+        """
+        parts = urlsplit(endpoint)
+        segments = set(parts.path.split("/"))
+        return not (parts.scheme or parts.netloc or segments & {".", ".."})
 
     def register_naive_resource_types(self):
         """Register a *naive* :class:`~scim2_models.ResourceType` for each model the :attr:`provider` describes.
@@ -678,8 +734,16 @@ class SCIMClient:
             self._check_status_codes(status_code, expected_status_codes)
             return response_payload
 
+        self._check_payload_shape(response_payload)
+
         if response_payload and response_payload.get("schemas") == [Error.__schema__]:
-            error = Error.model_validate(response_payload)
+            try:
+                error = Error.model_validate(response_payload)
+            except ValidationError as exc:
+                scim_exc = ResponsePayloadValidationException()
+                scim_exc.add_note(str(exc))
+                raise scim_exc from exc
+
             if raise_scim_errors:
                 raise server_error_exception(error, scim_ctx=scim_ctx)
             return error
@@ -718,11 +782,43 @@ class SCIMClient:
             result = actual_type.model_validate(response_payload, scim_ctx=scim_ctx)
         except ValidationError as exc:
             scim_exc = ResponsePayloadValidationException()
-            if sys.version_info >= (3, 11):  # pragma: no cover
-                scim_exc.add_note(str(exc))
+            scim_exc.add_note(str(exc))
             raise scim_exc from exc
 
         self._set_version_from_etag(result, headers)
+        return result
+
+    @staticmethod
+    def _check_payload_shape(payload) -> None:
+        """Refuse a payload that cannot be a SCIM message.
+
+        A SCIM message is a JSON object, and its 'schemas', when present, is a list
+        of URIs. The payload is read as such afterwards.
+        """
+        if payload is None:
+            return
+
+        if not isinstance(payload, dict):
+            raise UnexpectedContentFormatException(
+                message="The response payload is not a JSON object"
+            )
+
+        schemas = payload.get("schemas", [])
+        if not isinstance(schemas, list) or not all(
+            isinstance(schema, str) for schema in schemas
+        ):
+            raise UnexpectedContentFormatException(
+                message="The schemas of the response payload are not a list of strings"
+            )
+
+    @staticmethod
+    def _published(result):
+        """Return what a discovery endpoint published, refusing an empty response."""
+        if result is None:
+            raise InvalidServiceDescriptionException(
+                message="A discovery endpoint returned no content"
+            )
+
         return result
 
     @_under_provider
@@ -833,7 +929,7 @@ class SCIMClient:
 
         elif id:
             req.expected_types = [resource_model]
-            req.url = f"{req.url}/{id}"
+            req.url = _resource_url(req.url, id)
             # A 304 answer has no payload, so the object can only be returned
             # back when it is the whole resource that was asked for.
             if resource is not None and not payload:
@@ -986,7 +1082,7 @@ class SCIMClient:
         if not id:
             raise InvalidValueException(detail="Resource must have an id")
 
-        delete_url = self.resource_endpoint(resource_model) + f"/{id}"
+        delete_url = _resource_url(self.resource_endpoint(resource_model), id)
         req.url = req.request_kwargs.pop("url", delete_url)
         self._set_if_match(req, _instance)
         return req
@@ -1039,7 +1135,8 @@ class SCIMClient:
                 scim_ctx=Context.RESOURCE_REPLACEMENT_REQUEST
             )
             req.url = req.request_kwargs.pop(
-                "url", self.resource_endpoint(resource.__class__) + f"/{resource.id}"
+                "url",
+                _resource_url(self.resource_endpoint(resource.__class__), resource.id),
             )
 
         self._set_if_match(req, resource)
@@ -1079,7 +1176,7 @@ class SCIMClient:
         if not check_request_payload:
             req.payload = patch_op
             req.url = req.request_kwargs.pop(
-                "url", f"{self.resource_endpoint(resource_model)}/{id}"
+                "url", _resource_url(self.resource_endpoint(resource_model), id)
             )
 
         else:
@@ -1096,7 +1193,7 @@ class SCIMClient:
                     ) from exc
 
             req.url = req.request_kwargs.pop(
-                "url", f"{self.resource_endpoint(resource_model)}/{id}"
+                "url", _resource_url(self.resource_endpoint(resource_model), id)
             )
 
         req.expected_types = [resource_model]
@@ -1606,15 +1703,22 @@ class BaseSyncSCIMClient(SCIMClient):
         """
         discovered_resource_types = self._resource_types
         if resource_types and not discovered_resource_types:
-            discovered_resource_types = self.query(ResourceType).resources or []
+            discovered_resource_types = (
+                self._published(self.query(ResourceType, **DISCOVERY_OPTIONS)).resources
+                or []
+            )
 
         discovered_schemas = None
         if schemas and not self._models:
-            discovered_schemas = self.query(Schema).resources or []
+            discovered_schemas = (
+                self._published(self.query(Schema, **DISCOVERY_OPTIONS)).resources or []
+            )
 
         config = self._config
         if service_provider_config and not config:
-            config = self.query(ServiceProviderConfig)
+            config = self._published(
+                self.query(ServiceProviderConfig, **DISCOVERY_OPTIONS)
+            )
 
         self.provider = self._describe_service(
             discovered_schemas, discovered_resource_types, config
@@ -2067,30 +2171,40 @@ class BaseAsyncSCIMClient(SCIMClient):
         :raises ~scim2_client.InvalidServiceDescriptionException: When the objects
             the server publishes do not describe a coherent service.
         """
-        query_resource_types = resource_types and not self._resource_types
-        query_schemas = schemas and not self._models
-        query_config = service_provider_config and not self._config
+        queries = {}
+        if resource_types and not self._resource_types:
+            queries[ResourceType] = self.query(ResourceType, **DISCOVERY_OPTIONS)
 
-        if query_schemas:
-            schemas_task = asyncio.create_task(self.query(Schema))
+        if schemas and not self._models:
+            queries[Schema] = self.query(Schema, **DISCOVERY_OPTIONS)
 
-        if query_resource_types:
-            resources_types_task = asyncio.create_task(self.query(ResourceType))
+        if service_provider_config and not self._config:
+            queries[ServiceProviderConfig] = self.query(
+                ServiceProviderConfig, **DISCOVERY_OPTIONS
+            )
 
-        if query_config:
-            spc_task = asyncio.create_task(self.query(ServiceProviderConfig))
+        # Collecting every outcome retrieves the exceptions of all the queries, so
+        # asyncio does not report the ones left behind by the first failure.
+        results = await asyncio.gather(*queries.values(), return_exceptions=True)
+        for result in results:
+            if isinstance(result, BaseException):
+                raise result
+
+        published = dict(zip(queries, results, strict=True))
 
         discovered_resource_types = self._resource_types
-        if query_resource_types:
-            discovered_resource_types = (await resources_types_task).resources or []
+        if ResourceType in published:
+            discovered_resource_types = (
+                self._published(published[ResourceType]).resources or []
+            )
 
         discovered_schemas = None
-        if query_schemas:
-            discovered_schemas = (await schemas_task).resources or []
+        if Schema in published:
+            discovered_schemas = self._published(published[Schema]).resources or []
 
         config = self._config
-        if query_config:
-            config = await spc_task
+        if ServiceProviderConfig in published:
+            config = self._published(published[ServiceProviderConfig])
 
         self.provider = self._describe_service(
             discovered_schemas, discovered_resource_types, config

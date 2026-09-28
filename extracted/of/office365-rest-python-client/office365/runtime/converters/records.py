@@ -16,7 +16,7 @@ if TYPE_CHECKING:
     from office365.runtime.client_object import ClientObject
 
 
-def iter_records(collection: "ClientObjectCollection") -> List[Dict[str, Any]]:
+def iter_records(collection: "ClientObjectCollection", raw: bool = False) -> List[Dict[str, Any]]:
     """Project a loaded collection into plain dict records.
 
     Mirrors ``csv_writer.write_csv``: plain select fields become columns,
@@ -29,19 +29,33 @@ def iter_records(collection: "ClientObjectCollection") -> List[Dict[str, Any]]:
 
     Args:
         collection: A loaded collection (items populated after execute_query()).
+        raw: When True, keep native property values (skip ``serialize_value``
+            coercion) — used for lossless round-trips like the migration toolkit.
 
     Raises:
         ValueError: When dotted select fields reference more than one navigation
             property.
     """
-    items = list(collection)
+    return records_from_items(
+        list(collection), collection.query_options.select, collection.query_options.expand, raw=raw
+    )
+
+
+def records_from_items(
+    items: List["ClientObject"],
+    select: List[str],
+    expand: "set[str] | list[str]",
+    raw: bool = False,
+) -> List[Dict[str, Any]]:
+    """Project a list of loaded items into records (the page-level primitive).
+
+    Used by :func:`iter_records` and by the paged (streaming) exporter, so a
+    large collection can be exported page by page without materializing it all.
+    """
     if not items:
         return []
-
-    select = collection.query_options.select
-    if not select:
-        select = sorted({key for item in items for key in item.properties.keys()})
-    expand = set(collection.query_options.expand)
+    select = list(select) if select else sorted({key for item in items for key in item.properties.keys()})
+    expand = set(expand)
     dotted = [field.split("/", 1) for field in select if "/" in field]
     navs = {nav for nav, _ in dotted}
     if len(navs) > 1:
@@ -54,13 +68,18 @@ def iter_records(collection: "ClientObjectCollection") -> List[Dict[str, Any]]:
     records: List[Dict[str, Any]] = []
     for item in items:
         children = _resolve_property(item, nav, expand)
-        base: Dict[str, Any] = {key: serialize_value(item.properties.get(key)) for key in plain}
+        base: Dict[str, Any] = {key: _value(item.properties.get(key), raw) for key in plain}
         for child in children:
             record = dict(base)
             for _nav_prop, field_name in dotted:
-                record[f"{_nav_prop}/{field_name}"] = _property_value(child, field_name)
+                record[f"{_nav_prop}/{field_name}"] = _property_value(child, field_name, raw)
             records.append(record)
     return records
+
+
+def _value(value: Any, raw: bool) -> Any:
+    """Coerce a property value to its JSON-safe form unless ``raw`` is requested."""
+    return value if raw else serialize_value(value)
 
 
 def _resolve_property(item: "ClientObject", nav: str | None, expand: set[str]) -> list[Any]:
@@ -75,8 +94,8 @@ def _resolve_property(item: "ClientObject", nav: str | None, expand: set[str]) -
     return [raw]
 
 
-def _property_value(prop: "dict | ClientObject", field_name: str) -> Any:
+def _property_value(prop: "dict | ClientObject", field_name: str, raw: bool = False) -> Any:
     """Read a property value from an item that may be a ClientObject or dict."""
     if isinstance(prop, dict):
-        return serialize_value(prop.get(field_name))
-    return serialize_value(prop.properties.get(field_name))
+        return _value(prop.get(field_name), raw)
+    return _value(prop.properties.get(field_name), raw)

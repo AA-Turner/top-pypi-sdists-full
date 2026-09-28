@@ -246,22 +246,22 @@ impl FindCompletionContents for tombi_document_tree_syntax::Value {
 pub fn type_hint_value(
     key: Option<&tombi_document_tree_syntax::Key>,
     position: tombi_text::Position,
-    schema_uri: Option<&SchemaUri>,
+    schema_base_uri: Option<&SchemaUri>,
     completion_hint: Option<CompletionHint>,
 ) -> Vec<CompletionContent> {
     let mut completion_contents = itertools::concat([
-        type_hint_boolean(position, schema_uri, completion_hint),
-        type_hint_integer(position, schema_uri, completion_hint),
-        type_hint_float(position, schema_uri, completion_hint),
-        type_hint_string(position, schema_uri, completion_hint),
-        type_hint_local_date_time(position, schema_uri, completion_hint),
-        type_hint_local_date(position, schema_uri, completion_hint),
-        type_hint_local_time(position, schema_uri, completion_hint),
-        type_hint_offset_date_time(position, schema_uri, completion_hint),
-        type_hint_array(position, schema_uri, completion_hint),
+        type_hint_boolean(position, schema_base_uri, completion_hint),
+        type_hint_integer(position, schema_base_uri, completion_hint),
+        type_hint_float(position, schema_base_uri, completion_hint),
+        type_hint_string(position, schema_base_uri, completion_hint),
+        type_hint_local_date_time(position, schema_base_uri, completion_hint),
+        type_hint_local_date(position, schema_base_uri, completion_hint),
+        type_hint_local_time(position, schema_base_uri, completion_hint),
+        type_hint_offset_date_time(position, schema_base_uri, completion_hint),
+        type_hint_array(position, schema_base_uri, completion_hint),
         vec![CompletionContent::new_type_hint_inline_table(
             position,
-            schema_uri,
+            schema_base_uri,
             completion_hint,
         )],
     ]);
@@ -283,14 +283,14 @@ pub fn type_hint_value(
             completion_contents.push(CompletionContent::new_type_hint_key(
                 key.value(),
                 key.range(),
-                schema_uri,
+                schema_base_uri,
                 completion_hint,
             ));
         }
     } else {
         completion_contents.push(CompletionContent::new_type_hint_empty_key(
             position,
-            schema_uri,
+            schema_base_uri,
             completion_hint,
         ))
     }
@@ -301,10 +301,11 @@ pub fn type_hint_value(
 impl CompletionCandidate for SchemaView {
     fn title<'a: 'b, 'b>(
         &'a self,
-        schema_uri: &'a SchemaUri,
+        schema_base_uri: &'a SchemaUri,
         definitions: &'a SchemaDefinitions,
         strict: Option<tombi_schema_type::BoolDefaultTrue>,
         schema_store: &'a SchemaStore,
+        parent_dynamic_scope: &'a [SchemaUri],
         completion_hint: Option<CompletionHint>,
     ) -> tombi_future::BoxFuture<'b, Option<String>> {
         async move {
@@ -325,10 +326,11 @@ impl CompletionCandidate for SchemaView {
                 Self::OneOf(one_of) => {
                     one_of
                         .title(
-                            schema_uri,
+                            schema_base_uri,
                             definitions,
                             strict,
                             schema_store,
+                            parent_dynamic_scope,
                             completion_hint,
                         )
                         .await
@@ -336,10 +338,11 @@ impl CompletionCandidate for SchemaView {
                 Self::AnyOf(any_of) => {
                     any_of
                         .title(
-                            schema_uri,
+                            schema_base_uri,
                             definitions,
                             strict,
                             schema_store,
+                            parent_dynamic_scope,
                             completion_hint,
                         )
                         .await
@@ -347,10 +350,11 @@ impl CompletionCandidate for SchemaView {
                 Self::AllOf(all_of) => {
                     all_of
                         .title(
-                            schema_uri,
+                            schema_base_uri,
                             definitions,
                             strict,
                             schema_store,
+                            parent_dynamic_scope,
                             completion_hint,
                         )
                         .await
@@ -363,10 +367,11 @@ impl CompletionCandidate for SchemaView {
 
     fn description<'a: 'b, 'b>(
         &'a self,
-        schema_uri: &'a SchemaUri,
+        schema_base_uri: &'a SchemaUri,
         definitions: &'a SchemaDefinitions,
         strict: Option<tombi_schema_type::BoolDefaultTrue>,
         schema_store: &'a SchemaStore,
+        parent_dynamic_scope: &'a [SchemaUri],
         completion_hint: Option<CompletionHint>,
     ) -> tombi_future::BoxFuture<'b, Option<String>> {
         async move {
@@ -387,10 +392,11 @@ impl CompletionCandidate for SchemaView {
                 Self::OneOf(one_of) => {
                     one_of
                         .description(
-                            schema_uri,
+                            schema_base_uri,
                             definitions,
                             strict,
                             schema_store,
+                            parent_dynamic_scope,
                             completion_hint,
                         )
                         .await
@@ -398,10 +404,11 @@ impl CompletionCandidate for SchemaView {
                 Self::AnyOf(any_of) => {
                     any_of
                         .description(
-                            schema_uri,
+                            schema_base_uri,
                             definitions,
                             strict,
                             schema_store,
+                            parent_dynamic_scope,
                             completion_hint,
                         )
                         .await
@@ -409,10 +416,11 @@ impl CompletionCandidate for SchemaView {
                 Self::AllOf(all_of) => {
                     all_of
                         .description(
-                            schema_uri,
+                            schema_base_uri,
                             definitions,
                             strict,
                             schema_store,
+                            parent_dynamic_scope,
                             completion_hint,
                         )
                         .await

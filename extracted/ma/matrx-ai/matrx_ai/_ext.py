@@ -615,6 +615,33 @@ def get_referenceable_record_loader() -> Any:
 
 
 # ---------------------------------------------------------------------------
+# Act-as-the-caller session (tools read and write AS THE PERSON; RLS decides)
+# ---------------------------------------------------------------------------
+#
+# A tool that touches a person's own records (tasks, …) must run its ORM work
+# under that person's database identity, so Postgres RLS makes the access
+# decision — never app code, never the privileged pool connection. The host
+# owns the claims and the role switch (aidream: ``acting_as_caller`` in
+# ``aidream/db/acting_as.py`` → matrx-orm ``rls_session``); matrx-ai only asks
+# for it through ``matrx_ai.tools.person_session.as_the_person``.
+#
+# Contract:
+#   * OPTIONAL to configure, but NEVER optional to honor: unconfigured, a tool
+#     that needs it REFUSES (fail closed, loud) — it never falls back to the
+#     privileged connection.
+#   * Signature: ``factory() -> AsyncContextManager[None]`` acting as the user
+#     of the ambient AppContext. It must reuse an already-open session for the
+#     SAME user (rls_session refuses to nest) rather than raise.
+
+_ACTING_AS_CALLER_KEY = "acting_as_caller"
+
+
+def get_acting_as_caller() -> Any:
+    """Return the host-injected act-as-the-caller session factory, or None."""
+    return _registry.get(_ACTING_AS_CALLER_KEY)
+
+
+# ---------------------------------------------------------------------------
 # Authoring-mandate policy (THE CHANGE-CLAIM GATE's declaration channel)
 # ---------------------------------------------------------------------------
 #

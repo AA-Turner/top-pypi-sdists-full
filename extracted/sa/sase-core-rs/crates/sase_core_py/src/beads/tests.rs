@@ -56,7 +56,7 @@ fn bead_touch_index_bindings_round_trip_the_complete_snapshot() {
         ] {
             assert!(module.getattr(name).is_ok(), "{name}");
         }
-        assert_eq!(py_bead_touch_index_wire_schema_version(), 1);
+        assert_eq!(py_bead_touch_index_wire_schema_version(), 4);
 
         let dir = tempdir().unwrap();
         let beads_dir = dir.path().join("beads");
@@ -83,7 +83,7 @@ fn bead_touch_index_bindings_round_trip_the_complete_snapshot() {
                     "owner@example.com",
                     "issue_created",
                     "2026-01-01T00:00:00Z",
-                    json!({"issue": {"id": "b-1", "title": "Bead", "status": "open", "issue_type": "task"}}),
+                    json!({"issue": {"id": "b-1", "title": "Bead", "status": "open", "issue_type": "task", "creation_reason": "filed from triage"}}),
                 ),
                 event(
                     "2",
@@ -122,7 +122,7 @@ fn bead_touch_index_bindings_round_trip_the_complete_snapshot() {
         let miss = py_to_json_value(miss.bind(py)).unwrap();
         assert_eq!(
             miss,
-            json!({"schema_version": 1, "generation": "", "touches": []})
+            json!({"schema_version": 4, "generation": "", "touches": []})
         );
 
         let refresh =
@@ -132,7 +132,7 @@ fn bead_touch_index_bindings_round_trip_the_complete_snapshot() {
         assert_eq!(
             refresh,
             json!({
-                "schema_version": 1,
+                "schema_version": 4,
                 "generation": generation,
                 "full_rebuild": true,
                 "wrote": true,
@@ -149,7 +149,7 @@ fn bead_touch_index_bindings_round_trip_the_complete_snapshot() {
         assert_eq!(
             query,
             json!({
-                "schema_version": 1,
+                "schema_version": 4,
                 "generation": generation,
                 "touches": [
                     {
@@ -161,6 +161,15 @@ fn bead_touch_index_bindings_round_trip_the_complete_snapshot() {
                         "verbs": {"noted": 1},
                         "first_at": "2026-01-01T00:03:00Z",
                         "last_at": "2026-01-01T00:03:00Z",
+                        "current_note_count": 1,
+                        "note_preview": {
+                            "id": "b-1:4",
+                            "author": "013",
+                            "timestamp": "2026-01-01T00:03:00Z",
+                            "text": "y",
+                            "truncated": false,
+                        },
+                        "creation_reason_truncated": false,
                         "stream_id": "b-1",
                     },
                     {
@@ -169,9 +178,18 @@ fn bead_touch_index_bindings_round_trip_the_complete_snapshot() {
                         "title": "Bead",
                         "issue_type": "task",
                         "status": "closed",
-                        "verbs": {"closed": 1, "noted": 1},
+                        "verbs": {"noted": 1},
                         "first_at": "2026-01-01T00:01:00Z",
-                        "last_at": "2026-01-01T00:02:00Z",
+                        "last_at": "2026-01-01T00:01:00Z",
+                        "current_note_count": 1,
+                        "note_preview": {
+                            "id": "b-1:2",
+                            "author": "bbugyi200.athena.0aa",
+                            "timestamp": "2026-01-01T00:01:00Z",
+                            "text": "x",
+                            "truncated": false,
+                        },
+                        "creation_reason_truncated": false,
                         "stream_id": "b-1",
                     },
                 ],
@@ -193,9 +211,9 @@ fn bead_touch_index_bindings_round_trip_the_complete_snapshot() {
         assert_eq!(
             fresh,
             json!({
-                "schema_version": 1,
+                "schema_version": 4,
                 "state": "fresh",
-                "index_schema_version": 1,
+                "index_schema_version": 4,
                 "generation": generation,
                 "indexed_streams": 1,
                 "current_streams": 1,
@@ -1167,6 +1185,95 @@ fn bead_create_binding_round_trips_task_type_and_fields() {
 }
 
 #[test]
+fn bead_create_binding_round_trips_creation_reason() {
+    pyo3::prepare_freethreaded_python();
+    let temp = tempfile::tempdir().unwrap();
+    core_bead_init_store(temp.path(), "beads", "sase", "owner").unwrap();
+    let beads_dir = temp.path().join("beads");
+
+    Python::with_gil(|py| {
+        let path = beads_dir.to_str().unwrap();
+        // An explicit reason is trimmed, stored, and read back intact.
+        let request = json_value_to_py(
+            py,
+            &json!({
+                "title": "Retry race",
+                "issue_type": "task",
+                "size": "small",
+                "task_type": "bug",
+                "creation_reason": "  a second agent reproduced dropped retries  ",
+                "now": "2026-01-01T00:00:00Z"
+            }),
+        )
+        .unwrap();
+        let request = request.bind(py).downcast::<PyDict>().unwrap();
+        let created = py_bead_create(py, path, request).unwrap();
+        let value = py_to_json_value(created.bind(py)).unwrap();
+        assert_eq!(
+            value["issue"]["creation_reason"],
+            "a second agent reproduced dropped retries"
+        );
+        let issue_id = value["issue"]["id"].as_str().unwrap().to_string();
+
+        let shown = py_bead_show(py, path, &issue_id).unwrap();
+        let shown = py_to_json_value(shown.bind(py)).unwrap();
+        assert_eq!(
+            shown["creation_reason"],
+            "a second agent reproduced dropped retries"
+        );
+
+        // A request from a released client predates the field: the reason
+        // stays absent rather than failing or fabricating one.
+        let legacy = json_value_to_py(
+            py,
+            &json!({
+                "title": "Reasonless",
+                "issue_type": "plan",
+                "now": "2026-01-01T00:01:00Z"
+            }),
+        )
+        .unwrap();
+        let legacy = legacy.bind(py).downcast::<PyDict>().unwrap();
+        let created = py_bead_create(py, path, legacy).unwrap();
+        let value = py_to_json_value(created.bind(py)).unwrap();
+        assert!(value["issue"].get("creation_reason").is_none());
+
+        // Blank and overlong reasons are rejected before any mutation.
+        for reason in [json!(""), json!("   ")] {
+            let bad = json_value_to_py(
+                py,
+                &json!({
+                    "title": "Bad reason",
+                    "issue_type": "plan",
+                    "creation_reason": reason,
+                    "now": "2026-01-01T00:02:00Z"
+                }),
+            )
+            .unwrap();
+            let bad = bad.bind(py).downcast::<PyDict>().unwrap();
+            let error = py_bead_create(py, path, bad).unwrap_err();
+            assert!(
+                error.to_string().contains("cannot be empty or blank"),
+                "{error}"
+            );
+        }
+        let bad = json_value_to_py(
+            py,
+            &json!({
+                "title": "Overlong reason",
+                "issue_type": "plan",
+                "creation_reason": "r".repeat(2001),
+                "now": "2026-01-01T00:03:00Z"
+            }),
+        )
+        .unwrap();
+        let bad = bad.bind(py).downcast::<PyDict>().unwrap();
+        let error = py_bead_create(py, path, bad).unwrap_err();
+        assert!(error.to_string().contains("at most"), "{error}");
+    });
+}
+
+#[test]
 fn bead_set_link_projections_binding_is_registered_and_projects_batch() {
     pyo3::prepare_freethreaded_python();
     let temp = tempfile::tempdir().unwrap();
@@ -1414,4 +1521,59 @@ fn bead_work_plan_binding_exposes_additive_bead_id_fields() {
         assert_eq!(value["land_agent_name"], json!("beads-1.land"));
         assert_eq!(value["land_waits_on"], json!(["beads-1.1"]));
     });
+}
+
+#[test]
+fn bead_close_binding_stamps_the_supplied_author_on_the_close_event() {
+    pyo3::prepare_freethreaded_python();
+    let temp = tempfile::tempdir().unwrap();
+    core_bead_init_store(temp.path(), "beads", "sase", "owner").unwrap();
+    let beads_dir = temp.path().join("beads");
+    let issue = core_bead_create_issue(
+        &beads_dir,
+        BeadCreateRequestWire {
+            title: "Closable".to_string(),
+            issue_type: IssueTypeWire::Task,
+            size: Some(PhaseSizeWire::Small),
+            task_type: Some("bug".to_string()),
+            now: Some("2026-01-01T00:00:00Z".to_string()),
+            ..Default::default()
+        },
+    )
+    .unwrap()
+    .issue
+    .unwrap();
+
+    Python::with_gil(|py| {
+        let path = beads_dir.to_str().unwrap();
+        py_bead_close(
+            py,
+            path,
+            vec![issue.id.clone()],
+            None,
+            None,
+            false,
+            Some("2026-01-01T00:01:00Z".to_string()),
+            None,
+            Some("worker".to_string()),
+        )
+        .unwrap();
+    });
+
+    let streams = beads_dir.join("events/streams");
+    let mut found = false;
+    for entry in fs::read_dir(&streams).unwrap() {
+        let text = fs::read_to_string(entry.unwrap().path()).unwrap();
+        for line in text.lines() {
+            let value: serde_json::Value = serde_json::from_str(line).unwrap();
+            if value["operation"] == "issue_closed"
+                && value["issue_id"] == issue.id.as_str()
+            {
+                assert_eq!(value["actor"], "worker");
+                assert_eq!(value["payload"]["closed_by"], "worker");
+                found = true;
+            }
+        }
+    }
+    assert!(found, "expected one stamped issue_closed event");
 }

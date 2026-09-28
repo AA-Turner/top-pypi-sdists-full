@@ -134,6 +134,11 @@ const WAIT_CAPACITY_BUDGET_SUGGESTIONS: &[DirectiveSuggestedValue] = &[
         documentation:
             "Capacity budget of 100: replace max_running_agents for this launch",
     },
+    DirectiveSuggestedValue {
+        value: "1.5x",
+        documentation:
+            "1.5× this machine's effective max_running_agents budget",
+    },
 ];
 
 const WAIT_PRIORITY_SUGGESTIONS: &[DirectiveSuggestedValue] = &[
@@ -148,6 +153,10 @@ const WAIT_PRIORITY_SUGGESTIONS: &[DirectiveSuggestedValue] = &[
 ];
 
 const QUEUE_WEIGHT_SUGGESTIONS: &[DirectiveSuggestedValue] = &[
+    DirectiveSuggestedValue {
+        value: "0",
+        documentation: "No load: runs without counting toward capacity",
+    },
     DirectiveSuggestedValue {
         value: "0.25",
         documentation: "Quarter capacity unit",
@@ -204,15 +213,23 @@ const ID_KEYWORDS: &[DirectiveKeywordSpec] = &[
         description: "Derive the full ID and join this agent clan",
         value_role: DirectiveValueRole::Clan,
         repeatable: false,
-        conflicts_with: &["family", "tribe"],
+        conflicts_with: &["family", "session", "tribe"],
+        suggested_values: &[],
+    },
+    DirectiveKeywordSpec {
+        name: "session",
+        description: "Attach this suffix to an existing agent session",
+        value_role: DirectiveValueRole::Session,
+        repeatable: false,
+        conflicts_with: &["clan", "family", "tribe"],
         suggested_values: &[],
     },
     DirectiveKeywordSpec {
         name: "family",
-        description: "Attach this suffix to an existing agent family",
-        value_role: DirectiveValueRole::Family,
+        description: "Attach this suffix to an existing agent session",
+        value_role: DirectiveValueRole::Session,
         repeatable: false,
-        conflicts_with: &["clan", "tribe"],
+        conflicts_with: &["clan", "session", "tribe"],
         suggested_values: &[],
     },
     DirectiveKeywordSpec {
@@ -220,7 +237,7 @@ const ID_KEYWORDS: &[DirectiveKeywordSpec] = &[
         description: "Assign this agent to a user-managed tribe",
         value_role: DirectiveValueRole::Tribe,
         repeatable: false,
-        conflicts_with: &["clan", "family"],
+        conflicts_with: &["clan", "family", "session"],
         suggested_values: &[],
     },
 ];
@@ -402,16 +419,16 @@ const QUEUE_KEYWORDS: &[DirectiveKeywordSpec] = &[
     },
     DirectiveKeywordSpec {
         name: "w",
-        description: "Alias for weight=; positive capacity units",
-        value_role: DirectiveValueRole::PositiveFloat,
+        description: "Alias for weight=; non-negative capacity units claimed by this launch; 0 adds no load",
+        value_role: DirectiveValueRole::NonNegativeFloat,
         repeatable: false,
         conflicts_with: &["weight"],
         suggested_values: QUEUE_WEIGHT_SUGGESTIONS,
     },
     DirectiveKeywordSpec {
         name: "weight",
-        description: "Positive capacity units claimed by this launch",
-        value_role: DirectiveValueRole::PositiveFloat,
+        description: "Non-negative capacity units claimed by this launch; 0 adds no load",
+        value_role: DirectiveValueRole::NonNegativeFloat,
         repeatable: false,
         conflicts_with: &["w"],
         suggested_values: QUEUE_WEIGHT_SUGGESTIONS,
@@ -436,8 +453,8 @@ pub(super) const QUEUE_DIRECTIVE_ON: DirectiveMetadata = DirectiveMetadata {
     name: "queue",
     alias: Some("q"),
     description:
-        "Set this launch's capacity budget, priority, and capacity weight",
-    argument_hint: ":N or (N, capacity=, priority=, p=, weight=, w=)",
+        "Set this launch's capacity budget, <M>x multiplier of this machine's max_running_agents budget, priority, and capacity weight",
+    argument_hint: ":N or <M>x or (N, <M>x, capacity=, priority=, p=, weight=, w=)",
     takes_argument: true,
     allows_multiple: true,
     syntax_forms: COLON_PAREN,
@@ -451,7 +468,7 @@ const QUEUE_BUDGET_KEYWORDS: &[DirectiveKeywordSpec] = &[
     DirectiveKeywordSpec {
         name: "capacity",
         description:
-            "This launch's capacity budget, replacing max_running_agents",
+            "This launch's capacity budget, replacing max_running_agents, or <M>x multiplier of this machine's max_running_agents budget",
         value_role: DirectiveValueRole::PositiveInt,
         repeatable: false,
         conflicts_with: &[],
@@ -475,16 +492,16 @@ const QUEUE_BUDGET_KEYWORDS: &[DirectiveKeywordSpec] = &[
     },
     DirectiveKeywordSpec {
         name: "w",
-        description: "Alias for weight=; positive capacity units",
-        value_role: DirectiveValueRole::PositiveFloat,
+        description: "Alias for weight=; non-negative capacity units claimed by this launch; 0 adds no load",
+        value_role: DirectiveValueRole::NonNegativeFloat,
         repeatable: false,
         conflicts_with: &["weight"],
         suggested_values: QUEUE_WEIGHT_SUGGESTIONS,
     },
     DirectiveKeywordSpec {
         name: "weight",
-        description: "Positive capacity units claimed by this launch",
-        value_role: DirectiveValueRole::PositiveFloat,
+        description: "Non-negative capacity units claimed by this launch; 0 adds no load",
+        value_role: DirectiveValueRole::NonNegativeFloat,
         repeatable: false,
         conflicts_with: &["w"],
         suggested_values: QUEUE_WEIGHT_SUGGESTIONS,
@@ -553,7 +570,7 @@ const WAIT_KEYWORDS: &[DirectiveKeywordSpec] = &[
     },
     DirectiveKeywordSpec {
         name: "proc",
-        description: "Wait for a proc ID or shell name",
+        description: "Wait for a proc ID or proc name",
         value_role: DirectiveValueRole::FreeText,
         repeatable: false,
         conflicts_with: &[],
@@ -633,9 +650,9 @@ pub const DIRECTIVES: &[DirectiveMetadata] = &[
     DirectiveMetadata {
         name: "id",
         alias: Some("i"),
-        description: "Assign an agent ID with optional bead, clan, family, or user-managed tribe",
+        description: "Assign an agent ID with optional bead, clan, session, or user-managed tribe",
         argument_hint:
-            ":agent-id or :name.{@key}; ([id], bead=, clan=/family=/tribe=)",
+            ":agent-id or :name.{@key}; ([id], bead=, clan=/session=/tribe=)",
         takes_argument: true,
         allows_multiple: false,
         syntax_forms: COLON_PAREN_BARE,

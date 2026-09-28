@@ -22,7 +22,7 @@ from ical.timespan import Timespan
 
 from .const import DayOfWeek, ProgramFrequency
 
-__all__ = ["ProgramTimeline", "ProgramEvent", "ProgramId"]
+__all__ = ["ProgramEvent", "ProgramId", "ProgramTimeline"]
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -73,7 +73,7 @@ class ProgramEvent:
         parts = str(self.rule).split("\n")
         if len(parts) != 2:
             return None
-        return parts[1].lstrip("RRULE:")
+        return parts[1].removeprefix("RRULE:")
 
 
 class ProgramTimeline(SortableItemTimeline[ProgramEvent]):
@@ -98,7 +98,7 @@ def create_recurrence(
 
     ruleset = rrule.rruleset()
     # Rain delay excludes upcoming days from the schedule
-    for i in range(0, delay_days):
+    for i in range(delay_days):
         ruleset.exdate(dtstart + datetime.timedelta(days=i))
 
     # Start the schedule from the previous week/cycle
@@ -139,7 +139,7 @@ def create_recurrence(
         dtstart: datetime.datetime | datetime.date,
     ) -> SortableItem[Timespan, ProgramEvent]:
         if not isinstance(dtstart, datetime.datetime):
-            raise ValueError("Expected datetime, got date")
+            raise TypeError("Expected datetime, got date")
         dtend = dtstart + duration
 
         def build() -> ProgramEvent:

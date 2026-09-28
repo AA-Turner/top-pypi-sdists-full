@@ -1,12 +1,12 @@
-from typing import Optional, Tuple
+from __future__ import annotations
 
-from pytest import raises
+import pytest
 
 from graphql.error import GraphQLSyntaxError
 from graphql.language import Source, Token, TokenKind
 from graphql.language.schema_coordinate_lexer import SchemaCoordinateLexer
 
-Location = Optional[Tuple[int, int]]
+Location = tuple[int, int] | None
 
 
 def lex_second(s: str) -> Token:
@@ -16,7 +16,7 @@ def lex_second(s: str) -> Token:
 
 
 def assert_syntax_error(text: str, message: str, location: Location) -> None:
-    with raises(GraphQLSyntaxError) as exc_info:
+    with pytest.raises(GraphQLSyntaxError) as exc_info:
         lex_second(text)
     error = exc_info.value
     assert error.message == f"Syntax Error: {message}"
@@ -31,7 +31,7 @@ def describe_schema_coordinate_lexer():
 
     def forbids_ignored_tokens():
         lexer = SchemaCoordinateLexer(Source("\nName.field"))
-        with raises(GraphQLSyntaxError) as exc_info:
+        with pytest.raises(GraphQLSyntaxError) as exc_info:
             lexer.advance()
         error = exc_info.value
         assert error.message == "Syntax Error: Invalid character: U+000A."

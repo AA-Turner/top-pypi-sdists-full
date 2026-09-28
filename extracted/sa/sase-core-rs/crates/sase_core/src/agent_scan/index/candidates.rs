@@ -20,7 +20,7 @@ pub(super) const CANDIDATE_ROW_COLUMNS: &str =
     "artifact_dir, project_name, agent_type, \
      cl_name, model, llm_provider, source_machine, imported_owner_machine, \
      workflow_dir_name, has_done_marker, has_running_marker, \
-     has_workflow_state, agent_clan, agent_clan_generation";
+     has_workflow_state, agent_clan, agent_clan_generation, agent_session";
 
 pub(super) fn indexed_candidate_row_from_sql(
     row: &rusqlite::Row<'_>,
@@ -43,6 +43,7 @@ pub(super) fn indexed_candidate_row_from_sql(
             != 0,
         agent_clan: row.get(12).map_err(|e| e.to_string())?,
         agent_clan_generation: row.get(13).map_err(|e| e.to_string())?,
+        agent_session: row.get(14).map_err(|e| e.to_string())?,
         selection,
     })
 }
@@ -258,7 +259,7 @@ pub(super) fn expand_machine_tree_relatives(
 #[derive(Debug, Clone)]
 pub(super) struct CandidateTreeKeys {
     pub(super) timestamp: String,
-    pub(super) agent_family: Option<String>,
+    pub(super) agent_session: Option<String>,
     pub(super) agent_clan: Option<String>,
     pub(super) parent_timestamp: Option<String>,
 }
@@ -275,7 +276,7 @@ pub(super) fn select_candidate_tree_keys(
     for chunk in artifact_dirs.chunks(LOAD_RECORDS_BATCH_SIZE) {
         let placeholders = placeholders(chunk.len());
         let sql = format!(
-            "SELECT timestamp, agent_family, agent_clan, parent_timestamp \
+            "SELECT timestamp, agent_session, agent_clan, parent_timestamp \
              FROM agent_artifacts WHERE artifact_dir IN ({placeholders})"
         );
         let mut stmt = conn.prepare(&sql).map_err(|e| e.to_string())?;
@@ -285,7 +286,7 @@ pub(super) fn select_candidate_tree_keys(
         while let Some(row) = rows.next().map_err(|e| e.to_string())? {
             result.push(CandidateTreeKeys {
                 timestamp: row.get(0).map_err(|e| e.to_string())?,
-                agent_family: row.get(1).map_err(|e| e.to_string())?,
+                agent_session: row.get(1).map_err(|e| e.to_string())?,
                 agent_clan: row.get(2).map_err(|e| e.to_string())?,
                 parent_timestamp: row.get(3).map_err(|e| e.to_string())?,
             });
@@ -301,16 +302,16 @@ pub(super) fn select_related_tree_dirs(
     if keys.is_empty() {
         return Ok(Vec::new());
     }
-    let mut families = BTreeSet::new();
+    let mut agent_sessions = BTreeSet::new();
     let mut clans = BTreeSet::new();
     let mut timestamps = BTreeSet::new();
     for key in keys {
-        if let Some(family) = key
-            .agent_family
+        if let Some(agent_session) = key
+            .agent_session
             .as_deref()
             .filter(|value| !value.is_empty())
         {
-            families.insert(family.to_string());
+            agent_sessions.insert(agent_session.to_string());
         }
         if let Some(clan) =
             key.agent_clan.as_deref().filter(|value| !value.is_empty())
@@ -328,11 +329,11 @@ pub(super) fn select_related_tree_dirs(
     }
 
     let mut dirs = BTreeSet::new();
-    if !families.is_empty() {
+    if !agent_sessions.is_empty() {
         dirs.extend(select_dirs_in_column(
             conn,
-            "agent_family",
-            &families.into_iter().collect::<Vec<_>>(),
+            super::AGENT_SESSION_INDEX_COLUMN,
+            &agent_sessions.into_iter().collect::<Vec<_>>(),
         )?);
     }
     if !clans.is_empty() {
@@ -356,7 +357,10 @@ pub(super) fn select_dirs_in_column(
     values: &[String],
 ) -> Result<Vec<String>, String> {
     match column {
-        "agent_family" | "agent_clan" | "timestamp" | "parent_timestamp" => {}
+        super::AGENT_SESSION_INDEX_COLUMN
+        | "agent_clan"
+        | "timestamp"
+        | "parent_timestamp" => {}
         _ => return Err(format!("unsupported tree column {column}")),
     }
     if values.is_empty() {

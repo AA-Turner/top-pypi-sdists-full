@@ -86,7 +86,7 @@ _LAZY_IMPORTS: dict[str, str] = {
     "PlaywrightBrowserPool": "matrx_scraper.browser_pool",
     "URLInfo": "matrx_scraper.utils",
     "get_url_info": "matrx_scraper.utils",
-    "normalize_url": "matrx_scraper.url_utils",
+    "accept_url_input": "matrx_scraper.url_utils",
     "compute_link_scores": "matrx_scraper.pagerank",
     "PageRankEdge": "matrx_scraper.pagerank",
     "CustomExtractor": "matrx_scraper.custom_extractors",
@@ -335,7 +335,7 @@ if TYPE_CHECKING:
     )
     from matrx_scraper.seo_audit import SeoAuditResult, audit_html
     from matrx_scraper.service import ScrapeService
-    from matrx_scraper.url_utils import normalize_url
+    from matrx_scraper.url_utils import accept_url_input
     from matrx_scraper.utils import URLInfo, get_url_info
 
 

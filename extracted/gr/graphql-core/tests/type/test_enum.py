@@ -1,11 +1,14 @@
+from __future__ import annotations
+
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, Optional
+from typing import Any
 
 from graphql import graphql_sync
 from graphql.type import (
     GraphQLArgument,
     GraphQLBoolean,
+    GraphQLDefaultInput,
     GraphQLEnumType,
     GraphQLEnumValue,
     GraphQLField,
@@ -26,8 +29,7 @@ class ColorTypeEnumValues(Enum):
 
 
 class Complex1:
-    # noinspection PyMethodMayBeStatic
-    some_random_object = datetime.now()
+    some_random_object = datetime.now()  # noqa: DTZ005
 
 
 class Complex2:
@@ -53,9 +55,9 @@ QueryType = GraphQLObjectType(
                 "fromInt": GraphQLArgument(GraphQLInt),
                 "fromString": GraphQLArgument(GraphQLString),
             },
-            resolve=lambda _source, info, **args: args.get("fromInt")
-            or args.get("fromString")
-            or args.get("fromEnum"),
+            resolve=lambda _source, _info, **args: (
+                args.get("fromInt") or args.get("fromString") or args.get("fromEnum")
+            ),
         ),
         "colorInt": GraphQLField(
             GraphQLInt,
@@ -63,27 +65,35 @@ QueryType = GraphQLObjectType(
                 "fromEnum": GraphQLArgument(ColorType),
                 "fromInt": GraphQLArgument(GraphQLInt),
             },
-            resolve=lambda _source, info, **args: args.get("fromEnum"),
+            resolve=lambda _source, _info, **args: args.get("fromEnum"),
         ),
         "complexEnum": GraphQLField(
             ComplexEnum,
             args={
-                # Note: default_value is provided an *internal* representation for
-                # Enums, rather than the string name.
-                "fromEnum": GraphQLArgument(ComplexEnum, default_value=complex1),
+                "fromEnum": GraphQLArgument(
+                    ComplexEnum, default=GraphQLDefaultInput(value="ONE")
+                ),
                 "provideGoodValue": GraphQLArgument(GraphQLBoolean),
                 "provideBadValue": GraphQLArgument(GraphQLBoolean),
             },
-            resolve=lambda _source, info, **args:
-            # Note: this is one of the references of the internal values
-            # which ComplexEnum allows.
-            (
+            resolve=lambda _source, _info, **args: (
+                # Note: this is one of the references of the internal values
+                # which ComplexEnum allows.
                 complex2
                 if args.get("provideGoodValue")
                 # Note: similar object, but not the same *reference* as
                 # complex2 above. Enum internal values require object equality.
-                else Complex2() if args.get("provideBadValue") else args.get("fromEnum")
+                else Complex2()
+                if args.get("provideBadValue")
+                else args.get("fromEnum")
             ),
+        ),
+        "complexEnumWithLegacyDefault": GraphQLField(
+            ComplexEnum,
+            args={
+                "fromEnum": GraphQLArgument(ComplexEnum, default_value=complex1),
+            },
+            resolve=lambda _source, _info, fromEnum: fromEnum,
         ),
         "thunkValuesString": GraphQLField(
             GraphQLString,
@@ -101,7 +111,7 @@ MutationType = GraphQLObjectType(
         "favoriteEnum": GraphQLField(
             ColorType,
             args={"color": GraphQLArgument(ColorType)},
-            resolve=lambda _source, info, color=None: color,
+            resolve=lambda _source, _info, color=None: color,
         )
     },
 )
@@ -112,7 +122,7 @@ SubscriptionType = GraphQLObjectType(
         "subscribeToEnum": GraphQLField(
             ColorType,
             args={"color": GraphQLArgument(ColorType)},
-            resolve=lambda _source, info, color=None: color,
+            resolve=lambda _source, _info, color=None: color,
         )
     },
 )
@@ -122,15 +132,24 @@ schema = GraphQLSchema(
 )
 
 
-def execute_query(source: str, variable_values: Optional[Dict[str, Any]] = None):
-    return graphql_sync(schema, source, variable_values=variable_values)
+def execute_query(
+    source: str,
+    variable_values: dict[str, Any] | None = None,
+    hide_suggestions: bool = False,
+):
+    return graphql_sync(
+        schema,
+        source,
+        variable_values=variable_values,
+        hide_suggestions=hide_suggestions,
+    )
 
 
 def describe_type_system_enum_values():
     def can_use_python_enums_instead_of_dicts():
         assert ColorType2.values == ColorType.values
-        keys = [key for key in ColorType.values]
-        keys2 = [key for key in ColorType2.values]
+        keys = list(ColorType.values)
+        keys2 = list(ColorType2.values)
         assert keys2 == keys
         values = [value.value for value in ColorType.values.values()]
         values2 = [value.value for value in ColorType2.values.values()]
@@ -175,6 +194,21 @@ def describe_type_system_enum_values():
                 {
                     "message": "Value 'GREENISH' does not exist in 'Color' enum."
                     " Did you mean the enum value 'GREEN'?",
+                    "locations": [(1, 23)],
+                }
+            ],
+        )
+
+    def does_not_accept_values_not_in_the_enum_no_suggestions():
+        result = execute_query(
+            "{ colorEnum(fromEnum: GREENISH) }", None, hide_suggestions=True
+        )
+
+        assert result == (
+            None,
+            [
+                {
+                    "message": "Value 'GREENISH' does not exist in 'Color' enum.",
                     "locations": [(1, 23)],
                 }
             ],
@@ -260,7 +294,7 @@ def describe_type_system_enum_values():
             None,
             [
                 {
-                    "message": "Variable '$color' got invalid value 2;"
+                    "message": "Variable '$color' has invalid value:"
                     " Enum 'Color' cannot represent non-string value: 2.",
                     "locations": [(1, 8)],
                 }
@@ -298,22 +332,26 @@ def describe_type_system_enum_values():
         )
 
     def enum_value_may_have_an_internal_value_of_0():
-        result = execute_query("""
+        result = execute_query(
+            """
             {
               colorEnum(fromEnum: RED)
               colorInt(fromEnum: RED)
             }
-            """)
+            """
+        )
 
         assert result == ({"colorEnum": "RED", "colorInt": 0}, None)
 
     def enum_inputs_may_be_nullable():
-        result = execute_query("""
+        result = execute_query(
+            """
             {
               colorEnum
               colorInt
             }
-            """)
+            """
+        )
 
         assert result == ({"colorEnum": None, "colorInt": None}, None)
 
@@ -327,14 +365,16 @@ def describe_type_system_enum_values():
         }
 
     def may_be_internally_represented_with_complex_values():
-        result = execute_query("""
+        result = execute_query(
+            """
             {
               first: complexEnum
               second: complexEnum(fromEnum: TWO)
               good: complexEnum(provideGoodValue: true)
               bad: complexEnum(provideBadValue: true)
             }
-            """)
+            """
+        )
 
         assert result == (
             {"first": "ONE", "second": "TWO", "good": "TWO", "bad": None},
@@ -347,6 +387,17 @@ def describe_type_system_enum_values():
                 }
             ],
         )
+
+    def may_be_internally_represented_with_complex_values_using_legacy_default():
+        result = execute_query(
+            """
+            {
+              complexEnumWithLegacyDefault
+            }
+            """
+        )
+
+        assert result == ({"complexEnumWithLegacyDefault": "ONE"}, None)
 
     def may_have_values_specified_via_a_callable():
         result = execute_query("{ thunkValuesString(fromEnum: B) }")

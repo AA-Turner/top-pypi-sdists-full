@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: geocif
-Version: 0.4.1051
+Version: 0.4.1054
 Summary: Models to visualize and forecast crop conditions and yields
 Author-email: Ritvik Sahajpal <ritvik@umd.edu>
 License: MIT
@@ -801,6 +801,7 @@ training, no writes to the outlook DB. Each writes a date-stamped
 | `drought_audit` | Do drought years actually look anomalous in the inputs, or did the pipeline flatten them? |
 | `irrigation_kansas` | Does irrigated share interact with in-season stress to move county yield anomalies — and which stress CID and month carry it? |
 | `cropcal_hemisphere` | Crop calendars: does one model per hemisphere beat one pooled model? Paired on the same folds and null; takes a `calendar_validator` run's `models/design_matrix.csv`, not a cfg, and writes to `<run>/experiments/hemisphere/`. |
+| `cropcal_external` | Crop calendars: hand the benchmark to someone else's model and score what comes back. `export(run_dir)` writes features, targets, the run's exact CV folds, a blank predictions sheet, a column dictionary and a README (zipped); `score(run_dir, filled_sheet, name=)` scores it with the run's own metrics code, null and folds, plus a paired MAE difference against every in-house model. |
 
 ```python
 from geocif.experiments import irrigation_kansas
@@ -872,6 +873,37 @@ In addition, model performance is aggregated to every admin level **above** the 
                     ├── scatter/timeseries companion CSVs
                     └── lookup_plots_csvs.csv
 ```
+
+### Prediction CSV export
+
+Turns the results database into a hand-off CSV that carries only what the boundary
+shapefile does **not** already have, keyed by the shapefile's own id column so the
+recipient joins once and gets every name, code and geometry from the shapefile:
+
+```
+year, lead, stage_month_name, <id_col>, observed_yield_t_ha,
+predicted_yield_t_ha, area_ha, model
+```
+
+`lead` is the number of months of data behind the forecast (1 = the first month of
+the season). Prefer it over the month name for sorting — a month *number* puts
+January before September and silently scrambles southern-hemisphere seasons that
+run Sep → Apr.
+
+Merge any number of databases (a per-fold run writes one DB per forecast year):
+
+```bash
+python -m geocif.predictions_export     --config geobase.txt countries.txt crops.txt geocif.txt     --db "outputs/<project>/ml/db/geocif_inf*.db"     --model catboost     --out brazil_soybean_catboost_monthly.csv
+```
+
+Use `--experiment-name outlook` for databases written by `yield_outlook`
+(`geocif_runner` writes `default`, which is the CLI's default). Set
+`[ML] export_predictions_csv = True` to have each run export its own database
+automatically at the end; because each process owns one database, a per-fold run
+produces one CSV per fold and the CLI is what merges them.
+
+Regions absent from the boundary file are reported and dropped; if none match at
+all the command fails rather than writing an empty file.
 
 ## Config file documentation
 

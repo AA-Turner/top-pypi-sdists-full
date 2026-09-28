@@ -1,11 +1,27 @@
 """Test all code snippets in the documentation"""
 
+from __future__ import annotations
+
+import ast
+import doctest
+import importlib
+import inspect
+import pkgutil
+import re
+import textwrap
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import TYPE_CHECKING, Any, TypeAlias
+
+import pytest
+
+import graphql
 
 from .utils import dedent
 
-Scope = Dict[str, Any]
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
+Scope: TypeAlias = dict[str, Any]
 
 
 def get_snippets(source, indent=4):
@@ -13,19 +29,19 @@ def get_snippets(source, indent=4):
     if not source.endswith(".rst"):  # pragma: no cover
         source += ".rst"
     source_path = Path(__file__).parents[1] / "docs" / source
-    lines = open(source_path).readlines()
-    snippets: List[str] = []
-    snippet: List[str] = []
+    with source_path.open() as source_file:
+        lines = source_file.readlines()
+    snippets: list[str] = []
+    snippet: list[str] = []
     snippet_start = " " * indent
     for line in lines:
         if not line.rstrip() and snippet:
             snippet.append(line)
         elif line.startswith(snippet_start):
             snippet.append(line[indent:])
-        else:
-            if snippet:
-                snippets.append("".join(snippet).rstrip() + "\n")
-                snippet = []
+        elif snippet:
+            snippets.append("".join(snippet).rstrip() + "\n")
+            snippet = []
     if snippet:
         snippets.append("".join(snippet).rstrip() + "\n")
     return snippets
@@ -49,16 +65,19 @@ def describe_introduction():
     def getting_started(capsys):
         intro = get_snippets("intro")
         pip_install = intro.pop(0)
-        assert "pip install" in pip_install and "graphql-core" in pip_install
-        poetry_install = intro.pop(0)
-        assert "poetry install" in poetry_install
+        assert "pip install" in pip_install
+        assert "graphql-core" in pip_install
+        uv_install = intro.pop(0)
+        assert "uv pip install" in uv_install
         create_schema = intro.pop(0)
         assert "schema = GraphQLSchema(" in create_schema
         scope: Scope = {}
         exec(create_schema, scope)
         schema = scope.get("schema")
         schema_class = scope.get("GraphQLSchema")
-        assert schema and schema_class and isinstance(schema, schema_class)
+        assert schema
+        assert schema_class
+        assert isinstance(schema, schema_class)
         query = intro.pop(0)
         assert "graphql_sync" in query
         exec(query, scope)
@@ -133,21 +152,20 @@ def describe_usage():
         queries = get_snippets("usage/queries")
 
         async_query = queries.pop(0)
-        assert "asyncio" in async_query and "graphql_sync" not in async_query
+        assert "asyncio" in async_query
+        assert "graphql_sync" not in async_query
         assert "asyncio.run" in async_query
-        try:  # pragma: no cover
-            from asyncio import run  # noqa: F401
-        except ImportError:  # Python < 3.7
-            assert "ExecutionResult" in expected_result(queries)
-        else:  # pragma: no cover
-            exec(async_query, scope)
-            out, err = capsys.readouterr()
-            assert not err
-            assert "R2-D2" in out
-            assert out == expected_result(queries)
+        from asyncio import run  # noqa: F401
+
+        exec(async_query, scope)
+        out, err = capsys.readouterr()
+        assert not err
+        assert "R2-D2" in out
+        assert out == expected_result(queries)
 
         sync_query = queries.pop(0)
-        assert "graphql_sync" in sync_query and "asyncio" not in sync_query
+        assert "graphql_sync" in sync_query
+        assert "asyncio" not in sync_query
         exec(sync_query, scope)
         out, err = capsys.readouterr()
         assert not err
@@ -167,7 +185,8 @@ def describe_usage():
         exec(typename_query, scope)
         out, err = capsys.readouterr()
         assert not err
-        assert "__typename" in out and "Human" in out
+        assert "__typename" in out
+        assert "Human" in out
         assert out == expected_result(queries)
 
         backstory_query = queries.pop(0)
@@ -175,7 +194,8 @@ def describe_usage():
         exec(backstory_query, scope)
         out, err = capsys.readouterr()
         assert not err
-        assert "errors" in out and "secretBackstory" in out
+        assert "errors" in out
+        assert "secretBackstory" in out
         assert out == expected_result(queries)
 
     def using_the_sdl(capsys):
@@ -204,11 +224,14 @@ def describe_usage():
         assert schema.get_type("Episode").values["EMPIRE"].value == 5
 
         query = use_sdl.pop(0)
-        assert "graphql_sync" in query and "print(result)" in query
+        assert "graphql_sync" in query
+        assert "print(result)" in query
         exec(query, scope)
         out, err = capsys.readouterr()
         assert not err
-        assert "Luke" in out and "appearsIn" in out and "EMPIRE" in out
+        assert "Luke" in out
+        assert "appearsIn" in out
+        assert "EMPIRE" in out
         assert out == expected_result(use_sdl)
 
     def using_resolver_methods(capsys):
@@ -225,11 +248,14 @@ def describe_usage():
         assert "Root" in scope
 
         query = methods.pop(0)
-        assert "graphql_sync" in query and "Root()" in query
+        assert "graphql_sync" in query
+        assert "Root()" in query
         exec(query, scope)
         out, err = capsys.readouterr()
         assert not err
-        assert "R2-D2" in out and "primaryFunction" in out and "Astromech" in out
+        assert "R2-D2" in out
+        assert "primaryFunction" in out
+        assert "Astromech" in out
         assert out == expected_result(methods)
 
     def using_introspection(capsys):
@@ -339,7 +365,8 @@ def describe_usage():
         exec(query, scope)
         out, err = capsys.readouterr()
         assert not err
-        assert "lastName" in out and "Skywalker" in out
+        assert "lastName" in out
+        assert "Skywalker" in out
         assert out == expected_result(extension)
 
     def validating_queries():
@@ -354,3 +381,223 @@ def describe_usage():
         exec(validate, scope)
         errors = str(scope["errors"])
         assert errors == expected_errors(validator)
+
+
+PUBLIC_PACKAGES = [
+    "graphql",
+    "graphql.error",
+    "graphql.execution",
+    "graphql.language",
+    "graphql.type",
+    "graphql.utilities",
+    "graphql.validation",
+]
+
+
+def public_api() -> Iterator[tuple[str, Any]]:
+    """Get all public classes and functions with their qualified names."""
+    seen: set[int] = set()
+    for package_name in PUBLIC_PACKAGES:
+        package = importlib.import_module(package_name)
+        for name in package.__all__:
+            obj = getattr(package, name)
+            if not (inspect.isclass(obj) or inspect.isfunction(obj)):
+                continue  # constants and type aliases cannot carry docstrings
+            if not obj.__module__.startswith("graphql.") or id(obj) in seen:
+                continue
+            seen.add(id(obj))
+            yield f"{obj.__module__}.{obj.__qualname__}", obj
+            if inspect.isclass(obj):
+                for attr_name, attr in vars(obj).items():
+                    if attr_name.startswith("_") or not inspect.isfunction(attr):
+                        continue
+                    yield f"{obj.__module__}.{attr.__qualname__}", attr
+
+
+def documented_params(doc: str) -> set[str]:
+    """Get the names of all parameters documented with a ``:param`` field."""
+    return set(re.findall(r"^\s*:param (\w+):", doc, re.MULTILINE))
+
+
+def signature_params(func: Any) -> set[str]:
+    """Get the names of all named parameters of the given function."""
+    try:
+        signature = inspect.signature(func)
+    except (TypeError, ValueError):  # pragma: no cover
+        return set()
+    return {
+        name
+        for name, param in signature.parameters.items()
+        if name not in ("self", "cls")
+        and param.kind not in (param.VAR_POSITIONAL, param.VAR_KEYWORD)
+    }
+
+
+def returns_value(func: Any) -> bool:
+    """Check whether the given function is annotated to return a value."""
+    annotation = inspect.signature(func).return_annotation
+    return annotation not in (None, type(None), "None", inspect.Signature.empty)
+
+
+def undocumented_attributes(cls: type) -> Iterator[str]:
+    """Get the names of all public class attributes without a docstring."""
+    try:
+        source = textwrap.dedent(inspect.getsource(cls))
+    except (OSError, TypeError):  # pragma: no cover
+        return
+    body = ast.parse(source).body[0].body  # type: ignore[attr-defined]
+    for index, node in enumerate(body):
+        if not isinstance(node, ast.AnnAssign) or not isinstance(node.target, ast.Name):
+            continue
+        name = node.target.id
+        if name.startswith("_"):
+            continue
+        following = body[index + 1] if index + 1 < len(body) else None
+        if not (
+            isinstance(following, ast.Expr)
+            and isinstance(following.value, ast.Constant)
+            and isinstance(following.value.value, str)
+        ):
+            yield name
+
+
+def docs_problems(name: str, obj: Any) -> Iterator[str]:
+    """Get all problems with the documentation of the given API member."""
+    doc = obj.__doc__
+    if inspect.isclass(obj):
+        doc = vars(obj).get("__doc__")
+        if doc == "An enumeration.":  # pragma: no cover
+            doc = None  # auto-generated before Python 3.11
+        init = vars(obj).get("__init__")
+        func = init if inspect.isfunction(init) else None
+    else:
+        func = obj
+    if inspect.isclass(obj):
+        for attr in undocumented_attributes(obj):
+            yield f"{name}: attribute {attr}"
+    if not doc or not doc.strip():
+        yield f"{name}: docstring"
+        return
+    if ":meta private:" in doc:
+        return  # internal API, only a description is required
+    if func is not None:
+        documented = documented_params(doc)
+        expected = signature_params(func)
+        for param in sorted(expected - documented):
+            yield f"{name}: param {param}"
+        for param in sorted(documented - expected):
+            yield f"{name}: unknown param {param}"
+        if (
+            not inspect.isclass(obj)
+            and returns_value(func)
+            and not re.search(r"^\s*:returns:", doc, re.MULTILINE)
+        ):
+            yield f"{name}: returns"
+    if func is not None and ">>> " not in doc:
+        yield f"{name}: example"
+
+
+def all_docs_problems() -> set[str]:
+    """Get all problems with the documentation of the public API."""
+    return {
+        problem for name, obj in public_api() for problem in docs_problems(name, obj)
+    }
+
+
+def all_modules() -> list[str]:
+    """Get the names of all modules in the graphql package."""
+    return sorted(
+        module.name for module in pkgutil.walk_packages(graphql.__path__, "graphql.")
+    )
+
+
+def describe_docstrings():
+    def docs_problems_are_detected():
+        def documented(
+            a: int,
+            b: int = 0,
+            *args: Any,  # noqa: ARG001
+            **kwargs: Any,  # noqa: ARG001
+        ) -> int:
+            """Add two numbers.
+
+            :param a: the first number
+            :param b: the second number
+            :returns: the sum
+
+            >>> documented(1, 2)
+            3
+            """
+            return a + b  # pragma: no cover
+
+        def undocumented(a: int) -> int:
+            """Do nothing.
+
+            :param c: an unknown parameter
+            """
+            return a  # pragma: no cover
+
+        class Documented:
+            """A class.
+
+            :param a: the value
+
+            >>> Documented(1).a
+            1
+            """
+
+            a: int
+            """The value."""
+
+            def __init__(self, a: int) -> None:
+                self.a = a
+
+        class Undocumented:
+            """A class without constructor."""
+
+            _private: int
+            b: int
+            c = 0
+            d: int
+            0  # noqa: B018
+
+        def internal(a: int) -> int:
+            """Do something internal.
+
+            :meta private:
+            """
+            return a  # pragma: no cover
+
+        assert not list(docs_problems("documented", documented))
+        assert Documented(1).a == 1
+        assert not list(docs_problems("Documented", Documented))
+        assert list(docs_problems("undocumented", undocumented)) == [
+            "undocumented: param a",
+            "undocumented: unknown param c",
+            "undocumented: returns",
+            "undocumented: example",
+        ]
+        assert list(docs_problems("Undocumented", Undocumented)) == [
+            "Undocumented: attribute b",
+            "Undocumented: attribute d",
+        ]
+        assert not list(docs_problems("internal", internal))
+        assert list(docs_problems("undocumented", lambda: None)) == [
+            "undocumented: docstring"
+        ]
+
+    def public_api_is_documented():
+        problems = all_docs_problems()
+        assert not problems, "Undocumented:\n" + "\n".join(sorted(problems))
+
+    @pytest.mark.parametrize("module_name", all_modules())
+    def doctests_pass(module_name):
+        module = importlib.import_module(module_name)
+        finder = doctest.DocTestFinder(exclude_empty=True)
+        runner = doctest.DocTestRunner(
+            optionflags=doctest.ELLIPSIS | doctest.NORMALIZE_WHITESPACE
+        )
+        for test in finder.find(module, module_name):
+            runner.run(test)
+        results = runner.summarize(verbose=False)
+        assert not results.failed

@@ -47,18 +47,37 @@ class MediaNamespace(_Namespace):
 
     @property
     def images(self) -> "tuple[BinaryItem, ...]":
-        """패키지가 품은 이진 이미지 항목 목록."""
+        """패키지가 품은 이진 이미지 항목 목록.
+
+        header의 ``binDataList``에 있는 항목이 먼저 오고, ``content.hpf``
+        매니페스트에만 있는 이진 항목(href가 ``BinData/`` 아래이거나
+        media-type이 ``image/*``)이 매니페스트 순서로 뒤따른다. 한컴이
+        저장한 파일은 보통 ``binDataList``가 없어 뒤쪽만 나온다.
+        ``isEmbeded="0"``으로 바깥 파일을 잇는 항목은 넣지 않는다. 파트가
+        없는 내장 항목은 ``size=0``으로 나온다."""
 
         from .. import media as _media
 
         return _media.list_images(self._doc)
 
-    def remove_image(self, item_id: str) -> bool:
-        """이진 항목을 제거한다. 없으면 ``False``."""
+    def remove_image(self, item_id: "str | BinaryItem", *, force: bool = False) -> bool:
+        """이진 항목을 제거한다. 없으면 ``False``.
+
+        매니페스트 id(``"image1"``), 파트 경로(``"BinData/image1.png"``),
+        ``images``가 돌려준 ``BinaryItem`` 가운데 무엇이든 받는다.
+        매니페스트 항목·파트·header의 ``binItem``(있으면)을 함께 지운다.
+        구역·header처럼 이진 항목이 아닌 매니페스트 항목은 지우지 않고
+        ``False``를 돌려준다.
+
+        문서가 아직 그 항목을 가리키면(그림, header의 채우기 그림·그림
+        글머리표, 바탕쪽, 동영상 파일·포스터, OLE, 내장 글꼴) 아무것도
+        바꾸지 않고 ``HwpxValueError``(``media-item-in-use``)를 낸다.
+        ``context["references"]``가 가리키는 곳이다. ``force=True``면
+        그래도 지우고 그 참조는 끊긴 채 남는다."""
 
         from .. import media as _media
 
-        return _media.remove_image(self._doc, item_id=item_id)
+        return _media.remove_image(self._doc, item_id=item_id, force=force)
 
     def picture_references(self) -> "tuple[PictureRef, ...]":
         """본문의 그림 개체가 어떤 이진 항목을 가리키는지의 역참조 표."""

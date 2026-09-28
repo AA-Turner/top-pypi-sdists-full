@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from graphql.execution import execute_sync
 from graphql.language import parse
 from graphql.type import (
@@ -17,9 +19,7 @@ from graphql.type import (
 def describe_execute_handles_execution_with_a_complex_schema():
     def executes_using_a_schema():
         class Article:
-
-            # noinspection PyShadowingBuiltins
-            def __init__(self, id: int):
+            def __init__(self, id: int):  # noqa: A002
                 self.id = id
                 self.isPublished = True
                 self.author = JohnSmith()
@@ -70,14 +70,13 @@ def describe_execute_handles_execution_with_a_complex_schema():
             },
         )
 
-        # noinspection PyShadowingBuiltins
         BlogQuery = GraphQLObjectType(
             "Query",
             {
                 "article": GraphQLField(
                     BlogArticle,
                     args={"id": GraphQLArgument(GraphQLID)},
-                    resolve=lambda _obj, _info, id: Article(id),
+                    resolve=lambda _obj, _info, id: Article(id),  # noqa: A006
                 ),
                 "feed": GraphQLField(
                     GraphQLList(BlogArticle),
@@ -88,9 +87,8 @@ def describe_execute_handles_execution_with_a_complex_schema():
 
         BlogSchema = GraphQLSchema(BlogQuery)
 
-        # noinspection PyPep8Naming,PyMethodMayBeStatic
         class Author:
-            def pic(self, info_, width: int, height: int) -> "Pic":
+            def pic(self, _info, width: int, height: int) -> Pic:
                 return Pic(123, width, height)
 
             @property
@@ -107,7 +105,8 @@ def describe_execute_handles_execution_with_a_complex_schema():
                 self.width = f"{width}"
                 self.height = f"{height}"
 
-        document = parse("""
+        document = parse(
+            """
             {
               feed {
                 id,
@@ -139,7 +138,8 @@ def describe_execute_handles_execution_with_a_complex_schema():
               hidden,
               notDefined
             }
-            """)
+            """
+        )
 
         # Note: this is intentionally not validating to ensure appropriate
         # behavior occurs when executing an invalid query.

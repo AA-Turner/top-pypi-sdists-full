@@ -23,3 +23,8 @@ class SiteCollectionAppCatalogAllowedItem(Entity):
     @property
     def entity_type_name(self):
         return "Microsoft.SharePoint.Marketplace.CorporateCuratedGallery.SiteCollectionAppCatalogAllowedItem"
+
+    @property
+    def error_message(self) -> Optional[str]:
+        """Gets the ErrorMessage property"""
+        return self.properties.get("ErrorMessage", None)

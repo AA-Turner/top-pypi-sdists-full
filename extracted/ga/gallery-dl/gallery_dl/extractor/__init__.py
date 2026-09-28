@@ -231,6 +231,7 @@ modules = [
     "sofurry",
     "soundgasm",
     "speakerdeck",
+    "steamcommunity",
     "steamgriddb",
     "subscribestar",
     "sxypix",

@@ -1,8 +1,10 @@
-from typing import Optional, Union, List
+from __future__ import annotations
 
-from pytest import mark
+from asyncio import sleep
 
-from graphql.execution import execute, execute_sync, ExecutionResult
+import pytest
+
+from graphql.execution import ExecutionResult, execute, execute_sync
 from graphql.language import parse
 from graphql.type import (
     GraphQLBoolean,
@@ -15,14 +17,15 @@ from graphql.type import (
     GraphQLUnionType,
 )
 
+pytestmark = pytest.mark.anyio
+
 
 class Dog:
-
     name: str
     barks: bool
-    mother: Optional["Dog"]
-    father: Optional["Dog"]
-    progeny: List["Dog"]
+    mother: Dog | None
+    father: Dog | None
+    progeny: list[Dog]
 
     def __init__(self, name: str, barks: bool):
         self.name = name
@@ -33,12 +36,11 @@ class Dog:
 
 
 class Cat:
-
     name: str
     meows: bool
-    mother: Optional["Cat"]
-    father: Optional["Cat"]
-    progeny: List["Cat"]
+    mother: Cat | None
+    father: Cat | None
+    progeny: list[Cat]
 
     def __init__(self, name: str, meows: bool):
         self.name = name
@@ -49,7 +51,6 @@ class Cat:
 
 
 class Plant:
-
     name: str
 
     def __init__(self, name: str):
@@ -57,18 +58,17 @@ class Plant:
 
 
 class Person:
-
     name: str
-    pets: Optional[List[Union[Dog, Cat]]]
-    friends: Optional[List[Union[Dog, Cat, "Person"]]]
-    responsibilities: Optional[List[Union[Dog, Cat, Plant]]]
+    pets: list[Dog | Cat] | None
+    friends: list[Dog | Cat | Person] | None
+    responsibilities: list[Dog | Cat | Plant] | None
 
     def __init__(
         self,
         name: str,
-        pets: Optional[List[Union[Dog, Cat]]] = None,
-        friends: Optional[List[Union[Dog, Cat, "Person"]]] = None,
-        responsibilities: Optional[List[Union[Dog, Cat, Plant]]] = None,
+        pets: list[Dog | Cat] | None = None,
+        friends: list[Dog | Cat | Person] | None = None,
+        responsibilities: list[Dog | Cat | Plant] | None = None,
     ):
         self.name = name
         self.pets = pets
@@ -79,7 +79,8 @@ class Person:
 NamedType = GraphQLInterfaceType("Named", {"name": GraphQLField(GraphQLString)})
 
 LifeType = GraphQLInterfaceType(
-    "Life", lambda: {"progeny": GraphQLField(GraphQLList(LifeType))}  # type: ignore
+    "Life",
+    lambda: {"progeny": GraphQLField(GraphQLList(LifeType))},  # type: ignore
 )
 
 MammalType = GraphQLInterfaceType(
@@ -102,7 +103,7 @@ DogType = GraphQLObjectType(
         "father": GraphQLField(DogType),  # type: ignore
     },
     interfaces=[MammalType, LifeType, NamedType],
-    is_type_of=lambda value, info: isinstance(value, Dog),
+    is_type_of=lambda value, _info: isinstance(value, Dog),
 )
 
 CatType = GraphQLObjectType(
@@ -115,11 +116,11 @@ CatType = GraphQLObjectType(
         "father": GraphQLField(CatType),  # type: ignore
     },
     interfaces=[MammalType, LifeType, NamedType],
-    is_type_of=lambda value, info: isinstance(value, Cat),
+    is_type_of=lambda value, _info: isinstance(value, Cat),
 )
 
 
-async def resolve_plant_type(_value, _info):
+async def resolve_plant_type(_value, _info) -> bool:
     raise RuntimeError("Not sure if this is a plant")
 
 
@@ -138,7 +139,7 @@ def resolve_pet_type(value, _info, _type):
         return CatType.name
 
     # Not reachable. All possible types have been considered.
-    assert False, "Unexpected pet type"
+    pytest.fail("Unexpected pet type")  # pragma: no cover
 
 
 PetType = GraphQLUnionType("Pet", [DogType, CatType], resolve_type=resolve_pet_type)
@@ -177,7 +178,8 @@ john = Person("John", [garfield, odie], [liz, odie], [garfield, fern])
 
 def describe_execute_union_and_intersection_types():
     def can_introspect_on_union_and_intersection_types():
-        document = parse("""
+        document = parse(
+            """
             {
               Named: __type(name: "Named") {
                 kind
@@ -207,7 +209,8 @@ def describe_execute_union_and_intersection_types():
                 inputFields { name }
               }
             }
-            """)
+            """
+        )
 
         assert execute_sync(schema=schema, document=document) == (
             {
@@ -257,7 +260,8 @@ def describe_execute_union_and_intersection_types():
 
     def executes_using_union_types():
         # NOTE: This is an *invalid* query, but it should be *executable*.
-        document = parse("""
+        document = parse(
+            """
             {
               __typename
               name
@@ -268,7 +272,8 @@ def describe_execute_union_and_intersection_types():
                 meows
               }
             }
-            """)
+            """
+        )
 
         assert execute_sync(schema=schema, document=document, root_value=john) == (
             {
@@ -284,7 +289,8 @@ def describe_execute_union_and_intersection_types():
 
     def executes_union_types_with_inline_fragment():
         # This is the valid version of the query in the above test.
-        document = parse("""
+        document = parse(
+            """
             {
               __typename
               name
@@ -300,7 +306,8 @@ def describe_execute_union_and_intersection_types():
                 }
               }
             }
-            """)
+            """
+        )
 
         assert execute_sync(schema=schema, document=document, root_value=john) == (
             {
@@ -316,7 +323,8 @@ def describe_execute_union_and_intersection_types():
 
     def executes_using_interface_types():
         # NOTE: This is an *invalid* query, but it should be a *executable*.
-        document = parse("""
+        document = parse(
+            """
             {
               __typename
               name
@@ -327,7 +335,8 @@ def describe_execute_union_and_intersection_types():
                 meows
               }
             }
-            """)
+            """
+        )
 
         assert execute_sync(schema=schema, document=document, root_value=john) == (
             {
@@ -343,7 +352,8 @@ def describe_execute_union_and_intersection_types():
 
     def executes_interface_types_with_inline_fragment():
         # This is the valid version of the query in the above test.
-        document = parse("""
+        document = parse(
+            """
             {
               __typename
               name
@@ -372,7 +382,8 @@ def describe_execute_union_and_intersection_types():
                 }
               }
             }
-            """)
+            """
+        )
 
         assert execute_sync(schema=schema, document=document, root_value=john) == (
             {
@@ -396,7 +407,8 @@ def describe_execute_union_and_intersection_types():
         )
 
     def executes_interface_types_with_named_fragments():
-        document = parse("""
+        document = parse(
+            """
             {
               __typename
               name
@@ -415,7 +427,8 @@ def describe_execute_union_and_intersection_types():
             fragment  CatMeows on Cat {
               meows
             }
-            """)
+            """
+        )
 
         assert execute_sync(schema=schema, document=document, root_value=john) == (
             {
@@ -430,7 +443,8 @@ def describe_execute_union_and_intersection_types():
         )
 
     def allows_fragment_conditions_to_be_abstract_types():
-        document = parse("""
+        document = parse(
+            """
             {
               __typename
               name
@@ -473,7 +487,8 @@ def describe_execute_union_and_intersection_types():
                 __typename
               }
             }
-            """)
+            """
+        )
 
         assert execute_sync(schema=schema, document=document, root_value=john) == (
             {
@@ -501,7 +516,6 @@ def describe_execute_union_and_intersection_types():
             None,
         )
 
-    # noinspection PyPep8Naming
     def gets_execution_info_in_resolver():
         encountered = {}
 
@@ -545,22 +559,21 @@ def describe_execute_union_and_intersection_types():
             "context": context_value,
         }
 
-    @mark.asyncio
-    @mark.filterwarnings("error:.*was never awaited:RuntimeWarning")
+    @pytest.mark.filterwarnings("error:.*was never awaited:RuntimeWarning")
     async def handles_rejections_from_is_type_of_after_an_is_type_of_returns_true():
         document = parse("""
             {
-              responsibilities {
+                responsibilities {
                 __typename
                 ... on Dog {
-                  name
-                  barks
+                    name
+                    barks
                 }
                 ... on Cat {
-                  name
-                  meows
+                    name
+                    meows
                 }
-              }
+                }
             }
             """)
 
@@ -568,8 +581,7 @@ def describe_execute_union_and_intersection_types():
         context_value = {"authToken": "123abc"}
 
         result = execute(schema, document, root_value, context_value)
-        assert not isinstance(result, ExecutionResult)
-        result = await result
+        # the synchronous isTypeOf match keeps the result synchronous
         assert isinstance(result, ExecutionResult)
 
         assert result == (
@@ -580,3 +592,82 @@ def describe_execute_union_and_intersection_types():
             },
             None,
         )
+
+        # give the pending isTypeOf rejection a chance to settle in the background
+        await sleep(0)
+        await sleep(0)
+
+    @pytest.mark.filterwarnings("error:.*was never awaited:RuntimeWarning")
+    async def handles_pending_is_type_of_rejections_when_a_later_one_throws_sync():
+        throwing_searchable_interface = GraphQLInterfaceType(
+            "ThrowingSearchable",
+            {"id": GraphQLField(GraphQLString)},
+        )
+
+        async def is_type_of_async_reject(_value, _info) -> bool:
+            raise RuntimeError("TypeAsyncReject_isTypeOf_rejected")
+
+        type_async_reject = GraphQLObjectType(
+            "TypeAsyncReject",
+            lambda: {
+                "id": GraphQLField(GraphQLString),
+                "nameAsyncReject": GraphQLField(GraphQLString),
+            },
+            interfaces=[throwing_searchable_interface],
+            is_type_of=is_type_of_async_reject,
+        )
+
+        def is_type_of_throwing(_value, _info) -> bool:
+            raise RuntimeError("TypeThrowing_isTypeOf_threw")
+
+        type_throwing = GraphQLObjectType(
+            "TypeThrowing",
+            lambda: {
+                "id": GraphQLField(GraphQLString),
+                "nameThrowing": GraphQLField(GraphQLString),
+            },
+            interfaces=[throwing_searchable_interface],
+            is_type_of=is_type_of_throwing,
+        )
+
+        schema_with_throwing_is_type_of = GraphQLSchema(
+            GraphQLObjectType(
+                "Query",
+                {
+                    "search": GraphQLField(
+                        throwing_searchable_interface,
+                        resolve=lambda *_args: {
+                            "id": "x",
+                            "nameThrowing": "Object X",
+                        },
+                    )
+                },
+            ),
+            types=[type_async_reject, type_throwing],
+        )
+
+        document = parse(
+            """
+            {
+              search {
+                __typename
+                id
+                ... on TypeThrowing {
+                  nameThrowing
+                }
+              }
+            }
+            """
+        )
+
+        result = execute(schema_with_throwing_is_type_of, document)
+        # the synchronously throwing isTypeOf keeps the result synchronous
+        assert isinstance(result, ExecutionResult)
+
+        assert result.data == {"search": None}
+        assert result.errors
+        assert result.errors[0].message == "TypeThrowing_isTypeOf_threw"
+
+        # give the pending isTypeOf rejection a chance to settle in the background
+        await sleep(0)
+        await sleep(0)

@@ -8,6 +8,7 @@ use crate::{
     validate::{handle_unused_noqa, is_assertion_success},
 };
 
+#[allow(clippy::result_large_err)]
 pub async fn validate_not<'a, T>(
     value: &T,
     accessors: &[tombi_schema_store::Accessor],
@@ -20,12 +21,13 @@ pub async fn validate_not<'a, T>(
 where
     T: Validate + ValueImpl + Sync + Send,
 {
-    let matches_not_schema = match tombi_schema_store::resolve_schema_item(
+    let matches_not_schema = match tombi_schema_store::resolve_schema_item_in_scope(
         &not_schema.schema,
-        current_schema.schema_uri.clone(),
+        current_schema.schema_base_uri.clone(),
         current_schema.definitions.clone(),
         current_schema.strict,
         schema_context.store,
+        Some(&current_schema.dynamic_scope),
     )
     .await
     {

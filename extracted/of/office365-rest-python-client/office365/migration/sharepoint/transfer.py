@@ -21,11 +21,12 @@ from collections.abc import Callable, Iterable
 from typing import TYPE_CHECKING, Tuple
 
 from office365.runtime.parallel import run_parallel
+from office365.sharepoint.thresholds import Limits
 
 if TYPE_CHECKING:
     from office365.sharepoint.folders.folder import Folder
 
-_DEFAULT_CHUNK_SIZE = 4 * 1024 * 1024
+_DEFAULT_CHUNK_SIZE = Limits.UPLOAD_SESSION_CHUNK.value
 
 # runtime-evaluated alias (typing form: the ``|``/``tuple[...]`` operators need 3.9+)
 Failure = Tuple[str, str]  # (dest_path, error)
@@ -68,7 +69,8 @@ def _transfer_files_parallel(
 
     parents = {dest.rsplit("/", 1)[0] for dest, _ in files if "/" in dest}
     if parents:
-        target_folder.ensure_folders(parents).execute_query()
+        target_folder.ensure_folders(parents)
+        target_folder.execute_query()
 
     failures: list[Failure] = []
     context_factory = context_factory or (lambda: target_folder.context.clone(target_folder.context.base_url))

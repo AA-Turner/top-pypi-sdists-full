@@ -241,19 +241,52 @@ class ReleaseRegressionTests(unittest.TestCase):
     def test_backend_selection_and_no_fallback_on_broken_install(self):
         with patch.object(core, 'import_module') as load:
             load.return_value.unidecode.return_value = 'chosen'
-            self.assertEqual(slugify('x'), 'chosen')
+            self.assertEqual(slugify('é'), 'chosen')
             load.assert_called_once_with('unidecode')
         with patch.object(core, 'import_module', side_effect=ModuleNotFoundError(name='dependency')):
             with self.assertRaises(ModuleNotFoundError) as error:
-                slugify('x')
+                slugify('é')
             self.assertEqual(error.exception.name, 'dependency')
         with patch.object(core, 'import_module', side_effect=ModuleNotFoundError(name='anyascii')):
             with self.assertRaises(ModuleNotFoundError):
-                slugify('x', backend='anyascii')
+                slugify('é', backend='anyascii')
         with patch.object(core, 'import_module', side_effect=AssertionError('must not import')):
             self.assertEqual(slugify('影師嗎', allow_unicode=True, backend='anyascii'), '影師嗎')
         with self.assertRaisesRegex(ValueError, 'backend'):
             slugify('x', backend='invalid')
+
+    def test_ascii_input_skips_backend_import(self):
+        legacy = importlib.import_module('slugify._legacy')
+        for module, call in ((core, slugify), (legacy, public_slugify)):
+            with self.subTest(module=module.__name__):
+                with patch.object(module, 'import_module', side_effect=AssertionError('must not import')):
+                    self.assertEqual(call('Living Room &amp; Kitchen 2'), 'living-room-kitchen-2')
+        # ASCII identity holds across every backend incl. auto; invalid names still rejected.
+        for backend in ('auto', 'text-unidecode', 'unidecode', 'anyascii'):
+            with self.subTest(backend=backend):
+                try:
+                    importlib.import_module('unidecode' if backend == 'auto'
+                                            else backend.replace('-', '_'))
+                except ModuleNotFoundError:
+                    self.skipTest(f'{backend} backend absent')
+                with patch.object(core, 'import_module', side_effect=AssertionError('must not import')):
+                    self.assertEqual(slugify('Living Room Light 123', backend=backend),  # type: ignore[arg-type]
+                                     'living-room-light-123')
+                with patch.object(legacy, 'import_module', side_effect=AssertionError('must not import')):
+                    self.assertEqual(public_slugify('Living Room Light 123', backend=backend),  # type: ignore[arg-type]
+                                     'living-room-light-123')
+        for algorithm in ('legacy', 'modern'):
+            with self.subTest(algorithm=algorithm):
+                with self.assertRaisesRegex(ValueError, 'backend'):
+                    public_slugify('x', backend='invalid', algorithm=algorithm)  # type: ignore[arg-type]
+        # Non-ASCII still reaches the backend (no silent skip).
+        for backend in ('text-unidecode', 'unidecode', 'anyascii'):
+            with self.subTest(backend=backend, non_ascii=True):
+                try:
+                    importlib.import_module(backend.replace('-', '_'))
+                except ModuleNotFoundError:
+                    self.skipTest(f'{backend} backend absent')
+                self.assertEqual(slugify('café', backend=backend), 'cafe')  # type: ignore[arg-type]
 
     def test_auto_falls_back_only_when_unidecode_missing(self):
         original = core.import_module

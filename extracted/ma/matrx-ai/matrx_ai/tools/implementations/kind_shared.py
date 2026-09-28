@@ -9,19 +9,18 @@ validation stay one implementation.
 
 Authorization model
 -------------------
-These tools execute server-side through matrx-orm (a privileged connection —
-Postgres RLS does NOT apply on this path), so every read AND write is gated in
-code through the ONE live policy function: ``iam.has_access_for(user,
-'content_ir_kind', kind_id, level)`` via ``matrx_orm.call_function`` (the
-notes.py pattern — never a hand-rolled replica, which is exactly how a
-private-kind over-grant slipped in once: org membership alone does NOT confer
-access to a ``visibility='personal'`` kind). Owner (``created_by``) passes on a
-fast-path without a DB round-trip; everyone else resolves through the
-SECURITY DEFINER body (public/internal visibility, org membership, explicit
-iam grants, reachability). Fail-closed: any error in the check reads as no
-access. Levels mirror the canonical RLS policies — reads = ``viewer``, writes
-= ``editor``. Never widen this by writing rows with fabricated ``created_by``
-/ ``organization_id`` values.
+RLS OWNS ACCESS; this module never re-implements it (chair ruling, 2026-09-27).
+Every access question is put to Postgres in the CALLER'S OWN session
+(``matrx_ai.tools.person_session`` → host ``acting_as_caller`` →
+``rls_session``): a kind is viewable when ``content_ir.kind_definition``
+returns its row to the person, and editable when ``SELECT ... FOR UPDATE``
+returns it (the table's UPDATE policy answers). No owner comparison, no
+``iam.has_access_for`` call, no org logic here — the policies carry public /
+creator / internal+org-member / explicit grant / reachability. Levels:
+reads = ``viewer``, writes = ``editor``. Slug resolution runs as the person
+too, so another tenant's kinds never count toward (or leak through) an
+ambiguity. Never widen this by writing rows with fabricated ``created_by`` /
+``organization_id`` values.
 """
 
 from __future__ import annotations
@@ -716,13 +715,22 @@ async def resolve_kind(
     if not ref:
         return None, err("validation", "Provide a kind slug or kind_definition_id.")
 
+    from matrx_ai.tools.person_session import as_the_person
+
+    # AS THE PERSON: a kind RLS hides from the caller is not found, and never
+    # counts toward (or leaks through) a slug ambiguity.
     if is_uuid(ref):
-        row = await KindDefinition.get_or_none(use_cache=False, id=ref)
+        async with as_the_person():
+            row = await KindDefinition.get_or_none(use_cache=False, id=ref)
         if row is None or row.deleted_at is not None:
-            return None, err("not_found", f"No kind_definition found with id '{ref}'.")
+            return None, err(
+                "not_found",
+                f"Kind {ref} was not found, or you do not have access to it.",
+            )
         return row, None
 
-    rows = [r for r in await KindDefinition.filter(kind=ref).all() if r.deleted_at is None]
+    async with as_the_person():
+        rows = [r for r in await KindDefinition.filter(kind=ref).all() if r.deleted_at is None]
     if not rows:
         return None, err(
             "not_found",
@@ -754,42 +762,28 @@ async def resolve_kind(
     )
 
 
-async def kind_access_allowed(kind_id: str, user_id: str, level: str) -> bool:
-    """Canonical access check — ``iam.has_access_for(user, 'content_ir_kind',
-    id, level)`` (the same SECURITY DEFINER body behind the RLS policies).
+async def kind_rls_allows(kind_id: str, level: str) -> bool:
+    """Does Postgres, in the CALLER's RLS session, let them ``level`` this kind?
 
-    ONE source of truth — never re-implement visibility/org/grant semantics
-    here (org membership alone must NOT unlock a private kind). Fail-closed:
-    any error reads as no access.
+    ``viewer`` — the kind_definition row is returned to them.
+    ``editor`` — ``SELECT ... FOR UPDATE`` returns it (the UPDATE policy answers).
+    The question is asked of the database, never answered here.
     """
-    try:
-        from matrx_orm import call_function
+    from matrx_ai.tools.person_session import as_the_person, person_may_change
 
-        database = get_db_model("KindDefinition")._database
-        result = await call_function(
-            database,
-            "iam",
-            "has_access_for",
-            user_id,
-            KIND_ENTITY_TOKEN,
-            kind_id,
-            level,
-            mode="scalar",
-        )
-        return bool(result)
-    except Exception:  # noqa: BLE001 — fail closed, never raise into the tool
-        logger.warning("kind access check failed for %s (level=%s)", kind_id, level, exc_info=True)
-        return False
+    KindDefinition = get_db_model("KindDefinition")
+    if level == "viewer":
+        async with as_the_person():
+            row = await KindDefinition.get_or_none(use_cache=False, id=kind_id)
+        return row is not None
+    return await person_may_change(KindDefinition, {"id": kind_id})
 
 
 async def can_access_kind(kind_row: Any, ctx: ToolContext, level: str) -> bool:
-    """Owner fast-path, else the live ``iam.has_access_for`` at ``level``."""
-    user_id = ctx_user_id(ctx)
-    if not user_id:
+    """RLS's answer for the caller at ``level`` — no owner fast path, no app logic."""
+    if not ctx_user_id(ctx):
         return False
-    if str(kind_row.created_by or "") == user_id:
-        return True
-    return await kind_access_allowed(str(kind_row.id), user_id, level)
+    return await kind_rls_allows(str(kind_row.id), level)
 
 
 async def ensure_can_edit_kind(kind_row: Any, ctx: ToolContext) -> ToolResult | None:
